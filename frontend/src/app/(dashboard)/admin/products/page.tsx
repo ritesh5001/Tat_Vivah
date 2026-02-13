@@ -221,7 +221,7 @@ export default function AdminProductsPage() {
                         </span>
                       </td>
                       <td className="p-6">
-                        <div className="flex flex-col gap-2 min-w-[160px]">
+                        <div className="flex flex-col gap-2 min-w-40">
                           <Input
                             placeholder="Reason for removal"
                             value={reasons[product.id] ?? ""}

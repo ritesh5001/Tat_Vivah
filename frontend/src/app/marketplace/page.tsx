@@ -157,7 +157,7 @@ export default async function MarketplacePage({
                 className="group block"
               >
                 {/* Product Image */}
-                <div className="relative mb-5 overflow-hidden bg-cream dark:bg-brown/20 aspect-[3/4] border border-border-soft transition-all duration-400 group-hover:border-gold/30">
+                <div className="relative mb-5 overflow-hidden bg-cream dark:bg-brown/20 aspect-3/4 border border-border-soft transition-all duration-400 group-hover:border-gold/30">
                   <img
                     src={product.images?.[0] ?? "/images/product-placeholder.svg"}
                     alt={product.title}

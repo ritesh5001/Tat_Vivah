@@ -155,7 +155,7 @@ export default function AdminOverviewPage() {
                   className="flex items-center justify-between p-6"
                 >
                   <span className="text-sm text-foreground">{item.label}</span>
-                  <span className="px-3 py-1 text-xs font-medium border border-[#B8956C]/30 text-[#8A7054] bg-[#B8956C]/5">
+                  <span className="px-3 py-1 text-xs font-medium border border-gold/30 text-[#8A7054] bg-gold/5">
                     {item.count}
                   </span>
                 </motion.div>

@@ -197,7 +197,7 @@ export default function ProductDetailClient({
               size="lg"
               onClick={handleAddToCart}
               disabled={loading}
-              className="w-full sm:w-auto min-w-[200px] h-14"
+              className="w-full sm:w-auto min-w-50 h-14"
             >
               {loading ? "Adding..." : "Add to Cart"}
             </Button>
@@ -209,7 +209,7 @@ export default function ProductDetailClient({
           >
             <Link
               href="/cart"
-              className="inline-flex h-14 min-w-[160px] items-center justify-center border border-border-warm px-8 text-xs font-medium uppercase tracking-[0.15em] text-foreground transition-all duration-400 hover:bg-cream dark:hover:bg-brown/30"
+              className="inline-flex h-14 min-w-40 items-center justify-center border border-border-warm px-8 text-xs font-medium uppercase tracking-[0.15em] text-foreground transition-all duration-400 hover:bg-cream dark:hover:bg-brown/30"
             >
               View Cart
             </Link>
