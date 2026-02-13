@@ -9,9 +9,42 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Link } from "expo-router";
+import { useRouter } from "expo-router";
 import { colors, radius, spacing, typography, shadow } from "../../src/theme/tokens";
+import { registerUser } from "../../src/services/auth";
 
 export default function RegisterScreen() {
+  const router = useRouter();
+  const [fullName, setFullName] = React.useState("");
+  const [email, setEmail] = React.useState("");
+  const [phone, setPhone] = React.useState("");
+  const [password, setPassword] = React.useState("");
+  const [confirmPassword, setConfirmPassword] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const handleRegister = async () => {
+    if (!fullName || !email || !phone || !password) {
+      setError("Please fill all required fields.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      await registerUser({ fullName, email, phone, password });
+      router.replace("/login");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Registration failed";
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
@@ -28,13 +61,8 @@ export default function RegisterScreen() {
         <Text style={styles.title}>Create your account</Text>
         <Text style={styles.subtitle}>Join curated fashion for every occasion.</Text>
 
-        <View style={styles.segmented}>
-          <View style={[styles.segment, styles.segmentActive]}>
-            <Text style={[styles.segmentText, styles.segmentTextActive]}>Buyer</Text>
-          </View>
-          <View style={styles.segment}>
-            <Text style={styles.segmentText}>Seller</Text>
-          </View>
+        <View style={styles.accountBadge}>
+          <Text style={styles.accountBadgeText}>Buyer account</Text>
         </View>
 
         <View style={styles.card}>
@@ -43,13 +71,28 @@ export default function RegisterScreen() {
             placeholder="Enter your name"
             placeholderTextColor={colors.brownSoft}
             style={styles.input}
+            value={fullName}
+            onChangeText={setFullName}
           />
 
-          <Text style={styles.label}>Email or phone</Text>
+          <Text style={styles.label}>Email</Text>
           <TextInput
             placeholder="you@example.com"
             placeholderTextColor={colors.brownSoft}
             style={styles.input}
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+          />
+
+          <Text style={styles.label}>Phone</Text>
+          <TextInput
+            placeholder="+91 98765 43210"
+            placeholderTextColor={colors.brownSoft}
+            style={styles.input}
+            value={phone}
+            onChangeText={setPhone}
+            keyboardType="phone-pad"
           />
 
           <Text style={styles.label}>Password</Text>
@@ -58,6 +101,8 @@ export default function RegisterScreen() {
             placeholderTextColor={colors.brownSoft}
             secureTextEntry
             style={styles.input}
+            value={password}
+            onChangeText={setPassword}
           />
 
           <Text style={styles.label}>Confirm password</Text>
@@ -66,16 +111,22 @@ export default function RegisterScreen() {
             placeholderTextColor={colors.brownSoft}
             secureTextEntry
             style={styles.input}
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
           />
 
-          <Pressable style={styles.primaryButton}>
-            <Text style={styles.primaryButtonText}>Create account</Text>
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+          <Pressable style={styles.primaryButton} onPress={handleRegister}>
+            <Text style={styles.primaryButtonText}>
+              {loading ? "Creating..." : "Create account"}
+            </Text>
           </Pressable>
         </View>
 
         <View style={styles.footerRow}>
           <Text style={styles.footerText}>Already have an account?</Text>
-          <Link href="/(auth)/login" style={styles.footerLink}>
+          <Link href="/login" style={styles.footerLink}>
             Sign in
           </Link>
         </View>
@@ -137,32 +188,20 @@ const styles = StyleSheet.create({
     color: colors.brownSoft,
     marginBottom: spacing.lg,
   },
-  segmented: {
-    flexDirection: "row",
+  accountBadge: {
+    alignSelf: "flex-start",
     backgroundColor: colors.cream,
     borderRadius: radius.md,
-    padding: 4,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
     marginBottom: spacing.md,
   },
-  segment: {
-    flex: 1,
-    paddingVertical: spacing.xs,
-    alignItems: "center",
-    borderRadius: radius.sm,
-  },
-  segmentActive: {
-    backgroundColor: colors.warmWhite,
-    ...shadow.card,
-  },
-  segmentText: {
+  accountBadgeText: {
     fontFamily: typography.sansMedium,
     fontSize: 11,
-    color: colors.brownSoft,
+    color: colors.brown,
     textTransform: "uppercase",
     letterSpacing: 1.4,
-  },
-  segmentTextActive: {
-    color: colors.charcoal,
   },
   card: {
     backgroundColor: colors.warmWhite,
@@ -203,6 +242,12 @@ const styles = StyleSheet.create({
     letterSpacing: 1.6,
     textTransform: "uppercase",
     color: colors.background,
+  },
+  errorText: {
+    fontFamily: typography.sans,
+    fontSize: 12,
+    color: "#A65D57",
+    marginBottom: spacing.sm,
   },
   footerRow: {
     marginTop: spacing.xl,

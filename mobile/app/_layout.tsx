@@ -5,6 +5,7 @@ import {
   CormorantGaramond_400Regular,
 } from "@expo-google-fonts/cormorant-garamond";
 import { Inter_400Regular, Inter_500Medium } from "@expo-google-fonts/inter";
+import { AuthProvider } from "../src/providers/AuthProvider";
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -19,11 +20,13 @@ export default function RootLayout() {
   }
 
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-        contentStyle: { backgroundColor: "#FAF7F2" },
-      }}
-    />
+    <AuthProvider>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: "#FAF7F2" },
+        }}
+      />
+    </AuthProvider>
   );
 }

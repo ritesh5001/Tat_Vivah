@@ -9,9 +9,36 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Link } from "expo-router";
+import { useRouter } from "expo-router";
 import { colors, radius, spacing, typography, shadow } from "../../src/theme/tokens";
+import { useAuth } from "../../src/hooks/useAuth";
 
 export default function LoginScreen() {
+  const router = useRouter();
+  const { signIn } = useAuth();
+  const [identifier, setIdentifier] = React.useState("");
+  const [password, setPassword] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const handleLogin = async () => {
+    if (!identifier || !password) {
+      setError("Please enter your email/phone and password.");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      await signIn({ identifier, password });
+      router.replace("/home");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Login failed";
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
@@ -34,6 +61,9 @@ export default function LoginScreen() {
             placeholder="you@example.com"
             placeholderTextColor={colors.brownSoft}
             style={styles.input}
+            value={identifier}
+            onChangeText={setIdentifier}
+            autoCapitalize="none"
           />
 
           <Text style={styles.label}>Password</Text>
@@ -42,14 +72,20 @@ export default function LoginScreen() {
             placeholderTextColor={colors.brownSoft}
             secureTextEntry
             style={styles.input}
+            value={password}
+            onChangeText={setPassword}
           />
 
           <Pressable style={styles.linkRow}>
             <Text style={styles.linkText}>Forgot password?</Text>
           </Pressable>
 
-          <Pressable style={styles.primaryButton}>
-            <Text style={styles.primaryButtonText}>Sign in</Text>
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+          <Pressable style={styles.primaryButton} onPress={handleLogin}>
+            <Text style={styles.primaryButtonText}>
+              {loading ? "Signing in..." : "Sign in"}
+            </Text>
           </Pressable>
 
           <View style={styles.dividerRow}>
@@ -65,7 +101,7 @@ export default function LoginScreen() {
 
         <View style={styles.footerRow}>
           <Text style={styles.footerText}>New to TatVivah?</Text>
-          <Link href="/(auth)/register" style={styles.footerLink}>
+          <Link href="/register" style={styles.footerLink}>
             Create account
           </Link>
         </View>
@@ -204,6 +240,12 @@ const styles = StyleSheet.create({
     letterSpacing: 1.6,
     textTransform: "uppercase",
     color: colors.charcoal,
+  },
+  errorText: {
+    fontFamily: typography.sans,
+    fontSize: 12,
+    color: "#A65D57",
+    marginBottom: spacing.sm,
   },
   footerRow: {
     marginTop: spacing.xl,
