@@ -89,6 +89,37 @@ export class NotificationService {
         });
     }
 
+    async notifySellerProductApproved(
+        sellerId: string,
+        productTitle: string,
+        email?: string | null
+    ) {
+        return this.create({
+            userId: sellerId,
+            role: 'SELLER',
+            type: 'SELLER_PRODUCT_APPROVED',
+            channel: 'EMAIL',
+            content: `Your product '${productTitle}' has been approved.`,
+            metadata: { productTitle, email }
+        });
+    }
+
+    async notifySellerProductRejected(
+        sellerId: string,
+        productTitle: string,
+        reason: string,
+        email?: string | null
+    ) {
+        return this.create({
+            userId: sellerId,
+            role: 'SELLER',
+            type: 'SELLER_PRODUCT_REJECTED',
+            channel: 'EMAIL',
+            content: `Your product was rejected. Reason: ${reason}`,
+            metadata: { productTitle, reason, email }
+        });
+    }
+
     /**
      * Trigger ADMIN_ALERT
      */

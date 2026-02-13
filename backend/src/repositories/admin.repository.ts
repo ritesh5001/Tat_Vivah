@@ -25,10 +25,25 @@ export interface AdminSeller {
 export interface AdminProduct {
     id: string;
     title: string;
+    description?: string | null;
+    images?: string[];
     sellerId: string;
+    sellerName?: string | null;
+    sellerPhone?: string | null;
     sellerEmail: string | null;
     categoryId: string;
     categoryName: string | null;
+    status: ProductModerationStatusType;
+    rejectionReason?: string | null;
+    approvedAt?: Date | null;
+    approvedById?: string | null;
+    variants?: Array<{
+        id: string;
+        sku: string;
+        price: number;
+        compareAtPrice: number | null;
+        stock: number;
+    }>;
     isPublished: boolean;
     deletedByAdmin: boolean;
     deletedByAdminAt: Date | null;
@@ -150,31 +165,61 @@ export class AdminRepository {
      * Find all products pending moderation
      */
     async findPendingProducts(): Promise<AdminProduct[]> {
-        const moderations = await prisma.productModeration.findMany({
-            where: { status: 'PENDING' },
+        const products = await prisma.product.findMany({
+            where: { status: 'PENDING', deletedByAdmin: false },
             include: {
-                product: true,
+                seller: {
+                    select: {
+                        email: true,
+                        phone: true,
+                        seller_profiles: {
+                            select: {
+                                store_name: true,
+                            },
+                        },
+                    },
+                },
+                category: { select: { name: true } },
+                variants: {
+                    include: { inventory: true },
+                    orderBy: { createdAt: 'asc' },
+                },
             },
-            orderBy: { created_at: 'desc' },
+            orderBy: { createdAt: 'desc' },
         });
 
-        return moderations.map((mod) => ({
-            id: mod.product.id,
-            title: mod.product.title,
-            sellerId: mod.product.sellerId,
-            sellerEmail: null,
-            categoryId: mod.product.categoryId,
-            categoryName: null,
-            isPublished: mod.product.isPublished,
-            deletedByAdmin: mod.product.deletedByAdmin,
-            deletedByAdminAt: mod.product.deletedByAdminAt,
-            deletedByAdminReason: mod.product.deletedByAdminReason,
-            createdAt: mod.product.createdAt,
+        return products.map((product) => ({
+            id: product.id,
+            title: product.title,
+            description: product.description,
+            images: product.images,
+            sellerId: product.sellerId,
+            sellerName: product.seller?.seller_profiles?.store_name ?? null,
+            sellerPhone: product.seller?.phone ?? null,
+            sellerEmail: product.seller?.email ?? null,
+            categoryId: product.categoryId,
+            categoryName: product.category?.name ?? null,
+            status: product.status,
+            rejectionReason: product.rejectionReason,
+            approvedAt: product.approvedAt,
+            approvedById: product.approvedById,
+            variants: product.variants.map((variant) => ({
+                id: variant.id,
+                sku: variant.sku,
+                price: variant.price,
+                compareAtPrice: variant.compareAtPrice,
+                stock: variant.inventory?.stock ?? 0,
+            })),
+            isPublished: product.isPublished,
+            deletedByAdmin: product.deletedByAdmin,
+            deletedByAdminAt: product.deletedByAdminAt,
+            deletedByAdminReason: product.deletedByAdminReason,
+            createdAt: product.createdAt,
             moderation: {
-                status: mod.status,
-                reason: mod.reason,
-                reviewedBy: mod.reviewedBy,
-                reviewedAt: mod.reviewedAt,
+                status: product.status,
+                reason: product.rejectionReason,
+                reviewedBy: product.approvedById,
+                reviewedAt: product.approvedAt,
             },
         }));
     }
@@ -185,34 +230,61 @@ export class AdminRepository {
     async findProductById(id: string): Promise<AdminProduct | null> {
         const product = await prisma.product.findUnique({
             where: { id },
+            include: {
+                seller: {
+                    select: {
+                        email: true,
+                        phone: true,
+                        seller_profiles: {
+                            select: {
+                                store_name: true,
+                            },
+                        },
+                    },
+                },
+                category: { select: { name: true } },
+                variants: {
+                    include: { inventory: true },
+                    orderBy: { createdAt: 'asc' },
+                },
+            },
         });
 
         if (!product) return null;
 
-        const moderation = await prisma.productModeration.findUnique({
-            where: { productId: id },
-        });
-
         return {
             id: product.id,
             title: product.title,
+            description: product.description,
+            images: product.images,
             sellerId: product.sellerId,
-            sellerEmail: null,
+            sellerName: product.seller?.seller_profiles?.store_name ?? null,
+            sellerPhone: product.seller?.phone ?? null,
+            sellerEmail: product.seller?.email ?? null,
             categoryId: product.categoryId,
-            categoryName: null,
+            categoryName: product.category?.name ?? null,
+            status: product.status,
+            rejectionReason: product.rejectionReason,
+            approvedAt: product.approvedAt,
+            approvedById: product.approvedById,
+            variants: product.variants.map((variant) => ({
+                id: variant.id,
+                sku: variant.sku,
+                price: variant.price,
+                compareAtPrice: variant.compareAtPrice,
+                stock: variant.inventory?.stock ?? 0,
+            })),
             isPublished: product.isPublished,
             deletedByAdmin: product.deletedByAdmin,
             deletedByAdminAt: product.deletedByAdminAt,
             deletedByAdminReason: product.deletedByAdminReason,
             createdAt: product.createdAt,
-            moderation: moderation
-                ? {
-                    status: moderation.status,
-                    reason: moderation.reason,
-                    reviewedBy: moderation.reviewedBy,
-                    reviewedAt: moderation.reviewedAt,
-                }
-                : null,
+            moderation: {
+                status: product.status,
+                reason: product.rejectionReason,
+                reviewedBy: product.approvedById,
+                reviewedAt: product.approvedAt,
+            },
         };
     }
 
@@ -222,9 +294,18 @@ export class AdminRepository {
     async findAllProducts(): Promise<AdminProduct[]> {
         const products = await prisma.product.findMany({
             include: {
-                seller: { select: { email: true } },
+                seller: {
+                    select: {
+                        email: true,
+                        phone: true,
+                        seller_profiles: {
+                            select: {
+                                store_name: true,
+                            },
+                        },
+                    },
+                },
                 category: { select: { name: true } },
-                moderation: true,
             },
             orderBy: { createdAt: 'desc' },
         });
@@ -232,23 +313,29 @@ export class AdminRepository {
         return products.map((product) => ({
             id: product.id,
             title: product.title,
+            description: product.description,
+            images: product.images,
             sellerId: product.sellerId,
+            sellerName: product.seller?.seller_profiles?.store_name ?? null,
+            sellerPhone: product.seller?.phone ?? null,
             sellerEmail: product.seller?.email ?? null,
             categoryId: product.categoryId,
             categoryName: product.category?.name ?? null,
+            status: product.status,
+            rejectionReason: product.rejectionReason,
+            approvedAt: product.approvedAt,
+            approvedById: product.approvedById,
             isPublished: product.isPublished,
             deletedByAdmin: product.deletedByAdmin,
             deletedByAdminAt: product.deletedByAdminAt,
             deletedByAdminReason: product.deletedByAdminReason,
             createdAt: product.createdAt,
-            moderation: product.moderation
-                ? {
-                    status: product.moderation.status,
-                    reason: product.moderation.reason,
-                    reviewedBy: product.moderation.reviewedBy,
-                    reviewedAt: product.moderation.reviewedAt,
-                }
-                : null,
+            moderation: {
+                status: product.status,
+                reason: product.rejectionReason,
+                reviewedBy: product.approvedById,
+                reviewedAt: product.approvedAt,
+            },
         }));
     }
 
@@ -263,12 +350,11 @@ export class AdminRepository {
             where: { id },
             data: {
                 isPublished: false,
+                status: 'REJECTED',
+                rejectionReason: reason ?? 'Deleted by admin',
                 deletedByAdmin: true,
                 deletedByAdminAt: new Date(),
                 deletedByAdminReason: reason ?? 'Deleted by admin',
-            },
-            include: {
-                moderation: true,
             },
         });
 
@@ -279,19 +365,21 @@ export class AdminRepository {
             sellerEmail: null,
             categoryId: product.categoryId,
             categoryName: null,
+            status: product.status,
+            rejectionReason: product.rejectionReason,
+            approvedAt: product.approvedAt,
+            approvedById: product.approvedById,
             isPublished: product.isPublished,
             deletedByAdmin: product.deletedByAdmin,
             deletedByAdminAt: product.deletedByAdminAt,
             deletedByAdminReason: product.deletedByAdminReason,
             createdAt: product.createdAt,
-            moderation: product.moderation
-                ? {
-                    status: product.moderation.status,
-                    reason: product.moderation.reason,
-                    reviewedBy: product.moderation.reviewedBy,
-                    reviewedAt: product.moderation.reviewedAt,
-                }
-                : null,
+            moderation: {
+                status: product.status,
+                reason: product.rejectionReason,
+                reviewedBy: product.approvedById,
+                reviewedAt: product.approvedAt,
+            },
         };
     }
 
@@ -330,11 +418,13 @@ export class AdminRepository {
     async updateProductPublishStatus(id: string, isPublished: boolean): Promise<AdminProduct> {
         const product = await prisma.product.update({
             where: { id },
-            data: { isPublished },
-        });
-
-        const moderation = await prisma.productModeration.findUnique({
-            where: { productId: id },
+            data: {
+                isPublished,
+                status: isPublished ? 'APPROVED' : 'REJECTED',
+                ...(isPublished
+                    ? { rejectionReason: null }
+                    : {}),
+            },
         });
 
         return {
@@ -344,19 +434,64 @@ export class AdminRepository {
             sellerEmail: null,
             categoryId: product.categoryId,
             categoryName: null,
+            status: product.status,
+            rejectionReason: product.rejectionReason,
+            approvedAt: product.approvedAt,
+            approvedById: product.approvedById,
             isPublished: product.isPublished,
             deletedByAdmin: product.deletedByAdmin,
             deletedByAdminAt: product.deletedByAdminAt,
             deletedByAdminReason: product.deletedByAdminReason,
             createdAt: product.createdAt,
-            moderation: moderation
-                ? {
-                    status: moderation.status,
-                    reason: moderation.reason,
-                    reviewedBy: moderation.reviewedBy,
-                    reviewedAt: moderation.reviewedAt,
-                }
-                : null,
+            moderation: {
+                status: product.status,
+                reason: product.rejectionReason,
+                reviewedBy: product.approvedById,
+                reviewedAt: product.approvedAt,
+            },
+        };
+    }
+
+    async applyProductApprovalDecision(
+        productId: string,
+        actorId: string,
+        decision: 'APPROVED' | 'REJECTED',
+        reason?: string
+    ): Promise<AdminProduct> {
+        const approved = decision === 'APPROVED';
+        const product = await prisma.product.update({
+            where: { id: productId },
+            data: {
+                status: decision,
+                isPublished: approved,
+                rejectionReason: approved ? null : reason ?? null,
+                approvedAt: approved ? new Date() : null,
+                approvedById: actorId,
+            },
+        });
+
+        return {
+            id: product.id,
+            title: product.title,
+            sellerId: product.sellerId,
+            sellerEmail: null,
+            categoryId: product.categoryId,
+            categoryName: null,
+            status: product.status,
+            rejectionReason: product.rejectionReason,
+            approvedAt: product.approvedAt,
+            approvedById: product.approvedById,
+            isPublished: product.isPublished,
+            deletedByAdmin: product.deletedByAdmin,
+            deletedByAdminAt: product.deletedByAdminAt,
+            deletedByAdminReason: product.deletedByAdminReason,
+            createdAt: product.createdAt,
+            moderation: {
+                status: product.status,
+                reason: product.rejectionReason,
+                reviewedBy: product.approvedById,
+                reviewedAt: product.approvedAt,
+            },
         };
     }
 

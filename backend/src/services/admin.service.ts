@@ -130,11 +130,27 @@ export class AdminService {
             throw ApiError.notFound('Product not found');
         }
 
+        if (product.deletedByAdmin) {
+            throw ApiError.badRequest('Deleted products cannot be approved');
+        }
+
+        if (product.status === 'APPROVED') {
+            throw ApiError.badRequest('Product is already approved');
+        }
+
         // Update moderation status
         await this.adminRepo.updateProductModeration(productId, 'APPROVED', actorId);
+        const updatedProduct = await this.adminRepo.applyProductApprovalDecision(
+            productId,
+            actorId,
+            'APPROVED'
+        );
 
-        // Set product as published
-        const updatedProduct = await this.adminRepo.updateProductPublishStatus(productId, true);
+        await notificationService.notifySellerProductApproved(
+            product.sellerId,
+            product.title,
+            product.sellerEmail
+        );
 
         await invalidateProductCaches(productId);
 
@@ -144,7 +160,7 @@ export class AdminService {
         });
 
         return {
-            message: 'Product approved and published',
+            message: 'Product approved',
             product: updatedProduct,
         };
     }
@@ -163,11 +179,29 @@ export class AdminService {
             throw ApiError.notFound('Product not found');
         }
 
-        // Update moderation status
-        await this.adminRepo.updateProductModeration(productId, 'REJECTED', actorId, reason);
+        if (product.deletedByAdmin) {
+            throw ApiError.badRequest('Deleted products cannot be moderated');
+        }
 
-        // Ensure product is not published
-        const updatedProduct = await this.adminRepo.updateProductPublishStatus(productId, false);
+        if (!reason.trim()) {
+            throw ApiError.badRequest('Rejection reason is required');
+        }
+
+        // Update moderation status
+        await this.adminRepo.updateProductModeration(productId, 'REJECTED', actorId, reason.trim());
+        const updatedProduct = await this.adminRepo.applyProductApprovalDecision(
+            productId,
+            actorId,
+            'REJECTED',
+            reason.trim()
+        );
+
+        await notificationService.notifySellerProductRejected(
+            product.sellerId,
+            product.title,
+            reason.trim(),
+            product.sellerEmail
+        );
 
         await invalidateProductCaches(productId);
 

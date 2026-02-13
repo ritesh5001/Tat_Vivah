@@ -24,7 +24,6 @@ import {
     adminNotificationRouter,
     reviewRouter,
 } from './routes/index.js';
-import { notificationWorker } from './notifications/notification.worker.js';
 import { apiReference } from "@scalar/express-api-reference";
 import { openApiSpec } from "./docs/openapi.js";
 
@@ -147,12 +146,7 @@ export function createApp(): Application {
     app.use('/v1/admin', adminRouter);
     app.use('/v1/admin/notifications', adminNotificationRouter);
 
-    // Initialize Notification Worker
-    if (notificationWorker) {
-        console.log(`[Worker] Notification Worker initialized: ${notificationWorker.name}`);
-    } else {
-        console.log('[Worker] Notification Worker disabled (no REDIS_URL).');
-    }
+    // Notification Worker initialization removed to keep API process HTTP-only
 
     // =========================================================================
     // ERROR HANDLING

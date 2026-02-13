@@ -25,6 +25,10 @@ export interface ProductEntity {
     title: string;
     description: string | null;
     images: string[];
+    status: 'PENDING' | 'APPROVED' | 'REJECTED';
+    rejectionReason: string | null;
+    approvedAt: Date | null;
+    approvedById: string | null;
     isPublished: boolean;
     deletedByAdmin: boolean;
     deletedByAdminAt: Date | null;
@@ -103,7 +107,6 @@ export interface UpdateProductRequest {
     categoryId?: string | undefined;
     title?: string | undefined;
     description?: string | undefined;
-    isPublished?: boolean | undefined;
     images?: string[] | undefined;
 }
 

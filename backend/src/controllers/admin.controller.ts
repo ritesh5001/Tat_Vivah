@@ -13,6 +13,7 @@ import type { AuditLogFilters, AuditEntityType } from '../repositories/audit.rep
 import { ApiError } from '../errors/ApiError.js';
 import { bestsellerService } from '../services/bestseller.service.js';
 import { createBestsellerSchema, updateBestsellerSchema } from '../validators/bestseller.validation.js';
+import { productIdParamSchema, productRejectSchema } from '../validators/admin.validation.js';
 
 /**
  * Admin Controller
@@ -126,7 +127,7 @@ export const adminController = {
         next: NextFunction
     ): Promise<void> => {
         try {
-            const id = req.params['id'] as string;
+            const { id } = productIdParamSchema.parse(req.params);
             const actorId = req.user!.userId as string;
             const result = await adminService.approveProduct(id, actorId);
             res.json(result);
@@ -145,8 +146,8 @@ export const adminController = {
         next: NextFunction
     ): Promise<void> => {
         try {
-            const id = req.params['id'] as string;
-            const { reason } = req.body as { reason: string };
+            const { id } = productIdParamSchema.parse(req.params);
+            const { reason } = productRejectSchema.parse(req.body);
             const actorId = req.user!.userId as string;
             const result = await adminService.rejectProduct(id, reason, actorId);
             res.json(result);

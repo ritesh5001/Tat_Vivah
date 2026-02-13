@@ -126,7 +126,7 @@ export class ProductService {
         await invalidateProductCaches();
 
         return {
-            message: 'Product created successfully',
+            message: 'Product submitted for approval',
             product,
         };
     }

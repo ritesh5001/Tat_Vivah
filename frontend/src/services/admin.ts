@@ -3,10 +3,25 @@ import { apiRequest } from "@/services/api";
 export interface AdminProduct {
   id: string;
   title: string;
+  description?: string | null;
+  images?: string[];
   sellerId: string;
+  sellerName?: string | null;
+  sellerPhone?: string | null;
   sellerEmail?: string | null;
   categoryId: string;
   categoryName?: string | null;
+  status?: "PENDING" | "APPROVED" | "REJECTED";
+  rejectionReason?: string | null;
+  approvedAt?: string | null;
+  approvedById?: string | null;
+  variants?: Array<{
+    id: string;
+    sku: string;
+    price: number;
+    compareAtPrice?: number | null;
+    stock?: number;
+  }>;
   isPublished: boolean;
   deletedByAdmin: boolean;
   deletedByAdminAt?: string | null;
@@ -139,7 +154,7 @@ export async function getAllProducts(token?: string | null) {
 
 export async function approveProduct(id: string, token?: string | null) {
   return apiRequest<{ message: string }>(`/v1/admin/products/${id}/approve`, {
-    method: "PUT",
+    method: "PATCH",
     token,
   });
 }
@@ -150,7 +165,7 @@ export async function rejectProduct(
   token?: string | null
 ) {
   return apiRequest<{ message: string }>(`/v1/admin/products/${id}/reject`, {
-    method: "PUT",
+    method: "PATCH",
     body: { reason },
     token,
   });

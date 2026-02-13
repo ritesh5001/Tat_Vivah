@@ -72,7 +72,7 @@ export default function AdminOverviewPage() {
   ];
 
   const complianceItems = [
-    { label: "Auto-publish enabled", count: "Live" },
+    { label: "Approval workflow", count: "Enabled" },
     { label: "Admin removals", count: "Manual" },
     { label: "Customer reviews", count: "Monitored" },
   ];
@@ -189,13 +189,13 @@ export default function AdminOverviewPage() {
                   <span className="text-muted-foreground">→</span>
                 </motion.div>
               </Link>
-              <Link href="/admin/products">
+              <Link href="/admin/moderation">
                 <motion.div
                   whileHover={{ x: 4 }}
                   transition={{ duration: 0.3, ease: "easeOut" }}
                   className="flex items-center justify-between py-3 px-4 border border-border-soft text-sm text-foreground transition-all duration-300 hover:border-gold/50 hover:bg-cream/50 dark:hover:bg-brown/20"
                 >
-                  <span>Flag Listing</span>
+                  <span>Approval Requests</span>
                   <span className="text-muted-foreground">→</span>
                 </motion.div>
               </Link>

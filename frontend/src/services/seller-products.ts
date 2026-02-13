@@ -4,6 +4,10 @@ export interface SellerProduct {
   id: string;
   title: string;
   description?: string | null;
+  status?: "PENDING" | "APPROVED" | "REJECTED";
+  rejectionReason?: string | null;
+  approvedAt?: string | null;
+  approvedById?: string | null;
   isPublished: boolean;
   deletedByAdmin?: boolean;
   deletedByAdminAt?: string | null;

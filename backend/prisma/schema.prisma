@@ -125,6 +125,10 @@ model Product {
   categoryId           String             @map("category_id")
   title                String
   description          String?
+  status               ProductStatus      @default(PENDING)
+  rejectionReason      String?            @map("rejection_reason")
+  approvedAt           DateTime?          @map("approved_at")
+  approvedById         String?            @map("approved_by_id")
   isPublished          Boolean            @default(false) @map("is_published")
   deletedByAdmin       Boolean            @default(false) @map("deleted_by_admin")
   deletedByAdminAt     DateTime?          @map("deleted_by_admin_at")
@@ -141,6 +145,7 @@ model Product {
 
   @@index([sellerId])
   @@index([categoryId])
+  @@index([status])
   @@map("products")
 }
 
@@ -547,6 +552,12 @@ enum ProductModerationStatus {
   REJECTED
 }
 
+enum ProductStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum ShipmentStatus {
   CREATED
   SHIPPED
@@ -612,6 +623,7 @@ enum NotificationType {
   ORDER_DELIVERED
   SELLER_NEW_ORDER
   SELLER_APPROVED
+  SELLER_PRODUCT_APPROVED
   SELLER_PRODUCT_REJECTED
   ADMIN_ALERT
 }
