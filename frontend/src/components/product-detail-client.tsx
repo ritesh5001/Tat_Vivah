@@ -25,6 +25,7 @@ interface ProductDetailClientProps {
     description?: string | null;
     category?: { name: string } | null;
     sellerId?: string;
+    price?: number;
     variants: Variant[];
   };
 }
@@ -128,7 +129,7 @@ export default function ProductDetailClient({
           </p>
           <div className="flex items-baseline gap-4">
             <p className="font-serif text-2xl font-light text-foreground sm:text-3xl">
-              {selectedVariant ? currency.format(selectedVariant.price) : "—"}
+              {typeof product.price === "number" ? currency.format(product.price) : "—"}
             </p>
             {selectedVariant?.compareAtPrice ? (
               <span className="text-sm text-muted-foreground line-through">

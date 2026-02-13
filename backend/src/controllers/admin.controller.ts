@@ -13,7 +13,11 @@ import type { AuditLogFilters, AuditEntityType } from '../repositories/audit.rep
 import { ApiError } from '../errors/ApiError.js';
 import { bestsellerService } from '../services/bestseller.service.js';
 import { createBestsellerSchema, updateBestsellerSchema } from '../validators/bestseller.validation.js';
-import { productIdParamSchema, productRejectSchema } from '../validators/admin.validation.js';
+import {
+    productIdParamSchema,
+    productRejectSchema,
+    productSetPriceSchema,
+} from '../validators/admin.validation.js';
 
 /**
  * Admin Controller
@@ -150,6 +154,58 @@ export const adminController = {
             const { reason } = productRejectSchema.parse(req.body);
             const actorId = req.user!.userId as string;
             const result = await adminService.rejectProduct(id, reason, actorId);
+            res.json(result);
+        } catch (error) {
+            next(error);
+        }
+    },
+
+    /**
+     * PATCH /v1/admin/products/:id/set-price
+     * Set admin listing price for a product
+     */
+    setProductPrice: async (
+        req: Request,
+        res: Response,
+        next: NextFunction
+    ): Promise<void> => {
+        try {
+            const { id } = productIdParamSchema.parse(req.params);
+            const { adminListingPrice } = productSetPriceSchema.parse(req.body);
+            const actorId = req.user!.userId as string;
+            const result = await adminService.setProductPrice(id, adminListingPrice, actorId);
+            res.json(result);
+        } catch (error) {
+            next(error);
+        }
+    },
+
+    /**
+     * GET /v1/admin/products/pricing-overview
+     */
+    pricingOverview: async (
+        _req: Request,
+        res: Response,
+        next: NextFunction
+    ): Promise<void> => {
+        try {
+            const result = await adminService.pricingOverview();
+            res.json(result);
+        } catch (error) {
+            next(error);
+        }
+    },
+
+    /**
+     * GET /v1/admin/analytics/profit
+     */
+    profitAnalytics: async (
+        _req: Request,
+        res: Response,
+        next: NextFunction
+    ): Promise<void> => {
+        try {
+            const result = await adminService.profitAnalytics();
             res.json(result);
         } catch (error) {
             next(error);

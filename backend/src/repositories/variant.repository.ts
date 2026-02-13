@@ -65,6 +65,9 @@ export class VariantRepository {
         product: {
             id: string;
             sellerId: string;
+            status: string;
+            deletedByAdmin: boolean;
+            adminListingPrice: number | null;
         };
     } | null> {
         return prisma.productVariant.findUnique({
@@ -77,6 +80,9 @@ export class VariantRepository {
                     select: {
                         id: true,
                         sellerId: true,
+                        status: true,
+                        deletedByAdmin: true,
+                        adminListingPrice: true,
                     },
                 },
             },

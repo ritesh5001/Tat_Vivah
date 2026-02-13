@@ -3,7 +3,17 @@
  * Business logic for admin panel operations
  */
 
-import { AdminRepository, adminRepository, AdminSeller, AdminProduct, AdminOrder, AdminPayment, AdminSettlement } from '../repositories/admin.repository.js';
+import {
+    AdminRepository,
+    adminRepository,
+    AdminSeller,
+    AdminProduct,
+    AdminOrder,
+    AdminPayment,
+    AdminSettlement,
+    AdminPricingOverviewItem,
+    AdminProfitAnalytics,
+} from '../repositories/admin.repository.js';
 import { AuditService, auditService } from './audit.service.js';
 import { ApiError } from '../errors/ApiError.js';
 import {
@@ -15,6 +25,7 @@ import {
 } from '../utils/cache.util.js';
 import { notificationService } from '../notifications/notification.service.js';
 import { bestsellerService } from './bestseller.service.js';
+import { calculateMargin } from '../utils/pricing.util.js';
 
 /**
  * Admin Service Class
@@ -247,6 +258,66 @@ export class AdminService {
             message: 'Product deleted by admin',
             product: deleted,
         };
+    }
+
+    async setProductPrice(
+        productId: string,
+        adminListingPrice: number,
+        actorId: string
+    ): Promise<{
+        sellerPrice: number;
+        adminListingPrice: number;
+        margin: number;
+        marginPercentage: number;
+    }> {
+        const product = await this.adminRepo.findProductById(productId);
+        if (!product) {
+            throw ApiError.notFound('Product not found');
+        }
+
+        if (product.deletedByAdmin) {
+            throw ApiError.badRequest('Deleted products cannot be priced');
+        }
+
+        const sellerPrice = Number(product.sellerPrice ?? 0);
+        if (adminListingPrice < sellerPrice) {
+            throw ApiError.badRequest('Admin listing price must be greater than or equal to seller price');
+        }
+
+        if (product.status !== 'APPROVED') {
+            await this.adminRepo.updateProductModeration(productId, 'APPROVED', actorId);
+            await this.adminRepo.applyProductApprovalDecision(productId, actorId, 'APPROVED');
+        }
+
+        await this.adminRepo.setProductListingPrice(productId, adminListingPrice, actorId);
+
+        const { margin, percentage } = calculateMargin(sellerPrice, adminListingPrice);
+
+        await invalidateProductCaches(productId);
+
+        await this.auditSvc.logAction(actorId, 'PRODUCT_PRICE_SET', 'PRODUCT', productId, {
+            productTitle: product.title,
+            sellerPrice,
+            adminListingPrice,
+            margin,
+            marginPercentage: percentage,
+        });
+
+        return {
+            sellerPrice,
+            adminListingPrice,
+            margin,
+            marginPercentage: percentage,
+        };
+    }
+
+    async pricingOverview(): Promise<{ products: AdminPricingOverviewItem[] }> {
+        const products = await this.adminRepo.findProductPricingOverview();
+        return { products };
+    }
+
+    async profitAnalytics(): Promise<AdminProfitAnalytics> {
+        return this.adminRepo.getProfitAnalytics();
     }
 
     // =========================================================================

@@ -26,6 +26,7 @@ export class ProductRepository {
         const where = {
             status: 'APPROVED' as const,
             deletedByAdmin: false,
+            adminListingPrice: { not: null },
             ...(categoryId && { categoryId }),
             ...(search && {
                 OR: [
@@ -56,7 +57,7 @@ export class ProductRepository {
      */
     async findPublishedById(id: string): Promise<ProductWithDetails | null> {
         return prisma.product.findFirst({
-            where: { id, status: 'APPROVED', deletedByAdmin: false },
+            where: { id, status: 'APPROVED', deletedByAdmin: false, adminListingPrice: { not: null } },
             include: {
                 category: true,
                 variants: {
@@ -122,6 +123,10 @@ export class ProductRepository {
                 categoryId: data.categoryId,
                 title: data.title,
                 description: data.description ?? null,
+                sellerPrice: data.sellerPrice,
+                adminListingPrice: null,
+                priceApprovedAt: null,
+                priceApprovedById: null,
                 images: data.images ?? [],
                 status: 'PENDING',
                 rejectionReason: null,

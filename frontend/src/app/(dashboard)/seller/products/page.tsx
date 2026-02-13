@@ -77,6 +77,7 @@ export default function SellerProductsPage() {
   const [form, setForm] = React.useState({
     categoryId: "",
     title: "",
+    sellerPrice: "",
     description: "",
     isPublished: false,
   });
@@ -165,8 +166,12 @@ export default function SellerProductsPage() {
 
   const handleCreateProduct = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!form.categoryId || !form.title) {
-      toast.error("Select a category and title.");
+    if (!form.categoryId || !form.title || !form.sellerPrice) {
+      toast.error("Select a category, title, and seller price.");
+      return;
+    }
+    if (Number.isNaN(Number(form.sellerPrice)) || Number(form.sellerPrice) <= 0) {
+      toast.error("Enter a valid seller price.");
       return;
     }
     if (images.length < 1) {
@@ -177,11 +182,12 @@ export default function SellerProductsPage() {
       const result = await createSellerProduct({
         categoryId: form.categoryId,
         title: form.title,
+        sellerPrice: Number(form.sellerPrice),
         description: form.description || undefined,
         images: images.map((image) => image.url),
       });
-      toast.success("Your product has been submitted for approval.");
-      setForm({ categoryId: "", title: "", description: "", isPublished: false });
+      toast.success("Your product has been submitted for price and approval.");
+      setForm({ categoryId: "", title: "", sellerPrice: "", description: "", isPublished: false });
       setImages([]);
       setShowCreateModal(false);
 
@@ -562,6 +568,15 @@ export default function SellerProductsPage() {
                           Rejection reason: {product.rejectionReason}
                         </p>
                       ) : null}
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Seller Price: {currency.format(Number(product.sellerPrice ?? 0))}
+                      </p>
+                      {String(product.status ?? "PENDING").toUpperCase() === "APPROVED" &&
+                      product.adminListingPrice != null ? (
+                        <p className="text-xs text-gold mt-1">
+                          Listed at {currency.format(Number(product.adminListingPrice))} by Admin
+                        </p>
+                      ) : null}
                     </div>
                     <div className="flex items-center gap-2">
                       <Button
@@ -936,6 +951,19 @@ export default function SellerProductsPage() {
                         setForm((prev) => ({ ...prev, title: event.target.value }))
                       }
                       placeholder="Premium linen kurta"
+                    />
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label>Seller Price</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      step="0.01"
+                      value={form.sellerPrice}
+                      onChange={(event) =>
+                        setForm((prev) => ({ ...prev, sellerPrice: event.target.value }))
+                      }
+                      placeholder="Enter your selling price"
                     />
                   </div>
                 </div>

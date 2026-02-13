@@ -11,6 +11,10 @@ export interface AdminProduct {
   sellerEmail?: string | null;
   categoryId: string;
   categoryName?: string | null;
+  sellerPrice?: number;
+  adminListingPrice?: number | null;
+  priceApprovedAt?: string | null;
+  priceApprovedById?: string | null;
   status?: "PENDING" | "APPROVED" | "REJECTED";
   rejectionReason?: string | null;
   approvedAt?: string | null;
@@ -33,6 +37,40 @@ export interface AdminProduct {
     reviewedBy?: string | null;
     reviewedAt?: string | null;
   } | null;
+}
+
+export interface PricingOverviewProduct {
+  productId: string;
+  title: string;
+  sellerId: string;
+  sellerName?: string | null;
+  sellerEmail?: string | null;
+  sellerPrice: number;
+  adminListingPrice?: number | null;
+  margin?: number | null;
+  marginPercentage?: number | null;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  image?: string | null;
+  updatedAt: string;
+}
+
+export interface ProfitAnalytics {
+  totalPlatformRevenue: number;
+  totalSellerPayout: number;
+  totalMarginEarned: number;
+  profitPerProduct: Array<{
+    productId: string;
+    title: string;
+    margin: number;
+    soldUnits: number;
+  }>;
+  profitPerSeller: Array<{
+    sellerId: string;
+    sellerEmail?: string | null;
+    sellerName?: string | null;
+    margin: number;
+    soldUnits: number;
+  }>;
 }
 
 export interface AdminSeller {
@@ -167,6 +205,40 @@ export async function rejectProduct(
   return apiRequest<{ message: string }>(`/v1/admin/products/${id}/reject`, {
     method: "PATCH",
     body: { reason },
+    token,
+  });
+}
+
+export async function setProductPrice(
+  id: string,
+  adminListingPrice: number,
+  token?: string | null
+) {
+  return apiRequest<{
+    sellerPrice: number;
+    adminListingPrice: number;
+    margin: number;
+    marginPercentage: number;
+  }>(`/v1/admin/products/${id}/set-price`, {
+    method: "PATCH",
+    body: { adminListingPrice },
+    token,
+  });
+}
+
+export async function getPricingOverview(token?: string | null) {
+  return apiRequest<{ products: PricingOverviewProduct[] }>(
+    "/v1/admin/products/pricing-overview",
+    {
+      method: "GET",
+      token,
+    }
+  );
+}
+
+export async function getProfitAnalytics(token?: string | null) {
+  return apiRequest<ProfitAnalytics>("/v1/admin/analytics/profit", {
+    method: "GET",
     token,
   });
 }

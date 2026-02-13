@@ -68,6 +68,12 @@ adminRouter.get(
     adminController.listPendingProducts
 );
 
+adminRouter.get(
+    '/products/pricing-overview',
+    authorize('ADMIN', 'SUPER_ADMIN'),
+    adminController.pricingOverview
+);
+
 /**
  * PATCH /v1/admin/products/:id/approve
  * Approve a pending product
@@ -88,6 +94,12 @@ adminRouter.patch(
     adminController.rejectProduct
 );
 
+adminRouter.patch(
+    '/products/:id/set-price',
+    authorize('ADMIN', 'SUPER_ADMIN'),
+    adminController.setProductPrice
+);
+
 // Backward-compatible aliases
 adminRouter.put(
     '/products/:id/approve',
@@ -99,6 +111,12 @@ adminRouter.put(
     '/products/:id/reject',
     authorize('ADMIN', 'SUPER_ADMIN'),
     adminController.rejectProduct
+);
+
+adminRouter.put(
+    '/products/:id/set-price',
+    authorize('ADMIN', 'SUPER_ADMIN'),
+    adminController.setProductPrice
 );
 
 /**
@@ -256,6 +274,12 @@ adminRouter.put(
     '/orders/:id/force-confirm',
     authorize('SUPER_ADMIN'),
     adminController.forceConfirmOrder
+);
+
+adminRouter.get(
+    '/analytics/profit',
+    authorize('ADMIN', 'SUPER_ADMIN'),
+    adminController.profitAnalytics
 );
 
 // ============================================================================
