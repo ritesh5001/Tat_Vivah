@@ -5,9 +5,13 @@ export declare const CACHE_KEYS: {
     readonly CATEGORIES_LIST: "categories:list";
     readonly PRODUCTS_LIST: "products:list";
     readonly PRODUCT_DETAIL: (id: string) => string;
+    readonly BESTSELLERS_LIST: "products:bestsellers";
     readonly CART: (userId: string) => string;
     readonly BUYER_ORDERS: (userId: string) => string;
     readonly ORDER_DETAIL: (orderId: string) => string;
+    readonly ADMIN_ORDERS: "admin:orders:list";
+    readonly ADMIN_PAYMENTS: "admin:payments:list";
+    readonly TRACKING: (orderId: string) => string;
 };
 /**
  * Get data from cache

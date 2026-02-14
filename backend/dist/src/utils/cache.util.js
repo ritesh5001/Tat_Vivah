@@ -7,10 +7,16 @@ export const CACHE_KEYS = {
     CATEGORIES_LIST: 'categories:list',
     PRODUCTS_LIST: 'products:list',
     PRODUCT_DETAIL: (id) => `products:detail:${id}`,
+    BESTSELLERS_LIST: 'products:bestsellers',
     // Cart & Orders domain
     CART: (userId) => `cart:${userId}`,
     BUYER_ORDERS: (userId) => `orders:buyer:${userId}`,
     ORDER_DETAIL: (orderId) => `orders:detail:${orderId}`,
+    // Admin domain
+    ADMIN_ORDERS: 'admin:orders:list',
+    ADMIN_PAYMENTS: 'admin:payments:list',
+    // Shipping domain
+    TRACKING: (orderId) => `tracking:${orderId}`,
 };
 /**
  * Default cache TTL in seconds (5 minutes)

@@ -73,6 +73,23 @@ export class AuthRepository {
         });
     }
     /**
+     * Update a user by ID
+     */
+    async updateUser(id, data) {
+        return prisma.user.update({
+            where: { id },
+            data: {
+                ...(data.email !== undefined && { email: data.email }),
+                ...(data.phone !== undefined && { phone: data.phone }),
+                ...(data.passwordHash !== undefined && { passwordHash: data.passwordHash }),
+                ...(data.role !== undefined && { role: data.role }),
+                ...(data.status !== undefined && { status: data.status }),
+                ...(data.isEmailVerified !== undefined && { isEmailVerified: data.isEmailVerified }),
+                ...(data.isPhoneVerified !== undefined && { isPhoneVerified: data.isPhoneVerified }),
+            },
+        });
+    }
+    /**
      * Create a new login session
      */
     async createSession(data) {

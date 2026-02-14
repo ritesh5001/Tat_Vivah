@@ -17,7 +17,15 @@ export declare class CheckoutService {
      * 3. Deduct stock and create movements
      * 4. Clear cart
      */
-    checkout(userId: string): Promise<CheckoutResponse>;
+    checkout(userId: string, shipping?: {
+        shippingName?: string;
+        shippingPhone?: string;
+        shippingEmail?: string;
+        shippingAddressLine1?: string;
+        shippingAddressLine2?: string;
+        shippingCity?: string;
+        shippingNotes?: string;
+    }): Promise<CheckoutResponse>;
 }
 export declare const checkoutService: CheckoutService;
 //# sourceMappingURL=checkout.service.d.ts.map

@@ -11,7 +11,8 @@ export class CheckoutController {
     async checkout(req, res, next) {
         try {
             const userId = req.user.userId;
-            const result = await checkoutService.checkout(userId);
+            const shipping = req.body ?? {};
+            const result = await checkoutService.checkout(userId, shipping);
             res.status(201).json(result);
         }
         catch (error) {

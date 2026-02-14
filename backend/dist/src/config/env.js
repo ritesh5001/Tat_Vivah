@@ -20,6 +20,18 @@ const envSchema = z.object({
     // Upstash Redis
     UPSTASH_REDIS_REST_URL: z.string().url('UPSTASH_REDIS_REST_URL must be a valid URL'),
     UPSTASH_REDIS_REST_TOKEN: z.string().min(1, 'UPSTASH_REDIS_REST_TOKEN is required'),
+    REDIS_URL: z.string().url('REDIS_URL must be a valid URL (rediss://...)').optional(),
+    // Resend
+    RESEND_API_KEY: z.string().min(1, 'RESEND_API_KEY is required'),
+    EMAIL_FROM: z.string().email('EMAIL_FROM must be a valid email'),
+    // ImageKit
+    IMAGEKIT_PUBLIC_KEY: z.string().optional(),
+    IMAGEKIT_PRIVATE_KEY: z.string().optional(),
+    IMAGEKIT_URL_ENDPOINT: z.string().optional(),
+    // Razorpay
+    RAZORPAY_KEY_ID: z.string().optional(),
+    RAZORPAY_KEY_SECRET: z.string().optional(),
+    RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
 });
 /**
  * Parse and validate environment variables

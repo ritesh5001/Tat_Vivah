@@ -1,0 +1,1 @@
+{"version":3,"file":"order-shipped.js","sourceRoot":"","sources":["../../../../../src/notifications/email/templates/order-shipped.ts"],"names":[],"mappings":"AAEA,MAAM,UAAU,oBAAoB,CAAC,IAAkE;IACnG,OAAO;QACH,OAAO,EAAE,eAAe,IAAI,CAAC,OAAO,eAAe;QACnD,IAAI,EAAE;;;2CAG6B,IAAI,CAAC,OAAO;mDACJ,IAAI,CAAC,cAAc;SAC7D;KACJ,CAAC;AACN,CAAC"}

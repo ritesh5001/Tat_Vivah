@@ -1,6 +1,7 @@
 import { prisma } from '../config/db.js';
 import { cartRepository } from '../repositories/cart.repository.js';
 import { invalidateCache, CACHE_KEYS, } from '../utils/cache.util.js';
+import { notificationService } from '../notifications/notification.service.js';
 import { ApiError } from '../errors/ApiError.js';
 /**
  * Checkout Service
@@ -21,7 +22,7 @@ export class CheckoutService {
      * 3. Deduct stock and create movements
      * 4. Clear cart
      */
-    async checkout(userId) {
+    async checkout(userId, shipping) {
         // 1. Get cart with all items and details
         const cart = await this.cartRepo.getCartWithDetails(userId);
         if (!cart || cart.items.length === 0) {
@@ -36,6 +37,19 @@ export class CheckoutService {
                 validationErrors.push(`Product or variant not found for item ${item.id}`);
                 continue;
             }
+            const adminListingPriceRaw = item.product.adminListingPrice;
+            const sellerPriceRaw = item.product.sellerPrice;
+            if (adminListingPriceRaw === null || adminListingPriceRaw === undefined) {
+                validationErrors.push(`Pricing is pending approval for ${item.product.title}`);
+                continue;
+            }
+            const adminListingPrice = Number(adminListingPriceRaw);
+            const sellerPrice = Number(sellerPriceRaw ?? adminListingPriceRaw);
+            const margin = adminListingPrice - sellerPrice;
+            if (margin < 0) {
+                validationErrors.push(`Invalid pricing state for ${item.product.title}`);
+                continue;
+            }
             if (item.quantity > availableStock) {
                 validationErrors.push(`Insufficient stock for ${item.product.title}: Available ${availableStock}, Requested ${item.quantity}`);
             }
@@ -45,7 +59,10 @@ export class CheckoutService {
                     productId: item.productId,
                     sellerId: item.product.sellerId,
                     quantity: item.quantity,
-                    priceSnapshot: item.variant.price, // Use current price at checkout
+                    priceSnapshot: adminListingPrice,
+                    sellerPriceSnapshot: sellerPrice,
+                    adminPriceSnapshot: adminListingPrice,
+                    platformMargin: margin,
                     availableStock,
                 });
             }
@@ -54,12 +71,21 @@ export class CheckoutService {
             throw ApiError.badRequest(validationErrors.join('; '));
         }
         // 3. Calculate total amount
-        const totalAmount = itemsWithStock.reduce((sum, item) => sum + item.priceSnapshot * item.quantity, 0);
+        const subtotal = itemsWithStock.reduce((sum, item) => sum + item.priceSnapshot * item.quantity, 0);
+        const shippingFee = itemsWithStock.length > 0 ? 180 : 0;
+        const totalAmount = subtotal + shippingFee;
         // 4. Create order with items (single create with nested writes)
         const order = await prisma.order.create({
             data: {
                 userId,
                 totalAmount,
+                shippingName: shipping?.shippingName ?? null,
+                shippingPhone: shipping?.shippingPhone ?? null,
+                shippingEmail: shipping?.shippingEmail ?? null,
+                shippingAddressLine1: shipping?.shippingAddressLine1 ?? null,
+                shippingAddressLine2: shipping?.shippingAddressLine2 ?? null,
+                shippingCity: shipping?.shippingCity ?? null,
+                shippingNotes: shipping?.shippingNotes ?? null,
                 status: 'PLACED',
                 items: {
                     create: itemsWithStock.map((item) => ({
@@ -68,6 +94,9 @@ export class CheckoutService {
                         variantId: item.variantId,
                         quantity: item.quantity,
                         priceSnapshot: item.priceSnapshot,
+                        sellerPriceSnapshot: item.sellerPriceSnapshot,
+                        adminPriceSnapshot: item.adminPriceSnapshot,
+                        platformMargin: item.platformMargin,
                     })),
                 },
             },
@@ -102,6 +131,19 @@ export class CheckoutService {
             ...itemsWithStock.map((item) => invalidateCache(CACHE_KEYS.PRODUCT_DETAIL(item.productId))),
             invalidateCache(CACHE_KEYS.PRODUCTS_LIST),
         ]);
+        // 8. Trigger Notifications
+        // Notify Buyer
+        await notificationService.notifyOrderPlaced(userId, order.id, totalAmount);
+        // Notify Sellers
+        const itemsBySeller = itemsWithStock.reduce((acc, item) => {
+            acc[item.sellerId] = (acc[item.sellerId] || 0) + 1; // Count unique items per seller
+            return acc;
+        }, {});
+        for (const [sellerId, count] of Object.entries(itemsBySeller)) {
+            await notificationService.notifySellerNewOrder(sellerId, order.id, count);
+        }
+        // Notify Buyer
+        await notificationService.notifyOrderPlaced(order.userId, order.id, Number(order.totalAmount));
         return {
             message: 'Order placed successfully',
             order: {

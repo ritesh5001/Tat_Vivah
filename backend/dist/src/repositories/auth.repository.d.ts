@@ -30,6 +30,10 @@ export declare class AuthRepository {
      */
     createUser(data: CreateUserData): Promise<UserEntity>;
     /**
+     * Update a user by ID
+     */
+    updateUser(id: string, data: Partial<CreateUserData>): Promise<UserEntity>;
+    /**
      * Create a new login session
      */
     createSession(data: {

@@ -5,6 +5,14 @@ import { prisma } from '../config/db.js';
  */
 export class CategoryRepository {
     /**
+     * Find all categories (active + inactive)
+     */
+    async findAll() {
+        return prisma.category.findMany({
+            orderBy: { name: 'asc' },
+        });
+    }
+    /**
      * Find all active categories
      */
     async findAllActive() {
@@ -38,6 +46,31 @@ export class CategoryRepository {
             select: { id: true },
         });
         return category !== null;
+    }
+    /**
+     * Create category
+     */
+    async create(data) {
+        return prisma.category.create({
+            data: {
+                name: data.name,
+                slug: data.slug,
+                isActive: true,
+            },
+        });
+    }
+    /**
+     * Update category
+     */
+    async update(id, data) {
+        return prisma.category.update({
+            where: { id },
+            data: {
+                ...(data.name !== undefined && { name: data.name }),
+                ...(data.slug !== undefined && { slug: data.slug }),
+                ...(data.isActive !== undefined && { isActive: data.isActive }),
+            },
+        });
     }
 }
 // Export singleton instance

@@ -2,7 +2,12 @@ import { verifyAuth } from './verify-auth.js';
 import { verifyProduct } from './verify-product.js';
 import { verifyCart } from './verify-cart.js';
 import { verifyOrders } from './verify-orders.js';
-import { prisma } from './test-utils.js';
+import { verifyPayment } from './verify-payment.js';
+import { verifyAdmin } from './verify-admin.js';
+import { verifyNotifications } from './verify-notifications.js';
+import { verifyShipping } from './verify-shipping.js';
+import { PrismaClient } from '@prisma/client';
+const prisma = new PrismaClient();
 async function runAll() {
     try {
         await verifyAuth();
@@ -12,6 +17,14 @@ async function runAll() {
         await verifyCart();
         console.log('\n----------------------------------------\n');
         await verifyOrders();
+        console.log('\n----------------------------------------\n');
+        await verifyPayment();
+        console.log('\n----------------------------------------\n');
+        await verifyAdmin();
+        console.log('\n----------------------------------------\n');
+        await verifyNotifications();
+        console.log('\n----------------------------------------\n');
+        await verifyShipping();
         console.log('\n✅ ALL SYSTEMS GO! ✨');
     }
     catch (error) {
