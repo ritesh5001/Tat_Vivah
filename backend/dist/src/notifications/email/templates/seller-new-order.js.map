@@ -1,0 +1,1 @@
+{"version":3,"file":"seller-new-order.js","sourceRoot":"","sources":["../../../../../src/notifications/email/templates/seller-new-order.ts"],"names":[],"mappings":"AAEA,MAAM,UAAU,sBAAsB,CAAC,IAA6C;IAChF,OAAO;QACH,OAAO,EAAE,uBAAuB,IAAI,CAAC,OAAO,EAAE;QAC9C,IAAI,EAAE;;;4CAG8B,IAAI,CAAC,OAAO;yCACf,IAAI,CAAC,UAAU;;SAE/C;KACJ,CAAC;AACN,CAAC"}

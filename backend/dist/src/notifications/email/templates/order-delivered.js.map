@@ -1,0 +1,1 @@
+{"version":3,"file":"order-delivered.js","sourceRoot":"","sources":["../../../../../src/notifications/email/templates/order-delivered.ts"],"names":[],"mappings":"AAEA,MAAM,UAAU,sBAAsB,CAAC,IAAyB;IAC5D,OAAO;QACH,OAAO,EAAE,UAAU,IAAI,CAAC,OAAO,YAAY;QAC3C,IAAI,EAAE;;;;SAIL;KACJ,CAAC;AACN,CAAC"}

@@ -27,7 +27,8 @@ model User {
   email_otps         EmailOtp[]
   loginSessions      LoginSession[]
   product_moderation ProductModeration[]
-  products           Product[]
+  products           Product[]            @relation("SellerProducts")
+  priceApprovedProducts Product[]         @relation("PriceApprovedBy")
   qaAdminProfile     QaAdminProfile?
   seller_profiles    seller_profiles?
   shipments          shipments[]
@@ -125,6 +126,14 @@ model Product {
   categoryId           String             @map("category_id")
   title                String
   description          String?
+  sellerPrice          Decimal            @map("seller_price") @db.Decimal(10, 2)
+  adminListingPrice    Decimal?           @map("admin_listing_price") @db.Decimal(10, 2)
+  priceApprovedAt      DateTime?          @map("price_approved_at")
+  priceApprovedById    String?            @map("price_approved_by_id")
+  status               ProductStatus      @default(PENDING)
+  rejectionReason      String?            @map("rejection_reason")
+  approvedAt           DateTime?          @map("approved_at")
+  approvedById         String?            @map("approved_by_id")
   isPublished          Boolean            @default(false) @map("is_published")
   deletedByAdmin       Boolean            @default(false) @map("deleted_by_admin")
   deletedByAdminAt     DateTime?          @map("deleted_by_admin_at")
@@ -136,11 +145,15 @@ model Product {
   bestseller           Bestseller?
   variants             ProductVariant[]
   category             Category           @relation(fields: [categoryId], references: [id])
-  seller               User               @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  seller               User               @relation("SellerProducts", fields: [sellerId], references: [id], onDelete: Cascade)
+  priceApprovedBy      User?              @relation("PriceApprovedBy", fields: [priceApprovedById], references: [id])
   reviews              Review[]
 
   @@index([sellerId])
   @@index([categoryId])
+  @@index([status])
+  @@index([adminListingPrice])
+  @@index([priceApprovedById])
   @@map("products")
 }
 
@@ -243,6 +256,9 @@ model OrderItem {
   variantId     String @map("variant_id")
   quantity      Int
   priceSnapshot Float  @map("price_snapshot")
+  sellerPriceSnapshot Float @map("seller_price_snapshot")
+  adminPriceSnapshot Float @map("admin_price_snapshot")
+  platformMargin Float @map("platform_margin")
   order         Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@index([orderId])
@@ -547,6 +563,12 @@ enum ProductModerationStatus {
   REJECTED
 }
 
+enum ProductStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum ShipmentStatus {
   CREATED
   SHIPPED
@@ -612,6 +634,7 @@ enum NotificationType {
   ORDER_DELIVERED
   SELLER_NEW_ORDER
   SELLER_APPROVED
+  SELLER_PRODUCT_APPROVED
   SELLER_PRODUCT_REJECTED
   ADMIN_ALERT
 }

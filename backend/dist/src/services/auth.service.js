@@ -4,6 +4,7 @@ import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '.
 import { ApiError } from '../errors/ApiError.js';
 import { env } from '../config/env.js';
 import ms from 'ms';
+import { otpService } from './otp.service.js';
 /**
  * Auth Service
  * Contains all business logic for authentication
@@ -13,6 +14,47 @@ export class AuthService {
     repository;
     constructor(repository) {
         this.repository = repository;
+    }
+    async issueTokens(user, userAgent, ipAddress) {
+        const accessToken = generateAccessToken({
+            userId: user.id,
+            email: user.email,
+            phone: user.phone,
+            role: user.role,
+            status: user.status,
+            isEmailVerified: user.isEmailVerified,
+            isPhoneVerified: user.isPhoneVerified,
+        });
+        const refreshTokenExpiryMs = ms(env.REFRESH_TOKEN_EXPIRY);
+        const expiresAt = new Date(Date.now() + refreshTokenExpiryMs);
+        const session = await this.repository.createSession({
+            userId: user.id,
+            refreshToken: '',
+            userAgent: userAgent ?? undefined,
+            ipAddress: ipAddress ?? undefined,
+            expiresAt,
+        });
+        const refreshToken = generateRefreshToken({
+            userId: user.id,
+            sessionId: session.id,
+            isEmailVerified: user.isEmailVerified,
+            isPhoneVerified: user.isPhoneVerified,
+        });
+        const hashedRefreshToken = await hashToken(refreshToken);
+        await this.repository.updateSessionRefreshToken(session.id, hashedRefreshToken);
+        return {
+            user: {
+                id: user.id,
+                email: user.email,
+                phone: user.phone,
+                role: user.role,
+                status: user.status,
+                isEmailVerified: user.isEmailVerified,
+                isPhoneVerified: user.isPhoneVerified,
+            },
+            accessToken,
+            refreshToken,
+        };
     }
     /**
      * Register a new USER
@@ -32,19 +74,18 @@ export class AuthService {
         }
         // 2. Hash password
         const passwordHash = await hashPassword(data.password);
-        // 3. Create user (transaction handled in repository)
-        await this.repository.createUser({
+        // 3. Send OTP for signup (account will be created after verification)
+        const payload = {
             email: data.email,
             phone: data.phone,
             passwordHash,
             role: 'USER',
-            status: 'ACTIVE',
-            isEmailVerified: false,
-            isPhoneVerified: false,
-        });
+            fullName: data.fullName,
+        };
+        await otpService.sendSignupOtp(payload);
         // 4. Return success message (no token, no auto-login)
         return {
-            message: 'User registered successfully',
+            message: 'OTP sent to your email',
         };
     }
     /**
@@ -66,19 +107,17 @@ export class AuthService {
         }
         // 2. Hash password
         const passwordHash = await hashPassword(data.password);
-        // 3. Create user with SELLER role and PENDING status
-        await this.repository.createUser({
+        // 3. Send OTP for signup (account will be created after verification)
+        const payload = {
             email: data.email,
             phone: data.phone,
             passwordHash,
             role: 'SELLER',
-            status: 'PENDING',
-            isEmailVerified: false,
-            isPhoneVerified: false,
-        });
+        };
+        await otpService.sendSignupOtp(payload);
         // 4. Return success message (no token, pending approval)
         return {
-            message: 'Seller registration submitted for approval. Check your email or mobile for updates.',
+            message: 'OTP sent to your email. Verify to complete seller registration.',
         };
     }
     /**
@@ -142,52 +181,95 @@ export class AuthService {
         if (user.status !== 'ACTIVE') {
             throw ApiError.forbidden('Account not active');
         }
-        // 4. Generate tokens
-        const accessToken = generateAccessToken({
-            userId: user.id,
+        if ((user.role === 'USER' || user.role === 'SELLER') && !user.isEmailVerified) {
+            throw ApiError.forbidden('Email verification required');
+        }
+        // 4. Return response
+        return this.issueTokens({
+            id: user.id,
             email: user.email,
             phone: user.phone,
             role: user.role,
             status: user.status,
             isEmailVerified: user.isEmailVerified,
             isPhoneVerified: user.isPhoneVerified,
+        }, userAgent, ipAddress);
+    }
+    async requestEmailOtp(email) {
+        const user = await this.repository.findUserByEmail(email);
+        if (!user) {
+            const payload = await otpService.getLatestSignupPayload(email);
+            if (!payload) {
+                throw ApiError.notFound('User not found');
+            }
+            await otpService.sendSignupOtp(payload);
+            return { message: 'OTP sent to email' };
+        }
+        if (user.isEmailVerified) {
+            return { message: 'Email already verified' };
+        }
+        await otpService.sendEmailVerificationOtp(user.id, user.email ?? email);
+        return { message: 'OTP sent to email' };
+    }
+    async verifyEmailOtp(email, code) {
+        const otp = await otpService.verifyEmailOtp(email, code);
+        if (otp.userId) {
+            const user = await this.repository.findUserById(otp.userId);
+            if (!user) {
+                throw ApiError.notFound('User not found');
+            }
+            const nextStatus = user.role === 'USER' && user.status === 'PENDING'
+                ? 'ACTIVE'
+                : user.status;
+            if (user.role === 'SELLER' && user.status !== 'ACTIVE') {
+                throw ApiError.forbidden('Seller approval pending');
+            }
+            const updated = await this.repository.updateUser(user.id, {
+                status: nextStatus,
+                isEmailVerified: true,
+            });
+            return this.issueTokens({
+                id: updated.id,
+                email: updated.email,
+                phone: updated.phone,
+                role: updated.role,
+                status: updated.status,
+                isEmailVerified: updated.isEmailVerified,
+                isPhoneVerified: updated.isPhoneVerified,
+            });
+        }
+        const payload = otp.payload;
+        if (!payload) {
+            throw ApiError.badRequest('Invalid or expired OTP');
+        }
+        const exists = await this.repository.existsByEmailOrPhone(payload.email, payload.phone);
+        if (exists) {
+            throw ApiError.conflict('Email or phone already in use');
+        }
+        const status = payload.role === 'SELLER' ? 'PENDING' : 'ACTIVE';
+        const created = await this.repository.createUser({
+            email: payload.email,
+            phone: payload.phone,
+            passwordHash: payload.passwordHash,
+            role: payload.role,
+            status,
+            isEmailVerified: true,
+            isPhoneVerified: false,
         });
-        // Calculate refresh token expiry
-        const refreshTokenExpiryMs = ms(env.REFRESH_TOKEN_EXPIRY);
-        const expiresAt = new Date(Date.now() + refreshTokenExpiryMs);
-        // Create session first to get session ID for refresh token
-        const session = await this.repository.createSession({
-            userId: user.id,
-            refreshToken: '', // Placeholder, will update with hash
-            userAgent: userAgent ?? undefined,
-            ipAddress: ipAddress ?? undefined,
-            expiresAt,
+        if (created.role === 'SELLER') {
+            return {
+                message: 'Email verified. Seller account pending admin approval.',
+            };
+        }
+        return this.issueTokens({
+            id: created.id,
+            email: created.email,
+            phone: created.phone,
+            role: created.role,
+            status: created.status,
+            isEmailVerified: created.isEmailVerified,
+            isPhoneVerified: created.isPhoneVerified,
         });
-        // Generate refresh token with session ID
-        const refreshToken = generateRefreshToken({
-            userId: user.id,
-            sessionId: session.id,
-            isEmailVerified: user.isEmailVerified,
-            isPhoneVerified: user.isPhoneVerified,
-        });
-        // Hash the refresh token before storing
-        const hashedRefreshToken = await hashToken(refreshToken);
-        // Update session with hashed refresh token
-        await this.repository.updateSessionRefreshToken(session.id, hashedRefreshToken);
-        // 5. Return response
-        return {
-            user: {
-                id: user.id,
-                email: user.email,
-                phone: user.phone,
-                role: user.role,
-                status: user.status,
-                isEmailVerified: user.isEmailVerified,
-                isPhoneVerified: user.isPhoneVerified,
-            },
-            accessToken,
-            refreshToken,
-        };
     }
     /**
      * Refresh tokens with rotation

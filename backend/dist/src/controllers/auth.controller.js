@@ -1,5 +1,5 @@
 import { authService } from '../services/auth.service.js';
-import { registerUserSchema, registerSellerSchema, registerAdminSchema, loginSchema, refreshTokenSchema, logoutSchema } from '../validators/auth.validation.js';
+import { registerUserSchema, registerSellerSchema, registerAdminSchema, loginSchema, refreshTokenSchema, logoutSchema, requestOtpSchema, verifyOtpSchema } from '../validators/auth.validation.js';
 import { ApiError } from '../errors/ApiError.js';
 import { ZodError } from 'zod';
 /**
@@ -77,6 +77,52 @@ export class AuthController {
             const validatedData = registerAdminSchema.parse(req.body);
             const result = await this.service.registerAdmin(validatedData);
             res.status(201).json(result);
+        }
+        catch (error) {
+            if (error instanceof ZodError) {
+                const details = error.errors.reduce((acc, err) => {
+                    const key = err.path.join('.');
+                    acc[key] = err.message;
+                    return acc;
+                }, {});
+                next(ApiError.badRequest('Validation failed', details));
+                return;
+            }
+            next(error);
+        }
+    };
+    /**
+     * POST /v1/auth/request-otp
+     * Request email verification OTP
+     */
+    requestOtp = async (req, res, next) => {
+        try {
+            const validatedData = requestOtpSchema.parse(req.body);
+            const result = await this.service.requestEmailOtp(validatedData.email);
+            res.status(200).json(result);
+        }
+        catch (error) {
+            if (error instanceof ZodError) {
+                const details = error.errors.reduce((acc, err) => {
+                    const key = err.path.join('.');
+                    acc[key] = err.message;
+                    return acc;
+                }, {});
+                next(ApiError.badRequest('Validation failed', details));
+                return;
+            }
+            next(error);
+        }
+    };
+    /**
+     * POST /v1/auth/verify-otp
+     * Verify email OTP and activate account
+     */
+    verifyOtp = async (req, res, next) => {
+        try {
+            const validatedData = verifyOtpSchema.parse(req.body);
+            const result = await this.service.verifyEmailOtp(validatedData.email, validatedData.otp);
+            res.status(200).json(result);
         }
         catch (error) {
             if (error instanceof ZodError) {

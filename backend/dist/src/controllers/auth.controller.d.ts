@@ -24,6 +24,16 @@ export declare class AuthController {
      */
     registerAdmin: (req: Request, res: Response, next: NextFunction) => Promise<void>;
     /**
+     * POST /v1/auth/request-otp
+     * Request email verification OTP
+     */
+    requestOtp: (req: Request, res: Response, next: NextFunction) => Promise<void>;
+    /**
+     * POST /v1/auth/verify-otp
+     * Verify email OTP and activate account
+     */
+    verifyOtp: (req: Request, res: Response, next: NextFunction) => Promise<void>;
+    /**
      * POST /v1/auth/login
      * Login user with email or phone
      */

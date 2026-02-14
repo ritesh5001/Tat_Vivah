@@ -6,18 +6,24 @@ import { z } from 'zod';
 export declare const createProductSchema: z.ZodObject<{
     categoryId: z.ZodString;
     title: z.ZodString;
+    sellerPrice: z.ZodNumber;
     description: z.ZodOptional<z.ZodString>;
+    images: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
     isPublished: z.ZodDefault<z.ZodOptional<z.ZodBoolean>>;
 }, "strip", z.ZodTypeAny, {
     categoryId: string;
     title: string;
+    sellerPrice: number;
     isPublished: boolean;
     description?: string | undefined;
+    images?: string[] | undefined;
 }, {
     categoryId: string;
     title: string;
+    sellerPrice: number;
     description?: string | undefined;
     isPublished?: boolean | undefined;
+    images?: string[] | undefined;
 }>;
 export type CreateProductInput = z.infer<typeof createProductSchema>;
 /**
@@ -28,17 +34,20 @@ export declare const updateProductSchema: z.ZodObject<{
     categoryId: z.ZodOptional<z.ZodString>;
     title: z.ZodOptional<z.ZodString>;
     description: z.ZodOptional<z.ZodString>;
+    images: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
     isPublished: z.ZodOptional<z.ZodBoolean>;
 }, "strip", z.ZodTypeAny, {
     categoryId?: string | undefined;
     title?: string | undefined;
     description?: string | undefined;
     isPublished?: boolean | undefined;
+    images?: string[] | undefined;
 }, {
     categoryId?: string | undefined;
     title?: string | undefined;
     description?: string | undefined;
     isPublished?: boolean | undefined;
+    images?: string[] | undefined;
 }>;
 export type UpdateProductInput = z.infer<typeof updateProductSchema>;
 /**

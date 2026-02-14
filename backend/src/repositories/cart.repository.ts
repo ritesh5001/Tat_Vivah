@@ -141,7 +141,7 @@ export class CartRepository {
                 const [product, variant] = await Promise.all([
                     prisma.product.findUnique({
                         where: { id: item.productId },
-                        select: { id: true, title: true, sellerId: true },
+                        select: { id: true, title: true, sellerId: true, adminListingPrice: true, sellerPrice: true },
                     }),
                     prisma.productVariant.findUnique({
                         where: { id: item.variantId },
@@ -156,8 +156,24 @@ export class CartRepository {
 
                 return {
                     ...item,
-                    product: product ?? undefined,
-                    variant: variant ?? undefined,
+                    product: product
+                        ? {
+                            ...product,
+                            sellerPrice: Number(product.sellerPrice),
+                            adminListingPrice:
+                                product.adminListingPrice == null
+                                    ? null
+                                    : Number(product.adminListingPrice),
+                        }
+                        : undefined,
+                    variant: variant
+                        ? {
+                            ...variant,
+                            price: product?.adminListingPrice != null
+                                ? Number(product.adminListingPrice)
+                                : variant.price,
+                        }
+                        : undefined,
                 };
             })
         );

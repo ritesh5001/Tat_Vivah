@@ -20,13 +20,13 @@ const getStatusStyle = (status: string) => {
     case "DELIVERED":
       return "border-[#7B9971]/30 text-[#5A7352] bg-[#7B9971]/5";
     case "CONFIRMED":
-      return "border-[#B8956C]/30 text-[#8A7054] bg-[#B8956C]/5";
+      return "border-[#B7956C]/30 text-[#8A7054] bg-[#B7956C]/5";
     case "SHIPPED":
       return "border-[#8B9CB8]/30 text-[#5E6B82] bg-[#8B9CB8]/5";
     case "PLACED":
       return "border-border-soft text-muted-foreground bg-cream/30";
     case "PAYMENT PENDING":
-      return "border-[#B8956C]/40 text-[#8A7054] bg-[#B8956C]/10";
+      return "border-[#B7956C]/40 text-[#8A7054] bg-[#B7956C]/10";
     case "PAYMENT FAILED":
       return "border-[#A67575]/30 text-[#7A5656] bg-[#A67575]/5";
     case "CANCELLED":
@@ -118,6 +118,20 @@ export default function UserOrdersPage() {
           ) : (
             orders.map((order, index) => {
               const paymentStatus = paymentStatusByOrder[order.id];
+              const saleSubtotal = (order.items ?? []).reduce(
+                (sum: number, item: any) =>
+                  sum + (item.priceSnapshot ?? 0) * (item.quantity ?? 0),
+                0
+              );
+              const regularSubtotal = (order.items ?? []).reduce(
+                (sum: number, item: any) =>
+                  sum +
+                  ((item.sellerPriceSnapshot ?? item.priceSnapshot ?? 0) *
+                    (item.quantity ?? 0)),
+                0
+              );
+              const shippingAmount = Math.max((order.totalAmount ?? 0) - saleSubtotal, 0);
+              const regularGrandTotal = regularSubtotal + shippingAmount;
               let label = order.status;
               if (order.status === "PLACED") {
                 if (paymentStatus === "FAILED") {
@@ -185,9 +199,16 @@ export default function UserOrdersPage() {
                       <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
                         Total
                       </p>
-                      <p className="font-serif text-lg font-light text-foreground">
-                        {currency.format(order.totalAmount ?? 0)}
-                      </p>
+                      <div className="space-y-1">
+                        <p className="font-serif text-lg font-light text-foreground">
+                          {currency.format(order.totalAmount ?? 0)}
+                        </p>
+                        {regularGrandTotal !== (order.totalAmount ?? 0) ? (
+                          <p className="text-xs text-muted-foreground line-through">
+                            {currency.format(regularGrandTotal)}
+                          </p>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
 
@@ -199,33 +220,20 @@ export default function UserOrdersPage() {
                           Subtotal
                         </p>
                         <p className="text-foreground">
-                          {currency.format(
-                            (order.items ?? []).reduce(
-                              (sum: number, item: any) =>
-                                sum + (item.priceSnapshot ?? 0) * (item.quantity ?? 0),
-                              0
-                            )
-                          )}
+                          {currency.format(saleSubtotal)}
                         </p>
+                        {regularSubtotal !== saleSubtotal ? (
+                          <p className="text-xs text-muted-foreground line-through">
+                            {currency.format(regularSubtotal)}
+                          </p>
+                        ) : null}
                       </div>
                       <div className="space-y-1">
                         <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
                           Shipping
                         </p>
                         <p className="text-foreground">
-                          {currency.format(
-                            Math.max(
-                              (order.totalAmount ?? 0) -
-                              (order.items ?? []).reduce(
-                                (sum: number, item: any) =>
-                                  sum +
-                                  (item.priceSnapshot ?? 0) *
-                                  (item.quantity ?? 0),
-                                0
-                              ),
-                              0
-                            )
-                          )}
+                          {currency.format(shippingAmount)}
                         </p>
                       </div>
                       <div className="space-y-1">

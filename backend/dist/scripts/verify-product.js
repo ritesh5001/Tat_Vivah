@@ -1,4 +1,5 @@
-import { request, LOG, ensureSeller, ensureBuyer, prisma } from './test-utils.js';
+import { request, LOG, ensureSeller, ensureBuyer, ensureAdminToken, prisma } from './test-utils.js';
+import { generateAccessToken, Role } from '../src/utils/jwt.util.js';
 async function verifyProduct() {
     LOG.info(`Starting Product Service Verification`);
     // 1. Fetch Categories
@@ -75,6 +76,9 @@ async function verifyProduct() {
         LOG.error('Stock update failed', updateStockRes);
         process.exit(1);
     }
+    const adminToken = await ensureAdminToken();
+    await request(`/v1/admin/products/${productId}/approve`, 'PUT', {}, adminToken);
+    await request(`/v1/admin/products/${productId}/set-price`, 'PATCH', { adminListingPrice: 1099 }, adminToken);
     // 6. Fetch Product Publicly
     LOG.step('6. Fetch Product Publicly');
     const publicListRes = await request('/v1/products');
@@ -124,11 +128,27 @@ async function verifyProduct() {
         process.exit(1);
     }
     // 8b. Seller ownership check (cannot delete another's product)
-    const email2 = 'seller2-conflict@verified.com';
-    await request('/v1/seller/register', 'POST', { email: email2, phone: '8887779991', password: 'Password123!' });
-    await prisma.user.updateMany({ where: { email: email2 }, data: { status: 'ACTIVE', role: 'SELLER' } });
-    const seller2Login = await request('/v1/auth/login', 'POST', { identifier: email2, password: 'Password123!' });
-    const seller2Token = seller2Login.data.accessToken;
+    const email2 = `seller2-conflict-${Date.now()}@verified.com`;
+    const seller2 = await prisma.user.create({
+        data: {
+            email: email2,
+            phone: `88${Date.now().toString().slice(-8)}`,
+            passwordHash: 'hash',
+            status: 'ACTIVE',
+            role: 'SELLER',
+            isEmailVerified: true,
+            isPhoneVerified: true,
+        },
+    });
+    const seller2Token = generateAccessToken({
+        userId: seller2.id,
+        email: seller2.email,
+        phone: seller2.phone,
+        role: Role.SELLER,
+        status: seller2.status,
+        isEmailVerified: true,
+        isPhoneVerified: true,
+    });
     const unauthorizedUpdate = await request(`/v1/seller/products/${productId}`, 'DELETE', undefined, seller2Token);
     if (unauthorizedUpdate.status === 403) {
         LOG.success('Seller prevented from deleting another seller\'s product');

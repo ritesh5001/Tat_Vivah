@@ -107,4 +107,31 @@ export declare const logoutSchema: z.ZodObject<{
     refreshToken?: string | undefined;
 }>;
 export type LogoutInput = z.infer<typeof logoutSchema>;
+/**
+ * Request OTP Validation Schema
+ * POST /v1/auth/request-otp
+ */
+export declare const requestOtpSchema: z.ZodObject<{
+    email: z.ZodString;
+}, "strip", z.ZodTypeAny, {
+    email: string;
+}, {
+    email: string;
+}>;
+export type RequestOtpInput = z.infer<typeof requestOtpSchema>;
+/**
+ * Verify OTP Validation Schema
+ * POST /v1/auth/verify-otp
+ */
+export declare const verifyOtpSchema: z.ZodObject<{
+    email: z.ZodString;
+    otp: z.ZodString;
+}, "strip", z.ZodTypeAny, {
+    email: string;
+    otp: string;
+}, {
+    email: string;
+    otp: string;
+}>;
+export type VerifyOtpInput = z.infer<typeof verifyOtpSchema>;
 //# sourceMappingURL=auth.validation.d.ts.map

@@ -129,7 +129,7 @@ export class WebhookService {
                     data: {
                         sellerId: item.sellerId,
                         orderItemId: item.id,
-                        amount: item.priceSnapshot,
+                        amount: item.sellerPriceSnapshot ?? item.priceSnapshot,
                         status: SettlementStatus.PENDING
                     }
                 });

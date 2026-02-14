@@ -65,9 +65,12 @@ export class VariantRepository {
         product: {
             id: string;
             sellerId: string;
+            status: string;
+            deletedByAdmin: boolean;
+            adminListingPrice: number | null;
         };
     } | null> {
-        return prisma.productVariant.findUnique({
+        const variant = await prisma.productVariant.findUnique({
             where: { id },
             select: {
                 id: true,
@@ -77,10 +80,28 @@ export class VariantRepository {
                     select: {
                         id: true,
                         sellerId: true,
+                        status: true,
+                        deletedByAdmin: true,
+                        adminListingPrice: true,
                     },
                 },
             },
         });
+
+        if (!variant) {
+            return null;
+        }
+
+        return {
+            ...variant,
+            product: {
+                ...variant.product,
+                adminListingPrice:
+                    variant.product.adminListingPrice == null
+                        ? null
+                        : Number(variant.product.adminListingPrice),
+            },
+        };
     }
 
     /**

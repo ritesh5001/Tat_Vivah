@@ -52,6 +52,13 @@ export class CartService {
         if (variant.productId !== data.productId) {
             throw ApiError.badRequest('Variant does not belong to specified product');
         }
+        if (variant.product.deletedByAdmin || variant.product.status !== 'APPROVED') {
+            throw ApiError.badRequest('This product is not available for purchase');
+        }
+        const adminListingPrice = variant.product.adminListingPrice;
+        if (adminListingPrice === null || adminListingPrice === undefined) {
+            throw ApiError.badRequest('This product is pending price approval');
+        }
         // 3. Check stock availability
         const inventory = await this.inventoryRepo.findByVariantId(data.variantId);
         const availableStock = inventory?.stock ?? 0;
@@ -63,7 +70,7 @@ export class CartService {
         // 5. Add/update item with price snapshot
         const item = await this.cartRepo.addItem(cart.id, {
             ...data,
-            priceSnapshot: variant.price,
+            priceSnapshot: Number(adminListingPrice),
         });
         // 6. Invalidate cache
         await invalidateCache(CACHE_KEYS.CART(userId));
@@ -94,7 +101,10 @@ export class CartService {
         }
         // 4. Get current price for snapshot update
         const variant = await this.variantRepo.findById(itemWithCart.variantId);
-        const currentPrice = variant?.price ?? itemWithCart.priceSnapshot;
+        const variantWithProduct = await this.variantRepo.findByIdWithProduct(itemWithCart.variantId);
+        const currentPrice = variantWithProduct?.product?.adminListingPrice != null
+            ? Number(variantWithProduct.product.adminListingPrice)
+            : variant?.price ?? itemWithCart.priceSnapshot;
         // 5. Update quantity
         const item = await this.cartRepo.updateItemQuantity(itemId, quantity, currentPrice);
         // 6. Invalidate cache

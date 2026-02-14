@@ -19,6 +19,44 @@ import { registerAdmin } from "@/services/auth";
 import { heroContainerVariants, heroItemVariants } from "@/lib/motion.config";
 
 export default function AdminRegisterPage() {
+  const theme = {
+    page: "relative min-h-[calc(100vh-160px)] overflow-hidden bg-gradient-to-b from-charcoal via-charcoal to-brown/80",
+    texture: "pointer-events-none absolute inset-0 opacity-30",
+    shell: "relative z-10 mx-auto flex min-h-[calc(100vh-160px)] max-w-6xl flex-col items-center justify-center gap-16 px-6 py-16 lg:flex-row lg:gap-24",
+    eyebrow: "text-xs font-medium uppercase tracking-[0.3em] text-gold/85 mb-6",
+    heading:
+      "text-4xl font-semibold uppercase tracking-[0.08em] text-ivory sm:text-5xl mb-6",
+    headingAccent: "text-gold/90",
+    body: "text-base leading-relaxed text-ivory/75 mb-8",
+    statPanel: "border border-gold/30 bg-charcoal/60 backdrop-blur-sm p-6 space-y-4",
+    statLabel: "text-ivory/70",
+    statBadge:
+      "px-3 py-1 text-[10px] font-medium uppercase tracking-wider border border-gold/40 text-gold bg-charcoal/80",
+    card:
+      "rounded-sm border-gold/40 bg-charcoal/70 backdrop-blur-sm shadow-lg shadow-black/25 hover:translate-y-0 hover:shadow-lg",
+    cardTitle: "text-2xl font-semibold uppercase tracking-[0.08em] text-ivory",
+    cardDescription: "text-ivory/70",
+    label: "text-ivory/85",
+    input:
+      "rounded-sm border-border bg-charcoal/50 text-ivory placeholder:text-ivory/45 focus-visible:border-gold/70 focus-visible:ring-gold/20",
+    toggle:
+      "absolute right-4 top-1/2 -translate-y-1/2 text-ivory/60 hover:text-gold transition-colors duration-300",
+    button:
+      "w-full rounded-sm border border-gold/60 bg-charcoal text-ivory hover:bg-black/70 hover:-translate-y-0.5",
+    footer: "text-center text-sm text-ivory/70",
+    link: "text-gold/90 hover:text-gold transition-colors duration-300",
+  } as const;
+
+  const fadeInField = (index: number) => ({
+    initial: { opacity: 0, y: 8 },
+    animate: { opacity: 1, y: 0 },
+    transition: {
+      duration: 0.5,
+      delay: 0.18 + index * 0.05,
+      ease: [0.25, 0.1, 0.25, 1] as const,
+    },
+  });
+
   const [firstName, setFirstName] = React.useState("");
   const [lastName, setLastName] = React.useState("");
   const [email, setEmail] = React.useState("");
@@ -65,8 +103,12 @@ export default function AdminRegisterPage() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-160px)] bg-background">
-      <div className="mx-auto flex min-h-[calc(100vh-160px)] max-w-6xl flex-col items-center justify-center gap-16 px-6 py-16 lg:flex-row lg:gap-24">
+    <div className={theme.page}>
+      <div className={theme.texture} aria-hidden>
+        <div className="absolute inset-0 bg-linear-to-r from-transparent via-gold/10 to-transparent" />
+      </div>
+
+      <div className={theme.shell}>
         {/* Left Section - Editorial */}
         <motion.div
           initial="hidden"
@@ -76,23 +118,23 @@ export default function AdminRegisterPage() {
         >
           <motion.p
             variants={heroItemVariants}
-            className="text-xs font-medium uppercase tracking-[0.3em] text-gold mb-6"
+            className={theme.eyebrow}
           >
             Admin Registration
           </motion.p>
 
           <motion.h1
             variants={heroItemVariants}
-            className="font-serif text-4xl font-light tracking-tight text-foreground sm:text-5xl mb-6"
+            className={theme.heading}
           >
             Platform
             <br />
-            <span className="italic">Governance</span>
+            <span className={theme.headingAccent}>Governance</span>
           </motion.h1>
 
           <motion.p
             variants={heroItemVariants}
-            className="text-base leading-relaxed text-muted-foreground mb-8"
+            className={theme.body}
           >
             Set up administrative access with verification steps and enforce
             governance policies across the TatVivah platform.
@@ -100,7 +142,7 @@ export default function AdminRegisterPage() {
 
           <motion.div
             variants={heroItemVariants}
-            className="border border-border-soft bg-card p-6 space-y-4"
+            className={theme.statPanel}
           >
             {[
               { label: "Access level", value: "Super admin" },
@@ -108,8 +150,8 @@ export default function AdminRegisterPage() {
               { label: "Compliance review", value: "Required" },
             ].map((item) => (
               <div key={item.label} className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">{item.label}</span>
-                <span className="px-3 py-1 text-[10px] font-medium uppercase tracking-wider border border-gold/30 text-gold bg-gold/5">
+                <span className={theme.statLabel}>{item.label}</span>
+                <span className={theme.statBadge}>
                   {item.value}
                 </span>
               </div>
@@ -119,84 +161,90 @@ export default function AdminRegisterPage() {
 
         {/* Card */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
+          initial={{ opacity: 0, scale: 0.98 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5, delay: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
           className="w-full max-w-md"
         >
-          <Card className="border-border-soft">
+          <Card className={theme.card}>
             <CardHeader className="space-y-3 pb-6">
-              <CardTitle className="font-serif text-2xl font-normal">
+              <CardTitle className={theme.cardTitle}>
                 Provision Admin Account
               </CardTitle>
-              <CardDescription>
+              <CardDescription className={theme.cardDescription}>
                 Restricted access. Use official verification details.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
               <form className="space-y-5" onSubmit={handleSubmit}>
-                <div className="grid gap-4 sm:grid-cols-2">
+                <motion.div className="grid gap-4 sm:grid-cols-2" {...fadeInField(0)}>
                   <div className="space-y-2">
-                    <Label htmlFor="firstName">First Name</Label>
+                    <Label htmlFor="firstName" className={theme.label}>First Name</Label>
                     <Input
                       id="firstName"
                       placeholder="Aditi"
                       value={firstName}
                       onChange={(event) => setFirstName(event.target.value)}
+                      className={theme.input}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="lastName">Last Name</Label>
+                    <Label htmlFor="lastName" className={theme.label}>Last Name</Label>
                     <Input
                       id="lastName"
                       placeholder="Mehta"
                       value={lastName}
                       onChange={(event) => setLastName(event.target.value)}
+                      className={theme.input}
                     />
                   </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Work Email</Label>
+                </motion.div>
+                <motion.div className="space-y-2" {...fadeInField(1)}>
+                  <Label htmlFor="email" className={theme.label}>Work Email</Label>
                   <Input
                     id="email"
                     type="email"
                     placeholder="admin@tatvivah.com"
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
+                    className={theme.input}
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Contact Number (Optional)</Label>
+                </motion.div>
+                <motion.div className="space-y-2" {...fadeInField(2)}>
+                  <Label htmlFor="phone" className={theme.label}>Contact Number (Optional)</Label>
                   <Input
                     id="phone"
                     placeholder="9876543210"
                     value={phone}
                     onChange={(event) => setPhone(event.target.value)}
+                    className={theme.input}
                   />
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
+                </motion.div>
+                <motion.div className="grid gap-4 sm:grid-cols-2" {...fadeInField(3)}>
                   <div className="space-y-2">
-                    <Label htmlFor="department">Department (Optional)</Label>
+                    <Label htmlFor="department" className={theme.label}>Department (Optional)</Label>
                     <Input
                       id="department"
                       placeholder="Operations"
                       value={department}
                       onChange={(event) => setDepartment(event.target.value)}
+                      className={theme.input}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="designation">Designation (Optional)</Label>
+                    <Label htmlFor="designation" className={theme.label}>Designation (Optional)</Label>
                     <Input
                       id="designation"
                       placeholder="Compliance lead"
                       value={designation}
                       onChange={(event) => setDesignation(event.target.value)}
+                      className={theme.input}
                     />
                   </div>
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
+                </motion.div>
+                <motion.div className="grid gap-4 sm:grid-cols-2" {...fadeInField(4)}>
                   <div className="space-y-2">
-                    <Label htmlFor="password">Password</Label>
+                    <Label htmlFor="password" className={theme.label}>Password</Label>
                     <div className="relative">
                       <Input
                         id="password"
@@ -204,18 +252,19 @@ export default function AdminRegisterPage() {
                         placeholder="Min 8 chars"
                         value={password}
                         onChange={(event) => setPassword(event.target.value)}
+                        className={theme.input}
                       />
                       <button
                         type="button"
                         onClick={() => setShowPassword((value) => !value)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors duration-300"
+                        className={theme.toggle}
                       >
                         {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                       </button>
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="confirm">Confirm Password</Label>
+                    <Label htmlFor="confirm" className={theme.label}>Confirm Password</Label>
                     <div className="relative">
                       <Input
                         id="confirm"
@@ -223,25 +272,28 @@ export default function AdminRegisterPage() {
                         placeholder="Re-enter"
                         value={confirmPassword}
                         onChange={(event) => setConfirmPassword(event.target.value)}
+                        className={theme.input}
                       />
                       <button
                         type="button"
                         onClick={() => setShowConfirm((value) => !value)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors duration-300"
+                        className={theme.toggle}
                       >
                         {showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
                       </button>
                     </div>
                   </div>
-                </div>
-                <Button className="w-full" size="lg" type="submit" disabled={loading}>
-                  {loading ? "Creating admin..." : "Request Admin Access"}
-                </Button>
+                </motion.div>
+                <motion.div {...fadeInField(5)}>
+                  <Button className={theme.button} size="lg" type="submit" disabled={loading}>
+                    {loading ? "Creating admin..." : "Request Admin Access"}
+                  </Button>
+                </motion.div>
               </form>
-              <p className="text-center text-sm text-muted-foreground">
+              <p className={theme.footer}>
                 Already authorized?{" "}
                 <Link
-                  className="text-foreground hover:text-gold transition-colors duration-300"
+                  className={theme.link}
                   href="/login"
                 >
                   Sign in

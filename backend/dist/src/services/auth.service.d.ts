@@ -8,6 +8,7 @@ import type { RegisterUserRequest, RegisterSellerRequest, RegisterAdminRequest, 
 export declare class AuthService {
     private readonly repository;
     constructor(repository: AuthRepository);
+    private issueTokens;
     /**
      * Register a new USER
      * POST /v1/auth/register
@@ -53,6 +54,10 @@ export declare class AuthService {
      * 5. Create login session with HASHED refresh token
      */
     login(identifier: string, password: string, userAgent?: string, ipAddress?: string): Promise<LoginResponse>;
+    requestEmailOtp(email: string): Promise<{
+        message: string;
+    }>;
+    verifyEmailOtp(email: string, code: string): Promise<LoginResponse | MessageResponse>;
     /**
      * Refresh tokens with rotation
      * POST /v1/auth/refresh

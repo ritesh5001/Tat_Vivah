@@ -78,6 +78,7 @@ async function verifyAdmin() {
                 categoryId: category.id,
                 title: 'Test Admin Product',
                 isPublished: false,
+                sellerPrice: 500,
                 variants: {
                     create: {
                         sku: `ADM_SKU_${Date.now()}`,
@@ -112,7 +113,10 @@ async function verifyAdmin() {
                         productId: product.id,
                         variantId: variant!.id,
                         quantity: 1,
-                        priceSnapshot: 500
+                        priceSnapshot: 650,
+                        sellerPriceSnapshot: 500,
+                        adminPriceSnapshot: 650,
+                        platformMargin: 150,
                     }
                 }
             }
@@ -238,6 +242,42 @@ async function verifyAdmin() {
         }
         console.log('✅ Product approved successfully');
 
+        console.log('Testing PATCH /v1/admin/products/:id/set-price...');
+        const setPriceRes = await fetch(`${API_URL}/admin/products/${product.id}/set-price`, {
+            method: 'PATCH',
+            headers: {
+                'Authorization': `Bearer ${adminToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ adminListingPrice: 650 })
+        });
+        const setPriceData: any = await setPriceRes.json();
+        if (!setPriceRes.ok || setPriceData.adminListingPrice !== 650) {
+            console.log('Set Price Response:', JSON.stringify(setPriceData, null, 2));
+            throw new Error('Failed to set product listing price');
+        }
+        console.log('✅ Product listing price set successfully');
+
+        console.log('Testing GET /v1/admin/products/pricing-overview...');
+        const pricingOverviewRes = await fetch(`${API_URL}/admin/products/pricing-overview`, {
+            headers: { 'Authorization': `Bearer ${adminToken}` }
+        });
+        const pricingOverviewData: any = await pricingOverviewRes.json();
+        if (!pricingOverviewRes.ok || !Array.isArray(pricingOverviewData.products)) {
+            throw new Error('Failed to fetch pricing overview');
+        }
+        console.log('✅ Pricing overview fetched');
+
+        console.log('Testing GET /v1/admin/analytics/profit...');
+        const profitRes = await fetch(`${API_URL}/admin/analytics/profit`, {
+            headers: { 'Authorization': `Bearer ${adminToken}` }
+        });
+        const profitData: any = await profitRes.json();
+        if (!profitRes.ok || typeof profitData.totalMarginEarned !== 'number') {
+            throw new Error('Failed to fetch profit analytics');
+        }
+        console.log('✅ Profit analytics fetched');
+
         // =========================================================================
         // 4. Test Order Management
         // =========================================================================
@@ -285,7 +325,10 @@ async function verifyAdmin() {
                         productId: product.id,
                         variantId: variant!.id,
                         quantity: 1,
-                        priceSnapshot: 500
+                        priceSnapshot: 650,
+                        sellerPriceSnapshot: 500,
+                        adminPriceSnapshot: 650,
+                        platformMargin: 150,
                     }
                 }
             }

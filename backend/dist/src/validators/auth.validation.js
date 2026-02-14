@@ -99,4 +99,25 @@ export const logoutSchema = z.object({
         .min(1, 'Refresh token is required')
         .optional(),
 });
+/**
+ * Request OTP Validation Schema
+ * POST /v1/auth/request-otp
+ */
+export const requestOtpSchema = z.object({
+    email: z
+        .string()
+        .email('Invalid email address'),
+});
+/**
+ * Verify OTP Validation Schema
+ * POST /v1/auth/verify-otp
+ */
+export const verifyOtpSchema = z.object({
+    email: z
+        .string()
+        .email('Invalid email address'),
+    otp: z
+        .string()
+        .min(4, 'OTP is required'),
+});
 //# sourceMappingURL=auth.validation.js.map

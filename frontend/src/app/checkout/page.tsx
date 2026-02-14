@@ -130,7 +130,7 @@ export default function CheckoutPage() {
             router.push("/user/orders");
           },
         },
-        theme: { color: "#B8956C" },
+        theme: { color: "#B7956C" },
       };
 
       const razorpay = new (window as any).Razorpay(options);

@@ -19,6 +19,58 @@ export class ProductService {
         this.inventoryRepo = inventoryRepo;
         this.categoryRepo = categoryRepo;
     }
+    toNumber(value) {
+        if (typeof value === 'number')
+            return value;
+        return Number(value ?? 0);
+    }
+    toPublicProduct(product) {
+        return {
+            id: product.id,
+            categoryId: product.categoryId,
+            title: product.title,
+            description: product.description ?? null,
+            images: product.images ?? [],
+            status: product.status,
+            isPublished: Boolean(product.isPublished),
+            createdAt: product.createdAt,
+            updatedAt: product.updatedAt,
+            category: product.category,
+            price: this.toNumber(product.adminListingPrice),
+        };
+    }
+    toPublicProductDetail(product) {
+        const listingPrice = this.toNumber(product.adminListingPrice);
+        return {
+            id: product.id,
+            categoryId: product.categoryId,
+            title: product.title,
+            description: product.description ?? null,
+            images: product.images ?? [],
+            status: product.status,
+            isPublished: Boolean(product.isPublished),
+            createdAt: product.createdAt,
+            updatedAt: product.updatedAt,
+            category: product.category,
+            price: listingPrice,
+            variants: (product.variants ?? []).map((variant) => ({
+                id: variant.id,
+                sku: variant.sku,
+                price: listingPrice,
+                compareAtPrice: variant.compareAtPrice ?? null,
+                inventory: variant.inventory ?? null,
+            })),
+        };
+    }
+    toSellerProduct(product) {
+        return {
+            ...product,
+            sellerPrice: this.toNumber(product.sellerPrice),
+            adminListingPrice: product.adminListingPrice === null || product.adminListingPrice === undefined
+                ? null
+                : this.toNumber(product.adminListingPrice),
+        };
+    }
     // =========================================================================
     // PUBLIC METHODS (Buyer)
     // =========================================================================
@@ -39,7 +91,7 @@ export class ProductService {
         const page = filters.page ?? 1;
         const limit = filters.limit ?? 20;
         const response = {
-            data: products,
+            data: products.map((product) => this.toPublicProduct(product)),
             pagination: {
                 page,
                 limit,
@@ -67,7 +119,7 @@ export class ProductService {
         if (!product) {
             throw ApiError.notFound('Product not found');
         }
-        const response = { product };
+        const response = { product: this.toPublicProductDetail(product) };
         // Cache the result
         await setCache(CACHE_KEYS.PRODUCT_DETAIL(id), response);
         return response;
@@ -88,8 +140,8 @@ export class ProductService {
         // Invalidate product list cache
         await invalidateProductCaches();
         return {
-            message: 'Product created successfully',
-            product,
+            message: 'Product submitted for approval',
+            product: this.toSellerProduct(product),
         };
     }
     /**
@@ -98,7 +150,7 @@ export class ProductService {
      */
     async listSellerProducts(sellerId) {
         const products = await this.productRepo.findBySellerId(sellerId);
-        return { products };
+        return { products: products.map((product) => this.toSellerProduct(product)) };
     }
     /**
      * Update a product (seller only, ownership enforced)
@@ -121,7 +173,7 @@ export class ProductService {
         await invalidateProductCaches(productId);
         return {
             message: 'Product updated successfully',
-            product,
+            product: this.toSellerProduct(product),
         };
     }
     /**
@@ -150,9 +202,9 @@ export class ProductService {
             throw ApiError.forbidden('You do not have permission to add variants to this product');
         }
         // Check SKU uniqueness
-        const skuExists = await this.variantRepo.skuExists(data.sku);
+        const skuExists = await this.variantRepo.skuExists(productId, data.sku);
         if (skuExists) {
-            throw ApiError.conflict('SKU already exists');
+            throw ApiError.conflict('SKU already exists for this product');
         }
         const variant = await this.variantRepo.create(productId, data);
         // Invalidate caches

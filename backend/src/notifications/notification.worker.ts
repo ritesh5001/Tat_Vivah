@@ -1,7 +1,7 @@
-import { Worker } from 'bullmq';
-import { Redis } from 'ioredis';
+import { Job, Worker } from 'bullmq';
 import { env } from '../config/env.js';
 import { prisma } from '../config/db.js';
+import { getQueueRedisConnection } from './notification.queue.js';
 
 import { notificationRepository } from './notification.repository.js';
 import { sendEmail } from './email/resend.client.js';
@@ -12,17 +12,10 @@ import { orderDeliveredTemplate } from './email/templates/order-delivered.js';
 import { sellerNewOrderTemplate } from './email/templates/seller-new-order.js';
 import { adminAlertTemplate } from './email/templates/admin-alert.js';
 import { sellerApprovedTemplate } from './email/templates/seller-approved.js';
+import { sellerProductApprovedTemplate } from './email/templates/seller-product-approved.js';
+import { sellerProductRejectedTemplate } from './email/templates/seller-product-rejected.js';
 
-if (!env.REDIS_URL) {
-    console.warn('REDIS_URL is not set. Notification worker is disabled.');
-}
-
-const connection = env.REDIS_URL
-    ? new Redis(env.REDIS_URL, { maxRetriesPerRequest: null })
-    : null;
-
-export const notificationWorker = connection
-    ? new Worker<NotificationJobPayload>('notification.queue', async (job) => {
+export async function processNotificationJob(job: Job<NotificationJobPayload>): Promise<void> {
     console.log(`Job ${job.id} started. Notification: ${job.data.notificationId}`); // LOG START
     const { notificationId } = job.data;
 
@@ -75,12 +68,14 @@ export const notificationWorker = connection
             case 'SELLER_APPROVED':
                 emailData = sellerApprovedTemplate(meta);
                 break;
+            case 'SELLER_PRODUCT_APPROVED':
+                emailData = sellerProductApprovedTemplate(meta);
+                break;
             case 'ADMIN_ALERT':
                 emailData = adminAlertTemplate(meta);
                 break;
             case 'SELLER_PRODUCT_REJECTED':
-                // Fallback or specific template
-                emailData = { subject: 'Product Rejected', html: '<p>Your product was rejected.</p>' };
+                emailData = sellerProductRejectedTemplate(meta);
                 break;
             default:
                 throw new Error(`Unhandled notification type: ${notification.type}`);
@@ -104,14 +99,28 @@ export const notificationWorker = connection
         // Throw to trigger BullMQ retry
         throw error;
     }
-}, {
-    connection,
-    concurrency: 5 // Process 5 jobs in parallel
-})
-    : null;
+}
 
-if (notificationWorker) {
-    notificationWorker.on('failed', (job, err) => {
+export function createNotificationWorker(concurrency = 5): Worker<NotificationJobPayload> | null {
+    if (!env.REDIS_URL) {
+        console.warn('REDIS_URL is not set. Notification worker is disabled.');
+        return null;
+    }
+
+    const connection = getQueueRedisConnection();
+    if (!connection) {
+        console.warn('Queue Redis connection unavailable. Notification worker is disabled.');
+        return null;
+    }
+
+    const worker = new Worker<NotificationJobPayload>('notification.queue', processNotificationJob, {
+        connection,
+        concurrency,
+    });
+
+    worker.on('failed', (job, err) => {
         console.error(`Job ${job?.id} has failed with ${err.message}`);
     });
+
+    return worker;
 }

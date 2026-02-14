@@ -51,6 +51,9 @@ export class CheckoutService {
             sellerId: string;
             quantity: number;
             priceSnapshot: number;
+            sellerPriceSnapshot: number;
+            adminPriceSnapshot: number;
+            platformMargin: number;
             availableStock: number;
         }> = [];
 
@@ -59,6 +62,23 @@ export class CheckoutService {
 
             if (!item.product || !item.variant) {
                 validationErrors.push(`Product or variant not found for item ${item.id}`);
+                continue;
+            }
+
+            const adminListingPriceRaw = (item.product as any).adminListingPrice;
+            const sellerPriceRaw = (item.product as any).sellerPrice;
+
+            if (adminListingPriceRaw === null || adminListingPriceRaw === undefined) {
+                validationErrors.push(`Pricing is pending approval for ${item.product.title}`);
+                continue;
+            }
+
+            const adminListingPrice = Number(adminListingPriceRaw);
+            const sellerPrice = Number(sellerPriceRaw ?? adminListingPriceRaw);
+            const margin = adminListingPrice - sellerPrice;
+
+            if (margin < 0) {
+                validationErrors.push(`Invalid pricing state for ${item.product.title}`);
                 continue;
             }
 
@@ -72,7 +92,10 @@ export class CheckoutService {
                     productId: item.productId,
                     sellerId: item.product.sellerId,
                     quantity: item.quantity,
-                    priceSnapshot: item.variant.price, // Use current price at checkout
+                    priceSnapshot: adminListingPrice,
+                    sellerPriceSnapshot: sellerPrice,
+                    adminPriceSnapshot: adminListingPrice,
+                    platformMargin: margin,
                     availableStock,
                 });
             }
@@ -110,6 +133,9 @@ export class CheckoutService {
                         variantId: item.variantId,
                         quantity: item.quantity,
                         priceSnapshot: item.priceSnapshot,
+                        sellerPriceSnapshot: item.sellerPriceSnapshot,
+                        adminPriceSnapshot: item.adminPriceSnapshot,
+                        platformMargin: item.platformMargin,
                     })),
                 },
             },

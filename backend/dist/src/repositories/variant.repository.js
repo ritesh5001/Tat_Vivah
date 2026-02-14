@@ -59,6 +59,9 @@ export class VariantRepository {
                     select: {
                         id: true,
                         sellerId: true,
+                        status: true,
+                        deletedByAdmin: true,
+                        adminListingPrice: true,
                     },
                 },
             },
@@ -79,9 +82,9 @@ export class VariantRepository {
     /**
      * Check if SKU exists
      */
-    async skuExists(sku) {
-        const variant = await prisma.productVariant.findUnique({
-            where: { sku },
+    async skuExists(productId, sku) {
+        const variant = await prisma.productVariant.findFirst({
+            where: { productId, sku },
             select: { id: true },
         });
         return variant !== null;

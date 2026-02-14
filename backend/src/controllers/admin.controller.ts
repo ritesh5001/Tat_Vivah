@@ -13,6 +13,11 @@ import type { AuditLogFilters, AuditEntityType } from '../repositories/audit.rep
 import { ApiError } from '../errors/ApiError.js';
 import { bestsellerService } from '../services/bestseller.service.js';
 import { createBestsellerSchema, updateBestsellerSchema } from '../validators/bestseller.validation.js';
+import {
+    productIdParamSchema,
+    productRejectSchema,
+    productSetPriceSchema,
+} from '../validators/admin.validation.js';
 
 /**
  * Admin Controller
@@ -126,7 +131,7 @@ export const adminController = {
         next: NextFunction
     ): Promise<void> => {
         try {
-            const id = req.params['id'] as string;
+            const { id } = productIdParamSchema.parse(req.params);
             const actorId = req.user!.userId as string;
             const result = await adminService.approveProduct(id, actorId);
             res.json(result);
@@ -145,10 +150,62 @@ export const adminController = {
         next: NextFunction
     ): Promise<void> => {
         try {
-            const id = req.params['id'] as string;
-            const { reason } = req.body as { reason: string };
+            const { id } = productIdParamSchema.parse(req.params);
+            const { reason } = productRejectSchema.parse(req.body);
             const actorId = req.user!.userId as string;
             const result = await adminService.rejectProduct(id, reason, actorId);
+            res.json(result);
+        } catch (error) {
+            next(error);
+        }
+    },
+
+    /**
+     * PATCH /v1/admin/products/:id/set-price
+     * Set admin listing price for a product
+     */
+    setProductPrice: async (
+        req: Request,
+        res: Response,
+        next: NextFunction
+    ): Promise<void> => {
+        try {
+            const { id } = productIdParamSchema.parse(req.params);
+            const { adminListingPrice } = productSetPriceSchema.parse(req.body);
+            const actorId = req.user!.userId as string;
+            const result = await adminService.setProductPrice(id, adminListingPrice, actorId);
+            res.json(result);
+        } catch (error) {
+            next(error);
+        }
+    },
+
+    /**
+     * GET /v1/admin/products/pricing-overview
+     */
+    pricingOverview: async (
+        _req: Request,
+        res: Response,
+        next: NextFunction
+    ): Promise<void> => {
+        try {
+            const result = await adminService.pricingOverview();
+            res.json(result);
+        } catch (error) {
+            next(error);
+        }
+    },
+
+    /**
+     * GET /v1/admin/analytics/profit
+     */
+    profitAnalytics: async (
+        _req: Request,
+        res: Response,
+        next: NextFunction
+    ): Promise<void> => {
+        try {
+            const result = await adminService.profitAnalytics();
             res.json(result);
         } catch (error) {
             next(error);
@@ -229,7 +286,14 @@ export const adminController = {
             if (validated.name === undefined && validated.isActive === undefined) {
                 throw ApiError.badRequest('No updates provided');
             }
-            const category = await categoryService.updateCategory(id, validated);
+            const updateData: { name?: string; isActive?: boolean } = {};
+            if (validated.name !== undefined) {
+                updateData.name = validated.name;
+            }
+            if (validated.isActive !== undefined) {
+                updateData.isActive = validated.isActive;
+            }
+            const category = await categoryService.updateCategory(id, updateData);
             res.json({ message: 'Category updated', category });
         } catch (error) {
             next(error);

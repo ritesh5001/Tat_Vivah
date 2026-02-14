@@ -13,6 +13,10 @@ export declare class ProductService {
     private readonly inventoryRepo;
     private readonly categoryRepo;
     constructor(productRepo: ProductRepository, variantRepo: VariantRepository, inventoryRepo: InventoryRepository, categoryRepo: CategoryRepository);
+    private toNumber;
+    private toPublicProduct;
+    private toPublicProductDetail;
+    private toSellerProduct;
     /**
      * List published products with pagination
      * Uses Redis caching

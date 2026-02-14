@@ -25,6 +25,12 @@ export const productRejectSchema = z.object({
     reason: z.string().min(1, 'Rejection reason is required').max(500),
 });
 
+export const productSetPriceSchema = z.object({
+    adminListingPrice: z
+        .number({ invalid_type_error: 'Admin listing price must be a number' })
+        .positive('Admin listing price must be positive'),
+});
+
 // ============================================================================
 // ORDER MANAGEMENT
 // ============================================================================
@@ -51,5 +57,6 @@ export const auditLogQuerySchema = z.object({
 export type SellerIdParam = z.infer<typeof sellerIdParamSchema>;
 export type ProductIdParam = z.infer<typeof productIdParamSchema>;
 export type ProductRejectInput = z.infer<typeof productRejectSchema>;
+export type ProductSetPriceInput = z.infer<typeof productSetPriceSchema>;
 export type OrderIdParam = z.infer<typeof orderIdParamSchema>;
 export type AuditLogQuery = z.infer<typeof auditLogQuerySchema>;

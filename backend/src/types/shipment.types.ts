@@ -4,10 +4,7 @@
  */
 
 import {
-    ShipmentStatus,
-    shipments,
-    shipment_events,
-    AddressLabel
+    ShipmentStatus
 } from '@prisma/client';
 
 /**

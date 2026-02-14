@@ -26,6 +26,9 @@ export declare class VariantRepository {
         product: {
             id: string;
             sellerId: string;
+            status: string;
+            deletedByAdmin: boolean;
+            adminListingPrice: number | null;
         };
     } | null>;
     /**
@@ -35,7 +38,7 @@ export declare class VariantRepository {
     /**
      * Check if SKU exists
      */
-    skuExists(sku: string): Promise<boolean>;
+    skuExists(productId: string, sku: string): Promise<boolean>;
 }
 export declare const variantRepository: VariantRepository;
 //# sourceMappingURL=variant.repository.d.ts.map

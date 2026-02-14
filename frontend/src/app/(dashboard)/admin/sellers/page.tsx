@@ -11,7 +11,7 @@ const getStatusStyle = (status: string) => {
     case "ACTIVE":
       return "border-[#7B9971]/30 text-[#5A7352] bg-[#7B9971]/5";
     case "PENDING":
-      return "border-[#B8956C]/30 text-[#8A7054] bg-[#B8956C]/5";
+      return "border-[#B7956C]/30 text-[#8A7054] bg-[#B7956C]/5";
     case "SUSPENDED":
       return "border-[#A67575]/30 text-[#7A5656] bg-[#A67575]/5";
     default:

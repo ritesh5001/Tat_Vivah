@@ -14,6 +14,10 @@ export const createProductSchema = z.object({
         .min(3, 'Title must be at least 3 characters')
         .max(255, 'Title must be at most 255 characters'),
 
+    sellerPrice: z
+        .number({ invalid_type_error: 'Seller price must be a number' })
+        .positive('Seller price must be positive'),
+
     description: z
         .string()
         .max(2000, 'Description must be at most 2000 characters')

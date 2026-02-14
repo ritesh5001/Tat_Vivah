@@ -19,7 +19,7 @@ const getStatusStyle = (status: string) => {
     case "ACTIVE":
       return "border-[#7B9971]/30 text-[#5A7352]";
     case "PENDING":
-      return "border-[#B8956C]/30 text-[#8A7054]";
+      return "border-[#B7956C]/30 text-[#8A7054]";
     case "SUSPENDED":
       return "border-[#A67575]/30 text-[#7A5656]";
     default:
@@ -72,7 +72,7 @@ export default function AdminOverviewPage() {
   ];
 
   const complianceItems = [
-    { label: "Auto-publish enabled", count: "Live" },
+    { label: "Approval workflow", count: "Enabled" },
     { label: "Admin removals", count: "Manual" },
     { label: "Customer reviews", count: "Monitored" },
   ];
@@ -155,7 +155,7 @@ export default function AdminOverviewPage() {
                   className="flex items-center justify-between p-6"
                 >
                   <span className="text-sm text-foreground">{item.label}</span>
-                  <span className="px-3 py-1 text-xs font-medium border border-[#B8956C]/30 text-[#8A7054] bg-[#B8956C]/5">
+                  <span className="px-3 py-1 text-xs font-medium border border-gold/30 text-[#8A7054] bg-gold/5">
                     {item.count}
                   </span>
                 </motion.div>
@@ -189,13 +189,13 @@ export default function AdminOverviewPage() {
                   <span className="text-muted-foreground">→</span>
                 </motion.div>
               </Link>
-              <Link href="/admin/products">
+              <Link href="/admin/moderation">
                 <motion.div
                   whileHover={{ x: 4 }}
                   transition={{ duration: 0.3, ease: "easeOut" }}
                   className="flex items-center justify-between py-3 px-4 border border-border-soft text-sm text-foreground transition-all duration-300 hover:border-gold/50 hover:bg-cream/50 dark:hover:bg-brown/20"
                 >
-                  <span>Flag Listing</span>
+                  <span>Approval Requests</span>
                   <span className="text-muted-foreground">→</span>
                 </motion.div>
               </Link>

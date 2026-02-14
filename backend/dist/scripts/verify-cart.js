@@ -1,4 +1,4 @@
-import { request, LOG, ensureSeller, ensureBuyer, prisma } from './test-utils.js';
+import { request, LOG, ensureSeller, ensureBuyer, ensureAdminToken, prisma } from './test-utils.js';
 async function verifyCart() {
     LOG.info('Starting Cart Service Verification');
     // 1. Setup: Seller creates product with variant and stock
@@ -43,6 +43,9 @@ async function verifyCart() {
     }
     // Update stock to 10
     await request(`/v1/seller/products/variants/${variantId}/stock`, 'PUT', { stock: 10 }, sellerToken);
+    const adminToken = await ensureAdminToken();
+    await request(`/v1/admin/products/${productId}/approve`, 'PUT', {}, adminToken);
+    await request(`/v1/admin/products/${productId}/set-price`, 'PATCH', { adminListingPrice: 550 }, adminToken);
     LOG.success(`Created product ${productId} with variant ${variantId} (stock: 10)`);
     // 2. Buyer Login
     LOG.step('2. Buyer Login');

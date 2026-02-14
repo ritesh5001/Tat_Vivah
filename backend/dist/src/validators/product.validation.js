@@ -11,9 +11,17 @@ export const createProductSchema = z.object({
         .string()
         .min(3, 'Title must be at least 3 characters')
         .max(255, 'Title must be at most 255 characters'),
+    sellerPrice: z
+        .number({ invalid_type_error: 'Seller price must be a number' })
+        .positive('Seller price must be positive'),
     description: z
         .string()
         .max(2000, 'Description must be at most 2000 characters')
+        .optional(),
+    images: z
+        .array(z.string().url('Image must be a valid URL'))
+        .min(1, 'At least one product image is required')
+        .max(5, 'Maximum 5 images allowed')
         .optional(),
     isPublished: z
         .boolean()
@@ -37,6 +45,11 @@ export const updateProductSchema = z.object({
     description: z
         .string()
         .max(2000, 'Description must be at most 2000 characters')
+        .optional(),
+    images: z
+        .array(z.string().url('Image must be a valid URL'))
+        .min(1, 'At least one product image is required')
+        .max(5, 'Maximum 5 images allowed')
         .optional(),
     isPublished: z
         .boolean()

@@ -4,6 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+const currency = new Intl.NumberFormat("en-IN", {
+  style: "currency",
+  currency: "INR",
+  maximumFractionDigits: 0,
+});
 
 type SearchParams = {
   page?: string;
@@ -152,7 +157,7 @@ export default async function MarketplacePage({
                 className="group block"
               >
                 {/* Product Image */}
-                <div className="relative mb-5 overflow-hidden bg-cream dark:bg-brown/20 aspect-[3/4] border border-border-soft transition-all duration-400 group-hover:border-gold/30">
+                <div className="relative mb-5 overflow-hidden bg-cream dark:bg-brown/20 aspect-3/4 border border-border-soft transition-all duration-400 group-hover:border-gold/30">
                   <img
                     src={product.images?.[0] ?? "/images/product-placeholder.svg"}
                     alt={product.title}
@@ -177,9 +182,21 @@ export default async function MarketplacePage({
                   <p className="text-xs text-muted-foreground uppercase tracking-wider">
                     {product.category?.name ?? "Collection"}
                   </p>
-                  <p className="text-sm text-muted-foreground">
-                    View for pricing
-                  </p>
+                  {typeof (product.salePrice ?? product.adminPrice ?? product.price) === "number" ? (
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="font-medium text-foreground">
+                        {currency.format(product.salePrice ?? product.adminPrice ?? product.price)}
+                      </span>
+                      {typeof product.regularPrice === "number" &&
+                      product.regularPrice !== (product.salePrice ?? product.adminPrice ?? product.price) ? (
+                        <span className="text-muted-foreground line-through">
+                          {currency.format(product.regularPrice)}
+                        </span>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Price on request</p>
+                  )}
                 </div>
               </Link>
             ))

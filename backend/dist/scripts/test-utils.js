@@ -1,5 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { env } from '../src/config/env.js';
+import { generateAccessToken, Role, UserStatus } from '../src/utils/jwt.util.js';
+import bcrypt from 'bcrypt';
 export const prisma = new PrismaClient();
 export const BASE_URL = `http://localhost:${env.PORT}`;
 export const COLORS = {
@@ -26,10 +28,20 @@ export async function request(path, method = 'GET', body, token) {
     if (token)
         headers['Authorization'] = `Bearer ${token}`;
     try {
+        let requestBody = body;
+        if (method.toUpperCase() === 'POST' &&
+            path === '/v1/seller/products' &&
+            requestBody &&
+            requestBody.sellerPrice === undefined) {
+            requestBody = {
+                ...requestBody,
+                sellerPrice: 500,
+            };
+        }
         const response = await fetch(`${BASE_URL}${path}`, {
             method,
             headers,
-            body: body ? JSON.stringify(body) : null
+            body: requestBody ? JSON.stringify(requestBody) : null
         });
         const data = await response.json().catch(() => ({}));
         return { status: response.status, data };
@@ -38,46 +50,94 @@ export async function request(path, method = 'GET', body, token) {
         return { status: 0, data: error };
     }
 }
+export async function ensureAdminToken() {
+    const email = `script-admin-${Date.now()}@test.com`;
+    const admin = await prisma.user.create({
+        data: {
+            email,
+            passwordHash: 'hash',
+            role: Role.ADMIN,
+            status: UserStatus.ACTIVE,
+            isEmailVerified: true,
+            isPhoneVerified: true,
+        },
+    });
+    return generateAccessToken({
+        userId: admin.id,
+        email: admin.email,
+        phone: admin.phone,
+        role: admin.role,
+        status: admin.status,
+        isEmailVerified: admin.isEmailVerified,
+        isPhoneVerified: admin.isPhoneVerified,
+    });
+}
 export async function ensureSeller() {
     const email = 'test-seller@verified.com';
     const phone = '9998887776';
-    // Register via API to handle password hashing properly
-    // We try to find first to avoid hitting API if not needed, but API handles idempotency usually (returns 409)
-    // Actually our API returns 409 if exists.
-    const registerRes = await request('/v1/seller/register', 'POST', {
-        email,
-        phone,
-        password: 'Password123!'
-    });
-    if (registerRes.status === 201 || registerRes.status === 409) {
-        // Force activate via Prisma
+    const password = 'Password123!';
+    const passwordHash = await bcrypt.hash(password, 10);
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) {
         await prisma.user.update({
             where: { email },
             data: {
+                phone,
+                passwordHash,
                 status: 'ACTIVE',
                 role: 'SELLER',
                 isEmailVerified: true,
-                isPhoneVerified: true
-            }
+                isPhoneVerified: true,
+            },
         });
-        return { email, password: 'Password123!' };
     }
     else {
-        throw new Error(`Failed to create/ensure seller: ${JSON.stringify(registerRes)}`);
+        await prisma.user.create({
+            data: {
+                email,
+                phone,
+                passwordHash,
+                role: 'SELLER',
+                status: 'ACTIVE',
+                isEmailVerified: true,
+                isPhoneVerified: true,
+            },
+        });
     }
+    return { email, password };
 }
 export async function ensureBuyer() {
     const email = 'test-buyer@verified.com';
     const phone = '1112223334';
-    const registerRes = await request('/v1/auth/register', 'POST', {
-        fullName: 'Test Buyer',
-        email,
-        phone,
-        password: 'Password123!'
-    });
-    if (registerRes.status === 201 || registerRes.status === 409) {
-        return { email, password: 'Password123!' };
+    const password = 'Password123!';
+    const passwordHash = await bcrypt.hash(password, 10);
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) {
+        await prisma.user.update({
+            where: { email },
+            data: {
+                phone,
+                passwordHash,
+                role: 'USER',
+                status: 'ACTIVE',
+                isEmailVerified: true,
+                isPhoneVerified: true,
+            },
+        });
     }
-    throw new Error(`Failed to create buyer: ${JSON.stringify(registerRes)}`);
+    else {
+        await prisma.user.create({
+            data: {
+                email,
+                phone,
+                passwordHash,
+                role: 'USER',
+                status: 'ACTIVE',
+                isEmailVerified: true,
+                isPhoneVerified: true,
+            },
+        });
+    }
+    return { email, password };
 }
 //# sourceMappingURL=test-utils.js.map

@@ -4,6 +4,14 @@ export interface SellerProduct {
   id: string;
   title: string;
   description?: string | null;
+  sellerPrice?: number;
+  adminListingPrice?: number | null;
+  priceApprovedAt?: string | null;
+  priceApprovedById?: string | null;
+  status?: "PENDING" | "APPROVED" | "REJECTED";
+  rejectionReason?: string | null;
+  approvedAt?: string | null;
+  approvedById?: string | null;
   isPublished: boolean;
   deletedByAdmin?: boolean;
   deletedByAdminAt?: string | null;
@@ -30,6 +38,7 @@ export interface SellerProductListResponse {
 export interface CreateProductPayload {
   categoryId: string;
   title: string;
+  sellerPrice: number;
   description?: string;
   isPublished?: boolean;
   images?: string[];

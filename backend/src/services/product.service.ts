@@ -24,6 +24,8 @@ import type {
     UpdateProductRequest,
     CreateVariantRequest,
     UpdateVariantRequest,
+    PublicProductWithCategory,
+    PublicProductWithDetails,
 } from '../types/product.types.js';
 
 /**
@@ -37,6 +39,73 @@ export class ProductService {
         private readonly inventoryRepo: InventoryRepository,
         private readonly categoryRepo: CategoryRepository
     ) { }
+
+    private toNumber(value: unknown): number {
+        if (typeof value === 'number') return value;
+        return Number(value ?? 0);
+    }
+
+    private toPublicProduct(product: any): PublicProductWithCategory {
+        const sellerPrice = this.toNumber(product.sellerPrice);
+        const adminPrice = this.toNumber(product.adminListingPrice);
+        return {
+            id: product.id,
+            categoryId: product.categoryId,
+            title: product.title,
+            description: product.description ?? null,
+            images: product.images ?? [],
+            status: product.status,
+            isPublished: Boolean(product.isPublished),
+            createdAt: product.createdAt,
+            updatedAt: product.updatedAt,
+            category: product.category,
+            regularPrice: sellerPrice,
+            sellerPrice,
+            adminPrice,
+            salePrice: adminPrice,
+            price: adminPrice,
+        };
+    }
+
+    private toPublicProductDetail(product: any): PublicProductWithDetails {
+        const sellerPrice = this.toNumber(product.sellerPrice);
+        const listingPrice = this.toNumber(product.adminListingPrice);
+        return {
+            id: product.id,
+            categoryId: product.categoryId,
+            title: product.title,
+            description: product.description ?? null,
+            images: product.images ?? [],
+            status: product.status,
+            isPublished: Boolean(product.isPublished),
+            createdAt: product.createdAt,
+            updatedAt: product.updatedAt,
+            category: product.category,
+            regularPrice: sellerPrice,
+            sellerPrice,
+            adminPrice: listingPrice,
+            salePrice: listingPrice,
+            price: listingPrice,
+            variants: (product.variants ?? []).map((variant: any) => ({
+                id: variant.id,
+                sku: variant.sku,
+                price: listingPrice,
+                compareAtPrice: variant.compareAtPrice ?? null,
+                inventory: variant.inventory ?? null,
+            })),
+        };
+    }
+
+    private toSellerProduct(product: any): any {
+        return {
+            ...product,
+            sellerPrice: this.toNumber(product.sellerPrice),
+            adminListingPrice:
+                product.adminListingPrice === null || product.adminListingPrice === undefined
+                    ? null
+                    : this.toNumber(product.adminListingPrice),
+        };
+    }
 
     // =========================================================================
     // PUBLIC METHODS (Buyer)
@@ -62,7 +131,7 @@ export class ProductService {
         const limit = filters.limit ?? 20;
 
         const response: ProductListResponse = {
-            data: products,
+            data: products.map((product) => this.toPublicProduct(product)),
             pagination: {
                 page,
                 limit,
@@ -95,7 +164,7 @@ export class ProductService {
             throw ApiError.notFound('Product not found');
         }
 
-        const response: ProductDetailResponse = { product };
+        const response: ProductDetailResponse = { product: this.toPublicProductDetail(product) };
 
         // Cache the result
         await setCache(CACHE_KEYS.PRODUCT_DETAIL(id), response);
@@ -126,8 +195,8 @@ export class ProductService {
         await invalidateProductCaches();
 
         return {
-            message: 'Product created successfully',
-            product,
+            message: 'Product submitted for approval',
+            product: this.toSellerProduct(product),
         };
     }
 
@@ -137,7 +206,7 @@ export class ProductService {
      */
     async listSellerProducts(sellerId: string): Promise<SellerProductListResponse> {
         const products = await this.productRepo.findBySellerId(sellerId);
-        return { products };
+        return { products: products.map((product) => this.toSellerProduct(product)) };
     }
 
     /**
@@ -169,7 +238,7 @@ export class ProductService {
 
         return {
             message: 'Product updated successfully',
-            product,
+            product: this.toSellerProduct(product),
         };
     }
 

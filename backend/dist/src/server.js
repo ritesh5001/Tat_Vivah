@@ -1,6 +1,7 @@
 import { createApp } from './app.js';
 import { env } from './config/env.js';
 import { prisma, disconnectDatabase } from './config/db.js';
+import { closeQueueResources } from './notifications/notification.queue.js';
 /**
  * Start the server
  */
@@ -21,6 +22,7 @@ async function bootstrap() {
             console.log(`\n${signal} received. Shutting down gracefully...`);
             server.close(async () => {
                 console.log('🔒 HTTP server closed');
+                await closeQueueResources();
                 await disconnectDatabase();
                 process.exit(0);
             });
@@ -35,6 +37,7 @@ async function bootstrap() {
     }
     catch (error) {
         console.error('❌ Failed to start server:', error);
+        await closeQueueResources();
         await disconnectDatabase();
         process.exit(1);
     }

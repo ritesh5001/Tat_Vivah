@@ -18,6 +18,7 @@ export declare function request(path: string, method?: string, body?: any, token
     status: number;
     data: any;
 }>;
+export declare function ensureAdminToken(): Promise<string>;
 export declare function ensureSeller(): Promise<{
     email: string;
     password: string;

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import ImageKit from "imagekit-javascript";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Search, X } from "lucide-react";
@@ -37,7 +38,37 @@ const getMissingImageKitConfig = () => {
   return missing;
 };
 
+const getApprovalBadge = (product: any) => {
+  if (product.deletedByAdmin) {
+    return {
+      label: "REMOVED",
+      className: "border-[#A67575]/30 text-[#7A5656] bg-[#A67575]/5",
+    };
+  }
+
+  const status = String(product.status ?? "PENDING").toUpperCase();
+  if (status === "APPROVED") {
+    return {
+      label: "APPROVED",
+      className: "border-[#7B9971]/30 text-[#5A7352] bg-[#7B9971]/5",
+    };
+  }
+
+  if (status === "REJECTED") {
+    return {
+      label: "REJECTED",
+      className: "border-[#A67575]/30 text-[#7A5656] bg-[#A67575]/5",
+    };
+  }
+
+  return {
+    label: "PENDING",
+    className: "border-[#B7956C]/30 text-[#8A7054] bg-[#B7956C]/5",
+  };
+};
+
 export default function SellerProductsPage() {
+  const router = useRouter();
   const [categories, setCategories] = React.useState<
     Array<{ id: string; name: string }>
   >([]);
@@ -46,8 +77,9 @@ export default function SellerProductsPage() {
   const [form, setForm] = React.useState({
     categoryId: "",
     title: "",
+    sellerPrice: "",
     description: "",
-    isPublished: true,
+    isPublished: false,
   });
   const [showCreateModal, setShowCreateModal] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
@@ -71,7 +103,7 @@ export default function SellerProductsPage() {
     categoryId: "",
     title: "",
     description: "",
-    isPublished: true,
+    isPublished: false,
   });
   const [stockEdits, setStockEdits] = React.useState<Record<string, string>>(
     {}
@@ -134,8 +166,12 @@ export default function SellerProductsPage() {
 
   const handleCreateProduct = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!form.categoryId || !form.title) {
-      toast.error("Select a category and title.");
+    if (!form.categoryId || !form.title || !form.sellerPrice) {
+      toast.error("Select a category, title, and seller price.");
+      return;
+    }
+    if (Number.isNaN(Number(form.sellerPrice)) || Number(form.sellerPrice) <= 0) {
+      toast.error("Enter a valid seller price.");
       return;
     }
     if (images.length < 1) {
@@ -146,12 +182,12 @@ export default function SellerProductsPage() {
       const result = await createSellerProduct({
         categoryId: form.categoryId,
         title: form.title,
+        sellerPrice: Number(form.sellerPrice),
         description: form.description || undefined,
-        isPublished: form.isPublished,
         images: images.map((image) => image.url),
       });
-      toast.success("Product created.");
-      setForm({ categoryId: "", title: "", description: "", isPublished: true });
+      toast.success("Your product has been submitted for price and approval.");
+      setForm({ categoryId: "", title: "", sellerPrice: "", description: "", isPublished: false });
       setImages([]);
       setShowCreateModal(false);
 
@@ -164,6 +200,7 @@ export default function SellerProductsPage() {
         },
         ...prev,
       ]);
+      router.push("/seller/products");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Create failed");
     }
@@ -230,7 +267,6 @@ export default function SellerProductsPage() {
         categoryId: editForm.categoryId || undefined,
         title: editForm.title || undefined,
         description: editForm.description || undefined,
-        isPublished: editForm.isPublished,
       });
       toast.success("Product updated.");
       setEditingProductId(null);
@@ -516,9 +552,29 @@ export default function SellerProductsPage() {
                       <p className="text-xs text-muted-foreground">
                         {product.category?.name ?? "Uncategorized"}
                       </p>
+                      <span
+                        className={`inline-flex px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider border ${getApprovalBadge(product).className}`}
+                      >
+                        {getApprovalBadge(product).label}
+                      </span>
                       {product.deletedByAdmin ? (
                         <p className="text-xs text-red-600/80 mt-2">
                           Removed by admin{product.deletedByAdminReason ? ` · ${product.deletedByAdminReason}` : ""}
+                        </p>
+                      ) : null}
+                      {String(product.status ?? "PENDING").toUpperCase() === "REJECTED" &&
+                        product.rejectionReason ? (
+                        <p className="text-xs text-[#7A5656] mt-2">
+                          Rejection reason: {product.rejectionReason}
+                        </p>
+                      ) : null}
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Seller Price: {currency.format(Number(product.sellerPrice ?? 0))}
+                      </p>
+                      {String(product.status ?? "PENDING").toUpperCase() === "APPROVED" &&
+                      product.adminListingPrice != null ? (
+                        <p className="text-xs text-gold mt-1">
+                          Listed at {currency.format(Number(product.adminListingPrice))} by Admin
                         </p>
                       ) : null}
                     </div>
@@ -616,21 +672,9 @@ export default function SellerProductsPage() {
                             disabled={product.deletedByAdmin}
                           />
                         </div>
-                        <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <input
-                            type="checkbox"
-                            checked={editForm.isPublished}
-                            onChange={(event) =>
-                              setEditForm((prev) => ({
-                                ...prev,
-                                isPublished: event.target.checked,
-                              }))
-                            }
-                            disabled={product.deletedByAdmin}
-                            className="accent-gold"
-                          />
-                          Published
-                        </label>
+                        <p className="text-xs text-muted-foreground">
+                          Product visibility is controlled by admin approval.
+                        </p>
                         <Button
                           onClick={handleSaveProduct}
                           disabled={product.deletedByAdmin}
@@ -909,6 +953,19 @@ export default function SellerProductsPage() {
                       placeholder="Premium linen kurta"
                     />
                   </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label>Seller Price</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      step="0.01"
+                      value={form.sellerPrice}
+                      onChange={(event) =>
+                        setForm((prev) => ({ ...prev, sellerPrice: event.target.value }))
+                      }
+                      placeholder="Enter your selling price"
+                    />
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label>Description</Label>
@@ -923,20 +980,9 @@ export default function SellerProductsPage() {
                     placeholder="Fabric details, fit, and highlights"
                   />
                 </div>
-                <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <input
-                    type="checkbox"
-                    checked={form.isPublished}
-                    onChange={(event) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        isPublished: event.target.checked,
-                      }))
-                    }
-                    className="accent-gold"
-                  />
-                  Publish immediately
-                </label>
+                <p className="text-sm text-muted-foreground">
+                  New products are submitted for admin approval before going live.
+                </p>
 
                 {/* Image Upload */}
                 <div className="space-y-4">
