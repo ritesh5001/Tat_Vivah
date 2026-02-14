@@ -19,7 +19,7 @@ import {
   type TrackingResponse,
   type ShipmentStatus,
 } from "../../../src/services/shipping";
-import { ApiError } from "../../../src/services/api";
+import { ApiError, isAbortError } from "../../../src/services/api";
 import { ShippingTimeline } from "../../../src/components/ShippingTimeline";
 import { useToast } from "../../../src/providers/ToastProvider";
 import { useAuth } from "../../../src/hooks/useAuth";
@@ -88,7 +88,7 @@ export default function TrackingScreen() {
           setLastFetchedAt(new Date().toISOString());
         }
       } catch (err) {
-        if (!mountedRef.current) return;
+        if (!mountedRef.current || isAbortError(err)) return;
         const message =
           err instanceof ApiError
             ? err.message
@@ -114,9 +114,12 @@ export default function TrackingScreen() {
 
   // ---- AppState-aware polling ----
   // Stops permanently when DELIVERED. Pauses in background. Resumes on active.
+  // Use a derived value (not the full tracking object) to avoid restarting
+  // the interval on every successful poll response.
+  const leadStatus: ShipmentStatus | undefined =
+    tracking?.shipments?.[0]?.status;
+
   React.useEffect(() => {
-    const leadStatus: ShipmentStatus | undefined =
-      tracking?.shipments?.[0]?.status;
     // Terminal → no polling ever
     if (leadStatus && isTerminalStatus(leadStatus)) return;
 
@@ -157,7 +160,7 @@ export default function TrackingScreen() {
       stopPolling();
       subscription.remove();
     };
-  }, [tracking, fetchTracking]);
+  }, [leadStatus, fetchTracking]);
 
   // ---- Pull to refresh ----
   const onRefresh = React.useCallback(() => {

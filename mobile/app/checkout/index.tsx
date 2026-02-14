@@ -16,11 +16,13 @@ import { initiatePayment, verifyPayment } from "../../src/services/payments";
 import { openRazorpayCheckout } from "../../src/services/razorpay";
 import { ApiError } from "../../src/services/api";
 import { useAuth } from "../../src/hooks/useAuth";
+import { useNetworkStatus } from "../../src/hooks/useNetworkStatus";
 
 export default function CheckoutScreen() {
   const router = useRouter();
   const { session, isLoading: authLoading } = useAuth();
   const token = session?.accessToken ?? null;
+  const { isConnected } = useNetworkStatus();
 
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -38,6 +40,13 @@ export default function CheckoutScreen() {
     if (authLoading) return;
     if (!token) {
       router.replace("/login");
+      return;
+    }
+    if (!isConnected) {
+      Alert.alert(
+        "No connection",
+        "You appear to be offline. Please reconnect before completing your order."
+      );
       return;
     }
 
@@ -188,12 +197,19 @@ export default function CheckoutScreen() {
           />
 
           <Pressable
-            style={[styles.primaryButton, loading && { opacity: 0.5 }]}
+            style={[
+              styles.primaryButton,
+              (loading || !isConnected) && { opacity: 0.5 },
+            ]}
             onPress={handleCheckout}
-            disabled={loading}
+            disabled={loading || !isConnected}
           >
             <Text style={styles.primaryButtonText}>
-              {loading ? "Processing…" : "Complete order"}
+              {loading
+                ? "Processing\u2026"
+                : !isConnected
+                  ? "Offline"
+                  : "Complete order"}
             </Text>
           </Pressable>
 

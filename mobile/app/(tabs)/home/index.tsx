@@ -16,6 +16,7 @@ import { colors, radius, spacing, typography, shadow } from "../../../src/theme/
 import { getBestsellers, BestsellerProduct } from "../../../src/services/bestsellers";
 import { getCategories, type Category } from "../../../src/services/catalog";
 import { getProducts, type ProductSummary } from "../../../src/services/products";
+import { isAbortError } from "../../../src/services/api";
 
 const { width } = Dimensions.get("window");
 const cardWidth = width - spacing.lg * 2;
@@ -54,20 +55,20 @@ export default function HomeScreen() {
   const [arrivals, setArrivals] = React.useState<ProductSummary[]>([]);
 
   React.useEffect(() => {
-    let isMounted = true;
+    let cancelled = false;
 
     const load = async () => {
       try {
         const response = await getBestsellers(4);
-        if (isMounted) {
+        if (!cancelled) {
           setBestsellers(response.products ?? []);
         }
-      } catch {
-        if (isMounted) {
+      } catch (err) {
+        if (!cancelled && !isAbortError(err)) {
           setBestsellers([]);
         }
       } finally {
-        if (isMounted) {
+        if (!cancelled) {
           setLoadingBestsellers(false);
         }
       }
@@ -76,11 +77,11 @@ export default function HomeScreen() {
     const loadCategories = async () => {
       try {
         const response = await getCategories();
-        if (isMounted) {
+        if (!cancelled) {
           setCategories(response.categories ?? []);
         }
-      } catch {
-        if (isMounted) {
+      } catch (err) {
+        if (!cancelled && !isAbortError(err)) {
           setCategories([]);
         }
       }
@@ -89,11 +90,11 @@ export default function HomeScreen() {
     const loadArrivals = async () => {
       try {
         const response = await getProducts({ page: 1, limit: 5 });
-        if (isMounted) {
+        if (!cancelled) {
           setArrivals(response.data ?? []);
         }
-      } catch {
-        if (isMounted) {
+      } catch (err) {
+        if (!cancelled && !isAbortError(err)) {
           setArrivals([]);
         }
       }
@@ -104,43 +105,48 @@ export default function HomeScreen() {
     loadArrivals();
 
     return () => {
-      isMounted = false;
+      cancelled = true;
     };
   }, []);
 
-  const formatPrice = (price?: number | null) => {
+  const formatPrice = React.useCallback((price?: number | null) => {
     if (!price && price !== 0) return "Contact for price";
     return new Intl.NumberFormat("en-IN", {
       style: "currency",
       currency: "INR",
       maximumFractionDigits: 0,
     }).format(price);
-  };
+  }, []);
 
-  const renderProduct = ({ item }: { item: BestsellerProduct }) => {
-    const imageUri = item.image ?? fallbackImage;
-    return (
-      <Pressable
-        style={styles.productCard}
-        onPress={() =>
-          router.push({
-            pathname: "/product/[id]",
-            params: { id: item.productId },
-          })
-        }
-      >
-        <Image
-          source={{ uri: imageUri }}
-          style={styles.productImage}
-          contentFit="cover"
-          transition={200}
-          cachePolicy="memory-disk"
-        />
-        <Text style={styles.productTitle}>{item.title}</Text>
-        <Text style={styles.productPrice}>{formatPrice(item.minPrice)}</Text>
-      </Pressable>
-    );
-  };
+  const handleProductPress = React.useCallback(
+    (productId: string) => {
+      router.push({ pathname: "/product/[id]", params: { id: productId } });
+    },
+    [router]
+  );
+
+  const renderProduct = React.useCallback(
+    ({ item }: { item: BestsellerProduct }) => {
+      const imageUri = item.image ?? fallbackImage;
+      return (
+        <Pressable
+          style={styles.productCard}
+          onPress={() => handleProductPress(item.productId)}
+        >
+          <Image
+            source={{ uri: imageUri }}
+            style={styles.productImage}
+            contentFit="cover"
+            transition={200}
+            cachePolicy="memory-disk"
+          />
+          <Text style={styles.productTitle}>{item.title}</Text>
+          <Text style={styles.productPrice}>{formatPrice(item.minPrice)}</Text>
+        </Pressable>
+      );
+    },
+    [handleProductPress, formatPrice]
+  );
 
   return (
     <SafeAreaView style={styles.safeArea}>

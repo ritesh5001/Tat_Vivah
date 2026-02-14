@@ -91,64 +91,140 @@ async function attemptTokenRefresh(): Promise<string | null> {
 }
 
 // ---------------------------------------------------------------------------
+// In-flight GET deduplication
+// ---------------------------------------------------------------------------
+const inFlight = new Map<string, Promise<unknown>>();
+
+/** Build a dedup key from method + path (ignores body). */
+function dedupKey(method: string, path: string): string | null {
+  if (method.toUpperCase() !== "GET") return null;
+  return `GET:${path}`;
+}
+
+// ---------------------------------------------------------------------------
 // Core request function
 // ---------------------------------------------------------------------------
 type ApiRequestOptions = Omit<RequestInit, "body"> & {
   body?: unknown;
   token?: string | null;
+  /** Pass an AbortSignal for cancellation (e.g. on unmount). */
+  signal?: AbortSignal;
   /** @internal single-retry guard */
   _retry?: boolean;
+  /** Skip in-flight dedup (e.g. for forced refresh). */
+  _skipDedup?: boolean;
 };
 
 export async function apiRequest<T>(
   path: string,
   options: ApiRequestOptions = {}
 ): Promise<T> {
-  const { body, token, _retry, headers, ...rest } = options;
-  const authToken = token ?? (await getAccessToken());
+  const { body, token, signal, _retry, _skipDedup, headers, ...rest } =
+    options;
 
-  let response: Response;
-  try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
-      headers: {
-        Accept: "application/json",
-        ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
-        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
-        ...((headers as Record<string, string>) ?? {}),
-      },
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-      ...rest,
-    });
-  } catch (err) {
-    // Network-level failure (no internet, DNS, timeout …)
-    throw new ApiError(
-      0,
-      err instanceof Error ? err.message : "Network request failed"
-    );
+  // ---- Dedup: return existing promise for identical in-flight GETs ----
+  const method = ((rest.method as string) ?? "GET").toUpperCase();
+  const key = _skipDedup ? null : dedupKey(method, path);
+
+  if (key && inFlight.has(key)) {
+    return inFlight.get(key) as Promise<T>;
   }
 
-  // ---- 401 interception: single retry via refresh token ----
-  if (response.status === 401 && !_retry) {
-    const newToken = await attemptTokenRefresh();
-    if (newToken) {
-      return apiRequest<T>(path, { ...options, token: newToken, _retry: true });
+  const execute = async (): Promise<T> => {
+    const authToken = token ?? (await getAccessToken());
+
+    let response: Response;
+    try {
+      response = await fetch(`${API_BASE_URL}${path}`, {
+        headers: {
+          Accept: "application/json",
+          ...(body !== undefined
+            ? { "Content-Type": "application/json" }
+            : {}),
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+          ...((headers as Record<string, string>) ?? {}),
+        },
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+        signal,
+        ...rest,
+      });
+    } catch (err) {
+      // AbortError should propagate as-is so callers can distinguish cancellation
+      if (err instanceof DOMException && err.name === "AbortError") {
+        throw err;
+      }
+      // Network-level failure (no internet, DNS, timeout …)
+      throw new ApiError(
+        0,
+        err instanceof Error ? err.message : "Network request failed"
+      );
     }
-    // Refresh also failed → force sign-out
-    await clearSession();
-    sessionExpiredHandler?.();
-    throw new ApiError(401, "Session expired. Please sign in again.");
-  }
 
-  const data: unknown = await response.json().catch(() => null);
+    // ---- 401 interception: single retry via refresh token ----
+    if (response.status === 401 && !_retry) {
+      const newToken = await attemptTokenRefresh();
+      if (newToken) {
+        return apiRequest<T>(path, {
+          ...options,
+          token: newToken,
+          _retry: true,
+          _skipDedup: true,
+        });
+      }
+      // Refresh also failed → force sign-out
+      await clearSession();
+      sessionExpiredHandler?.();
+      throw new ApiError(401, "Session expired. Please sign in again.");
+    }
 
-  if (!response.ok) {
-    const msg =
-      (data as any)?.error?.message ??
-      (data as any)?.message ??
-      "Request failed";
-    const details = (data as any)?.error?.details;
-    throw new ApiError(response.status, msg, details);
-  }
+    const data: unknown = await response.json().catch(() => null);
 
-  return data as T;
+    if (!response.ok) {
+      const msg =
+        (data as any)?.error?.message ??
+        (data as any)?.message ??
+        "Request failed";
+      const details = (data as any)?.error?.details;
+      throw new ApiError(response.status, msg, details);
+    }
+
+    return data as T;
+  };
+
+  const promise = execute().finally(() => {
+    if (key) inFlight.delete(key);
+  });
+
+  if (key) inFlight.set(key, promise);
+
+  return promise;
+}
+
+// ---------------------------------------------------------------------------
+// Cleanup helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Abort in-flight GETs and clear the dedup map.
+ * Called during hard logout so stale requests don't
+ * write back into state after the user signs out.
+ */
+export function clearInFlightRequests(): void {
+  inFlight.clear();
+}
+
+/**
+ * Reset the refresh-token mutex so a subsequent login
+ * starts with a clean slate (no dangling promise from the
+ * previous session).
+ */
+export function resetRefreshMutex(): void {
+  refreshPromise = null;
+}
+
+// ---------------------------------------------------------------------------
+// Helper: check if an error is an AbortError (cancelled request)
+// ---------------------------------------------------------------------------
+export function isAbortError(err: unknown): boolean {
+  return err instanceof DOMException && err.name === "AbortError";
 }
