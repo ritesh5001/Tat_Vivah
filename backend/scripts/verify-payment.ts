@@ -68,6 +68,9 @@ async function verifyPayment() {
             throw new Error("Failed to create product variant");
         }
         const variant = product.variants[0];
+        if (!variant) {
+            throw new Error("Failed to resolve product variant");
+        }
 
         // Create Order (PLACED)
         const order = await prisma.order.create({

@@ -13,6 +13,17 @@ import type {
  * Handles database operations for products
  */
 export class ProductRepository {
+    private mapProductDecimals<T extends { sellerPrice: unknown; adminListingPrice: unknown }>(product: T): Omit<T, 'sellerPrice' | 'adminListingPrice'> & { sellerPrice: number; adminListingPrice: number | null } {
+        return {
+            ...product,
+            sellerPrice: Number(product.sellerPrice),
+            adminListingPrice:
+                product.adminListingPrice == null
+                    ? null
+                    : Number(product.adminListingPrice),
+        };
+    }
+
     /**
      * Find published products with pagination and filters
      */
@@ -49,14 +60,17 @@ export class ProductRepository {
             prisma.product.count({ where }),
         ]);
 
-        return { products, total };
+        return {
+            products: products.map((product) => this.mapProductDecimals(product)) as ProductWithCategory[],
+            total,
+        };
     }
 
     /**
      * Find published product by ID with full details
      */
     async findPublishedById(id: string): Promise<ProductWithDetails | null> {
-        return prisma.product.findFirst({
+        const product = await prisma.product.findFirst({
             where: { id, status: 'APPROVED', deletedByAdmin: false, adminListingPrice: { not: null } },
             include: {
                 category: true,
@@ -67,13 +81,15 @@ export class ProductRepository {
                 },
             },
         });
+
+        return product ? this.mapProductDecimals(product) as ProductWithDetails : null;
     }
 
     /**
      * Find all products for a seller
      */
     async findBySellerId(sellerId: string): Promise<ProductWithDetails[]> {
-        return prisma.product.findMany({
+        const products = await prisma.product.findMany({
             where: { sellerId },
             include: {
                 category: true,
@@ -85,22 +101,26 @@ export class ProductRepository {
             },
             orderBy: { createdAt: 'desc' },
         });
+
+        return products.map((product) => this.mapProductDecimals(product)) as ProductWithDetails[];
     }
 
     /**
      * Find product by ID and seller (ownership check)
      */
     async findByIdAndSeller(id: string, sellerId: string): Promise<ProductEntity | null> {
-        return prisma.product.findFirst({
+        const product = await prisma.product.findFirst({
             where: { id, sellerId },
         });
+
+        return product ? this.mapProductDecimals(product) as ProductEntity : null;
     }
 
     /**
      * Find product by ID with details
      */
     async findByIdWithDetails(id: string): Promise<ProductWithDetails | null> {
-        return prisma.product.findUnique({
+        const product = await prisma.product.findUnique({
             where: { id },
             include: {
                 category: true,
@@ -111,13 +131,15 @@ export class ProductRepository {
                 },
             },
         });
+
+        return product ? this.mapProductDecimals(product) as ProductWithDetails : null;
     }
 
     /**
      * Create a new product
      */
     async create(sellerId: string, data: CreateProductRequest): Promise<ProductEntity> {
-        return prisma.product.create({
+        const product = await prisma.product.create({
             data: {
                 sellerId,
                 categoryId: data.categoryId,
@@ -135,13 +157,15 @@ export class ProductRepository {
                 isPublished: false,
             },
         });
+
+        return this.mapProductDecimals(product) as ProductEntity;
     }
 
     /**
      * Update a product
      */
     async update(id: string, data: UpdateProductRequest): Promise<ProductEntity> {
-        return prisma.product.update({
+        const product = await prisma.product.update({
             where: { id },
             data: {
                 ...(data.categoryId !== undefined && { categoryId: data.categoryId }),
@@ -150,6 +174,8 @@ export class ProductRepository {
                 ...(data.images !== undefined && { images: data.images }),
             },
         });
+
+        return this.mapProductDecimals(product) as ProductEntity;
     }
 
     /**

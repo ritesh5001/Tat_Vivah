@@ -1,6 +1,5 @@
 
 import { prisma } from '../src/config/db.js';
-import { reviewController } from '../src/controllers/review.controller.js';
 
 async function verifyReviews() {
     console.log('Verifying Review System...');

@@ -7,7 +7,7 @@ import { Request, Response, NextFunction } from 'express';
 const router = Router();
 
 router.use(authenticate);
-router.use(authorize(['SELLER', 'ADMIN', 'SUPER_ADMIN']));
+router.use(authorize('SELLER', 'ADMIN', 'SUPER_ADMIN'));
 
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     try {

@@ -156,7 +156,16 @@ export class CartRepository {
 
                 return {
                     ...item,
-                    product: product ?? undefined,
+                    product: product
+                        ? {
+                            ...product,
+                            sellerPrice: Number(product.sellerPrice),
+                            adminListingPrice:
+                                product.adminListingPrice == null
+                                    ? null
+                                    : Number(product.adminListingPrice),
+                        }
+                        : undefined,
                     variant: variant
                         ? {
                             ...variant,

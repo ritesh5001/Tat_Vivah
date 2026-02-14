@@ -18,9 +18,6 @@ export class SettlementRepository {
     async findSettlementsBySellerId(sellerId: string): Promise<SellerSettlement[]> {
         return prisma.sellerSettlement.findMany({
             where: { sellerId },
-            include: {
-                orderItem: true
-            },
             orderBy: {
                 createdAt: 'desc'
             }

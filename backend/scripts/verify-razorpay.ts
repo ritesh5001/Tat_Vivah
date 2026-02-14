@@ -147,7 +147,7 @@ async function verifyRazorpay() {
             // If Razorpay is not configured, test with MOCK provider instead
             if (initData.error?.message?.includes('not configured')) {
                 console.log('  ⚠️  Razorpay not configured, falling back to MOCK provider verification...');
-                await verifyMockProvider(order.id, buyer, token, seller);
+                await verifyMockProvider(order.id, token);
                 return;
             }
             console.error('  ❌ Initiate Response:', JSON.stringify(initData, null, 2));
@@ -291,7 +291,7 @@ async function verifyRazorpay() {
 /**
  * Fallback verification using MOCK provider
  */
-async function verifyMockProvider(orderId: string, buyer: any, token: string, seller: any) {
+async function verifyMockProvider(orderId: string, token: string) {
     console.log('\n💳 Testing with MOCK provider instead...');
 
     const initRes = await fetch(`${API_URL}/payments/initiate`, {

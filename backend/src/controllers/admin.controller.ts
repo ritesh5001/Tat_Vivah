@@ -286,7 +286,14 @@ export const adminController = {
             if (validated.name === undefined && validated.isActive === undefined) {
                 throw ApiError.badRequest('No updates provided');
             }
-            const category = await categoryService.updateCategory(id, validated);
+            const updateData: { name?: string; isActive?: boolean } = {};
+            if (validated.name !== undefined) {
+                updateData.name = validated.name;
+            }
+            if (validated.isActive !== undefined) {
+                updateData.isActive = validated.isActive;
+            }
+            const category = await categoryService.updateCategory(id, updateData);
             res.json({ message: 'Category updated', category });
         } catch (error) {
             next(error);
