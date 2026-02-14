@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import { AuthService, authService } from '../services/auth.service.js';
-import { registerUserSchema, registerSellerSchema, registerAdminSchema, loginSchema, refreshTokenSchema, logoutSchema, requestOtpSchema, verifyOtpSchema } from '../validators/auth.validation.js';
+import { registerUserSchema, registerSellerSchema, registerAdminSchema, loginSchema, refreshTokenSchema, logoutSchema, requestOtpSchema, verifyOtpSchema, forgotPasswordSchema, resetPasswordSchema } from '../validators/auth.validation.js';
 import { ApiError } from '../errors/ApiError.js';
 import { ZodError } from 'zod';
 
@@ -335,6 +335,66 @@ export class AuthController {
 
             res.status(200).json(result);
         } catch (error) {
+            next(error);
+        }
+    };
+
+    /**
+     * POST /v1/auth/forgot-password
+     * Request a password-reset OTP
+     */
+    forgotPassword = async (
+        req: Request,
+        res: Response,
+        next: NextFunction
+    ): Promise<void> => {
+        try {
+            const validatedData = forgotPasswordSchema.parse(req.body);
+            const result = await this.service.forgotPassword(validatedData.email);
+            res.status(200).json(result);
+        } catch (error) {
+            if (error instanceof ZodError) {
+                const details = error.errors.reduce((acc, err) => {
+                    const key = err.path.join('.');
+                    acc[key] = err.message;
+                    return acc;
+                }, {} as Record<string, string>);
+
+                next(ApiError.badRequest('Validation failed', details));
+                return;
+            }
+            next(error);
+        }
+    };
+
+    /**
+     * POST /v1/auth/reset-password
+     * Verify OTP and set a new password
+     */
+    resetPassword = async (
+        req: Request,
+        res: Response,
+        next: NextFunction
+    ): Promise<void> => {
+        try {
+            const validatedData = resetPasswordSchema.parse(req.body);
+            const result = await this.service.resetPassword(
+                validatedData.email,
+                validatedData.otp,
+                validatedData.newPassword
+            );
+            res.status(200).json(result);
+        } catch (error) {
+            if (error instanceof ZodError) {
+                const details = error.errors.reduce((acc, err) => {
+                    const key = err.path.join('.');
+                    acc[key] = err.message;
+                    return acc;
+                }, {} as Record<string, string>);
+
+                next(ApiError.badRequest('Validation failed', details));
+                return;
+            }
             next(error);
         }
     };

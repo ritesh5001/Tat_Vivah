@@ -1,3 +1,4 @@
+import { jwtDecode } from "jwt-decode";
 import {
   getAccessToken,
   loadSession,
@@ -93,6 +94,24 @@ async function attemptTokenRefresh(): Promise<string | null> {
 // ---------------------------------------------------------------------------
 // In-flight GET deduplication
 // ---------------------------------------------------------------------------
+
+/** Seconds before expiry at which we proactively refresh. */
+const REFRESH_THRESHOLD_SECONDS = 60;
+
+/**
+ * Decode a JWT and return `true` when the token will expire within
+ * `REFRESH_THRESHOLD_SECONDS` (default 60 s).  Returns `false` for
+ * invalid / unparseable tokens so the normal 401 fallback can handle it.
+ */
+function isTokenExpiringSoon(token: string): boolean {
+  try {
+    const { exp } = jwtDecode<{ exp?: number }>(token);
+    if (typeof exp !== "number") return false;
+    return exp < Date.now() / 1000 + REFRESH_THRESHOLD_SECONDS;
+  } catch {
+    return false;
+  }
+}
 const inFlight = new Map<string, Promise<unknown>>();
 
 /** Build a dedup key from method + path (ignores body). */
@@ -131,7 +150,13 @@ export async function apiRequest<T>(
   }
 
   const execute = async (): Promise<T> => {
-    const authToken = token ?? (await getAccessToken());
+    let authToken = token ?? (await getAccessToken());
+
+    // ---- Proactive refresh: if the token is about to expire, refresh now ----
+    if (authToken && !_retry && isTokenExpiringSoon(authToken)) {
+      const refreshed = await attemptTokenRefresh();
+      if (refreshed) authToken = refreshed;
+    }
 
     let response: Response;
     try {

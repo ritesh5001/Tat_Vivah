@@ -114,6 +114,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // ------- Session-expired callback from API layer -------
   React.useEffect(() => {
     setSessionExpiredHandler(() => {
+      // Clean up just like signOut — abort stale requests, reset mutex, wipe storage
+      clearInFlightRequests();
+      resetRefreshMutex();
+      clearSession(); // async but fire-and-forget — storage will be wiped
       setSession(null);
       setSessionExpired(true);
     });

@@ -124,3 +124,37 @@ export async function logoutUser(
     // Best-effort — if server is unreachable we still clear locally
   }
 }
+
+// ---------------------------------------------------------------------------
+// Password Reset
+// ---------------------------------------------------------------------------
+
+export interface ForgotPasswordPayload {
+  email: string;
+}
+
+export interface ResetPasswordPayload {
+  email: string;
+  otp: string;
+  newPassword: string;
+}
+
+/** POST /v1/auth/forgot-password */
+export async function forgotPassword(
+  payload: ForgotPasswordPayload
+): Promise<MessageResponse> {
+  return apiRequest<MessageResponse>("/v1/auth/forgot-password", {
+    method: "POST",
+    body: payload,
+  });
+}
+
+/** POST /v1/auth/reset-password */
+export async function resetPassword(
+  payload: ResetPasswordPayload
+): Promise<MessageResponse> {
+  return apiRequest<MessageResponse>("/v1/auth/reset-password", {
+    method: "POST",
+    body: payload,
+  });
+}

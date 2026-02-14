@@ -48,6 +48,18 @@ authRouter.post('/verify-otp', authController.verifyOtp);
  */
 authRouter.post('/refresh', authController.refresh);
 
+/**
+ * POST /v1/auth/forgot-password
+ * Request a password-reset OTP
+ */
+authRouter.post('/forgot-password', authController.forgotPassword);
+
+/**
+ * POST /v1/auth/reset-password
+ * Verify OTP and set a new password
+ */
+authRouter.post('/reset-password', authController.resetPassword);
+
 // ============================================================================
 // PROTECTED ROUTES (require valid access token)
 // ============================================================================

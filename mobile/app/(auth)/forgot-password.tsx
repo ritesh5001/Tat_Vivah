@@ -8,30 +8,39 @@ import {
   Pressable,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Link, useRouter } from "expo-router";
-import { colors, radius, spacing, typography, shadow } from "../../src/theme/tokens";
-import { useAuth } from "../../src/hooks/useAuth";
+import { useRouter } from "expo-router";
+import {
+  colors,
+  radius,
+  spacing,
+  typography,
+  shadow,
+} from "../../src/theme/tokens";
+import { forgotPassword } from "../../src/services/auth";
 
-export default function LoginScreen() {
+export default function ForgotPasswordScreen() {
   const router = useRouter();
-  const { signIn } = useAuth();
-  const [identifier, setIdentifier] = React.useState("");
-  const [password, setPassword] = React.useState("");
+  const [email, setEmail] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  const handleLogin = async () => {
-    if (!identifier || !password) {
-      setError("Please enter your email/phone and password.");
+  const handleSubmit = async () => {
+    const trimmed = email.trim().toLowerCase();
+    if (!trimmed) {
+      setError("Please enter your email address.");
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      await signIn({ identifier, password });
-      router.replace("/home");
+      await forgotPassword({ email: trimmed });
+      router.push({
+        pathname: "/(auth)/reset-password",
+        params: { email: trimmed },
+      });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Login failed";
+      const message =
+        err instanceof Error ? err.message : "Failed to send reset OTP";
       setError(message);
     } finally {
       setLoading(false);
@@ -41,6 +50,7 @@ export default function LoginScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
+        {/* Logo row */}
         <View style={styles.logoRow}>
           <View style={styles.logoBadge}>
             <Text style={styles.logoLetter}>T</Text>
@@ -51,64 +61,46 @@ export default function LoginScreen() {
           </View>
         </View>
 
-        <Text style={styles.title}>Welcome back</Text>
-        <Text style={styles.subtitle}>Sign in to continue your journey.</Text>
+        <Text style={styles.title}>Forgot password</Text>
+        <Text style={styles.subtitle}>
+          Enter your email and we'll send a 6-digit OTP to reset your password.
+        </Text>
 
         <View style={styles.card}>
-          <Text style={styles.label}>Email or phone</Text>
+          <Text style={styles.label}>Email address</Text>
           <TextInput
             placeholder="you@example.com"
             placeholderTextColor={colors.brownSoft}
             style={styles.input}
-            value={identifier}
-            onChangeText={setIdentifier}
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
             autoCapitalize="none"
+            autoComplete="email"
+            autoCorrect={false}
+            returnKeyType="send"
+            onSubmitEditing={handleSubmit}
+            editable={!loading}
           />
-
-          <Text style={styles.label}>Password</Text>
-          <TextInput
-            placeholder="Enter your password"
-            placeholderTextColor={colors.brownSoft}
-            secureTextEntry
-            style={styles.input}
-            value={password}
-            onChangeText={setPassword}
-          />
-
-          <Pressable
-            style={styles.linkRow}
-            onPress={() => router.push("/(auth)/forgot-password")}
-          >
-            <Text style={styles.linkText}>Forgot password?</Text>
-          </Pressable>
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-          <Pressable style={styles.primaryButton} onPress={handleLogin}>
-            <Text style={styles.primaryButtonText}>
-              {loading ? "Signing in..." : "Sign in"}
-            </Text>
-          </Pressable>
-
-          <View style={styles.dividerRow}>
-            <View style={styles.divider} />
-            <Text style={styles.dividerText}>or</Text>
-            <View style={styles.divider} />
-          </View>
-
           <Pressable
-            style={styles.secondaryButton}
-            onPress={() => router.push("/(auth)/request-otp")}
+            style={[styles.primaryButton, loading && styles.buttonDisabled]}
+            onPress={handleSubmit}
+            disabled={loading}
           >
-            <Text style={styles.secondaryButtonText}>Sign in with OTP</Text>
+            <Text style={styles.primaryButtonText}>
+              {loading ? "Sending…" : "Send Reset OTP"}
+            </Text>
           </Pressable>
         </View>
 
         <View style={styles.footerRow}>
-          <Text style={styles.footerText}>New to TatVivah?</Text>
-          <Link href="/register" style={styles.footerLink}>
-            Create account
-          </Link>
+          <Text style={styles.footerText}>Remember your password?</Text>
+          <Pressable onPress={() => router.back()}>
+            <Text style={styles.footerLink}>Sign in</Text>
+          </Pressable>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -167,6 +159,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.brownSoft,
     marginBottom: spacing.lg,
+    lineHeight: 20,
   },
   card: {
     backgroundColor: colors.warmWhite,
@@ -194,20 +187,14 @@ const styles = StyleSheet.create({
     color: colors.charcoal,
     marginBottom: spacing.md,
   },
-  linkRow: {
-    alignItems: "flex-end",
-    marginBottom: spacing.md,
-  },
-  linkText: {
-    fontFamily: typography.sans,
-    fontSize: 12,
-    color: colors.gold,
-  },
   primaryButton: {
     backgroundColor: colors.charcoal,
     borderRadius: radius.md,
     paddingVertical: spacing.sm,
     alignItems: "center",
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   primaryButtonText: {
     fontFamily: typography.sansMedium,
@@ -215,36 +202,6 @@ const styles = StyleSheet.create({
     letterSpacing: 1.6,
     textTransform: "uppercase",
     color: colors.background,
-  },
-  dividerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: spacing.md,
-  },
-  divider: {
-    flex: 1,
-    height: 1,
-    backgroundColor: colors.borderSoft,
-  },
-  dividerText: {
-    marginHorizontal: spacing.sm,
-    fontFamily: typography.sans,
-    fontSize: 12,
-    color: colors.brownSoft,
-  },
-  secondaryButton: {
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    paddingVertical: spacing.sm,
-    alignItems: "center",
-  },
-  secondaryButtonText: {
-    fontFamily: typography.sansMedium,
-    fontSize: 12,
-    letterSpacing: 1.6,
-    textTransform: "uppercase",
-    color: colors.charcoal,
   },
   errorText: {
     fontFamily: typography.sans,
