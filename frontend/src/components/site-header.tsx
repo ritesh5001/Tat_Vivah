@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -133,18 +134,15 @@ export function SiteHeader() {
       <AnnouncementBar />
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-3 group">
-          <div className="flex h-10 w-10 items-center justify-center border border-border-warm bg-cream text-charcoal transition-colors duration-300 group-hover:bg-charcoal group-hover:text-ivory dark:bg-brown dark:text-ivory">
-            <span className="font-serif text-lg font-light">T</span>
-          </div>
-          <div className="leading-tight">
-            <p className="font-serif text-lg font-normal tracking-tight text-foreground">
-              TatVivah
-            </p>
-            <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
-              Premium Fashion
-            </p>
-          </div>
+        <Link href="/" className="flex items-center gap-2 group">
+          <Image
+            src="/tatvivah-logo.png"
+            alt="TatVivah Trends"
+            width={50}
+            height={50}
+            className="h-auto w-auto transition-transform duration-300 group-hover:scale-105"
+            priority
+          />
         </Link>
 
         {/* Desktop Navigation */}
