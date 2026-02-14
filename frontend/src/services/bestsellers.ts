@@ -7,6 +7,10 @@ export interface BestsellerProduct {
   title: string;
   image?: string | null;
   categoryName?: string | null;
+  regularPrice?: number | null;
+  sellerPrice?: number | null;
+  adminPrice?: number | null;
+  salePrice?: number | null;
   minPrice?: number | null;
 }
 

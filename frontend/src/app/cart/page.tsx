@@ -99,8 +99,18 @@ export default function CartPage() {
     (sum, item) => sum + item.priceSnapshot * item.quantity,
     0
   );
+  const regularSubtotal = items.reduce(
+    (sum, item) =>
+      sum +
+      (typeof item.product?.sellerPrice === "number"
+        ? item.product.sellerPrice
+        : item.priceSnapshot) *
+        item.quantity,
+    0
+  );
   const shipping = items.length > 0 ? 180 : 0;
   const total = subtotal + shipping;
+  const regularTotal = regularSubtotal + shipping;
 
   return (
     <div className="min-h-[calc(100vh-160px)] bg-background">
@@ -163,7 +173,15 @@ export default function CartPage() {
               </motion.div>
             ) : (
               <div className="space-y-4">
-                {items.map((item, index) => (
+                {items.map((item, index) => {
+                  const salePrice =
+                    typeof item.priceSnapshot === "number" ? item.priceSnapshot : 0;
+                  const regularPrice =
+                    typeof item.product?.sellerPrice === "number"
+                      ? item.product.sellerPrice
+                      : null;
+
+                  return (
                   <motion.div
                     key={item.id}
                     initial={{ opacity: 0, y: 8 }}
@@ -231,12 +249,21 @@ export default function CartPage() {
                       {/* Price */}
                       <div className="text-right">
                         <p className="font-serif text-lg font-light text-foreground">
-                          {currency.format(item.priceSnapshot)}
+                          {currency.format(salePrice)}
+                        </p>
+                        {typeof regularPrice === "number" && regularPrice !== salePrice ? (
+                          <p className="text-xs text-muted-foreground line-through">
+                            {currency.format(regularPrice)}
+                          </p>
+                        ) : null}
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Line: {currency.format(salePrice * (item.quantity ?? 1))}
                         </p>
                       </div>
                     </div>
                   </motion.div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -259,7 +286,14 @@ export default function CartPage() {
               <div className="space-y-4 text-sm">
                 <div className="flex items-center justify-between text-muted-foreground">
                   <span>Subtotal</span>
-                  <span>{currency.format(subtotal)}</span>
+                  <div className="text-right">
+                    <span>{currency.format(subtotal)}</span>
+                    {regularSubtotal !== subtotal ? (
+                      <p className="text-xs text-muted-foreground line-through">
+                        {currency.format(regularSubtotal)}
+                      </p>
+                    ) : null}
+                  </div>
                 </div>
                 <div className="flex items-center justify-between text-muted-foreground">
                   <span>Shipping</span>
@@ -270,9 +304,16 @@ export default function CartPage() {
                   <span className="text-xs font-medium uppercase tracking-wider text-foreground">
                     Total
                   </span>
-                  <span className="font-serif text-2xl font-light text-foreground">
-                    {currency.format(total)}
-                  </span>
+                  <div className="text-right">
+                    <span className="font-serif text-2xl font-light text-foreground">
+                      {currency.format(total)}
+                    </span>
+                    {regularTotal !== total ? (
+                      <p className="text-xs text-muted-foreground line-through">
+                        {currency.format(regularTotal)}
+                      </p>
+                    ) : null}
+                  </div>
                 </div>
               </div>
 
