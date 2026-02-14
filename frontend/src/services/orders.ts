@@ -6,6 +6,8 @@ export interface OrderItem {
   variantId: string;
   quantity: number;
   priceSnapshot: number;
+  sellerPriceSnapshot?: number;
+  adminPriceSnapshot?: number;
   productTitle?: string;
   variantSku?: string;
 }

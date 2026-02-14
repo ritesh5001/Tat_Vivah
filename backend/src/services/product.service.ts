@@ -46,6 +46,8 @@ export class ProductService {
     }
 
     private toPublicProduct(product: any): PublicProductWithCategory {
+        const sellerPrice = this.toNumber(product.sellerPrice);
+        const adminPrice = this.toNumber(product.adminListingPrice);
         return {
             id: product.id,
             categoryId: product.categoryId,
@@ -57,11 +59,16 @@ export class ProductService {
             createdAt: product.createdAt,
             updatedAt: product.updatedAt,
             category: product.category,
-            price: this.toNumber(product.adminListingPrice),
+            regularPrice: sellerPrice,
+            sellerPrice,
+            adminPrice,
+            salePrice: adminPrice,
+            price: adminPrice,
         };
     }
 
     private toPublicProductDetail(product: any): PublicProductWithDetails {
+        const sellerPrice = this.toNumber(product.sellerPrice);
         const listingPrice = this.toNumber(product.adminListingPrice);
         return {
             id: product.id,
@@ -74,6 +81,10 @@ export class ProductService {
             createdAt: product.createdAt,
             updatedAt: product.updatedAt,
             category: product.category,
+            regularPrice: sellerPrice,
+            sellerPrice,
+            adminPrice: listingPrice,
+            salePrice: listingPrice,
             price: listingPrice,
             variants: (product.variants ?? []).map((variant: any) => ({
                 id: variant.id,

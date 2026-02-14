@@ -26,6 +26,10 @@ interface ProductDetailClientProps {
     category?: { name: string } | null;
     sellerId?: string;
     price?: number;
+    regularPrice?: number;
+    sellerPrice?: number;
+    adminPrice?: number;
+    salePrice?: number;
     variants: Variant[];
   };
 }
@@ -48,6 +52,9 @@ export default function ProductDetailClient({
   const selectedVariant = product.variants.find(
     (variant) => variant.id === selectedVariantId
   );
+  const salePrice = product.salePrice ?? product.adminPrice ?? product.price;
+  const regularPrice =
+    product.regularPrice ?? product.sellerPrice ?? selectedVariant?.compareAtPrice ?? null;
 
   const handleAddToCart = async () => {
     if (!selectedVariant) {
@@ -129,11 +136,13 @@ export default function ProductDetailClient({
           </p>
           <div className="flex items-baseline gap-4">
             <p className="font-serif text-2xl font-light text-foreground sm:text-3xl">
-              {typeof product.price === "number" ? currency.format(product.price) : "—"}
+              {typeof salePrice === "number" ? currency.format(salePrice) : "—"}
             </p>
-            {selectedVariant?.compareAtPrice ? (
+            {typeof regularPrice === "number" &&
+            typeof salePrice === "number" &&
+            regularPrice !== salePrice ? (
               <span className="text-sm text-muted-foreground line-through">
-                {currency.format(selectedVariant.compareAtPrice)}
+                {currency.format(regularPrice)}
               </span>
             ) : null}
           </div>

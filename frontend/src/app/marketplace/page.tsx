@@ -182,11 +182,21 @@ export default async function MarketplacePage({
                   <p className="text-xs text-muted-foreground uppercase tracking-wider">
                     {product.category?.name ?? "Collection"}
                   </p>
-                  <p className="text-sm text-muted-foreground">
-                    {typeof product.price === "number"
-                      ? currency.format(product.price)
-                      : "Price on request"}
-                  </p>
+                  {typeof (product.salePrice ?? product.adminPrice ?? product.price) === "number" ? (
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="font-medium text-foreground">
+                        {currency.format(product.salePrice ?? product.adminPrice ?? product.price)}
+                      </span>
+                      {typeof product.regularPrice === "number" &&
+                      product.regularPrice !== (product.salePrice ?? product.adminPrice ?? product.price) ? (
+                        <span className="text-muted-foreground line-through">
+                          {currency.format(product.regularPrice)}
+                        </span>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Price on request</p>
+                  )}
                 </div>
               </Link>
             ))

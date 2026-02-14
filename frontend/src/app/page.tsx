@@ -13,20 +13,10 @@ import {
 } from "@/lib/motion.config";
 import { ReviewSection } from "@/components/review-section";
 import { FeaturesMarquee } from "@/components/features-marquee";
-import { getBestsellers } from "@/services/bestsellers";
+import { getBestsellers, type BestsellerProduct } from "@/services/bestsellers";
 
 export default function Home() {
-  const [bestsellers, setBestsellers] = React.useState<
-    Array<{
-      id: string;
-      productId: string;
-      position: number;
-      title: string;
-      image?: string | null;
-      categoryName?: string | null;
-      minPrice?: number | null;
-    }>
-  >([]);
+  const [bestsellers, setBestsellers] = React.useState<BestsellerProduct[]>([]);
   const [loadingBestsellers, setLoadingBestsellers] = React.useState(true);
 
   React.useEffect(() => {
@@ -196,7 +186,7 @@ export default function Home() {
             whileInView="visible"
             viewport={viewportSettings}
             variants={staggerContainerVariants}
-            className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+            className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4"
           >
             {[
               {
@@ -223,21 +213,18 @@ export default function Home() {
               <motion.div key={category.name} variants={staggerItemVariants}>
                 <Link
                   href="/marketplace"
-                  className="group block border border-border-soft bg-card p-8 transition-all duration-400 hover:translate-y-[-2px] hover:border-gold/30 hover:shadow-[0_4px_20px_rgba(44,40,37,0.06)]"
+                  className="group flex flex-col items-center text-center"
                 >
-                  <div className="mb-6 h-48 overflow-hidden bg-cream dark:bg-brown/20 transition-colors duration-400 group-hover:bg-ivory dark:group-hover:bg-brown/30">
+                  <div className="mb-5 h-56 w-56 overflow-hidden rounded-full border border-border-soft bg-cream dark:bg-brown/20 transition-all duration-400 group-hover:border-gold/40 group-hover:scale-[1.02]">
                     <img
                       src={category.image}
                       alt={category.name}
                       className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                     />
                   </div>
-                  <h3 className="font-serif text-lg font-normal text-foreground mb-1">
+                  <h3 className="font-serif text-xl font-normal text-foreground">
                     {category.name}
                   </h3>
-                  <p className="text-xs text-muted-foreground">
-                    {category.desc}
-                  </p>
                 </Link>
               </motion.div>
             ))}
@@ -334,9 +321,18 @@ export default function Home() {
                     <h3 className="font-serif text-base font-normal text-foreground mb-1 group-hover:text-gold transition-colors duration-300">
                       {item.title}
                     </h3>
-                    <p className="text-sm text-muted-foreground">
-                      {formatPrice(item.minPrice)}
-                    </p>
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="font-medium text-foreground">
+                        {formatPrice(item.salePrice ?? item.adminPrice ?? item.minPrice)}
+                      </span>
+                      {typeof item.regularPrice === "number" &&
+                      typeof (item.salePrice ?? item.adminPrice ?? item.minPrice) === "number" &&
+                      item.regularPrice !== (item.salePrice ?? item.adminPrice ?? item.minPrice) ? (
+                        <span className="text-muted-foreground line-through">
+                          {formatPrice(item.regularPrice)}
+                        </span>
+                      ) : null}
+                    </div>
                   </Link>
                 </motion.div>
               ))
