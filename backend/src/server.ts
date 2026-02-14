@@ -16,7 +16,7 @@ async function bootstrap(): Promise<void> {
         const app = createApp();
 
         // Start server
-        const server = app.listen(env.PORT, () => {
+        const server = app.listen(env.PORT,"0.0.0.0", () => {
             console.log(`🚀 Server running on port ${env.PORT}`);
             console.log(`📝 Environment: ${env.NODE_ENV}`);
         });
