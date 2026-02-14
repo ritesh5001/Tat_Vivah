@@ -20,7 +20,7 @@ const getStatusStyle = (status: string) => {
     case "DELIVERED":
       return "border-[#7B9971]/30 text-[#5A7352] bg-[#7B9971]/5";
     case "CONFIRMED":
-      return "border-[#B8956C]/30 text-[#8A7054] bg-[#B8956C]/5";
+      return "border-[#B7956C]/30 text-[#8A7054] bg-[#B7956C]/5";
     case "SHIPPED":
       return "border-[#8B9CB8]/30 text-[#5E6B82] bg-[#8B9CB8]/5";
     case "CANCELLED":

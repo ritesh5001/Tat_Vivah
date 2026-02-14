@@ -134,26 +134,15 @@ export function SiteHeader() {
       <AnnouncementBar />
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-3 group">
-          <div className="relative">
-            <Image
-              src="/tatvivah-logo.png"
-              alt="TatVivah Trends"
-              width={50}
-              height={50}
-              className="h-auto w-auto transition-transform duration-300 group-hover:scale-105"
-              priority
-              onError={() => console.warn("Logo image not found at /tatvivah-logo.png")}
-            />
-          </div>
-          <div className="leading-tight hidden sm:block">
-            <p className="font-serif text-lg font-normal tracking-tight text-foreground">
-              TatVivah
-            </p>
-            <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
-              Trends
-            </p>
-          </div>
+        <Link href="/" className="flex items-center gap-2 group">
+          <Image
+            src="/logo.png"
+            alt="TatVivah Trends"
+            width={120}
+            height={50}
+            className="h-auto w-auto transition-transform duration-300 group-hover:scale-105"
+            priority
+          />
         </Link>
 
         {/* Desktop Navigation */}

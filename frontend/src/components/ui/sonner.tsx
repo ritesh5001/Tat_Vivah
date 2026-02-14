@@ -63,7 +63,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
           error:
             "border-l-2 border-l-[#A67575] bg-ivory dark:bg-brown dark:border-l-[#B88888]",
           warning:
-            "border-l-2 border-l-[#B8956C] bg-ivory dark:bg-brown dark:border-l-gold",
+            "border-l-2 border-l-[#B7956C] bg-ivory dark:bg-brown dark:border-l-gold",
           info:
             "border-l-2 border-l-[#8B9CB8] bg-ivory dark:bg-brown dark:border-l-[#9EACC4]",
         },

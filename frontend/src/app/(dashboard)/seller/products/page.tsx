@@ -63,7 +63,7 @@ const getApprovalBadge = (product: any) => {
 
   return {
     label: "PENDING",
-    className: "border-[#B8956C]/30 text-[#8A7054] bg-[#B8956C]/5",
+    className: "border-[#B7956C]/30 text-[#8A7054] bg-[#B7956C]/5",
   };
 };
 

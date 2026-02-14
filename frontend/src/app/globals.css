@@ -17,7 +17,9 @@
   --color-ivory: #FAF7F2;
   --color-cream: #F4EFE7;
   --color-warm-white: #FFFCF8;
-  --color-gold: #B8956C;
+  --color-gold: #B7956C;
+  --color-gold-light: #D1AD82;
+  --color-gold-dark: #9A7650;
   --color-gold-muted: #C9AB82;
   --color-charcoal: #2C2825;
   --color-brown: #3D3329;
@@ -110,10 +112,10 @@
   /* Borders - Soft warm */
   --border: #E8E2D9;
   --input: #E8E2D9;
-  --ring: #B8956C;
+  --ring: #B7956C;
   
   /* Charts - Warm palette */
-  --chart-1: #B8956C;
+  --chart-1: #B7956C;
   --chart-2: #8B7355;
   --chart-3: #5C524A;
   --chart-4: #C9AB82;
@@ -127,7 +129,7 @@
   --sidebar-accent: #E8E2D9;
   --sidebar-accent-foreground: #3D3329;
   --sidebar-border: #E8E2D9;
-  --sidebar-ring: #B8956C;
+  --sidebar-ring: #B7956C;
 }
 
 /* =========================================================================
@@ -160,11 +162,11 @@
   
   --border: rgba(244, 239, 231, 0.1);
   --input: rgba(244, 239, 231, 0.15);
-  --ring: #B8956C;
+  --ring: #B7956C;
   
   --chart-1: #C9AB82;
   --chart-2: #A69A8C;
-  --chart-3: #B8956C;
+  --chart-3: #B7956C;
   --chart-4: #8B7355;
   --chart-5: #D4C4B0;
   
@@ -175,7 +177,7 @@
   --sidebar-accent: #2C2825;
   --sidebar-accent-foreground: #F4EFE7;
   --sidebar-border: rgba(244, 239, 231, 0.1);
-  --sidebar-ring: #B8956C;
+  --sidebar-ring: #B7956C;
 }
 
 /* =========================================================================
@@ -191,13 +193,24 @@ body {
 
 /* Premium text selection */
 ::selection {
-  background: rgba(184, 149, 108, 0.25);
+  background: rgba(183, 149, 108, 0.25);
   color: #2C2825;
 }
 
 .dark ::selection {
-  background: rgba(184, 149, 108, 0.35);
+  background: rgba(183, 149, 108, 0.35);
   color: #F4EFE7;
+}
+
+@utility bg-gold-gradient {
+  background-image: linear-gradient(135deg, var(--color-gold-light) 0%, var(--color-gold) 52%, var(--color-gold-dark) 100%);
+}
+
+@utility text-gold-gradient {
+  background-image: linear-gradient(135deg, var(--color-gold-light) 0%, var(--color-gold) 52%, var(--color-gold-dark) 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
 }
 
 @layer base {

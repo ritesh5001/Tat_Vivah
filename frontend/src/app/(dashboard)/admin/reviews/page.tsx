@@ -129,7 +129,7 @@ export default function AdminReviewsPage() {
                       {review.user?.fullName ?? "Anonymous"} · {review.user?.email ?? "No email"}
                     </p>
                   </div>
-                  <span className="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider border border-[#B8956C]/30 text-[#8A7054] bg-[#B8956C]/5">
+                  <span className="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider border border-[#B7956C]/30 text-[#8A7054] bg-[#B7956C]/5">
                     {review.rating} ★
                   </span>
                 </div>
