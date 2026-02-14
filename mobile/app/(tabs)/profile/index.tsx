@@ -9,13 +9,14 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { usePathname, useRouter } from "expo-router";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import { useAuth } from "../../../src/hooks/useAuth";
 import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const pathname = usePathname();
   const { session, signOut, isLoading } = useAuth();
   const user = session?.user;
 
@@ -28,6 +29,13 @@ export default function ProfileScreen() {
       mountedRef.current = false;
     };
   }, []);
+
+  React.useEffect(() => {
+    if (!isLoading && !session?.accessToken) {
+      const returnTo = encodeURIComponent(pathname || "/profile");
+      router.replace(`/login?returnTo=${returnTo}`);
+    }
+  }, [isLoading, session?.accessToken, pathname, router]);
 
   const handleLogout = React.useCallback(async () => {
     setLoggingOut(true);
@@ -102,6 +110,8 @@ export default function ProfileScreen() {
                 )}
                 <Text style={styles.label}>Account type</Text>
                 <Text style={styles.value}>{user.role ?? "USER"}</Text>
+                <Text style={styles.label}>Account status</Text>
+                <Text style={styles.value}>{user.status ?? "ACTIVE"}</Text>
                 {user.isEmailVerified != null && (
                   <>
                     <Text style={styles.label}>Email verified</Text>

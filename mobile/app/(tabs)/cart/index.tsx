@@ -7,7 +7,7 @@ import {
   Pressable,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { usePathname, useRouter } from "expo-router";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import { useAuth } from "../../../src/hooks/useAuth";
 import { useCart } from "../../../src/providers/CartProvider";
@@ -26,6 +26,7 @@ const currency = new Intl.NumberFormat("en-IN", {
 
 export default function CartScreen() {
   const router = useRouter();
+  const pathname = usePathname();
   const { session, isLoading: authLoading } = useAuth();
   const token = session?.accessToken ?? null;
   const { isConnected } = useNetworkStatus();
@@ -44,9 +45,10 @@ export default function CartScreen() {
   // Redirect to login if unauthenticated
   React.useEffect(() => {
     if (!authLoading && !token) {
-      router.replace("/login");
+      const returnTo = encodeURIComponent(pathname || "/cart");
+      router.replace(`/login?returnTo=${returnTo}`);
     }
-  }, [authLoading, token, router]);
+  }, [authLoading, token, router, pathname]);
 
   const handleQty = React.useCallback(
     (itemId: string, nextQty: number) => {

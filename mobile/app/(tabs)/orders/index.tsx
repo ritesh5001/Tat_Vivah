@@ -12,7 +12,7 @@ import { colors, radius, spacing, typography, shadow } from "../../../src/theme/
 import { listBuyerOrders, type BuyerOrder } from "../../../src/services/orders";
 import { getPaymentDetails } from "../../../src/services/payments";
 import { useAuth } from "../../../src/hooks/useAuth";
-import { useRouter } from "expo-router";
+import { usePathname, useRouter } from "expo-router";
 import { isAbortError } from "../../../src/services/api";
 import { SkeletonOrderRow } from "../../../src/components/Skeleton";
 import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
@@ -23,6 +23,32 @@ const currency = new Intl.NumberFormat("en-IN", {
   maximumFractionDigits: 0,
 });
 
+function getStatusStyle(label: string): { color: string } {
+  switch (label) {
+    case "DELIVERED":
+      return { color: "#5A7352" };
+    case "CONFIRMED":
+      return { color: "#8A7054" };
+    case "SHIPPED":
+      return { color: "#5E6B82" };
+    case "PAYMENT PENDING":
+      return { color: "#8A7054" };
+    case "PAYMENT FAILED":
+      return { color: "#7A5656" };
+    case "CANCELLED":
+      return { color: "#7A5656" };
+    default:
+      return { color: colors.brownSoft };
+  }
+}
+
+function getPaymentLabel(orderStatus: string, paymentStatus?: string): string {
+  if (orderStatus !== "PLACED") return orderStatus;
+  if (paymentStatus === "FAILED") return "PAYMENT FAILED";
+  if (paymentStatus && paymentStatus !== "SUCCESS") return "PAYMENT PENDING";
+  return orderStatus;
+}
+
 // ---------------------------------------------------------------------------
 // Memoised order card
 // ---------------------------------------------------------------------------
@@ -30,10 +56,12 @@ const currency = new Intl.NumberFormat("en-IN", {
 const OrderCard = React.memo(function OrderCard({
   order,
   paymentLabel,
+  paymentStyle,
   onPress,
 }: {
   order: BuyerOrder;
   paymentLabel: string;
+  paymentStyle: { color: string };
   onPress: (id: string) => void;
 }) {
   return (
@@ -45,7 +73,7 @@ const OrderCard = React.memo(function OrderCard({
         <Text style={styles.orderTitle}>
           Order {order.id.slice(0, 8).toUpperCase()}
         </Text>
-        <Text style={styles.orderStatus}>{paymentLabel}</Text>
+        <Text style={[styles.orderStatus, paymentStyle]}>{paymentLabel}</Text>
       </View>
       <Text style={styles.orderMeta}>
         {order.createdAt
@@ -65,6 +93,7 @@ const OrderCard = React.memo(function OrderCard({
 
 export default function OrdersScreen() {
   const router = useRouter();
+  const pathname = usePathname();
   const { session, isLoading: authLoading } = useAuth();
   const token = session?.accessToken ?? null;
   const [orders, setOrders] = React.useState<BuyerOrder[]>([]);
@@ -119,11 +148,12 @@ export default function OrdersScreen() {
   React.useEffect(() => {
     if (authLoading) return;
     if (!token) {
-      router.replace("/login");
+      const returnTo = encodeURIComponent(pathname || "/orders");
+      router.replace(`/login?returnTo=${returnTo}`);
       return;
     }
     loadOrders();
-  }, [authLoading, token, router, loadOrders]);
+  }, [authLoading, token, router, loadOrders, pathname]);
 
   const handleOrderPress = React.useCallback(
     (orderId: string) => {
@@ -135,14 +165,12 @@ export default function OrdersScreen() {
   const renderOrderItem = React.useCallback(
     ({ item }: ListRenderItemInfo<BuyerOrder>) => {
       const payment = paymentStatus[item.id];
-      const label =
-        item.status === "PLACED" && payment && payment !== "SUCCESS"
-          ? "PAYMENT PENDING"
-          : item.status;
+      const label = getPaymentLabel(item.status, payment);
       return (
         <OrderCard
           order={item}
           paymentLabel={label}
+          paymentStyle={getStatusStyle(label)}
           onPress={handleOrderPress}
         />
       );

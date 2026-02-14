@@ -9,7 +9,7 @@ import {
   RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { usePathname, useRouter } from "expo-router";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import {
   listNotifications,
@@ -34,6 +34,7 @@ const PAGE_SIZE = 20;
 // ---------------------------------------------------------------------------
 export default function NotificationsScreen() {
   const router = useRouter();
+  const pathname = usePathname();
   const { session, isLoading: authLoading } = useAuth();
   const token = session?.accessToken ?? null;
   const { showToast } = useToast();
@@ -53,6 +54,13 @@ export default function NotificationsScreen() {
       mountedRef.current = false;
     };
   }, []);
+
+  React.useEffect(() => {
+    if (!authLoading && !token) {
+      const returnTo = encodeURIComponent(pathname || "/notifications");
+      router.replace(`/login?returnTo=${returnTo}`);
+    }
+  }, [authLoading, token, pathname, router]);
 
   // ---- Fetch page ----
   const fetchPage = React.useCallback(
@@ -196,18 +204,6 @@ export default function NotificationsScreen() {
   }, [loadingMore]);
 
   // ---- Main render ----
-  if (!authLoading && !token) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.center}>
-          <Text style={styles.emptyText}>
-            Please sign in to see notifications.
-          </Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>

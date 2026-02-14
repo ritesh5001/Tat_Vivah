@@ -76,6 +76,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [mutatingIds, setMutatingIds] = React.useState<Set<string>>(
     new Set()
   );
+  const mutationLockRef = React.useRef<Set<string>>(new Set());
 
   const mountedRef = React.useRef(true);
   React.useEffect(() => {
@@ -89,15 +90,19 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const cartCount = cartItems.reduce((sum, i) => sum + i.quantity, 0);
 
   // ---- Lock / unlock helpers ----
-  const lockItem = React.useCallback((id: string) => {
+  const lockItem = React.useCallback((id: string): boolean => {
+    if (mutationLockRef.current.has(id)) return false;
+    mutationLockRef.current.add(id);
     setMutatingIds((prev) => {
       const next = new Set(prev);
       next.add(id);
       return next;
     });
+    return true;
   }, []);
 
   const unlockItem = React.useCallback((id: string) => {
+    mutationLockRef.current.delete(id);
     setMutatingIds((prev) => {
       const next = new Set(prev);
       next.delete(id);
@@ -128,6 +133,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     if (!token) {
       // Logged out → clear
+      mutationLockRef.current.clear();
       setCartItems([]);
       setIsLoading(false);
       setFetchError(null);
@@ -184,9 +190,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
       // Use a temp key for the lock (productId+variantId)
       const tempKey = `add_${payload.productId}_${payload.variantId}`;
-      if (mutatingIds.has(tempKey)) return; // prevent double-tap
-
-      lockItem(tempKey);
+      if (!lockItem(tempKey)) return; // prevent double-tap
       try {
         await apiAddCartItem(payload, token);
         // Full refresh to get consistent server state (priceSnapshot, id, etc.)
@@ -202,16 +206,17 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         if (mountedRef.current) unlockItem(tempKey);
       }
     },
-    [token, mutatingIds, lockItem, unlockItem, refreshCart, showToast]
+    [token, lockItem, unlockItem, refreshCart, showToast]
   );
 
   // ---- Update quantity (optimistic) ----
   const updateQuantity = React.useCallback(
     async (itemId: string, nextQty: number) => {
       if (!token) return;
-      if (mutatingIds.has(itemId)) return; // debounce rapid taps
+      if (!lockItem(itemId)) return; // debounce rapid taps
 
       if (nextQty <= 0) {
+        unlockItem(itemId);
         return removeFromCart(itemId);
       }
 
@@ -225,7 +230,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         )
       );
 
-      lockItem(itemId);
       try {
         await apiUpdateCartItem(itemId, nextQty, token);
         // Sync with server truth
@@ -243,21 +247,20 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [token, cartItems, mutatingIds, lockItem, unlockItem, refreshCart, showToast]
+    [token, cartItems, lockItem, unlockItem, refreshCart, showToast]
   );
 
   // ---- Remove item (optimistic) ----
   const removeFromCart = React.useCallback(
     async (itemId: string) => {
       if (!token) return;
-      if (mutatingIds.has(itemId)) return;
+      if (!lockItem(itemId)) return;
 
       const snapshot = [...cartItems];
 
       // Optimistic removal
       setCartItems((prev) => prev.filter((item) => item.id !== itemId));
 
-      lockItem(itemId);
       try {
         await apiRemoveCartItem(itemId, token);
         // Server is source of truth — but we already removed locally, just refresh
@@ -274,11 +277,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [token, cartItems, mutatingIds, lockItem, unlockItem, refreshCart, showToast]
+    [token, cartItems, lockItem, unlockItem, refreshCart, showToast]
   );
 
   // ---- Clear local cart (post-checkout) ----
   const clearCart = React.useCallback(() => {
+    mutationLockRef.current.clear();
     setCartItems([]);
     setFetchError(null);
     setMutatingIds(new Set());

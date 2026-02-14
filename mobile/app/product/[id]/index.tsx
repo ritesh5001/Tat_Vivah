@@ -8,6 +8,7 @@ import {
   FlatList,
   TextInput,
   Dimensions,
+  Alert,
   type ListRenderItemInfo,
   type NativeSyntheticEvent,
   type NativeScrollEvent,
@@ -16,9 +17,11 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Image } from "expo-image";
+import * as ImagePicker from "expo-image-picker";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import {
   getProductById,
+  getRelatedProducts,
   type ProductDetail,
   type ProductSummary,
   type ProductVariant,
@@ -32,10 +35,15 @@ import { useAuth } from "../../../src/hooks/useAuth";
 import { useCart } from "../../../src/providers/CartProvider";
 import { useNetworkStatus } from "../../../src/hooks/useNetworkStatus";
 import { useToast } from "../../../src/providers/ToastProvider";
-import { isAbortError } from "../../../src/services/api";
+import { ApiError, isAbortError } from "../../../src/services/api";
 import { SkeletonBlock } from "../../../src/components/Skeleton";
 import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
 import { impactMedium, impactLight, notifySuccess } from "../../../src/utils/haptics";
+import {
+  buildReviewImageName,
+  uploadReviewImage,
+  type ReviewImageAsset,
+} from "../../../src/services/imagekit";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -53,6 +61,9 @@ const currency = new Intl.NumberFormat("en-IN", {
   currency: "INR",
   maximumFractionDigits: 0,
 });
+
+const MAX_REVIEW_IMAGES = 3;
+const MAX_REVIEW_IMAGE_BYTES = 2 * 1024 * 1024;
 
 // ---------------------------------------------------------------------------
 // Memoised sub-components (extracted from render for FlatList perf)
@@ -102,6 +113,19 @@ const ReviewRow = React.memo(function ReviewRow({
         </Text>
       </View>
       <Text style={styles.reviewBody}>{review.text}</Text>
+      {review.images?.length ? (
+        <View style={styles.reviewImagesWrap}>
+          {review.images.map((uri, idx) => (
+            <Image
+              key={`${review.id}-${idx}`}
+              source={{ uri }}
+              style={styles.reviewImageThumb}
+              contentFit="cover"
+              transition={100}
+            />
+          ))}
+        </View>
+      ) : null}
       <Text style={styles.reviewDate}>
         {new Date(review.createdAt).toLocaleDateString("en-IN", {
           month: "short",
@@ -111,6 +135,63 @@ const ReviewRow = React.memo(function ReviewRow({
       </Text>
     </View>
   );
+});
+
+const RelatedProductCard = React.memo(function RelatedProductCard({
+  item,
+  onPress,
+}: {
+  item: ProductSummary;
+  onPress: (id: string) => void;
+}) {
+  const image = item.images?.[0] ?? fallbackImage;
+
+  return (
+    <Pressable style={relatedCardStyles.card} onPress={() => onPress(item.id)}>
+      <Image
+        source={{ uri: image }}
+        style={relatedCardStyles.image}
+        contentFit="cover"
+        transition={150}
+        cachePolicy="memory-disk"
+      />
+      <Text style={relatedCardStyles.title} numberOfLines={2}>
+        {item.title}
+      </Text>
+      <Text style={relatedCardStyles.meta} numberOfLines={1}>
+        {item.category?.name ?? "Collection"}
+      </Text>
+    </Pressable>
+  );
+});
+
+const relatedCardStyles = StyleSheet.create({
+  card: {
+    width: 150,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    borderRadius: radius.md,
+    padding: spacing.sm,
+    backgroundColor: colors.background,
+  },
+  image: {
+    width: "100%",
+    height: 110,
+    borderRadius: radius.sm,
+    backgroundColor: colors.cream,
+  },
+  title: {
+    marginTop: spacing.sm,
+    fontFamily: typography.serif,
+    fontSize: 13,
+    color: colors.charcoal,
+  },
+  meta: {
+    marginTop: spacing.xs,
+    fontFamily: typography.sans,
+    fontSize: 10,
+    color: colors.brownSoft,
+  },
 });
 
 // ---------------------------------------------------------------------------
@@ -152,8 +233,13 @@ export default function ProductDetailScreen() {
   const [reviews, setReviews] = React.useState<Review[]>([]);
   const [rating, setRating] = React.useState(0);
   const [reviewText, setReviewText] = React.useState("");
+  const [reviewImages, setReviewImages] = React.useState<ReviewImageAsset[]>([]);
   const [submitting, setSubmitting] = React.useState(false);
   const [reviewError, setReviewError] = React.useState<string | null>(null);
+  const [hasLocalReviewSubmission, setHasLocalReviewSubmission] = React.useState(false);
+
+  const [relatedProducts, setRelatedProducts] = React.useState<ProductSummary[]>([]);
+  const [loadingRelated, setLoadingRelated] = React.useState(false);
 
   const [galleryIndex, setGalleryIndex] = React.useState(0);
 
@@ -192,13 +278,53 @@ export default function ProductDetailScreen() {
     };
   }, [productId]);
 
-  // ---- Fetch reviews ----
+  // ---- Fetch related products ----
   React.useEffect(() => {
+    if (!product?.id) return;
+
+    const categoryId =
+      product.categoryId ??
+      (typeof product.category?.id === "string" ? product.category.id : undefined);
+
+    if (!categoryId) {
+      setRelatedProducts([]);
+      return;
+    }
+
+    const controller = new AbortController();
     let active = true;
 
     (async () => {
+      setLoadingRelated(true);
       try {
-        const data = await fetchProductReviews(productId);
+        const related = await getRelatedProducts(categoryId, product.id, controller.signal);
+        if (!active) return;
+        setRelatedProducts((related ?? []).slice(0, 6));
+      } catch (err) {
+        if (isAbortError(err) || !active) return;
+        if (active) setRelatedProducts([]);
+      } finally {
+        if (active) setLoadingRelated(false);
+      }
+    })();
+
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [product]);
+
+  // ---- Fetch reviews ----
+  React.useEffect(() => {
+    const controller = new AbortController();
+    let active = true;
+
+    setHasLocalReviewSubmission(false);
+    setReviewImages([]);
+
+    (async () => {
+      try {
+        const data = await fetchProductReviews(productId, controller.signal);
         if (active) setReviews(data ?? []);
       } catch (err) {
         if (isAbortError(err) || !active) return;
@@ -208,6 +334,7 @@ export default function ProductDetailScreen() {
 
     return () => {
       active = false;
+      controller.abort();
     };
   }, [productId]);
 
@@ -220,9 +347,9 @@ export default function ProductDetailScreen() {
   // Duplicate‐prevention: backend prevents via unique constraint; we hide the form
   // if any review matches the logged-in user's ID (review.user object may only
   // have fullName — compare loosely).
-  const hasUserReviewed = Boolean(
-    userId && reviews.length > 0 && reviews.some((r) => (r as any).userId === userId)
-  );
+  const hasUserReviewed =
+    hasLocalReviewSubmission ||
+    Boolean(userId && reviews.length > 0 && reviews.some((r) => r.userId === userId));
   const outOfStock =
     selectedVariant?.inventory != null && selectedVariant.inventory.stock <= 0;
 
@@ -253,6 +380,49 @@ export default function ProductDetailScreen() {
     }
   }, [token, isConnected, product, selectedVariant, outOfStock, addToCart, router, showToast]);
 
+  const handlePickReviewImages = React.useCallback(async () => {
+    if (reviewImages.length >= MAX_REVIEW_IMAGES) {
+      setReviewError(`Maximum ${MAX_REVIEW_IMAGES} images allowed.`);
+      return;
+    }
+
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Permission required", "Allow photo library access to attach review images.");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsMultipleSelection: true,
+      selectionLimit: MAX_REVIEW_IMAGES - reviewImages.length,
+      quality: 0.9,
+    });
+
+    if (result.canceled || !result.assets?.length) return;
+
+    const nextAssets: ReviewImageAsset[] = [];
+    for (const asset of result.assets) {
+      if (typeof asset.fileSize === "number" && asset.fileSize > MAX_REVIEW_IMAGE_BYTES) {
+        setReviewError(`Image \"${asset.fileName ?? "selected"}\" exceeds 2MB.`);
+        return;
+      }
+      const ext = asset.fileName?.split(".").pop()?.toLowerCase() ?? "jpg";
+      nextAssets.push({
+        uri: asset.uri,
+        fileName: asset.fileName ?? buildReviewImageName(nextAssets.length + 1),
+        mimeType: asset.mimeType ?? `image/${ext}`,
+      });
+    }
+
+    setReviewError(null);
+    setReviewImages((prev) => [...prev, ...nextAssets].slice(0, MAX_REVIEW_IMAGES));
+  }, [reviewImages.length]);
+
+  const handleRemoveReviewImage = React.useCallback((index: number) => {
+    setReviewImages((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
   const handleSubmitReview = React.useCallback(async () => {
     if (!token) {
       router.push("/login");
@@ -262,30 +432,75 @@ export default function ProductDetailScreen() {
       setReviewError("Please provide a rating and review.");
       return;
     }
+    if (submitting) return;
+
     setReviewError(null);
     setSubmitting(true);
+
+    const optimisticId = `optimistic-${Date.now()}`;
+    const optimisticReview: Review = {
+      id: optimisticId,
+      rating,
+      text: reviewText.trim(),
+      images: reviewImages.map((img) => img.uri),
+      createdAt: new Date().toISOString(),
+      user: {
+        fullName: session?.user?.email ?? session?.user?.phone ?? "You",
+      },
+    };
+
+    setReviews((prev) => [optimisticReview, ...prev]);
+    setHasLocalReviewSubmission(true);
+
     try {
+      const uploadedImageUrls: string[] = [];
+      for (const image of reviewImages) {
+        const uploadedUrl = await uploadReviewImage(image);
+        uploadedImageUrls.push(uploadedUrl);
+      }
+
       await submitProductReview(
         productId,
-        { rating, text: reviewText.trim(), images: [] },
+        { rating, text: reviewText.trim(), images: uploadedImageUrls },
         token
       );
+
       const updated = await fetchProductReviews(productId);
       if (mountedRef.current) {
         setReviews(updated ?? []);
         setRating(0);
         setReviewText("");
+        setReviewImages([]);
         notifySuccess();
         showToast("Review submitted", "success");
       }
     } catch (err) {
       if (!mountedRef.current) return;
-      const msg = err instanceof Error ? err.message : "Failed to submit review";
-      setReviewError(msg);
+      setReviews((prev) => prev.filter((r) => r.id !== optimisticId));
+      if (err instanceof ApiError && err.statusCode === 409) {
+        setHasLocalReviewSubmission(true);
+        setReviewError(null);
+        showToast("You have already reviewed this product.", "info");
+      } else {
+        setHasLocalReviewSubmission(false);
+        const msg = err instanceof Error ? err.message : "Failed to submit review";
+        setReviewError(msg);
+      }
     } finally {
       if (mountedRef.current) setSubmitting(false);
     }
-  }, [token, rating, reviewText, productId, router, showToast]);
+  }, [
+    token,
+    rating,
+    reviewText,
+    reviewImages,
+    session?.user?.email,
+    session?.user?.phone,
+    submitting,
+    productId,
+    router,
+    showToast,
+  ]);
 
   // ---- Gallery scroll handler ----
   const handleGalleryScroll = React.useCallback(
@@ -316,6 +531,22 @@ export default function ProductDetailScreen() {
   const renderReviewItem = React.useCallback(
     ({ item }: ListRenderItemInfo<Review>) => <ReviewRow review={item} />,
     []
+  );
+
+  const relatedKeyExtractor = React.useCallback((item: ProductSummary) => item.id, []);
+
+  const handleRelatedPress = React.useCallback(
+    (id: string) => {
+      router.push({ pathname: "/product/[id]", params: { id } });
+    },
+    [router]
+  );
+
+  const renderRelatedItem = React.useCallback(
+    ({ item }: ListRenderItemInfo<ProductSummary>) => (
+      <RelatedProductCard item={item} onPress={handleRelatedPress} />
+    ),
+    [handleRelatedPress]
   );
 
   // ---- Variant press handler (avoids inline closure per-item) ----
@@ -542,6 +773,36 @@ export default function ProductDetailScreen() {
                 onChangeText={setReviewText}
                 multiline
               />
+
+              <Text style={styles.reviewLabel}>Photos (optional)</Text>
+              <View style={styles.reviewImageRow}>
+                {reviewImages.map((image, index) => (
+                  <View key={`${image.uri}-${index}`} style={styles.reviewImagePreviewWrap}>
+                    <Image
+                      source={{ uri: image.uri }}
+                      style={styles.reviewImagePreview}
+                      contentFit="cover"
+                    />
+                    <Pressable
+                      onPress={() => handleRemoveReviewImage(index)}
+                      style={styles.reviewImageRemoveBtn}
+                    >
+                      <Text style={styles.reviewImageRemoveText}>×</Text>
+                    </Pressable>
+                  </View>
+                ))}
+
+                {reviewImages.length < MAX_REVIEW_IMAGES && (
+                  <Pressable
+                    style={styles.reviewImageAddBtn}
+                    onPress={handlePickReviewImages}
+                    disabled={submitting}
+                  >
+                    <Text style={styles.reviewImageAddText}>+ Add</Text>
+                  </Pressable>
+                )}
+              </View>
+
               {reviewError ? (
                 <Text style={styles.errorText}>{reviewError}</Text>
               ) : null}
@@ -559,7 +820,7 @@ export default function ProductDetailScreen() {
             </View>
           ) : hasUserReviewed ? (
             <Text style={styles.mutedText}>
-              You've already reviewed this product.
+              You have already reviewed this product.
             </Text>
           ) : (
             <Pressable
@@ -585,6 +846,28 @@ export default function ProductDetailScreen() {
               maxToRenderPerBatch={5}
               windowSize={3}
               style={{ marginTop: spacing.md }}
+            />
+          )}
+        </View>
+
+        {/* ---- Related products ---- */}
+        <View style={styles.relatedWrap}>
+          <Text style={styles.sectionTitle}>You may also like</Text>
+
+          {loadingRelated ? (
+            <View style={styles.relatedLoadingWrap}>
+              <ActivityIndicator size="small" color={colors.gold} />
+            </View>
+          ) : relatedProducts.length === 0 ? (
+            <Text style={styles.mutedText}>More products coming soon.</Text>
+          ) : (
+            <FlatList
+              data={relatedProducts}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={relatedKeyExtractor}
+              renderItem={renderRelatedItem}
+              contentContainerStyle={styles.relatedListContent}
             />
           )}
         </View>
@@ -860,6 +1143,58 @@ const styles = StyleSheet.create({
     textAlignVertical: "top",
     backgroundColor: colors.background,
   },
+  reviewImageRow: {
+    marginTop: spacing.sm,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    flexWrap: "wrap",
+  },
+  reviewImagePreviewWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: radius.sm,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.cream,
+  },
+  reviewImagePreview: {
+    width: "100%",
+    height: "100%",
+  },
+  reviewImageRemoveBtn: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    width: 18,
+    height: 18,
+    backgroundColor: colors.charcoal,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  reviewImageRemoveText: {
+    color: colors.background,
+    fontSize: 13,
+    lineHeight: 13,
+  },
+  reviewImageAddBtn: {
+    width: 56,
+    height: 56,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: colors.borderSoft,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.background,
+  },
+  reviewImageAddText: {
+    fontFamily: typography.sans,
+    fontSize: 10,
+    color: colors.brownSoft,
+    textTransform: "uppercase",
+  },
   reviewItem: {
     paddingVertical: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -886,6 +1221,17 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     color: colors.brownSoft,
   },
+  reviewImagesWrap: {
+    marginTop: spacing.sm,
+    flexDirection: "row",
+    gap: spacing.xs,
+  },
+  reviewImageThumb: {
+    width: 48,
+    height: 48,
+    borderRadius: radius.sm,
+    backgroundColor: colors.cream,
+  },
   reviewDate: {
     marginTop: spacing.xs,
     fontFamily: typography.sans,
@@ -903,6 +1249,54 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.brownSoft,
     marginTop: spacing.sm,
+  },
+
+  // Related products
+  relatedWrap: {
+    marginTop: spacing.xl,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.xl,
+    padding: spacing.lg,
+    borderRadius: radius.lg,
+    backgroundColor: colors.warmWhite,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    ...shadow.card,
+  },
+  relatedListContent: {
+    marginTop: spacing.md,
+    gap: spacing.md,
+    paddingRight: spacing.sm,
+  },
+  relatedCard: {
+    width: 150,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    borderRadius: radius.md,
+    padding: spacing.sm,
+    backgroundColor: colors.background,
+  },
+  relatedImage: {
+    width: "100%",
+    height: 110,
+    borderRadius: radius.sm,
+    backgroundColor: colors.cream,
+  },
+  relatedTitle: {
+    marginTop: spacing.sm,
+    fontFamily: typography.serif,
+    fontSize: 13,
+    color: colors.charcoal,
+  },
+  relatedMeta: {
+    marginTop: spacing.xs,
+    fontFamily: typography.sans,
+    fontSize: 10,
+    color: colors.brownSoft,
+  },
+  relatedLoadingWrap: {
+    marginTop: spacing.md,
+    alignItems: "center",
   },
 
   // Utility

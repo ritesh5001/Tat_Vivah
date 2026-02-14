@@ -11,7 +11,7 @@ import {
   type AppStateStatus,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, usePathname, useRouter } from "expo-router";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import {
   getOrderTracking,
@@ -57,7 +57,8 @@ function relativeTime(iso: string | undefined | null): string {
 export default function TrackingScreen() {
   const { id: orderId } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { session } = useAuth();
+  const pathname = usePathname();
+  const { session, isLoading: authLoading } = useAuth();
   const token = session?.accessToken ?? null;
   const { showToast } = useToast();
 
@@ -69,11 +70,20 @@ export default function TrackingScreen() {
 
   // Track whether screen is mounted to prevent set-state after unmount
   const mountedRef = React.useRef(true);
+  const requestAbortRef = React.useRef<AbortController | null>(null);
   React.useEffect(() => {
     return () => {
       mountedRef.current = false;
+      requestAbortRef.current?.abort();
     };
   }, []);
+
+  React.useEffect(() => {
+    if (!authLoading && !token) {
+      const returnTo = encodeURIComponent(pathname || `/orders/${orderId}/tracking`);
+      router.replace(`/login?returnTo=${returnTo}`);
+    }
+  }, [authLoading, token, pathname, orderId, router]);
 
   // ---- Fetch logic ----
   const fetchTracking = React.useCallback(
@@ -82,8 +92,12 @@ export default function TrackingScreen() {
       if (!opts?.silent) setLoading(true);
       setError(null);
 
+      requestAbortRef.current?.abort();
+      const controller = new AbortController();
+      requestAbortRef.current = controller;
+
       try {
-        const data = await getOrderTracking(orderId, token);
+        const data = await getOrderTracking(orderId, token, controller.signal);
         if (mountedRef.current) {
           setTracking(data);
           setLastFetchedAt(new Date().toISOString());
@@ -99,6 +113,9 @@ export default function TrackingScreen() {
         setError(message);
         if (opts?.silent) showToast(message, "error");
       } finally {
+        if (requestAbortRef.current === controller) {
+          requestAbortRef.current = null;
+        }
         if (mountedRef.current) {
           setLoading(false);
           setRefreshing(false);

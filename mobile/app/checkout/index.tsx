@@ -9,7 +9,7 @@ import {
   Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { usePathname, useRouter } from "expo-router";
 import { colors, radius, spacing, typography, shadow } from "../../src/theme/tokens";
 import { checkout } from "../../src/services/cart";
 import { initiatePayment, verifyPayment } from "../../src/services/payments";
@@ -24,6 +24,7 @@ import { notifySuccess, notifyError } from "../../src/utils/haptics";
 
 export default function CheckoutScreen() {
   const router = useRouter();
+  const pathname = usePathname();
   const { session, isLoading: authLoading } = useAuth();
   const token = session?.accessToken ?? null;
   const { isConnected } = useNetworkStatus();
@@ -58,6 +59,13 @@ export default function CheckoutScreen() {
       // Cart will be empty after successful checkout → we navigate from handleCheckout
     }
   }, [authLoading, cartItems.length, isPaying]);
+
+  React.useEffect(() => {
+    if (!authLoading && !token) {
+      const returnTo = encodeURIComponent(pathname || "/checkout");
+      router.replace(`/login?returnTo=${returnTo}`);
+    }
+  }, [authLoading, token, pathname, router]);
 
   const handleCheckout = async () => {
     // --- Guard: prevent double submit ---
@@ -142,6 +150,18 @@ export default function CheckoutScreen() {
       }
     } catch (err) {
       if (!mountedRef.current) return; // Component unmounted during payment
+
+      const rawMessage = err instanceof Error ? err.message : "";
+      const wasDismissedByUser = /cancel|dismiss|closed|backpress|back press/i.test(
+        rawMessage
+      );
+
+      if (wasDismissedByUser) {
+        showToast("Payment pending. You can retry from orders.", "info");
+        router.replace("/orders");
+        setError(null);
+        return;
+      }
 
       const message =
         err instanceof ApiError

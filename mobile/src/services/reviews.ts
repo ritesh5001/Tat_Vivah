@@ -2,6 +2,7 @@ import { apiRequest } from "./api";
 
 export interface Review {
   id: string;
+  userId?: string;
   rating: number;
   text: string;
   images: string[];

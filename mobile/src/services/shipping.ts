@@ -42,11 +42,12 @@ export function isTerminalStatus(status: ShipmentStatus): boolean {
 /** Fetch tracking info for a buyer order. */
 export async function getOrderTracking(
   orderId: string,
-  token?: string | null
+  token?: string | null,
+  signal?: AbortSignal
 ): Promise<TrackingResponse> {
   const response = await apiRequest<{ data: TrackingResponse }>(
     `/v1/orders/${orderId}/tracking`,
-    { method: "GET", token }
+    { method: "GET", token, signal }
   );
   return response.data;
 }

@@ -11,7 +11,7 @@ import {
   FlatList,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, usePathname, useRouter } from "expo-router";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import {
   getBuyerOrderDetail,
@@ -66,14 +66,23 @@ const OrderItemRow = React.memo(function OrderItemRow({
 // ---------------------------------------------------------------------------
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  PLACED: { label: "Order Placed", color: colors.gold },
-  PROCESSING: { label: "Processing", color: "#5A8F5A" },
-  SHIPPED: { label: "Shipped", color: "#4A7FB8" },
-  DELIVERED: { label: "Delivered", color: "#5A8F5A" },
-  CANCELLED: { label: "Cancelled", color: "#A65D57" },
+  PLACED: { label: "PLACED", color: colors.brownSoft },
+  CONFIRMED: { label: "CONFIRMED", color: "#8A7054" },
+  PROCESSING: { label: "PROCESSING", color: "#8A7054" },
+  SHIPPED: { label: "SHIPPED", color: "#5E6B82" },
+  DELIVERED: { label: "DELIVERED", color: "#5A7352" },
+  CANCELLED: { label: "CANCELLED", color: "#7A5656" },
+  "PAYMENT PENDING": { label: "PAYMENT PENDING", color: "#8A7054" },
+  "PAYMENT FAILED": { label: "PAYMENT FAILED", color: "#7A5656" },
 };
 
-function getStatusInfo(status: string) {
+function getStatusInfo(status: string, paymentStatus?: string | null) {
+  if (status === "PLACED") {
+    if (paymentStatus === "FAILED") return STATUS_LABELS["PAYMENT FAILED"];
+    if (paymentStatus && paymentStatus !== "SUCCESS") {
+      return STATUS_LABELS["PAYMENT PENDING"];
+    }
+  }
   return STATUS_LABELS[status] ?? { label: status, color: colors.brownSoft };
 }
 
@@ -83,6 +92,7 @@ function getStatusInfo(status: string) {
 
 export default function OrderDetailScreen() {
   const router = useRouter();
+  const pathname = usePathname();
   const { id: orderId } = useLocalSearchParams<{ id: string }>();
   const { session, isLoading: authLoading } = useAuth();
   const token = session?.accessToken ?? null;
@@ -95,9 +105,11 @@ export default function OrderDetailScreen() {
   const [paymentStatus, setPaymentStatus] = React.useState<string | null>(null);
 
   const mountedRef = React.useRef(true);
+  const requestAbortRef = React.useRef<AbortController | null>(null);
   React.useEffect(() => {
     return () => {
       mountedRef.current = false;
+      requestAbortRef.current?.abort();
     };
   }, []);
 
@@ -108,11 +120,13 @@ export default function OrderDetailScreen() {
       if (!opts?.silent) setLoading(true);
       setError(null);
 
+      requestAbortRef.current?.abort();
       const controller = new AbortController();
+      requestAbortRef.current = controller;
       try {
         const [orderRes, paymentRes] = await Promise.all([
           getBuyerOrderDetail(orderId, token, controller.signal),
-          getPaymentDetails(orderId, token).catch(() => null),
+          getPaymentDetails(orderId, token, controller.signal).catch(() => null),
         ]);
         if (!mountedRef.current) return;
         setOrder(orderRes.order);
@@ -128,6 +142,9 @@ export default function OrderDetailScreen() {
         setError(msg);
         if (opts?.silent) showToast(msg, "error");
       } finally {
+        if (requestAbortRef.current === controller) {
+          requestAbortRef.current = null;
+        }
         if (mountedRef.current) {
           setLoading(false);
           setRefreshing(false);
@@ -140,11 +157,12 @@ export default function OrderDetailScreen() {
   React.useEffect(() => {
     if (authLoading) return;
     if (!token) {
-      router.replace("/login");
+      const returnTo = encodeURIComponent(pathname || `/orders/${orderId}`);
+      router.replace(`/login?returnTo=${returnTo}`);
       return;
     }
     fetchOrder();
-  }, [authLoading, token, router, fetchOrder]);
+  }, [authLoading, token, router, fetchOrder, pathname, orderId]);
 
   const onRefresh = React.useCallback(() => {
     impactLight();
@@ -161,7 +179,7 @@ export default function OrderDetailScreen() {
   );
 
   // ---- Derived ----
-  const statusInfo = order ? getStatusInfo(order.status) : null;
+  const statusInfo = order ? getStatusInfo(order.status, paymentStatus) : null;
   const isDelivered = order?.status === "DELIVERED";
   const showPaymentWarning =
     order?.status === "PLACED" &&
@@ -238,7 +256,9 @@ export default function OrderDetailScreen() {
         {showPaymentWarning && (
           <View style={styles.warningBanner}>
             <Text style={styles.warningText}>
-              Payment pending — complete your payment to confirm this order.
+              {paymentStatus === "FAILED"
+                ? "Payment failed — retry payment from your orders screen."
+                : "Payment pending — complete your payment to confirm this order."}
             </Text>
           </View>
         )}

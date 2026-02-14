@@ -64,10 +64,12 @@ export async function verifyPayment(
 
 export async function getPaymentDetails(
   orderId: string,
-  token?: string | null
+  token?: string | null,
+  signal?: AbortSignal
 ) {
   return apiRequest<PaymentDetailsResponse>(`/v1/payments/${orderId}`, {
     method: "GET",
     token,
+    signal,
   });
 }
