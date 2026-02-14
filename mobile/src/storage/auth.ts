@@ -80,6 +80,17 @@ export async function saveSession(session: AuthSession): Promise<void> {
   await setStoredAuthValue(JSON.stringify(session));
 }
 
+/** Update only access + refresh tokens inside the stored session. */
+export async function updateTokens(
+  accessToken: string,
+  refreshToken: string
+): Promise<void> {
+  const session = await loadSession();
+  if (!session) return;
+  const updated: AuthSession = { ...session, accessToken, refreshToken };
+  await saveSession(updated);
+}
+
 export async function clearSession(): Promise<void> {
   cachedSession = null;
   await deleteStoredAuthValue();

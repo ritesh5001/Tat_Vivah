@@ -12,10 +12,17 @@ export interface Review {
   };
 }
 
+/** Backend wraps reviews in a `{ reviews: [...] }` envelope. */
+interface ReviewsResponse {
+  reviews: Review[];
+}
+
 export async function fetchProductReviews(productId: string): Promise<Review[]> {
-  return apiRequest<Review[]>(`/v1/reviews/product/${productId}`, {
-    method: "GET",
-  });
+  const response = await apiRequest<ReviewsResponse>(
+    `/v1/reviews/product/${productId}`,
+    { method: "GET" }
+  );
+  return response.reviews ?? [];
 }
 
 export async function submitProductReview(

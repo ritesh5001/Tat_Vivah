@@ -1,6 +1,7 @@
 import * as React from "react";
 import { loadSession, saveSession, clearSession, type AuthSession } from "../storage/auth";
 import { loginUser, type LoginPayload } from "../services/auth";
+import { setSessionExpiredHandler } from "../services/api";
 
 type AuthContextValue = {
   session: AuthSession | null;
@@ -15,6 +16,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = React.useState<AuthSession | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
 
+  // Hydrate session from secure storage
   React.useEffect(() => {
     const hydrate = async () => {
       const stored = await loadSession();
@@ -22,6 +24,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(false);
     };
     hydrate();
+  }, []);
+
+  // Register callback so the API layer can force sign-out on refresh failure
+  React.useEffect(() => {
+    setSessionExpiredHandler(() => {
+      setSession(null);
+    });
+    return () => setSessionExpiredHandler(() => {});
   }, []);
 
   const signIn = React.useCallback(async (payload: LoginPayload) => {

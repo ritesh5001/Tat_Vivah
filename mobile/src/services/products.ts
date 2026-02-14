@@ -5,6 +5,7 @@ export type ProductImage = string;
 export interface ProductVariant {
   id: string;
   sku: string;
+  /** Public listing price set by admin. Never the seller cost price. */
   price: number;
   compareAtPrice?: number | null;
   inventory?: { stock: number } | null;
@@ -15,6 +16,8 @@ export interface ProductSummary {
   title: string;
   images?: ProductImage[];
   category?: { name: string } | null;
+  /** Public listing price (admin-set). Available on list endpoints. */
+  price?: number;
 }
 
 export interface ProductDetail extends ProductSummary {

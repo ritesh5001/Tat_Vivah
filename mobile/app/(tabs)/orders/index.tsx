@@ -4,6 +4,7 @@ import {
   Text,
   StyleSheet,
   FlatList,
+  Pressable,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
@@ -93,7 +94,15 @@ export default function OrdersScreen() {
                 ? "PAYMENT PENDING"
                 : item.status;
             return (
-              <View style={styles.orderCard}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.orderCard,
+                  pressed && { opacity: 0.7 },
+                ]}
+                onPress={() =>
+                  router.push(`/orders/${item.id}/tracking`)
+                }
+              >
                 <View style={styles.orderHeader}>
                   <Text style={styles.orderTitle}>
                     Order {item.id.slice(0, 8).toUpperCase()}
@@ -112,7 +121,7 @@ export default function OrdersScreen() {
                 <Text style={styles.orderTotal}>
                   {currency.format(item.totalAmount ?? 0)}
                 </Text>
-              </View>
+              </Pressable>
             );
           }}
         />
