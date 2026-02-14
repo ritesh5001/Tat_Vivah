@@ -190,7 +190,7 @@ export default function AdminModerationPage() {
                 <tbody className="divide-y divide-border-soft">
                   {products.map((product, index) => (
                     <motion.tr
-                      key={product.id}
+                      key={product.productId}
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ delay: 0.08 + index * 0.03, duration: 0.3 }}
