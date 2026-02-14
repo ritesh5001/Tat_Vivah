@@ -14,16 +14,54 @@ import { useRouter } from "expo-router";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import { getCategories } from "../../../src/services/catalog";
 import { getProducts, type ProductSummary } from "../../../src/services/products";
+import { isAbortError } from "../../../src/services/api";
+import { SkeletonProductCard } from "../../../src/components/Skeleton";
 
 const { width } = Dimensions.get("window");
 const cardWidth = (width - spacing.lg * 2 - spacing.md) / 2;
 const fallbackImage =
   "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80";
 
+const DEBOUNCE_MS = 400;
+
+// ---------------------------------------------------------------------------
+// Memoized product card (avoids re-render when list scrolls)
+// ---------------------------------------------------------------------------
+const ProductCard = React.memo(function ProductCard({
+  item,
+  onPress,
+}: {
+  item: ProductSummary;
+  onPress: (id: string) => void;
+}) {
+  const image = item.images?.[0] ?? fallbackImage;
+  return (
+    <Pressable style={styles.productCard} onPress={() => onPress(item.id)}>
+      <Image
+        source={{ uri: image }}
+        style={styles.productImage}
+        contentFit="cover"
+        transition={200}
+        cachePolicy="memory-disk"
+      />
+      <Text style={styles.productTitle} numberOfLines={2}>
+        {item.title}
+      </Text>
+      <Text style={styles.productMeta}>
+        {item.category?.name ?? "Collection"}
+      </Text>
+    </Pressable>
+  );
+});
+
 export default function SearchScreen() {
   const router = useRouter();
-  const [categories, setCategories] = React.useState<Array<{ id: string; name: string }>>([]);
-  const [selectedCategory, setSelectedCategory] = React.useState<string | undefined>(undefined);
+  const [categories, setCategories] = React.useState<
+    Array<{ id: string; name: string }>
+  >([]);
+  const [selectedCategory, setSelectedCategory] = React.useState<
+    string | undefined
+  >(undefined);
   const [search, setSearch] = React.useState("");
   const [products, setProducts] = React.useState<ProductSummary[]>([]);
   const [page, setPage] = React.useState(1);
@@ -31,99 +69,151 @@ export default function SearchScreen() {
   const [loading, setLoading] = React.useState(true);
   const [loadingMore, setLoadingMore] = React.useState(false);
 
+  // Abort controller for the active search request
+  const controllerRef = React.useRef<AbortController | null>(null);
+  // Debounce timer
+  const debounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const skeletons = React.useMemo(
-    () => Array.from({ length: 6 }, (_, index) => ({ id: `skeleton-${index}`, skeleton: true as const })),
+    () =>
+      Array.from({ length: 6 }, (_, index) => ({
+        id: `skeleton-${index}`,
+        skeleton: true as const,
+      })),
     []
   );
 
+  // Cleanup on unmount
   React.useEffect(() => {
+    return () => {
+      controllerRef.current?.abort();
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
+
+  React.useEffect(() => {
+    const controller = new AbortController();
     const load = async () => {
       try {
         const result = await getCategories();
-        setCategories(result.categories ?? []);
-      } catch {
-        setCategories([]);
+        if (!controller.signal.aborted) {
+          setCategories(result.categories ?? []);
+        }
+      } catch (err) {
+        if (!isAbortError(err)) setCategories([]);
       }
     };
     load();
+    return () => controller.abort();
   }, []);
 
-  const loadProducts = async (
-    nextPage: number,
-    replace = false,
-    overrideSearch?: string
-  ) => {
-    if (replace) {
-      setLoading(true);
-    } else {
-      setLoadingMore(true);
-    }
-
-    try {
-      const response = await getProducts({
-        page: nextPage,
-        limit: 10,
-        categoryId: selectedCategory,
-        search: overrideSearch ?? (search.trim() || undefined),
-      });
-      const nextItems = response.data ?? [];
-      setProducts((prev) => (replace ? nextItems : [...prev, ...nextItems]));
-      setPage(response.pagination?.page ?? nextPage);
-      setTotalPages(response.pagination?.totalPages ?? 1);
-    } catch {
+  const loadProducts = React.useCallback(
+    async (
+      nextPage: number,
+      replace: boolean,
+      overrideSearch?: string,
+      signal?: AbortSignal
+    ) => {
       if (replace) {
-        setProducts([]);
+        setLoading(true);
+      } else {
+        setLoadingMore(true);
       }
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
-  };
 
+      try {
+        const response = await getProducts({
+          page: nextPage,
+          limit: 10,
+          categoryId: selectedCategory,
+          search: overrideSearch ?? (search.trim() || undefined),
+        });
+        if (signal?.aborted) return;
+        const nextItems = response.data ?? [];
+        setProducts((prev) => (replace ? nextItems : [...prev, ...nextItems]));
+        setPage(response.pagination?.page ?? nextPage);
+        setTotalPages(response.pagination?.totalPages ?? 1);
+      } catch (err) {
+        if (isAbortError(err)) return;
+        if (replace) setProducts([]);
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
+      }
+    },
+    [selectedCategory, search]
+  );
+
+  // Load on category change
   React.useEffect(() => {
-    loadProducts(1, true);
+    controllerRef.current?.abort();
+    const controller = new AbortController();
+    controllerRef.current = controller;
+    loadProducts(1, true, undefined, controller.signal);
+    return () => controller.abort();
   }, [selectedCategory]);
 
-  const handleSelectCategory = (id?: string) => {
+  // Debounced search as user types
+  const handleSearchChange = React.useCallback(
+    (text: string) => {
+      setSearch(text);
+
+      // Cancel pending debounce + in-flight request
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      controllerRef.current?.abort();
+
+      debounceRef.current = setTimeout(() => {
+        const controller = new AbortController();
+        controllerRef.current = controller;
+        loadProducts(1, true, text.trim() || undefined, controller.signal);
+      }, DEBOUNCE_MS);
+    },
+    [loadProducts]
+  );
+
+  const handleSelectCategory = React.useCallback((id?: string) => {
     setSelectedCategory(id);
-  };
+  }, []);
 
-  const handleSearch = () => {
-    loadProducts(1, true, search.trim());
-  };
+  const handleSearch = React.useCallback(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    controllerRef.current?.abort();
+    const controller = new AbortController();
+    controllerRef.current = controller;
+    loadProducts(1, true, search.trim(), controller.signal);
+  }, [loadProducts, search]);
 
-  const handleLoadMore = () => {
+  const handleLoadMore = React.useCallback(() => {
     if (!loadingMore && page < totalPages) {
       loadProducts(page + 1, false);
     }
-  };
+  }, [loadingMore, page, totalPages, loadProducts]);
 
-  const renderCard = ({ item }: { item: ProductSummary }) => {
-    const image = item.images?.[0] ?? fallbackImage;
-    return (
-      <Pressable
-        style={styles.productCard}
-        onPress={() =>
-          router.push({
-            pathname: "/product/[id]",
-            params: { id: item.id },
-          })
-        }
-      >
-        <Image
-          source={{ uri: image }}
-          style={styles.productImage}
-          contentFit="cover"
-          transition={200}
-          cachePolicy="memory-disk"
-        />
-        <Text style={styles.productTitle} numberOfLines={2}>
-          {item.title}
-        </Text>
-        <Text style={styles.productMeta}>{item.category?.name ?? "Collection"}</Text>
-      </Pressable>
-    );
-  };
+  const handleProductPress = React.useCallback(
+    (id: string) => {
+      router.push({ pathname: "/product/[id]", params: { id } });
+    },
+    [router]
+  );
+
+  // Stable renderItem — no inline closures
+  const renderItem = React.useCallback(
+    ({
+      item,
+    }: {
+      item: ProductSummary | { id: string; skeleton: true };
+    }) => {
+      if ("skeleton" in item) {
+        return <SkeletonProductCard width={cardWidth} />;
+      }
+      return <ProductCard item={item} onPress={handleProductPress} />;
+    },
+    [handleProductPress]
+  );
+
+  const keyExtractor = React.useCallback(
+    (item: ProductSummary | { id: string; skeleton: true }) => item.id,
+    []
+  );
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -139,7 +229,7 @@ export default function SearchScreen() {
           placeholder="Search collections, styles..."
           placeholderTextColor={colors.brownSoft}
           value={search}
-          onChangeText={setSearch}
+          onChangeText={handleSearchChange}
           onSubmitEditing={handleSearch}
           style={styles.searchInput}
         />
@@ -158,11 +248,19 @@ export default function SearchScreen() {
           const active = selectedCategory === item.id;
           return (
             <Pressable
-              onPress={() => handleSelectCategory(active ? undefined : item.id)}
-              style={[styles.categoryChip, active && styles.categoryChipActive]}
+              onPress={() =>
+                handleSelectCategory(active ? undefined : item.id)
+              }
+              style={[
+                styles.categoryChip,
+                active && styles.categoryChipActive,
+              ]}
             >
               <Text
-                style={[styles.categoryChipText, active && styles.categoryChipTextActive]}
+                style={[
+                  styles.categoryChipText,
+                  active && styles.categoryChipTextActive,
+                ]}
               >
                 {item.name}
               </Text>
@@ -172,23 +270,15 @@ export default function SearchScreen() {
       />
 
       <FlatList
-        data={(loading ? skeletons : products) as Array<
-          ProductSummary | { id: string; skeleton: true }
-        >}
-        keyExtractor={(item) => item.id}
+        data={
+          (loading ? skeletons : products) as Array<
+            ProductSummary | { id: string; skeleton: true }
+          >
+        }
+        keyExtractor={keyExtractor}
         numColumns={2}
         columnWrapperStyle={styles.gridRow}
-        renderItem={({ item }) =>
-          "skeleton" in item ? (
-            <View style={styles.productCard}>
-              <View style={styles.productImage} />
-              <View style={styles.skeletonLine} />
-              <View style={styles.skeletonLineShort} />
-            </View>
-          ) : (
-            renderCard({ item })
-          )
-        }
+        renderItem={renderItem}
         contentContainerStyle={styles.gridContent}
         showsVerticalScrollIndicator={false}
         onEndReached={handleLoadMore}
@@ -202,7 +292,7 @@ export default function SearchScreen() {
         }
         initialNumToRender={6}
         maxToRenderPerBatch={6}
-        windowSize={7}
+        windowSize={5}
         removeClippedSubviews
       />
     </SafeAreaView>

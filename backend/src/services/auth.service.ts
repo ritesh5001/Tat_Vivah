@@ -16,6 +16,10 @@ import { env } from '../config/env.js';
 import type { StringValue } from 'ms';
 import ms from 'ms';
 import { otpService, type SignupOtpPayload } from './otp.service.js';
+import { generateOtpCode, hashOtp } from '../utils/otp.util.js';
+import { otpRepository } from '../repositories/otp.repository.js';
+import { sendEmail } from '../notifications/email/resend.client.js';
+import { OtpPurpose } from '@prisma/client';
 import type { Role, UserStatus } from '@prisma/client';
 
 
@@ -479,6 +483,107 @@ export class AuthService {
         }
 
         return { message: 'Session revoked successfully' };
+    }
+
+    // ========================================================================
+    // PASSWORD RESET FLOW
+    // ========================================================================
+
+    private static readonly PASSWORD_RESET_EXPIRY_MINUTES = 10;
+
+    /**
+     * Forgot Password — request a password-reset OTP
+     * POST /v1/auth/forgot-password
+     *
+     * Security:
+     *   - Generic success response regardless of whether the email exists,
+     *     to prevent user-existence enumeration.
+     *   - OTP is hashed (SHA-256) before storage.
+     *   - Previous unused password-reset OTPs remain (only the latest valid
+     *     one is checked during reset).
+     */
+    async forgotPassword(email: string): Promise<MessageResponse> {
+        const user = await this.repository.findUserByEmail(email);
+
+        // Always return a generic message to avoid leaking user existence
+        if (!user) {
+            return { message: 'If an account with that email exists, an OTP has been sent.' };
+        }
+
+        const code = generateOtpCode();
+        const codeHash = hashOtp(code);
+        const expiresAt = new Date(
+            Date.now() + AuthService.PASSWORD_RESET_EXPIRY_MINUTES * 60 * 1000
+        );
+
+        await otpRepository.createOtp({
+            userId: user.id,
+            email,
+            codeHash,
+            purpose: OtpPurpose.PASSWORD_RESET,
+            expiresAt,
+        });
+
+        const html = `
+            <div style="font-family:Arial,sans-serif; line-height:1.6;">
+                <h2>Reset your TatVivah password</h2>
+                <p>Your password-reset OTP is:</p>
+                <p style="font-size:24px; font-weight:bold; letter-spacing:4px;">${code}</p>
+                <p>This OTP expires in ${AuthService.PASSWORD_RESET_EXPIRY_MINUTES} minutes.</p>
+                <p>If you did not request this, please ignore this email.</p>
+            </div>
+        `;
+
+        await sendEmail(email, 'Reset your TatVivah password', html);
+
+        return { message: 'If an account with that email exists, an OTP has been sent.' };
+    }
+
+    /**
+     * Reset Password — verify OTP and set a new password
+     * POST /v1/auth/reset-password
+     *
+     * Security:
+     *   - Finds the latest valid (non-expired, non-used) PASSWORD_RESET OTP.
+     *   - Compares the hashed OTP.
+     *   - Hashes the new password with bcrypt.
+     *   - Marks the OTP as used.
+     *   - Invalidates ALL existing login sessions (force re-login).
+     */
+    async resetPassword(
+        email: string,
+        otp: string,
+        newPassword: string
+    ): Promise<MessageResponse> {
+        // 1. Find latest valid password-reset OTP
+        const otpRecord = await otpRepository.findLatestValid(email, OtpPurpose.PASSWORD_RESET);
+        if (!otpRecord) {
+            throw ApiError.badRequest('Invalid or expired OTP');
+        }
+
+        // 2. Compare hashed OTP
+        const hashed = hashOtp(otp);
+        if (otpRecord.codeHash !== hashed) {
+            throw ApiError.badRequest('Invalid or expired OTP');
+        }
+
+        // 3. Look up the user
+        const user = await this.repository.findUserByEmail(email);
+        if (!user) {
+            throw ApiError.badRequest('Invalid or expired OTP');
+        }
+
+        // 4. Hash new password and update
+        const passwordHash = await hashPassword(newPassword);
+        await this.repository.updateUser(user.id, { passwordHash });
+
+        // 5. Mark OTP as used
+        await otpRepository.markUsed(otpRecord.id);
+
+        // 6. Invalidate all sessions → forces re-login everywhere
+        await this.repository.deleteAllUserSessions(user.id);
+
+        return { message: 'Password reset successfully. Please login with your new password.' };
     }
 }
 

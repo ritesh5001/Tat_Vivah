@@ -4,6 +4,7 @@ import {
   Text,
   StyleSheet,
   FlatList,
+  Pressable,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
@@ -11,6 +12,8 @@ import { listBuyerOrders, type BuyerOrder } from "../../../src/services/orders";
 import { getPaymentDetails } from "../../../src/services/payments";
 import { useAuth } from "../../../src/hooks/useAuth";
 import { useRouter } from "expo-router";
+import { isAbortError } from "../../../src/services/api";
+import { SkeletonOrderRow } from "../../../src/components/Skeleton";
 
 const currency = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -27,17 +30,20 @@ export default function OrdersScreen() {
   const [paymentStatus, setPaymentStatus] = React.useState<Record<string, string>>({});
 
   React.useEffect(() => {
+    if (authLoading) return;
+    if (!token) {
+      router.replace("/login");
+      return;
+    }
+
+    const controller = new AbortController();
+    let cancelled = false;
+
     const load = async () => {
-      if (authLoading) {
-        return;
-      }
-      if (!token) {
-        router.replace("/login");
-        return;
-      }
       setLoading(true);
       try {
         const result = await listBuyerOrders(token);
+        if (cancelled) return;
         const nextOrders = result.orders ?? [];
         setOrders(nextOrders);
 
@@ -52,19 +58,34 @@ export default function OrdersScreen() {
           })
         );
 
+        if (cancelled) return;
         const map = statuses.reduce((acc, [orderId, status]) => {
           acc[orderId] = status;
           return acc;
         }, {} as Record<string, string>);
         setPaymentStatus(map);
-      } catch {
-        setOrders([]);
+      } catch (err) {
+        if (!isAbortError(err) && !cancelled) setOrders([]);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     load();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
   }, [authLoading, token, router]);
+
+  const handleOrderPress = React.useCallback(
+    (orderId: string) => {
+      router.push(`/orders/${orderId}/tracking`);
+    },
+    [router]
+  );
+
+  const keyExtractor = React.useCallback((item: BuyerOrder) => item.id, []);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -74,8 +95,10 @@ export default function OrdersScreen() {
       </View>
 
       {loading || authLoading ? (
-        <View style={styles.loadingCard}>
-          <Text style={styles.loadingText}>Loading orders...</Text>
+        <View style={styles.listContent}>
+          <SkeletonOrderRow />
+          <SkeletonOrderRow />
+          <SkeletonOrderRow />
         </View>
       ) : orders.length === 0 ? (
         <View style={styles.loadingCard}>
@@ -84,8 +107,12 @@ export default function OrdersScreen() {
       ) : (
         <FlatList
           data={orders}
-          keyExtractor={(item) => item.id}
+          keyExtractor={keyExtractor}
           contentContainerStyle={styles.listContent}
+          initialNumToRender={8}
+          maxToRenderPerBatch={6}
+          windowSize={5}
+          removeClippedSubviews
           renderItem={({ item }) => {
             const payment = paymentStatus[item.id];
             const label =
@@ -93,7 +120,13 @@ export default function OrdersScreen() {
                 ? "PAYMENT PENDING"
                 : item.status;
             return (
-              <View style={styles.orderCard}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.orderCard,
+                  pressed && { opacity: 0.7 },
+                ]}
+                onPress={() => handleOrderPress(item.id)}
+              >
                 <View style={styles.orderHeader}>
                   <Text style={styles.orderTitle}>
                     Order {item.id.slice(0, 8).toUpperCase()}
@@ -112,7 +145,7 @@ export default function OrdersScreen() {
                 <Text style={styles.orderTotal}>
                   {currency.format(item.totalAmount ?? 0)}
                 </Text>
-              </View>
+              </Pressable>
             );
           }}
         />

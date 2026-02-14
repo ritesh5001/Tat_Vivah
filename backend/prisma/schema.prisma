@@ -577,6 +577,7 @@ enum ShipmentStatus {
 
 enum OtpPurpose {
   EMAIL_VERIFY
+  PASSWORD_RESET
 }
 
 /// Notifications for users (Buyers, Sellers, Admins)

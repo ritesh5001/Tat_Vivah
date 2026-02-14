@@ -6,21 +6,26 @@ import {
   TextInput,
   Pressable,
   ScrollView,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import * as WebBrowser from "expo-web-browser";
 import { useRouter } from "expo-router";
 import { colors, radius, spacing, typography, shadow } from "../../src/theme/tokens";
 import { checkout } from "../../src/services/cart";
-import { initiatePayment } from "../../src/services/payments";
+import { initiatePayment, verifyPayment } from "../../src/services/payments";
+import { openRazorpayCheckout } from "../../src/services/razorpay";
+import { ApiError } from "../../src/services/api";
 import { useAuth } from "../../src/hooks/useAuth";
+import { useNetworkStatus } from "../../src/hooks/useNetworkStatus";
 
 export default function CheckoutScreen() {
   const router = useRouter();
   const { session, isLoading: authLoading } = useAuth();
   const token = session?.accessToken ?? null;
+  const { isConnected } = useNetworkStatus();
 
   const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
   const [shipping, setShipping] = React.useState({
     name: "",
     phone: "",
@@ -32,15 +37,24 @@ export default function CheckoutScreen() {
   });
 
   const handleCheckout = async () => {
-    if (authLoading) {
-      return;
-    }
+    if (authLoading) return;
     if (!token) {
       router.replace("/login");
       return;
     }
+    if (!isConnected) {
+      Alert.alert(
+        "No connection",
+        "You appear to be offline. Please reconnect before completing your order."
+      );
+      return;
+    }
+
     setLoading(true);
+    setError(null);
+
     try {
+      // 1. Create order via checkout
       const orderResult = await checkout(
         {
           shippingName: shipping.name || undefined,
@@ -53,19 +67,53 @@ export default function CheckoutScreen() {
         },
         token
       );
+
       const orderId = orderResult.order?.id;
       if (!orderId) {
         throw new Error("Order ID missing. Please try again.");
       }
 
-      const payment = await initiatePayment(orderId, "MOCK", token);
-      const checkoutUrl = payment.data?.checkoutUrl;
+      // 2. Initiate Razorpay payment
+      const payment = await initiatePayment(orderId, token);
+      const { key, orderId: razorpayOrderId, amount, currency } = payment.data;
 
-      if (checkoutUrl) {
-        await WebBrowser.openBrowserAsync(checkoutUrl);
-      }
+      // 3. Open Razorpay native checkout
+      const razorpayResult = await openRazorpayCheckout({
+        key,
+        amount,
+        currency,
+        name: "TatVivah",
+        description: "Order Payment",
+        order_id: razorpayOrderId,
+        theme: { color: "#B8956C" },
+        prefill: {
+          name: shipping.name || undefined,
+          email: shipping.email || undefined,
+          contact: shipping.phone || undefined,
+        },
+      });
 
+      // 4. Verify payment on backend
+      await verifyPayment(
+        {
+          razorpayOrderId: razorpayResult.razorpay_order_id,
+          razorpayPaymentId: razorpayResult.razorpay_payment_id,
+          razorpaySignature: razorpayResult.razorpay_signature,
+        },
+        token
+      );
+
+      // 5. Only navigate after successful verification
       router.replace("/orders");
+    } catch (err) {
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : "Payment failed. Please try again.";
+      setError(message);
+      Alert.alert("Payment failed", message);
     } finally {
       setLoading(false);
     }
@@ -148,11 +196,26 @@ export default function CheckoutScreen() {
             }
           />
 
-          <Pressable style={styles.primaryButton} onPress={handleCheckout}>
+          <Pressable
+            style={[
+              styles.primaryButton,
+              (loading || !isConnected) && { opacity: 0.5 },
+            ]}
+            onPress={handleCheckout}
+            disabled={loading || !isConnected}
+          >
             <Text style={styles.primaryButtonText}>
-              {loading ? "Processing..." : "Complete order"}
+              {loading
+                ? "Processing\u2026"
+                : !isConnected
+                  ? "Offline"
+                  : "Complete order"}
             </Text>
           </Pressable>
+
+          {error ? (
+            <Text style={styles.errorText}>{error}</Text>
+          ) : null}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -218,5 +281,12 @@ const styles = StyleSheet.create({
     letterSpacing: 1.4,
     textTransform: "uppercase",
     color: colors.background,
+  },
+  errorText: {
+    marginTop: spacing.sm,
+    fontFamily: typography.sans,
+    fontSize: 12,
+    color: "#A65D57",
+    textAlign: "center",
   },
 });

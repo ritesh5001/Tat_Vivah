@@ -217,3 +217,63 @@ export async function verifyEmailOtp(payload: {
 
   return data as VerifyOtpResponse;
 }
+
+// ---------------------------------------------------------------------------
+// Password Reset
+// ---------------------------------------------------------------------------
+
+export interface ForgotPasswordResponse {
+  message: string;
+}
+
+export interface ResetPasswordPayload {
+  email: string;
+  otp: string;
+  newPassword: string;
+}
+
+export interface ResetPasswordResponse {
+  message: string;
+}
+
+/** POST /v1/auth/forgot-password */
+export async function forgotPassword(
+  email: string
+): Promise<ForgotPasswordResponse> {
+  if (!API_BASE_URL) throw new Error("API base URL is not configured");
+
+  const response = await fetch(`${API_BASE_URL}/v1/auth/forgot-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(
+      data?.error?.message ?? data?.message ?? "Request failed"
+    );
+  }
+  return data as ForgotPasswordResponse;
+}
+
+/** POST /v1/auth/reset-password */
+export async function resetPassword(
+  payload: ResetPasswordPayload
+): Promise<ResetPasswordResponse> {
+  if (!API_BASE_URL) throw new Error("API base URL is not configured");
+
+  const response = await fetch(`${API_BASE_URL}/v1/auth/reset-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(
+      data?.error?.message ?? data?.message ?? "Password reset failed"
+    );
+  }
+  return data as ResetPasswordResponse;
+}

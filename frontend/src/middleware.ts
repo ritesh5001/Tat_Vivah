@@ -9,7 +9,7 @@ const protectedRoutes = [
   "/checkout"
 ];
 
-const authPages = ["/login", "/register", "/(auth)"];
+const authPages = ["/login", "/register", "/(auth)", "/forgot-password", "/reset-password"];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -64,6 +64,8 @@ export const config = {
     "/profile/:path*",
     "/login",
     "/register/:path*",
+    "/forgot-password",
+    "/reset-password",
     "/checkout"
   ],
 };

@@ -11,6 +11,8 @@ import { useRouter } from "expo-router";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import { getCart, updateCartItem, removeCartItem, type CartItemDetails } from "../../../src/services/cart";
 import { useAuth } from "../../../src/hooks/useAuth";
+import { isAbortError } from "../../../src/services/api";
+import { SkeletonCartRow } from "../../../src/components/Skeleton";
 
 const currency = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -37,12 +39,12 @@ export default function CartScreen() {
     try {
       const result = await getCart(token);
       setItems(result.cart.items ?? []);
-    } catch {
-      setItems([]);
+    } catch (err) {
+      if (!isAbortError(err)) setItems([]);
     } finally {
       setLoading(false);
     }
-  }, [token, router]);
+  }, [token, router, authLoading]);
 
   React.useEffect(() => {
     if (!authLoading) {
@@ -81,8 +83,10 @@ export default function CartScreen() {
       </View>
 
       {loading || authLoading ? (
-        <View style={styles.loadingCard}>
-          <Text style={styles.loadingText}>Loading cart...</Text>
+        <View style={styles.listContent}>
+          <SkeletonCartRow />
+          <SkeletonCartRow />
+          <SkeletonCartRow />
         </View>
       ) : items.length === 0 ? (
         <View style={styles.emptyCard}>
@@ -100,6 +104,10 @@ export default function CartScreen() {
             data={items}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.listContent}
+            initialNumToRender={6}
+            maxToRenderPerBatch={4}
+            windowSize={5}
+            removeClippedSubviews
             renderItem={({ item }) => (
               <View style={styles.itemCard}>
                 <View style={styles.itemInfo}>

@@ -6,6 +6,29 @@ import {
 } from "@expo-google-fonts/cormorant-garamond";
 import { Inter_400Regular, Inter_500Medium } from "@expo-google-fonts/inter";
 import { AuthProvider } from "../src/providers/AuthProvider";
+import { ErrorBoundary } from "../src/components/ErrorBoundary";
+import { ToastProvider } from "../src/providers/ToastProvider";
+import { NotificationProvider } from "../src/providers/NotificationProvider";
+import { OfflineBanner } from "../src/components/OfflineBanner";
+import { SessionExpiredModal } from "../src/components/SessionExpiredModal";
+import { useNetworkStatus } from "../src/hooks/useNetworkStatus";
+
+function AppShell() {
+  const { isConnected } = useNetworkStatus();
+
+  return (
+    <>
+      <OfflineBanner visible={!isConnected} />
+      <SessionExpiredModal />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: "#FAF7F2" },
+        }}
+      />
+    </>
+  );
+}
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -20,13 +43,14 @@ export default function RootLayout() {
   }
 
   return (
-    <AuthProvider>
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: "#FAF7F2" },
-        }}
-      />
-    </AuthProvider>
+    <ErrorBoundary>
+      <ToastProvider>
+        <AuthProvider>
+          <NotificationProvider>
+            <AppShell />
+          </NotificationProvider>
+        </AuthProvider>
+      </ToastProvider>
+    </ErrorBoundary>
   );
 }
