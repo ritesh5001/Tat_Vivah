@@ -4,6 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+const currency = new Intl.NumberFormat("en-IN", {
+  style: "currency",
+  currency: "INR",
+  maximumFractionDigits: 0,
+});
 
 type SearchParams = {
   page?: string;
@@ -152,7 +157,7 @@ export default async function MarketplacePage({
                 className="group block"
               >
                 {/* Product Image */}
-                <div className="relative mb-5 overflow-hidden bg-cream dark:bg-brown/20 aspect-[3/4] border border-border-soft transition-all duration-400 group-hover:border-gold/30">
+                <div className="relative mb-5 overflow-hidden bg-cream dark:bg-brown/20 aspect-3/4 border border-border-soft transition-all duration-400 group-hover:border-gold/30">
                   <img
                     src={product.images?.[0] ?? "/images/product-placeholder.svg"}
                     alt={product.title}
@@ -178,7 +183,9 @@ export default async function MarketplacePage({
                     {product.category?.name ?? "Collection"}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    View for pricing
+                    {typeof product.price === "number"
+                      ? currency.format(product.price)
+                      : "Price on request"}
                   </p>
                 </div>
               </Link>

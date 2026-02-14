@@ -24,8 +24,9 @@ export class ProductRepository {
         const skip = (page - 1) * limit;
 
         const where = {
-            isPublished: true,
+            status: 'APPROVED' as const,
             deletedByAdmin: false,
+            adminListingPrice: { not: null },
             ...(categoryId && { categoryId }),
             ...(search && {
                 OR: [
@@ -56,7 +57,7 @@ export class ProductRepository {
      */
     async findPublishedById(id: string): Promise<ProductWithDetails | null> {
         return prisma.product.findFirst({
-            where: { id, isPublished: true, deletedByAdmin: false },
+            where: { id, status: 'APPROVED', deletedByAdmin: false, adminListingPrice: { not: null } },
             include: {
                 category: true,
                 variants: {
@@ -122,8 +123,16 @@ export class ProductRepository {
                 categoryId: data.categoryId,
                 title: data.title,
                 description: data.description ?? null,
+                sellerPrice: data.sellerPrice,
+                adminListingPrice: null,
+                priceApprovedAt: null,
+                priceApprovedById: null,
                 images: data.images ?? [],
-                isPublished: data.isPublished ?? false,
+                status: 'PENDING',
+                rejectionReason: null,
+                approvedAt: null,
+                approvedById: null,
+                isPublished: false,
             },
         });
     }
@@ -139,7 +148,6 @@ export class ProductRepository {
                 ...(data.title !== undefined && { title: data.title }),
                 ...(data.description !== undefined && { description: data.description }),
                 ...(data.images !== undefined && { images: data.images }),
-                ...(data.isPublished !== undefined && { isPublished: data.isPublished }),
             },
         });
     }

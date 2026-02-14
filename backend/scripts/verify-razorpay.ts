@@ -76,6 +76,9 @@ async function verifyRazorpay() {
                 categoryId: category.id,
                 title: 'Test Razorpay Product',
                 isPublished: true,
+                status: 'APPROVED',
+                sellerPrice: 1000,
+                adminListingPrice: 1200,
                 variants: {
                     create: {
                         sku: `SKU_RZP_${Date.now()}`,
@@ -100,7 +103,10 @@ async function verifyRazorpay() {
                         productId: product.id,
                         variantId: variant.id,
                         quantity: 1,
-                        priceSnapshot: 1200
+                        priceSnapshot: 1200,
+                        sellerPriceSnapshot: 1000,
+                        adminPriceSnapshot: 1200,
+                        platformMargin: 200,
                     }
                 }
             }

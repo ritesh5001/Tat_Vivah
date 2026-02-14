@@ -7,9 +7,13 @@
   "type": "module",
   "main": "dist/server.js",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
+    "dev": "npm run dev:api",
+    "dev:api": "tsx watch src/server.ts",
+    "dev:worker": "tsx watch src/worker.ts",
     "build": "tsc",
-    "start": "node dist/server.js",
+    "start": "npm run start:api",
+    "start:api": "node dist/server.js",
+    "start:worker": "node dist/worker.js",
     "prisma:generate": "prisma generate",
     "prisma:validate": "prisma validate",
     "typecheck": "tsc --noEmit",
@@ -17,7 +21,16 @@
     "test:product": "tsx scripts/verify-product.ts",
     "test:all": "tsx scripts/verify-all.ts",
     "test": "npm run test:all",
-    "verify:razorpay": "tsx scripts/verify-razorpay.ts"
+    "verify:auth": "tsx scripts/verify-auth.ts",
+    "verify:product": "tsx scripts/verify-product.ts",
+    "verify:cart": "tsx scripts/verify-cart.ts",
+    "verify:orders": "tsx scripts/verify-orders.ts",
+    "verify:payment": "tsx scripts/verify-payment.ts",
+    "verify:shipping": "tsx scripts/verify-shipping.ts",
+    "verify:admin": "tsx scripts/verify-admin.ts",
+    "verify:notifications": "tsx scripts/verify-notifications.ts",
+    "verify:razorpay": "tsx scripts/verify-razorpay.ts",
+    "verify:all": "tsx scripts/verify-all.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

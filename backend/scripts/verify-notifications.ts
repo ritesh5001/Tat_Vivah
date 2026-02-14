@@ -65,9 +65,20 @@ async function verifyNotifications() {
         });
         sellerId = seller.id;
 
+        const admin = await prisma.user.create({
+            data: {
+                email: `notify_admin_${timestamp}@test.com`,
+                passwordHash: 'hash',
+                role: Role.ADMIN,
+                status: UserStatus.ACTIVE,
+                isEmailVerified: true,
+            }
+        });
+
         // Generate Tokens
         const buyerToken = generateAccessToken({ userId: buyer.id, email: buyer.email, phone: null, role: buyer.role, status: buyer.status, isEmailVerified: true, isPhoneVerified: true });
         const sellerToken = generateAccessToken({ userId: seller.id, email: seller.email, phone: null, role: seller.role, status: seller.status, isEmailVerified: true, isPhoneVerified: true });
+        const adminToken = generateAccessToken({ userId: admin.id, email: admin.email, phone: null, role: admin.role, status: admin.status, isEmailVerified: true, isPhoneVerified: true });
 
         // 2. Create Product (API to ensure Search/Variants logic holds)
         console.log('📦 Creating Product...');
@@ -81,7 +92,8 @@ async function verifyNotifications() {
             title: 'Notify Product',
             description: 'Desc',
             categoryId: category.id,
-            isPublished: true
+            isPublished: true,
+            sellerPrice: 100,
         }, sellerToken);
 
         if (!prodRes.ok) throw new Error(`Product create failed: ${JSON.stringify(prodRes.data)}`);
@@ -99,6 +111,9 @@ async function verifyNotifications() {
         if (!varRes.ok) throw new Error(`Variant create failed: ${JSON.stringify(varRes.data)}`);
         const variant = varRes.data.variant || varRes.data.data?.variant;
         variantId = variant.id;
+
+        await request(`/v1/admin/products/${productId}/approve`, 'PUT', {}, adminToken);
+        await request(`/v1/admin/products/${productId}/set-price`, 'PATCH', { adminListingPrice: 120 }, adminToken);
 
         // 3. Place Order (Updates triggers Notifications)
         console.log('🛒 Placing Order...');

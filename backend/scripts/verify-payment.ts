@@ -50,6 +50,9 @@ async function verifyPayment() {
                 categoryId: category.id,
                 title: 'Test Product',
                 isPublished: true,
+                status: 'APPROVED',
+                sellerPrice: 1000,
+                adminListingPrice: 1200,
                 variants: {
                     create: {
                         sku: `SKU_${Date.now()}`,
@@ -78,7 +81,10 @@ async function verifyPayment() {
                         productId: product.id,
                         variantId: variant.id,
                         quantity: 1,
-                        priceSnapshot: 1000
+                        priceSnapshot: 1200,
+                        sellerPriceSnapshot: 1000,
+                        adminPriceSnapshot: 1200,
+                        platformMargin: 200,
                     }
                 }
             }

@@ -76,6 +76,9 @@ async function verifyShipping() {
                 categoryId: category.id,
                 title: 'Product 1',
                 isPublished: true,
+                status: 'APPROVED',
+                sellerPrice: 100,
+                adminListingPrice: 120,
                 variants: {
                     create: { sku: `SKU1_${Date.now()}`, price: 100, inventory: { create: { stock: 100 } } }
                 }
@@ -90,6 +93,9 @@ async function verifyShipping() {
                 categoryId: category.id,
                 title: 'Product 2',
                 isPublished: true,
+                status: 'APPROVED',
+                sellerPrice: 200,
+                adminListingPrice: 240,
                 variants: {
                     create: { sku: `SKU2_${Date.now()}`, price: 200, inventory: { create: { stock: 100 } } }
                 }
@@ -110,14 +116,20 @@ async function verifyShipping() {
                             productId: product1.id,
                             variantId: product1.variants[0]!.id,
                             quantity: 1,
-                            priceSnapshot: 100
+                            priceSnapshot: 120,
+                            sellerPriceSnapshot: 100,
+                            adminPriceSnapshot: 120,
+                            platformMargin: 20,
                         },
                         {
                             sellerId: seller2.id,
                             productId: product2.id,
                             variantId: product2.variants[0]!.id,
                             quantity: 1,
-                            priceSnapshot: 200
+                            priceSnapshot: 240,
+                            sellerPriceSnapshot: 200,
+                            adminPriceSnapshot: 240,
+                            platformMargin: 40,
                         }
                     ]
                 }

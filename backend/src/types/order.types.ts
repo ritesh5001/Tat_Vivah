@@ -38,6 +38,9 @@ export interface OrderItemEntity {
     variantId: string;
     quantity: number;
     priceSnapshot: number;
+    sellerPriceSnapshot: number;
+    adminPriceSnapshot: number;
+    platformMargin: number;
 }
 
 /**
@@ -128,6 +131,9 @@ export interface CreateOrderItemRequest {
     variantId: string;
     quantity: number;
     priceSnapshot: number;
+    sellerPriceSnapshot: number;
+    adminPriceSnapshot: number;
+    platformMargin: number;
 }
 
 /**

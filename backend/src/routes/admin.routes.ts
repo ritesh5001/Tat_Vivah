@@ -59,6 +59,67 @@ adminRouter.get(
 );
 
 /**
+ * GET /v1/admin/products/pending
+ * List products pending approval
+ */
+adminRouter.get(
+    '/products/pending',
+    authorize('ADMIN', 'SUPER_ADMIN'),
+    adminController.listPendingProducts
+);
+
+adminRouter.get(
+    '/products/pricing-overview',
+    authorize('ADMIN', 'SUPER_ADMIN'),
+    adminController.pricingOverview
+);
+
+/**
+ * PATCH /v1/admin/products/:id/approve
+ * Approve a pending product
+ */
+adminRouter.patch(
+    '/products/:id/approve',
+    authorize('ADMIN', 'SUPER_ADMIN'),
+    adminController.approveProduct
+);
+
+/**
+ * PATCH /v1/admin/products/:id/reject
+ * Reject a pending product
+ */
+adminRouter.patch(
+    '/products/:id/reject',
+    authorize('ADMIN', 'SUPER_ADMIN'),
+    adminController.rejectProduct
+);
+
+adminRouter.patch(
+    '/products/:id/set-price',
+    authorize('ADMIN', 'SUPER_ADMIN'),
+    adminController.setProductPrice
+);
+
+// Backward-compatible aliases
+adminRouter.put(
+    '/products/:id/approve',
+    authorize('ADMIN', 'SUPER_ADMIN'),
+    adminController.approveProduct
+);
+
+adminRouter.put(
+    '/products/:id/reject',
+    authorize('ADMIN', 'SUPER_ADMIN'),
+    adminController.rejectProduct
+);
+
+adminRouter.put(
+    '/products/:id/set-price',
+    authorize('ADMIN', 'SUPER_ADMIN'),
+    adminController.setProductPrice
+);
+
+/**
  * DELETE /v1/admin/products/:id
  * Delete a product (soft delete)
  */
@@ -213,6 +274,12 @@ adminRouter.put(
     '/orders/:id/force-confirm',
     authorize('SUPER_ADMIN'),
     adminController.forceConfirmOrder
+);
+
+adminRouter.get(
+    '/analytics/profit',
+    authorize('ADMIN', 'SUPER_ADMIN'),
+    adminController.profitAnalytics
 );
 
 // ============================================================================

@@ -25,6 +25,14 @@ export interface ProductEntity {
     title: string;
     description: string | null;
     images: string[];
+    sellerPrice: number;
+    adminListingPrice: number | null;
+    priceApprovedAt: Date | null;
+    priceApprovedById: string | null;
+    status: 'PENDING' | 'APPROVED' | 'REJECTED';
+    rejectionReason: string | null;
+    approvedAt: Date | null;
+    approvedById: string | null;
     isPublished: boolean;
     deletedByAdmin: boolean;
     deletedByAdminAt: Date | null;
@@ -81,6 +89,43 @@ export interface ProductWithCategory extends ProductEntity {
     category: CategoryEntity;
 }
 
+export interface PublicProductVariant {
+    id: string;
+    sku: string;
+    price: number;
+    compareAtPrice: number | null;
+    inventory: InventoryEntity | null;
+}
+
+export interface PublicProductWithCategory {
+    id: string;
+    categoryId: string;
+    title: string;
+    description: string | null;
+    images: string[];
+    status: 'PENDING' | 'APPROVED' | 'REJECTED';
+    isPublished: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+    category: CategoryEntity;
+    price: number;
+}
+
+export interface PublicProductWithDetails {
+    id: string;
+    categoryId: string;
+    title: string;
+    description: string | null;
+    images: string[];
+    status: 'PENDING' | 'APPROVED' | 'REJECTED';
+    isPublished: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+    category: CategoryEntity;
+    variants: PublicProductVariant[];
+    price: number;
+}
+
 // ============================================================================
 // REQUEST TYPES
 // ============================================================================
@@ -91,6 +136,7 @@ export interface ProductWithCategory extends ProductEntity {
 export interface CreateProductRequest {
     categoryId: string;
     title: string;
+    sellerPrice: number;
     description?: string | undefined;
     isPublished?: boolean | undefined;
     images?: string[] | undefined;
@@ -103,7 +149,6 @@ export interface UpdateProductRequest {
     categoryId?: string | undefined;
     title?: string | undefined;
     description?: string | undefined;
-    isPublished?: boolean | undefined;
     images?: string[] | undefined;
 }
 
@@ -169,13 +214,13 @@ export interface CategoryListResponse {
 /**
  * Product list response (paginated)
  */
-export type ProductListResponse = PaginatedResponse<ProductWithCategory>;
+export type ProductListResponse = PaginatedResponse<PublicProductWithCategory>;
 
 /**
  * Product detail response
  */
 export interface ProductDetailResponse {
-    product: ProductWithDetails;
+    product: PublicProductWithDetails;
 }
 
 /**

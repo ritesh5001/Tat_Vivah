@@ -25,6 +25,7 @@ interface ProductDetailClientProps {
     description?: string | null;
     category?: { name: string } | null;
     sellerId?: string;
+    price?: number;
     variants: Variant[];
   };
 }
@@ -128,7 +129,7 @@ export default function ProductDetailClient({
           </p>
           <div className="flex items-baseline gap-4">
             <p className="font-serif text-2xl font-light text-foreground sm:text-3xl">
-              {selectedVariant ? currency.format(selectedVariant.price) : "—"}
+              {typeof product.price === "number" ? currency.format(product.price) : "—"}
             </p>
             {selectedVariant?.compareAtPrice ? (
               <span className="text-sm text-muted-foreground line-through">
@@ -196,7 +197,7 @@ export default function ProductDetailClient({
               size="lg"
               onClick={handleAddToCart}
               disabled={loading}
-              className="w-full sm:w-auto min-w-[200px] h-14"
+              className="w-full sm:w-auto min-w-50 h-14"
             >
               {loading ? "Adding..." : "Add to Cart"}
             </Button>
@@ -208,7 +209,7 @@ export default function ProductDetailClient({
           >
             <Link
               href="/cart"
-              className="inline-flex h-14 min-w-[160px] items-center justify-center border border-border-warm px-8 text-xs font-medium uppercase tracking-[0.15em] text-foreground transition-all duration-400 hover:bg-cream dark:hover:bg-brown/30"
+              className="inline-flex h-14 min-w-40 items-center justify-center border border-border-warm px-8 text-xs font-medium uppercase tracking-[0.15em] text-foreground transition-all duration-400 hover:bg-cream dark:hover:bg-brown/30"
             >
               View Cart
             </Link>

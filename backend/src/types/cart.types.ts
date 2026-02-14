@@ -45,6 +45,8 @@ export interface CartItemWithDetails extends CartItemEntity {
         id: string;
         title: string;
         sellerId: string;
+        sellerPrice?: number;
+        adminListingPrice?: number | null;
     } | undefined;
     variant: {
         id: string;
