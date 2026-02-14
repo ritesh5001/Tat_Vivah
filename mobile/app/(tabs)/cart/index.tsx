@@ -14,6 +14,8 @@ import { useCart } from "../../../src/providers/CartProvider";
 import { useNetworkStatus } from "../../../src/hooks/useNetworkStatus";
 import { useToast } from "../../../src/providers/ToastProvider";
 import { SkeletonCartRow } from "../../../src/components/Skeleton";
+import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
+import { impactLight } from "../../../src/utils/haptics";
 import type { CartItemDetails } from "../../../src/services/cart";
 
 const currency = new Intl.NumberFormat("en-IN", {
@@ -52,6 +54,7 @@ export default function CartScreen() {
         showToast("You're offline. Please check your connection.", "error");
         return;
       }
+      impactLight();
       updateQuantity(itemId, nextQty);
     },
     [isConnected, updateQuantity, showToast]
@@ -215,7 +218,7 @@ export default function CartScreen() {
                 {currency.format(total)}
               </Text>
             </View>
-            <Pressable
+            <AnimatedPressable
               style={[
                 styles.primaryButton,
                 (isMutating || cartItems.length === 0 || !isConnected) &&
@@ -228,10 +231,10 @@ export default function CartScreen() {
                 {!isConnected
                   ? "Offline"
                   : isMutating
-                    ? "Updating cart…"
+                    ? "Updating cart\u2026"
                     : "Proceed to checkout"}
               </Text>
-            </Pressable>
+            </AnimatedPressable>
           </View>
         </>
       )}

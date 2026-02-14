@@ -17,10 +17,13 @@ interface ReviewsResponse {
   reviews: Review[];
 }
 
-export async function fetchProductReviews(productId: string): Promise<Review[]> {
+export async function fetchProductReviews(
+  productId: string,
+  signal?: AbortSignal
+): Promise<Review[]> {
   const response = await apiRequest<ReviewsResponse>(
     `/v1/reviews/product/${productId}`,
-    { method: "GET" }
+    { method: "GET", signal }
   );
   return response.reviews ?? [];
 }

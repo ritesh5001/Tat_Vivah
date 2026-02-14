@@ -7,10 +7,11 @@ import {
   TextInput,
   Pressable,
   Dimensions,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import { getCategories } from "../../../src/services/catalog";
 import { getProducts, type ProductSummary } from "../../../src/services/products";
@@ -23,6 +24,11 @@ const fallbackImage =
   "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80";
 
 const DEBOUNCE_MS = 400;
+
+type CategoryChipItem = {
+  id: string;
+  name: string;
+};
 
 // ---------------------------------------------------------------------------
 // Memoized product card (avoids re-render when list scrolls)
@@ -54,20 +60,49 @@ const ProductCard = React.memo(function ProductCard({
   );
 });
 
+const CategoryChip = React.memo(function CategoryChip({
+  item,
+  active,
+  onPress,
+}: {
+  item: CategoryChipItem;
+  active: boolean;
+  onPress: (item: CategoryChipItem, active: boolean) => void;
+}) {
+  return (
+    <Pressable
+      onPress={() => onPress(item, active)}
+      style={[styles.categoryChip, active && styles.categoryChipActive]}
+    >
+      <Text
+        style={[styles.categoryChipText, active && styles.categoryChipTextActive]}
+      >
+        {item.name}
+      </Text>
+    </Pressable>
+  );
+});
+
 export default function SearchScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ q?: string; categoryId?: string }>();
+  const initialSearch = typeof params.q === "string" ? params.q : "";
+  const initialCategoryId =
+    typeof params.categoryId === "string" ? params.categoryId : undefined;
+
   const [categories, setCategories] = React.useState<
     Array<{ id: string; name: string }>
   >([]);
   const [selectedCategory, setSelectedCategory] = React.useState<
     string | undefined
-  >(undefined);
-  const [search, setSearch] = React.useState("");
+  >(initialCategoryId);
+  const [search, setSearch] = React.useState(initialSearch);
   const [products, setProducts] = React.useState<ProductSummary[]>([]);
   const [page, setPage] = React.useState(1);
   const [totalPages, setTotalPages] = React.useState(1);
   const [loading, setLoading] = React.useState(true);
   const [loadingMore, setLoadingMore] = React.useState(false);
+  const [fetchError, setFetchError] = React.useState<string | null>(null);
 
   // Abort controller for the active search request
   const controllerRef = React.useRef<AbortController | null>(null);
@@ -116,6 +151,7 @@ export default function SearchScreen() {
     ) => {
       if (replace) {
         setLoading(true);
+        setFetchError(null);
       } else {
         setLoadingMore(true);
       }
@@ -126,6 +162,7 @@ export default function SearchScreen() {
           limit: 10,
           categoryId: selectedCategory,
           search: overrideSearch ?? (search.trim() || undefined),
+          signal,
         });
         if (signal?.aborted) return;
         const nextItems = response.data ?? [];
@@ -134,10 +171,15 @@ export default function SearchScreen() {
         setTotalPages(response.pagination?.totalPages ?? 1);
       } catch (err) {
         if (isAbortError(err)) return;
+        const message =
+          err instanceof Error ? err.message : "Failed to load products";
+        setFetchError(message);
         if (replace) setProducts([]);
       } finally {
-        setLoading(false);
-        setLoadingMore(false);
+        if (!signal?.aborted) {
+          setLoading(false);
+          setLoadingMore(false);
+        }
       }
     },
     [selectedCategory, search]
@@ -162,24 +204,45 @@ export default function SearchScreen() {
       controllerRef.current?.abort();
 
       debounceRef.current = setTimeout(() => {
+        const trimmed = text.trim();
+        router.setParams({
+          q: trimmed || undefined,
+          categoryId: selectedCategory,
+        });
         const controller = new AbortController();
         controllerRef.current = controller;
-        loadProducts(1, true, text.trim() || undefined, controller.signal);
+        loadProducts(1, true, trimmed || undefined, controller.signal);
       }, DEBOUNCE_MS);
     },
-    [loadProducts]
+    [loadProducts, router, selectedCategory]
   );
 
   const handleSelectCategory = React.useCallback((id?: string) => {
     setSelectedCategory(id);
-  }, []);
+    router.setParams({
+      q: search.trim() || undefined,
+      categoryId: id,
+    });
+  }, [router, search]);
 
   const handleSearch = React.useCallback(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     controllerRef.current?.abort();
+    const trimmed = search.trim();
+    router.setParams({
+      q: trimmed || undefined,
+      categoryId: selectedCategory,
+    });
     const controller = new AbortController();
     controllerRef.current = controller;
-    loadProducts(1, true, search.trim(), controller.signal);
+    loadProducts(1, true, trimmed, controller.signal);
+  }, [loadProducts, router, search, selectedCategory]);
+
+  const handleRetry = React.useCallback(() => {
+    controllerRef.current?.abort();
+    const controller = new AbortController();
+    controllerRef.current = controller;
+    loadProducts(1, true, search.trim() || undefined, controller.signal);
   }, [loadProducts, search]);
 
   const handleLoadMore = React.useCallback(() => {
@@ -215,6 +278,21 @@ export default function SearchScreen() {
     []
   );
 
+  const categoryKeyExtractor = React.useCallback((item: CategoryChipItem) => item.id, []);
+
+  const renderCategoryItem = React.useCallback(
+    ({ item }: { item: CategoryChipItem }) => (
+      <CategoryChip
+        item={item}
+        active={selectedCategory === item.id}
+        onPress={(pressedItem, active) =>
+          handleSelectCategory(active ? undefined : pressedItem.id)
+        }
+      />
+    ),
+    [handleSelectCategory, selectedCategory]
+  );
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
@@ -242,32 +320,20 @@ export default function SearchScreen() {
         data={categories}
         horizontal
         showsHorizontalScrollIndicator={false}
-        keyExtractor={(item) => item.id}
+        keyExtractor={categoryKeyExtractor}
         contentContainerStyle={styles.categoryRow}
-        renderItem={({ item }) => {
-          const active = selectedCategory === item.id;
-          return (
-            <Pressable
-              onPress={() =>
-                handleSelectCategory(active ? undefined : item.id)
-              }
-              style={[
-                styles.categoryChip,
-                active && styles.categoryChipActive,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.categoryChipText,
-                  active && styles.categoryChipTextActive,
-                ]}
-              >
-                {item.name}
-              </Text>
-            </Pressable>
-          );
-        }}
+        renderItem={renderCategoryItem}
       />
+
+      {fetchError && !loading && products.length === 0 ? (
+        <View style={styles.errorCard}>
+          <Text style={styles.errorTitle}>Unable to load products</Text>
+          <Text style={styles.errorMessage}>{fetchError}</Text>
+          <Pressable style={styles.retryButton} onPress={handleRetry}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </Pressable>
+        </View>
+      ) : null}
 
       <FlatList
         data={
@@ -287,6 +353,13 @@ export default function SearchScreen() {
           !loading ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyText}>No products found.</Text>
+            </View>
+          ) : null
+        }
+        ListFooterComponent={
+          loadingMore ? (
+            <View style={styles.loadingMoreWrap}>
+              <ActivityIndicator size="small" color={colors.gold} />
             </View>
           ) : null
         }
@@ -429,5 +502,46 @@ const styles = StyleSheet.create({
     fontFamily: typography.sans,
     fontSize: 12,
     color: colors.brownSoft,
+  },
+  errorCard: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+    padding: spacing.lg,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.warmWhite,
+    alignItems: "center",
+    ...shadow.card,
+  },
+  errorTitle: {
+    fontFamily: typography.serif,
+    fontSize: 16,
+    color: colors.charcoal,
+  },
+  errorMessage: {
+    marginTop: spacing.xs,
+    fontFamily: typography.sans,
+    fontSize: 12,
+    color: colors.brownSoft,
+    textAlign: "center",
+  },
+  retryButton: {
+    marginTop: spacing.md,
+    backgroundColor: colors.charcoal,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+  },
+  retryButtonText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 11,
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+    color: colors.background,
+  },
+  loadingMoreWrap: {
+    paddingVertical: spacing.md,
+    alignItems: "center",
   },
 });

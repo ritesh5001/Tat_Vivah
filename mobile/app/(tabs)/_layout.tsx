@@ -2,9 +2,11 @@ import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../../src/theme/tokens";
 import { useNotifications } from "../../src/providers/NotificationProvider";
+import { useCart } from "../../src/providers/CartProvider";
 
 export default function TabsLayout() {
   const { unreadCount } = useNotifications();
+  const { cartCount } = useCart();
 
   return (
     <Tabs
@@ -51,6 +53,14 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="bag-outline" size={size} color={color} />
           ),
+          tabBarBadge: cartCount > 0 ? cartCount : undefined,
+          tabBarBadgeStyle: {
+            backgroundColor: colors.gold,
+            fontSize: 10,
+            minWidth: 18,
+            height: 18,
+            borderRadius: 9,
+          },
         }}
       />
       <Tabs.Screen

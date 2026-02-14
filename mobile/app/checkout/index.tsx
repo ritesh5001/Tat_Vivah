@@ -19,6 +19,8 @@ import { useAuth } from "../../src/hooks/useAuth";
 import { useNetworkStatus } from "../../src/hooks/useNetworkStatus";
 import { useCart } from "../../src/providers/CartProvider";
 import { useToast } from "../../src/providers/ToastProvider";
+import { AnimatedPressable } from "../../src/components/AnimatedPressable";
+import { notifySuccess, notifyError } from "../../src/utils/haptics";
 
 export default function CheckoutScreen() {
   const router = useRouter();
@@ -132,10 +134,11 @@ export default function CheckoutScreen() {
 
       // 5. ONLY after verification success: clear cart + navigate
       if (mountedRef.current) {
+        notifySuccess();
         clearCart();
         // Refresh to sync server state (cart should now be empty)
         refreshCart();
-        router.replace("/orders");
+        router.replace(`/orders/${orderId}`);
       }
     } catch (err) {
       if (!mountedRef.current) return; // Component unmounted during payment
@@ -147,6 +150,7 @@ export default function CheckoutScreen() {
             ? err.message
             : "Payment failed. Please try again.";
       setError(message);
+      notifyError();
       showToast(message, "error");
     } finally {
       if (mountedRef.current) {
@@ -240,7 +244,7 @@ export default function CheckoutScreen() {
             editable={!isPaying}
           />
 
-          <Pressable
+          <AnimatedPressable
             style={[
               styles.primaryButton,
               isButtonDisabled && styles.buttonDisabled,
@@ -257,7 +261,7 @@ export default function CheckoutScreen() {
                     ? "Cart is empty"
                     : "Complete order"}
             </Text>
-          </Pressable>
+          </AnimatedPressable>
 
           {error ? (
             <Text style={styles.errorText}>{error}</Text>

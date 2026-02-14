@@ -13,9 +13,10 @@ export interface ProductVariant {
 
 export interface ProductSummary {
   id: string;
+  categoryId?: string;
   title: string;
   images?: ProductImage[];
-  category?: { name: string } | null;
+  category?: { id?: string; name: string } | null;
   /** Public listing price (admin-set). Available on list endpoints. */
   price?: number;
 }
@@ -40,6 +41,7 @@ export async function getProducts(params: {
   limit: number;
   categoryId?: string;
   search?: string;
+  signal?: AbortSignal;
 }): Promise<ProductListResponse> {
   const query = new URLSearchParams();
   query.set("page", String(params.page));
@@ -49,11 +51,31 @@ export async function getProducts(params: {
 
   return apiRequest<ProductListResponse>(`/v1/products?${query.toString()}`, {
     method: "GET",
+    signal: params.signal,
   });
 }
 
-export async function getProductById(id: string) {
+export async function getProductById(id: string, signal?: AbortSignal) {
   return apiRequest<{ product: ProductDetail }>(`/v1/products/${id}`, {
     method: "GET",
+    signal,
   });
+}
+
+/**
+ * Fetch "related" products — same category, excluding the current product.
+ * Uses the existing list endpoint with a categoryId filter.
+ */
+export async function getRelatedProducts(
+  categoryId: string,
+  excludeProductId: string,
+  signal?: AbortSignal
+): Promise<ProductSummary[]> {
+  const res = await getProducts({
+    page: 1,
+    limit: 10,
+    categoryId,
+    signal,
+  });
+  return res.data.filter((p) => p.id !== excludeProductId);
 }

@@ -21,6 +21,8 @@ import { useAuth } from "../../../src/hooks/useAuth";
 import { useToast } from "../../../src/providers/ToastProvider";
 import { useNotifications } from "../../../src/providers/NotificationProvider";
 import { SkeletonNotificationRow } from "../../../src/components/Skeleton";
+import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
+import { impactLight } from "../../../src/utils/haptics";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -107,6 +109,7 @@ export default function NotificationsScreen() {
 
   // Pull to refresh
   const onRefresh = React.useCallback(() => {
+    impactLight();
     setRefreshing(true);
     fetchPage(1, { replace: true });
   }, [fetchPage]);
@@ -154,11 +157,10 @@ export default function NotificationsScreen() {
   // ---- Render helpers ----
   const renderItem = React.useCallback(
     ({ item }: { item: AppNotification }) => (
-      <Pressable
-        style={({ pressed }) => [
+      <AnimatedPressable
+        style={[
           styles.card,
           !item.isRead && styles.cardUnread,
-          pressed && { opacity: 0.7 },
         ]}
         onPress={() => handlePress(item)}
       >
@@ -174,7 +176,7 @@ export default function NotificationsScreen() {
         <Text style={styles.cardDate}>
           {formatDate(item.createdAt)}
         </Text>
-      </Pressable>
+      </AnimatedPressable>
     ),
     [handlePress]
   );

@@ -23,6 +23,7 @@ import { ApiError, isAbortError } from "../../../src/services/api";
 import { ShippingTimeline } from "../../../src/components/ShippingTimeline";
 import { useToast } from "../../../src/providers/ToastProvider";
 import { useAuth } from "../../../src/hooks/useAuth";
+import { impactLight } from "../../../src/utils/haptics";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -164,6 +165,7 @@ export default function TrackingScreen() {
 
   // ---- Pull to refresh ----
   const onRefresh = React.useCallback(() => {
+    impactLight();
     setRefreshing(true);
     fetchTracking({ silent: true });
   }, [fetchTracking]);

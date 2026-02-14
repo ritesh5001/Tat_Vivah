@@ -5,6 +5,7 @@ import {
   StyleSheet,
   FlatList,
   Pressable,
+  type ListRenderItemInfo,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
@@ -14,11 +15,52 @@ import { useAuth } from "../../../src/hooks/useAuth";
 import { useRouter } from "expo-router";
 import { isAbortError } from "../../../src/services/api";
 import { SkeletonOrderRow } from "../../../src/components/Skeleton";
+import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
 
 const currency = new Intl.NumberFormat("en-IN", {
   style: "currency",
   currency: "INR",
   maximumFractionDigits: 0,
+});
+
+// ---------------------------------------------------------------------------
+// Memoised order card
+// ---------------------------------------------------------------------------
+
+const OrderCard = React.memo(function OrderCard({
+  order,
+  paymentLabel,
+  onPress,
+}: {
+  order: BuyerOrder;
+  paymentLabel: string;
+  onPress: (id: string) => void;
+}) {
+  return (
+    <AnimatedPressable
+      style={styles.orderCard}
+      onPress={() => onPress(order.id)}
+    >
+      <View style={styles.orderHeader}>
+        <Text style={styles.orderTitle}>
+          Order {order.id.slice(0, 8).toUpperCase()}
+        </Text>
+        <Text style={styles.orderStatus}>{paymentLabel}</Text>
+      </View>
+      <Text style={styles.orderMeta}>
+        {order.createdAt
+          ? new Date(order.createdAt).toLocaleDateString("en-IN", {
+              month: "long",
+              day: "numeric",
+              year: "numeric",
+            })
+          : "—"}
+      </Text>
+      <Text style={styles.orderTotal}>
+        {currency.format(order.totalAmount ?? 0)}
+      </Text>
+    </AnimatedPressable>
+  );
 });
 
 export default function OrdersScreen() {
@@ -85,12 +127,33 @@ export default function OrdersScreen() {
 
   const handleOrderPress = React.useCallback(
     (orderId: string) => {
-      router.push(`/orders/${orderId}/tracking`);
+      router.push(`/orders/${orderId}`);
     },
     [router]
   );
 
-  const keyExtractor = React.useCallback((item: BuyerOrder) => item.id, []);
+  const renderOrderItem = React.useCallback(
+    ({ item }: ListRenderItemInfo<BuyerOrder>) => {
+      const payment = paymentStatus[item.id];
+      const label =
+        item.status === "PLACED" && payment && payment !== "SUCCESS"
+          ? "PAYMENT PENDING"
+          : item.status;
+      return (
+        <OrderCard
+          order={item}
+          paymentLabel={label}
+          onPress={handleOrderPress}
+        />
+      );
+    },
+    [paymentStatus, handleOrderPress]
+  );
+
+  const keyExtractorOrder = React.useCallback(
+    (item: BuyerOrder) => item.id,
+    []
+  );
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -131,47 +194,13 @@ export default function OrdersScreen() {
       ) : (
         <FlatList
           data={orders}
-          keyExtractor={keyExtractor}
+          keyExtractor={keyExtractorOrder}
           contentContainerStyle={styles.listContent}
           initialNumToRender={8}
           maxToRenderPerBatch={6}
           windowSize={5}
           removeClippedSubviews
-          renderItem={({ item }) => {
-            const payment = paymentStatus[item.id];
-            const label =
-              item.status === "PLACED" && payment && payment !== "SUCCESS"
-                ? "PAYMENT PENDING"
-                : item.status;
-            return (
-              <Pressable
-                style={({ pressed }) => [
-                  styles.orderCard,
-                  pressed && { opacity: 0.7 },
-                ]}
-                onPress={() => handleOrderPress(item.id)}
-              >
-                <View style={styles.orderHeader}>
-                  <Text style={styles.orderTitle}>
-                    Order {item.id.slice(0, 8).toUpperCase()}
-                  </Text>
-                  <Text style={styles.orderStatus}>{label}</Text>
-                </View>
-                <Text style={styles.orderMeta}>
-                  {item.createdAt
-                    ? new Date(item.createdAt).toLocaleDateString("en-IN", {
-                        month: "long",
-                        day: "numeric",
-                        year: "numeric",
-                      })
-                    : "—"}
-                </Text>
-                <Text style={styles.orderTotal}>
-                  {currency.format(item.totalAmount ?? 0)}
-                </Text>
-              </Pressable>
-            );
-          }}
+          renderItem={renderOrderItem}
         />
       )}
     </SafeAreaView>
