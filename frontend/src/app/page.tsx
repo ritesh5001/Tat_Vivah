@@ -14,7 +14,6 @@ import {
 import { ReviewSection } from "@/components/review-section";
 import { FeaturesMarquee } from "@/components/features-marquee";
 import { getBestsellers, type BestsellerProduct } from "@/services/bestsellers";
-
 export default function Home() {
   const [bestsellers, setBestsellers] = React.useState<BestsellerProduct[]>([]);
   const [loadingBestsellers, setLoadingBestsellers] = React.useState(true);

@@ -7,10 +7,12 @@
   "type": "module",
   "main": "dist/server.js",
   "scripts": {
+    "predev": "prisma generate",
     "dev": "npm run dev:api",
     "dev:api": "tsx watch src/server.ts",
     "dev:worker": "tsx watch src/worker.ts",
     "build": "tsc",
+    "prestart": "prisma generate",
     "start": "npm run start:api",
     "start:api": "node dist/server.js",
     "start:worker": "node dist/worker.js",
