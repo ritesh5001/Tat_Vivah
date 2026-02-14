@@ -17,15 +17,28 @@ import { openRazorpayCheckout } from "../../src/services/razorpay";
 import { ApiError } from "../../src/services/api";
 import { useAuth } from "../../src/hooks/useAuth";
 import { useNetworkStatus } from "../../src/hooks/useNetworkStatus";
+import { useCart } from "../../src/providers/CartProvider";
+import { useToast } from "../../src/providers/ToastProvider";
 
 export default function CheckoutScreen() {
   const router = useRouter();
   const { session, isLoading: authLoading } = useAuth();
   const token = session?.accessToken ?? null;
   const { isConnected } = useNetworkStatus();
+  const { clearCart, refreshCart, cartItems } = useCart();
+  const { showToast } = useToast();
 
-  const [loading, setLoading] = React.useState(false);
+  // ---------- Payment guard — prevents double-submit ----------
+  const [isPaying, setIsPaying] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const mountedRef = React.useRef(true);
+
+  React.useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   const [shipping, setShipping] = React.useState({
     name: "",
     phone: "",
@@ -36,7 +49,17 @@ export default function CheckoutScreen() {
     notes: "",
   });
 
+  // Redirect if cart is empty (navigated directly, or cart cleared)
+  React.useEffect(() => {
+    if (!authLoading && cartItems.length === 0 && !isPaying) {
+      // Don't redirect while a payment is in-flight
+      // Cart will be empty after successful checkout → we navigate from handleCheckout
+    }
+  }, [authLoading, cartItems.length, isPaying]);
+
   const handleCheckout = async () => {
+    // --- Guard: prevent double submit ---
+    if (isPaying) return;
     if (authLoading) return;
     if (!token) {
       router.replace("/login");
@@ -49,8 +72,12 @@ export default function CheckoutScreen() {
       );
       return;
     }
+    if (cartItems.length === 0) {
+      showToast("Your cart is empty.", "info");
+      return;
+    }
 
-    setLoading(true);
+    setIsPaying(true);
     setError(null);
 
     try {
@@ -93,7 +120,7 @@ export default function CheckoutScreen() {
         },
       });
 
-      // 4. Verify payment on backend
+      // 4. Verify payment on backend — CRITICAL: do NOT navigate before this
       await verifyPayment(
         {
           razorpayOrderId: razorpayResult.razorpay_order_id,
@@ -103,9 +130,16 @@ export default function CheckoutScreen() {
         token
       );
 
-      // 5. Only navigate after successful verification
-      router.replace("/orders");
+      // 5. ONLY after verification success: clear cart + navigate
+      if (mountedRef.current) {
+        clearCart();
+        // Refresh to sync server state (cart should now be empty)
+        refreshCart();
+        router.replace("/orders");
+      }
     } catch (err) {
+      if (!mountedRef.current) return; // Component unmounted during payment
+
       const message =
         err instanceof ApiError
           ? err.message
@@ -113,11 +147,15 @@ export default function CheckoutScreen() {
             ? err.message
             : "Payment failed. Please try again.";
       setError(message);
-      Alert.alert("Payment failed", message);
+      showToast(message, "error");
     } finally {
-      setLoading(false);
+      if (mountedRef.current) {
+        setIsPaying(false);
+      }
     }
   };
+
+  const isButtonDisabled = isPaying || !isConnected || cartItems.length === 0;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -137,6 +175,7 @@ export default function CheckoutScreen() {
             onChangeText={(value) =>
               setShipping((prev) => ({ ...prev, name: value }))
             }
+            editable={!isPaying}
           />
 
           <Text style={styles.label}>Phone</Text>
@@ -149,6 +188,7 @@ export default function CheckoutScreen() {
             onChangeText={(value) =>
               setShipping((prev) => ({ ...prev, phone: value }))
             }
+            editable={!isPaying}
           />
 
           <Text style={styles.label}>Email</Text>
@@ -161,6 +201,7 @@ export default function CheckoutScreen() {
             onChangeText={(value) =>
               setShipping((prev) => ({ ...prev, email: value }))
             }
+            editable={!isPaying}
           />
 
           <Text style={styles.label}>Address line 1</Text>
@@ -172,6 +213,7 @@ export default function CheckoutScreen() {
             onChangeText={(value) =>
               setShipping((prev) => ({ ...prev, addressLine1: value }))
             }
+            editable={!isPaying}
           />
 
           <Text style={styles.label}>Address line 2</Text>
@@ -183,6 +225,7 @@ export default function CheckoutScreen() {
             onChangeText={(value) =>
               setShipping((prev) => ({ ...prev, addressLine2: value }))
             }
+            editable={!isPaying}
           />
 
           <Text style={styles.label}>City</Text>
@@ -194,22 +237,25 @@ export default function CheckoutScreen() {
             onChangeText={(value) =>
               setShipping((prev) => ({ ...prev, city: value }))
             }
+            editable={!isPaying}
           />
 
           <Pressable
             style={[
               styles.primaryButton,
-              (loading || !isConnected) && { opacity: 0.5 },
+              isButtonDisabled && styles.buttonDisabled,
             ]}
             onPress={handleCheckout}
-            disabled={loading || !isConnected}
+            disabled={isButtonDisabled}
           >
             <Text style={styles.primaryButtonText}>
-              {loading
+              {isPaying
                 ? "Processing\u2026"
                 : !isConnected
                   ? "Offline"
-                  : "Complete order"}
+                  : cartItems.length === 0
+                    ? "Cart is empty"
+                    : "Complete order"}
             </Text>
           </Pressable>
 
@@ -274,6 +320,9 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     paddingVertical: spacing.sm,
     alignItems: "center",
+  },
+  buttonDisabled: {
+    opacity: 0.5,
   },
   primaryButtonText: {
     fontFamily: typography.sansMedium,

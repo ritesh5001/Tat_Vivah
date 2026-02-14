@@ -9,10 +9,12 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
-import { getCart, updateCartItem, removeCartItem, type CartItemDetails } from "../../../src/services/cart";
 import { useAuth } from "../../../src/hooks/useAuth";
-import { isAbortError } from "../../../src/services/api";
+import { useCart } from "../../../src/providers/CartProvider";
+import { useNetworkStatus } from "../../../src/hooks/useNetworkStatus";
+import { useToast } from "../../../src/providers/ToastProvider";
 import { SkeletonCartRow } from "../../../src/components/Skeleton";
+import type { CartItemDetails } from "../../../src/services/cart";
 
 const currency = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -24,56 +26,127 @@ export default function CartScreen() {
   const router = useRouter();
   const { session, isLoading: authLoading } = useAuth();
   const token = session?.accessToken ?? null;
-  const [items, setItems] = React.useState<CartItemDetails[]>([]);
-  const [loading, setLoading] = React.useState(true);
+  const { isConnected } = useNetworkStatus();
+  const { showToast } = useToast();
+  const {
+    cartItems,
+    isLoading,
+    isMutating,
+    mutatingIds,
+    updateQuantity,
+    removeFromCart,
+    refreshCart,
+    fetchError,
+  } = useCart();
 
-  const loadCart = React.useCallback(async () => {
-    if (authLoading) {
-      return;
-    }
-    if (!token) {
-      router.replace("/login");
-      return;
-    }
-    setLoading(true);
-    try {
-      const result = await getCart(token);
-      setItems(result.cart.items ?? []);
-    } catch (err) {
-      if (!isAbortError(err)) setItems([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [token, router, authLoading]);
-
+  // Redirect to login if unauthenticated
   React.useEffect(() => {
-    if (!authLoading) {
-      loadCart();
+    if (!authLoading && !token) {
+      router.replace("/login");
     }
-  }, [authLoading, loadCart]);
+  }, [authLoading, token, router]);
 
-  const handleQty = async (itemId: string, nextQty: number) => {
-    if (!token) return;
-    if (nextQty <= 0) {
-      await handleRemove(itemId);
+  const handleQty = React.useCallback(
+    (itemId: string, nextQty: number) => {
+      if (!isConnected) {
+        showToast("You're offline. Please check your connection.", "error");
+        return;
+      }
+      updateQuantity(itemId, nextQty);
+    },
+    [isConnected, updateQuantity, showToast]
+  );
+
+  const handleRemove = React.useCallback(
+    (itemId: string) => {
+      if (!isConnected) {
+        showToast("You're offline. Please check your connection.", "error");
+        return;
+      }
+      removeFromCart(itemId);
+    },
+    [isConnected, removeFromCart, showToast]
+  );
+
+  const handleCheckout = React.useCallback(() => {
+    if (!isConnected) {
+      showToast("You're offline. Please check your connection.", "error");
       return;
     }
-    await updateCartItem(itemId, nextQty, token);
-    await loadCart();
-  };
+    if (isMutating) {
+      showToast("Cart is updating. Please wait.", "info");
+      return;
+    }
+    if (cartItems.length === 0) return;
+    router.push("/checkout");
+  }, [isConnected, isMutating, cartItems.length, router, showToast]);
 
-  const handleRemove = async (itemId: string) => {
-    if (!token) return;
-    await removeCartItem(itemId, token);
-    await loadCart();
-  };
-
-  const subtotal = items.reduce(
+  const subtotal = cartItems.reduce(
     (sum, item) => sum + item.priceSnapshot * item.quantity,
     0
   );
-  const shipping = items.length ? 180 : 0;
+  const shipping = cartItems.length ? 180 : 0;
   const total = subtotal + shipping;
+
+  const renderItem = React.useCallback(
+    ({ item }: { item: CartItemDetails }) => {
+      const locked = mutatingIds.has(item.id);
+      return (
+        <View style={styles.itemCard}>
+          <View style={styles.itemInfo}>
+            <Text style={styles.itemTitle}>
+              {item.product?.title ?? "Item"}
+            </Text>
+            <Text style={styles.itemMeta}>
+              Variant · {item.variant?.sku ?? "—"}
+            </Text>
+            <Text style={styles.itemPrice}>
+              {currency.format(item.priceSnapshot)}
+            </Text>
+          </View>
+          <View style={styles.qtyRow}>
+            <Pressable
+              style={[styles.qtyButton, locked && styles.qtyButtonDisabled]}
+              onPress={() => handleQty(item.id, item.quantity - 1)}
+              disabled={locked}
+            >
+              <Text style={styles.qtyButtonText}>−</Text>
+            </Pressable>
+            <Text style={styles.qtyValue}>{item.quantity}</Text>
+            <Pressable
+              style={[styles.qtyButton, locked && styles.qtyButtonDisabled]}
+              onPress={() => handleQty(item.id, item.quantity + 1)}
+              disabled={locked}
+            >
+              <Text style={styles.qtyButtonText}>+</Text>
+            </Pressable>
+          </View>
+          <Pressable
+            style={styles.removeButton}
+            onPress={() => handleRemove(item.id)}
+            disabled={locked}
+          >
+            <Text
+              style={[
+                styles.removeButtonText,
+                locked && { opacity: 0.4 },
+              ]}
+            >
+              {locked ? "Updating…" : "Remove"}
+            </Text>
+          </Pressable>
+        </View>
+      );
+    },
+    [mutatingIds, handleQty, handleRemove]
+  );
+
+  const keyExtractor = React.useCallback(
+    (item: CartItemDetails) => item.id,
+    []
+  );
+
+  const showSkeleton = (isLoading || authLoading) && cartItems.length === 0;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -82,81 +155,82 @@ export default function CartScreen() {
         <Text style={styles.headerCopy}>Review your curated selection.</Text>
       </View>
 
-      {loading || authLoading ? (
+      {showSkeleton ? (
         <View style={styles.listContent}>
           <SkeletonCartRow />
           <SkeletonCartRow />
           <SkeletonCartRow />
         </View>
-      ) : items.length === 0 ? (
+      ) : fetchError && cartItems.length === 0 ? (
         <View style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>Your cart is empty.</Text>
+          <Text style={styles.emptyTitle}>Something went wrong</Text>
+          <Text style={styles.emptySubtitle}>{fetchError}</Text>
+          <Pressable style={styles.primaryButton} onPress={refreshCart}>
+            <Text style={styles.primaryButtonText}>Retry</Text>
+          </Pressable>
+        </View>
+      ) : cartItems.length === 0 ? (
+        <View style={styles.emptyCard}>
+          <Text style={styles.emptyIcon}>🛒</Text>
+          <Text style={styles.emptyTitle}>Your cart is empty</Text>
+          <Text style={styles.emptySubtitle}>
+            Discover our premium collection and add something beautiful.
+          </Text>
           <Pressable
             style={styles.primaryButton}
             onPress={() => router.push("/search")}
           >
-            <Text style={styles.primaryButtonText}>Explore collection</Text>
+            <Text style={styles.primaryButtonText}>Continue shopping</Text>
           </Pressable>
         </View>
       ) : (
         <>
           <FlatList
-            data={items}
-            keyExtractor={(item) => item.id}
+            data={cartItems}
+            keyExtractor={keyExtractor}
+            renderItem={renderItem}
             contentContainerStyle={styles.listContent}
             initialNumToRender={6}
             maxToRenderPerBatch={4}
             windowSize={5}
             removeClippedSubviews
-            renderItem={({ item }) => (
-              <View style={styles.itemCard}>
-                <View style={styles.itemInfo}>
-                  <Text style={styles.itemTitle}>{item.product?.title ?? "Item"}</Text>
-                  <Text style={styles.itemMeta}>Variant · {item.variant?.sku ?? "—"}</Text>
-                  <Text style={styles.itemPrice}>
-                    {currency.format(item.priceSnapshot)}
-                  </Text>
-                </View>
-                <View style={styles.qtyRow}>
-                  <Pressable
-                    style={styles.qtyButton}
-                    onPress={() => handleQty(item.id, item.quantity - 1)}
-                  >
-                    <Text style={styles.qtyButtonText}>-</Text>
-                  </Pressable>
-                  <Text style={styles.qtyValue}>{item.quantity}</Text>
-                  <Pressable
-                    style={styles.qtyButton}
-                    onPress={() => handleQty(item.id, item.quantity + 1)}
-                  >
-                    <Text style={styles.qtyButtonText}>+</Text>
-                  </Pressable>
-                </View>
-                <Pressable style={styles.removeButton} onPress={() => handleRemove(item.id)}>
-                  <Text style={styles.removeButtonText}>Remove</Text>
-                </Pressable>
-              </View>
-            )}
           />
 
           <View style={styles.summaryCard}>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Subtotal</Text>
-              <Text style={styles.summaryValue}>{currency.format(subtotal)}</Text>
+              <Text style={styles.summaryValue}>
+                {currency.format(subtotal)}
+              </Text>
             </View>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Shipping</Text>
-              <Text style={styles.summaryValue}>{currency.format(shipping)}</Text>
+              <Text style={styles.summaryValue}>
+                {currency.format(shipping)}
+              </Text>
             </View>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryTotal}>Total</Text>
-              <Text style={styles.summaryTotal}>{currency.format(total)}</Text>
+              <Text style={styles.summaryTotal}>
+                {currency.format(total)}
+              </Text>
             </View>
             <Pressable
-              style={styles.primaryButton}
-              onPress={() => router.push("/checkout")}
+              style={[
+                styles.primaryButton,
+                (isMutating || cartItems.length === 0 || !isConnected) &&
+                  styles.buttonDisabled,
+              ]}
+              onPress={handleCheckout}
+              disabled={isMutating || cartItems.length === 0 || !isConnected}
             >
-              <Text style={styles.primaryButtonText}>Proceed to checkout</Text>
+              <Text style={styles.primaryButtonText}>
+                {!isConnected
+                  ? "Offline"
+                  : isMutating
+                    ? "Updating cart…"
+                    : "Proceed to checkout"}
+              </Text>
             </Pressable>
           </View>
         </>
@@ -233,6 +307,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  qtyButtonDisabled: {
+    opacity: 0.35,
+  },
   qtyButtonText: {
     fontFamily: typography.sansMedium,
     fontSize: 16,
@@ -285,6 +362,9 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     alignItems: "center",
   },
+  buttonDisabled: {
+    opacity: 0.5,
+  },
   primaryButtonText: {
     fontFamily: typography.sansMedium,
     fontSize: 12,
@@ -292,35 +372,32 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     color: colors.background,
   },
-  loadingCard: {
-    margin: spacing.lg,
-    padding: spacing.lg,
-    borderRadius: radius.lg,
-    backgroundColor: colors.warmWhite,
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    alignItems: "center",
-    ...shadow.card,
-  },
-  loadingText: {
-    fontFamily: typography.sans,
-    fontSize: 12,
-    color: colors.brownSoft,
-  },
   emptyCard: {
     margin: spacing.lg,
-    padding: spacing.lg,
+    padding: spacing.xl,
     borderRadius: radius.lg,
     backgroundColor: colors.warmWhite,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     alignItems: "center",
     ...shadow.card,
+  },
+  emptyIcon: {
+    fontSize: 40,
+    marginBottom: spacing.md,
   },
   emptyTitle: {
     fontFamily: typography.serif,
-    fontSize: 16,
+    fontSize: 18,
     color: colors.charcoal,
+    marginBottom: spacing.xs,
+  },
+  emptySubtitle: {
+    fontFamily: typography.sans,
+    fontSize: 12,
+    color: colors.brownSoft,
+    textAlign: "center",
+    lineHeight: 18,
     marginBottom: spacing.md,
   },
 });

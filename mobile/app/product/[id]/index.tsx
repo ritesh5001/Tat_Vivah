@@ -13,9 +13,11 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Image } from "expo-image";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import { getProductById, type ProductDetail } from "../../../src/services/products";
-import { addCartItem } from "../../../src/services/cart";
 import { fetchProductReviews, submitProductReview, type Review } from "../../../src/services/reviews";
 import { useAuth } from "../../../src/hooks/useAuth";
+import { useCart } from "../../../src/providers/CartProvider";
+import { useNetworkStatus } from "../../../src/hooks/useNetworkStatus";
+import { useToast } from "../../../src/providers/ToastProvider";
 
 const fallbackImage =
   "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80";
@@ -32,6 +34,9 @@ export default function ProductDetailScreen() {
   const productId = typeof params.id === "string" ? params.id : "";
   const { session } = useAuth();
   const token = session?.accessToken ?? null;
+  const { addToCart } = useCart();
+  const { isConnected } = useNetworkStatus();
+  const { showToast } = useToast();
 
   const [product, setProduct] = React.useState<ProductDetail | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -70,17 +75,19 @@ export default function ProductDetailScreen() {
   }, [productId]);
 
   React.useEffect(() => {
+    let active = true;
     const loadReviews = async () => {
       try {
         const data = await fetchProductReviews(productId);
-        setReviews(data ?? []);
+        if (active) setReviews(data ?? []);
       } catch {
-        setReviews([]);
+        if (active) setReviews([]);
       }
     };
     if (productId) {
       loadReviews();
     }
+    return () => { active = false; };
   }, [productId]);
 
   const selectedVariant = product?.variants?.find(
@@ -92,14 +99,21 @@ export default function ProductDetailScreen() {
       router.push("/login");
       return;
     }
+    if (!isConnected) {
+      showToast("You're offline. Please check your connection.", "error");
+      return;
+    }
     if (!product || !selectedVariant) return;
     setAdding(true);
     try {
-      await addCartItem(
-        { productId: product.id, variantId: selectedVariant.id, quantity: 1 },
-        token
-      );
+      await addToCart({
+        productId: product.id,
+        variantId: selectedVariant.id,
+        quantity: 1,
+      });
       router.push("/cart");
+    } catch {
+      // Error toast is shown by CartProvider
     } finally {
       setAdding(false);
     }

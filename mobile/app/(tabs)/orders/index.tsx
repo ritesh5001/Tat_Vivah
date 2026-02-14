@@ -27,7 +27,52 @@ export default function OrdersScreen() {
   const token = session?.accessToken ?? null;
   const [orders, setOrders] = React.useState<BuyerOrder[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [fetchError, setFetchError] = React.useState<string | null>(null);
   const [paymentStatus, setPaymentStatus] = React.useState<Record<string, string>>({});
+
+  const mountedRef = React.useRef(true);
+  React.useEffect(() => {
+    return () => { mountedRef.current = false; };
+  }, []);
+
+  const loadOrders = React.useCallback(async () => {
+    if (!token) return;
+    setLoading(true);
+    setFetchError(null);
+    try {
+      const result = await listBuyerOrders(token);
+      if (!mountedRef.current) return;
+      const nextOrders = result.orders ?? [];
+      setOrders(nextOrders);
+
+      const statuses = await Promise.all(
+        nextOrders.map(async (order) => {
+          try {
+            const payment = await getPaymentDetails(order.id, token);
+            return [order.id, payment.data?.status ?? ""] as const;
+          } catch {
+            return [order.id, ""] as const;
+          }
+        })
+      );
+
+      if (!mountedRef.current) return;
+      const map = statuses.reduce((acc, [orderId, status]) => {
+        acc[orderId] = status;
+        return acc;
+      }, {} as Record<string, string>);
+      setPaymentStatus(map);
+    } catch (err) {
+      if (!isAbortError(err) && mountedRef.current) {
+        setOrders([]);
+        setFetchError(
+          err instanceof Error ? err.message : "Failed to load orders"
+        );
+      }
+    } finally {
+      if (mountedRef.current) setLoading(false);
+    }
+  }, [token]);
 
   React.useEffect(() => {
     if (authLoading) return;
@@ -35,48 +80,8 @@ export default function OrdersScreen() {
       router.replace("/login");
       return;
     }
-
-    const controller = new AbortController();
-    let cancelled = false;
-
-    const load = async () => {
-      setLoading(true);
-      try {
-        const result = await listBuyerOrders(token);
-        if (cancelled) return;
-        const nextOrders = result.orders ?? [];
-        setOrders(nextOrders);
-
-        const statuses = await Promise.all(
-          nextOrders.map(async (order) => {
-            try {
-              const payment = await getPaymentDetails(order.id, token);
-              return [order.id, payment.data?.status ?? ""] as const;
-            } catch {
-              return [order.id, ""] as const;
-            }
-          })
-        );
-
-        if (cancelled) return;
-        const map = statuses.reduce((acc, [orderId, status]) => {
-          acc[orderId] = status;
-          return acc;
-        }, {} as Record<string, string>);
-        setPaymentStatus(map);
-      } catch (err) {
-        if (!isAbortError(err) && !cancelled) setOrders([]);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-    load();
-
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [authLoading, token, router]);
+    loadOrders();
+  }, [authLoading, token, router, loadOrders]);
 
   const handleOrderPress = React.useCallback(
     (orderId: string) => {
@@ -100,9 +105,28 @@ export default function OrdersScreen() {
           <SkeletonOrderRow />
           <SkeletonOrderRow />
         </View>
+      ) : fetchError && orders.length === 0 ? (
+        <View style={styles.emptyCard}>
+          <Text style={styles.emptyIcon}>⚠️</Text>
+          <Text style={styles.emptyTitle}>Something went wrong</Text>
+          <Text style={styles.emptySubtitle}>{fetchError}</Text>
+          <Pressable style={styles.retryButton} onPress={loadOrders}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </Pressable>
+        </View>
       ) : orders.length === 0 ? (
-        <View style={styles.loadingCard}>
-          <Text style={styles.loadingText}>No orders yet.</Text>
+        <View style={styles.emptyCard}>
+          <Text style={styles.emptyIcon}>📦</Text>
+          <Text style={styles.emptyTitle}>No orders yet</Text>
+          <Text style={styles.emptySubtitle}>
+            Your purchases will appear here once you place your first order.
+          </Text>
+          <Pressable
+            style={styles.retryButton}
+            onPress={() => router.push("/search")}
+          >
+            <Text style={styles.retryButtonText}>Start shopping</Text>
+          </Pressable>
         </View>
       ) : (
         <FlatList
@@ -230,5 +254,47 @@ const styles = StyleSheet.create({
     fontFamily: typography.sans,
     fontSize: 12,
     color: colors.brownSoft,
+  },
+  emptyCard: {
+    margin: spacing.lg,
+    padding: spacing.xl,
+    borderRadius: radius.lg,
+    backgroundColor: colors.warmWhite,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    alignItems: "center",
+    ...shadow.card,
+  },
+  emptyIcon: {
+    fontSize: 40,
+    marginBottom: spacing.md,
+  },
+  emptyTitle: {
+    fontFamily: typography.serif,
+    fontSize: 18,
+    color: colors.charcoal,
+    marginBottom: spacing.xs,
+  },
+  emptySubtitle: {
+    fontFamily: typography.sans,
+    fontSize: 12,
+    color: colors.brownSoft,
+    textAlign: "center",
+    lineHeight: 18,
+    marginBottom: spacing.md,
+  },
+  retryButton: {
+    backgroundColor: colors.charcoal,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    alignItems: "center",
+  },
+  retryButtonText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 12,
+    letterSpacing: 1.4,
+    textTransform: "uppercase",
+    color: colors.background,
   },
 });
