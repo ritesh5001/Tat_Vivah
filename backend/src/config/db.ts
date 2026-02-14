@@ -9,12 +9,40 @@ const globalForPrisma = globalThis as unknown as {
     prisma: PrismaClient | undefined;
 };
 
+function buildPrismaDatabaseUrl(rawUrl: string): string {
+    try {
+        const parsed = new URL(rawUrl);
+        const isPooledHost = parsed.hostname.includes('-pooler.');
+
+        if (isPooledHost) {
+            if (!parsed.searchParams.has('pgbouncer')) {
+                parsed.searchParams.set('pgbouncer', 'true');
+            }
+
+            if (!parsed.searchParams.has('connection_limit')) {
+                parsed.searchParams.set('connection_limit', '1');
+            }
+        }
+
+        return parsed.toString();
+    } catch {
+        return rawUrl;
+    }
+}
+
+const prismaDatabaseUrl = buildPrismaDatabaseUrl(env.DATABASE_URL);
+
 /**
  * Prisma client instance with logging based on environment
  */
 export const prisma: PrismaClient =
     globalForPrisma.prisma ??
     new PrismaClient({
+        datasources: {
+            db: {
+                url: prismaDatabaseUrl,
+            },
+        },
         log: env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
     });
 
