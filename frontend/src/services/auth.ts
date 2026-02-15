@@ -65,6 +65,21 @@ export interface VerifyOtpResponse {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
+export function clearAuthSession(): void {
+  if (typeof document === "undefined") return;
+  document.cookie = "tatvivah_access=; path=/; max-age=0";
+  document.cookie = "tatvivah_role=; path=/; max-age=0";
+  document.cookie = "tatvivah_user=; path=/; max-age=0";
+  window.dispatchEvent(new Event("tatvivah-auth"));
+}
+
+export function signOut(redirectTo: string = "/login?force=1"): void {
+  if (typeof window === "undefined") return;
+  clearAuthSession();
+  // Full redirect ensures middleware + layouts pick up logged-out state everywhere.
+  window.location.assign(redirectTo);
+}
+
 export async function loginUser(payload: LoginPayload): Promise<LoginResponse> {
   if (!API_BASE_URL) {
     throw new Error("API base URL is not configured");

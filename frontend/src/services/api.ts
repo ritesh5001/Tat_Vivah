@@ -4,6 +4,8 @@ type ApiRequestOptions = Omit<RequestInit, "body"> & {
   showLoader?: boolean;
 };
 
+import { signOut } from "@/services/auth";
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
 function getAuthToken(): string | null {
@@ -32,11 +34,9 @@ function isTokenError(data: any): boolean {
 }
 
 function clearAuthCookies() {
-  if (typeof document === "undefined") return;
-  document.cookie = "tatvivah_access=; path=/; max-age=0";
-  document.cookie = "tatvivah_role=; path=/; max-age=0";
-  document.cookie = "tatvivah_user=; path=/; max-age=0";
-  window.dispatchEvent(new Event("tatvivah-auth"));
+  if (typeof window === "undefined") return;
+  // Redirects to login to ensure a consistent signed-out UX.
+  signOut();
 }
 
 export async function apiRequest<T>(

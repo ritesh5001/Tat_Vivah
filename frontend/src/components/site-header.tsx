@@ -17,6 +17,7 @@ import {
 import { AnnouncementBar } from "@/components/announcement-bar";
 import { getUnreadCount } from "@/services/notifications";
 import { getWishlistCount } from "@/services/wishlist";
+import { signOut } from "@/services/auth";
 
 const buyerLinks = [
   { href: "/marketplace", label: "Shop" },
@@ -91,12 +92,9 @@ export function SiteHeader() {
   }, []);
 
   const handleLogout = () => {
-    document.cookie = "tatvivah_access=; path=/; max-age=0";
-    document.cookie = "tatvivah_role=; path=/; max-age=0";
-    document.cookie = "tatvivah_user=; path=/; max-age=0";
     setUser(null);
     setMenuOpen(false);
-    router.push("/login");
+    signOut();
   };
 
   const displayName = user?.email ?? user?.phone ?? "Account";
