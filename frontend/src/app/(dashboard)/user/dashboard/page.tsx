@@ -51,6 +51,10 @@ export default function UserDashboardPage() {
   }, []);
 
   React.useEffect(() => {
+    // Skip API call if user has no auth token
+    const hasToken = document.cookie.includes("tatvivah_access=");
+    if (!hasToken) return;
+
     const loadOrders = async () => {
       try {
         const result = await listBuyerOrders();
