@@ -13,6 +13,20 @@ export declare class AdminService {
     private readonly auditSvc;
     constructor(adminRepo: AdminRepository, auditSvc: AuditService);
     /**
+     * Lightweight counts for the admin dashboard.
+     * Uses COUNT queries instead of fetching entire collections.
+     */
+    getStats(): Promise<{
+        stats: {
+            sellers: number;
+            products: number;
+            orders: number;
+            payments: number;
+        };
+        recentSellers: AdminSeller[];
+        recentProducts: AdminProduct[];
+    }>;
+    /**
      * List all sellers
      */
     listSellers(): Promise<{

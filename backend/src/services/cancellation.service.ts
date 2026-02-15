@@ -165,6 +165,18 @@ export class CancellationService {
     }
 
     async approveCancellation(adminId: string, cancellationId: string) {
+        return this.approveCancellationInternal(adminId, cancellationId, 'ADMIN');
+    }
+
+    async approveCancellationBySeller(sellerId: string, cancellationId: string) {
+        return this.approveCancellationInternal(sellerId, cancellationId, 'SELLER');
+    }
+
+    private async approveCancellationInternal(
+        reviewerId: string,
+        cancellationId: string,
+        reviewerType: 'ADMIN' | 'SELLER',
+    ) {
         const txResult = await prisma.$transaction(async (tx) => {
             const cancellation = await tx.cancellationRequest.findUnique({
                 where: { id: cancellationId },
@@ -200,10 +212,22 @@ export class CancellationService {
             if (!cancellation.order) {
                 recordCancellationFatal({
                     cancellationId,
-                    adminId,
+                    adminId: reviewerId,
                     reason: 'Order not found during cancellation approval',
                 });
                 throw ApiError.notFound('Order not found for cancellation request');
+            }
+
+            const sellerIdsInOrder = new Set(cancellation.order.items.map((item) => item.sellerId));
+
+            if (reviewerType === 'SELLER') {
+                if (!sellerIdsInOrder.has(reviewerId)) {
+                    throw ApiError.forbidden('You are not authorized to approve cancellation for this order');
+                }
+
+                if (sellerIdsInOrder.size > 1) {
+                    throw ApiError.badRequest('Multi-seller order cancellation must be approved by admin');
+                }
             }
 
             await tx.$queryRaw`SELECT id FROM "orders" WHERE id = ${cancellation.order.id} FOR UPDATE`;
@@ -226,7 +250,7 @@ export class CancellationService {
                 recordCancellationFatal({
                     cancellationId,
                     orderId: cancellation.order.id,
-                    adminId,
+                    adminId: reviewerId,
                     reason: 'Order not found after row lock during approval',
                 });
                 throw ApiError.notFound('Order not found');
@@ -236,7 +260,7 @@ export class CancellationService {
                 recordCancellationFatal({
                     cancellationId,
                     orderId: lockedOrder.id,
-                    adminId,
+                    adminId: reviewerId,
                     userId: lockedOrder.userId,
                     reason: 'Cancellation attempted after shipped/delivered stage',
                 });
@@ -255,7 +279,7 @@ export class CancellationService {
                 recordCancellationFatal({
                     cancellationId,
                     orderId: lockedOrder.id,
-                    adminId,
+                    adminId: reviewerId,
                     userId: lockedOrder.userId,
                     reason: 'Cancellation approval attempted after shipment SHIPPED',
                 });
@@ -268,7 +292,7 @@ export class CancellationService {
                         where: { id: cancellation.id },
                         data: {
                             status: CancellationStatus.APPROVED,
-                            reviewedBy: adminId,
+                            reviewedBy: reviewerId,
                             reviewedAt: new Date(),
                         },
                     });
@@ -300,7 +324,7 @@ export class CancellationService {
                 where: { id: cancellation.id },
                 data: {
                     status: CancellationStatus.APPROVED,
-                    reviewedBy: adminId,
+                    reviewedBy: reviewerId,
                     reviewedAt: new Date(),
                 },
             });
@@ -318,7 +342,7 @@ export class CancellationService {
                     recordCancellationFatal({
                         cancellationId,
                         orderId: lockedOrder.id,
-                        adminId,
+                        adminId: reviewerId,
                         reason: `Inventory increment failed for variant ${item.variantId}`,
                     });
                     throw ApiError.internal(`Failed to restore inventory for variant ${item.variantId}`);
@@ -366,7 +390,7 @@ export class CancellationService {
                 recordCancellationFatal({
                     cancellationId,
                     orderId: txResult.orderId,
-                    adminId,
+                    adminId: reviewerId,
                     userId: txResult.userId,
                     reason: 'Refund API failed during cancellation approval',
                 });
@@ -379,28 +403,33 @@ export class CancellationService {
             role: Role.USER,
             type: NotificationType.ADMIN_ALERT,
             channel: NotificationChannel.EMAIL,
-            content: `Cancellation approved for order #${txResult.orderId}`,
+            content: reviewerType === 'SELLER'
+                ? `Cancellation approved by seller for order #${txResult.orderId}`
+                : `Cancellation approved for order #${txResult.orderId}`,
             metadata: { orderId: txResult.orderId, status: 'APPROVED' },
             eventKey: `CANCELLATION_APPROVED:${txResult.orderId}`,
         });
 
-        for (const sellerId of txResult.sellerIds) {
-            await notificationService.create({
-                userId: sellerId,
-                role: Role.SELLER,
-                type: NotificationType.ADMIN_ALERT,
-                channel: NotificationChannel.EMAIL,
-                content: `Order #${txResult.orderId} has been cancelled by admin approval`,
-                metadata: { orderId: txResult.orderId, status: 'CANCELLED' },
-                eventKey: `SELLER_ORDER_CANCELLED:${txResult.orderId}:${sellerId}`,
-            });
+        if (reviewerType === 'ADMIN') {
+            for (const sellerId of txResult.sellerIds) {
+                await notificationService.create({
+                    userId: sellerId,
+                    role: Role.SELLER,
+                    type: NotificationType.ADMIN_ALERT,
+                    channel: NotificationChannel.EMAIL,
+                    content: `Order #${txResult.orderId} has been cancelled by admin approval`,
+                    metadata: { orderId: txResult.orderId, status: 'CANCELLED' },
+                    eventKey: `SELLER_ORDER_CANCELLED:${txResult.orderId}:${sellerId}`,
+                });
+            }
         }
 
         orderCancelApprovedTotal.inc();
         cancellationLogger.info({
             orderId: txResult.orderId,
             userId: txResult.userId,
-            adminId,
+            adminId: reviewerId,
+            reviewerType,
             paymentStatus: txResult.paymentStatus,
             refundTriggered,
             alreadyCancelled: txResult.alreadyCancelled,

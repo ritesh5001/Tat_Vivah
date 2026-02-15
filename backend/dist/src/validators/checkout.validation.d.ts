@@ -5,6 +5,7 @@ import { z } from 'zod';
  */
 export declare const checkoutSchema: z.ZodObject<{
     body: z.ZodObject<{
+        couponCode: z.ZodOptional<z.ZodString>;
         shippingName: z.ZodOptional<z.ZodString>;
         shippingPhone: z.ZodOptional<z.ZodString>;
         shippingEmail: z.ZodOptional<z.ZodString>;
@@ -13,6 +14,7 @@ export declare const checkoutSchema: z.ZodObject<{
         shippingCity: z.ZodOptional<z.ZodString>;
         shippingNotes: z.ZodOptional<z.ZodString>;
     }, "strip", z.ZodTypeAny, {
+        couponCode?: string | undefined;
         shippingName?: string | undefined;
         shippingPhone?: string | undefined;
         shippingEmail?: string | undefined;
@@ -21,6 +23,7 @@ export declare const checkoutSchema: z.ZodObject<{
         shippingCity?: string | undefined;
         shippingNotes?: string | undefined;
     }, {
+        couponCode?: string | undefined;
         shippingName?: string | undefined;
         shippingPhone?: string | undefined;
         shippingEmail?: string | undefined;
@@ -31,6 +34,7 @@ export declare const checkoutSchema: z.ZodObject<{
     }>;
 }, "strip", z.ZodTypeAny, {
     body: {
+        couponCode?: string | undefined;
         shippingName?: string | undefined;
         shippingPhone?: string | undefined;
         shippingEmail?: string | undefined;
@@ -41,6 +45,7 @@ export declare const checkoutSchema: z.ZodObject<{
     };
 }, {
     body: {
+        couponCode?: string | undefined;
         shippingName?: string | undefined;
         shippingPhone?: string | undefined;
         shippingEmail?: string | undefined;

@@ -123,6 +123,14 @@ export class OrderRepository {
                         id: true,
                         status: true,
                         createdAt: true,
+                        cancellationRequest: {
+                            select: {
+                                id: true,
+                                status: true,
+                                reason: true,
+                                createdAt: true,
+                            },
+                        },
                         shippingName: true,
                         shippingPhone: true,
                         shippingEmail: true,

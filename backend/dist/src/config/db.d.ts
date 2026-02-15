@@ -1,10 +1,13 @@
 import { PrismaClient } from '@prisma/client';
 /**
- * Prisma client instance with logging based on environment
+ * Singleton PrismaClient instance used across the entire backend.
+ * In non-production environments it is pinned to globalThis so tsx
+ * watch-mode restarts reuse the same connection pool.
  */
 export declare const prisma: PrismaClient;
 /**
- * Graceful shutdown handler for Prisma connection
+ * Graceful shutdown handler for Prisma connection.
+ * Safe to call multiple times (Prisma ignores repeat disconnects).
  */
 export declare function disconnectDatabase(): Promise<void>;
 /**

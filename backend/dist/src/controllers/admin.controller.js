@@ -11,11 +11,29 @@ import { ApiError } from '../errors/ApiError.js';
 import { bestsellerService } from '../services/bestseller.service.js';
 import { createBestsellerSchema, updateBestsellerSchema } from '../validators/bestseller.validation.js';
 import { productIdParamSchema, productRejectSchema, productSetPriceSchema, } from '../validators/admin.validation.js';
+import { refundService } from '../services/refund.service.js';
+import { commissionService } from '../services/commission.service.js';
 /**
  * Admin Controller
  * Handles HTTP requests for admin panel
  */
 export const adminController = {
+    // =========================================================================
+    // DASHBOARD STATS
+    // =========================================================================
+    /**
+     * GET /v1/admin/stats
+     * Lightweight counts + recent items for admin dashboard
+     */
+    getStats: async (_req, res, next) => {
+        try {
+            const result = await adminService.getStats();
+            res.json(result);
+        }
+        catch (error) {
+            next(error);
+        }
+    },
     // =========================================================================
     // SELLER MANAGEMENT
     // =========================================================================
@@ -219,7 +237,14 @@ export const adminController = {
             if (validated.name === undefined && validated.isActive === undefined) {
                 throw ApiError.badRequest('No updates provided');
             }
-            const category = await categoryService.updateCategory(id, validated);
+            const updateData = {};
+            if (validated.name !== undefined) {
+                updateData.name = validated.name;
+            }
+            if (validated.isActive !== undefined) {
+                updateData.isActive = validated.isActive;
+            }
+            const category = await categoryService.updateCategory(id, updateData);
             res.json({ message: 'Category updated', category });
         }
         catch (error) {
@@ -389,11 +414,19 @@ export const adminController = {
     },
     /**
      * GET /v1/admin/settlements
-     * List all settlements
+     * List all settlements with optional filters
      */
-    listSettlements: async (_req, res, next) => {
+    listSettlements: async (req, res, next) => {
         try {
-            const result = await adminService.listSettlements();
+            const { sellerId, orderId, status } = req.query;
+            const filters = {};
+            if (typeof sellerId === 'string')
+                filters.sellerId = sellerId;
+            if (typeof orderId === 'string')
+                filters.orderId = orderId;
+            if (typeof status === 'string')
+                filters.status = status;
+            const result = await commissionService.listSettlements(filters);
             res.json(result);
         }
         catch (error) {
@@ -427,6 +460,28 @@ export const adminController = {
                 filters.endDate = new Date(endDate);
             }
             const result = await auditService.getAuditLogs(filters);
+            res.json(result);
+        }
+        catch (error) {
+            next(error);
+        }
+    },
+    // =========================================================================
+    // REFUND LEDGER
+    // =========================================================================
+    /**
+     * GET /v1/admin/refunds
+     * List all refund ledger entries with optional filters
+     */
+    async listRefunds(req, res, next) {
+        try {
+            const { orderId, status } = req.query;
+            const filters = {};
+            if (typeof orderId === 'string')
+                filters.orderId = orderId;
+            if (typeof status === 'string')
+                filters.status = status;
+            const result = await refundService.listRefunds(filters);
             res.json(result);
         }
         catch (error) {

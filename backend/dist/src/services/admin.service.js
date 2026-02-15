@@ -21,6 +21,21 @@ export class AdminService {
         this.auditSvc = auditSvc;
     }
     // =========================================================================
+    // DASHBOARD STATS
+    // =========================================================================
+    /**
+     * Lightweight counts for the admin dashboard.
+     * Uses COUNT queries instead of fetching entire collections.
+     */
+    async getStats() {
+        const [stats, recentSellers, recentProducts] = await Promise.all([
+            this.adminRepo.getStats(),
+            this.adminRepo.findRecentSellers(5),
+            this.adminRepo.findRecentProducts(5),
+        ]);
+        return { stats, recentSellers, recentProducts };
+    }
+    // =========================================================================
     // SELLER MANAGEMENT
     // =========================================================================
     /**
@@ -45,12 +60,14 @@ export class AdminService {
         }
         // Update status to ACTIVE
         const updatedSeller = await this.adminRepo.updateSellerStatus(sellerId, 'ACTIVE');
-        await notificationService.notifySellerApproved(updatedSeller.id, updatedSeller.email);
-        // Log audit action
-        await this.auditSvc.logAction(actorId, 'SELLER_APPROVED', 'USER', sellerId, {
-            previousStatus: seller.status,
-            newStatus: 'ACTIVE',
-        });
+        // Fire side-effects in parallel (no data dependency)
+        await Promise.all([
+            notificationService.notifySellerApproved(updatedSeller.id, updatedSeller.email),
+            this.auditSvc.logAction(actorId, 'SELLER_APPROVED', 'USER', sellerId, {
+                previousStatus: seller.status,
+                newStatus: 'ACTIVE',
+            }),
+        ]);
         return {
             message: 'Seller approved successfully',
             seller: updatedSeller,
@@ -116,12 +133,14 @@ export class AdminService {
         // Update moderation status
         await this.adminRepo.updateProductModeration(productId, 'APPROVED', actorId);
         const updatedProduct = await this.adminRepo.applyProductApprovalDecision(productId, actorId, 'APPROVED');
-        await notificationService.notifySellerProductApproved(product.sellerId, product.title, product.sellerEmail);
-        await invalidateProductCaches(productId);
-        // Log audit action
-        await this.auditSvc.logAction(actorId, 'PRODUCT_APPROVED', 'PRODUCT', productId, {
-            productTitle: product.title,
-        });
+        // Fire side-effects in parallel
+        await Promise.all([
+            notificationService.notifySellerProductApproved(product.sellerId, product.title, product.sellerEmail),
+            invalidateProductCaches(productId),
+            this.auditSvc.logAction(actorId, 'PRODUCT_APPROVED', 'PRODUCT', productId, {
+                productTitle: product.title,
+            }),
+        ]);
         return {
             message: 'Product approved',
             product: updatedProduct,
@@ -145,13 +164,15 @@ export class AdminService {
         // Update moderation status
         await this.adminRepo.updateProductModeration(productId, 'REJECTED', actorId, reason.trim());
         const updatedProduct = await this.adminRepo.applyProductApprovalDecision(productId, actorId, 'REJECTED', reason.trim());
-        await notificationService.notifySellerProductRejected(product.sellerId, product.title, reason.trim(), product.sellerEmail);
-        await invalidateProductCaches(productId);
-        // Log audit action
-        await this.auditSvc.logAction(actorId, 'PRODUCT_REJECTED', 'PRODUCT', productId, {
-            productTitle: product.title,
-            reason,
-        });
+        // Fire side-effects in parallel
+        await Promise.all([
+            notificationService.notifySellerProductRejected(product.sellerId, product.title, reason.trim(), product.sellerEmail),
+            invalidateProductCaches(productId),
+            this.auditSvc.logAction(actorId, 'PRODUCT_REJECTED', 'PRODUCT', productId, {
+                productTitle: product.title,
+                reason,
+            }),
+        ]);
         return {
             message: 'Product rejected',
             product: updatedProduct,
@@ -166,12 +187,15 @@ export class AdminService {
             throw ApiError.notFound('Product not found');
         }
         const deleted = await this.adminRepo.markProductDeletedByAdmin(productId, reason);
-        await invalidateProductCaches(productId);
-        await bestsellerService.removeByProductId(productId);
-        await this.auditSvc.logAction(actorId, 'PRODUCT_DELETED', 'PRODUCT', productId, {
-            productTitle: product.title,
-            reason: reason ?? 'Deleted by admin',
-        });
+        // Fire side-effects in parallel
+        await Promise.all([
+            invalidateProductCaches(productId),
+            bestsellerService.removeByProductId(productId),
+            this.auditSvc.logAction(actorId, 'PRODUCT_DELETED', 'PRODUCT', productId, {
+                productTitle: product.title,
+                reason: reason ?? 'Deleted by admin',
+            }),
+        ]);
         return {
             message: 'Product deleted by admin',
             product: deleted,
@@ -195,14 +219,17 @@ export class AdminService {
         }
         await this.adminRepo.setProductListingPrice(productId, adminListingPrice, actorId);
         const { margin, percentage } = calculateMargin(sellerPrice, adminListingPrice);
-        await invalidateProductCaches(productId);
-        await this.auditSvc.logAction(actorId, 'PRODUCT_PRICE_SET', 'PRODUCT', productId, {
-            productTitle: product.title,
-            sellerPrice,
-            adminListingPrice,
-            margin,
-            marginPercentage: percentage,
-        });
+        // Fire side-effects in parallel
+        await Promise.all([
+            invalidateProductCaches(productId),
+            this.auditSvc.logAction(actorId, 'PRODUCT_PRICE_SET', 'PRODUCT', productId, {
+                productTitle: product.title,
+                sellerPrice,
+                adminListingPrice,
+                margin,
+                marginPercentage: percentage,
+            }),
+        ]);
         return {
             sellerPrice,
             adminListingPrice,
@@ -253,13 +280,14 @@ export class AdminService {
         }
         // Update order status
         const updatedOrder = await this.adminRepo.updateOrderStatus(orderId, 'CANCELLED');
-        // Invalidate cache
-        await invalidateCache(CACHE_KEYS.ADMIN_ORDERS);
-        // Log audit action
-        await this.auditSvc.logAction(actorId, 'ORDER_CANCELLED', 'ORDER', orderId, {
-            previousStatus: order.status,
-            newStatus: 'CANCELLED',
-        });
+        // Fire side-effects in parallel
+        await Promise.all([
+            invalidateCache(CACHE_KEYS.ADMIN_ORDERS),
+            this.auditSvc.logAction(actorId, 'ORDER_CANCELLED', 'ORDER', orderId, {
+                previousStatus: order.status,
+                newStatus: 'CANCELLED',
+            }),
+        ]);
         return {
             message: 'Order cancelled successfully',
             order: updatedOrder,
@@ -286,14 +314,15 @@ export class AdminService {
         }
         // Update order status (bypasses payment check)
         const updatedOrder = await this.adminRepo.updateOrderStatus(orderId, 'CONFIRMED');
-        // Invalidate cache
-        await invalidateCache(CACHE_KEYS.ADMIN_ORDERS);
-        // Log audit action
-        await this.auditSvc.logAction(actorId, 'ORDER_FORCE_CONFIRMED', 'ORDER', orderId, {
-            previousStatus: order.status,
-            newStatus: 'CONFIRMED',
-            bypassedPayment: true,
-        });
+        // Fire side-effects in parallel
+        await Promise.all([
+            invalidateCache(CACHE_KEYS.ADMIN_ORDERS),
+            this.auditSvc.logAction(actorId, 'ORDER_FORCE_CONFIRMED', 'ORDER', orderId, {
+                previousStatus: order.status,
+                newStatus: 'CONFIRMED',
+                bypassedPayment: true,
+            }),
+        ]);
         return {
             message: 'Order force-confirmed (payment bypassed)',
             order: updatedOrder,

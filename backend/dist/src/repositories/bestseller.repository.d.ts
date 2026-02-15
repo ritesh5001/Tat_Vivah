@@ -27,6 +27,8 @@ export declare class BestsellerRepository {
             deletedByAdmin: boolean;
             deletedByAdminAt: Date | null;
             deletedByAdminReason: string | null;
+            taxRate: number;
+            hsnCode: string | null;
             images: string[];
         };
     } & {
@@ -70,6 +72,8 @@ export declare class BestsellerRepository {
             deletedByAdmin: boolean;
             deletedByAdminAt: Date | null;
             deletedByAdminReason: string | null;
+            taxRate: number;
+            hsnCode: string | null;
             images: string[];
         };
     } & {

@@ -40,6 +40,12 @@ export interface SellerOrderItem {
     id: string;
     status: string;
     createdAt: string;
+    cancellationRequest?: {
+      id: string;
+      status: "REQUESTED" | "APPROVED" | "REJECTED";
+      reason: string;
+      createdAt: string;
+    } | null;
   };
 }
 
@@ -59,6 +65,19 @@ export async function listSellerOrders(token?: string | null) {
     method: "GET",
     token,
   });
+}
+
+export async function approveCancellationAsSeller(
+  cancellationId: string,
+  token?: string | null
+) {
+  return apiRequest<{ success: boolean; refundTriggered?: boolean }>(
+    `/v1/cancellations/${cancellationId}/seller-approve`,
+    {
+      method: "PATCH",
+      token,
+    }
+  );
 }
 
 /**

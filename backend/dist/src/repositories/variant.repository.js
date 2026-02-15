@@ -49,7 +49,7 @@ export class VariantRepository {
      * Find variant with product and seller info (for ownership check)
      */
     async findByIdWithProduct(id) {
-        return prisma.productVariant.findUnique({
+        const variant = await prisma.productVariant.findUnique({
             where: { id },
             select: {
                 id: true,
@@ -66,6 +66,18 @@ export class VariantRepository {
                 },
             },
         });
+        if (!variant) {
+            return null;
+        }
+        return {
+            ...variant,
+            product: {
+                ...variant.product,
+                adminListingPrice: variant.product.adminListingPrice == null
+                    ? null
+                    : Number(variant.product.adminListingPrice),
+            },
+        };
     }
     /**
      * Update a variant

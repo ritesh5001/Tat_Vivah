@@ -11,6 +11,14 @@ export const adminRouter = Router();
 // ============================================================================
 adminRouter.use(authenticate);
 // ============================================================================
+// DASHBOARD STATS (lightweight counts)
+// ============================================================================
+/**
+ * GET /v1/admin/stats
+ * Lightweight dashboard counts + recent items
+ */
+adminRouter.get('/stats', authorize('ADMIN', 'SUPER_ADMIN'), adminController.getStats);
+// ============================================================================
 // SELLER MANAGEMENT (ADMIN + SUPER_ADMIN)
 // ============================================================================
 /**
@@ -159,4 +167,12 @@ adminRouter.get('/settlements', authorize('ADMIN', 'SUPER_ADMIN'), adminControll
  * List audit logs with optional filters
  */
 adminRouter.get('/audit-logs', authorize('ADMIN', 'SUPER_ADMIN'), adminController.listAuditLogs);
+// ============================================================================
+// REFUND LEDGER
+// ============================================================================
+/**
+ * GET /v1/admin/refunds
+ * List all refund ledger entries (with optional orderId/status filters)
+ */
+adminRouter.get('/refunds', authorize('ADMIN', 'SUPER_ADMIN'), adminController.listRefunds);
 //# sourceMappingURL=admin.routes.js.map

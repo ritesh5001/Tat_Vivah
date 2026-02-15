@@ -13,4 +13,6 @@ orderRouter.use(authorize('USER'));
 orderRouter.get('/', (req, res, next) => orderController.listBuyerOrders(req, res, next));
 // GET /v1/orders/:id - Get buyer's order detail
 orderRouter.get('/:id', (req, res, next) => orderController.getBuyerOrder(req, res, next));
+// GET /v1/orders/:id/invoice - Download GST invoice PDF
+orderRouter.get('/:id/invoice', (req, res, next) => orderController.downloadInvoice(req, res, next));
 //# sourceMappingURL=order.routes.js.map

@@ -4,6 +4,15 @@ import { prisma } from '../config/db.js';
  * Handles database operations for products
  */
 export class ProductRepository {
+    mapProductDecimals(product) {
+        return {
+            ...product,
+            sellerPrice: Number(product.sellerPrice),
+            adminListingPrice: product.adminListingPrice == null
+                ? null
+                : Number(product.adminListingPrice),
+        };
+    }
     /**
      * Find published products with pagination and filters
      */
@@ -34,13 +43,16 @@ export class ProductRepository {
             }),
             prisma.product.count({ where }),
         ]);
-        return { products, total };
+        return {
+            products: products.map((product) => this.mapProductDecimals(product)),
+            total,
+        };
     }
     /**
      * Find published product by ID with full details
      */
     async findPublishedById(id) {
-        return prisma.product.findFirst({
+        const product = await prisma.product.findFirst({
             where: { id, status: 'APPROVED', deletedByAdmin: false, adminListingPrice: { not: null } },
             include: {
                 category: true,
@@ -51,12 +63,13 @@ export class ProductRepository {
                 },
             },
         });
+        return product ? this.mapProductDecimals(product) : null;
     }
     /**
      * Find all products for a seller
      */
     async findBySellerId(sellerId) {
-        return prisma.product.findMany({
+        const products = await prisma.product.findMany({
             where: { sellerId },
             include: {
                 category: true,
@@ -68,20 +81,22 @@ export class ProductRepository {
             },
             orderBy: { createdAt: 'desc' },
         });
+        return products.map((product) => this.mapProductDecimals(product));
     }
     /**
      * Find product by ID and seller (ownership check)
      */
     async findByIdAndSeller(id, sellerId) {
-        return prisma.product.findFirst({
+        const product = await prisma.product.findFirst({
             where: { id, sellerId },
         });
+        return product ? this.mapProductDecimals(product) : null;
     }
     /**
      * Find product by ID with details
      */
     async findByIdWithDetails(id) {
-        return prisma.product.findUnique({
+        const product = await prisma.product.findUnique({
             where: { id },
             include: {
                 category: true,
@@ -92,12 +107,13 @@ export class ProductRepository {
                 },
             },
         });
+        return product ? this.mapProductDecimals(product) : null;
     }
     /**
      * Create a new product
      */
     async create(sellerId, data) {
-        return prisma.product.create({
+        const product = await prisma.product.create({
             data: {
                 sellerId,
                 categoryId: data.categoryId,
@@ -115,12 +131,13 @@ export class ProductRepository {
                 isPublished: false,
             },
         });
+        return this.mapProductDecimals(product);
     }
     /**
      * Update a product
      */
     async update(id, data) {
-        return prisma.product.update({
+        const product = await prisma.product.update({
             where: { id },
             data: {
                 ...(data.categoryId !== undefined && { categoryId: data.categoryId }),
@@ -129,6 +146,7 @@ export class ProductRepository {
                 ...(data.images !== undefined && { images: data.images }),
             },
         });
+        return this.mapProductDecimals(product);
     }
     /**
      * Delete a product

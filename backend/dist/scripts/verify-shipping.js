@@ -4,8 +4,9 @@
  */
 import { PrismaClient, OrderStatus } from '@prisma/client';
 import { generateAccessToken, Role, UserStatus } from '../src/utils/jwt.util.js';
+import { env } from '../src/config/env.js';
 const prisma = new PrismaClient();
-const API_URL = 'http://localhost:3000/v1';
+const API_URL = `http://localhost:${env.PORT}/v1`;
 async function verifyShipping() {
     console.log('🚀 Starting Shipping Service Verification...');
     try {

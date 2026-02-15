@@ -12,8 +12,8 @@ export class BestsellerService {
         }
         const items = await bestsellerRepository.listPublic(limit);
         const products = items.map((item) => {
-            const prices = item.product.variants.map((variant) => variant.price);
-            const minPrice = prices.length ? Math.min(...prices) : null;
+            const sellerPrice = Number(item.product.sellerPrice ?? 0);
+            const adminPrice = Number(item.product.adminListingPrice ?? item.product.sellerPrice ?? 0);
             return {
                 id: item.id,
                 productId: item.productId,
@@ -21,7 +21,11 @@ export class BestsellerService {
                 title: item.product.title,
                 image: item.product.images?.[0] ?? null,
                 categoryName: item.product.category?.name ?? null,
-                minPrice,
+                regularPrice: sellerPrice,
+                sellerPrice,
+                adminPrice,
+                salePrice: adminPrice,
+                minPrice: adminPrice,
             };
         });
         const response = { products };

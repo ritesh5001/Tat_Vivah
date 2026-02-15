@@ -114,10 +114,14 @@ export interface AdminPayment {
 }
 export interface AdminSettlement {
     id: string;
+    orderId: string;
     sellerId: string;
-    orderItemId: string;
-    amount: number;
+    grossAmount: number;
+    commissionAmount: number;
+    platformFee: number;
+    netAmount: number;
     status: string;
+    settledAt: Date | null;
     createdAt: Date;
 }
 /**
@@ -125,6 +129,23 @@ export interface AdminSettlement {
  * Handles all admin-related database queries
  */
 export declare class AdminRepository {
+    /**
+     * Get aggregate counts for admin dashboard — uses COUNT instead of fetching all rows.
+     */
+    getStats(): Promise<{
+        sellers: number;
+        products: number;
+        orders: number;
+        payments: number;
+    }>;
+    /**
+     * Get recent sellers (last 5)
+     */
+    findRecentSellers(limit?: number): Promise<AdminSeller[]>;
+    /**
+     * Get recent products (last 5)
+     */
+    findRecentProducts(limit?: number): Promise<AdminProduct[]>;
     /**
      * Find all sellers
      */

@@ -9,10 +9,10 @@ export declare class CartRepository {
      */
     findByUserId(userId: string): Promise<({
         items: {
+            variantId: string;
             id: string;
             createdAt: Date;
             productId: string;
-            variantId: string;
             cartId: string;
             quantity: number;
             priceSnapshot: number;

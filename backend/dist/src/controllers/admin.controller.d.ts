@@ -9,6 +9,11 @@ import type { Request, Response, NextFunction } from 'express';
  */
 export declare const adminController: {
     /**
+     * GET /v1/admin/stats
+     * Lightweight counts + recent items for admin dashboard
+     */
+    getStats: (_req: Request, res: Response, next: NextFunction) => Promise<void>;
+    /**
      * GET /v1/admin/sellers
      * List all sellers
      */
@@ -129,13 +134,18 @@ export declare const adminController: {
     listPayments: (_req: Request, res: Response, next: NextFunction) => Promise<void>;
     /**
      * GET /v1/admin/settlements
-     * List all settlements
+     * List all settlements with optional filters
      */
-    listSettlements: (_req: Request, res: Response, next: NextFunction) => Promise<void>;
+    listSettlements: (req: Request, res: Response, next: NextFunction) => Promise<void>;
     /**
      * GET /v1/admin/audit-logs
      * List audit logs with optional filters
      */
     listAuditLogs: (req: Request, res: Response, next: NextFunction) => Promise<void>;
+    /**
+     * GET /v1/admin/refunds
+     * List all refund ledger entries with optional filters
+     */
+    listRefunds(req: Request, res: Response, next: NextFunction): Promise<void>;
 };
 //# sourceMappingURL=admin.controller.d.ts.map
