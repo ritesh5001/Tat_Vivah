@@ -33,6 +33,7 @@
     "verify:notifications": "tsx scripts/verify-notifications.ts",
     "verify:razorpay": "tsx scripts/verify-razorpay.ts",
     "verify:cancellation-race": "tsx scripts/simulate-cancellation-race.ts",
+    "verify:return-race": "tsx scripts/simulate-return-race.ts",
     "verify:all": "tsx scripts/verify-all.ts"
   },
   "prisma": {

@@ -40,6 +40,8 @@ model User {
   wishlist           Wishlist?
   cancellationRequests CancellationRequest[] @relation("UserCancellationRequests")
   reviewedCancellationRequests CancellationRequest[] @relation("CancellationReviewer")
+  returnRequests       ReturnRequest[]       @relation("UserReturnRequests")
+  reviewedReturnRequests ReturnRequest[]     @relation("ReturnReviewer")
 
   @@map("users")
 }
@@ -248,6 +250,7 @@ model Order {
   payment              Payment?
   shipments            shipments[]
   cancellationRequest  CancellationRequest?
+  returnRequests       ReturnRequest[]
 
   @@index([userId])
   @@map("orders")
@@ -266,6 +269,7 @@ model OrderItem {
   adminPriceSnapshot Float @map("admin_price_snapshot")
   platformMargin Float @map("platform_margin")
   order         Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  returnItems   ReturnItem[]
 
   @@index([orderId])
   @@index([sellerId])
@@ -293,6 +297,50 @@ model CancellationRequest {
   @@index([status])
   @@index([reviewedBy])
   @@map("cancellation_requests")
+}
+
+/// Return / RMA requests for delivered orders (partial returns supported)
+model ReturnRequest {
+  id              String       @id @default(cuid())
+  orderId         String       @map("order_id")
+  userId          String       @map("user_id")
+  reason          String
+  status          ReturnStatus @default(REQUESTED)
+  refundAmount    Float?       @map("refund_amount")
+  reviewedBy      String?      @map("reviewed_by")
+  reviewedAt      DateTime?    @map("reviewed_at")
+  rejectionReason String?      @map("rejection_reason")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  order    Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  user     User         @relation("UserReturnRequests", fields: [userId], references: [id], onDelete: Cascade)
+  reviewer User?        @relation("ReturnReviewer", fields: [reviewedBy], references: [id])
+  items    ReturnItem[]
+
+  @@index([orderId])
+  @@index([userId])
+  @@index([status])
+  @@index([reviewedBy])
+  @@map("return_requests")
+}
+
+/// Individual items in a return request with quantity
+model ReturnItem {
+  id              String @id @default(cuid())
+  returnRequestId String @map("return_request_id")
+  orderItemId     String @map("order_item_id")
+  variantId       String @map("variant_id")
+  quantity        Int
+  reason          String?
+
+  returnRequest ReturnRequest @relation(fields: [returnRequestId], references: [id], onDelete: Cascade)
+  orderItem     OrderItem     @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+
+  @@unique([returnRequestId, orderItemId])
+  @@index([returnRequestId])
+  @@index([orderItemId])
+  @@map("return_items")
 }
 
 /// Auditable inventory movements for stock changes
@@ -527,6 +575,14 @@ enum CancellationStatus {
   REQUESTED
   APPROVED
   REJECTED
+}
+
+enum ReturnStatus {
+  REQUESTED
+  APPROVED
+  INSPECTING
+  REJECTED
+  REFUNDED
 }
 
 enum InventoryMovementType {

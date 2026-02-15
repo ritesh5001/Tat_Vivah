@@ -18,6 +18,7 @@ import {
     orderRouter,
     sellerOrderRouter,
     cancellationRouter,
+    returnRouter,
     paymentRouter,
     webhookRouter,
     sellerSettlementRouter,
@@ -181,6 +182,7 @@ export function createApp(): Application {
     app.use('/v1/orders', orderRouter);
     app.use('/v1/seller/orders', sellerOrderRouter);
     app.use('/v1/cancellations', cancellationRouter);
+    app.use('/v1/returns', returnRouter);
 
     // Payments & Settlement domain
     app.use('/v1/payments/webhook', webhookRouter); // Must be before /v1/payments to avoid auth middleware capture

@@ -38,3 +38,4 @@ export const searchLogger = logger.child({ module: 'search' });
 export const personalizationLogger = logger.child({ module: 'personalization' });
 export const recommendationLogger = logger.child({ module: 'recommendation' });
 export const cancellationLogger = logger.child({ module: 'cancellation' });
+export const returnLogger = logger.child({ module: 'return' });

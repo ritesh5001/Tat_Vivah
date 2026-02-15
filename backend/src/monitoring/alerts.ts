@@ -135,3 +135,19 @@ export function recordCancellationFatal(context: {
         ...context,
     }, `ALERT: Cancellation safety failure - ${context.reason}`);
 }
+
+/**
+ * Fatal return/RMA safety alert.
+ */
+export function recordReturnFatal(context: {
+    orderId?: string;
+    returnId?: string;
+    reason: string;
+    adminId?: string;
+    userId?: string;
+}): void {
+    alertLogger.fatal({
+        alert: 'return_safety_failure',
+        ...context,
+    }, `ALERT: Return safety failure - ${context.reason}`);
+}

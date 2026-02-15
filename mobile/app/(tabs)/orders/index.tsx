@@ -14,6 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import { listBuyerOrders, type BuyerOrder } from "../../../src/services/orders";
 import { listMyCancellations, requestCancellation } from "../../../src/services/cancellations";
+import { listMyReturns, requestReturn } from "../../../src/services/returns";
 import { getPaymentDetails, retryPayment, verifyPayment } from "../../../src/services/payments";
 import { openRazorpayCheckout } from "../../../src/services/razorpay";
 import { useAuth } from "../../../src/hooks/useAuth";
@@ -70,6 +71,9 @@ const OrderCard = React.memo(function OrderCard({
   onRequestCancellation,
   isRequestingCancellation,
   showCancellationRequested,
+  onRequestReturn,
+  isRequestingReturn,
+  returnStatus,
 }: {
   order: BuyerOrder;
   paymentLabel: string;
@@ -80,12 +84,18 @@ const OrderCard = React.memo(function OrderCard({
   onRequestCancellation?: (id: string) => void;
   isRequestingCancellation?: boolean;
   showCancellationRequested?: boolean;
+  onRequestReturn?: (id: string) => void;
+  isRequestingReturn?: boolean;
+  returnStatus?: string | null;
 }) {
   const canRetry = paymentLabel === "PAYMENT FAILED" || paymentLabel === "PAYMENT PENDING";
   const canRequestCancellation =
     (order.status === "PLACED" || order.status === "CONFIRMED") &&
     order.shipmentStatus !== "SHIPPED" &&
     !showCancellationRequested;
+  const hasReturnRequest = !!returnStatus && returnStatus !== "REJECTED";
+  const canRequestReturn =
+    order.status === "DELIVERED" && !hasReturnRequest;
 
   return (
     <AnimatedPressable
@@ -137,6 +147,22 @@ const OrderCard = React.memo(function OrderCard({
           </Text>
         </Pressable>
       ) : null}
+      {hasReturnRequest ? (
+        <View style={styles.cancellationBadge}>
+          <Text style={styles.cancellationBadgeText}>Return {returnStatus}</Text>
+        </View>
+      ) : null}
+      {canRequestReturn && onRequestReturn ? (
+        <Pressable
+          style={[styles.requestCancelButton, isRequestingReturn && styles.retryPaymentButtonDisabled]}
+          onPress={() => onRequestReturn(order.id)}
+          disabled={isRequestingReturn}
+        >
+          <Text style={styles.requestCancelButtonText}>
+            {isRequestingReturn ? "Requesting..." : "Request Return"}
+          </Text>
+        </Pressable>
+      ) : null}
     </AnimatedPressable>
   );
 });
@@ -158,6 +184,13 @@ export default function OrdersScreen() {
   const [requestingCancellationIds, setRequestingCancellationIds] = React.useState<Set<string>>(new Set());
 
   const cancellationLockRef = React.useRef<Set<string>>(new Set());
+
+  // Return state
+  const [returnByOrder, setReturnByOrder] = React.useState<Record<string, { id: string; status: string }>>({});
+  const [returnModalOrderId, setReturnModalOrderId] = React.useState<string | null>(null);
+  const [returnReason, setReturnReason] = React.useState("");
+  const [requestingReturnIds, setRequestingReturnIds] = React.useState<Set<string>>(new Set());
+  const returnLockRef = React.useRef<Set<string>>(new Set());
 
   const mountedRef = React.useRef(true);
   React.useEffect(() => {
@@ -182,6 +215,18 @@ export default function OrdersScreen() {
           return acc;
         }, {} as Record<string, { id: string; status: string }>);
         setCancellationByOrder(cancellationMap);
+      } catch {
+        // no-op
+      }
+
+      try {
+        const returnResult = await listMyReturns(token);
+        if (!mountedRef.current) return;
+        const returnMap = (returnResult.returns ?? []).reduce((acc, item) => {
+          acc[item.orderId] = { id: item.id, status: item.status };
+          return acc;
+        }, {} as Record<string, { id: string; status: string }>);
+        setReturnByOrder(returnMap);
       } catch {
         // no-op
       }
@@ -289,6 +334,83 @@ export default function OrdersScreen() {
     }
   }, [cancelModalOrderId, cancelReason, closeCancellationModal, loadOrders, lockCancellation, showToast, token, unlockCancellation]);
 
+  // ---- Return handlers ----
+  const lockReturn = React.useCallback((orderId: string) => {
+    if (returnLockRef.current.has(orderId)) return false;
+    returnLockRef.current.add(orderId);
+    setRequestingReturnIds((prev) => {
+      const next = new Set(prev);
+      next.add(orderId);
+      return next;
+    });
+    return true;
+  }, []);
+
+  const unlockReturn = React.useCallback((orderId: string) => {
+    returnLockRef.current.delete(orderId);
+    setRequestingReturnIds((prev) => {
+      const next = new Set(prev);
+      next.delete(orderId);
+      return next;
+    });
+  }, []);
+
+  const openReturnModal = React.useCallback((orderId: string) => {
+    impactMedium();
+    setReturnModalOrderId(orderId);
+    setReturnReason("");
+  }, []);
+
+  const closeReturnModal = React.useCallback(() => {
+    setReturnModalOrderId(null);
+    setReturnReason("");
+  }, []);
+
+  const submitReturn = React.useCallback(async () => {
+    if (!returnModalOrderId || !token) return;
+    const reason = returnReason.trim();
+    if (!reason) {
+      showToast("Please enter a return reason", "error");
+      return;
+    }
+
+    const order = orders.find((o) => o.id === returnModalOrderId);
+    if (!order?.items?.length) {
+      showToast("No items found for this order", "error");
+      return;
+    }
+
+    // Return all items by default
+    const items = order.items.map((item) => ({
+      orderItemId: item.id,
+      quantity: item.quantity,
+    }));
+
+    if (!lockReturn(returnModalOrderId)) return;
+
+    try {
+      await requestReturn(returnModalOrderId, reason, items, token);
+      setReturnByOrder((prev) => ({
+        ...prev,
+        [returnModalOrderId]: {
+          id: `temp-${returnModalOrderId}`,
+          status: "REQUESTED",
+        },
+      }));
+      notifySuccess();
+      showToast("Return requested", "success");
+      closeReturnModal();
+      loadOrders();
+    } catch (err) {
+      notifyError();
+      showToast(err instanceof Error ? err.message : "Unable to request return", "error");
+    } finally {
+      if (mountedRef.current) {
+        unlockReturn(returnModalOrderId);
+      }
+    }
+  }, [returnModalOrderId, returnReason, orders, closeReturnModal, loadOrders, lockReturn, showToast, token, unlockReturn]);
+
   const handleOrderPress = React.useCallback(
     (orderId: string) => {
       router.push(`/orders/${orderId}`);
@@ -355,6 +477,7 @@ export default function OrdersScreen() {
       const label = getPaymentLabel(item.status, payment);
       const cancellationStatus = cancellationByOrder[item.id]?.status ?? item.cancellationRequest?.status;
       const showCancellationRequested = cancellationStatus === "REQUESTED";
+      const returnStatusVal = returnByOrder[item.id]?.status ?? null;
       return (
         <OrderCard
           order={item}
@@ -366,10 +489,13 @@ export default function OrdersScreen() {
           onRequestCancellation={openCancellationModal}
           isRequestingCancellation={requestingCancellationIds.has(item.id)}
           showCancellationRequested={showCancellationRequested}
+          onRequestReturn={openReturnModal}
+          isRequestingReturn={requestingReturnIds.has(item.id)}
+          returnStatus={returnStatusVal}
         />
       );
     },
-    [paymentStatus, cancellationByOrder, handleOrderPress, handleRetryPayment, retryingOrderId, openCancellationModal, requestingCancellationIds]
+    [paymentStatus, cancellationByOrder, returnByOrder, handleOrderPress, handleRetryPayment, retryingOrderId, openCancellationModal, requestingCancellationIds, openReturnModal, requestingReturnIds]
   );
 
   const keyExtractorOrder = React.useCallback(
@@ -459,6 +585,49 @@ export default function OrdersScreen() {
                 disabled={!cancelReason.trim() || (cancelModalOrderId ? requestingCancellationIds.has(cancelModalOrderId) : false)}
               >
                 {cancelModalOrderId && requestingCancellationIds.has(cancelModalOrderId) ? (
+                  <ActivityIndicator color={colors.background} size="small" />
+                ) : (
+                  <Text style={styles.modalConfirmText}>Submit</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={returnModalOrderId !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={closeReturnModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Request Return</Text>
+            <Text style={styles.modalMessage}>
+              Please tell us why you want to return this order. All items will be included.
+            </Text>
+            <TextInput
+              style={styles.modalReasonInput}
+              multiline
+              value={returnReason}
+              onChangeText={setReturnReason}
+              placeholder="Enter return reason"
+              placeholderTextColor={colors.brownSoft}
+            />
+            <View style={styles.modalActions}>
+              <Pressable style={styles.modalCancelButton} onPress={closeReturnModal}>
+                <Text style={styles.modalCancelText}>Close</Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.modalConfirmButton,
+                  (!returnReason.trim() || (returnModalOrderId ? requestingReturnIds.has(returnModalOrderId) : false)) && styles.retryPaymentButtonDisabled,
+                ]}
+                onPress={submitReturn}
+                disabled={!returnReason.trim() || (returnModalOrderId ? requestingReturnIds.has(returnModalOrderId) : false)}
+              >
+                {returnModalOrderId && requestingReturnIds.has(returnModalOrderId) ? (
                   <ActivityIndicator color={colors.background} size="small" />
                 ) : (
                   <Text style={styles.modalConfirmText}>Submit</Text>

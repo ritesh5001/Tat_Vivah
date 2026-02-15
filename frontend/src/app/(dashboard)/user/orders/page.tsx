@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { listBuyerOrders } from "@/services/orders";
 import { getPaymentDetails, retryPayment, verifyPayment } from "@/services/payments";
 import { listMyCancellations, requestCancellation } from "@/services/cancellations";
+import { listMyReturns, requestReturn } from "@/services/returns";
 import { toast } from "sonner";
 
 const currency = new Intl.NumberFormat("en-IN", {
@@ -51,6 +52,11 @@ export default function UserOrdersPage() {
   const [paymentStatusByOrder, setPaymentStatusByOrder] = React.useState<
     Record<string, string>
   >({});
+  // Return state
+  const [returnByOrderId, setReturnByOrderId] = React.useState<Record<string, { id: string; status: string }>>({});
+  const [returnModalOrderId, setReturnModalOrderId] = React.useState<string | null>(null);
+  const [returnReason, setReturnReason] = React.useState("");
+  const [requestingReturnIds, setRequestingReturnIds] = React.useState<Set<string>>(new Set());
 
   // Ensure Razorpay SDK is loaded when page mounts
   const razorpayReadyRef = React.useRef(false);
@@ -83,6 +89,17 @@ export default function UserOrdersPage() {
           };
         }
         setCancellationByOrderId(nextMap);
+      } catch {
+        // silent fallback
+      }
+
+      try {
+        const returnResult = await listMyReturns();
+        const returnMap: Record<string, { id: string; status: string }> = {};
+        for (const ret of returnResult.returns ?? []) {
+          returnMap[ret.orderId] = { id: ret.id, status: ret.status };
+        }
+        setReturnByOrderId(returnMap);
       } catch {
         // silent fallback
       }
@@ -214,6 +231,58 @@ export default function UserOrdersPage() {
     }
   }, [cancelModalOrderId, cancelReason, closeCancellationModal, loadOrders]);
 
+  // ---- Return handlers ----
+  const openReturnModal = React.useCallback((orderId: string) => {
+    setReturnModalOrderId(orderId);
+    setReturnReason("");
+  }, []);
+
+  const closeReturnModal = React.useCallback(() => {
+    setReturnModalOrderId(null);
+    setReturnReason("");
+  }, []);
+
+  const handleRequestReturn = React.useCallback(async () => {
+    if (!returnModalOrderId) return;
+    const reason = returnReason.trim();
+    if (!reason) {
+      toast.error("Please enter a return reason");
+      return;
+    }
+
+    const order = orders.find((o: any) => o.id === returnModalOrderId);
+    if (!order?.items?.length) {
+      toast.error("No items found for this order");
+      return;
+    }
+
+    // Return all items by default (full return)
+    const items = (order.items as any[]).map((item: any) => ({
+      orderItemId: item.id,
+      quantity: item.quantity,
+    }));
+
+    setRequestingReturnIds((prev) => new Set(prev).add(returnModalOrderId));
+    try {
+      await requestReturn(returnModalOrderId, reason, items);
+      setReturnByOrderId((prev) => ({
+        ...prev,
+        [returnModalOrderId]: { id: `temp-${returnModalOrderId}`, status: "REQUESTED" },
+      }));
+      toast.success("Return requested successfully");
+      closeReturnModal();
+      loadOrders();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to request return");
+    } finally {
+      setRequestingReturnIds((prev) => {
+        const next = new Set(prev);
+        next.delete(returnModalOrderId);
+        return next;
+      });
+    }
+  }, [returnModalOrderId, returnReason, orders, closeReturnModal, loadOrders]);
+
   return (
     <>
     <div className="min-h-[calc(100vh-160px)] bg-background">
@@ -278,6 +347,12 @@ export default function UserOrdersPage() {
                 shipmentStatus !== "SHIPPED" &&
                 !hasCancellationRequest;
               const requestingCancellation = requestingCancellationIds.has(order.id);
+              // Return eligibility
+              const returnStatus = returnByOrderId[order.id]?.status;
+              const hasReturnRequest = !!returnStatus && returnStatus !== "REJECTED";
+              const canRequestReturn =
+                order.status === "DELIVERED" && !hasReturnRequest;
+              const requestingReturn = requestingReturnIds.has(order.id);
               if (order.status === "PLACED") {
                 if (paymentStatus === "FAILED") {
                   label = "PAYMENT FAILED";
@@ -321,6 +396,21 @@ export default function UserOrdersPage() {
                           onClick={() => openCancellationModal(order.id)}
                         >
                           {requestingCancellation ? "Requesting..." : "Request Cancellation"}
+                        </Button>
+                      ) : null}
+                      {hasReturnRequest ? (
+                        <span className="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider border border-[#8B9CB8]/30 text-[#5E6B82] bg-[#8B9CB8]/5">
+                          Return {returnStatus}
+                        </span>
+                      ) : null}
+                      {canRequestReturn ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={requestingReturn}
+                          onClick={() => openReturnModal(order.id)}
+                        >
+                          {requestingReturn ? "Requesting..." : "Request Return"}
                         </Button>
                       ) : null}
                       {(label === "PAYMENT FAILED" || label === "PAYMENT PENDING") && (
@@ -445,6 +535,34 @@ export default function UserOrdersPage() {
                 disabled={!cancelReason.trim() || requestingCancellationIds.has(cancelModalOrderId)}
               >
                 {requestingCancellationIds.has(cancelModalOrderId) ? "Submitting..." : "Submit Request"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {returnModalOrderId ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4">
+          <div className="w-full max-w-md border border-border-soft bg-card p-6 space-y-4">
+            <h2 className="font-serif text-xl text-foreground">Request Return</h2>
+            <p className="text-sm text-muted-foreground">
+              Please share the reason for returning this order. All items will be included.
+            </p>
+            <Textarea
+              value={returnReason}
+              onChange={(event) => setReturnReason(event.target.value)}
+              placeholder="Enter your return reason (e.g., wrong size, damaged item)"
+              className="min-h-[120px]"
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={closeReturnModal}>
+                Close
+              </Button>
+              <Button
+                onClick={handleRequestReturn}
+                disabled={!returnReason.trim() || requestingReturnIds.has(returnModalOrderId)}
+              >
+                {requestingReturnIds.has(returnModalOrderId) ? "Submitting..." : "Submit Return"}
               </Button>
             </div>
           </div>

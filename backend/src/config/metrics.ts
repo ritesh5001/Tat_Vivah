@@ -166,3 +166,31 @@ export const refundSuccessTotal = new client.Counter({
     name: 'refund_success_total',
     help: 'Total successful refunds triggered after cancellation approval',
 });
+
+// ─── Returns / RMA ──────────────────────────────────────────────────
+
+export const returnRequestTotal = new client.Counter({
+    name: 'return_request_total',
+    help: 'Total return/RMA requests raised by buyers',
+});
+
+export const returnApprovedTotal = new client.Counter({
+    name: 'return_approved_total',
+    help: 'Total return requests approved by admins',
+});
+
+export const returnRejectedTotal = new client.Counter({
+    name: 'return_rejected_total',
+    help: 'Total return requests rejected by admins',
+});
+
+export const returnRefundedTotal = new client.Counter({
+    name: 'return_refunded_total',
+    help: 'Total return requests with successful refund',
+});
+
+export const returnProcessingTimeMs = new client.Histogram({
+    name: 'return_processing_time_ms',
+    help: 'Return request processing time from creation to refund (ms)',
+    buckets: [100, 500, 1000, 2500, 5000, 10000, 30000, 60000],
+});
