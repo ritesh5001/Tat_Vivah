@@ -1,11 +1,12 @@
 import type { OpenAPIObject } from "openapi3-ts/oas30";
 
 export const openApiSpec: OpenAPIObject = {
-    openapi: "3.0.3",
+    openapi: "3.1.0",
     info: {
-        title: "Auth Service API",
-        description: "Authentication & Authorization microservice",
-        version: "1.0.0",
+        title: "Tat Vivah Marketplace API",
+        description:
+            "Multi-vendor e-commerce marketplace with GST taxation, coupon engine, RMA, cancellations, seller settlements, and personalization.",
+        version: "2.0.0",
     },
     servers: [
         {
@@ -13,12 +14,175 @@ export const openApiSpec: OpenAPIObject = {
             description: "Local",
         },
     ],
+    tags: [
+        { name: "Auth", description: "Authentication & session management" },
+        { name: "Categories", description: "Product categories" },
+        { name: "Products", description: "Public product catalog" },
+        { name: "Seller Products", description: "Seller product management" },
+        { name: "Cart", description: "Shopping cart operations" },
+        { name: "Checkout", description: "Order checkout flow" },
+        { name: "Orders (Buyer)", description: "Buyer order management" },
+        { name: "Orders (Seller)", description: "Seller order views" },
+        { name: "GST & Tax", description: "GST taxation engine" },
+        { name: "Coupons", description: "Coupon validation & discount codes" },
+        { name: "Invoice", description: "GST-compliant invoice generation" },
+        { name: "Cancellation", description: "Order cancellation requests & approval" },
+        { name: "Returns (RMA)", description: "Return merchandise authorization workflow" },
+        { name: "Refund Ledger", description: "Admin refund tracking" },
+        { name: "Payments", description: "Payment initiation & webhooks" },
+        { name: "Settlements", description: "Seller settlement tracking" },
+        { name: "Seller Commission", description: "Commission & platform fee management" },
+        { name: "Seller Settlements", description: "Admin settlement ledger" },
+        { name: "Personalization", description: "Recently viewed & product recommendations" },
+        { name: "Shipping (Buyer)", description: "Shipment tracking for buyers" },
+        { name: "Shipping (Seller)", description: "Seller shipment management" },
+        { name: "Shipping (Admin)", description: "Admin shipment overrides" },
+        { name: "Notifications (Admin)", description: "Admin notification management" },
+        { name: "Admin", description: "Admin panel operations" },
+        { name: "Utils", description: "Utility endpoints" },
+    ],
     components: {
         securitySchemes: {
             bearerAuth: {
                 type: "http",
                 scheme: "bearer",
                 bearerFormat: "JWT",
+            },
+        },
+        schemas: {
+            ErrorResponse: {
+                type: "object",
+                properties: {
+                    message: { type: "string" },
+                    code: { type: "string" },
+                },
+            },
+            Order: {
+                type: "object",
+                properties: {
+                    id: { type: "string" },
+                    userId: { type: "string" },
+                    status: {
+                        type: "string",
+                        enum: ["PLACED", "CONFIRMED", "SHIPPED", "DELIVERED", "CANCELLED"],
+                    },
+                    totalAmount: { type: "number", description: "Legacy total (backward compat)" },
+                    subTotalAmount: { type: "number", description: "Taxable subtotal before GST" },
+                    totalTaxAmount: { type: "number", description: "Total GST applied" },
+                    grandTotal: {
+                        type: "number",
+                        description: "Final payable amount after GST and discounts",
+                    },
+                    couponCode: { type: "string", nullable: true },
+                    discountAmount: {
+                        type: "number",
+                        description: "Total coupon discount applied",
+                    },
+                    invoiceNumber: { type: "string", nullable: true },
+                    invoiceIssuedAt: {
+                        type: "string",
+                        format: "date-time",
+                        nullable: true,
+                    },
+                    createdAt: { type: "string", format: "date-time" },
+                },
+            },
+            OrderItem: {
+                type: "object",
+                properties: {
+                    id: { type: "string" },
+                    orderId: { type: "string" },
+                    productId: { type: "string" },
+                    variantId: { type: "string" },
+                    quantity: { type: "integer" },
+                    priceSnapshot: { type: "number" },
+                    taxRate: { type: "number", description: "GST rate applied (e.g. 0.18)" },
+                    cgstAmount: { type: "number", description: "Central GST amount" },
+                    sgstAmount: { type: "number", description: "State GST amount" },
+                    igstAmount: { type: "number", description: "Integrated GST amount" },
+                    taxableAmount: { type: "number", description: "Amount before tax" },
+                },
+            },
+            CouponValidation: {
+                type: "object",
+                properties: {
+                    valid: { type: "boolean" },
+                    coupon: {
+                        type: "object",
+                        properties: {
+                            code: { type: "string" },
+                            type: { type: "string", enum: ["PERCENTAGE", "FLAT"] },
+                            value: { type: "number" },
+                            maxDiscountAmount: { type: "number", nullable: true },
+                            minOrderAmount: { type: "number", nullable: true },
+                        },
+                    },
+                },
+            },
+            CancellationRequest: {
+                type: "object",
+                properties: {
+                    id: { type: "string" },
+                    orderId: { type: "string" },
+                    userId: { type: "string" },
+                    reason: { type: "string" },
+                    status: {
+                        type: "string",
+                        enum: ["REQUESTED", "APPROVED", "REJECTED"],
+                    },
+                    createdAt: { type: "string", format: "date-time" },
+                },
+            },
+            ReturnRequest: {
+                type: "object",
+                properties: {
+                    id: { type: "string" },
+                    orderId: { type: "string" },
+                    userId: { type: "string" },
+                    reason: { type: "string" },
+                    status: {
+                        type: "string",
+                        enum: ["REQUESTED", "APPROVED", "REJECTED", "INSPECTED", "REFUNDED"],
+                    },
+                    createdAt: { type: "string", format: "date-time" },
+                },
+            },
+            Refund: {
+                type: "object",
+                properties: {
+                    id: { type: "string" },
+                    orderId: { type: "string" },
+                    amount: { type: "number" },
+                    status: { type: "string", enum: ["PENDING", "SUCCESS", "FAILED"] },
+                    providerRefundId: { type: "string", nullable: true },
+                    createdAt: { type: "string", format: "date-time" },
+                },
+            },
+            Settlement: {
+                type: "object",
+                properties: {
+                    id: { type: "string" },
+                    orderId: { type: "string" },
+                    sellerId: { type: "string" },
+                    grossAmount: { type: "number" },
+                    commissionAmount: { type: "number" },
+                    platformFee: { type: "number" },
+                    netAmount: { type: "number" },
+                    status: { type: "string", enum: ["PENDING", "SETTLED"] },
+                    settledAt: { type: "string", format: "date-time", nullable: true },
+                    createdAt: { type: "string", format: "date-time" },
+                },
+            },
+            Product: {
+                type: "object",
+                properties: {
+                    id: { type: "string" },
+                    title: { type: "string" },
+                    description: { type: "string" },
+                    categoryId: { type: "string" },
+                    sellerId: { type: "string" },
+                    isPublished: { type: "boolean" },
+                },
             },
         },
     },
@@ -713,10 +877,29 @@ export const openApiSpec: OpenAPIObject = {
         // =====================================================================
         "/v1/checkout": {
             post: {
-                tags: ["Checkout"],
+                tags: ["Checkout", "GST & Tax"],
                 summary: "Process checkout",
-                description: "Validates inventory, reserves stock, creates order, and clears cart. This is a transactional operation.",
+                description: "Validates inventory, reserves stock, calculates GST, applies optional coupon, creates order, and clears cart. This is a transactional operation.",
                 security: [{ bearerAuth: [] }],
+                requestBody: {
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                properties: {
+                                    couponCode: {
+                                        type: "string",
+                                        description: "Optional coupon code to apply at checkout",
+                                    },
+                                    addressId: {
+                                        type: "string",
+                                        description: "Shipping address ID",
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
                 responses: {
                     "201": {
                         description: "Order placed successfully",
@@ -726,16 +909,7 @@ export const openApiSpec: OpenAPIObject = {
                                     type: "object",
                                     properties: {
                                         message: { type: "string" },
-                                        order: {
-                                            type: "object",
-                                            properties: {
-                                                id: { type: "string" },
-                                                userId: { type: "string" },
-                                                status: { type: "string", enum: ["PLACED", "CONFIRMED", "CANCELLED"] },
-                                                totalAmount: { type: "number" },
-                                                createdAt: { type: "string", format: "date-time" },
-                                            },
-                                        },
+                                        order: { $ref: "#/components/schemas/Order" },
                                     },
                                 },
                             },
@@ -1005,8 +1179,9 @@ export const openApiSpec: OpenAPIObject = {
         // =====================================================================
         "/v1/seller/settlements": {
             get: {
-                tags: ["Settlements"],
+                tags: ["Settlements", "Seller Commission"],
                 summary: "List seller settlements",
+                description: "Returns settlements for the authenticated seller with commission breakdown.",
                 security: [{ bearerAuth: [] }],
                 responses: {
                     "200": {
@@ -1019,20 +1194,12 @@ export const openApiSpec: OpenAPIObject = {
                                         success: { type: "boolean" },
                                         data: {
                                             type: "array",
-                                            items: {
-                                                type: "object",
-                                                properties: {
-                                                    id: { type: "string" },
-                                                    amount: { type: "number" },
-                                                    status: { type: "string", enum: ["PENDING", "PAID", "FAILED"] },
-                                                    createdAt: { type: "string", format: "date-time" }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                                            items: { $ref: "#/components/schemas/Settlement" },
+                                        },
+                                    },
+                                },
+                            },
+                        },
                     },
                     "403": { description: "Not a seller" },
                 },
@@ -1429,9 +1596,9 @@ export const openApiSpec: OpenAPIObject = {
 
         "/v1/admin/settlements": {
             get: {
-                tags: ["Admin"],
+                tags: ["Admin", "Seller Settlements"],
                 summary: "List all settlements",
-                description: "Lists all seller settlements (read-only). Requires ADMIN or SUPER_ADMIN role.",
+                description: "Lists all seller settlements with commission breakdown. Requires ADMIN or SUPER_ADMIN role.",
                 security: [{ bearerAuth: [] }],
                 responses: {
                     "200": {
@@ -1443,21 +1610,12 @@ export const openApiSpec: OpenAPIObject = {
                                     properties: {
                                         settlements: {
                                             type: "array",
-                                            items: {
-                                                type: "object",
-                                                properties: {
-                                                    id: { type: "string" },
-                                                    sellerId: { type: "string" },
-                                                    amount: { type: "number" },
-                                                    status: { type: "string", enum: ["PENDING", "PAID"] },
-                                                    createdAt: { type: "string", format: "date-time" }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                                            items: { $ref: "#/components/schemas/Settlement" },
+                                        },
+                                    },
+                                },
+                            },
+                        },
                     },
                 },
             },
@@ -1816,6 +1974,608 @@ export const openApiSpec: OpenAPIObject = {
                     }
                 }
             }
+        },
+
+        // =====================================================================
+        // INVOICE ENDPOINT
+        // =====================================================================
+        "/v1/orders/{id}/invoice": {
+            get: {
+                tags: ["Invoice", "Orders (Buyer)"],
+                summary: "Download GST-compliant invoice PDF",
+                description: "Generates and returns a GST-compliant invoice PDF for a confirmed or delivered order.",
+                security: [{ bearerAuth: [] }],
+                parameters: [
+                    { name: "id", in: "path", required: true, schema: { type: "string" }, description: "Order ID" },
+                ],
+                responses: {
+                    "200": {
+                        description: "GST-compliant invoice PDF",
+                        content: {
+                            "application/pdf": {
+                                schema: { type: "string", format: "binary" },
+                            },
+                        },
+                    },
+                    "400": {
+                        description: "Invoice not available for this order status",
+                        content: {
+                            "application/json": {
+                                schema: { $ref: "#/components/schemas/ErrorResponse" },
+                            },
+                        },
+                    },
+                    "403": { description: "Not the order owner" },
+                    "404": { description: "Order not found" },
+                },
+            },
+        },
+
+        // =====================================================================
+        // COUPON ENDPOINTS
+        // =====================================================================
+        "/v1/coupons/validate": {
+            post: {
+                tags: ["Coupons"],
+                summary: "Validate a coupon code",
+                description: "Validates a coupon code against the buyer's current cart and returns discount preview.",
+                security: [{ bearerAuth: [] }],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                required: ["code"],
+                                properties: {
+                                    code: { type: "string", example: "SAVE20" },
+                                },
+                            },
+                        },
+                    },
+                },
+                responses: {
+                    "200": {
+                        description: "Coupon validation result",
+                        content: {
+                            "application/json": {
+                                schema: { $ref: "#/components/schemas/CouponValidation" },
+                            },
+                        },
+                    },
+                    "400": {
+                        description: "Invalid or expired coupon",
+                        content: {
+                            "application/json": {
+                                schema: { $ref: "#/components/schemas/ErrorResponse" },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+
+        // =====================================================================
+        // CANCELLATION ENDPOINTS
+        // =====================================================================
+        "/v1/cancellations": {
+            get: {
+                tags: ["Cancellation", "Admin"],
+                summary: "List all cancellation requests (Admin)",
+                description: "Lists all cancellation requests. Requires ADMIN role.",
+                security: [{ bearerAuth: [] }],
+                responses: {
+                    "200": {
+                        description: "List of cancellation requests",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    type: "object",
+                                    properties: {
+                                        data: {
+                                            type: "array",
+                                            items: { $ref: "#/components/schemas/CancellationRequest" },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    "403": { description: "Requires ADMIN role" },
+                },
+            },
+        },
+
+        "/v1/cancellations/{orderId}": {
+            post: {
+                tags: ["Cancellation"],
+                summary: "Request order cancellation (Buyer)",
+                description: "Buyer submits a cancellation request for an order.",
+                security: [{ bearerAuth: [] }],
+                parameters: [
+                    { name: "orderId", in: "path", required: true, schema: { type: "string" }, description: "Order ID" },
+                ],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                required: ["reason"],
+                                properties: {
+                                    reason: { type: "string", example: "Changed my mind" },
+                                },
+                            },
+                        },
+                    },
+                },
+                responses: {
+                    "201": {
+                        description: "Cancellation requested",
+                        content: {
+                            "application/json": {
+                                schema: { $ref: "#/components/schemas/CancellationRequest" },
+                            },
+                        },
+                    },
+                    "400": {
+                        description: "Order cannot be cancelled in current status",
+                        content: {
+                            "application/json": {
+                                schema: { $ref: "#/components/schemas/ErrorResponse" },
+                            },
+                        },
+                    },
+                    "404": { description: "Order not found" },
+                },
+            },
+        },
+
+        "/v1/cancellations/my": {
+            get: {
+                tags: ["Cancellation"],
+                summary: "List my cancellation requests (Buyer)",
+                security: [{ bearerAuth: [] }],
+                responses: {
+                    "200": {
+                        description: "Buyer's cancellation requests",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    type: "object",
+                                    properties: {
+                                        data: {
+                                            type: "array",
+                                            items: { $ref: "#/components/schemas/CancellationRequest" },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+
+        "/v1/cancellations/{id}/approve": {
+            patch: {
+                tags: ["Cancellation", "Admin"],
+                summary: "Approve cancellation request (Admin)",
+                security: [{ bearerAuth: [] }],
+                parameters: [
+                    { name: "id", in: "path", required: true, schema: { type: "string" }, description: "Cancellation request ID" },
+                ],
+                responses: {
+                    "200": {
+                        description: "Cancellation approved — order cancelled, stock restored, refund initiated",
+                        content: {
+                            "application/json": {
+                                schema: { $ref: "#/components/schemas/CancellationRequest" },
+                            },
+                        },
+                    },
+                    "400": {
+                        description: "Already processed",
+                        content: {
+                            "application/json": {
+                                schema: { $ref: "#/components/schemas/ErrorResponse" },
+                            },
+                        },
+                    },
+                    "404": { description: "Cancellation request not found" },
+                },
+            },
+        },
+
+        "/v1/cancellations/{id}/reject": {
+            patch: {
+                tags: ["Cancellation", "Admin"],
+                summary: "Reject cancellation request (Admin)",
+                security: [{ bearerAuth: [] }],
+                parameters: [
+                    { name: "id", in: "path", required: true, schema: { type: "string" }, description: "Cancellation request ID" },
+                ],
+                requestBody: {
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                properties: {
+                                    reason: { type: "string", example: "Order already shipped" },
+                                },
+                            },
+                        },
+                    },
+                },
+                responses: {
+                    "200": {
+                        description: "Cancellation rejected",
+                        content: {
+                            "application/json": {
+                                schema: { $ref: "#/components/schemas/CancellationRequest" },
+                            },
+                        },
+                    },
+                    "400": {
+                        description: "Already processed",
+                        content: {
+                            "application/json": {
+                                schema: { $ref: "#/components/schemas/ErrorResponse" },
+                            },
+                        },
+                    },
+                    "404": { description: "Cancellation request not found" },
+                },
+            },
+        },
+
+        // =====================================================================
+        // RETURNS (RMA) ENDPOINTS
+        // =====================================================================
+        "/v1/returns": {
+            get: {
+                tags: ["Returns (RMA)", "Admin"],
+                summary: "List all return requests (Admin)",
+                description: "Lists all return requests. Requires ADMIN role.",
+                security: [{ bearerAuth: [] }],
+                responses: {
+                    "200": {
+                        description: "List of return requests",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    type: "object",
+                                    properties: {
+                                        data: {
+                                            type: "array",
+                                            items: { $ref: "#/components/schemas/ReturnRequest" },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    "403": { description: "Requires ADMIN role" },
+                },
+            },
+        },
+
+        "/v1/returns/{orderId}": {
+            post: {
+                tags: ["Returns (RMA)"],
+                summary: "Request return (Buyer)",
+                description: "Buyer submits a return merchandise request for a delivered order.",
+                security: [{ bearerAuth: [] }],
+                parameters: [
+                    { name: "orderId", in: "path", required: true, schema: { type: "string" }, description: "Order ID" },
+                ],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                required: ["reason"],
+                                properties: {
+                                    reason: { type: "string", example: "Product damaged during shipping" },
+                                },
+                            },
+                        },
+                    },
+                },
+                responses: {
+                    "201": {
+                        description: "Return requested",
+                        content: {
+                            "application/json": {
+                                schema: { $ref: "#/components/schemas/ReturnRequest" },
+                            },
+                        },
+                    },
+                    "400": {
+                        description: "Order not eligible for return",
+                        content: {
+                            "application/json": {
+                                schema: { $ref: "#/components/schemas/ErrorResponse" },
+                            },
+                        },
+                    },
+                    "404": { description: "Order not found" },
+                },
+            },
+        },
+
+        "/v1/returns/my": {
+            get: {
+                tags: ["Returns (RMA)"],
+                summary: "List my return requests (Buyer)",
+                security: [{ bearerAuth: [] }],
+                responses: {
+                    "200": {
+                        description: "Buyer's return requests",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    type: "object",
+                                    properties: {
+                                        data: {
+                                            type: "array",
+                                            items: { $ref: "#/components/schemas/ReturnRequest" },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+
+        "/v1/returns/{id}": {
+            get: {
+                tags: ["Returns (RMA)"],
+                summary: "Get return request details (Buyer)",
+                security: [{ bearerAuth: [] }],
+                parameters: [
+                    { name: "id", in: "path", required: true, schema: { type: "string" }, description: "Return request ID" },
+                ],
+                responses: {
+                    "200": {
+                        description: "Return request details",
+                        content: {
+                            "application/json": {
+                                schema: { $ref: "#/components/schemas/ReturnRequest" },
+                            },
+                        },
+                    },
+                    "404": { description: "Return request not found" },
+                },
+            },
+        },
+
+        "/v1/returns/{id}/approve": {
+            patch: {
+                tags: ["Returns (RMA)", "Admin"],
+                summary: "Approve return request (Admin)",
+                security: [{ bearerAuth: [] }],
+                parameters: [
+                    { name: "id", in: "path", required: true, schema: { type: "string" }, description: "Return request ID" },
+                ],
+                responses: {
+                    "200": {
+                        description: "Return approved",
+                        content: {
+                            "application/json": {
+                                schema: { $ref: "#/components/schemas/ReturnRequest" },
+                            },
+                        },
+                    },
+                    "400": {
+                        description: "Already processed",
+                        content: {
+                            "application/json": {
+                                schema: { $ref: "#/components/schemas/ErrorResponse" },
+                            },
+                        },
+                    },
+                    "404": { description: "Return request not found" },
+                },
+            },
+        },
+
+        "/v1/returns/{id}/reject": {
+            patch: {
+                tags: ["Returns (RMA)", "Admin"],
+                summary: "Reject return request (Admin)",
+                security: [{ bearerAuth: [] }],
+                parameters: [
+                    { name: "id", in: "path", required: true, schema: { type: "string" }, description: "Return request ID" },
+                ],
+                requestBody: {
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                properties: {
+                                    reason: { type: "string", example: "Return window expired" },
+                                },
+                            },
+                        },
+                    },
+                },
+                responses: {
+                    "200": {
+                        description: "Return rejected",
+                        content: {
+                            "application/json": {
+                                schema: { $ref: "#/components/schemas/ReturnRequest" },
+                            },
+                        },
+                    },
+                    "400": {
+                        description: "Already processed",
+                        content: {
+                            "application/json": {
+                                schema: { $ref: "#/components/schemas/ErrorResponse" },
+                            },
+                        },
+                    },
+                    "404": { description: "Return request not found" },
+                },
+            },
+        },
+
+        "/v1/returns/{id}/refund": {
+            post: {
+                tags: ["Returns (RMA)", "Refund Ledger", "Admin"],
+                summary: "Process refund for approved return (Admin)",
+                description: "Initiates the refund for an approved return request.",
+                security: [{ bearerAuth: [] }],
+                parameters: [
+                    { name: "id", in: "path", required: true, schema: { type: "string" }, description: "Return request ID" },
+                ],
+                responses: {
+                    "200": {
+                        description: "Refund processed",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    type: "object",
+                                    properties: {
+                                        message: { type: "string" },
+                                        refund: { $ref: "#/components/schemas/Refund" },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    "400": {
+                        description: "Return not in approved status",
+                        content: {
+                            "application/json": {
+                                schema: { $ref: "#/components/schemas/ErrorResponse" },
+                            },
+                        },
+                    },
+                    "404": { description: "Return request not found" },
+                },
+            },
+        },
+
+        // =====================================================================
+        // REFUND LEDGER (ADMIN)
+        // =====================================================================
+        "/v1/admin/refunds": {
+            get: {
+                tags: ["Refund Ledger", "Admin"],
+                summary: "List all refunds (Admin)",
+                description: "Returns the full refund ledger. Requires ADMIN or SUPER_ADMIN role.",
+                security: [{ bearerAuth: [] }],
+                responses: {
+                    "200": {
+                        description: "Refund ledger",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    type: "object",
+                                    properties: {
+                                        data: {
+                                            type: "array",
+                                            items: { $ref: "#/components/schemas/Refund" },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    "403": { description: "Requires ADMIN role" },
+                },
+            },
+        },
+
+        // =====================================================================
+        // PERSONALIZATION ENDPOINTS
+        // =====================================================================
+        "/v1/personalization/recommendations": {
+            get: {
+                tags: ["Personalization"],
+                summary: "Get product recommendations",
+                description: "Returns personalized product recommendations based on browsing history.",
+                security: [{ bearerAuth: [] }],
+                responses: {
+                    "200": {
+                        description: "Recommended products",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    type: "object",
+                                    properties: {
+                                        products: {
+                                            type: "array",
+                                            items: { $ref: "#/components/schemas/Product" },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+
+        "/v1/personalization/recently-viewed": {
+            get: {
+                tags: ["Personalization"],
+                summary: "Get recently viewed products",
+                description: "Returns products the buyer has recently viewed.",
+                security: [{ bearerAuth: [] }],
+                responses: {
+                    "200": {
+                        description: "Recently viewed products",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    type: "object",
+                                    properties: {
+                                        products: {
+                                            type: "array",
+                                            items: { $ref: "#/components/schemas/Product" },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+
+        "/v1/personalization/recently-viewed/{productId}": {
+            post: {
+                tags: ["Personalization"],
+                summary: "Track product view",
+                description: "Records that the buyer viewed a product for personalization.",
+                security: [{ bearerAuth: [] }],
+                parameters: [
+                    { name: "productId", in: "path", required: true, schema: { type: "string" }, description: "Product ID" },
+                ],
+                responses: {
+                    "200": {
+                        description: "View tracked",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    type: "object",
+                                    properties: {
+                                        message: { type: "string", example: "View recorded" },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    "404": { description: "Product not found" },
+                },
+            },
         },
     },
 };

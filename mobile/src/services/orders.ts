@@ -1,6 +1,6 @@
 import { apiRequest } from "./api";
 import { API_BASE_URL } from "./api";
-import { cacheDirectory, downloadAsync } from "expo-file-system/build/legacy/FileSystem";
+import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 
 export interface OrderItem {
@@ -79,9 +79,9 @@ export async function downloadInvoice(
   token: string
 ): Promise<void> {
   const downloadUri = `${API_BASE_URL}/v1/orders/${orderId}/invoice`;
-  const fileUri = `${cacheDirectory ?? ""}invoice-${orderId}.pdf`;
+  const fileUri = `${FileSystem.cacheDirectory ?? ""}invoice-${orderId}.pdf`;
 
-  const result = await downloadAsync(downloadUri, fileUri, {
+  const result = await FileSystem.downloadAsync(downloadUri, fileUri, {
     headers: { Authorization: `Bearer ${token}` },
   });
 

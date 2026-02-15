@@ -12,6 +12,9 @@ const STALE_ORDER_INTERVAL_MS = 10 * 60 * 1000;
 /** How often to run the inventory integrity check (10 minutes). */
 const INTEGRITY_CHECK_INTERVAL_MS = 10 * 60 * 1000;
 
+/** Guard: only execute shutdown sequence once. */
+let isShuttingDown = false;
+
 /**
  * Start the server
  */
@@ -72,16 +75,22 @@ async function bootstrap(): Promise<void> {
             }
         }, 5000);
 
-        // Graceful shutdown handlers
+        // ------------------------------------------------------------------
+        // Graceful shutdown
+        // ------------------------------------------------------------------
+
         const shutdown = async (signal: string): Promise<void> => {
-            logger.info({ signal }, 'Shutting down gracefully...');
+            if (isShuttingDown) return;          // prevent re-entry on second SIGINT
+            isShuttingDown = true;
+
+            logger.info({ signal }, 'Shutting down gracefully…');
 
             clearInterval(staleOrderTimer);
             clearInterval(integrityTimer);
 
             server.close(async () => {
                 logger.info('HTTP server closed');
-                await closeQueueResources();
+                await closeQueueResources().catch(() => {});
                 await disconnectDatabase();
                 process.exit(0);
             });
@@ -90,7 +99,7 @@ async function bootstrap(): Promise<void> {
             setTimeout(() => {
                 logger.error('Forced shutdown after timeout');
                 process.exit(1);
-            }, 10000);
+            }, 10_000).unref();             // .unref() so timer alone won't keep process alive
         };
 
         process.on('SIGTERM', () => shutdown('SIGTERM'));
@@ -98,11 +107,27 @@ async function bootstrap(): Promise<void> {
 
     } catch (error) {
         logger.fatal({ err: error }, 'Failed to start server');
-        await closeQueueResources();
+        await closeQueueResources().catch(() => {});
         await disconnectDatabase();
         process.exit(1);
     }
 }
+
+// ---------------------------------------------------------------------------
+// Process-wide crash handlers — ensures Prisma pool drains on unexpected exit
+// ---------------------------------------------------------------------------
+
+process.on('unhandledRejection', async (reason) => {
+    logger.fatal({ err: reason }, 'Unhandled promise rejection — shutting down');
+    await disconnectDatabase();
+    process.exit(1);
+});
+
+process.on('uncaughtException', async (err) => {
+    logger.fatal({ err }, 'Uncaught exception — shutting down');
+    await disconnectDatabase();
+    process.exit(1);
+});
 
 // Start the application
 bootstrap();
