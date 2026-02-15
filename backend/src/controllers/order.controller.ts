@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import { orderService } from '../services/order.service.js';
+import { generateInvoicePDF, recordInvoiceDownload } from '../services/invoice.service.js';
 
 /**
  * Order Controller
@@ -34,6 +35,37 @@ export class OrderController {
             const orderId = req.params.id as string;
             const result = await orderService.getBuyerOrder(orderId, userId);
             res.json(result);
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * Download GST-compliant invoice PDF
+     * GET /v1/orders/:id/invoice
+     */
+    async downloadInvoice(req: Request, res: Response, next: NextFunction): Promise<void> {
+        try {
+            const userId = req.user!.userId;
+            const orderId = req.params.id as string;
+
+            // Verify the order belongs to the requesting user
+            const order = await orderService.getBuyerOrder(orderId, userId);
+            if (!order) {
+                res.status(404).json({ message: 'Order not found' });
+                return;
+            }
+
+            const pdfBuffer = await generateInvoicePDF(orderId);
+
+            recordInvoiceDownload();
+
+            res.set({
+                'Content-Type': 'application/pdf',
+                'Content-Disposition': `attachment; filename="invoice-${orderId}.pdf"`,
+                'Content-Length': pdfBuffer.length.toString(),
+            });
+            res.send(pdfBuffer);
         } catch (error) {
             next(error);
         }

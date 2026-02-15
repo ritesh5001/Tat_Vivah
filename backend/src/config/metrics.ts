@@ -147,6 +147,23 @@ export const orderCancelRequestTotal = new client.Counter({
     help: 'Total order cancellation requests raised by buyers',
 });
 
+// ─── GST ────────────────────────────────────────────────────────────
+
+export const gstCalculationTotal = new client.Counter({
+    name: 'gst_calculation_total',
+    help: 'Total GST calculations performed during checkout',
+});
+
+export const igstAppliedTotal = new client.Counter({
+    name: 'igst_applied_total',
+    help: 'Total inter-state (IGST) order items',
+});
+
+export const intraStateOrderTotal = new client.Counter({
+    name: 'intra_state_order_total',
+    help: 'Total intra-state (CGST+SGST) order items',
+});
+
 export const orderCancelTotal = new client.Counter({
     name: 'order_cancel_total',
     help: 'Total order cancellation lifecycle events requested by buyers',
@@ -193,4 +210,38 @@ export const returnProcessingTimeMs = new client.Histogram({
     name: 'return_processing_time_ms',
     help: 'Return request processing time from creation to refund (ms)',
     buckets: [100, 500, 1000, 2500, 5000, 10000, 30000, 60000],
+});
+
+// ── Invoice Metrics ──────────────────────────────────────────────
+
+export const invoiceGeneratedTotal = new client.Counter({
+    name: 'invoice_generated_total',
+    help: 'Total invoices generated (PDF rendered)',
+});
+
+export const invoiceDownloadTotal = new client.Counter({
+    name: 'invoice_download_total',
+    help: 'Total invoice PDF downloads by buyers',
+});
+
+// ── Refund Ledger Metrics ────────────────────────────────────────
+
+export const refundCreatedTotal = new client.Counter({
+    name: 'refund_created_total',
+    help: 'Total refund ledger entries created',
+});
+
+export const refundLedgerSuccessTotal = new client.Counter({
+    name: 'refund_ledger_success_total',
+    help: 'Total refunds that succeeded via payment provider',
+});
+
+export const refundFailedTotal = new client.Counter({
+    name: 'refund_failed_total',
+    help: 'Total refunds that failed at the payment provider',
+});
+
+export const refundOverLimitRejectedTotal = new client.Counter({
+    name: 'refund_over_limit_rejected_total',
+    help: 'Total refund attempts rejected due to exceeding order total',
 });

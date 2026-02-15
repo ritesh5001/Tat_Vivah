@@ -10,7 +10,7 @@ import {
 import { ApiError } from '../errors/ApiError.js';
 import { recordCancellationFatal } from '../monitoring/alerts.js';
 import { notificationService } from '../notifications/notification.service.js';
-import { paymentService } from './payment.service.js';
+import { refundService } from './refund.service.js';
 
 function isOrderCancellable(status: OrderStatus): boolean {
     return status === OrderStatus.PLACED || status === OrderStatus.CONFIRMED;
@@ -343,8 +343,18 @@ export class CancellationService {
         let refundTriggered = false;
         if (txResult.paymentStatus === PaymentStatus.SUCCESS) {
             try {
-                const refund = await paymentService.processRefund(txResult.orderId);
-                refundTriggered = refund.refundTriggered;
+                const orderForRefund = await prisma.order.findUnique({
+                    where: { id: txResult.orderId },
+                    select: { totalAmount: true },
+                });
+                const amountPaise = Math.round((orderForRefund?.totalAmount ?? 0) * 100);
+                await refundService.createRefund({
+                    orderId: txResult.orderId,
+                    amount: amountPaise,
+                    reason: 'Order cancelled',
+                    initiatedBy: 'SYSTEM',
+                });
+                refundTriggered = true;
             } catch (error) {
                 recordCancellationFatal({
                     cancellationId,

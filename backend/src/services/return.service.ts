@@ -18,7 +18,7 @@ import {
 import { ApiError } from '../errors/ApiError.js';
 import { recordReturnFatal } from '../monitoring/alerts.js';
 import { notificationService } from '../notifications/notification.service.js';
-import { paymentService } from './payment.service.js';
+import { refundService } from './refund.service.js';
 
 /** Maximum days after delivery that a return can be requested. */
 const RETURN_WINDOW_DAYS = 7;
@@ -585,12 +585,18 @@ export class ReturnService {
             return { success: true, returnId, alreadyRefunded: true };
         }
 
-        // Trigger actual refund via payment service (outside tx)
+        // Trigger actual refund via refund ledger (outside tx)
         let refundTriggered = false;
-        if (txResult.paymentStatus === PaymentStatus.SUCCESS) {
+        if (txResult.paymentStatus === PaymentStatus.SUCCESS || txResult.paymentStatus === PaymentStatus.REFUNDED) {
             try {
-                const refundResult = await paymentService.processRefund(txResult.orderId);
-                refundTriggered = refundResult.refundTriggered;
+                const amountPaise = Math.round((txResult.refundAmount ?? 0) * 100);
+                await refundService.createRefund({
+                    orderId: txResult.orderId,
+                    amount: amountPaise,
+                    reason: 'Return approved',
+                    initiatedBy: 'ADMIN',
+                });
+                refundTriggered = true;
             } catch (error) {
                 recordReturnFatal({
                     returnId,

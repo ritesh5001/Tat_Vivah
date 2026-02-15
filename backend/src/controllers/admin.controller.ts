@@ -18,6 +18,8 @@ import {
     productRejectSchema,
     productSetPriceSchema,
 } from '../validators/admin.validation.js';
+import { refundService } from '../services/refund.service.js';
+import type { RefundStatus } from '@prisma/client';
 
 /**
  * Admin Controller
@@ -561,6 +563,27 @@ export const adminController = {
             }
 
             const result = await auditService.getAuditLogs(filters);
+            res.json(result);
+        } catch (error) {
+            next(error);
+        }
+    },
+
+    // =========================================================================
+    // REFUND LEDGER
+    // =========================================================================
+
+    /**
+     * GET /v1/admin/refunds
+     * List all refund ledger entries with optional filters
+     */
+    async listRefunds(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { orderId, status } = req.query;
+            const filters: { orderId?: string; status?: RefundStatus } = {};
+            if (typeof orderId === 'string') filters.orderId = orderId;
+            if (typeof status === 'string') filters.status = status as RefundStatus;
+            const result = await refundService.listRefunds(filters);
             res.json(result);
         } catch (error) {
             next(error);

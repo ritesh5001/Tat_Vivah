@@ -10,6 +10,7 @@ import { emitPaymentSuccess, emitPaymentFailed } from '../events/order.events.js
 import { paymentLogger } from '../config/logger.js';
 import { paymentSuccessTotal, staleCancelTotal, refundSuccessTotal } from '../config/metrics.js';
 import { recordPaymentFailure } from '../monitoring/alerts.js';
+import { generateInvoiceNumber } from '../utils/invoice.util.js';
 
 /** Maximum age (ms) of a PLACED order eligible for payment retry. */
 const STALE_ORDER_TTL_MS = 30 * 60 * 1000; // 30 minutes
@@ -331,10 +332,15 @@ export class PaymentService {
                 }
             });
 
-            // 3. Update Order Status
+            // 3. Update Order Status + assign invoice number atomically
+            const invoiceNumber = await generateInvoiceNumber(tx as any);
             await tx.order.update({
                 where: { id: orderId },
-                data: { status: OrderStatus.CONFIRMED }
+                data: {
+                    status: OrderStatus.CONFIRMED,
+                    invoiceNumber,
+                    invoiceIssuedAt: new Date(),
+                },
             });
 
             // 4. Create Seller Settlements

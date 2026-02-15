@@ -85,6 +85,11 @@ export default function CheckoutScreen() {
   // ---------- Payment guard — prevents double-submit ----------
   const [isPaying, setIsPaying] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [taxSummary, setTaxSummary] = React.useState<{
+    subTotalAmount: number;
+    totalTaxAmount: number;
+    grandTotal: number;
+  } | null>(null);
   const mountedRef = React.useRef(true);
 
   React.useEffect(() => {
@@ -208,6 +213,15 @@ export default function CheckoutScreen() {
       const orderId = orderResult.order?.id;
       if (!orderId) {
         throw new Error("Order ID missing. Please try again.");
+      }
+
+      // Store GST summary from backend response
+      if (orderResult.order && mountedRef.current) {
+        setTaxSummary({
+          subTotalAmount: orderResult.order.subTotalAmount ?? 0,
+          totalTaxAmount: orderResult.order.totalTaxAmount ?? 0,
+          grandTotal: orderResult.order.grandTotal ?? 0,
+        });
       }
 
       // 2. Initiate Razorpay payment
@@ -462,6 +476,37 @@ export default function CheckoutScreen() {
             editable={!isPaying}
           />
         </View>
+
+        {/* ---- Tax Summary ---- */}
+        {taxSummary && (
+          <View style={[styles.card, { marginTop: spacing.md }]}>
+            <Text style={styles.sectionTitle}>Order Summary</Text>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Subtotal</Text>
+              <Text style={styles.summaryValue}>
+                ₹{taxSummary.subTotalAmount.toFixed(0)}
+              </Text>
+            </View>
+            {taxSummary.totalTaxAmount > 0 && (
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>GST</Text>
+                <Text style={styles.summaryValue}>
+                  ₹{taxSummary.totalTaxAmount.toFixed(0)}
+                </Text>
+              </View>
+            )}
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Shipping</Text>
+              <Text style={styles.summaryValue}>₹180</Text>
+            </View>
+            <View style={[styles.summaryRow, { marginTop: spacing.sm, paddingTop: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.borderSoft }]}>
+              <Text style={[styles.summaryLabel, { fontFamily: typography.sansMedium, color: colors.charcoal }]}>Grand Total</Text>
+              <Text style={[styles.summaryValue, { fontFamily: typography.serif, fontSize: 18, color: colors.charcoal }]}>
+                ₹{taxSummary.grandTotal.toFixed(0)}
+              </Text>
+            </View>
+          </View>
+        )}
 
         {/* ---- CTA ---- */}
         <AnimatedPressable
@@ -808,5 +853,23 @@ const styles = StyleSheet.create({
     color: colors.brownSoft,
     marginTop: 1,
     lineHeight: 17,
+  },
+
+  // Order summary (GST breakdown)
+  summaryRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 4,
+  },
+  summaryLabel: {
+    fontFamily: typography.sans,
+    fontSize: 13,
+    color: colors.brownSoft,
+  },
+  summaryValue: {
+    fontFamily: typography.sans,
+    fontSize: 13,
+    color: colors.charcoal,
   },
 });

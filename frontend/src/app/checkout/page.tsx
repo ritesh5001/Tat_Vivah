@@ -24,6 +24,11 @@ export default function CheckoutPage() {
   const [cartTotal, setCartTotal] = React.useState(0);
   const [hasItems, setHasItems] = React.useState(false);
   const [razorpayReady, setRazorpayReady] = React.useState(false);
+  const [taxSummary, setTaxSummary] = React.useState<{
+    subTotalAmount: number;
+    totalTaxAmount: number;
+    grandTotal: number;
+  } | null>(null);
   const [shipping, setShipping] = React.useState({
     name: "",
     phone: "",
@@ -112,6 +117,15 @@ export default function CheckoutPage() {
       const orderId = orderResult.order?.id;
       if (!orderId) {
         throw new Error("Order ID missing. Please try again.");
+      }
+
+      // Store GST summary from backend response
+      if (orderResult.order) {
+        setTaxSummary({
+          subTotalAmount: orderResult.order.subTotalAmount ?? 0,
+          totalTaxAmount: orderResult.order.totalTaxAmount ?? 0,
+          grandTotal: orderResult.order.grandTotal ?? 0,
+        });
       }
 
       if (!razorpayReady) {
@@ -447,8 +461,14 @@ export default function CheckoutPage() {
               <div className="space-y-4 text-sm">
                 <div className="flex items-center justify-between text-muted-foreground">
                   <span>Subtotal</span>
-                  <span>{currency.format(Math.max(cartTotal - 180, 0))}</span>
+                  <span>{currency.format(taxSummary ? taxSummary.subTotalAmount : Math.max(cartTotal - 180, 0))}</span>
                 </div>
+                {taxSummary && taxSummary.totalTaxAmount > 0 && (
+                  <div className="flex items-center justify-between text-muted-foreground">
+                    <span>GST</span>
+                    <span>{currency.format(taxSummary.totalTaxAmount)}</span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between text-muted-foreground">
                   <span>Shipping</span>
                   <span>{hasItems ? "₹180" : "—"}</span>
@@ -456,10 +476,10 @@ export default function CheckoutPage() {
                 <div className="h-px bg-border-soft" />
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-medium uppercase tracking-wider text-foreground">
-                    Total
+                    Grand Total
                   </span>
                   <span className="font-serif text-2xl font-light text-foreground">
-                    {currency.format(cartTotal)}
+                    {currency.format(taxSummary ? taxSummary.grandTotal : cartTotal)}
                   </span>
                 </div>
               </div>

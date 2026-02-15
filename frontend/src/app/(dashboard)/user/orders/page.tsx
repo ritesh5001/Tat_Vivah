@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { listBuyerOrders } from "@/services/orders";
+import { listBuyerOrders, downloadInvoice } from "@/services/orders";
 import { getPaymentDetails, retryPayment, verifyPayment } from "@/services/payments";
 import { listMyCancellations, requestCancellation } from "@/services/cancellations";
 import { listMyReturns, requestReturn } from "@/services/returns";
@@ -57,6 +57,7 @@ export default function UserOrdersPage() {
   const [returnModalOrderId, setReturnModalOrderId] = React.useState<string | null>(null);
   const [returnReason, setReturnReason] = React.useState("");
   const [requestingReturnIds, setRequestingReturnIds] = React.useState<Set<string>>(new Set());
+  const [downloadingInvoiceId, setDownloadingInvoiceId] = React.useState<string | null>(null);
 
   // Ensure Razorpay SDK is loaded when page mounts
   const razorpayReadyRef = React.useRef(false);
@@ -283,6 +284,20 @@ export default function UserOrdersPage() {
     }
   }, [returnModalOrderId, returnReason, orders, closeReturnModal, loadOrders]);
 
+  // ---- Download Invoice handler ----
+  const handleDownloadInvoice = React.useCallback(async (orderId: string) => {
+    if (downloadingInvoiceId) return;
+    setDownloadingInvoiceId(orderId);
+    try {
+      await downloadInvoice(orderId);
+      toast.success("Invoice downloaded");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to download invoice");
+    } finally {
+      setDownloadingInvoiceId(null);
+    }
+  }, [downloadingInvoiceId]);
+
   return (
     <>
     <div className="min-h-[calc(100vh-160px)] bg-background">
@@ -420,6 +435,17 @@ export default function UserOrdersPage() {
                           disabled={retryingOrderId === order.id}
                         >
                           {retryingOrderId === order.id ? "Retrying..." : "Retry Payment"}
+                        </Button>
+                      )}
+                      {/* Download Invoice — available for confirmed/shipped/delivered orders */}
+                      {(order.status === "CONFIRMED" || order.status === "SHIPPED" || order.status === "DELIVERED") && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={downloadingInvoiceId === order.id}
+                          onClick={() => handleDownloadInvoice(order.id)}
+                        >
+                          {downloadingInvoiceId === order.id ? "Downloading..." : "Download Invoice"}
                         </Button>
                       )}
                       <Button asChild size="sm" variant="outline">

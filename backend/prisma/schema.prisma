@@ -38,6 +38,7 @@ model User {
   user_profiles      user_profiles?
   reviews            Review[]
   wishlist           Wishlist?
+  state               String?
   cancellationRequests CancellationRequest[] @relation("UserCancellationRequests")
   reviewedCancellationRequests CancellationRequest[] @relation("CancellationReviewer")
   returnRequests       ReturnRequest[]       @relation("UserReturnRequests")
@@ -145,6 +146,8 @@ model Product {
   deletedByAdminReason String?            @map("deleted_by_admin_reason")
   createdAt            DateTime           @default(now()) @map("created_at")
   updatedAt            DateTime           @updatedAt @map("updated_at")
+  taxRate              Float              @default(0)  @map("tax_rate")
+  hsnCode              String?            @map("hsn_code")
   images               String[]           @default([]) @map("images")
   searchVector         Unsupported("tsvector")?  @map("search_vector")
   moderation           ProductModeration?
@@ -237,6 +240,11 @@ model Order {
   userId               String              @map("user_id")
   status               OrderStatus         @default(PLACED)
   totalAmount          Float               @map("total_amount")
+  subTotalAmount       Float               @default(0) @map("sub_total_amount")
+  totalTaxAmount       Float               @default(0) @map("total_tax_amount")
+  grandTotal           Float               @default(0) @map("grand_total")
+  invoiceNumber        String?             @unique @map("invoice_number")
+  invoiceIssuedAt      DateTime?           @map("invoice_issued_at")
   shippingName         String?             @map("shipping_name")
   shippingPhone        String?             @map("shipping_phone")
   shippingEmail        String?             @map("shipping_email")
@@ -251,6 +259,7 @@ model Order {
   shipments            shipments[]
   cancellationRequest  CancellationRequest?
   returnRequests       ReturnRequest[]
+  refunds              Refund[]
 
   @@index([userId])
   @@map("orders")
@@ -268,6 +277,12 @@ model OrderItem {
   sellerPriceSnapshot Float @map("seller_price_snapshot")
   adminPriceSnapshot Float @map("admin_price_snapshot")
   platformMargin Float @map("platform_margin")
+  taxRate        Float  @default(0) @map("tax_rate")
+  taxableAmount  Float  @default(0) @map("taxable_amount")
+  cgstAmount     Float  @default(0) @map("cgst_amount")
+  sgstAmount     Float  @default(0) @map("sgst_amount")
+  igstAmount     Float  @default(0) @map("igst_amount")
+  totalAmount    Float  @default(0) @map("item_total_amount")
   order         Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
   returnItems   ReturnItem[]
 
@@ -376,12 +391,35 @@ model Payment {
   createdAt         DateTime        @default(now()) @map("created_at")
   updatedAt         DateTime        @updatedAt @map("updated_at")
   events            PaymentEvent[]
+  refunds           Refund[]
   order             Order           @relation(fields: [orderId], references: [id])
 
   @@index([userId])
   @@index([status])
   @@index([providerOrderId])
   @@map("payments")
+}
+
+/// Immutable refund ledger — tracks every refund attempt (audit trail)
+/// Amount is stored in paise (integer) for financial precision
+model Refund {
+  id               String          @id @default(cuid())
+  orderId          String          @map("order_id")
+  paymentId        String          @map("payment_id")
+  amount           Int             // in paise
+  reason           String?
+  status           RefundStatus    @default(PENDING)
+  razorpayRefundId String?         @unique @map("razorpay_refund_id")
+  initiatedBy      RefundInitiator @map("initiated_by")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+
+  order            Order           @relation(fields: [orderId], references: [id])
+  payment          Payment         @relation(fields: [paymentId], references: [id])
+
+  @@index([orderId])
+  @@index([paymentId])
+  @@map("refunds")
 }
 
 /// Immutable ledger of payment lifecycle events
@@ -472,6 +510,8 @@ model seller_profiles {
   store_slug           String                 @unique
   business_type        BusinessType
   gst_number           String?
+  gstin                String?
+  state                String                 @default("")
   pan_number           String?
   kyc_status           KycStatus              @default(PENDING)
   created_at           DateTime               @default(now())
@@ -614,6 +654,17 @@ enum PaymentEventType {
 enum SettlementStatus {
   PENDING
   PAID
+}
+
+enum RefundStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+enum RefundInitiator {
+  SYSTEM
+  ADMIN
 }
 
 enum AddressLabel {

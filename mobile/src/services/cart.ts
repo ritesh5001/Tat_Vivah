@@ -100,7 +100,16 @@ export async function checkout(
   },
   token?: string | null
 ) {
-  return apiRequest<{ message: string; order: { id: string } }>(
+  return apiRequest<{
+    message: string;
+    order: {
+      id: string;
+      totalAmount: number;
+      subTotalAmount: number;
+      totalTaxAmount: number;
+      grandTotal: number;
+    };
+  }>(
     "/v1/checkout",
     {
       method: "POST",

@@ -1,4 +1,7 @@
 import { apiRequest } from "./api";
+import { API_BASE_URL } from "./api";
+import { cacheDirectory, downloadAsync } from "expo-file-system/build/legacy/FileSystem";
+import * as Sharing from "expo-sharing";
 
 export interface OrderItem {
   id: string;
@@ -66,4 +69,34 @@ export async function getBuyerOrderDetail(
     token,
     signal,
   });
+}
+
+/**
+ * Download invoice PDF and open the native share sheet.
+ */
+export async function downloadInvoice(
+  orderId: string,
+  token: string
+): Promise<void> {
+  const downloadUri = `${API_BASE_URL}/v1/orders/${orderId}/invoice`;
+  const fileUri = `${cacheDirectory ?? ""}invoice-${orderId}.pdf`;
+
+  const result = await downloadAsync(downloadUri, fileUri, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (result.status !== 200) {
+    throw new Error("Unable to download invoice");
+  }
+
+  const canShare = await Sharing.isAvailableAsync();
+  if (canShare) {
+    await Sharing.shareAsync(result.uri, {
+      mimeType: "application/pdf",
+      dialogTitle: "Invoice",
+      UTI: "com.adobe.pdf",
+    });
+  } else {
+    throw new Error("Sharing is not available on this device");
+  }
 }

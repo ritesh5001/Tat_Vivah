@@ -12,8 +12,12 @@ import {
     inventoryReserveAttemptTotal,
     checkoutSuccessTotal,
     checkoutFailTotal,
+    gstCalculationTotal,
+    igstAppliedTotal,
+    intraStateOrderTotal,
 } from '../config/metrics.js';
 import { recordReserveAttempt, recordReserveFailure } from '../monitoring/alerts.js';
+import { calculateGST, type GSTResult } from '../utils/gst.util.js';
 
 /**
  * Checkout Service
@@ -71,7 +75,16 @@ export class CheckoutService {
             sellerPriceSnapshot: number;
             adminPriceSnapshot: number;
             platformMargin: number;
+            taxRate: number;
+            gst: GSTResult;
         }> = [];
+
+        // Fetch buyer state for GST calculation
+        const buyer = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { state: true },
+        });
+        const buyerState = buyer?.state ?? '';
 
         for (const item of cart.items) {
             const availableStock = item.variant?.inventory?.stock ?? 0;
@@ -98,6 +111,33 @@ export class CheckoutService {
                 continue;
             }
 
+            // Fetch product taxRate and seller state for GST
+            const productWithTax = await prisma.product.findUnique({
+                where: { id: item.productId },
+                select: { taxRate: true },
+            });
+            const sellerProfile = await prisma.seller_profiles.findUnique({
+                where: { user_id: item.product.sellerId },
+                select: { state: true },
+            });
+            const productTaxRate = productWithTax?.taxRate ?? 0;
+            const sellerState = sellerProfile?.state ?? '';
+
+            const gst = calculateGST({
+                price: adminListingPrice,
+                quantity: item.quantity,
+                taxRate: productTaxRate,
+                sellerState,
+                buyerState,
+            });
+
+            gstCalculationTotal.inc();
+            if (gst.igstAmount > 0) {
+                igstAppliedTotal.inc();
+            } else if (gst.cgstAmount > 0) {
+                intraStateOrderTotal.inc();
+            }
+
             if (item.quantity > availableStock) {
                 validationErrors.push(
                     `Insufficient stock for ${item.product.title}: Available ${availableStock}, Requested ${item.quantity}`
@@ -112,6 +152,8 @@ export class CheckoutService {
                     sellerPriceSnapshot: sellerPrice,
                     adminPriceSnapshot: adminListingPrice,
                     platformMargin: margin,
+                    taxRate: productTaxRate,
+                    gst,
                 });
             }
         }
@@ -120,13 +162,19 @@ export class CheckoutService {
             throw ApiError.badRequest(validationErrors.join('; '));
         }
 
-        // Calculate total
-        const subtotal = itemsWithStock.reduce(
-            (sum, item) => sum + item.priceSnapshot * item.quantity,
-            0
-        );
+        // Calculate totals (GST-aware)
+        let orderSubTotal = 0;
+        let orderTaxTotal = 0;
+        let orderGrandTotal = 0;
+        for (const item of itemsWithStock) {
+            orderSubTotal += item.gst.taxableAmount;
+            orderTaxTotal += item.gst.cgstAmount + item.gst.sgstAmount + item.gst.igstAmount;
+            orderGrandTotal += item.gst.totalAmount;
+        }
         const shippingFee = itemsWithStock.length > 0 ? 180 : 0;
-        const totalAmount = subtotal + shippingFee;
+        // grandTotal includes shipping; totalAmount kept for backward compat
+        const grandTotalWithShipping = Math.round((orderGrandTotal + shippingFee) * 100) / 100;
+        const totalAmount = grandTotalWithShipping;
 
         // =====================================================================
         // PHASE 2 — Atomic transaction: reserve stock + create order + clear cart
@@ -183,6 +231,9 @@ export class CheckoutService {
                 data: {
                     userId,
                     totalAmount,
+                    subTotalAmount: Math.round(orderSubTotal * 100) / 100,
+                    totalTaxAmount: Math.round(orderTaxTotal * 100) / 100,
+                    grandTotal: grandTotalWithShipping,
                     shippingName: shipping?.shippingName ?? null,
                     shippingPhone: shipping?.shippingPhone ?? null,
                     shippingEmail: shipping?.shippingEmail ?? null,
@@ -201,6 +252,12 @@ export class CheckoutService {
                             sellerPriceSnapshot: item.sellerPriceSnapshot,
                             adminPriceSnapshot: item.adminPriceSnapshot,
                             platformMargin: item.platformMargin,
+                            taxRate: item.taxRate,
+                            taxableAmount: item.gst.taxableAmount,
+                            cgstAmount: item.gst.cgstAmount,
+                            sgstAmount: item.gst.sgstAmount,
+                            igstAmount: item.gst.igstAmount,
+                            totalAmount: item.gst.totalAmount,
                         })),
                     },
                 },
@@ -253,6 +310,17 @@ export class CheckoutService {
             itemCount: itemsWithStock.length,
         }, `Checkout succeeded — order ${order.id}`);
 
+        // Structured GST log
+        const hasIntraState = itemsWithStock.some((i) => i.gst.cgstAmount > 0);
+        checkoutLogger.info({
+            event: 'gst_calculated',
+            orderId: order.id,
+            intraState: hasIntraState,
+            totalTax: Math.round(orderTaxTotal * 100) / 100,
+            subTotal: Math.round(orderSubTotal * 100) / 100,
+            grandTotal: grandTotalWithShipping,
+        }, `GST calculated for order ${order.id}`);
+
         return {
             message: 'Order placed successfully',
             order: {
@@ -260,6 +328,9 @@ export class CheckoutService {
                 userId: order.userId,
                 status: order.status,
                 totalAmount: order.totalAmount,
+                subTotalAmount: order.subTotalAmount,
+                totalTaxAmount: order.totalTaxAmount,
+                grandTotal: order.grandTotal,
                 createdAt: order.createdAt,
             },
         };

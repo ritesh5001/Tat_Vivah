@@ -15,6 +15,7 @@ import { useLocalSearchParams, usePathname, useRouter } from "expo-router";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import {
   getBuyerOrderDetail,
+  downloadInvoice,
   type BuyerOrderDetail,
   type OrderItem,
 } from "../../../src/services/orders";
@@ -103,6 +104,7 @@ export default function OrderDetailScreen() {
   const [refreshing, setRefreshing] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [paymentStatus, setPaymentStatus] = React.useState<string | null>(null);
+  const [downloadingInvoice, setDownloadingInvoice] = React.useState(false);
 
   const mountedRef = React.useRef(true);
   const requestAbortRef = React.useRef<AbortController | null>(null);
@@ -344,6 +346,32 @@ export default function OrderDetailScreen() {
               </Text>
             )}
           </View>
+        )}
+
+        {/* Download Invoice — for confirmed/shipped/delivered orders */}
+        {order && (order.status === "CONFIRMED" || order.status === "SHIPPED" || order.status === "DELIVERED") && (
+          <AnimatedPressable
+            style={[styles.primaryButton, { backgroundColor: colors.charcoal, marginBottom: spacing.sm }]}
+            onPress={async () => {
+              if (downloadingInvoice || !token || !orderId) return;
+              setDownloadingInvoice(true);
+              try {
+                await downloadInvoice(orderId, token);
+              } catch (err) {
+                showToast(
+                  err instanceof Error ? err.message : "Unable to download invoice",
+                  "error"
+                );
+              } finally {
+                setDownloadingInvoice(false);
+              }
+            }}
+            disabled={downloadingInvoice}
+          >
+            <Text style={styles.primaryButtonText}>
+              {downloadingInvoice ? "Downloading..." : "Download Invoice"}
+            </Text>
+          </AnimatedPressable>
         )}
 
         {/* Track order button */}

@@ -17,6 +17,11 @@ export interface OrderEntity {
     userId: string;
     status: OrderStatus;
     totalAmount: number;
+    subTotalAmount: number;
+    totalTaxAmount: number;
+    grandTotal: number;
+    invoiceNumber?: string | null;
+    invoiceIssuedAt?: Date | null;
     shippingName?: string | null;
     shippingPhone?: string | null;
     shippingEmail?: string | null;
@@ -41,6 +46,12 @@ export interface OrderItemEntity {
     sellerPriceSnapshot: number;
     adminPriceSnapshot: number;
     platformMargin: number;
+    taxRate: number;
+    taxableAmount: number;
+    cgstAmount: number;
+    sgstAmount: number;
+    igstAmount: number;
+    totalAmount: number;
 }
 
 /**
