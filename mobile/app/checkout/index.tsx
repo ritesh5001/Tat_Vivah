@@ -7,6 +7,8 @@ import {
   Pressable,
   ScrollView,
   Alert,
+  Modal,
+  FlatList,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { usePathname, useRouter } from "expo-router";
@@ -18,9 +20,57 @@ import { ApiError } from "../../src/services/api";
 import { useAuth } from "../../src/hooks/useAuth";
 import { useNetworkStatus } from "../../src/hooks/useNetworkStatus";
 import { useCart } from "../../src/providers/CartProvider";
+import { useAddresses } from "../../src/providers/AddressProvider";
 import { useToast } from "../../src/providers/ToastProvider";
 import { AnimatedPressable } from "../../src/components/AnimatedPressable";
-import { notifySuccess, notifyError } from "../../src/utils/haptics";
+import { notifySuccess, notifyError, impactLight } from "../../src/utils/haptics";
+import type { Address } from "../../src/services/addresses";
+
+// ---------------------------------------------------------------------------
+// Address selector row — memoized for FlatList
+// ---------------------------------------------------------------------------
+
+interface SelectorRowProps {
+  item: Address;
+  isSelected: boolean;
+  onSelect: (id: string) => void;
+}
+
+const AddressSelectorRow = React.memo(function AddressSelectorRow({
+  item,
+  isSelected,
+  onSelect,
+}: SelectorRowProps) {
+  return (
+    <AnimatedPressable
+      style={[styles.selectorRow, isSelected && styles.selectorRowSelected]}
+      onPress={() => onSelect(item.id)}
+    >
+      <View style={styles.selectorRadio}>
+        {isSelected && <View style={styles.selectorRadioInner} />}
+      </View>
+      <View style={styles.selectorContent}>
+        <View style={styles.selectorBadgeRow}>
+          <Text style={styles.selectorLabel}>{item.label}</Text>
+          {item.isDefault && (
+            <Text style={styles.selectorDefault}>Default</Text>
+          )}
+        </View>
+        <Text style={styles.selectorLine}>
+          {item.addressLine1}
+          {item.addressLine2 ? `, ${item.addressLine2}` : ""}
+        </Text>
+        <Text style={styles.selectorLine}>
+          {item.city}, {item.state} — {item.pincode}
+        </Text>
+      </View>
+    </AnimatedPressable>
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Screen
+// ---------------------------------------------------------------------------
 
 export default function CheckoutScreen() {
   const router = useRouter();
@@ -29,6 +79,7 @@ export default function CheckoutScreen() {
   const token = session?.accessToken ?? null;
   const { isConnected } = useNetworkStatus();
   const { clearCart, refreshCart, cartItems } = useCart();
+  const { addresses, defaultAddress, isLoading: addressesLoading } = useAddresses();
   const { showToast } = useToast();
 
   // ---------- Payment guard — prevents double-submit ----------
@@ -42,6 +93,23 @@ export default function CheckoutScreen() {
     };
   }, []);
 
+  // ---------- Address selection ----------
+  const [selectedAddressId, setSelectedAddressId] = React.useState<string | null>(null);
+  const [showAddressModal, setShowAddressModal] = React.useState(false);
+
+  // Auto-select default address when addresses load
+  React.useEffect(() => {
+    if (!selectedAddressId && defaultAddress) {
+      setSelectedAddressId(defaultAddress.id);
+    }
+  }, [selectedAddressId, defaultAddress]);
+
+  const selectedAddress = React.useMemo(
+    () => addresses.find((a) => a.id === selectedAddressId) ?? null,
+    [addresses, selectedAddressId],
+  );
+
+  // ---------- Fallback manual shipping fields (if no addresses) ----------
   const [shipping, setShipping] = React.useState({
     name: "",
     phone: "",
@@ -51,6 +119,8 @@ export default function CheckoutScreen() {
     city: "",
     notes: "",
   });
+
+  const hasAddresses = addresses.length > 0;
 
   // Redirect if cart is empty (navigated directly, or cart cleared)
   React.useEffect(() => {
@@ -66,6 +136,30 @@ export default function CheckoutScreen() {
       router.replace(`/login?returnTo=${returnTo}`);
     }
   }, [authLoading, token, pathname, router]);
+
+  // ---- Address modal handlers ----
+
+  const openAddressModal = React.useCallback(() => {
+    impactLight();
+    setShowAddressModal(true);
+  }, []);
+
+  const closeAddressModal = React.useCallback(() => {
+    setShowAddressModal(false);
+  }, []);
+
+  const handleSelectAddress = React.useCallback((id: string) => {
+    impactLight();
+    setSelectedAddressId(id);
+    setShowAddressModal(false);
+  }, []);
+
+  const navigateToAddAddress = React.useCallback(() => {
+    setShowAddressModal(false);
+    router.push("/(tabs)/profile/addresses/form");
+  }, [router]);
+
+  // ---- Checkout handler ----
 
   const handleCheckout = async () => {
     // --- Guard: prevent double submit ---
@@ -87,13 +181,14 @@ export default function CheckoutScreen() {
       return;
     }
 
-    setIsPaying(true);
-    setError(null);
-
-    try {
-      // 1. Create order via checkout
-      const orderResult = await checkout(
-        {
+    // Build shipping payload from selected address or manual fields
+    const shippingPayload = selectedAddress
+      ? {
+          shippingAddressLine1: selectedAddress.addressLine1,
+          shippingAddressLine2: selectedAddress.addressLine2 || undefined,
+          shippingCity: selectedAddress.city,
+        }
+      : {
           shippingName: shipping.name || undefined,
           shippingPhone: shipping.phone || undefined,
           shippingEmail: shipping.email || undefined,
@@ -101,9 +196,14 @@ export default function CheckoutScreen() {
           shippingAddressLine2: shipping.addressLine2 || undefined,
           shippingCity: shipping.city || undefined,
           shippingNotes: shipping.notes || undefined,
-        },
-        token
-      );
+        };
+
+    setIsPaying(true);
+    setError(null);
+
+    try {
+      // 1. Create order via checkout
+      const orderResult = await checkout(shippingPayload, token);
 
       const orderId = orderResult.order?.id;
       if (!orderId) {
@@ -115,6 +215,10 @@ export default function CheckoutScreen() {
       const { key, orderId: razorpayOrderId, amount, currency } = payment.data;
 
       // 3. Open Razorpay native checkout
+      const prefillName = shipping.name || undefined;
+      const prefillContact = shipping.phone || undefined;
+      const prefillEmail = shipping.email || undefined;
+
       const razorpayResult = await openRazorpayCheckout({
         key,
         amount,
@@ -124,9 +228,9 @@ export default function CheckoutScreen() {
         order_id: razorpayOrderId,
         theme: { color: "#B8956C" },
         prefill: {
-          name: shipping.name || undefined,
-          email: shipping.email || undefined,
-          contact: shipping.phone || undefined,
+          name: prefillName,
+          email: prefillEmail,
+          contact: prefillContact,
         },
       });
 
@@ -179,115 +283,252 @@ export default function CheckoutScreen() {
     }
   };
 
-  const isButtonDisabled = isPaying || !isConnected || cartItems.length === 0;
+  const isButtonDisabled =
+    isPaying ||
+    !isConnected ||
+    cartItems.length === 0 ||
+    (hasAddresses && !selectedAddressId);
+
+  // ---- Selector key ----
+  const selectorKeyExtractor = React.useCallback(
+    (item: Address) => item.id,
+    [],
+  );
+
+  const renderSelectorItem = React.useCallback(
+    ({ item }: { item: Address }) => (
+      <AddressSelectorRow
+        item={item}
+        isSelected={item.id === selectedAddressId}
+        onSelect={handleSelectAddress}
+      />
+    ),
+    [selectedAddressId, handleSelectAddress],
+  );
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
         <Text style={styles.title}>Checkout</Text>
         <Text style={styles.subtitle}>
-          Provide delivery details to complete your order.
+          Confirm delivery address and complete your order.
         </Text>
 
-        <View style={styles.card}>
-          <Text style={styles.label}>Full name</Text>
+        {/* ---- Address section ---- */}
+        {hasAddresses ? (
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Delivery Address</Text>
+
+            {selectedAddress ? (
+              <View style={styles.selectedAddressBox}>
+                <View style={styles.selectedBadgeRow}>
+                  <Text style={styles.selectorLabel}>
+                    {selectedAddress.label}
+                  </Text>
+                  {selectedAddress.isDefault && (
+                    <Text style={styles.selectorDefault}>Default</Text>
+                  )}
+                </View>
+                <Text style={styles.selectedLine}>
+                  {selectedAddress.addressLine1}
+                  {selectedAddress.addressLine2
+                    ? `, ${selectedAddress.addressLine2}`
+                    : ""}
+                </Text>
+                <Text style={styles.selectedLine}>
+                  {selectedAddress.city}, {selectedAddress.state} —{" "}
+                  {selectedAddress.pincode}
+                </Text>
+              </View>
+            ) : (
+              <Text style={styles.noAddressHint}>
+                Select a delivery address to continue.
+              </Text>
+            )}
+
+            <AnimatedPressable
+              style={styles.changeButton}
+              onPress={openAddressModal}
+              disabled={isPaying}
+            >
+              <Text style={styles.changeButtonText}>
+                {selectedAddress ? "Change address" : "Select address"}
+              </Text>
+            </AnimatedPressable>
+          </View>
+        ) : (
+          /* ---- Fallback manual fields (no saved addresses) ---- */
+          <View style={styles.card}>
+            <View style={styles.noAddressCta}>
+              <Text style={styles.noAddressCtaText}>
+                Save addresses for faster checkout
+              </Text>
+              <AnimatedPressable
+                style={styles.addAddressButton}
+                onPress={navigateToAddAddress}
+              >
+                <Text style={styles.addAddressButtonText}>+ Add address</Text>
+              </AnimatedPressable>
+            </View>
+
+            <Text style={styles.label}>Full name</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Aarav Sharma"
+              placeholderTextColor={colors.brownSoft}
+              value={shipping.name}
+              onChangeText={(value) =>
+                setShipping((prev) => ({ ...prev, name: value }))
+              }
+              editable={!isPaying}
+            />
+
+            <Text style={styles.label}>Phone</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="+91 98765 43210"
+              placeholderTextColor={colors.brownSoft}
+              keyboardType="phone-pad"
+              value={shipping.phone}
+              onChangeText={(value) =>
+                setShipping((prev) => ({ ...prev, phone: value }))
+              }
+              editable={!isPaying}
+            />
+
+            <Text style={styles.label}>Email</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="you@email.com"
+              placeholderTextColor={colors.brownSoft}
+              autoCapitalize="none"
+              value={shipping.email}
+              onChangeText={(value) =>
+                setShipping((prev) => ({ ...prev, email: value }))
+              }
+              editable={!isPaying}
+            />
+
+            <Text style={styles.label}>Address line 1</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="House, street, area"
+              placeholderTextColor={colors.brownSoft}
+              value={shipping.addressLine1}
+              onChangeText={(value) =>
+                setShipping((prev) => ({ ...prev, addressLine1: value }))
+              }
+              editable={!isPaying}
+            />
+
+            <Text style={styles.label}>Address line 2</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Apartment, landmark"
+              placeholderTextColor={colors.brownSoft}
+              value={shipping.addressLine2}
+              onChangeText={(value) =>
+                setShipping((prev) => ({ ...prev, addressLine2: value }))
+              }
+              editable={!isPaying}
+            />
+
+            <Text style={styles.label}>City</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="City"
+              placeholderTextColor={colors.brownSoft}
+              value={shipping.city}
+              onChangeText={(value) =>
+                setShipping((prev) => ({ ...prev, city: value }))
+              }
+              editable={!isPaying}
+            />
+          </View>
+        )}
+
+        {/* ---- Notes (always visible) ---- */}
+        <View style={[styles.card, { marginTop: spacing.md }]}>
+          <Text style={styles.label}>Order notes (optional)</Text>
           <TextInput
-            style={styles.input}
-            placeholder="Aarav Sharma"
+            style={[styles.input, { height: 72, textAlignVertical: "top" }]}
+            placeholder="Special instructions…"
             placeholderTextColor={colors.brownSoft}
-            value={shipping.name}
+            multiline
+            value={shipping.notes}
             onChangeText={(value) =>
-              setShipping((prev) => ({ ...prev, name: value }))
+              setShipping((prev) => ({ ...prev, notes: value }))
             }
             editable={!isPaying}
           />
-
-          <Text style={styles.label}>Phone</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="+91 98765 43210"
-            placeholderTextColor={colors.brownSoft}
-            keyboardType="phone-pad"
-            value={shipping.phone}
-            onChangeText={(value) =>
-              setShipping((prev) => ({ ...prev, phone: value }))
-            }
-            editable={!isPaying}
-          />
-
-          <Text style={styles.label}>Email</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="you@email.com"
-            placeholderTextColor={colors.brownSoft}
-            autoCapitalize="none"
-            value={shipping.email}
-            onChangeText={(value) =>
-              setShipping((prev) => ({ ...prev, email: value }))
-            }
-            editable={!isPaying}
-          />
-
-          <Text style={styles.label}>Address line 1</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="House, street, area"
-            placeholderTextColor={colors.brownSoft}
-            value={shipping.addressLine1}
-            onChangeText={(value) =>
-              setShipping((prev) => ({ ...prev, addressLine1: value }))
-            }
-            editable={!isPaying}
-          />
-
-          <Text style={styles.label}>Address line 2</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Apartment, landmark"
-            placeholderTextColor={colors.brownSoft}
-            value={shipping.addressLine2}
-            onChangeText={(value) =>
-              setShipping((prev) => ({ ...prev, addressLine2: value }))
-            }
-            editable={!isPaying}
-          />
-
-          <Text style={styles.label}>City</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="City"
-            placeholderTextColor={colors.brownSoft}
-            value={shipping.city}
-            onChangeText={(value) =>
-              setShipping((prev) => ({ ...prev, city: value }))
-            }
-            editable={!isPaying}
-          />
-
-          <AnimatedPressable
-            style={[
-              styles.primaryButton,
-              isButtonDisabled && styles.buttonDisabled,
-            ]}
-            onPress={handleCheckout}
-            disabled={isButtonDisabled}
-          >
-            <Text style={styles.primaryButtonText}>
-              {isPaying
-                ? "Processing\u2026"
-                : !isConnected
-                  ? "Offline"
-                  : cartItems.length === 0
-                    ? "Cart is empty"
-                    : "Complete order"}
-            </Text>
-          </AnimatedPressable>
-
-          {error ? (
-            <Text style={styles.errorText}>{error}</Text>
-          ) : null}
         </View>
+
+        {/* ---- CTA ---- */}
+        <AnimatedPressable
+          style={[
+            styles.primaryButton,
+            isButtonDisabled && styles.buttonDisabled,
+          ]}
+          onPress={handleCheckout}
+          disabled={isButtonDisabled}
+        >
+          <Text style={styles.primaryButtonText}>
+            {isPaying
+              ? "Processing\u2026"
+              : !isConnected
+                ? "Offline"
+                : cartItems.length === 0
+                  ? "Cart is empty"
+                  : hasAddresses && !selectedAddressId
+                    ? "Select address"
+                    : "Complete order"}
+          </Text>
+        </AnimatedPressable>
+
+        {error ? (
+          <Text style={styles.errorText}>{error}</Text>
+        ) : null}
       </ScrollView>
+
+      {/* ---- Address selector modal ---- */}
+      <Modal
+        visible={showAddressModal}
+        transparent
+        animationType="slide"
+        onRequestClose={closeAddressModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>Select Address</Text>
+
+            <FlatList
+              data={addresses}
+              keyExtractor={selectorKeyExtractor}
+              renderItem={renderSelectorItem}
+              style={styles.modalList}
+              showsVerticalScrollIndicator={false}
+            />
+
+            <View style={styles.modalFooter}>
+              <AnimatedPressable
+                style={styles.addAddressButton}
+                onPress={navigateToAddAddress}
+              >
+                <Text style={styles.addAddressButtonText}>
+                  + Add new address
+                </Text>
+              </AnimatedPressable>
+              <Pressable
+                style={styles.modalCloseButton}
+                onPress={closeAddressModal}
+              >
+                <Text style={styles.modalCloseText}>Cancel</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -299,6 +540,7 @@ const styles = StyleSheet.create({
   },
   container: {
     padding: spacing.lg,
+    paddingBottom: spacing.xxl,
   },
   title: {
     fontFamily: typography.serif,
@@ -320,6 +562,12 @@ const styles = StyleSheet.create({
     borderColor: colors.borderSoft,
     ...shadow.card,
   },
+  sectionTitle: {
+    fontFamily: typography.serif,
+    fontSize: 16,
+    color: colors.charcoal,
+    marginBottom: spacing.md,
+  },
   label: {
     fontFamily: typography.sans,
     fontSize: 11,
@@ -338,8 +586,85 @@ const styles = StyleSheet.create({
     color: colors.charcoal,
     marginBottom: spacing.md,
   },
-  primaryButton: {
+
+  // Selected address display
+  selectedAddressBox: {
+    backgroundColor: colors.background,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+  },
+  selectedBadgeRow: {
+    flexDirection: "row",
+    gap: spacing.xs,
+    marginBottom: spacing.xs,
+  },
+  selectedLine: {
+    fontFamily: typography.sans,
+    fontSize: 13,
+    color: colors.charcoal,
+    marginTop: 2,
+    lineHeight: 19,
+  },
+  noAddressHint: {
+    fontFamily: typography.sans,
+    fontSize: 13,
+    color: colors.brownSoft,
+    textAlign: "center",
+    paddingVertical: spacing.md,
+  },
+  changeButton: {
     marginTop: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.gold,
+    alignItems: "center",
+  },
+  changeButtonText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 12,
+    letterSpacing: 1,
+    textTransform: "uppercase",
+    color: colors.gold,
+  },
+
+  // No address CTA
+  noAddressCta: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: spacing.lg,
+    paddingBottom: spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.borderSoft,
+  },
+  noAddressCtaText: {
+    fontFamily: typography.sans,
+    fontSize: 12,
+    color: colors.brownSoft,
+    flex: 1,
+    marginRight: spacing.sm,
+  },
+  addAddressButton: {
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.gold,
+  },
+  addAddressButtonText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 11,
+    letterSpacing: 1,
+    textTransform: "uppercase",
+    color: colors.gold,
+  },
+
+  // Primary button
+  primaryButton: {
+    marginTop: spacing.lg,
     backgroundColor: colors.charcoal,
     borderRadius: radius.md,
     paddingVertical: spacing.sm,
@@ -361,5 +686,127 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#A65D57",
     textAlign: "center",
+  },
+
+  // Address selector modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "flex-end",
+  },
+  modalSheet: {
+    backgroundColor: colors.warmWhite,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xl,
+    maxHeight: "80%",
+  },
+  modalHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.borderSoft,
+    alignSelf: "center",
+    marginTop: spacing.md,
+    marginBottom: spacing.md,
+  },
+  modalTitle: {
+    fontFamily: typography.serif,
+    fontSize: 20,
+    color: colors.charcoal,
+    marginBottom: spacing.md,
+  },
+  modalList: {
+    flexGrow: 0,
+  },
+  modalFooter: {
+    marginTop: spacing.md,
+    gap: spacing.sm,
+    alignItems: "center",
+  },
+  modalCloseButton: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  modalCloseText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 12,
+    letterSpacing: 1,
+    textTransform: "uppercase",
+    color: colors.brownSoft,
+  },
+
+  // Selector rows
+  selectorRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.background,
+    marginBottom: spacing.sm,
+    gap: spacing.sm,
+  },
+  selectorRowSelected: {
+    borderColor: colors.gold,
+    backgroundColor: "#FDFAF5",
+  },
+  selectorRadio: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: colors.borderSoft,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 2,
+  },
+  selectorRadioInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.gold,
+  },
+  selectorContent: {
+    flex: 1,
+  },
+  selectorBadgeRow: {
+    flexDirection: "row",
+    gap: spacing.xs,
+    marginBottom: 3,
+  },
+  selectorLabel: {
+    fontFamily: typography.sansMedium,
+    fontSize: 10,
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+    color: colors.brownSoft,
+    backgroundColor: colors.cream,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 2,
+    borderRadius: radius.sm,
+    overflow: "hidden",
+  },
+  selectorDefault: {
+    fontFamily: typography.sansMedium,
+    fontSize: 10,
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+    color: colors.gold,
+    backgroundColor: "#F5EFE4",
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 2,
+    borderRadius: radius.sm,
+    overflow: "hidden",
+  },
+  selectorLine: {
+    fontFamily: typography.sans,
+    fontSize: 12,
+    color: colors.brownSoft,
+    marginTop: 1,
+    lineHeight: 17,
   },
 });

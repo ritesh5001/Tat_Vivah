@@ -192,9 +192,6 @@ export class CheckoutService {
             await notificationService.notifySellerNewOrder(sellerId, order.id, count);
         }
 
-        // Notify Buyer
-        await notificationService.notifyOrderPlaced(order.userId, order.id, Number(order.totalAmount));
-
         return {
             message: 'Order placed successfully',
             order: {

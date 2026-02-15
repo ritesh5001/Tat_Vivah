@@ -137,6 +137,14 @@ export default function ProfileScreen() {
 
               <AnimatedPressable
                 style={styles.actionRow}
+                onPress={() => router.push("/profile/addresses")}
+              >
+                <Text style={styles.actionText}>Manage Addresses</Text>
+                <Text style={styles.actionChevron}>→</Text>
+              </AnimatedPressable>
+
+              <AnimatedPressable
+                style={styles.actionRow}
                 onPress={() => router.push("/(auth)/forgot-password")}
               >
                 <Text style={styles.actionText}>Reset Password</Text>

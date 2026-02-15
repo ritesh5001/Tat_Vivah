@@ -2,10 +2,11 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { listBuyerOrders } from "@/services/orders";
-import { getPaymentDetails } from "@/services/payments";
+import { getPaymentDetails, retryPayment, verifyPayment } from "@/services/payments";
 import { toast } from "sonner";
 
 const currency = new Intl.NumberFormat("en-IN", {
@@ -37,47 +38,119 @@ const getStatusStyle = (status: string) => {
 };
 
 export default function UserOrdersPage() {
+  const router = useRouter();
   const [orders, setOrders] = React.useState<Array<any>>([]);
   const [loading, setLoading] = React.useState(true);
+  const [retryingOrderId, setRetryingOrderId] = React.useState<string | null>(null);
   const [paymentStatusByOrder, setPaymentStatusByOrder] = React.useState<
     Record<string, string>
   >({});
 
+  // Ensure Razorpay SDK is loaded when page mounts
+  const razorpayReadyRef = React.useRef(false);
   React.useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      try {
-        const result = await listBuyerOrders();
-        const nextOrders = result.orders ?? [];
-        setOrders(nextOrders);
-
-        const statuses = await Promise.all(
-          nextOrders.map(async (order: any) => {
-            try {
-              const payment = await getPaymentDetails(order.id);
-              return [order.id, payment.data?.status ?? ""] as const;
-            } catch {
-              return [order.id, ""] as const;
-            }
-          })
-        );
-
-        const statusMap = statuses.reduce((acc, [orderId, status]) => {
-          acc[orderId] = status;
-          return acc;
-        }, {} as Record<string, string>);
-
-        setPaymentStatusByOrder(statusMap);
-      } catch (error) {
-        toast.error(
-          error instanceof Error ? error.message : "Unable to load orders"
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
+    if (typeof window === "undefined") return;
+    if ((window as any).Razorpay) {
+      razorpayReadyRef.current = true;
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.onload = () => { razorpayReadyRef.current = true; };
+    document.body.appendChild(script);
   }, []);
+
+  const loadOrders = React.useCallback(async () => {
+    setLoading(true);
+    try {
+      const result = await listBuyerOrders();
+      const nextOrders = result.orders ?? [];
+      setOrders(nextOrders);
+
+      const statuses = await Promise.all(
+        nextOrders.map(async (order: any) => {
+          try {
+            const payment = await getPaymentDetails(order.id);
+            return [order.id, payment.data?.status ?? ""] as const;
+          } catch {
+            return [order.id, ""] as const;
+          }
+        })
+      );
+
+      const statusMap = statuses.reduce((acc, [orderId, status]) => {
+        acc[orderId] = status;
+        return acc;
+      }, {} as Record<string, string>);
+
+      setPaymentStatusByOrder(statusMap);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Unable to load orders"
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    loadOrders();
+  }, [loadOrders]);
+
+  // ---- Retry payment handler ----
+  const handleRetryPayment = React.useCallback(async (orderId: string) => {
+    if (retryingOrderId) return; // prevent double-click
+    if (!razorpayReadyRef.current) {
+      toast.error("Payment gateway is loading. Please wait.");
+      return;
+    }
+
+    setRetryingOrderId(orderId);
+    try {
+      const paymentResult = await retryPayment(orderId);
+      const data = paymentResult.data;
+
+      const options = {
+        key: data.key,
+        amount: data.amount,
+        currency: data.currency,
+        name: "TatVivah",
+        description: "Complete your purchase",
+        order_id: data.orderId,
+        handler: async (response: any) => {
+          try {
+            await verifyPayment({
+              razorpayOrderId: response.razorpay_order_id,
+              razorpayPaymentId: response.razorpay_payment_id,
+              razorpaySignature: response.razorpay_signature,
+            });
+            toast.success("Payment successful. Order confirmed.");
+            // Refresh order list to reflect new status
+            loadOrders();
+          } catch (error) {
+            toast.error(
+              error instanceof Error ? error.message : "Payment verification failed"
+            );
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            toast.message("Payment still pending. You can retry anytime.");
+          },
+        },
+        theme: { color: "#B7956C" },
+      };
+
+      const razorpay = new (window as any).Razorpay(options);
+      razorpay.open();
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Unable to retry payment"
+      );
+    } finally {
+      setRetryingOrderId(null);
+    }
+  }, [retryingOrderId, loadOrders]);
 
   return (
     <div className="min-h-[calc(100vh-160px)] bg-background">
@@ -163,6 +236,15 @@ export default function UserOrdersPage() {
                       <span className={`px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider border ${getStatusStyle(label)}`}>
                         {label}
                       </span>
+                      {(label === "PAYMENT FAILED" || label === "PAYMENT PENDING") && (
+                        <Button
+                          size="sm"
+                          onClick={() => handleRetryPayment(order.id)}
+                          disabled={retryingOrderId === order.id}
+                        >
+                          {retryingOrderId === order.id ? "Retrying..." : "Retry Payment"}
+                        </Button>
+                      )}
                       <Button asChild size="sm" variant="outline">
                         <Link href={`/user/orders/${order.id}`}>
                           Track Order

@@ -5,17 +5,21 @@ import {
   StyleSheet,
   FlatList,
   Pressable,
+  Alert,
   type ListRenderItemInfo,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import { listBuyerOrders, type BuyerOrder } from "../../../src/services/orders";
-import { getPaymentDetails } from "../../../src/services/payments";
+import { getPaymentDetails, retryPayment, verifyPayment } from "../../../src/services/payments";
+import { openRazorpayCheckout } from "../../../src/services/razorpay";
 import { useAuth } from "../../../src/hooks/useAuth";
 import { usePathname, useRouter } from "expo-router";
 import { isAbortError } from "../../../src/services/api";
 import { SkeletonOrderRow } from "../../../src/components/Skeleton";
 import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
+import { useToast } from "../../../src/providers/ToastProvider";
+import { notifySuccess, notifyError } from "../../../src/utils/haptics";
 
 const currency = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -58,12 +62,18 @@ const OrderCard = React.memo(function OrderCard({
   paymentLabel,
   paymentStyle,
   onPress,
+  onRetry,
+  isRetrying,
 }: {
   order: BuyerOrder;
   paymentLabel: string;
   paymentStyle: { color: string };
   onPress: (id: string) => void;
+  onRetry?: (id: string) => void;
+  isRetrying?: boolean;
 }) {
+  const canRetry = paymentLabel === "PAYMENT FAILED" || paymentLabel === "PAYMENT PENDING";
+
   return (
     <AnimatedPressable
       style={styles.orderCard}
@@ -87,6 +97,17 @@ const OrderCard = React.memo(function OrderCard({
       <Text style={styles.orderTotal}>
         {currency.format(order.totalAmount ?? 0)}
       </Text>
+      {canRetry && onRetry && (
+        <Pressable
+          style={[styles.retryPaymentButton, isRetrying && styles.retryPaymentButtonDisabled]}
+          onPress={() => { if (!isRetrying) onRetry(order.id); }}
+          disabled={isRetrying}
+        >
+          <Text style={styles.retryPaymentButtonText}>
+            {isRetrying ? "Retrying..." : "Retry Payment"}
+          </Text>
+        </Pressable>
+      )}
     </AnimatedPressable>
   );
 });
@@ -96,10 +117,12 @@ export default function OrdersScreen() {
   const pathname = usePathname();
   const { session, isLoading: authLoading } = useAuth();
   const token = session?.accessToken ?? null;
+  const { showToast } = useToast();
   const [orders, setOrders] = React.useState<BuyerOrder[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [fetchError, setFetchError] = React.useState<string | null>(null);
   const [paymentStatus, setPaymentStatus] = React.useState<Record<string, string>>({});
+  const [retryingOrderId, setRetryingOrderId] = React.useState<string | null>(null);
 
   const mountedRef = React.useRef(true);
   React.useEffect(() => {
@@ -162,6 +185,59 @@ export default function OrdersScreen() {
     [router]
   );
 
+  // ---- Retry payment handler ----
+  const handleRetryPayment = React.useCallback(async (orderId: string) => {
+    if (retryingOrderId) return; // prevent double-tap
+    if (!token) return;
+
+    setRetryingOrderId(orderId);
+    try {
+      const paymentResult = await retryPayment(orderId, token);
+      const { key, orderId: razorpayOrderId, amount, currency } = paymentResult.data;
+
+      const razorpayResult = await openRazorpayCheckout({
+        key,
+        amount,
+        currency,
+        name: "TatVivah",
+        description: "Retry Payment",
+        order_id: razorpayOrderId,
+        theme: { color: "#B8956C" },
+      });
+
+      await verifyPayment(
+        {
+          razorpayOrderId: razorpayResult.razorpay_order_id,
+          razorpayPaymentId: razorpayResult.razorpay_payment_id,
+          razorpaySignature: razorpayResult.razorpay_signature,
+        },
+        token
+      );
+
+      notifySuccess();
+      showToast("Payment successful. Order confirmed.", "success");
+      // Refresh orders to reflect new status
+      loadOrders();
+    } catch (err) {
+      const rawMessage = err instanceof Error ? err.message : "";
+      const wasDismissedByUser = /cancel|dismiss|closed|backpress|back press/i.test(rawMessage);
+
+      if (wasDismissedByUser) {
+        showToast("Payment still pending. You can retry anytime.", "info");
+      } else {
+        notifyError();
+        showToast(
+          err instanceof Error ? err.message : "Payment failed. Please try again.",
+          "error"
+        );
+      }
+    } finally {
+      if (mountedRef.current) {
+        setRetryingOrderId(null);
+      }
+    }
+  }, [retryingOrderId, token, loadOrders, showToast]);
+
   const renderOrderItem = React.useCallback(
     ({ item }: ListRenderItemInfo<BuyerOrder>) => {
       const payment = paymentStatus[item.id];
@@ -172,10 +248,12 @@ export default function OrdersScreen() {
           paymentLabel={label}
           paymentStyle={getStatusStyle(label)}
           onPress={handleOrderPress}
+          onRetry={handleRetryPayment}
+          isRetrying={retryingOrderId === item.id}
         />
       );
     },
-    [paymentStatus, handleOrderPress]
+    [paymentStatus, handleOrderPress, handleRetryPayment, retryingOrderId]
   );
 
   const keyExtractorOrder = React.useCallback(
@@ -353,5 +431,23 @@ const styles = StyleSheet.create({
     letterSpacing: 1.4,
     textTransform: "uppercase",
     color: colors.background,
+  },
+  retryPaymentButton: {
+    marginTop: spacing.sm,
+    backgroundColor: colors.gold,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    alignItems: "center" as const,
+  },
+  retryPaymentButtonDisabled: {
+    opacity: 0.5,
+  },
+  retryPaymentButtonText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 11,
+    letterSpacing: 1.2,
+    textTransform: "uppercase" as const,
+    color: "#fff",
   },
 });

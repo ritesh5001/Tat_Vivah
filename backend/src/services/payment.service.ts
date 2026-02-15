@@ -7,7 +7,14 @@ import { ApiError } from '../errors/ApiError.js';
 import { razorpayService } from './razorpay.service.js';
 import { notificationService } from '../notifications/notification.service.js';
 
+/** Maximum age (ms) of a PLACED order eligible for payment retry. */
+const STALE_ORDER_TTL_MS = 30 * 60 * 1000; // 30 minutes
+
 export class PaymentService {
+
+    // ------------------------------------------------------------------
+    // Initiate / Re-initiate payment
+    // ------------------------------------------------------------------
 
     async initiatePayment(userId: string, orderId: string, provider: PaymentProvider) {
         // 1. Validate Order
@@ -16,8 +23,14 @@ export class PaymentService {
             throw new ApiError(404, 'Order not found or access denied');
         }
 
-        if (order.status !== 'PLACED' && order.status !== 'CANCELLED') {
-            // Depending on business rules. Leaving check here as placeholder or strict rule.
+        // Only PLACED orders are eligible for payment
+        if (order.status !== OrderStatus.PLACED) {
+            throw new ApiError(400, `Cannot initiate payment for order with status ${order.status}`);
+        }
+
+        // Guard: reject stale orders
+        if (Date.now() - new Date(order.createdAt).getTime() > STALE_ORDER_TTL_MS) {
+            throw new ApiError(410, 'Order has expired. Please place a new order.');
         }
 
         // Check for existing successful payment
@@ -26,7 +39,7 @@ export class PaymentService {
             throw new ApiError(400, 'Order already paid');
         }
 
-        // Create Payment Record (INITIATED)
+        // Create Payment Record (INITIATED) — reuse row on retry
         let payment;
         if (existingPayment) {
             payment = await paymentRepository.updatePaymentStatus(existingPayment.id, PaymentStatus.INITIATED, null);
@@ -85,6 +98,43 @@ export class PaymentService {
         throw new ApiError(400, 'Provider not supported');
     }
 
+    // ------------------------------------------------------------------
+    // Retry payment for a PLACED order with FAILED / INITIATED payment
+    // ------------------------------------------------------------------
+
+    async retryPayment(userId: string, orderId: string) {
+        const order = await orderRepository.findByIdAndUserId(orderId, userId);
+        if (!order) {
+            throw new ApiError(404, 'Order not found or access denied');
+        }
+
+        if (order.status !== OrderStatus.PLACED) {
+            throw new ApiError(400, `Cannot retry payment for order with status ${order.status}`);
+        }
+
+        // Guard: reject stale orders
+        if (Date.now() - new Date(order.createdAt).getTime() > STALE_ORDER_TTL_MS) {
+            throw new ApiError(410, 'Order has expired. Please place a new order.');
+        }
+
+        const existingPayment = await paymentRepository.findPaymentByOrderId(orderId);
+        if (existingPayment && existingPayment.status === PaymentStatus.SUCCESS) {
+            throw new ApiError(400, 'Order already paid');
+        }
+
+        // Only allow retry if payment is FAILED or INITIATED (abandoned)
+        if (existingPayment && existingPayment.status !== PaymentStatus.FAILED && existingPayment.status !== PaymentStatus.INITIATED) {
+            throw new ApiError(400, `Cannot retry payment with status ${existingPayment.status}`);
+        }
+
+        const provider = existingPayment?.provider ?? PaymentProvider.RAZORPAY;
+        return this.initiatePayment(userId, orderId, provider);
+    }
+
+    // ------------------------------------------------------------------
+    // Get payment details
+    // ------------------------------------------------------------------
+
     async getPaymentDetails(orderId: string, userId: string) {
         const payment = await paymentRepository.findPaymentByOrderId(orderId);
         if (!payment) {
@@ -96,6 +146,10 @@ export class PaymentService {
         }
         return payment;
     }
+
+    // ------------------------------------------------------------------
+    // Verify Razorpay payment (client-side callback)
+    // ------------------------------------------------------------------
 
     async verifyRazorpayPayment(
         userId: string,
@@ -122,8 +176,14 @@ export class PaymentService {
             throw new ApiError(403, 'Unauthorized');
         }
 
+        // Idempotent — already succeeded (e.g. webhook arrived first)
+        if (payment.status === PaymentStatus.SUCCESS) {
+            return { message: 'Payment already verified', paymentId: payment.id };
+        }
+
         await this.handlePaymentSuccess(
             payment.id,
+            payment.orderId,
             razorpayPaymentId,
             { razorpayOrderId, razorpayPaymentId },
             razorpaySignature
@@ -132,27 +192,37 @@ export class PaymentService {
         return { message: 'Payment verified', paymentId: payment.id };
     }
 
+    // ------------------------------------------------------------------
+    // Shared success handler — idempotent via optimistic lock inside tx
+    // Both verify endpoint and webhook converge here.
+    // ------------------------------------------------------------------
+
     async handlePaymentSuccess(
         paymentId: string,
+        orderId: string,
         providerPaymentId: string,
         payload: any,
         providerSignature?: string
     ) {
-        const payment = await paymentRepository.findPaymentById(paymentId);
-        if (!payment) return;
-        if (payment.status === PaymentStatus.SUCCESS) return; // Idempotency
-
-        // Transactional Update
-        await prisma.$transaction(async (tx) => {
-            // 1. Update Payment
-            await tx.payment.update({
-                where: { id: paymentId },
+        // Optimistic-lock approach: the UPDATE inside the transaction uses a
+        // WHERE clause that includes `status != SUCCESS`. If another concurrent
+        // call already flipped the status, the updateMany returns count === 0
+        // and we bail out without creating duplicate settlements.
+        const result = await prisma.$transaction(async (tx) => {
+            // 1. Optimistic-lock update: only flip to SUCCESS if not already SUCCESS
+            const updated = await tx.payment.updateMany({
+                where: { id: paymentId, status: { not: PaymentStatus.SUCCESS } },
                 data: {
                     status: PaymentStatus.SUCCESS,
                     providerPaymentId,
                     ...(providerSignature ? { providerSignature } : {})
                 }
             });
+
+            // If count === 0, another caller already marked SUCCESS → skip
+            if (updated.count === 0) {
+                return { alreadyProcessed: true };
+            }
 
             // 2. Log Event
             await tx.paymentEvent.create({
@@ -165,13 +235,13 @@ export class PaymentService {
 
             // 3. Update Order Status
             await tx.order.update({
-                where: { id: payment.orderId },
+                where: { id: orderId },
                 data: { status: OrderStatus.CONFIRMED }
             });
 
             // 4. Create Seller Settlements
             const orderItems = await tx.orderItem.findMany({
-                where: { orderId: payment.orderId }
+                where: { orderId }
             });
 
             for (const item of orderItems) {
@@ -184,12 +254,17 @@ export class PaymentService {
                     }
                 });
             }
+
+            return { alreadyProcessed: false };
         });
 
-        // Trigger Notifications (outside transaction)
+        // Skip notifications if another call already handled this
+        if (result.alreadyProcessed) return;
+
+        // Trigger Notifications (outside transaction — best-effort)
         try {
             const order = await prisma.order.findUnique({
-                where: { id: payment.orderId },
+                where: { id: orderId },
                 include: { items: true }
             });
 
@@ -206,6 +281,10 @@ export class PaymentService {
             console.error('[Payment] Notification error:', notifyError);
         }
     }
+
+    // ------------------------------------------------------------------
+    // Shared failure handler — marks payment FAILED + releases inventory
+    // ------------------------------------------------------------------
 
     async handlePaymentFailure(paymentId: string, payload: any) {
         const payment = await paymentRepository.findPaymentById(paymentId);
@@ -226,6 +305,93 @@ export class PaymentService {
                 }
             });
         });
+
+        // Note: Inventory is NOT released here on purpose.
+        // The order stays PLACED so the buyer can retry payment within the TTL.
+        // Inventory release happens via cancelStaleOrders when the TTL expires.
+    }
+
+    // ------------------------------------------------------------------
+    // Stale order auto-cancellation
+    // Cancels PLACED orders older than STALE_ORDER_TTL_MS whose payment
+    // is not SUCCESS, releases reserved inventory, and logs a FAILED event.
+    // ------------------------------------------------------------------
+
+    async cancelStaleOrders() {
+        const cutoff = new Date(Date.now() - STALE_ORDER_TTL_MS);
+
+        // Find stale PLACED orders whose payment is not SUCCESS (or has no payment)
+        const staleOrders = await prisma.order.findMany({
+            where: {
+                status: OrderStatus.PLACED,
+                createdAt: { lt: cutoff },
+                OR: [
+                    { payment: { status: { not: PaymentStatus.SUCCESS } } },
+                    { payment: null },
+                ],
+            },
+            include: {
+                payment: true,
+                movements: true,
+            },
+        });
+
+        let cancelledCount = 0;
+
+        for (const order of staleOrders) {
+            try {
+                await prisma.$transaction(async (tx) => {
+                    // 1. Cancel the order
+                    await tx.order.update({
+                        where: { id: order.id },
+                        data: { status: OrderStatus.CANCELLED },
+                    });
+
+                    // 2. Release reserved inventory
+                    const reserveMovements = order.movements.filter(m => m.type === 'RESERVE');
+                    for (const movement of reserveMovements) {
+                        // Restore stock
+                        await tx.inventory.update({
+                            where: { variantId: movement.variantId },
+                            data: { stock: { increment: movement.quantity } },
+                        });
+
+                        // Create RELEASE movement
+                        await tx.inventoryMovement.create({
+                            data: {
+                                variantId: movement.variantId,
+                                orderId: order.id,
+                                quantity: movement.quantity,
+                                type: 'RELEASE',
+                            },
+                        });
+                    }
+
+                    // 3. Mark payment as FAILED if it's still INITIATED
+                    if (order.payment && order.payment.status === PaymentStatus.INITIATED) {
+                        await tx.payment.update({
+                            where: { id: order.payment.id },
+                            data: { status: PaymentStatus.FAILED },
+                        });
+
+                        await tx.paymentEvent.create({
+                            data: {
+                                paymentId: order.payment.id,
+                                type: PaymentEventType.FAILED,
+                                payload: { reason: 'stale_order_auto_cancel' },
+                            },
+                        });
+                    }
+                });
+
+                cancelledCount++;
+                console.log(`[StaleOrders] Cancelled order ${order.id}`);
+            } catch (err) {
+                console.error(`[StaleOrders] Failed to cancel order ${order.id}:`, err);
+            }
+        }
+
+        return { cancelled: cancelledCount, total: staleOrders.length };
     }
 }
 

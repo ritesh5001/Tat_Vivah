@@ -13,6 +13,9 @@ export { imagekitRouter } from './imagekit.routes.js';
 export { bestsellerRouter } from './bestseller.routes.js';
 
 
+// Address management
+export { addressRouter } from './address.routes.js';
+
 // Cart & Orders domain
 export { cartRouter } from './cart.routes.js';
 export { checkoutRouter } from './checkout.routes.js';

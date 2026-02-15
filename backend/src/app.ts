@@ -23,6 +23,7 @@ import {
     adminShipmentRouter,
     adminNotificationRouter,
     reviewRouter,
+    addressRouter,
 } from './routes/index.js';
 import { apiReference } from "@scalar/express-api-reference";
 import { openApiSpec } from "./docs/openapi.js";
@@ -91,6 +92,9 @@ export function createApp(): Application {
     app.use('/v1/seller/products', sellerProductRouter);
     app.use('/v1/imagekit', imagekitRouter);
     app.use('/v1/bestsellers', bestsellerRouter);
+
+    // Address management
+    app.use('/v1/addresses', addressRouter);
 
     // Cart & Orders domain
     app.use('/v1/cart', cartRouter);

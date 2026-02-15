@@ -10,6 +10,7 @@ import { ErrorBoundary } from "../src/components/ErrorBoundary";
 import { ToastProvider } from "../src/providers/ToastProvider";
 import { NotificationProvider } from "../src/providers/NotificationProvider";
 import { CartProvider } from "../src/providers/CartProvider";
+import { AddressProvider } from "../src/providers/AddressProvider";
 import { OfflineBanner } from "../src/components/OfflineBanner";
 import { SessionExpiredModal } from "../src/components/SessionExpiredModal";
 import { useNetworkStatus } from "../src/hooks/useNetworkStatus";
@@ -62,7 +63,9 @@ export default function RootLayout() {
         <AuthProvider>
           <NotificationProvider>
             <CartProvider>
-              <AppShell />
+              <AddressProvider>
+                <AppShell />
+              </AddressProvider>
             </CartProvider>
           </NotificationProvider>
         </AuthProvider>
