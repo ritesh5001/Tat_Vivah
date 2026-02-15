@@ -35,3 +35,4 @@ export const paymentLogger = logger.child({ module: 'payment' });
 export const integrityLogger = logger.child({ module: 'integrity' });
 export const wishlistLogger = logger.child({ module: 'wishlist' });
 export const searchLogger = logger.child({ module: 'search' });
+export const personalizationLogger = logger.child({ module: 'personalization' });

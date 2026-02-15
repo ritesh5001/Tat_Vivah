@@ -110,3 +110,15 @@ export const searchDurationSeconds = new client.Histogram({
     help: 'Duration of search queries in seconds',
     buckets: [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5],
 });
+
+// ─── Personalization ────────────────────────────────────────────────
+
+export const recentlyViewedTrackTotal = new client.Counter({
+    name: 'recently_viewed_track_total',
+    help: 'Total recently-viewed tracking events',
+});
+
+export const recentlyViewedFetchTotal = new client.Counter({
+    name: 'recently_viewed_fetch_total',
+    help: 'Total recently-viewed list fetch requests',
+});

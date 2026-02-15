@@ -44,3 +44,4 @@ export { wishlistRouter } from './wishlist.routes.js';
 
 // Search & Personalization
 export { searchRouter } from './search.routes.js';
+export { personalizationRouter } from './personalization.routes.js';

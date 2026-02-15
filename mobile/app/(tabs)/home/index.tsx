@@ -16,6 +16,7 @@ import { colors, radius, spacing, typography, shadow } from "../../../src/theme/
 import { getBestsellers, BestsellerProduct } from "../../../src/services/bestsellers";
 import { getCategories, type Category } from "../../../src/services/catalog";
 import { getProducts, type ProductSummary } from "../../../src/services/products";
+import { getRecentlyViewed, type RecentlyViewedProduct } from "../../../src/services/personalization";
 import { isAbortError } from "../../../src/services/api";
 
 const { width } = Dimensions.get("window");
@@ -53,6 +54,7 @@ export default function HomeScreen() {
   const [loadingBestsellers, setLoadingBestsellers] = React.useState(true);
   const [categories, setCategories] = React.useState<Category[]>([]);
   const [arrivals, setArrivals] = React.useState<ProductSummary[]>([]);
+  const [recentlyViewed, setRecentlyViewed] = React.useState<RecentlyViewedProduct[]>([]);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -100,9 +102,19 @@ export default function HomeScreen() {
       }
     };
 
+    const loadRecentlyViewed = async () => {
+      try {
+        const products = await getRecentlyViewed();
+        if (!cancelled) setRecentlyViewed(products);
+      } catch {
+        // Not logged in or no data — silently ignore
+      }
+    };
+
     load();
     loadCategories();
     loadArrivals();
+    loadRecentlyViewed();
 
     return () => {
       cancelled = true;
@@ -251,6 +263,51 @@ export default function HomeScreen() {
         }
         ListFooterComponent={
           <View>
+            {recentlyViewed.length > 0 && (
+              <>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionEyebrow}>Continue exploring</Text>
+                  <Text style={styles.sectionTitle}>Recently viewed</Text>
+                </View>
+                <FlatList
+                  horizontal
+                  data={recentlyViewed}
+                  keyExtractor={(item) => item.id}
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ paddingHorizontal: spacing.lg }}
+                  renderItem={({ item }) => {
+                    const image = item.images?.[0] ?? fallbackImage;
+                    return (
+                      <Pressable
+                        style={styles.arrivalCard}
+                        onPress={() =>
+                          router.push({
+                            pathname: "/product/[id]",
+                            params: { id: item.id },
+                          })
+                        }
+                      >
+                        <Image
+                          source={{ uri: image }}
+                          style={styles.arrivalImage}
+                          contentFit="cover"
+                          transition={200}
+                          cachePolicy="memory-disk"
+                        />
+                        <Text style={styles.arrivalTitle} numberOfLines={2}>
+                          {item.title}
+                        </Text>
+                        <Text style={styles.arrivalPrice}>
+                          {item.adminListingPrice
+                            ? formatPrice(item.adminListingPrice)
+                            : formatPrice(item.sellerPrice)}
+                        </Text>
+                      </Pressable>
+                    );
+                  }}
+                />
+              </>
+            )}
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionEyebrow}>New arrivals</Text>
               <Text style={styles.sectionTitle}>Freshly tailored</Text>

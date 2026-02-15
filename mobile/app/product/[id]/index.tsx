@@ -26,6 +26,7 @@ import {
   type ProductVariant,
 } from "../../../src/services/products";
 import { getRelatedProductsFromApi } from "../../../src/services/search";
+import { trackRecentlyViewed } from "../../../src/services/personalization";
 import {
   fetchProductReviews,
   submitProductReview,
@@ -279,6 +280,20 @@ export default function ProductDetailScreen() {
       controller.abort();
     };
   }, [productId]);
+
+  // ---- Track recently viewed (fire-and-forget) ----
+  React.useEffect(() => {
+    if (!product?.id || !token) return;
+
+    const controller = new AbortController();
+    trackRecentlyViewed(product.id, controller.signal).catch(() => {
+      // Silently ignore — not critical
+    });
+
+    return () => {
+      controller.abort();
+    };
+  }, [product?.id, token]);
 
   // ---- Fetch related products ----
   React.useEffect(() => {
