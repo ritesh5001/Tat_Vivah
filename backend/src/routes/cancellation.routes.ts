@@ -6,6 +6,11 @@ export const cancellationRouter = Router();
 
 cancellationRouter.use(authenticate);
 
+// Admin list endpoint
+cancellationRouter.get('/', authorize('ADMIN'), (req, res, next) =>
+    cancellationController.listCancellations(req, res, next),
+);
+
 // Buyer endpoints
 cancellationRouter.post('/:orderId', authorize('USER'), (req, res, next) =>
     cancellationController.requestCancellation(req, res, next),

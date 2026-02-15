@@ -43,6 +43,23 @@ export class CancellationService {
             throw ApiError.badRequest(`Order with status ${order.status} is not eligible for cancellation`);
         }
 
+        const shipped = await prisma.shipments.findFirst({
+            where: {
+                order_id: orderId,
+                status: 'SHIPPED',
+            },
+            select: { id: true },
+        });
+
+        if (shipped) {
+            recordCancellationFatal({
+                orderId,
+                userId,
+                reason: 'Cancellation attempted after shipment SHIPPED',
+            });
+            throw ApiError.badRequest('Order has already been shipped and cannot be cancelled');
+        }
+
         const existing = await prisma.cancellationRequest.findUnique({
             where: { orderId },
             select: { id: true, status: true },
@@ -98,6 +115,47 @@ export class CancellationService {
         return {
             cancellations,
         };
+    }
+
+    async listCancellations(filters: {
+        status?: CancellationStatus;
+        userId?: string;
+        orderId?: string;
+    }) {
+        const cancellations = await prisma.cancellationRequest.findMany({
+            where: {
+                ...(filters.status ? { status: filters.status } : {}),
+                ...(filters.userId ? { userId: filters.userId } : {}),
+                ...(filters.orderId ? { orderId: filters.orderId } : {}),
+            },
+            orderBy: { createdAt: 'desc' },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        email: true,
+                        user_profiles: {
+                            select: { full_name: true },
+                        },
+                    },
+                },
+                order: {
+                    select: {
+                        id: true,
+                        status: true,
+                        totalAmount: true,
+                        createdAt: true,
+                        payment: {
+                            select: {
+                                status: true,
+                            },
+                        },
+                    },
+                },
+            },
+        });
+
+        return { cancellations };
     }
 
     async approveCancellation(adminId: string, cancellationId: string) {
@@ -177,6 +235,25 @@ export class CancellationService {
                     reason: 'Cancellation attempted after shipped/delivered stage',
                 });
                 throw ApiError.badRequest(`Order with status ${lockedOrder.status} cannot be cancelled`);
+            }
+
+            const shipped = await tx.shipments.findFirst({
+                where: {
+                    order_id: lockedOrder.id,
+                    status: 'SHIPPED',
+                },
+                select: { id: true },
+            });
+
+            if (shipped) {
+                recordCancellationFatal({
+                    cancellationId,
+                    orderId: lockedOrder.id,
+                    adminId,
+                    userId: lockedOrder.userId,
+                    reason: 'Cancellation approval attempted after shipment SHIPPED',
+                });
+                throw ApiError.badRequest('Order has already been shipped and cannot be cancelled');
             }
 
             if (cancellation.status === CancellationStatus.APPROVED || lockedOrder.status === OrderStatus.CANCELLED) {

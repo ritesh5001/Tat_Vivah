@@ -64,6 +64,11 @@ export interface InventoryMovementEntity {
  */
 export interface OrderWithItems extends OrderEntity {
     items: OrderItemEntity[];
+    cancellationRequest?: {
+        id: string;
+        status: string;
+    } | null;
+    shipmentStatus?: string | null;
 }
 
 /**

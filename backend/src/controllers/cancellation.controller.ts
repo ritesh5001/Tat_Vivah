@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
+import { CancellationStatus } from '@prisma/client';
 import { z } from 'zod';
 import { cancellationService } from '../services/cancellation.service.js';
 
@@ -8,6 +9,12 @@ const requestCancellationSchema = z.object({
 
 const rejectCancellationSchema = z.object({
     reason: z.string().min(3).max(500).optional(),
+});
+
+const adminCancellationListSchema = z.object({
+    status: z.nativeEnum(CancellationStatus).optional(),
+    userId: z.string().optional(),
+    orderId: z.string().optional(),
 });
 
 export class CancellationController {
@@ -33,6 +40,35 @@ export class CancellationController {
         try {
             const userId = req.user!.userId;
             const result = await cancellationService.getMyCancellations(userId);
+            res.json(result);
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * GET /v1/cancellations
+     */
+    async listCancellations(req: Request, res: Response, next: NextFunction): Promise<void> {
+        try {
+            const query = adminCancellationListSchema.parse(req.query);
+            const filters: {
+                status?: CancellationStatus;
+                userId?: string;
+                orderId?: string;
+            } = {};
+
+            if (query.status !== undefined) {
+                filters.status = query.status;
+            }
+            if (query.userId !== undefined) {
+                filters.userId = query.userId;
+            }
+            if (query.orderId !== undefined) {
+                filters.orderId = query.orderId;
+            }
+
+            const result = await cancellationService.listCancellations(filters);
             res.json(result);
         } catch (error) {
             next(error);

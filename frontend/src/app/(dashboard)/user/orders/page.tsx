@@ -5,8 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { listBuyerOrders } from "@/services/orders";
 import { getPaymentDetails, retryPayment, verifyPayment } from "@/services/payments";
+import { listMyCancellations, requestCancellation } from "@/services/cancellations";
 import { toast } from "sonner";
 
 const currency = new Intl.NumberFormat("en-IN", {
@@ -42,6 +44,10 @@ export default function UserOrdersPage() {
   const [orders, setOrders] = React.useState<Array<any>>([]);
   const [loading, setLoading] = React.useState(true);
   const [retryingOrderId, setRetryingOrderId] = React.useState<string | null>(null);
+  const [requestingCancellationIds, setRequestingCancellationIds] = React.useState<Set<string>>(new Set());
+  const [cancellationByOrderId, setCancellationByOrderId] = React.useState<Record<string, { id: string; status: string }>>({});
+  const [cancelModalOrderId, setCancelModalOrderId] = React.useState<string | null>(null);
+  const [cancelReason, setCancelReason] = React.useState("");
   const [paymentStatusByOrder, setPaymentStatusByOrder] = React.useState<
     Record<string, string>
   >({});
@@ -66,6 +72,20 @@ export default function UserOrdersPage() {
       const result = await listBuyerOrders();
       const nextOrders = result.orders ?? [];
       setOrders(nextOrders);
+
+      try {
+        const cancellationResult = await listMyCancellations();
+        const nextMap: Record<string, { id: string; status: string }> = {};
+        for (const cancellation of cancellationResult.cancellations ?? []) {
+          nextMap[cancellation.orderId] = {
+            id: cancellation.id,
+            status: cancellation.status,
+          };
+        }
+        setCancellationByOrderId(nextMap);
+      } catch {
+        // silent fallback
+      }
 
       const statuses = await Promise.all(
         nextOrders.map(async (order: any) => {
@@ -152,7 +172,50 @@ export default function UserOrdersPage() {
     }
   }, [retryingOrderId, loadOrders]);
 
+  const openCancellationModal = React.useCallback((orderId: string) => {
+    setCancelModalOrderId(orderId);
+    setCancelReason("");
+  }, []);
+
+  const closeCancellationModal = React.useCallback(() => {
+    setCancelModalOrderId(null);
+    setCancelReason("");
+  }, []);
+
+  const handleRequestCancellation = React.useCallback(async () => {
+    if (!cancelModalOrderId) return;
+    const reason = cancelReason.trim();
+    if (!reason) {
+      toast.error("Please enter a cancellation reason");
+      return;
+    }
+
+    setRequestingCancellationIds((prev) => new Set(prev).add(cancelModalOrderId));
+    try {
+      await requestCancellation(cancelModalOrderId, reason);
+      setCancellationByOrderId((prev) => ({
+        ...prev,
+        [cancelModalOrderId]: {
+          id: `temp-${cancelModalOrderId}`,
+          status: "REQUESTED",
+        },
+      }));
+      toast.success("Cancellation requested successfully");
+      closeCancellationModal();
+      loadOrders();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to request cancellation");
+    } finally {
+      setRequestingCancellationIds((prev) => {
+        const next = new Set(prev);
+        next.delete(cancelModalOrderId);
+        return next;
+      });
+    }
+  }, [cancelModalOrderId, cancelReason, closeCancellationModal, loadOrders]);
+
   return (
+    <>
     <div className="min-h-[calc(100vh-160px)] bg-background">
       <motion.div
         initial={{ opacity: 0, y: 12 }}
@@ -206,6 +269,15 @@ export default function UserOrdersPage() {
               const shippingAmount = Math.max((order.totalAmount ?? 0) - saleSubtotal, 0);
               const regularGrandTotal = regularSubtotal + shippingAmount;
               let label = order.status;
+              const cancellationStatus =
+                cancellationByOrderId[order.id]?.status ?? order.cancellationRequest?.status;
+              const hasCancellationRequest = cancellationStatus === "REQUESTED";
+              const shipmentStatus = order.shipmentStatus ?? null;
+              const canRequestCancellation =
+                (order.status === "PLACED" || order.status === "CONFIRMED") &&
+                shipmentStatus !== "SHIPPED" &&
+                !hasCancellationRequest;
+              const requestingCancellation = requestingCancellationIds.has(order.id);
               if (order.status === "PLACED") {
                 if (paymentStatus === "FAILED") {
                   label = "PAYMENT FAILED";
@@ -236,6 +308,21 @@ export default function UserOrdersPage() {
                       <span className={`px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider border ${getStatusStyle(label)}`}>
                         {label}
                       </span>
+                      {hasCancellationRequest ? (
+                        <span className="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider border border-[#B7956C]/30 text-[#8A7054] bg-[#B7956C]/5">
+                          Cancellation Requested
+                        </span>
+                      ) : null}
+                      {canRequestCancellation ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={requestingCancellation}
+                          onClick={() => openCancellationModal(order.id)}
+                        >
+                          {requestingCancellation ? "Requesting..." : "Request Cancellation"}
+                        </Button>
+                      ) : null}
                       {(label === "PAYMENT FAILED" || label === "PAYMENT PENDING") && (
                         <Button
                           size="sm"
@@ -335,5 +422,34 @@ export default function UserOrdersPage() {
         </section>
       </motion.div>
     </div>
+
+      {cancelModalOrderId ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4">
+          <div className="w-full max-w-md border border-border-soft bg-card p-6 space-y-4">
+            <h2 className="font-serif text-xl text-foreground">Request Cancellation</h2>
+            <p className="text-sm text-muted-foreground">
+              Please share the reason for cancelling this order.
+            </p>
+            <Textarea
+              value={cancelReason}
+              onChange={(event) => setCancelReason(event.target.value)}
+              placeholder="Enter your cancellation reason"
+              className="min-h-[120px]"
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={closeCancellationModal}>
+                Close
+              </Button>
+              <Button
+                onClick={handleRequestCancellation}
+                disabled={!cancelReason.trim() || requestingCancellationIds.has(cancelModalOrderId)}
+              >
+                {requestingCancellationIds.has(cancelModalOrderId) ? "Submitting..." : "Submit Request"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }

@@ -5,12 +5,15 @@ import {
   StyleSheet,
   FlatList,
   Pressable,
-  Alert,
+  Modal,
+  TextInput,
+  ActivityIndicator,
   type ListRenderItemInfo,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import { listBuyerOrders, type BuyerOrder } from "../../../src/services/orders";
+import { listMyCancellations, requestCancellation } from "../../../src/services/cancellations";
 import { getPaymentDetails, retryPayment, verifyPayment } from "../../../src/services/payments";
 import { openRazorpayCheckout } from "../../../src/services/razorpay";
 import { useAuth } from "../../../src/hooks/useAuth";
@@ -19,7 +22,7 @@ import { isAbortError } from "../../../src/services/api";
 import { SkeletonOrderRow } from "../../../src/components/Skeleton";
 import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
 import { useToast } from "../../../src/providers/ToastProvider";
-import { notifySuccess, notifyError } from "../../../src/utils/haptics";
+import { notifySuccess, notifyError, impactMedium } from "../../../src/utils/haptics";
 
 const currency = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -64,6 +67,9 @@ const OrderCard = React.memo(function OrderCard({
   onPress,
   onRetry,
   isRetrying,
+  onRequestCancellation,
+  isRequestingCancellation,
+  showCancellationRequested,
 }: {
   order: BuyerOrder;
   paymentLabel: string;
@@ -71,8 +77,15 @@ const OrderCard = React.memo(function OrderCard({
   onPress: (id: string) => void;
   onRetry?: (id: string) => void;
   isRetrying?: boolean;
+  onRequestCancellation?: (id: string) => void;
+  isRequestingCancellation?: boolean;
+  showCancellationRequested?: boolean;
 }) {
   const canRetry = paymentLabel === "PAYMENT FAILED" || paymentLabel === "PAYMENT PENDING";
+  const canRequestCancellation =
+    (order.status === "PLACED" || order.status === "CONFIRMED") &&
+    order.shipmentStatus !== "SHIPPED" &&
+    !showCancellationRequested;
 
   return (
     <AnimatedPressable
@@ -108,6 +121,22 @@ const OrderCard = React.memo(function OrderCard({
           </Text>
         </Pressable>
       )}
+      {showCancellationRequested ? (
+        <View style={styles.cancellationBadge}>
+          <Text style={styles.cancellationBadgeText}>Cancellation Requested</Text>
+        </View>
+      ) : null}
+      {canRequestCancellation && onRequestCancellation ? (
+        <Pressable
+          style={[styles.requestCancelButton, isRequestingCancellation && styles.retryPaymentButtonDisabled]}
+          onPress={() => onRequestCancellation(order.id)}
+          disabled={isRequestingCancellation}
+        >
+          <Text style={styles.requestCancelButtonText}>
+            {isRequestingCancellation ? "Requesting..." : "Request Cancellation"}
+          </Text>
+        </Pressable>
+      ) : null}
     </AnimatedPressable>
   );
 });
@@ -123,6 +152,12 @@ export default function OrdersScreen() {
   const [fetchError, setFetchError] = React.useState<string | null>(null);
   const [paymentStatus, setPaymentStatus] = React.useState<Record<string, string>>({});
   const [retryingOrderId, setRetryingOrderId] = React.useState<string | null>(null);
+  const [cancellationByOrder, setCancellationByOrder] = React.useState<Record<string, { id: string; status: string }>>({});
+  const [cancelModalOrderId, setCancelModalOrderId] = React.useState<string | null>(null);
+  const [cancelReason, setCancelReason] = React.useState("");
+  const [requestingCancellationIds, setRequestingCancellationIds] = React.useState<Set<string>>(new Set());
+
+  const cancellationLockRef = React.useRef<Set<string>>(new Set());
 
   const mountedRef = React.useRef(true);
   React.useEffect(() => {
@@ -138,6 +173,18 @@ export default function OrdersScreen() {
       if (!mountedRef.current) return;
       const nextOrders = result.orders ?? [];
       setOrders(nextOrders);
+
+      try {
+        const cancellationResult = await listMyCancellations(token);
+        if (!mountedRef.current) return;
+        const cancellationMap = (cancellationResult.cancellations ?? []).reduce((acc, item) => {
+          acc[item.orderId] = { id: item.id, status: item.status };
+          return acc;
+        }, {} as Record<string, { id: string; status: string }>);
+        setCancellationByOrder(cancellationMap);
+      } catch {
+        // no-op
+      }
 
       const statuses = await Promise.all(
         nextOrders.map(async (order) => {
@@ -177,6 +224,70 @@ export default function OrdersScreen() {
     }
     loadOrders();
   }, [authLoading, token, router, loadOrders, pathname]);
+
+  const lockCancellation = React.useCallback((orderId: string) => {
+    if (cancellationLockRef.current.has(orderId)) return false;
+    cancellationLockRef.current.add(orderId);
+    setRequestingCancellationIds((prev) => {
+      const next = new Set(prev);
+      next.add(orderId);
+      return next;
+    });
+    return true;
+  }, []);
+
+  const unlockCancellation = React.useCallback((orderId: string) => {
+    cancellationLockRef.current.delete(orderId);
+    setRequestingCancellationIds((prev) => {
+      const next = new Set(prev);
+      next.delete(orderId);
+      return next;
+    });
+  }, []);
+
+  const openCancellationModal = React.useCallback((orderId: string) => {
+    impactMedium();
+    setCancelModalOrderId(orderId);
+    setCancelReason("");
+  }, []);
+
+  const closeCancellationModal = React.useCallback(() => {
+    setCancelModalOrderId(null);
+    setCancelReason("");
+  }, []);
+
+  const submitCancellation = React.useCallback(async () => {
+    if (!cancelModalOrderId || !token) return;
+    const reason = cancelReason.trim();
+    if (!reason) {
+      showToast("Please enter a cancellation reason", "error");
+      return;
+    }
+
+    if (!lockCancellation(cancelModalOrderId)) return;
+
+    try {
+      await requestCancellation(cancelModalOrderId, reason, token);
+      setCancellationByOrder((prev) => ({
+        ...prev,
+        [cancelModalOrderId]: {
+          id: `temp-${cancelModalOrderId}`,
+          status: "REQUESTED",
+        },
+      }));
+      notifySuccess();
+      showToast("Cancellation requested", "success");
+      closeCancellationModal();
+      loadOrders();
+    } catch (err) {
+      notifyError();
+      showToast(err instanceof Error ? err.message : "Unable to request cancellation", "error");
+    } finally {
+      if (mountedRef.current) {
+        unlockCancellation(cancelModalOrderId);
+      }
+    }
+  }, [cancelModalOrderId, cancelReason, closeCancellationModal, loadOrders, lockCancellation, showToast, token, unlockCancellation]);
 
   const handleOrderPress = React.useCallback(
     (orderId: string) => {
@@ -242,6 +353,8 @@ export default function OrdersScreen() {
     ({ item }: ListRenderItemInfo<BuyerOrder>) => {
       const payment = paymentStatus[item.id];
       const label = getPaymentLabel(item.status, payment);
+      const cancellationStatus = cancellationByOrder[item.id]?.status ?? item.cancellationRequest?.status;
+      const showCancellationRequested = cancellationStatus === "REQUESTED";
       return (
         <OrderCard
           order={item}
@@ -250,10 +363,13 @@ export default function OrdersScreen() {
           onPress={handleOrderPress}
           onRetry={handleRetryPayment}
           isRetrying={retryingOrderId === item.id}
+          onRequestCancellation={openCancellationModal}
+          isRequestingCancellation={requestingCancellationIds.has(item.id)}
+          showCancellationRequested={showCancellationRequested}
         />
       );
     },
-    [paymentStatus, handleOrderPress, handleRetryPayment, retryingOrderId]
+    [paymentStatus, cancellationByOrder, handleOrderPress, handleRetryPayment, retryingOrderId, openCancellationModal, requestingCancellationIds]
   );
 
   const keyExtractorOrder = React.useCallback(
@@ -309,6 +425,49 @@ export default function OrdersScreen() {
           renderItem={renderOrderItem}
         />
       )}
+
+      <Modal
+        visible={cancelModalOrderId !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={closeCancellationModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Request Cancellation</Text>
+            <Text style={styles.modalMessage}>
+              Please tell us why you want to cancel this order.
+            </Text>
+            <TextInput
+              style={styles.modalReasonInput}
+              multiline
+              value={cancelReason}
+              onChangeText={setCancelReason}
+              placeholder="Enter reason"
+              placeholderTextColor={colors.brownSoft}
+            />
+            <View style={styles.modalActions}>
+              <Pressable style={styles.modalCancelButton} onPress={closeCancellationModal}>
+                <Text style={styles.modalCancelText}>Close</Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.modalConfirmButton,
+                  (!cancelReason.trim() || (cancelModalOrderId ? requestingCancellationIds.has(cancelModalOrderId) : false)) && styles.retryPaymentButtonDisabled,
+                ]}
+                onPress={submitCancellation}
+                disabled={!cancelReason.trim() || (cancelModalOrderId ? requestingCancellationIds.has(cancelModalOrderId) : false)}
+              >
+                {cancelModalOrderId && requestingCancellationIds.has(cancelModalOrderId) ? (
+                  <ActivityIndicator color={colors.background} size="small" />
+                ) : (
+                  <Text style={styles.modalConfirmText}>Submit</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -449,5 +608,108 @@ const styles = StyleSheet.create({
     letterSpacing: 1.2,
     textTransform: "uppercase" as const,
     color: "#fff",
+  },
+  requestCancelButton: {
+    marginTop: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    borderRadius: radius.md,
+    paddingVertical: spacing.xs,
+    alignItems: "center",
+    backgroundColor: colors.warmWhite,
+  },
+  requestCancelButtonText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 11,
+    color: colors.charcoal,
+    textTransform: "uppercase",
+    letterSpacing: 1.2,
+  },
+  cancellationBadge: {
+    marginTop: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.gold,
+    borderRadius: radius.md,
+    paddingVertical: spacing.xs,
+    alignItems: "center",
+    backgroundColor: colors.cream,
+  },
+  cancellationBadgeText: {
+    fontFamily: typography.sans,
+    fontSize: 10,
+    color: colors.brown,
+    textTransform: "uppercase",
+    letterSpacing: 1.2,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "center",
+    padding: spacing.lg,
+  },
+  modalCard: {
+    backgroundColor: colors.warmWhite,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    padding: spacing.lg,
+    ...shadow.card,
+  },
+  modalTitle: {
+    fontFamily: typography.serif,
+    fontSize: 20,
+    color: colors.charcoal,
+  },
+  modalMessage: {
+    marginTop: spacing.xs,
+    fontFamily: typography.sans,
+    fontSize: 12,
+    color: colors.brownSoft,
+  },
+  modalReasonInput: {
+    marginTop: spacing.md,
+    minHeight: 110,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    borderRadius: radius.md,
+    padding: spacing.sm,
+    textAlignVertical: "top",
+    fontFamily: typography.sans,
+    color: colors.charcoal,
+    backgroundColor: colors.background,
+  },
+  modalActions: {
+    marginTop: spacing.md,
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: spacing.sm,
+  },
+  modalCancelButton: {
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalCancelText: {
+    fontFamily: typography.sans,
+    color: colors.charcoal,
+    fontSize: 12,
+  },
+  modalConfirmButton: {
+    backgroundColor: colors.charcoal,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 84,
+  },
+  modalConfirmText: {
+    fontFamily: typography.sansMedium,
+    color: colors.background,
+    fontSize: 12,
   },
 });

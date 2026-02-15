@@ -18,6 +18,11 @@ export interface BuyerOrder {
   totalAmount: number;
   createdAt: string;
   items: OrderItem[];
+  shipmentStatus?: string | null;
+  cancellationRequest?: {
+    id: string;
+    status: "REQUESTED" | "APPROVED" | "REJECTED";
+  } | null;
 }
 
 export interface BuyerOrderListResponse {
