@@ -29,6 +29,14 @@ export function RecommendedForYouSection() {
   React.useEffect(() => {
     let active = true;
 
+    // Skip API call entirely for anonymous users — avoids 401 console noise
+    const hasToken = typeof document !== "undefined" && document.cookie.includes("tatvivah_access=");
+    if (!hasToken) {
+      setProducts([]);
+      setLoading(false);
+      return;
+    }
+
     apiRequest<RecommendationsResponse>("/v1/personalization/recommendations", {
       method: "GET",
       showLoader: false,
