@@ -175,35 +175,85 @@ export function SiteHeader() {
   return (
     <header className="sticky top-0 z-30 flex flex-col border-b border-border-soft bg-background/95 backdrop-blur-sm">
       <AnnouncementBar />
-      <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
-        {/* Logo */}
-        <Link href="/" className="flex items-center gap-2 group">
-          <Image
-            src="/logo.png"
-            alt="TatVivah Trends"
-            width={120}
-            height={50}
-            className="h-auto w-auto transition-transform duration-300 group-hover:scale-105"
-            priority
-          />
-        </Link>
-
-        {/* Desktop Navigation */}
-        <nav className="hidden items-center gap-8 text-sm font-medium text-muted-foreground md:flex">
-          {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="relative py-1 transition-colors duration-300 hover:text-foreground after:absolute after:bottom-0 after:left-0 after:h-px after:w-0 after:bg-gold after:transition-all after:duration-300 hover:after:w-full"
+      <div className="mx-auto w-full max-w-6xl px-6 py-4">
+        {/* Mobile Header: menu left, logo center, cart right */}
+        <div className="grid grid-cols-3 items-center sm:hidden">
+          <div className="justify-self-start">
+            <button
+              type="button"
+              className="inline-flex h-10 w-10 items-center justify-center border border-border-soft bg-card text-foreground transition-colors duration-300 hover:bg-cream dark:hover:bg-brown/50"
+              aria-label="Toggle menu"
+              onClick={() => setMenuOpen((prev) => !prev)}
             >
-              {link.label}
-            </Link>
-          ))}
-        </nav>
+              <span className="text-lg">{menuOpen ? "✕" : "☰"}</span>
+            </button>
+          </div>
 
-        {/* Right Side */}
-        <div className="flex items-center gap-4">
-          <ThemeToggle className="hidden sm:inline-flex" />
+          <Link href="/" className="flex items-center justify-center gap-2 group justify-self-center">
+            <Image
+              src="/logo.png"
+              alt="TatVivah Trends"
+              width={120}
+              height={50}
+              className="h-auto w-auto transition-transform duration-300 group-hover:scale-105"
+              priority
+            />
+          </Link>
+
+          <div className="justify-self-end">
+            <Link
+              href="/cart"
+              className="inline-flex h-10 w-10 items-center justify-center border border-border-soft bg-card text-foreground transition-colors duration-300 hover:bg-cream dark:hover:bg-brown/50"
+              aria-label="Cart"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.5}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-4 w-4"
+              >
+                <circle cx="9" cy="21" r="1" />
+                <circle cx="20" cy="21" r="1" />
+                <path d="M1 1h4l2.6 13.4a2 2 0 0 0 2 1.6h9.8a2 2 0 0 0 2-1.6L23 6H6" />
+              </svg>
+            </Link>
+          </div>
+        </div>
+
+        {/* Desktop Header */}
+        <div className="hidden w-full items-center justify-between sm:flex">
+          {/* Logo */}
+          <Link href="/" className="flex items-center gap-2 group">
+            <Image
+              src="/logo.png"
+              alt="TatVivah Trends"
+              width={120}
+              height={50}
+              className="h-auto w-auto transition-transform duration-300 group-hover:scale-105"
+              priority
+            />
+          </Link>
+
+          {/* Desktop Navigation */}
+          <nav className="hidden items-center gap-8 text-sm font-medium text-muted-foreground md:flex">
+            {navLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="relative py-1 transition-colors duration-300 hover:text-foreground after:absolute after:bottom-0 after:left-0 after:h-px after:w-0 after:bg-gold after:transition-all after:duration-300 hover:after:w-full"
+              >
+                {link.label}
+              </Link>
+            ))}
+          </nav>
+
+          {/* Right Side */}
+          <div className="flex items-center gap-4">
+            <ThemeToggle className="hidden sm:inline-flex" />
 
           {/* Wishlist Heart (visible when logged in as USER) */}
           {user && role !== "SELLER" && role !== "ADMIN" && (
@@ -260,16 +310,6 @@ export function SiteHeader() {
             </Link>
           )}
 
-          {/* Mobile Menu Toggle */}
-          <button
-            type="button"
-            className="inline-flex h-10 w-10 items-center justify-center border border-border-soft bg-card text-foreground transition-colors duration-300 hover:bg-cream dark:hover:bg-brown/50 sm:hidden"
-            aria-label="Toggle menu"
-            onClick={() => setMenuOpen((prev) => !prev)}
-          >
-            <span className="text-lg">{menuOpen ? "✕" : "☰"}</span>
-          </button>
-
           {/* User Menu */}
           {user ? (
             <div className="hidden items-center gap-3 sm:flex">
@@ -311,6 +351,7 @@ export function SiteHeader() {
               </Button>
             </Link>
           )}
+          </div>
         </div>
       </div>
 
