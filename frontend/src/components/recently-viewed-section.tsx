@@ -41,6 +41,14 @@ export function RecentlyViewedSection() {
   React.useEffect(() => {
     let active = true;
 
+    // Skip API call entirely for anonymous users — avoids 401 console noise
+    const hasToken = typeof document !== "undefined" && document.cookie.includes("tatvivah_access=");
+    if (!hasToken) {
+      setProducts([]);
+      setLoading(false);
+      return;
+    }
+
     apiRequest<{ products: RecentlyViewedProduct[] }>(
       "/v1/personalization/recently-viewed",
       { showLoader: false }
