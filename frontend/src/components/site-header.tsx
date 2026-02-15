@@ -103,12 +103,19 @@ export function SiteHeader() {
   const initial = displayName?.charAt(0)?.toUpperCase() ?? "A";
   const role = user?.role?.toUpperCase();
 
+  const hasAccessToken = React.useMemo(() => {
+    if (typeof document === "undefined") return false;
+    return /(?:^|; )tatvivah_access=/.test(document.cookie);
+  }, [user]);
+
   // Notification badge count
   const [unreadCount, setUnreadCount] = React.useState(0);
   // Wishlist badge count
   const [wishlistCount, setWishlistCount] = React.useState(0);
   React.useEffect(() => {
-    if (!user) {
+    // Only USER accounts have wishlist + notifications UI right now.
+    // Also avoid calling auth endpoints when access token is missing.
+    if (!user || role === "SELLER" || role === "ADMIN" || !hasAccessToken) {
       setUnreadCount(0);
       setWishlistCount(0);
       return;
@@ -137,7 +144,7 @@ export function SiteHeader() {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [user]);
+  }, [hasAccessToken, role, user]);
   const profileLink = React.useMemo(() => {
     if (role === "SELLER") {
       return "/seller/profile";
@@ -227,8 +234,8 @@ export function SiteHeader() {
             </Link>
           )}
 
-          {/* Notification Bell (visible when logged in) */}
-          {user && (
+          {/* Notification Bell (visible when logged in as USER) */}
+          {user && role !== "SELLER" && role !== "ADMIN" && (
             <Link
               href="/user/notifications"
               className="relative hidden h-9 w-9 items-center justify-center border border-border-soft bg-card text-foreground transition-colors duration-300 hover:bg-cream dark:hover:bg-brown/50 sm:inline-flex"
@@ -268,7 +275,7 @@ export function SiteHeader() {
           {/* User Menu */}
           {user ? (
             <div className="hidden items-center gap-3 sm:flex">
-              <span className="text-xs text-muted-foreground max-w-[120px] truncate">
+              <span className="text-xs text-muted-foreground max-w-30 truncate">
                 {displayName}
               </span>
               <DropdownMenu>
@@ -281,7 +288,7 @@ export function SiteHeader() {
                     <span className="font-serif text-sm">{initial}</span>
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="min-w-[160px]">
+                <DropdownMenuContent align="end" className="min-w-40">
                   <DropdownMenuLabel className="text-xs uppercase tracking-wider text-muted-foreground">
                     Account
                   </DropdownMenuLabel>
