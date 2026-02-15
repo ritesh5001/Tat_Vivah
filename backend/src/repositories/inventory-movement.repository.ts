@@ -19,6 +19,7 @@ export class InventoryMovementRepository {
                 orderId: data.orderId,
                 quantity: data.quantity,
                 type: data.type,
+                ...(data.reason ? { reason: data.reason } : {}),
             },
         });
     }
@@ -33,6 +34,7 @@ export class InventoryMovementRepository {
                 orderId: m.orderId,
                 quantity: m.quantity,
                 type: m.type,
+                ...(m.reason ? { reason: m.reason } : {}),
             })),
         });
     }

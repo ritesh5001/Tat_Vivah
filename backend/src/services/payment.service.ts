@@ -19,7 +19,13 @@ const STALE_ORDER_TTL_MS = 30 * 60 * 1000; // 30 minutes
 export class PaymentService {
 
     // ------------------------------------------------------------------
-    // Refund processing (idempotent)
+    // Refund processing (idempotent, crash-safe)
+    //
+    // Architecture (matches RefundService.createRefund pattern):
+    //   1. Optimistic-lock: mark payment REFUNDED in DB first
+    //   2. Call Razorpay (outside tx — no long locks)
+    //   3. If Razorpay fails → revert payment status to SUCCESS
+    //   4. Never send money without a DB record
     // ------------------------------------------------------------------
 
     async processRefund(orderId: string): Promise<{
@@ -48,23 +54,10 @@ export class PaymentService {
             };
         }
 
-        // External provider refund (best effort + explicit failure on API errors)
-        if (
-            payment.provider === PaymentProvider.RAZORPAY
-            && payment.providerPaymentId
-            && isRazorpayConfigured()
-            && razorpayClient
-        ) {
-            try {
-                await razorpayClient.payments.refund(payment.providerPaymentId, {
-                    amount: Math.round(payment.amount * 100),
-                    notes: { orderId },
-                });
-            } catch (error: any) {
-                throw new ApiError(502, `Refund API failed: ${error?.message ?? 'unknown error'}`);
-            }
-        }
-
+        // ── Step 1: Optimistic-lock DB update FIRST ─────────────────
+        // Mark as REFUNDED before calling external provider.
+        // If the provider call fails, we revert. This prevents the
+        // "money refunded but DB still SUCCESS" double-refund bug.
         const updated = await prisma.$transaction(async (tx) => {
             const result = await tx.payment.updateMany({
                 where: {
@@ -85,7 +78,7 @@ export class PaymentService {
                     paymentId: payment.id,
                     type: PaymentEventType.WEBHOOK,
                     payload: {
-                        event: 'REFUND_SUCCESS',
+                        event: 'REFUND_INITIATED',
                         orderId,
                     },
                 },
@@ -100,6 +93,32 @@ export class PaymentService {
                 alreadyRefunded: true,
                 paymentStatus: PaymentStatus.REFUNDED,
             };
+        }
+
+        // ── Step 2: External provider refund (outside tx) ───────────
+        if (
+            payment.provider === PaymentProvider.RAZORPAY
+            && payment.providerPaymentId
+            && isRazorpayConfigured()
+            && razorpayClient
+        ) {
+            try {
+                await razorpayClient.payments.refund(payment.providerPaymentId, {
+                    amount: Math.round(payment.amount * 100),
+                    notes: { orderId },
+                });
+            } catch (error: any) {
+                // ── Step 3: Revert DB status on provider failure ─────
+                paymentLogger.error(
+                    { orderId, paymentId: payment.id, error: error?.message },
+                    'refund_provider_failed_reverting',
+                );
+                await prisma.payment.updateMany({
+                    where: { id: payment.id, status: PaymentStatus.REFUNDED },
+                    data: { status: PaymentStatus.SUCCESS },
+                });
+                throw new ApiError(502, `Refund API failed: ${error?.message ?? 'unknown error'}`);
+            }
         }
 
         refundSuccessTotal.inc();
@@ -415,7 +434,9 @@ export class PaymentService {
     async cancelStaleOrders() {
         const cutoff = new Date(Date.now() - STALE_ORDER_TTL_MS);
 
-        // Find stale PLACED orders whose payment is not SUCCESS (or has no payment)
+        // Find stale PLACED orders whose payment is not SUCCESS (or has no payment).
+        // Only fetch IDs here — movements are re-fetched inside the tx to avoid
+        // stale data between the outer query and the transactional release.
         const staleOrders = await prisma.order.findMany({
             where: {
                 status: OrderStatus.PLACED,
@@ -427,7 +448,6 @@ export class PaymentService {
             },
             include: {
                 payment: true,
-                movements: true,
             },
         });
 
@@ -450,9 +470,13 @@ export class PaymentService {
                         return false;
                     }
 
-                    // 2. Release reserved inventory
-                    const reserveMovements = order.movements.filter(m => m.type === 'RESERVE');
-                    for (const movement of reserveMovements) {
+                    // 2. Fetch movements INSIDE tx for consistency (prevents stale reads)
+                    const movements = await tx.inventoryMovement.findMany({
+                        where: { orderId: order.id, type: 'RESERVE' },
+                    });
+
+                    // 3. Release reserved inventory
+                    for (const movement of movements) {
                         // Restore stock
                         await tx.inventory.update({
                             where: { variantId: movement.variantId },
@@ -466,11 +490,12 @@ export class PaymentService {
                                 orderId: order.id,
                                 quantity: movement.quantity,
                                 type: 'RELEASE',
+                                reason: 'STALE_CLEANUP',
                             },
                         });
                     }
 
-                    // 3. Mark payment as FAILED if it's still INITIATED
+                    // 4. Mark payment as FAILED if it's still INITIATED
                     if (order.payment && order.payment.status === PaymentStatus.INITIATED) {
                         await tx.payment.updateMany({
                             where: { id: order.payment.id, status: PaymentStatus.INITIATED },
@@ -504,7 +529,11 @@ export class PaymentService {
                     }, `Skipped stale order ${order.id} (status already changed)`);
                 }
             } catch (err) {
-                console.error(`[StaleOrders] Failed to cancel order ${order.id}:`, err);
+                paymentLogger.error({
+                    event: 'stale_order_cancel_failed',
+                    orderId: order.id,
+                    error: err instanceof Error ? err.message : String(err),
+                }, `Failed to cancel stale order ${order.id}`);
             }
         }
 

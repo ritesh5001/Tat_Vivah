@@ -387,6 +387,7 @@ export class ReturnService {
                                 orderId: returnReq.order.id,
                                 quantity: returnItem.quantity,
                                 type: 'RELEASE',
+                                reason: 'RETURN',
                             },
                         ],
                         skipDuplicates: true,

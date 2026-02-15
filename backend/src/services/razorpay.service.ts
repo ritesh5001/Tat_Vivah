@@ -10,6 +10,7 @@ import crypto from 'crypto';
 import { razorpayClient, isRazorpayConfigured, getRazorpayKeyId } from './razorpay.client.js';
 import { env } from '../config/env.js';
 import { ApiError } from '../errors/ApiError.js';
+import { paymentLogger } from '../config/logger.js';
 
 export interface RazorpayOrderResponse {
     razorpayOrderId: string;
@@ -82,7 +83,7 @@ export class RazorpayService {
                 orderId: receipt,
             };
         } catch (error: any) {
-            console.error('[Razorpay] Order creation failed:', error);
+            paymentLogger.error({ event: 'razorpay_order_failed', error: error?.message }, `Razorpay order creation failed`);
             throw new ApiError(500, `Razorpay order creation failed: ${error.message || 'Unknown error'}`);
         }
     }
@@ -99,7 +100,7 @@ export class RazorpayService {
      */
     verifyWebhookSignature(body: string, signature: string): boolean {
         if (!env.RAZORPAY_WEBHOOK_SECRET) {
-            console.error('[Razorpay] Webhook secret not configured');
+            paymentLogger.error({ event: 'razorpay_webhook_secret_missing' }, 'Razorpay webhook secret not configured');
             return false;
         }
 
@@ -114,7 +115,7 @@ export class RazorpayService {
                 Buffer.from(expectedSignature)
             );
         } catch (error) {
-            console.error('[Razorpay] Signature verification error:', error);
+            paymentLogger.error({ event: 'razorpay_signature_verification_error', error: error instanceof Error ? error.message : String(error) }, 'Razorpay signature verification error');
             return false;
         }
     }
@@ -135,7 +136,7 @@ export class RazorpayService {
         razorpaySignature: string
     ): boolean {
         if (!env.RAZORPAY_KEY_SECRET) {
-            console.error('[Razorpay] Key secret not configured');
+            paymentLogger.error({ event: 'razorpay_key_secret_missing' }, 'Razorpay key secret not configured');
             return false;
         }
 

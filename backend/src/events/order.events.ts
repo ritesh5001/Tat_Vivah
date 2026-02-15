@@ -15,6 +15,7 @@
 
 import { prisma } from '../config/db.js';
 import { notificationService } from '../notifications/notification.service.js';
+import { orderEventsLogger } from '../config/logger.js';
 
 // =========================================================================
 //  ORDER PLACED — fires when checkout succeeds (before payment)
@@ -44,7 +45,7 @@ export async function emitOrderPlaced(orderId: string): Promise<void> {
             await notificationService.notifySellerNewOrder(sellerId, order.id, count);
         }
     } catch (err) {
-        console.error('[OrderEvents] emitOrderPlaced error:', err);
+        orderEventsLogger.error({ orderId, error: err instanceof Error ? err.message : String(err) }, 'emitOrderPlaced failed');
     }
 }
 
@@ -66,7 +67,7 @@ export async function emitPaymentSuccess(orderId: string): Promise<void> {
             Number(order.totalAmount)
         );
     } catch (err) {
-        console.error('[OrderEvents] emitPaymentSuccess error:', err);
+        orderEventsLogger.error({ orderId, error: err instanceof Error ? err.message : String(err) }, 'emitPaymentSuccess failed');
     }
 }
 
@@ -84,7 +85,7 @@ export async function emitPaymentFailed(orderId: string): Promise<void> {
 
         await notificationService.notifyPaymentFailed(order.userId, order.id);
     } catch (err) {
-        console.error('[OrderEvents] emitPaymentFailed error:', err);
+        orderEventsLogger.error({ orderId, error: err instanceof Error ? err.message : String(err) }, 'emitPaymentFailed failed');
     }
 }
 
@@ -111,7 +112,7 @@ export async function emitShipmentShipped(
             trackingNumber
         );
     } catch (err) {
-        console.error('[OrderEvents] emitShipmentShipped error:', err);
+        orderEventsLogger.error({ orderId, carrier, trackingNumber, error: err instanceof Error ? err.message : String(err) }, 'emitShipmentShipped failed');
     }
 }
 
@@ -129,6 +130,6 @@ export async function emitShipmentDelivered(orderId: string): Promise<void> {
 
         await notificationService.notifyOrderDelivered(order.userId, order.id);
     } catch (err) {
-        console.error('[OrderEvents] emitShipmentDelivered error:', err);
+        orderEventsLogger.error({ orderId, error: err instanceof Error ? err.message : String(err) }, 'emitShipmentDelivered failed');
     }
 }

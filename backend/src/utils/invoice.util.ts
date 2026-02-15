@@ -17,9 +17,12 @@ import { prisma } from '../config/db.js';
 /**
  * Generate the next invoice number for the current year.
  *
- * Uses a DB query to find the max existing invoice number for the year,
- * then increments. The caller MUST run this inside a transaction to
- * prevent race conditions.
+ * Uses a raw SQL query with FOR UPDATE to lock the row with the highest
+ * invoice number, preventing concurrent payment success handlers from
+ * generating the same number. The caller MUST run this inside a transaction.
+ *
+ * Fallback: even if the FOR UPDATE misses (e.g., no existing rows), the
+ * @unique constraint on invoiceNumber in the schema catches collisions.
  */
 export async function generateInvoiceNumber(
     tx?: Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
@@ -28,18 +31,22 @@ export async function generateInvoiceNumber(
     const year = new Date().getFullYear();
     const prefix = `TV-${year}-`;
 
-    // Find the highest invoice number for this year
-    const latest = await (db as any).order.findFirst({
-        where: {
-            invoiceNumber: { startsWith: prefix },
-        },
-        orderBy: { invoiceNumber: 'desc' },
-        select: { invoiceNumber: true },
-    });
+    // Use raw SQL FOR UPDATE to serialize concurrent invoice generation.
+    // This locks the row with the highest invoice number for this year,
+    // preventing two concurrent transactions from reading the same max.
+    const rows = await (db as any).$queryRawUnsafe(
+        `SELECT invoice_number FROM orders
+         WHERE invoice_number LIKE $1
+         ORDER BY invoice_number DESC
+         LIMIT 1
+         FOR UPDATE`,
+        `${prefix}%`,
+    ) as Array<{ invoice_number: string | null }>;
 
     let nextSeq = 1;
-    if (latest?.invoiceNumber) {
-        const parts = (latest.invoiceNumber as string).split('-');
+    const firstRow = rows[0];
+    if (rows.length > 0 && firstRow?.invoice_number) {
+        const parts = firstRow.invoice_number.split('-');
         const lastSeq = parseInt(parts[2] ?? '0', 10);
         if (!isNaN(lastSeq)) {
             nextSeq = lastSeq + 1;

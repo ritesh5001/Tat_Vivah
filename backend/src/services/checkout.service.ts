@@ -362,6 +362,7 @@ export class CheckoutService {
                         orderId: created.id,
                         quantity: item.quantity,
                         type: 'RESERVE',
+                        reason: 'CHECKOUT',
                     },
                 });
             }

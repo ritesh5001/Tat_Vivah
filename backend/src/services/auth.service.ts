@@ -196,6 +196,11 @@ export class AuthService {
             status: 'ACTIVE',
             isEmailVerified: false,
             isPhoneVerified: false,
+        }).catch((error: any) => {
+            if (error?.code === 'P2002' || String(error?.message ?? '').includes('Unique constraint')) {
+                throw ApiError.conflict('Email or phone already in use');
+            }
+            throw error;
         });
 
         return { message: 'Admin registered successfully' };
@@ -323,6 +328,11 @@ export class AuthService {
             status,
             isEmailVerified: true,
             isPhoneVerified: false,
+        }).catch((error: any) => {
+            if (error?.code === 'P2002' || String(error?.message ?? '').includes('Unique constraint')) {
+                throw ApiError.conflict('Email or phone already in use');
+            }
+            throw error;
         });
 
         if (created.role === 'SELLER') {

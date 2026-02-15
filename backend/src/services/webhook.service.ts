@@ -5,6 +5,7 @@ import { ApiError } from '../errors/ApiError.js';
 import { razorpayService, RazorpayWebhookPayload } from './razorpay.service.js';
 import { paymentRepository } from '../repositories/payment.repository.js';
 import { prisma } from '../config/db.js';
+import { paymentLogger } from '../config/logger.js';
 
 export class WebhookService {
 
@@ -48,13 +49,13 @@ export class WebhookService {
         // 1. Verify Signature
         const isValid = razorpayService.verifyWebhookSignature(rawBody, signature);
         if (!isValid) {
-            console.error('[Razorpay Webhook] Invalid signature');
+            paymentLogger.error({ event: 'webhook_invalid_signature' }, 'Razorpay webhook: invalid signature');
             throw new ApiError(401, 'Invalid webhook signature');
         }
 
         // 2. Parse Event
         const event = payload.event;
-        console.log(`[Razorpay Webhook] Received event: ${event}`);
+        paymentLogger.info({ event: 'webhook_received', webhookEvent: event }, `Razorpay webhook received: ${event}`);
 
         // 3. Handle payment.captured
         if (event === 'payment.captured') {
@@ -69,13 +70,13 @@ export class WebhookService {
         }
 
         // 5. Log unhandled events
-        console.log(`[Razorpay Webhook] Unhandled event: ${event}`);
+        paymentLogger.warn({ event: 'webhook_unhandled', webhookEvent: event }, `Razorpay webhook unhandled event: ${event}`);
     }
 
     private async handleRazorpayPaymentCaptured(payload: RazorpayWebhookPayload, signature: string) {
         const paymentEntity = payload.payload.payment?.entity;
         if (!paymentEntity) {
-            console.error('[Razorpay Webhook] Missing payment entity');
+            paymentLogger.error({ event: 'webhook_missing_entity' }, 'Razorpay webhook: missing payment entity');
             return;
         }
 
@@ -85,13 +86,13 @@ export class WebhookService {
         // Find payment by Razorpay order ID
         const payment = await paymentRepository.findByProviderOrderId(razorpayOrderId);
         if (!payment) {
-            console.error(`[Razorpay Webhook] Payment not found for order: ${razorpayOrderId}`);
+            paymentLogger.error({ event: 'webhook_payment_not_found', razorpayOrderId }, `Razorpay webhook: payment not found for order ${razorpayOrderId}`);
             return;
         }
 
         // Idempotency: Skip if already SUCCESS
         if (payment.status === PaymentStatus.SUCCESS) {
-            console.log(`[Razorpay Webhook] Payment already successful: ${payment.id}`);
+            paymentLogger.info({ event: 'webhook_already_success', paymentId: payment.id }, `Razorpay webhook: payment already successful ${payment.id}`);
             return;
         }
 
@@ -113,13 +114,13 @@ export class WebhookService {
             signature
         );
 
-        console.log(`[Razorpay Webhook] Payment ${payment.id} processed`);
+        paymentLogger.info({ event: 'webhook_payment_processed', paymentId: payment.id }, `Razorpay webhook: payment ${payment.id} processed`);
     }
 
     private async handleRazorpayPaymentFailed(payload: RazorpayWebhookPayload) {
         const paymentEntity = payload.payload.payment?.entity;
         if (!paymentEntity) {
-            console.error('[Razorpay Webhook] Missing payment entity in failed event');
+            paymentLogger.error({ event: 'webhook_missing_entity_failed' }, 'Razorpay webhook: missing payment entity in failed event');
             return;
         }
 
@@ -128,20 +129,20 @@ export class WebhookService {
         // Find payment by Razorpay order ID
         const payment = await paymentRepository.findByProviderOrderId(razorpayOrderId);
         if (!payment) {
-            console.error(`[Razorpay Webhook] Payment not found for failed order: ${razorpayOrderId}`);
+            paymentLogger.error({ event: 'webhook_payment_not_found_failed', razorpayOrderId }, `Razorpay webhook: payment not found for failed order ${razorpayOrderId}`);
             return;
         }
 
         // Idempotency: Skip if already in terminal state
         if (payment.status === PaymentStatus.SUCCESS || payment.status === PaymentStatus.FAILED) {
-            console.log(`[Razorpay Webhook] Payment already in terminal state: ${payment.id}`);
+            paymentLogger.info({ event: 'webhook_already_terminal', paymentId: payment.id, status: payment.status }, `Razorpay webhook: payment already in terminal state ${payment.id}`);
             return;
         }
 
         // Delegate to shared failure handler
         await paymentService.handlePaymentFailure(payment.id, payload);
 
-        console.log(`[Razorpay Webhook] Payment ${payment.id} marked FAILED`);
+        paymentLogger.info({ event: 'webhook_payment_failed', paymentId: payment.id }, `Razorpay webhook: payment ${payment.id} marked FAILED`);
     }
 
     private mapProvider(provider: string): PaymentProvider | null {

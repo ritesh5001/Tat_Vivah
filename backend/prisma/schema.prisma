@@ -368,15 +368,16 @@ model ReturnItem {
 
 /// Auditable inventory movements for stock changes
 model InventoryMovement {
-  id        String                @id @default(cuid())
-  variantId String                @map("variant_id")
-  orderId   String                @map("order_id")
+  id        String                     @id @default(cuid())
+  variantId String                     @map("variant_id")
+  orderId   String                     @map("order_id")
   quantity  Int
   type      InventoryMovementType
-  createdAt DateTime              @default(now()) @map("created_at")
-  order     Order                 @relation(fields: [orderId], references: [id])
+  reason    InventoryMovementReason    @default(CHECKOUT) @map("reason")
+  createdAt DateTime                   @default(now()) @map("created_at")
+  order     Order                      @relation(fields: [orderId], references: [id])
 
-  @@unique([orderId, variantId, type], map: "inventory_movements_order_variant_type_key")
+  @@unique([orderId, variantId, type, reason], map: "inventory_movements_order_variant_type_reason_key")
   @@index([variantId])
   @@index([orderId])
   @@index([variantId, type], map: "inventory_movements_variant_type_idx")
@@ -700,6 +701,16 @@ enum InventoryMovementType {
   RESERVE
   RELEASE
   DEDUCT
+}
+
+/// Reason for inventory movement — used as discriminator in unique constraint
+/// to allow separate RELEASE movements from cancellation, return, and stale cleanup.
+enum InventoryMovementReason {
+  CHECKOUT
+  CANCELLATION
+  RETURN
+  STALE_CLEANUP
+  MANUAL
 }
 
 enum PaymentStatus {

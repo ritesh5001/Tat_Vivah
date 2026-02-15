@@ -5,6 +5,7 @@ import type { Prisma } from '@prisma/client';
 // Re-export enum types for convenience
 export type OrderStatus = $Enums.OrderStatus;
 export type InventoryMovementType = $Enums.InventoryMovementType;
+export type InventoryMovementReason = $Enums.InventoryMovementReason;
 
 // ============================================================================
 // ENTITY TYPES
@@ -163,6 +164,7 @@ export interface CreateInventoryMovementRequest {
     orderId: string;
     quantity: number;
     type: InventoryMovementType;
+    reason?: InventoryMovementReason;
 }
 
 // ============================================================================

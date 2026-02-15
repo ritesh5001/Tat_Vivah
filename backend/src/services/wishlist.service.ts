@@ -61,7 +61,16 @@ export class WishlistService {
             where: { userId },
         });
         if (existing) return existing;
-        return prisma.wishlist.create({ data: { userId } });
+        try {
+            return await prisma.wishlist.create({ data: { userId } });
+        } catch (error: any) {
+            // P2002 race: concurrent creation — re-fetch
+            if (error?.code === 'P2002' || String(error?.message ?? '').includes('Unique constraint')) {
+                const raced = await prisma.wishlist.findUnique({ where: { userId } });
+                if (raced) return raced;
+            }
+            throw error;
+        }
     }
 
     /**
@@ -149,9 +158,17 @@ export class WishlistService {
         }
 
         // Add
-        await prisma.wishlistItem.create({
-            data: { wishlistId: wishlist.id, productId },
-        });
+        try {
+            await prisma.wishlistItem.create({
+                data: { wishlistId: wishlist.id, productId },
+            });
+        } catch (error: any) {
+            // P2002 race: concurrent add — item already exists, treat as idempotent success
+            if (error?.code === 'P2002' || String(error?.message ?? '').includes('Unique constraint')) {
+                return { message: 'Added to wishlist', added: true, productId };
+            }
+            throw error;
+        }
         await redis.zincrby(categoryAffinityKey(userId), 1, product.categoryId);
         wishlistAddTotal.inc();
         wishlistLogger.info({ userId, productId, categoryId: product.categoryId }, 'wishlist_item_added');
@@ -186,12 +203,19 @@ export class WishlistService {
         });
 
         if (!existing) {
-            await prisma.wishlistItem.create({
-                data: { wishlistId: wishlist.id, productId },
-            });
-            await redis.zincrby(categoryAffinityKey(userId), 1, product.categoryId);
-            wishlistAddTotal.inc();
-            wishlistLogger.info({ userId, productId, categoryId: product.categoryId }, 'wishlist_item_added');
+            try {
+                await prisma.wishlistItem.create({
+                    data: { wishlistId: wishlist.id, productId },
+                });
+                await redis.zincrby(categoryAffinityKey(userId), 1, product.categoryId);
+                wishlistAddTotal.inc();
+                wishlistLogger.info({ userId, productId, categoryId: product.categoryId }, 'wishlist_item_added');
+            } catch (error: any) {
+                // P2002 race: concurrent add — item already exists, treat as idempotent success
+                if (!(error?.code === 'P2002' || String(error?.message ?? '').includes('Unique constraint'))) {
+                    throw error;
+                }
+            }
         }
 
         return { message: 'Added to wishlist', added: true, productId };

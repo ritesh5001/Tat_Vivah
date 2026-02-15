@@ -101,7 +101,17 @@ export class RefundService {
         const orderTotalPaise = Math.round(order.totalAmount * 100);
 
         // ── 3. Transaction: over-refund guard + create PENDING ──────
+        //    Use SELECT ... FOR UPDATE on the order row to serialize
+        //    concurrent refund attempts and prevent over-refund races.
         const refund = await prisma.$transaction(async (tx) => {
+            // Lock the order row to serialize concurrent refund attempts.
+            // Without this, two concurrent requests under READ COMMITTED could
+            // both pass the aggregate check and both create PENDING rows.
+            await tx.$queryRawUnsafe(
+                `SELECT id FROM "orders" WHERE id = $1 FOR UPDATE`,
+                orderId,
+            );
+
             // Sum of all non-FAILED refunds for this order
             const aggregate = await tx.refund.aggregate({
                 where: {

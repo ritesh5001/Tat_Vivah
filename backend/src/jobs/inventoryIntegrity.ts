@@ -35,6 +35,7 @@ export interface IntegrityMismatch {
     currentStock: number;
     totalReserved: number;
     totalReleased: number;
+    totalDeducted: number;
     netReserved: number;
     severity: 'CRITICAL' | 'WARNING' | 'INFO';
     reason: string;
@@ -51,7 +52,7 @@ export async function runInventoryIntegrityCheck(): Promise<IntegrityReport> {
     const checkedAt = new Date();
     const mismatches: IntegrityMismatch[] = [];
 
-    // 1. Aggregate RESERVE and RELEASE quantities per variant
+    // 1. Aggregate RESERVE, RELEASE, and DEDUCT quantities per variant
     const reserveAgg = await prisma.inventoryMovement.groupBy({
         by: ['variantId'],
         where: { type: 'RESERVE' },
@@ -61,6 +62,12 @@ export async function runInventoryIntegrityCheck(): Promise<IntegrityReport> {
     const releaseAgg = await prisma.inventoryMovement.groupBy({
         by: ['variantId'],
         where: { type: 'RELEASE' },
+        _sum: { quantity: true },
+    });
+
+    const deductAgg = await prisma.inventoryMovement.groupBy({
+        by: ['variantId'],
+        where: { type: 'DEDUCT' },
         _sum: { quantity: true },
     });
 
@@ -75,8 +82,13 @@ export async function runInventoryIntegrityCheck(): Promise<IntegrityReport> {
         releaseMap.set(r.variantId, r._sum.quantity ?? 0);
     }
 
+    const deductMap = new Map<string, number>();
+    for (const r of deductAgg) {
+        deductMap.set(r.variantId, r._sum.quantity ?? 0);
+    }
+
     // 2. Get all variant IDs that have any movements
-    const allVariantIds = new Set([...reserveMap.keys(), ...releaseMap.keys()]);
+    const allVariantIds = new Set([...reserveMap.keys(), ...releaseMap.keys(), ...deductMap.keys()]);
 
     // 3. Fetch current stock for those variants
     const inventories = await prisma.inventory.findMany({
@@ -93,7 +105,8 @@ export async function runInventoryIntegrityCheck(): Promise<IntegrityReport> {
         const currentStock = stockMap.get(variantId) ?? 0;
         const totalReserved = reserveMap.get(variantId) ?? 0;
         const totalReleased = releaseMap.get(variantId) ?? 0;
-        const netReserved = totalReserved - totalReleased;
+        const totalDeducted = deductMap.get(variantId) ?? 0;
+        const netReserved = totalReserved - totalReleased - totalDeducted;
 
         // CRITICAL: stock went negative (should never happen with atomic guards)
         if (currentStock < 0) {
@@ -102,6 +115,7 @@ export async function runInventoryIntegrityCheck(): Promise<IntegrityReport> {
                 currentStock,
                 totalReserved,
                 totalReleased,
+                totalDeducted,
                 netReserved,
                 severity: 'CRITICAL',
                 reason: `Negative stock detected (${currentStock}). Possible race condition or manual override.`,
@@ -109,16 +123,17 @@ export async function runInventoryIntegrityCheck(): Promise<IntegrityReport> {
             continue;
         }
 
-        // WARNING: more released than reserved (over-release)
+        // WARNING: more released/deducted than reserved (over-release)
         if (netReserved < 0) {
             mismatches.push({
                 variantId,
                 currentStock,
                 totalReserved,
                 totalReleased,
+                totalDeducted,
                 netReserved,
                 severity: 'WARNING',
-                reason: `Over-release detected: released ${totalReleased} > reserved ${totalReserved}.`,
+                reason: `Over-release detected: released ${totalReleased} + deducted ${totalDeducted} > reserved ${totalReserved}.`,
             });
             continue;
         }
@@ -130,9 +145,10 @@ export async function runInventoryIntegrityCheck(): Promise<IntegrityReport> {
                 currentStock: 0,
                 totalReserved,
                 totalReleased,
+                totalDeducted,
                 netReserved,
                 severity: 'WARNING',
-                reason: `No inventory row found for variant with ${totalReserved} RESERVE and ${totalReleased} RELEASE movements.`,
+                reason: `No inventory row found for variant with ${totalReserved} RESERVE, ${totalReleased} RELEASE, and ${totalDeducted} DEDUCT movements.`,
             });
         }
     }
@@ -161,6 +177,7 @@ export async function runInventoryIntegrityCheck(): Promise<IntegrityReport> {
                 currentStock: m.currentStock,
                 totalReserved: m.totalReserved,
                 totalReleased: m.totalReleased,
+                totalDeducted: m.totalDeducted,
                 netReserved: m.netReserved,
                 reason: m.reason,
             }, `Integrity mismatch [${m.severity}] variant=${m.variantId}: ${m.reason}`);
@@ -181,7 +198,7 @@ if (process.argv[1]?.includes('inventoryIntegrity')) {
             }
         })
         .catch((err) => {
-            console.error('[InventoryIntegrity] Fatal error:', err);
+            integrityLogger.fatal({ error: err instanceof Error ? err.message : String(err) }, 'Inventory integrity check fatal error');
             process.exitCode = 2;
         })
         .finally(() => prisma.$disconnect());

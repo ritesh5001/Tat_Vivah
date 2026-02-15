@@ -82,6 +82,12 @@ export class CancellationService {
             include: {
                 order: { select: { id: true, userId: true, status: true } },
             },
+        }).catch((error: any) => {
+            // Handle race: concurrent duplicate cancellation requests
+            if (error?.code === 'P2002' || String(error?.message ?? '').includes('Unique constraint')) {
+                throw ApiError.conflict('Cancellation request already exists for this order');
+            }
+            throw error;
         });
 
         await notificationService.notifyAdmin(
@@ -325,6 +331,7 @@ export class CancellationService {
                             orderId: lockedOrder.id,
                             quantity: item.quantity,
                             type: 'RELEASE',
+                            reason: 'CANCELLATION',
                         },
                     ],
                     skipDuplicates: true,
