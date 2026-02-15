@@ -145,6 +145,98 @@ export interface AdminSettlement {
  */
 export class AdminRepository {
     // =========================================================================
+    // DASHBOARD STATS (lightweight counts)
+    // =========================================================================
+
+    /**
+     * Get aggregate counts for admin dashboard — uses COUNT instead of fetching all rows.
+     */
+    async getStats(): Promise<{
+        sellers: number;
+        products: number;
+        orders: number;
+        payments: number;
+    }> {
+        const [sellers, products, orders, payments] = await Promise.all([
+            prisma.user.count({ where: { role: 'SELLER' } }),
+            prisma.product.count(),
+            prisma.order.count(),
+            prisma.payment.count(),
+        ]);
+        return { sellers, products, orders, payments };
+    }
+
+    /**
+     * Get recent sellers (last 5)
+     */
+    async findRecentSellers(limit = 5): Promise<AdminSeller[]> {
+        return prisma.user.findMany({
+            where: { role: 'SELLER' },
+            select: {
+                id: true,
+                email: true,
+                phone: true,
+                role: true,
+                status: true,
+                createdAt: true,
+            },
+            orderBy: { createdAt: 'desc' },
+            take: limit,
+        });
+    }
+
+    /**
+     * Get recent products (last 5)
+     */
+    async findRecentProducts(limit = 5): Promise<AdminProduct[]> {
+        const products = await prisma.product.findMany({
+            include: {
+                seller: {
+                    select: {
+                        email: true,
+                        phone: true,
+                        seller_profiles: { select: { store_name: true } },
+                    },
+                },
+                category: { select: { name: true } },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: limit,
+        });
+        return products.map((product) => ({
+            id: product.id,
+            title: product.title,
+            description: product.description,
+            images: product.images,
+            sellerId: product.sellerId,
+            sellerName: product.seller?.seller_profiles?.store_name ?? null,
+            sellerPhone: product.seller?.phone ?? null,
+            sellerEmail: product.seller?.email ?? null,
+            categoryId: product.categoryId,
+            categoryName: product.category?.name ?? null,
+            sellerPrice: Number(product.sellerPrice),
+            adminListingPrice: product.adminListingPrice == null ? null : Number(product.adminListingPrice),
+            priceApprovedAt: product.priceApprovedAt,
+            priceApprovedById: product.priceApprovedById,
+            status: product.status,
+            rejectionReason: product.rejectionReason,
+            approvedAt: product.approvedAt,
+            approvedById: product.approvedById,
+            isPublished: product.isPublished,
+            deletedByAdmin: product.deletedByAdmin,
+            deletedByAdminAt: product.deletedByAdminAt,
+            deletedByAdminReason: product.deletedByAdminReason,
+            createdAt: product.createdAt,
+            moderation: {
+                status: product.status,
+                reason: product.rejectionReason,
+                reviewedBy: product.approvedById,
+                reviewedAt: product.approvedAt,
+            },
+        }));
+    }
+
+    // =========================================================================
     // SELLER MANAGEMENT
     // =========================================================================
 

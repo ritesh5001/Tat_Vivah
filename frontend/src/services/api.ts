@@ -8,12 +8,42 @@ import { signOut } from "@/services/auth";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
+// ── Counter-based loading spinner ────────────────────────────────────
+// When Promise.all fires N requests, the old approach dispatched N start/end
+// events causing the spinner to flicker.  A simple in-flight counter fixes this.
+let _inflight = 0;
+
+function loadingStart() {
+  if (typeof window === "undefined") return;
+  _inflight++;
+  if (_inflight === 1) {
+    window.dispatchEvent(new Event("tv-global-loading-start"));
+  }
+}
+
+function loadingEnd() {
+  if (typeof window === "undefined") return;
+  _inflight = Math.max(0, _inflight - 1);
+  if (_inflight === 0) {
+    window.dispatchEvent(new Event("tv-global-loading-end"));
+  }
+}
+
+// ── Auth token (cached per tick to avoid repeated regex parsing) ──────
+let _cachedToken: string | null = null;
+let _tokenTick = 0;
+
 function getAuthToken(): string | null {
   if (typeof document === "undefined") {
     return null;
   }
+  const now = Date.now();
+  // Re-parse at most once every 500ms
+  if (_cachedToken !== null && now - _tokenTick < 500) return _cachedToken;
   const match = document.cookie.match(/(?:^|; )tatvivah_access=([^;]*)/);
-  return match ? decodeURIComponent(match[1]) : null;
+  _cachedToken = match ? decodeURIComponent(match[1]) : null;
+  _tokenTick = now;
+  return _cachedToken;
 }
 
 function getErrorMessage(data: any, fallback: string) {
@@ -56,8 +86,8 @@ export async function apiRequest<T>(
     ...(headers ?? {}),
   };
 
-  if (showLoader && typeof window !== "undefined") {
-    window.dispatchEvent(new Event("tv-global-loading-start"));
+  if (showLoader) {
+    loadingStart();
   }
 
   try {
@@ -73,6 +103,7 @@ export async function apiRequest<T>(
       // Only clear auth cookies when the backend explicitly says the token is invalid/expired.
       // Do NOT clear on generic 401/403 (e.g. "User not found", "Insufficient permissions").
       if ((response.status === 401 || response.status === 403) && isTokenError(data)) {
+        _cachedToken = null; // bust cached token
         clearAuthCookies();
       }
       throw new Error(getErrorMessage(data, "Request failed"));
@@ -80,8 +111,8 @@ export async function apiRequest<T>(
 
     return data as T;
   } finally {
-    if (showLoader && typeof window !== "undefined") {
-      window.dispatchEvent(new Event("tv-global-loading-end"));
+    if (showLoader) {
+      loadingEnd();
     }
   }
 }

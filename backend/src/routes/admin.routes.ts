@@ -15,6 +15,20 @@ export const adminRouter = Router();
 adminRouter.use(authenticate);
 
 // ============================================================================
+// DASHBOARD STATS (lightweight counts)
+// ============================================================================
+
+/**
+ * GET /v1/admin/stats
+ * Lightweight dashboard counts + recent items
+ */
+adminRouter.get(
+    '/stats',
+    authorize('ADMIN', 'SUPER_ADMIN'),
+    adminController.getStats
+);
+
+// ============================================================================
 // SELLER MANAGEMENT (ADMIN + SUPER_ADMIN)
 // ============================================================================
 

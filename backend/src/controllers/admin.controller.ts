@@ -28,6 +28,27 @@ import type { RefundStatus, SettlementStatus } from '@prisma/client';
  */
 export const adminController = {
     // =========================================================================
+    // DASHBOARD STATS
+    // =========================================================================
+
+    /**
+     * GET /v1/admin/stats
+     * Lightweight counts + recent items for admin dashboard
+     */
+    getStats: async (
+        _req: Request,
+        res: Response,
+        next: NextFunction
+    ): Promise<void> => {
+        try {
+            const result = await adminService.getStats();
+            res.json(result);
+        } catch (error) {
+            next(error);
+        }
+    },
+
+    // =========================================================================
     // SELLER MANAGEMENT
     // =========================================================================
 

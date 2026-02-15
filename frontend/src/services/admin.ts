@@ -159,6 +159,21 @@ export async function getSellers(token?: string | null) {
   });
 }
 
+/**
+ * Lightweight admin dashboard stats — uses COUNT queries on the backend
+ * instead of downloading all records just to get `.length`.
+ */
+export async function getAdminStats(token?: string | null) {
+  return apiRequest<{
+    stats: { sellers: number; products: number; orders: number; payments: number };
+    recentSellers: AdminSeller[];
+    recentProducts: AdminProduct[];
+  }>("/v1/admin/stats", {
+    method: "GET",
+    token,
+  });
+}
+
 export async function approveSeller(id: string, token?: string | null) {
   return apiRequest<{ message: string }>(`/v1/admin/sellers/${id}/approve`, {
     method: 'PUT',

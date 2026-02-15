@@ -57,9 +57,11 @@ export class AuthService {
         const refreshTokenExpiryMs = ms(env.REFRESH_TOKEN_EXPIRY as StringValue);
         const expiresAt = new Date(Date.now() + refreshTokenExpiryMs);
 
+        // Generate a temporary session ID to embed in the refresh token
+        // We create session with a placeholder, then update in one step
         const session = await this.repository.createSession({
             userId: user.id,
-            refreshToken: '',
+            refreshToken: '', // placeholder
             userAgent: userAgent ?? undefined,
             ipAddress: ipAddress ?? undefined,
             expiresAt,
@@ -72,6 +74,7 @@ export class AuthService {
             isPhoneVerified: user.isPhoneVerified,
         });
 
+        // Hash and update the session in one call
         const hashedRefreshToken = await hashToken(refreshToken);
         await this.repository.updateSessionRefreshToken(session.id, hashedRefreshToken);
 
@@ -370,46 +373,41 @@ export class AuthService {
         const decoded = verifyRefreshToken(refreshToken);
         const { userId, sessionId } = decoded;
 
-        // 2. Get all sessions for this user
-        const sessions = await this.repository.findSessionsByUserId(userId);
-
-        // 3. Find matching session by comparing refresh token hash
-        let matchingSession: { id: string; refreshToken: string; expiresAt: Date } | undefined;
-        for (const session of sessions) {
-            const isMatch = await compareToken(refreshToken, session.refreshToken);
-            if (isMatch) {
-                matchingSession = session;
-                break;
-            }
+        // 2. Look up the specific session by ID (O(1) instead of O(N) bcrypt loop)
+        const session = await this.repository.findSessionByIdAndUser(sessionId, userId);
+        if (!session) {
+            // No session found — potential token reuse attack
+            await this.repository.deleteAllUserSessions(userId);
+            throw ApiError.unauthorized('Invalid refresh token');
         }
 
-        // 4. If no matching session found, potential token reuse attack
-        if (!matchingSession) {
-            // Invalidate ALL sessions for this user (security measure)
+        // 3. Compare refresh token hash (single bcrypt call instead of N)
+        const isMatch = await compareToken(refreshToken, session.refreshToken);
+        if (!isMatch) {
             await this.repository.deleteAllUserSessions(userId);
             throw ApiError.unauthorized('Invalid refresh token');
         }
 
         // Check session expiry
-        if (matchingSession.expiresAt < new Date()) {
-            await this.repository.deleteSession(matchingSession.id);
+        if (session.expiresAt < new Date()) {
+            await this.repository.deleteSession(session.id);
             throw ApiError.unauthorized('Refresh token has expired');
         }
 
-        // 5. Get user data for new access token
+        // 4. Get user data for new access token
         const user = await this.repository.findUserById(userId);
         if (!user) {
-            await this.repository.deleteSession(matchingSession.id);
+            await this.repository.deleteSession(session.id);
             throw ApiError.unauthorized('User not found');
         }
 
         // Check user status
         if (user.status !== 'ACTIVE') {
-            await this.repository.deleteSession(matchingSession.id);
+            await this.repository.deleteSession(session.id);
             throw ApiError.forbidden('Account not active');
         }
 
-        // 6. Generate new tokens
+        // 5. Generate new tokens
         const newAccessToken = generateAccessToken({
             userId: user.id,
             email: user.email,
@@ -427,11 +425,11 @@ export class AuthService {
             isPhoneVerified: user.isPhoneVerified,
         });
 
-        // 7. Hash new refresh token and update session
+        // 6. Hash new refresh token and update session
         const hashedNewRefreshToken = await hashToken(newRefreshToken);
-        await this.repository.updateSessionRefreshToken(matchingSession.id, hashedNewRefreshToken);
+        await this.repository.updateSessionRefreshToken(session.id, hashedNewRefreshToken);
 
-        // 8. Return new tokens
+        // 7. Return new tokens
         return {
             accessToken: newAccessToken,
             refreshToken: newRefreshToken,
@@ -449,14 +447,14 @@ export class AuthService {
      */
     async logout(userId: string, refreshToken?: string): Promise<MessageResponse> {
         if (refreshToken) {
-            // Find and delete matching session by comparing token hash
-            const sessions = await this.repository.findSessionsByUserId(userId);
-            for (const session of sessions) {
-                const isMatch = await compareToken(refreshToken, session.refreshToken);
-                if (isMatch) {
-                    await this.repository.deleteSession(session.id);
-                    break;
+            // Decode the JWT to get the sessionId, then delete that single session (O(1))
+            try {
+                const decoded = verifyRefreshToken(refreshToken);
+                if (decoded.sessionId) {
+                    await this.repository.deleteUserSession(userId, decoded.sessionId);
                 }
+            } catch {
+                // Token may be expired/invalid; that's fine for logout — it's idempotent
             }
         }
         // Idempotent - always return success
