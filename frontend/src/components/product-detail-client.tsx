@@ -91,8 +91,10 @@ export default function ProductDetailClient({
     (variant) => variant.id === selectedVariantId
   );
   const salePrice = product.salePrice ?? product.adminPrice ?? product.price;
-  const regularPrice =
-    product.regularPrice ?? product.sellerPrice ?? selectedVariant?.compareAtPrice ?? null;
+  // Compare-at should come from merchandising fields (variant compareAtPrice / product regularPrice),
+  // not from sellerPrice (which is a cost/baseline and breaks strike-through after admin repricing).
+  const compareAtPrice =
+    selectedVariant?.compareAtPrice ?? product.regularPrice ?? null;
 
   const handleAddToCart = async () => {
     if (!selectedVariant) {
@@ -176,11 +178,11 @@ export default function ProductDetailClient({
             <p className="font-serif text-2xl font-light text-foreground sm:text-3xl">
               {typeof salePrice === "number" ? currency.format(salePrice) : "—"}
             </p>
-            {typeof regularPrice === "number" &&
+            {typeof compareAtPrice === "number" &&
             typeof salePrice === "number" &&
-            regularPrice !== salePrice ? (
+            compareAtPrice > salePrice ? (
               <span className="text-sm text-muted-foreground line-through">
-                {currency.format(regularPrice)}
+                {currency.format(compareAtPrice)}
               </span>
             ) : null}
           </div>
