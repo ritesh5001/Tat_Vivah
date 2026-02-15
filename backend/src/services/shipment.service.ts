@@ -5,7 +5,7 @@
 
 import { shipmentRepository } from '../repositories/shipment.repository.js';
 import { prisma } from '../config/db.js';
-import { notificationService } from '../notifications/notification.service.js';
+import { emitShipmentShipped, emitShipmentDelivered } from '../events/order.events.js';
 import {
     CreateShipmentInput,
     TrackingResponse,
@@ -109,23 +109,15 @@ export class ShipmentService {
         // Check if Order status needs update
         await this.checkAndSyncOrderStatus(shipment.order_id);
 
-        // Notify Buyer
-        const order = await prisma.order.findUnique({
-            where: { id: shipment.order_id },
-            select: { userId: true }
-        });
-
-        if (order) {
-            if (status === 'SHIPPED') {
-                await notificationService.notifyOrderShipped(
-                    order.userId,
-                    shipment.order_id,
-                    shipment.carrier,
-                    shipment.tracking_number
-                );
-            } else if (status === 'DELIVERED') {
-                await notificationService.notifyOrderDelivered(order.userId, shipment.order_id);
-            }
+        // Notify Buyer (event-driven, idempotent, best-effort)
+        if (status === 'SHIPPED') {
+            await emitShipmentShipped(
+                shipment.order_id,
+                shipment.carrier,
+                shipment.tracking_number
+            );
+        } else if (status === 'DELIVERED') {
+            await emitShipmentDelivered(shipment.order_id);
         }
 
         return this.mapToDTO(updated);

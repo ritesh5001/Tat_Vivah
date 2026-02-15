@@ -52,6 +52,8 @@ function routeForNotification(data: NotificationData): string | null {
     case "ORDER_PLACED":
     case "ORDER_SHIPPED":
     case "ORDER_DELIVERED":
+    case "PAYMENT_SUCCESS":
+    case "PAYMENT_FAILED":
       return data.orderId ? `/orders/${data.orderId}` : null;
     default:
       return null;

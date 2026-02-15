@@ -1,0 +1,35 @@
+import pino from 'pino';
+import { env } from './env.js';
+
+/**
+ * Structured logger (pino)
+ *
+ * In production  → JSON output (machine-parsable, compatible with ELK / Datadog / CloudWatch).
+ * In development → pretty-printed for human readability.
+ *
+ * Every domain-specific log event includes:
+ *   orderId, userId, variantId, qty, timestamp (automatic via pino).
+ */
+export const logger = pino({
+    level: env.NODE_ENV === 'production' ? 'info' : 'debug',
+    ...(env.NODE_ENV !== 'production' && {
+        transport: {
+            target: 'pino/file',
+            options: { destination: 1 }, // stdout
+        },
+    }),
+    formatters: {
+        level(label) {
+            return { level: label };
+        },
+    },
+    base: { service: 'tatvivah-api' },
+    timestamp: pino.stdTimeFunctions.isoTime,
+});
+
+// ─── Domain-specific child loggers ──────────────────────────────────
+
+export const checkoutLogger = logger.child({ module: 'checkout' });
+export const inventoryLogger = logger.child({ module: 'inventory' });
+export const paymentLogger = logger.child({ module: 'payment' });
+export const integrityLogger = logger.child({ module: 'integrity' });

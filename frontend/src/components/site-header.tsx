@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { AnnouncementBar } from "@/components/announcement-bar";
+import { getUnreadCount } from "@/services/notifications";
 
 const buyerLinks = [
   { href: "/marketplace", label: "Shop" },
@@ -100,6 +101,29 @@ export function SiteHeader() {
   const displayName = user?.email ?? user?.phone ?? "Account";
   const initial = displayName?.charAt(0)?.toUpperCase() ?? "A";
   const role = user?.role?.toUpperCase();
+
+  // Notification badge count
+  const [unreadCount, setUnreadCount] = React.useState(0);
+  React.useEffect(() => {
+    if (!user) {
+      setUnreadCount(0);
+      return;
+    }
+    let cancelled = false;
+    getUnreadCount().then((count) => {
+      if (!cancelled) setUnreadCount(count);
+    });
+    // Refresh every 60s while mounted
+    const interval = setInterval(() => {
+      getUnreadCount().then((count) => {
+        if (!cancelled) setUnreadCount(count);
+      });
+    }, 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [user]);
   const profileLink = React.useMemo(() => {
     if (role === "SELLER") {
       return "/seller/profile";
@@ -161,6 +185,34 @@ export function SiteHeader() {
         {/* Right Side */}
         <div className="flex items-center gap-4">
           <ThemeToggle className="hidden sm:inline-flex" />
+
+          {/* Notification Bell (visible when logged in) */}
+          {user && (
+            <Link
+              href="/user/notifications"
+              className="relative hidden h-9 w-9 items-center justify-center border border-border-soft bg-card text-foreground transition-colors duration-300 hover:bg-cream dark:hover:bg-brown/50 sm:inline-flex"
+              aria-label="Notifications"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.5}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-4 w-4"
+              >
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+              </svg>
+              {unreadCount > 0 && (
+                <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-gold px-1 text-[10px] font-semibold text-charcoal leading-none">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              )}
+            </Link>
+          )}
 
           {/* Mobile Menu Toggle */}
           <button

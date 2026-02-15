@@ -3,9 +3,14 @@ import { env } from './config/env.js';
 import { prisma, disconnectDatabase } from './config/db.js';
 import { closeQueueResources } from './notifications/notification.queue.js';
 import { paymentService } from './services/payment.service.js';
+import { logger } from './config/logger.js';
+import { runInventoryIntegrityCheck } from './jobs/inventoryIntegrity.js';
 
 /** How often to run the stale-order cleanup (10 minutes). */
 const STALE_ORDER_INTERVAL_MS = 10 * 60 * 1000;
+
+/** How often to run the inventory integrity check (10 minutes). */
+const INTEGRITY_CHECK_INTERVAL_MS = 10 * 60 * 1000;
 
 /**
  * Start the server
@@ -14,49 +19,68 @@ async function bootstrap(): Promise<void> {
     try {
         // Verify database connection
         await prisma.$connect();
-        console.log('✅ Database connected successfully');
+        logger.info('Database connected successfully');
 
         // Create Express app
         const app = createApp();
 
         // Start server
         const server = app.listen(env.PORT,"0.0.0.0", () => {
-            console.log(`🚀 Server running on port ${env.PORT}`);
-            console.log(`📝 Environment: ${env.NODE_ENV}`);
+            logger.info({ port: env.PORT, env: env.NODE_ENV }, `Server running on port ${env.PORT}`);
         });
 
         // ---- Stale-order cleanup (runs every 10 min) ----
         const staleOrderTimer = setInterval(async () => {
             try {
                 const result = await paymentService.cancelStaleOrders();
+                (app as any).__setLastStaleCleanup(new Date());
                 if (result.cancelled > 0) {
-                    console.log(`[StaleOrders] Cancelled ${result.cancelled}/${result.total} stale orders`);
+                    logger.info({ cancelled: result.cancelled, total: result.total }, 'Stale order cleanup completed');
                 }
             } catch (err) {
-                console.error('[StaleOrders] Cleanup error:', err);
+                logger.error({ err }, 'Stale order cleanup error');
             }
         }, STALE_ORDER_INTERVAL_MS);
 
-        // Run once on startup (after a short delay to let connections settle)
+        // ---- Inventory integrity check (runs every 10 min) ----
+        const integrityTimer = setInterval(async () => {
+            try {
+                const report = await runInventoryIntegrityCheck();
+                (app as any).__setIntegrityReport(report);
+            } catch (err) {
+                logger.error({ err }, 'Inventory integrity check error');
+            }
+        }, INTEGRITY_CHECK_INTERVAL_MS);
+
+        // Run both once on startup (after a short delay to let connections settle)
         setTimeout(async () => {
             try {
                 const result = await paymentService.cancelStaleOrders();
+                (app as any).__setLastStaleCleanup(new Date());
                 if (result.cancelled > 0) {
-                    console.log(`[StaleOrders] Initial cleanup: cancelled ${result.cancelled} stale orders`);
+                    logger.info({ cancelled: result.cancelled }, 'Initial stale order cleanup completed');
                 }
             } catch (err) {
-                console.error('[StaleOrders] Initial cleanup error:', err);
+                logger.error({ err }, 'Initial stale order cleanup error');
+            }
+
+            try {
+                const report = await runInventoryIntegrityCheck();
+                (app as any).__setIntegrityReport(report);
+            } catch (err) {
+                logger.error({ err }, 'Initial integrity check error');
             }
         }, 5000);
 
         // Graceful shutdown handlers
         const shutdown = async (signal: string): Promise<void> => {
-            console.log(`\n${signal} received. Shutting down gracefully...`);
+            logger.info({ signal }, 'Shutting down gracefully...');
 
             clearInterval(staleOrderTimer);
+            clearInterval(integrityTimer);
 
             server.close(async () => {
-                console.log('🔒 HTTP server closed');
+                logger.info('HTTP server closed');
                 await closeQueueResources();
                 await disconnectDatabase();
                 process.exit(0);
@@ -64,7 +88,7 @@ async function bootstrap(): Promise<void> {
 
             // Force close after 10 seconds
             setTimeout(() => {
-                console.error('⚠️ Forced shutdown after timeout');
+                logger.error('Forced shutdown after timeout');
                 process.exit(1);
             }, 10000);
         };
@@ -73,7 +97,7 @@ async function bootstrap(): Promise<void> {
         process.on('SIGINT', () => shutdown('SIGINT'));
 
     } catch (error) {
-        console.error('❌ Failed to start server:', error);
+        logger.fatal({ err: error }, 'Failed to start server');
         await closeQueueResources();
         await disconnectDatabase();
         process.exit(1);

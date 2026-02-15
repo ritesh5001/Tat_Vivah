@@ -4,26 +4,41 @@ import {
     invalidateCache,
     CACHE_KEYS,
 } from '../utils/cache.util.js';
-import { notificationService } from '../notifications/notification.service.js';
+import { emitOrderPlaced } from '../events/order.events.js';
 import { ApiError } from '../errors/ApiError.js';
 import type { CheckoutResponse } from '../types/order.types.js';
+import { checkoutLogger, inventoryLogger } from '../config/logger.js';
+import {
+    inventoryReserveAttemptTotal,
+    checkoutSuccessTotal,
+    checkoutFailTotal,
+} from '../config/metrics.js';
+import { recordReserveAttempt, recordReserveFailure } from '../monitoring/alerts.js';
 
 /**
  * Checkout Service
- * Handles the checkout process with inventory management
- * 
- * Note: Uses sequential operations instead of interactive transactions
- * due to Neon connection pooler limitations with Prisma transactions.
+ * Handles the checkout process with atomic inventory reservation.
+ *
+ * Concurrency strategy:
+ *   1. Validate cart items and pricing outside the transaction (read-only).
+ *   2. Inside a serialised $transaction:
+ *      a. Atomically decrement stock using `updateMany WHERE stock >= qty`.
+ *         If ANY row returns count=0 → rollback entire transaction (no partial reservation).
+ *      b. Create order + items in the same tx.
+ *      c. Create RESERVE movements for audit trail.
+ *      d. Clear cart.
+ *   3. Cache invalidation + notifications happen outside the tx (best-effort).
+ *
+ * This guarantees:
+ *   - Two users cannot buy the last unit simultaneously.
+ *   - Stock can never go negative at the database level.
+ *   - No partial reservations — all-or-nothing.
  */
 export class CheckoutService {
     constructor(private readonly cartRepo: CartRepository) { }
 
     /**
-     * Process checkout
-     * 1. Validate inventory for all items
-     * 2. Create order with items
-     * 3. Deduct stock and create movements
-     * 4. Clear cart
+     * Process checkout — atomic, concurrency-safe
      */
     async checkout(
         userId: string,
@@ -37,13 +52,15 @@ export class CheckoutService {
             shippingNotes?: string;
         }
     ): Promise<CheckoutResponse> {
-        // 1. Get cart with all items and details
+        // =====================================================================
+        // PHASE 1 — Read-only validation (outside transaction)
+        // =====================================================================
+
         const cart = await this.cartRepo.getCartWithDetails(userId);
         if (!cart || cart.items.length === 0) {
             throw ApiError.badRequest('Cart is empty');
         }
 
-        // 2. Validate all items have sufficient stock
         const validationErrors: string[] = [];
         const itemsWithStock: Array<{
             variantId: string;
@@ -54,7 +71,6 @@ export class CheckoutService {
             sellerPriceSnapshot: number;
             adminPriceSnapshot: number;
             platformMargin: number;
-            availableStock: number;
         }> = [];
 
         for (const item of cart.items) {
@@ -96,7 +112,6 @@ export class CheckoutService {
                     sellerPriceSnapshot: sellerPrice,
                     adminPriceSnapshot: adminListingPrice,
                     platformMargin: margin,
-                    availableStock,
                 });
             }
         }
@@ -105,7 +120,7 @@ export class CheckoutService {
             throw ApiError.badRequest(validationErrors.join('; '));
         }
 
-        // 3. Calculate total amount
+        // Calculate total
         const subtotal = itemsWithStock.reduce(
             (sum, item) => sum + item.priceSnapshot * item.quantity,
             0
@@ -113,84 +128,130 @@ export class CheckoutService {
         const shippingFee = itemsWithStock.length > 0 ? 180 : 0;
         const totalAmount = subtotal + shippingFee;
 
-        // 4. Create order with items (single create with nested writes)
-        const order = await prisma.order.create({
-            data: {
-                userId,
-                totalAmount,
-                shippingName: shipping?.shippingName ?? null,
-                shippingPhone: shipping?.shippingPhone ?? null,
-                shippingEmail: shipping?.shippingEmail ?? null,
-                shippingAddressLine1: shipping?.shippingAddressLine1 ?? null,
-                shippingAddressLine2: shipping?.shippingAddressLine2 ?? null,
-                shippingCity: shipping?.shippingCity ?? null,
-                shippingNotes: shipping?.shippingNotes ?? null,
-                status: 'PLACED',
-                items: {
-                    create: itemsWithStock.map((item) => ({
-                        sellerId: item.sellerId,
-                        productId: item.productId,
+        // =====================================================================
+        // PHASE 2 — Atomic transaction: reserve stock + create order + clear cart
+        // =====================================================================
+
+        checkoutLogger.info({ event: 'checkout_attempt', userId, itemCount: itemsWithStock.length }, 'Checkout attempt started');
+
+        const order = await prisma.$transaction(async (tx) => {
+            // 2a. Atomic stock reservation — decrement only if sufficient stock
+            //     Uses updateMany with WHERE stock >= qty. If count === 0 the
+            //     variant ran out of stock between validation and this point.
+            //     We fail the ENTIRE checkout on the first insufficient item
+            //     (all-or-nothing — no partial reservations).
+            for (const item of itemsWithStock) {
+                recordReserveAttempt();
+                inventoryReserveAttemptTotal.inc({ variantId: item.variantId });
+
+                const result = await tx.inventory.updateMany({
+                    where: {
                         variantId: item.variantId,
-                        quantity: item.quantity,
-                        priceSnapshot: item.priceSnapshot,
-                        sellerPriceSnapshot: item.sellerPriceSnapshot,
-                        adminPriceSnapshot: item.adminPriceSnapshot,
-                        platformMargin: item.platformMargin,
-                    })),
-                },
-            },
-            include: { items: true },
-        });
+                        stock: { gte: item.quantity },
+                    },
+                    data: {
+                        stock: { decrement: item.quantity },
+                    },
+                });
 
-        // 5. Deduct inventory and create RESERVE movements for each item
-        for (const item of itemsWithStock) {
-            // Deduct stock
-            await prisma.inventory.update({
-                where: { variantId: item.variantId },
-                data: { stock: { decrement: item.quantity } },
-            });
+                if (result.count === 0) {
+                    // Another checkout claimed this stock — throw to rollback tx
+                    recordReserveFailure(item.variantId);
+                    checkoutFailTotal.inc({ reason: 'out_of_stock' });
+                    inventoryLogger.warn({
+                        event: 'inventory_reserve_failed',
+                        userId,
+                        variantId: item.variantId,
+                        qty: item.quantity,
+                    }, `Reserve failed for variant ${item.variantId}`);
+                    throw new ApiError(
+                        409,
+                        `Insufficient stock for variant ${item.variantId}. Please refresh and try again.`
+                    );
+                }
 
-            // Create reserve movement
-            await prisma.inventoryMovement.create({
-                data: {
+                inventoryLogger.info({
+                    event: 'inventory_reserve_success',
+                    userId,
                     variantId: item.variantId,
-                    orderId: order.id,
-                    quantity: item.quantity,
-                    type: 'RESERVE',
-                },
-            });
-        }
+                    qty: item.quantity,
+                }, `Reserved ${item.quantity} units of variant ${item.variantId}`);
+            }
 
-        // 6. Clear cart
-        await prisma.cartItem.deleteMany({
-            where: { cartId: cart.id },
+            // 2b. Create order with items
+            const created = await tx.order.create({
+                data: {
+                    userId,
+                    totalAmount,
+                    shippingName: shipping?.shippingName ?? null,
+                    shippingPhone: shipping?.shippingPhone ?? null,
+                    shippingEmail: shipping?.shippingEmail ?? null,
+                    shippingAddressLine1: shipping?.shippingAddressLine1 ?? null,
+                    shippingAddressLine2: shipping?.shippingAddressLine2 ?? null,
+                    shippingCity: shipping?.shippingCity ?? null,
+                    shippingNotes: shipping?.shippingNotes ?? null,
+                    status: 'PLACED',
+                    items: {
+                        create: itemsWithStock.map((item) => ({
+                            sellerId: item.sellerId,
+                            productId: item.productId,
+                            variantId: item.variantId,
+                            quantity: item.quantity,
+                            priceSnapshot: item.priceSnapshot,
+                            sellerPriceSnapshot: item.sellerPriceSnapshot,
+                            adminPriceSnapshot: item.adminPriceSnapshot,
+                            platformMargin: item.platformMargin,
+                        })),
+                    },
+                },
+                include: { items: true },
+            });
+
+            // 2c. Create RESERVE inventory movements (audit trail)
+            for (const item of itemsWithStock) {
+                await tx.inventoryMovement.create({
+                    data: {
+                        variantId: item.variantId,
+                        orderId: created.id,
+                        quantity: item.quantity,
+                        type: 'RESERVE',
+                    },
+                });
+            }
+
+            // 2d. Clear cart
+            await tx.cartItem.deleteMany({
+                where: { cartId: cart.id },
+            });
+
+            return created;
         });
 
-        // 7. Invalidate caches
+        // =====================================================================
+        // PHASE 3 — Post-transaction side effects (best-effort)
+        // =====================================================================
+
+        // Invalidate caches
         await Promise.all([
             invalidateCache(CACHE_KEYS.CART(userId)),
             invalidateCache(CACHE_KEYS.BUYER_ORDERS(userId)),
-            // Also invalidate product caches since stock changed
             ...itemsWithStock.map((item) =>
                 invalidateCache(CACHE_KEYS.PRODUCT_DETAIL(item.productId))
             ),
             invalidateCache(CACHE_KEYS.PRODUCTS_LIST),
         ]);
 
-        // 8. Trigger Notifications
-        // Notify Buyer
-        await notificationService.notifyOrderPlaced(userId, order.id, totalAmount);
+        // Trigger Notifications (event-driven, idempotent, best-effort)
+        await emitOrderPlaced(order.id);
 
-        // Notify Sellers
-        const itemsBySeller = itemsWithStock.reduce((acc, item) => {
-            acc[item.sellerId] = (acc[item.sellerId] || 0) + 1; // Count unique items per seller
-            return acc;
-        }, {} as Record<string, number>);
-
-
-        for (const [sellerId, count] of Object.entries(itemsBySeller)) {
-            await notificationService.notifySellerNewOrder(sellerId, order.id, count);
-        }
+        checkoutSuccessTotal.inc();
+        checkoutLogger.info({
+            event: 'checkout_success',
+            userId,
+            orderId: order.id,
+            totalAmount,
+            itemCount: itemsWithStock.length,
+        }, `Checkout succeeded — order ${order.id}`);
 
         return {
             message: 'Order placed successfully',

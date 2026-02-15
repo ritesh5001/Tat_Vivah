@@ -1,6 +1,10 @@
 import express, { type Application } from 'express';
 import cors from 'cors';
 import { errorMiddleware } from './middlewares/error.middleware.js';
+import { register, httpRequestDuration } from './config/metrics.js';
+import { prisma } from './config/db.js';
+import { checkRedisConnection } from './config/redis.js';
+import type { IntegrityReport } from './jobs/inventoryIntegrity.js';
 import {
     authRouter,
     sellerRouter,
@@ -24,6 +28,7 @@ import {
     adminNotificationRouter,
     reviewRouter,
     addressRouter,
+    notificationRouter,
 } from './routes/index.js';
 import { apiReference } from "@scalar/express-api-reference";
 import { openApiSpec } from "./docs/openapi.js";
@@ -64,13 +69,82 @@ export function createApp(): Application {
     } as Parameters<typeof apiReference>[0]));
 
     // =========================================================================
-    // HEALTH CHECK
+    // OBSERVABILITY
     // =========================================================================
 
-    app.get('/health', (_req, res) => {
-        res.json({
-            status: 'ok',
-            timestamp: new Date().toISOString()
+    // Request duration tracking middleware
+    app.use((req, res, next) => {
+        const end = httpRequestDuration.startTimer();
+        res.on('finish', () => {
+            // Use route pattern if available, otherwise path
+            const route = (req.route?.path as string) ?? req.path;
+            end({ method: req.method, route, status: String(res.statusCode) });
+        });
+        next();
+    });
+
+    // Prometheus metrics endpoint
+    app.get('/metrics', async (_req, res) => {
+        try {
+            res.set('Content-Type', register.contentType);
+            res.end(await register.metrics());
+        } catch (err) {
+            res.status(500).end(String(err));
+        }
+    });
+
+    // ── Shared integrity state (refreshed by the server interval) ────
+    let lastIntegrityReport: IntegrityReport | null = null;
+    let lastStaleCleanupAt: Date | null = null;
+
+    /** Called by server.ts after each stale-order cleanup run. */
+    (app as any).__setLastStaleCleanup = (date: Date) => { lastStaleCleanupAt = date; };
+    /** Called by server.ts after each integrity check run. */
+    (app as any).__setIntegrityReport = (report: IntegrityReport) => { lastIntegrityReport = report; };
+
+    // Enhanced health endpoint
+    app.get('/health', async (_req, res) => {
+        const checks: Record<string, unknown> = {};
+
+        // DB connectivity
+        try {
+            await prisma.$queryRaw`SELECT 1`;
+            checks.db = { status: 'ok' };
+        } catch (err) {
+            checks.db = { status: 'error', message: String(err) };
+        }
+
+        // Redis connectivity
+        try {
+            const ok = await checkRedisConnection();
+            checks.redis = { status: ok ? 'ok' : 'error' };
+        } catch (err) {
+            checks.redis = { status: 'error', message: String(err) };
+        }
+
+        // Integrity drift status
+        if (lastIntegrityReport) {
+            checks.inventoryIntegrity = {
+                healthy: lastIntegrityReport.healthy,
+                mismatches: lastIntegrityReport.mismatches.length,
+                checkedAt: lastIntegrityReport.checkedAt.toISOString(),
+            };
+        } else {
+            checks.inventoryIntegrity = { healthy: 'unknown', checkedAt: null };
+        }
+
+        // Last stale cleanup
+        checks.lastStaleCleanup = lastStaleCleanupAt
+            ? lastStaleCleanupAt.toISOString()
+            : null;
+
+        const overallOk = (checks.db as any)?.status === 'ok'
+            && (checks.redis as any)?.status === 'ok';
+
+        res.status(overallOk ? 200 : 503).json({
+            status: overallOk ? 'ok' : 'degraded',
+            timestamp: new Date().toISOString(),
+            checks,
         });
     });
 
@@ -149,6 +223,9 @@ export function createApp(): Application {
     // Admin domain
     app.use('/v1/admin', adminRouter);
     app.use('/v1/admin/notifications', adminNotificationRouter);
+
+    // User notifications
+    app.use('/v1/notifications', notificationRouter);
 
     // Notification Worker initialization removed to keep API process HTTP-only
 

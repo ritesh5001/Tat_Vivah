@@ -5,7 +5,10 @@ import { PaymentProvider, PaymentStatus, PaymentEventType, SettlementStatus, Ord
 import { prisma } from '../config/db.js';
 import { ApiError } from '../errors/ApiError.js';
 import { razorpayService } from './razorpay.service.js';
-import { notificationService } from '../notifications/notification.service.js';
+import { emitPaymentSuccess, emitPaymentFailed } from '../events/order.events.js';
+import { paymentLogger } from '../config/logger.js';
+import { paymentSuccessTotal, staleCancelTotal } from '../config/metrics.js';
+import { recordPaymentFailure } from '../monitoring/alerts.js';
 
 /** Maximum age (ms) of a PLACED order eligible for payment retry. */
 const STALE_ORDER_TTL_MS = 30 * 60 * 1000; // 30 minutes
@@ -261,25 +264,16 @@ export class PaymentService {
         // Skip notifications if another call already handled this
         if (result.alreadyProcessed) return;
 
-        // Trigger Notifications (outside transaction — best-effort)
-        try {
-            const order = await prisma.order.findUnique({
-                where: { id: orderId },
-                include: { items: true }
-            });
+        paymentSuccessTotal.inc();
+        paymentLogger.info({
+            event: 'payment_success',
+            orderId,
+            paymentId,
+            providerPaymentId,
+        }, `Payment succeeded for order ${orderId}`);
 
-            if (order) {
-                await notificationService.notifyOrderPlaced(order.userId, order.id, Number(order.totalAmount));
-
-                const sellerIds = [...new Set(order.items.map(item => item.sellerId))];
-                for (const sellerId of sellerIds) {
-                    const sellerItems = order.items.filter(item => item.sellerId === sellerId);
-                    await notificationService.notifySellerNewOrder(sellerId, order.id, sellerItems.length);
-                }
-            }
-        } catch (notifyError) {
-            console.error('[Payment] Notification error:', notifyError);
-        }
+        // Trigger Notifications (event-driven, idempotent, best-effort)
+        await emitPaymentSuccess(orderId);
     }
 
     // ------------------------------------------------------------------
@@ -305,6 +299,18 @@ export class PaymentService {
                 }
             });
         });
+
+        // Notify buyer about payment failure (event-driven, idempotent, best-effort)
+        if (payment.orderId) {
+            await emitPaymentFailed(payment.orderId);
+        }
+
+        recordPaymentFailure();
+        paymentLogger.warn({
+            event: 'payment_failure',
+            paymentId,
+            orderId: payment.orderId,
+        }, `Payment failed for payment ${paymentId}`);
 
         // Note: Inventory is NOT released here on purpose.
         // The order stays PLACED so the buyer can retry payment within the TTL.
@@ -340,12 +346,20 @@ export class PaymentService {
 
         for (const order of staleOrders) {
             try {
-                await prisma.$transaction(async (tx) => {
-                    // 1. Cancel the order
-                    await tx.order.update({
-                        where: { id: order.id },
+                const wasCancelled = await prisma.$transaction(async (tx) => {
+                    // 1. Optimistic-lock cancel: only flip to CANCELLED if still PLACED.
+                    //    Between the findMany above and this tx, handlePaymentSuccess
+                    //    may have already flipped the order to CONFIRMED — in that case
+                    //    count === 0 and we skip, preventing double-release of inventory.
+                    const updated = await tx.order.updateMany({
+                        where: { id: order.id, status: OrderStatus.PLACED },
                         data: { status: OrderStatus.CANCELLED },
                     });
+
+                    if (updated.count === 0) {
+                        // Order was already confirmed/cancelled by another process — skip
+                        return false;
+                    }
 
                     // 2. Release reserved inventory
                     const reserveMovements = order.movements.filter(m => m.type === 'RESERVE');
@@ -369,8 +383,8 @@ export class PaymentService {
 
                     // 3. Mark payment as FAILED if it's still INITIATED
                     if (order.payment && order.payment.status === PaymentStatus.INITIATED) {
-                        await tx.payment.update({
-                            where: { id: order.payment.id },
+                        await tx.payment.updateMany({
+                            where: { id: order.payment.id, status: PaymentStatus.INITIATED },
                             data: { status: PaymentStatus.FAILED },
                         });
 
@@ -382,10 +396,24 @@ export class PaymentService {
                             },
                         });
                     }
+
+                    return true;
                 });
 
-                cancelledCount++;
-                console.log(`[StaleOrders] Cancelled order ${order.id}`);
+                if (wasCancelled) {
+                    cancelledCount++;
+                    staleCancelTotal.inc();
+                    paymentLogger.info({
+                        event: 'stale_order_cancelled',
+                        orderId: order.id,
+                        userId: order.userId,
+                    }, `Stale order cancelled: ${order.id}`);
+                } else {
+                    paymentLogger.debug({
+                        event: 'stale_order_skip',
+                        orderId: order.id,
+                    }, `Skipped stale order ${order.id} (status already changed)`);
+                }
             } catch (err) {
                 console.error(`[StaleOrders] Failed to cancel order ${order.id}:`, err);
             }

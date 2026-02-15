@@ -35,3 +35,6 @@ export { adminShipmentRouter } from './admin-shipment.routes.js';
 // Admin domain
 export { adminRouter } from './admin.routes.js';
 export { adminNotificationRouter } from './admin-notification.routes.js';
+
+// User notifications
+export { notificationRouter } from './notification.routes.js';

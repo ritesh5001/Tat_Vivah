@@ -14,6 +14,8 @@ import { adminAlertTemplate } from './email/templates/admin-alert.js';
 import { sellerApprovedTemplate } from './email/templates/seller-approved.js';
 import { sellerProductApprovedTemplate } from './email/templates/seller-product-approved.js';
 import { sellerProductRejectedTemplate } from './email/templates/seller-product-rejected.js';
+import { paymentSuccessTemplate } from './email/templates/payment-success.js';
+import { paymentFailedTemplate } from './email/templates/payment-failed.js';
 
 export async function processNotificationJob(job: Job<NotificationJobPayload>): Promise<void> {
     console.log(`Job ${job.id} started. Notification: ${job.data.notificationId}`); // LOG START
@@ -76,6 +78,12 @@ export async function processNotificationJob(job: Job<NotificationJobPayload>): 
                 break;
             case 'SELLER_PRODUCT_REJECTED':
                 emailData = sellerProductRejectedTemplate(meta);
+                break;
+            case 'PAYMENT_SUCCESS':
+                emailData = paymentSuccessTemplate(meta);
+                break;
+            case 'PAYMENT_FAILED':
+                emailData = paymentFailedTemplate(meta);
                 break;
             default:
                 throw new Error(`Unhandled notification type: ${notification.type}`);

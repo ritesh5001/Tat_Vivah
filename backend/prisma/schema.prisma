@@ -276,8 +276,11 @@ model InventoryMovement {
   createdAt DateTime              @default(now()) @map("created_at")
   order     Order                 @relation(fields: [orderId], references: [id])
 
+  @@unique([orderId, variantId, type], map: "inventory_movements_order_variant_type_key")
   @@index([variantId])
   @@index([orderId])
+  @@index([variantId, type], map: "inventory_movements_variant_type_idx")
+  @@index([createdAt], map: "inventory_movements_created_at_idx")
   @@map("inventory_movements")
 }
 
@@ -591,9 +594,13 @@ model Notification {
   subject   String?
   content   String
   metadata  Json?
+  eventKey  String?             @map("event_key")
+  isRead    Boolean             @default(false) @map("is_read")
+  readAt    DateTime?           @map("read_at")
   createdAt DateTime            @default(now()) @map("created_at")
   sentAt    DateTime?           @map("sent_at")
 
+  @@unique([userId, eventKey], name: "notifications_user_event_key")
   @@index([userId])
   @@index([status])
   @@map("notifications")
@@ -633,6 +640,8 @@ enum NotificationType {
   ORDER_PLACED
   ORDER_SHIPPED
   ORDER_DELIVERED
+  PAYMENT_SUCCESS
+  PAYMENT_FAILED
   SELLER_NEW_ORDER
   SELLER_APPROVED
   SELLER_PRODUCT_APPROVED
