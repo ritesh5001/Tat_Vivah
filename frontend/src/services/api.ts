@@ -18,6 +18,19 @@ function getErrorMessage(data: any, fallback: string) {
   return data?.error?.message ?? data?.message ?? fallback;
 }
 
+/** Messages that indicate the auth session is truly invalid and cookies should be cleared. */
+const TOKEN_INVALID_MESSAGES = [
+  "access token required",
+  "access token has expired",
+  "invalid access token",
+  "authentication required",
+];
+
+function isTokenError(data: any): boolean {
+  const msg = (data?.error?.message ?? data?.message ?? "").toLowerCase();
+  return TOKEN_INVALID_MESSAGES.some((m) => msg.includes(m));
+}
+
 function clearAuthCookies() {
   if (typeof document === "undefined") return;
   document.cookie = "tatvivah_access=; path=/; max-age=0";
@@ -57,7 +70,9 @@ export async function apiRequest<T>(
     const data = await response.json().catch(() => null);
 
     if (!response.ok) {
-      if (response.status === 401 || response.status === 403) {
+      // Only clear auth cookies when the backend explicitly says the token is invalid/expired.
+      // Do NOT clear on generic 401/403 (e.g. "User not found", "Insufficient permissions").
+      if ((response.status === 401 || response.status === 403) && isTokenError(data)) {
         clearAuthCookies();
       }
       throw new Error(getErrorMessage(data, "Request failed"));
