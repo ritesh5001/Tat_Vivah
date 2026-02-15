@@ -21,6 +21,13 @@ export interface ProductSummary {
   price?: number;
 }
 
+export interface ProductItem extends ProductSummary {
+  salePrice?: number | null;
+  adminPrice?: number | null;
+  regularPrice?: number | null;
+  sellerPrice?: number | null;
+}
+
 export interface ProductDetail extends ProductSummary {
   description?: string | null;
   variants: ProductVariant[];

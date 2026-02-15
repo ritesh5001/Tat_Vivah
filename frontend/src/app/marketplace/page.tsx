@@ -1,17 +1,11 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { WishlistHeartButton } from "@/components/wishlist-heart-button";
+import { Card, CardContent } from "@/components/ui/card";
 import { SearchAutocomplete } from "@/components/search-autocomplete";
 import { SortDropdown } from "@/components/sort-dropdown";
+import { MarketplaceProductCard } from "@/components/marketplace-product-card";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
-const currency = new Intl.NumberFormat("en-IN", {
-  style: "currency",
-  currency: "INR",
-  maximumFractionDigits: 0,
-});
 
 type SearchParams = {
   page?: string;
@@ -163,60 +157,7 @@ export default async function MarketplacePage({
             </Card>
           ) : (
             products.map((product: any) => (
-              <Link
-                key={product.id}
-                href={`/product/${product.id}`}
-                className="group block"
-              >
-                {/* Product Image */}
-                <div className="relative mb-5 overflow-hidden bg-cream dark:bg-brown/20 aspect-3/4 border border-border-soft transition-all duration-400 group-hover:border-gold/30">
-                  <img
-                    src={product.images?.[0] ?? "/images/product-placeholder.svg"}
-                    alt={product.title}
-                    className="h-full w-full object-contain p-6 transition-transform duration-500 group-hover:scale-[1.02]"
-                    loading="lazy"
-                  />
-                  {/* Category Tag */}
-                  <span className="absolute top-4 left-4 bg-card/90 backdrop-blur-sm px-3 py-1 text-[10px] uppercase tracking-wider text-muted-foreground border border-border-soft">
-                    {product.category?.name ?? "Featured"}
-                  </span>
-                  {/* Verified Badge */}
-                  <span className="absolute top-4 right-4 bg-card/90 backdrop-blur-sm px-3 py-1 text-[10px] uppercase tracking-wider text-gold border border-gold/20">
-                    Verified
-                  </span>
-                  {/* Wishlist Heart */}
-                  <WishlistHeartButton
-                    productId={product.id}
-                    size={18}
-                    className="absolute bottom-4 right-4 h-8 w-8 bg-card/90 backdrop-blur-sm border border-border-soft text-muted-foreground hover:text-foreground hover:border-gold/50"
-                  />
-                </div>
-
-                {/* Product Info */}
-                <div className="space-y-2">
-                  <h3 className="font-serif text-lg font-normal text-foreground group-hover:text-gold transition-colors duration-300">
-                    {product.title}
-                  </h3>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider">
-                    {product.category?.name ?? "Collection"}
-                  </p>
-                  {typeof (product.salePrice ?? product.adminPrice ?? product.price) === "number" ? (
-                    <div className="flex items-center gap-2 text-sm">
-                      <span className="font-medium text-foreground">
-                        {currency.format(product.salePrice ?? product.adminPrice ?? product.price)}
-                      </span>
-                      {typeof product.regularPrice === "number" &&
-                      product.regularPrice !== (product.salePrice ?? product.adminPrice ?? product.price) ? (
-                        <span className="text-muted-foreground line-through">
-                          {currency.format(product.regularPrice)}
-                        </span>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">Price on request</p>
-                  )}
-                </div>
-              </Link>
+              <MarketplaceProductCard key={product.id} product={product} />
             ))
           )}
         </section>

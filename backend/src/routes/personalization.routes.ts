@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { personalizationController } from '../controllers/personalization.controller.js';
+import { recommendationController } from '../controllers/recommendation.controller.js';
 import { authenticate, authorize } from '../middlewares/auth.middleware.js';
 
 /**
@@ -20,4 +21,9 @@ personalizationRouter.post('/recently-viewed/:productId', (req, res, next) =>
 // GET /v1/personalization/recently-viewed - Get recently viewed products
 personalizationRouter.get('/recently-viewed', (req, res, next) =>
     personalizationController.getRecentlyViewed(req, res, next),
+);
+
+// GET /v1/personalization/recommendations - Get recommendation list
+personalizationRouter.get('/recommendations', (req, res, next) =>
+    recommendationController.getRecommendations(req, res, next),
 );

@@ -122,3 +122,20 @@ export const recentlyViewedFetchTotal = new client.Counter({
     name: 'recently_viewed_fetch_total',
     help: 'Total recently-viewed list fetch requests',
 });
+
+export const recommendationRequestTotal = new client.Counter({
+    name: 'recommendation_request_total',
+    help: 'Total recommendation generation requests',
+});
+
+export const recommendationGenerationTimeMs = new client.Histogram({
+    name: 'recommendation_generation_time_ms',
+    help: 'Recommendation generation time in milliseconds',
+    buckets: [5, 10, 20, 35, 50, 75, 100, 150, 250, 500],
+});
+
+export const recommendationCandidateCount = new client.Histogram({
+    name: 'recommendation_candidate_count',
+    help: 'Candidate product count considered per recommendation request',
+    buckets: [0, 5, 10, 20, 40, 60, 80, 120, 200],
+});

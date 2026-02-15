@@ -12,9 +12,14 @@ import {
 
 const MAX_ITEMS = 20;
 const KEY_PREFIX = 'recently_viewed:';
+const CATEGORY_AFFINITY_KEY_PREFIX = 'user_category_affinity:';
 
 function redisKey(userId: string): string {
     return `${KEY_PREFIX}${userId}`;
+}
+
+function categoryAffinityKey(userId: string): string {
+    return `${CATEGORY_AFFINITY_KEY_PREFIX}${userId}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -57,8 +62,17 @@ export class PersonalizationService {
         // If we have N items and want to keep MAX_ITEMS, remove [0, N - MAX_ITEMS - 1].
         await redis.zremrangebyrank(key, 0, -(MAX_ITEMS + 1));
 
+        // Update category affinity score (+1 per view)
+        const product = await prisma.product.findUnique({
+            where: { id: productId },
+            select: { categoryId: true },
+        });
+        if (product?.categoryId) {
+            await redis.zincrby(categoryAffinityKey(userId), 1, product.categoryId);
+        }
+
         recentlyViewedTrackTotal.inc();
-        personalizationLogger.info({ userId, productId }, 'tracked recently viewed');
+        personalizationLogger.info({ userId, productId, categoryId: product?.categoryId ?? null }, 'tracked recently viewed');
     }
 
     /**

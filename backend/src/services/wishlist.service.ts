@@ -1,7 +1,14 @@
 import { prisma } from '../config/db.js';
+import { redis } from '../config/redis.js';
 import { ApiError } from '../errors/ApiError.js';
 import { wishlistLogger } from '../config/logger.js';
 import { wishlistAddTotal, wishlistRemoveTotal } from '../config/metrics.js';
+
+const CATEGORY_AFFINITY_KEY_PREFIX = 'user_category_affinity:';
+
+function categoryAffinityKey(userId: string): string {
+    return `${CATEGORY_AFFINITY_KEY_PREFIX}${userId}`;
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -112,7 +119,7 @@ export class WishlistService {
         // Validate product exists and is published
         const product = await prisma.product.findUnique({
             where: { id: productId },
-            select: { id: true, isPublished: true, deletedByAdmin: true, status: true },
+            select: { id: true, categoryId: true, isPublished: true, deletedByAdmin: true, status: true },
         });
         if (!product) {
             throw ApiError.notFound('Product not found');
@@ -145,8 +152,9 @@ export class WishlistService {
         await prisma.wishlistItem.create({
             data: { wishlistId: wishlist.id, productId },
         });
+        await redis.zincrby(categoryAffinityKey(userId), 1, product.categoryId);
         wishlistAddTotal.inc();
-        wishlistLogger.info({ userId, productId }, 'wishlist_item_added');
+        wishlistLogger.info({ userId, productId, categoryId: product.categoryId }, 'wishlist_item_added');
         return { message: 'Added to wishlist', added: true, productId };
     }
 
@@ -156,7 +164,7 @@ export class WishlistService {
     async addItem(userId: string, productId: string): Promise<WishlistToggleResponse> {
         const product = await prisma.product.findUnique({
             where: { id: productId },
-            select: { id: true, isPublished: true, deletedByAdmin: true, status: true },
+            select: { id: true, categoryId: true, isPublished: true, deletedByAdmin: true, status: true },
         });
         if (!product) {
             throw ApiError.notFound('Product not found');
@@ -181,8 +189,9 @@ export class WishlistService {
             await prisma.wishlistItem.create({
                 data: { wishlistId: wishlist.id, productId },
             });
+            await redis.zincrby(categoryAffinityKey(userId), 1, product.categoryId);
             wishlistAddTotal.inc();
-            wishlistLogger.info({ userId, productId }, 'wishlist_item_added');
+            wishlistLogger.info({ userId, productId, categoryId: product.categoryId }, 'wishlist_item_added');
         }
 
         return { message: 'Added to wishlist', added: true, productId };
