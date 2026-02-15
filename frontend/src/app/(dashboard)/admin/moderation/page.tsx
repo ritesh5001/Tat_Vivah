@@ -5,10 +5,9 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  getPricingOverview,
-  getProfitAnalytics,
+  getPendingProducts,
   setProductPrice,
-  PricingOverviewProduct,
+  AdminProduct,
 } from "@/services/admin";
 import { toast } from "sonner";
 
@@ -38,32 +37,21 @@ const getStatusStyle = (status?: string | null) => {
 
 export default function AdminModerationPage() {
   const [loading, setLoading] = React.useState(true);
-  const [products, setProducts] = React.useState<PricingOverviewProduct[]>([]);
-  const [profit, setProfit] = React.useState<{
-    totalPlatformRevenue: number;
-    totalSellerPayout: number;
-    totalMarginEarned: number;
-  } | null>(null);
   const [selectedProduct, setSelectedProduct] =
-    React.useState<PricingOverviewProduct | null>(null);
+    React.useState<AdminProduct | null>(null);
+  const [products, setProducts] = React.useState<AdminProduct[]>([]);
   const [adminPriceInput, setAdminPriceInput] = React.useState("");
 
   const load = React.useCallback(async () => {
     setLoading(true);
     try {
-      const [pricingResult, profitResult] = await Promise.all([
-        getPricingOverview(),
-        getProfitAnalytics(),
-      ]);
-      setProducts(pricingResult.products ?? []);
-      setProfit({
-        totalPlatformRevenue: profitResult.totalPlatformRevenue ?? 0,
-        totalSellerPayout: profitResult.totalSellerPayout ?? 0,
-        totalMarginEarned: profitResult.totalMarginEarned ?? 0,
-      });
+      const pendingResult = await getPendingProducts();
+      setProducts(pendingResult.products ?? []);
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Unable to load pricing overview"
+        error instanceof Error
+          ? error.message
+          : "Unable to load pending approval requests"
       );
     } finally {
       setLoading(false);
@@ -81,25 +69,28 @@ export default function AdminModerationPage() {
       toast.error("Enter a valid admin listing price.");
       return;
     }
-    if (nextPrice < Number(selectedProduct.sellerPrice ?? 0)) {
+    const sellerPrice = Number(selectedProduct.sellerPrice ?? 0);
+    if (sellerPrice > 0 && nextPrice < sellerPrice) {
       toast.error("Admin listing price cannot be lower than seller price.");
       return;
     }
 
     try {
-      await setProductPrice(selectedProduct.productId, nextPrice);
-      toast.success("Price set successfully.");
+      await setProductPrice(selectedProduct.id, nextPrice);
+      toast.success("Product approved successfully.");
       setSelectedProduct(null);
       setAdminPriceInput("");
       await load();
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Unable to set product price"
+        error instanceof Error
+          ? error.message
+          : "Unable to approve product"
       );
     }
   };
 
-  const openPriceModal = (product: PricingOverviewProduct) => {
+  const openPriceModal = (product: AdminProduct) => {
     setSelectedProduct(product);
     setAdminPriceInput(
       product.adminListingPrice != null ? String(product.adminListingPrice) : ""
@@ -133,29 +124,12 @@ export default function AdminModerationPage() {
             Pricing Control Panel
           </p>
           <h1 className="font-serif text-4xl font-light tracking-tight text-foreground sm:text-5xl">
-            Product Pricing & Margin
+            Approval Requests
           </h1>
           <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-            Set admin listing prices, approve listings, and monitor platform margin.
+            Review seller product submissions, set admin listing price, and approve products.
           </p>
         </div>
-
-        {profit ? (
-          <section className="grid gap-4 sm:grid-cols-3">
-            <div className="border border-border-soft bg-card p-4">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Platform Revenue</p>
-              <p className="font-serif text-2xl text-foreground">{currency.format(profit.totalPlatformRevenue)}</p>
-            </div>
-            <div className="border border-border-soft bg-card p-4">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Seller Payout</p>
-              <p className="font-serif text-2xl text-foreground">{currency.format(profit.totalSellerPayout)}</p>
-            </div>
-            <div className="border border-gold/30 bg-gold/10 p-4">
-              <p className="text-[10px] uppercase tracking-wider text-gold">Margin Earned</p>
-              <p className="font-serif text-2xl text-gold">{currency.format(profit.totalMarginEarned)}</p>
-            </div>
-          </section>
-        ) : null}
 
         <section className="space-y-6">
           {loading ? (
@@ -165,10 +139,10 @@ export default function AdminModerationPage() {
           ) : products.length === 0 ? (
             <div className="border border-border-soft bg-card p-12 text-center space-y-2">
               <p className="font-serif text-lg font-light text-foreground">
-                No Products
+                No Pending Requests
               </p>
               <p className="text-sm text-muted-foreground">
-                No products available for pricing.
+                No products are currently awaiting approval.
               </p>
             </div>
           ) : (
@@ -190,7 +164,7 @@ export default function AdminModerationPage() {
                 <tbody className="divide-y divide-border-soft">
                   {products.map((product, index) => (
                     <motion.tr
-                      key={product.productId}
+                      key={product.id}
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ delay: 0.08 + index * 0.03, duration: 0.3 }}
@@ -199,7 +173,7 @@ export default function AdminModerationPage() {
                       <td className="p-5">
                         <div className="h-12 w-12 overflow-hidden border border-border-soft bg-card">
                           <img
-                            src={product.image ?? "/images/product-placeholder.svg"}
+                            src={product.images?.[0] ?? "/images/product-placeholder.svg"}
                             alt={product.title}
                             className="h-full w-full object-cover"
                           />
@@ -220,21 +194,39 @@ export default function AdminModerationPage() {
                           : "—"}
                       </td>
                       <td className="p-5">
-                        <span className={`px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider border ${getMarginStyle(product.margin)}`}>
-                          {product.margin != null ? currency.format(product.margin) : "Pending"}
-                        </span>
+                        {product.adminListingPrice != null && (product.sellerPrice ?? 0) > 0 ? (
+                          <span
+                            className={`px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider border ${getMarginStyle(
+                              Number(product.adminListingPrice) - Number(product.sellerPrice ?? 0)
+                            )}`}
+                          >
+                            {currency.format(
+                              Number(product.adminListingPrice) - Number(product.sellerPrice ?? 0)
+                            )}
+                          </span>
+                        ) : (
+                          <span className={`px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider border ${getMarginStyle(null)}`}>
+                            Pending
+                          </span>
+                        )}
                       </td>
                       <td className="p-5 text-muted-foreground">
-                        {product.marginPercentage != null ? `${product.marginPercentage.toFixed(2)}%` : "—"}
+                        {product.adminListingPrice != null && (product.sellerPrice ?? 0) > 0
+                          ? `${(
+                              ((Number(product.adminListingPrice) - Number(product.sellerPrice ?? 0)) /
+                                Number(product.sellerPrice ?? 0)) *
+                              100
+                            ).toFixed(2)}%`
+                          : "—"}
                       </td>
                       <td className="p-5">
-                        <span className={`px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider border ${getStatusStyle(product.status)}`}>
-                          {product.status}
+                        <span className={`px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider border ${getStatusStyle(product.status ?? "PENDING")}`}>
+                          {product.status ?? "PENDING"}
                         </span>
                       </td>
                       <td className="p-5">
                         <Button size="sm" variant="outline" onClick={() => openPriceModal(product)}>
-                          {product.adminListingPrice != null ? "Edit Price" : "Approve & Set Price"}
+                          Review & Approve
                         </Button>
                       </td>
                     </motion.tr>
@@ -268,7 +260,7 @@ export default function AdminModerationPage() {
                     <h2 className="font-serif text-2xl font-light text-foreground">{selectedProduct.title}</h2>
                   </div>
                   <span className={`px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider border ${getStatusStyle(selectedProduct.status)}`}>
-                    {selectedProduct.status}
+                    {selectedProduct.status ?? "PENDING"}
                   </span>
                 </div>
 
