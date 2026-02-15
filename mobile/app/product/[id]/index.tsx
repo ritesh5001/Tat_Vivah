@@ -21,11 +21,11 @@ import * as ImagePicker from "expo-image-picker";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import {
   getProductById,
-  getRelatedProducts,
   type ProductDetail,
   type ProductSummary,
   type ProductVariant,
 } from "../../../src/services/products";
+import { getRelatedProductsFromApi } from "../../../src/services/search";
 import {
   fetchProductReviews,
   submitProductReview,
@@ -33,6 +33,7 @@ import {
 } from "../../../src/services/reviews";
 import { useAuth } from "../../../src/hooks/useAuth";
 import { useCart } from "../../../src/providers/CartProvider";
+import { useWishlist } from "../../../src/providers/WishlistProvider";
 import { useNetworkStatus } from "../../../src/hooks/useNetworkStatus";
 import { useToast } from "../../../src/providers/ToastProvider";
 import { ApiError, isAbortError } from "../../../src/services/api";
@@ -221,6 +222,7 @@ export default function ProductDetailScreen() {
   const token = session?.accessToken ?? null;
   const userId = session?.user?.id ?? null;
   const { addToCart } = useCart();
+  const { toggleWishlist, isWishlisted, mutatingIds: wishlistMutatingIds } = useWishlist();
   const { isConnected } = useNetworkStatus();
   const { showToast } = useToast();
 
@@ -282,24 +284,15 @@ export default function ProductDetailScreen() {
   React.useEffect(() => {
     if (!product?.id) return;
 
-    const categoryId =
-      product.categoryId ??
-      (typeof product.category?.id === "string" ? product.category.id : undefined);
-
-    if (!categoryId) {
-      setRelatedProducts([]);
-      return;
-    }
-
     const controller = new AbortController();
     let active = true;
 
     (async () => {
       setLoadingRelated(true);
       try {
-        const related = await getRelatedProducts(categoryId, product.id, controller.signal);
+        const related = await getRelatedProductsFromApi(product.id, 6, controller.signal);
         if (!active) return;
-        setRelatedProducts((related ?? []).slice(0, 6));
+        setRelatedProducts(related ?? []);
       } catch (err) {
         if (isAbortError(err) || !active) return;
         if (active) setRelatedProducts([]);
@@ -721,23 +714,60 @@ export default function ProductDetailScreen() {
             </View>
           </View>
 
-          {/* Add to cart */}
-          <AnimatedPressable
-            style={[
-              styles.primaryButton,
-              (outOfStock || adding) && styles.buttonDisabled,
-            ]}
-            onPress={handleAddToCart}
-            disabled={outOfStock || adding}
-          >
-            {adding ? (
-              <ActivityIndicator color={colors.background} size="small" />
-            ) : (
-              <Text style={styles.primaryButtonText}>
-                {outOfStock ? "Out of stock" : "Add to cart"}
+          {/* Add to cart + Wishlist row */}
+          <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+            <AnimatedPressable
+              style={[
+                styles.primaryButton,
+                { flex: 1 },
+                (outOfStock || adding) && styles.buttonDisabled,
+              ]}
+              onPress={handleAddToCart}
+              disabled={outOfStock || adding}
+            >
+              {adding ? (
+                <ActivityIndicator color={colors.background} size="small" />
+              ) : (
+                <Text style={styles.primaryButtonText}>
+                  {outOfStock ? "Out of stock" : "Add to cart"}
+                </Text>
+              )}
+            </AnimatedPressable>
+
+            {/* Wishlist heart */}
+            <Pressable
+              onPress={() => {
+                if (!token) {
+                  router.push("/login");
+                  return;
+                }
+                if (product) {
+                  impactLight();
+                  toggleWishlist(product.id);
+                }
+              }}
+              disabled={!product || wishlistMutatingIds.has(product?.id ?? "")}
+              style={{
+                width: 52,
+                height: 52,
+                borderRadius: radius.md,
+                borderWidth: 1,
+                borderColor: product && isWishlisted(product.id)
+                  ? "#E8453C"
+                  : colors.borderSoft,
+                backgroundColor: product && isWishlisted(product.id)
+                  ? "#FEF2F2"
+                  : colors.warmWhite,
+                justifyContent: "center",
+                alignItems: "center",
+              }}
+              hitSlop={8}
+            >
+              <Text style={{ fontSize: 22 }}>
+                {product && isWishlisted(product.id) ? "❤️" : "🤍"}
               </Text>
-            )}
-          </AnimatedPressable>
+            </Pressable>
+          </View>
         </View>
 
         {/* ---- Reviews section ---- */}

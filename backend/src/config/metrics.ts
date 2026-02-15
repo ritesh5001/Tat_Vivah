@@ -75,3 +75,38 @@ export const httpRequestDuration = new client.Histogram({
     labelNames: ['method', 'route', 'status'] as const,
     buckets: [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10],
 });
+
+// ─── Wishlist ───────────────────────────────────────────────────────
+
+export const wishlistAddTotal = new client.Counter({
+    name: 'wishlist_add_total',
+    help: 'Total products added to wishlists',
+});
+
+export const wishlistRemoveTotal = new client.Counter({
+    name: 'wishlist_remove_total',
+    help: 'Total products removed from wishlists',
+});
+
+// ─── Search ─────────────────────────────────────────────────────────
+
+export const searchQueryTotal = new client.Counter({
+    name: 'search_query_total',
+    help: 'Total full-text search queries executed',
+});
+
+export const searchNoResultTotal = new client.Counter({
+    name: 'search_no_result_total',
+    help: 'Total search queries returning zero results',
+});
+
+export const autocompleteTotal = new client.Counter({
+    name: 'autocomplete_total',
+    help: 'Total autocomplete suggestion requests',
+});
+
+export const searchDurationSeconds = new client.Histogram({
+    name: 'search_duration_seconds',
+    help: 'Duration of search queries in seconds',
+    buckets: [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5],
+});

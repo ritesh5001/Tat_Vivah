@@ -2,6 +2,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import ProductDetailClient from "@/components/product-detail-client";
 import ProductImageCarousel from "@/components/product-image-carousel";
 import ProductReviews from "@/components/product-reviews";
+import { RelatedProducts } from "@/components/related-products";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
@@ -98,6 +99,9 @@ export default async function ProductDetailPage({
         <section className="border-t border-border-soft pt-16">
           <ProductReviews productId={resolvedParams.id} />
         </section>
+
+        {/* Related Products */}
+        <RelatedProducts productId={resolvedParams.id} />
 
         {/* Trust Section */}
         <section className="border-t border-border-soft pt-12">

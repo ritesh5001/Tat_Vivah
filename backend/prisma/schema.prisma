@@ -37,6 +37,7 @@ model User {
   user_preferences   user_preferences?
   user_profiles      user_profiles?
   reviews            Review[]
+  wishlist           Wishlist?
 
   @@map("users")
 }
@@ -141,6 +142,7 @@ model Product {
   createdAt            DateTime           @default(now()) @map("created_at")
   updatedAt            DateTime           @updatedAt @map("updated_at")
   images               String[]           @default([]) @map("images")
+  searchVector         Unsupported("tsvector")?  @map("search_vector")
   moderation           ProductModeration?
   bestseller           Bestseller?
   variants             ProductVariant[]
@@ -148,6 +150,7 @@ model Product {
   seller               User               @relation("SellerProducts", fields: [sellerId], references: [id], onDelete: Cascade)
   priceApprovedBy      User?              @relation("PriceApprovedBy", fields: [priceApprovedById], references: [id])
   reviews              Review[]
+  wishlistItems        WishlistItem[]
 
   @@index([sellerId])
   @@index([categoryId])
@@ -676,4 +679,31 @@ model Review {
   @@index([productId])
   @@index([userId])
   @@map("reviews")
+}
+
+/// User wishlist — one per user
+model Wishlist {
+  id        String         @id @default(uuid())
+  userId    String         @map("user_id")
+  createdAt DateTime       @default(now()) @map("created_at")
+  updatedAt DateTime       @updatedAt @map("updated_at")
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     WishlistItem[]
+
+  @@unique([userId])
+  @@map("wishlists")
+}
+
+/// Individual item in a user's wishlist
+model WishlistItem {
+  id         String   @id @default(uuid())
+  wishlistId String   @map("wishlist_id")
+  productId  String   @map("product_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+  wishlist   Wishlist @relation(fields: [wishlistId], references: [id], onDelete: Cascade)
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([wishlistId, productId])
+  @@index([productId])
+  @@map("wishlist_items")
 }

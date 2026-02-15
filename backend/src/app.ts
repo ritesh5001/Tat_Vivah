@@ -29,7 +29,10 @@ import {
     reviewRouter,
     addressRouter,
     notificationRouter,
+    wishlistRouter,
+    searchRouter,
 } from './routes/index.js';
+import { searchController } from './controllers/search.controller.js';
 import { apiReference } from "@scalar/express-api-reference";
 import { openApiSpec } from "./docs/openapi.js";
 
@@ -226,6 +229,15 @@ export function createApp(): Application {
 
     // User notifications
     app.use('/v1/notifications', notificationRouter);
+
+    // Wishlist
+    app.use('/v1/wishlist', wishlistRouter);
+
+    // Search & Personalization
+    app.use('/v1/search', searchRouter);
+
+    // Related products (mounted on products path)
+    app.get('/v1/products/:id/related', searchController.relatedProducts);
 
     // Notification Worker initialization removed to keep API process HTTP-only
 

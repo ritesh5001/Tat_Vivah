@@ -11,6 +11,7 @@ import { ToastProvider } from "../src/providers/ToastProvider";
 import { NotificationProvider } from "../src/providers/NotificationProvider";
 import { CartProvider } from "../src/providers/CartProvider";
 import { AddressProvider } from "../src/providers/AddressProvider";
+import { WishlistProvider } from "../src/providers/WishlistProvider";
 import { OfflineBanner } from "../src/components/OfflineBanner";
 import { SessionExpiredModal } from "../src/components/SessionExpiredModal";
 import { useNetworkStatus } from "../src/hooks/useNetworkStatus";
@@ -63,9 +64,11 @@ export default function RootLayout() {
         <AuthProvider>
           <NotificationProvider>
             <CartProvider>
-              <AddressProvider>
-                <AppShell />
-              </AddressProvider>
+              <WishlistProvider>
+                <AddressProvider>
+                  <AppShell />
+                </AddressProvider>
+              </WishlistProvider>
             </CartProvider>
           </NotificationProvider>
         </AuthProvider>

@@ -33,3 +33,5 @@ export const checkoutLogger = logger.child({ module: 'checkout' });
 export const inventoryLogger = logger.child({ module: 'inventory' });
 export const paymentLogger = logger.child({ module: 'payment' });
 export const integrityLogger = logger.child({ module: 'integrity' });
+export const wishlistLogger = logger.child({ module: 'wishlist' });
+export const searchLogger = logger.child({ module: 'search' });

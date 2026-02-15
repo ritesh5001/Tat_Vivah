@@ -2,6 +2,9 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { WishlistHeartButton } from "@/components/wishlist-heart-button";
+import { SearchAutocomplete } from "@/components/search-autocomplete";
+import { SortDropdown } from "@/components/sort-dropdown";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 const currency = new Intl.NumberFormat("en-IN", {
@@ -14,6 +17,7 @@ type SearchParams = {
   page?: string;
   categoryId?: string;
   search?: string;
+  sort?: string;
 };
 
 async function fetchCategories() {
@@ -35,6 +39,7 @@ async function fetchProducts(params: {
   limit: number;
   categoryId?: string;
   search?: string;
+  sort?: string;
 }) {
   if (!API_BASE_URL) {
     return { data: [], pagination: { page: 1, limit: params.limit, total: 0, totalPages: 1 } };
@@ -44,6 +49,7 @@ async function fetchProducts(params: {
   query.set("limit", String(params.limit));
   if (params.categoryId) query.set("categoryId", params.categoryId);
   if (params.search) query.set("search", params.search);
+  if (params.sort) query.set("sort", params.sort);
 
   const response = await fetch(`${API_BASE_URL}/v1/products?${query.toString()}`, {
     next: { revalidate: 60 },
@@ -63,10 +69,11 @@ export default async function MarketplacePage({
   const page = Number(resolvedParams?.page ?? "1") || 1;
   const categoryId = resolvedParams?.categoryId;
   const search = resolvedParams?.search?.trim();
+  const sort = resolvedParams?.sort?.trim();
 
   const [categories, productsResponse] = await Promise.all([
     fetchCategories(),
-    fetchProducts({ page, limit: 9, categoryId, search }),
+    fetchProducts({ page, limit: 9, categoryId, search, sort }),
   ]);
 
   const products = productsResponse?.data ?? [];
@@ -83,6 +90,7 @@ export default async function MarketplacePage({
     const categoryParam = typeof nextCategoryId === "string" ? nextCategoryId : categoryId;
     if (categoryParam) params.set("categoryId", categoryParam);
     if (search) params.set("search", search);
+    if (sort) params.set("sort", sort);
     return `/marketplace?${params.toString()}`;
   };
 
@@ -106,17 +114,13 @@ export default async function MarketplacePage({
             </p>
           </div>
 
-          {/* Search Form */}
-          <form className="flex w-full max-w-sm flex-col gap-4 border border-border-soft bg-card p-6">
-            <Input
-              name="search"
+          {/* Search Form with Autocomplete */}
+          <div className="flex w-full max-w-sm flex-col gap-4 border border-border-soft bg-card p-6">
+            <SearchAutocomplete
               defaultValue={search ?? ""}
               placeholder="Search collections, styles..."
             />
-            <Button size="md" type="submit">
-              Search
-            </Button>
-          </form>
+          </div>
         </section>
 
         {/* Category Filters */}
@@ -139,6 +143,14 @@ export default async function MarketplacePage({
               </Link>
             ))
           )}
+        </section>
+
+        {/* Sort Controls */}
+        <section className="flex items-center justify-between">
+          <p className="text-xs text-muted-foreground uppercase tracking-wider">
+            {pagination.total} {pagination.total === 1 ? "product" : "products"} found
+          </p>
+          <SortDropdown />
         </section>
 
         {/* Products Grid */}
@@ -172,6 +184,12 @@ export default async function MarketplacePage({
                   <span className="absolute top-4 right-4 bg-card/90 backdrop-blur-sm px-3 py-1 text-[10px] uppercase tracking-wider text-gold border border-gold/20">
                     Verified
                   </span>
+                  {/* Wishlist Heart */}
+                  <WishlistHeartButton
+                    productId={product.id}
+                    size={18}
+                    className="absolute bottom-4 right-4 h-8 w-8 bg-card/90 backdrop-blur-sm border border-border-soft text-muted-foreground hover:text-foreground hover:border-gold/50"
+                  />
                 </div>
 
                 {/* Product Info */}

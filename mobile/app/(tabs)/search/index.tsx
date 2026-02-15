@@ -8,6 +8,7 @@ import {
   Pressable,
   Dimensions,
   ActivityIndicator,
+  Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
@@ -17,6 +18,7 @@ import { getCategories } from "../../../src/services/catalog";
 import { getProducts, type ProductSummary } from "../../../src/services/products";
 import { isAbortError } from "../../../src/services/api";
 import { SkeletonProductCard } from "../../../src/components/Skeleton";
+import { getSuggestions, type SuggestionItem, type SortOption } from "../../../src/services/search";
 
 const { width } = Dimensions.get("window");
 const cardWidth = (width - spacing.lg * 2 - spacing.md) / 2;
@@ -24,6 +26,15 @@ const fallbackImage =
   "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80";
 
 const DEBOUNCE_MS = 400;
+const SUGGEST_DEBOUNCE_MS = 300;
+
+const SORT_OPTIONS: { value: SortOption | ""; label: string }[] = [
+  { value: "", label: "Default" },
+  { value: "price_asc", label: "Price: Low → High" },
+  { value: "price_desc", label: "Price: High → Low" },
+  { value: "newest", label: "Newest First" },
+  { value: "popularity", label: "Most Popular" },
+];
 
 type CategoryChipItem = {
   id: string;
@@ -103,11 +114,19 @@ export default function SearchScreen() {
   const [loading, setLoading] = React.useState(true);
   const [loadingMore, setLoadingMore] = React.useState(false);
   const [fetchError, setFetchError] = React.useState<string | null>(null);
+  const [sortBy, setSortBy] = React.useState<SortOption | "">("");
+  const [showSortSheet, setShowSortSheet] = React.useState(false);
+  const [suggestions, setSuggestions] = React.useState<SuggestionItem[]>([]);
+  const [showSuggestions, setShowSuggestions] = React.useState(false);
 
   // Abort controller for the active search request
   const controllerRef = React.useRef<AbortController | null>(null);
   // Debounce timer
   const debounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Suggestion debounce timer
+  const suggestDebounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Suggestion abort controller
+  const suggestControllerRef = React.useRef<AbortController | null>(null);
 
   const skeletons = React.useMemo(
     () =>
@@ -122,7 +141,9 @@ export default function SearchScreen() {
   React.useEffect(() => {
     return () => {
       controllerRef.current?.abort();
+      suggestControllerRef.current?.abort();
       if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (suggestDebounceRef.current) clearTimeout(suggestDebounceRef.current);
     };
   }, []);
 
@@ -162,6 +183,7 @@ export default function SearchScreen() {
           limit: 10,
           categoryId: selectedCategory,
           search: overrideSearch ?? (search.trim() || undefined),
+          sort: sortBy || undefined,
           signal,
         });
         if (signal?.aborted) return;
@@ -182,17 +204,17 @@ export default function SearchScreen() {
         }
       }
     },
-    [selectedCategory, search]
+    [selectedCategory, search, sortBy]
   );
 
-  // Load on category change
+  // Load on category or sort change
   React.useEffect(() => {
     controllerRef.current?.abort();
     const controller = new AbortController();
     controllerRef.current = controller;
     loadProducts(1, true, undefined, controller.signal);
     return () => controller.abort();
-  }, [selectedCategory]);
+  }, [selectedCategory, sortBy]);
 
   // Debounced search as user types
   const handleSearchChange = React.useCallback(
@@ -212,7 +234,34 @@ export default function SearchScreen() {
         const controller = new AbortController();
         controllerRef.current = controller;
         loadProducts(1, true, trimmed || undefined, controller.signal);
+        setShowSuggestions(false);
       }, DEBOUNCE_MS);
+
+      // Fetch autocomplete suggestions
+      if (suggestDebounceRef.current) clearTimeout(suggestDebounceRef.current);
+      suggestControllerRef.current?.abort();
+
+      if (text.trim().length >= 2) {
+        suggestDebounceRef.current = setTimeout(async () => {
+          const ctrl = new AbortController();
+          suggestControllerRef.current = ctrl;
+          try {
+            const items = await getSuggestions(text.trim(), 6, ctrl.signal);
+            if (!ctrl.signal.aborted) {
+              setSuggestions(items);
+              setShowSuggestions(items.length > 0);
+            }
+          } catch (err) {
+            if (!isAbortError(err)) {
+              setSuggestions([]);
+              setShowSuggestions(false);
+            }
+          }
+        }, SUGGEST_DEBOUNCE_MS);
+      } else {
+        setSuggestions([]);
+        setShowSuggestions(false);
+      }
     },
     [loadProducts, router, selectedCategory]
   );
@@ -308,7 +357,10 @@ export default function SearchScreen() {
           placeholderTextColor={colors.brownSoft}
           value={search}
           onChangeText={handleSearchChange}
-          onSubmitEditing={handleSearch}
+          onSubmitEditing={() => {
+            setShowSuggestions(false);
+            handleSearch();
+          }}
           style={styles.searchInput}
         />
         <Pressable style={styles.searchButton} onPress={handleSearch}>
@@ -316,14 +368,95 @@ export default function SearchScreen() {
         </Pressable>
       </View>
 
-      <FlatList
-        data={categories}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        keyExtractor={categoryKeyExtractor}
-        contentContainerStyle={styles.categoryRow}
-        renderItem={renderCategoryItem}
-      />
+      {/* Autocomplete suggestions */}
+      {showSuggestions && suggestions.length > 0 && (
+        <View style={styles.suggestionsContainer}>
+          {suggestions.map((item) => (
+            <Pressable
+              key={item.id}
+              style={styles.suggestionItem}
+              onPress={() => {
+                setSearch(item.title);
+                setShowSuggestions(false);
+                setSuggestions([]);
+                if (debounceRef.current) clearTimeout(debounceRef.current);
+                controllerRef.current?.abort();
+                const controller = new AbortController();
+                controllerRef.current = controller;
+                router.setParams({ q: item.title, categoryId: selectedCategory });
+                loadProducts(1, true, item.title, controller.signal);
+              }}
+            >
+              <Text style={styles.suggestionTitle} numberOfLines={1}>
+                {item.title}
+              </Text>
+              {item.category ? (
+                <Text style={styles.suggestionCategory}>{item.category}</Text>
+              ) : null}
+            </Pressable>
+          ))}
+        </View>
+      )}
+
+      {/* Sort + Category Row */}
+      <View style={styles.sortCategoryRow}>
+        <FlatList
+          data={categories}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          keyExtractor={categoryKeyExtractor}
+          contentContainerStyle={styles.categoryRow}
+          renderItem={renderCategoryItem}
+          style={styles.categoryList}
+        />
+        <Pressable
+          style={styles.sortButton}
+          onPress={() => setShowSortSheet(true)}
+        >
+          <Text style={styles.sortButtonText}>
+            {SORT_OPTIONS.find((o) => o.value === sortBy)?.label ?? "Sort"}
+          </Text>
+        </Pressable>
+      </View>
+
+      {/* Sort bottom sheet */}
+      <Modal
+        visible={showSortSheet}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowSortSheet(false)}
+      >
+        <Pressable
+          style={styles.sortOverlay}
+          onPress={() => setShowSortSheet(false)}
+        >
+          <View style={styles.sortSheet}>
+            <Text style={styles.sortSheetTitle}>Sort By</Text>
+            {SORT_OPTIONS.map((opt) => (
+              <Pressable
+                key={opt.value}
+                style={[
+                  styles.sortSheetOption,
+                  sortBy === opt.value && styles.sortSheetOptionActive,
+                ]}
+                onPress={() => {
+                  setSortBy(opt.value as SortOption | "");
+                  setShowSortSheet(false);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.sortSheetOptionText,
+                    sortBy === opt.value && styles.sortSheetOptionTextActive,
+                  ]}
+                >
+                  {opt.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </Pressable>
+      </Modal>
 
       {fetchError && !loading && products.length === 0 ? (
         <View style={styles.errorCard}>
@@ -543,5 +676,98 @@ const styles = StyleSheet.create({
   loadingMoreWrap: {
     paddingVertical: spacing.md,
     alignItems: "center",
+  },
+  suggestionsContainer: {
+    marginHorizontal: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    borderRadius: radius.md,
+    backgroundColor: colors.background,
+    ...shadow.card,
+    maxHeight: 220,
+  },
+  suggestionItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.borderSoft,
+  },
+  suggestionTitle: {
+    flex: 1,
+    fontFamily: typography.sans,
+    fontSize: 13,
+    color: colors.charcoal,
+  },
+  suggestionCategory: {
+    fontFamily: typography.sans,
+    fontSize: 10,
+    color: colors.brownSoft,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    marginLeft: spacing.sm,
+  },
+  sortCategoryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  categoryList: {
+    flex: 1,
+  },
+  sortButton: {
+    marginRight: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.warmWhite,
+  },
+  sortButtonText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 10,
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+    color: colors.charcoal,
+  },
+  sortOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(0,0,0,0.35)",
+  },
+  sortSheet: {
+    backgroundColor: colors.background,
+    borderTopLeftRadius: radius.lg,
+    borderTopRightRadius: radius.lg,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.lg,
+  },
+  sortSheetTitle: {
+    fontFamily: typography.serif,
+    fontSize: 18,
+    color: colors.charcoal,
+    marginBottom: spacing.md,
+  },
+  sortSheetOption: {
+    paddingVertical: spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.borderSoft,
+  },
+  sortSheetOptionActive: {
+    backgroundColor: colors.cream,
+    borderRadius: radius.sm,
+    marginHorizontal: -spacing.sm,
+    paddingHorizontal: spacing.sm,
+  },
+  sortSheetOptionText: {
+    fontFamily: typography.sans,
+    fontSize: 14,
+    color: colors.brown,
+  },
+  sortSheetOptionTextActive: {
+    color: colors.charcoal,
+    fontFamily: typography.sansMedium,
   },
 });

@@ -41,6 +41,7 @@ export async function getProducts(params: {
   limit: number;
   categoryId?: string;
   search?: string;
+  sort?: string;
   signal?: AbortSignal;
 }): Promise<ProductListResponse> {
   const query = new URLSearchParams();
@@ -48,6 +49,7 @@ export async function getProducts(params: {
   query.set("limit", String(params.limit));
   if (params.categoryId) query.set("categoryId", params.categoryId);
   if (params.search) query.set("search", params.search);
+  if (params.sort) query.set("sort", params.sort);
 
   return apiRequest<ProductListResponse>(`/v1/products?${query.toString()}`, {
     method: "GET",

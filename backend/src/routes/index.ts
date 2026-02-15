@@ -38,3 +38,9 @@ export { adminNotificationRouter } from './admin-notification.routes.js';
 
 // User notifications
 export { notificationRouter } from './notification.routes.js';
+
+// Wishlist
+export { wishlistRouter } from './wishlist.routes.js';
+
+// Search & Personalization
+export { searchRouter } from './search.routes.js';
