@@ -40,3 +40,5 @@ export const recommendationLogger = logger.child({ module: 'recommendation' });
 export const cancellationLogger = logger.child({ module: 'cancellation' });
 export const returnLogger = logger.child({ module: 'return' });
 export const refundLogger = logger.child({ module: 'refund' });
+export const commissionLogger = logger.child({ module: 'commission' });
+export const couponLogger = logger.child({ module: 'coupon' });

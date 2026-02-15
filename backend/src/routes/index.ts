@@ -19,6 +19,7 @@ export { addressRouter } from './address.routes.js';
 // Cart & Orders domain
 export { cartRouter } from './cart.routes.js';
 export { checkoutRouter } from './checkout.routes.js';
+export { couponRouter } from './coupon.routes.js';
 export { orderRouter } from './order.routes.js';
 export { sellerOrderRouter } from './seller-order.routes.js';
 export { cancellationRouter } from './cancellation.routes.js';

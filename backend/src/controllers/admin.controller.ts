@@ -19,7 +19,8 @@ import {
     productSetPriceSchema,
 } from '../validators/admin.validation.js';
 import { refundService } from '../services/refund.service.js';
-import type { RefundStatus } from '@prisma/client';
+import { commissionService } from '../services/commission.service.js';
+import type { RefundStatus, SettlementStatus } from '@prisma/client';
 
 /**
  * Admin Controller
@@ -513,15 +514,20 @@ export const adminController = {
 
     /**
      * GET /v1/admin/settlements
-     * List all settlements
+     * List all settlements with optional filters
      */
     listSettlements: async (
-        _req: Request,
+        req: Request,
         res: Response,
         next: NextFunction
     ): Promise<void> => {
         try {
-            const result = await adminService.listSettlements();
+            const { sellerId, orderId, status } = req.query;
+            const filters: { sellerId?: string; orderId?: string; status?: SettlementStatus } = {};
+            if (typeof sellerId === 'string') filters.sellerId = sellerId;
+            if (typeof orderId === 'string') filters.orderId = orderId;
+            if (typeof status === 'string') filters.status = status as SettlementStatus;
+            const result = await commissionService.listSettlements(filters);
             res.json(result);
         } catch (error) {
             next(error);

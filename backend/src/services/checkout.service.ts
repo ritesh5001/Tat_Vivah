@@ -17,7 +17,10 @@ import {
     intraStateOrderTotal,
 } from '../config/metrics.js';
 import { recordReserveAttempt, recordReserveFailure } from '../monitoring/alerts.js';
-import { calculateGST, type GSTResult } from '../utils/gst.util.js';
+import { couponService } from './coupon.service.js';
+import { Prisma } from '@prisma/client';
+
+const round2 = (value: Prisma.Decimal) => value.toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
 
 /**
  * Checkout Service
@@ -54,7 +57,8 @@ export class CheckoutService {
             shippingAddressLine2?: string;
             shippingCity?: string;
             shippingNotes?: string;
-        }
+        },
+        couponCode?: string,
     ): Promise<CheckoutResponse> {
         // =====================================================================
         // PHASE 1 — Read-only validation (outside transaction)
@@ -76,7 +80,9 @@ export class CheckoutService {
             adminPriceSnapshot: number;
             platformMargin: number;
             taxRate: number;
-            gst: GSTResult;
+            sellerState: string;
+            buyerState: string;
+            lineSubtotal: Prisma.Decimal;
         }> = [];
 
         // Fetch buyer state for GST calculation
@@ -123,21 +129,6 @@ export class CheckoutService {
             const productTaxRate = productWithTax?.taxRate ?? 0;
             const sellerState = sellerProfile?.state ?? '';
 
-            const gst = calculateGST({
-                price: adminListingPrice,
-                quantity: item.quantity,
-                taxRate: productTaxRate,
-                sellerState,
-                buyerState,
-            });
-
-            gstCalculationTotal.inc();
-            if (gst.igstAmount > 0) {
-                igstAppliedTotal.inc();
-            } else if (gst.cgstAmount > 0) {
-                intraStateOrderTotal.inc();
-            }
-
             if (item.quantity > availableStock) {
                 validationErrors.push(
                     `Insufficient stock for ${item.product.title}: Available ${availableStock}, Requested ${item.quantity}`
@@ -153,7 +144,9 @@ export class CheckoutService {
                     adminPriceSnapshot: adminListingPrice,
                     platformMargin: margin,
                     taxRate: productTaxRate,
-                    gst,
+                    sellerState,
+                    buyerState,
+                    lineSubtotal: new Prisma.Decimal(adminListingPrice).mul(item.quantity),
                 });
             }
         }
@@ -162,19 +155,12 @@ export class CheckoutService {
             throw ApiError.badRequest(validationErrors.join('; '));
         }
 
-        // Calculate totals (GST-aware)
-        let orderSubTotal = 0;
-        let orderTaxTotal = 0;
-        let orderGrandTotal = 0;
-        for (const item of itemsWithStock) {
-            orderSubTotal += item.gst.taxableAmount;
-            orderTaxTotal += item.gst.cgstAmount + item.gst.sgstAmount + item.gst.igstAmount;
-            orderGrandTotal += item.gst.totalAmount;
-        }
+        // Calculate pre-tax subtotal only. GST is calculated after coupon discount allocation.
+        const orderSubtotal = itemsWithStock.reduce(
+            (sum, item) => sum.add(item.lineSubtotal),
+            new Prisma.Decimal(0),
+        );
         const shippingFee = itemsWithStock.length > 0 ? 180 : 0;
-        // grandTotal includes shipping; totalAmount kept for backward compat
-        const grandTotalWithShipping = Math.round((orderGrandTotal + shippingFee) * 100) / 100;
-        const totalAmount = grandTotalWithShipping;
 
         // =====================================================================
         // PHASE 2 — Atomic transaction: reserve stock + create order + clear cart
@@ -226,14 +212,108 @@ export class CheckoutService {
                 }, `Reserved ${item.quantity} units of variant ${item.variantId}`);
             }
 
+            const uniqueSellerIds = Array.from(new Set(itemsWithStock.map((item) => item.sellerId)));
+
+            let appliedCoupon: {
+                couponId: string;
+                couponCode: string;
+                discountAmount: Prisma.Decimal;
+            } | null = null;
+
+            if (couponCode && couponCode.trim().length > 0) {
+                appliedCoupon = await couponService.applyCouponToOrder({
+                    userId,
+                    couponCode,
+                    orderSubtotal,
+                    sellerIds: uniqueSellerIds,
+                    tx,
+                });
+            }
+
+            const totalDiscount = appliedCoupon?.discountAmount ?? new Prisma.Decimal(0);
+
+            let allocatedDiscount = new Prisma.Decimal(0);
+            const discountedLines = itemsWithStock.map((item, index) => {
+                const isLast = index === itemsWithStock.length - 1;
+
+                let itemDiscount = new Prisma.Decimal(0);
+                if (totalDiscount.gt(0)) {
+                    if (isLast) {
+                        itemDiscount = totalDiscount.sub(allocatedDiscount);
+                    } else {
+                        itemDiscount = round2(
+                            totalDiscount.mul(item.lineSubtotal).div(orderSubtotal),
+                        );
+                        allocatedDiscount = allocatedDiscount.add(itemDiscount);
+                    }
+
+                    if (itemDiscount.gt(item.lineSubtotal)) {
+                        itemDiscount = item.lineSubtotal;
+                    }
+                }
+
+                const discountedTaxable = round2(item.lineSubtotal.sub(itemDiscount));
+                const taxRate = new Prisma.Decimal(item.taxRate);
+                const taxAmount = round2(discountedTaxable.mul(taxRate).div(100));
+
+                const intraState =
+                    !item.buyerState || item.sellerState.toLowerCase().trim() === item.buyerState.toLowerCase().trim();
+
+                let cgst = new Prisma.Decimal(0);
+                let sgst = new Prisma.Decimal(0);
+                let igst = new Prisma.Decimal(0);
+
+                if (taxAmount.gt(0)) {
+                    if (intraState) {
+                        cgst = round2(taxAmount.div(2));
+                        sgst = round2(taxAmount.sub(cgst));
+                    } else {
+                        igst = taxAmount;
+                    }
+                }
+
+                gstCalculationTotal.inc();
+                if (igst.gt(0)) {
+                    igstAppliedTotal.inc();
+                } else if (cgst.gt(0) || sgst.gt(0)) {
+                    intraStateOrderTotal.inc();
+                }
+
+                const lineTotal = round2(discountedTaxable.add(cgst).add(sgst).add(igst));
+
+                return {
+                    ...item,
+                    discountedTaxable,
+                    itemDiscount,
+                    cgst,
+                    sgst,
+                    igst,
+                    lineTotal,
+                };
+            });
+
+            const orderSubTotal = round2(
+                discountedLines.reduce((sum, item) => sum.add(item.discountedTaxable), new Prisma.Decimal(0)),
+            );
+            const orderTaxTotal = round2(
+                discountedLines.reduce((sum, item) => sum.add(item.cgst).add(item.sgst).add(item.igst), new Prisma.Decimal(0)),
+            );
+            const orderGrandTotal = round2(
+                discountedLines.reduce((sum, item) => sum.add(item.lineTotal), new Prisma.Decimal(0)),
+            );
+            const grandTotalWithShipping = round2(orderGrandTotal.add(shippingFee));
+            const totalAmount = grandTotalWithShipping;
+
             // 2b. Create order with items
             const created = await tx.order.create({
                 data: {
                     userId,
-                    totalAmount,
-                    subTotalAmount: Math.round(orderSubTotal * 100) / 100,
-                    totalTaxAmount: Math.round(orderTaxTotal * 100) / 100,
-                    grandTotal: grandTotalWithShipping,
+                    totalAmount: Number(totalAmount.toString()),
+                    subTotalAmount: Number(orderSubTotal.toString()),
+                    totalTaxAmount: Number(orderTaxTotal.toString()),
+                    grandTotal: Number(grandTotalWithShipping.toString()),
+                    couponCode: appliedCoupon?.couponCode ?? null,
+                    discountAmount: totalDiscount,
                     shippingName: shipping?.shippingName ?? null,
                     shippingPhone: shipping?.shippingPhone ?? null,
                     shippingEmail: shipping?.shippingEmail ?? null,
@@ -243,7 +323,7 @@ export class CheckoutService {
                     shippingNotes: shipping?.shippingNotes ?? null,
                     status: 'PLACED',
                     items: {
-                        create: itemsWithStock.map((item) => ({
+                        create: discountedLines.map((item) => ({
                             sellerId: item.sellerId,
                             productId: item.productId,
                             variantId: item.variantId,
@@ -253,16 +333,26 @@ export class CheckoutService {
                             adminPriceSnapshot: item.adminPriceSnapshot,
                             platformMargin: item.platformMargin,
                             taxRate: item.taxRate,
-                            taxableAmount: item.gst.taxableAmount,
-                            cgstAmount: item.gst.cgstAmount,
-                            sgstAmount: item.gst.sgstAmount,
-                            igstAmount: item.gst.igstAmount,
-                            totalAmount: item.gst.totalAmount,
+                            taxableAmount: Number(item.discountedTaxable.toString()),
+                            cgstAmount: Number(item.cgst.toString()),
+                            sgstAmount: Number(item.sgst.toString()),
+                            igstAmount: Number(item.igst.toString()),
+                            totalAmount: Number(item.lineTotal.toString()),
                         })),
                     },
                 },
                 include: { items: true },
             });
+
+            if (appliedCoupon && totalDiscount.gt(0)) {
+                await couponService.redeemCouponAfterOrderCreated({
+                    tx,
+                    couponId: appliedCoupon.couponId,
+                    userId,
+                    orderId: created.id,
+                    discountAmount: totalDiscount,
+                });
+            }
 
             // 2c. Create RESERVE inventory movements (audit trail)
             for (const item of itemsWithStock) {
@@ -282,6 +372,9 @@ export class CheckoutService {
             });
 
             return created;
+        }, {
+            maxWait: 20000,
+            timeout: 20000,
         });
 
         // =====================================================================
@@ -306,19 +399,22 @@ export class CheckoutService {
             event: 'checkout_success',
             userId,
             orderId: order.id,
-            totalAmount,
+            totalAmount: order.totalAmount,
             itemCount: itemsWithStock.length,
+            couponCode: order.couponCode,
+            discountAmount: order.discountAmount,
         }, `Checkout succeeded — order ${order.id}`);
 
         // Structured GST log
-        const hasIntraState = itemsWithStock.some((i) => i.gst.cgstAmount > 0);
+        const hasIntraState = order.items.some((i) => i.cgstAmount > 0 || i.sgstAmount > 0);
         checkoutLogger.info({
             event: 'gst_calculated',
             orderId: order.id,
             intraState: hasIntraState,
-            totalTax: Math.round(orderTaxTotal * 100) / 100,
-            subTotal: Math.round(orderSubTotal * 100) / 100,
-            grandTotal: grandTotalWithShipping,
+            totalTax: order.totalTaxAmount,
+            subTotal: order.subTotalAmount,
+            grandTotal: order.grandTotal,
+            discountAmount: order.discountAmount,
         }, `GST calculated for order ${order.id}`);
 
         return {
@@ -331,6 +427,8 @@ export class CheckoutService {
                 subTotalAmount: order.subTotalAmount,
                 totalTaxAmount: order.totalTaxAmount,
                 grandTotal: order.grandTotal,
+                couponCode: order.couponCode,
+                discountAmount: Number(order.discountAmount),
                 createdAt: order.createdAt,
             },
         };

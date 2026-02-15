@@ -15,6 +15,7 @@ import {
     bestsellerRouter,
     cartRouter,
     checkoutRouter,
+    couponRouter,
     orderRouter,
     sellerOrderRouter,
     cancellationRouter,
@@ -179,6 +180,7 @@ export function createApp(): Application {
     // Cart & Orders domain
     app.use('/v1/cart', cartRouter);
     app.use('/v1/checkout', checkoutRouter);
+    app.use('/v1/coupons', couponRouter);
     app.use('/v1/orders', orderRouter);
     app.use('/v1/seller/orders', sellerOrderRouter);
     app.use('/v1/cancellations', cancellationRouter);

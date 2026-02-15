@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { usePathname, useRouter } from "expo-router";
 import { colors, radius, spacing, typography, shadow } from "../../src/theme/tokens";
-import { checkout } from "../../src/services/cart";
+import { checkout, validateCoupon, type CouponPreview } from "../../src/services/cart";
 import { initiatePayment, verifyPayment } from "../../src/services/payments";
 import { openRazorpayCheckout } from "../../src/services/razorpay";
 import { ApiError } from "../../src/services/api";
@@ -89,8 +89,16 @@ export default function CheckoutScreen() {
     subTotalAmount: number;
     totalTaxAmount: number;
     grandTotal: number;
+    discountAmount: number;
   } | null>(null);
   const mountedRef = React.useRef(true);
+
+  // ---------- Coupon state ----------
+  const [couponCode, setCouponCode] = React.useState("");
+  const [appliedCoupon, setAppliedCoupon] = React.useState<CouponPreview | null>(null);
+  const [couponLoading, setCouponLoading] = React.useState(false);
+  const [couponError, setCouponError] = React.useState<string | null>(null);
+  const cartFingerprintRef = React.useRef("");
 
   React.useEffect(() => {
     return () => {
@@ -126,6 +134,17 @@ export default function CheckoutScreen() {
   });
 
   const hasAddresses = addresses.length > 0;
+
+  // ---------- Clear coupon when cart items change ----------
+  React.useEffect(() => {
+    const fp = cartItems.map((i) => `${i.variantId}:${i.quantity}`).sort().join("|");
+    if (cartFingerprintRef.current && cartFingerprintRef.current !== fp) {
+      setAppliedCoupon(null);
+      setCouponCode("");
+      setCouponError(null);
+    }
+    cartFingerprintRef.current = fp;
+  }, [cartItems]);
 
   // Redirect if cart is empty (navigated directly, or cart cleared)
   React.useEffect(() => {
@@ -164,6 +183,58 @@ export default function CheckoutScreen() {
     router.push("/(tabs)/profile/addresses/form");
   }, [router]);
 
+  // ---- Coupon handlers ----
+
+  const handleApplyCoupon = React.useCallback(async () => {
+    const trimmed = couponCode.trim();
+    if (!trimmed || !token) return;
+
+    setCouponLoading(true);
+    setCouponError(null);
+
+    try {
+      const result = await validateCoupon(trimmed, token);
+      if (result.valid && result.coupon) {
+        // Client-side min-order hint (backend is source of truth at checkout)
+        const subtotal = cartItems.reduce(
+          (sum, i) => sum + i.priceSnapshot * i.quantity,
+          0
+        );
+        if (
+          result.coupon.minOrderAmount !== null &&
+          subtotal < result.coupon.minOrderAmount
+        ) {
+          setCouponError(
+            `Minimum order of ₹${result.coupon.minOrderAmount} required`
+          );
+          setCouponLoading(false);
+          return;
+        }
+
+        setAppliedCoupon(result.coupon);
+        setCouponError(null);
+        impactLight();
+      } else {
+        setCouponError(result.message ?? "Invalid coupon code");
+        notifyError();
+      }
+    } catch (err) {
+      setCouponError(
+        err instanceof Error ? err.message : "Could not validate coupon"
+      );
+      notifyError();
+    } finally {
+      setCouponLoading(false);
+    }
+  }, [couponCode, token, cartItems]);
+
+  const handleRemoveCoupon = React.useCallback(() => {
+    setAppliedCoupon(null);
+    setCouponCode("");
+    setCouponError(null);
+    impactLight();
+  }, []);
+
   // ---- Checkout handler ----
 
   const handleCheckout = async () => {
@@ -192,6 +263,7 @@ export default function CheckoutScreen() {
           shippingAddressLine1: selectedAddress.addressLine1,
           shippingAddressLine2: selectedAddress.addressLine2 || undefined,
           shippingCity: selectedAddress.city,
+          couponCode: appliedCoupon?.code || undefined,
         }
       : {
           shippingName: shipping.name || undefined,
@@ -201,6 +273,7 @@ export default function CheckoutScreen() {
           shippingAddressLine2: shipping.addressLine2 || undefined,
           shippingCity: shipping.city || undefined,
           shippingNotes: shipping.notes || undefined,
+          couponCode: appliedCoupon?.code || undefined,
         };
 
     setIsPaying(true);
@@ -221,6 +294,7 @@ export default function CheckoutScreen() {
           subTotalAmount: orderResult.order.subTotalAmount ?? 0,
           totalTaxAmount: orderResult.order.totalTaxAmount ?? 0,
           grandTotal: orderResult.order.grandTotal ?? 0,
+          discountAmount: orderResult.order.discountAmount ?? 0,
         });
       }
 
@@ -477,6 +551,73 @@ export default function CheckoutScreen() {
           />
         </View>
 
+        {/* ---- Coupon Card ---- */}
+        <View style={[styles.card, { marginTop: spacing.md }]}>
+          <Text style={styles.sectionTitle}>Promo Code</Text>
+
+          {appliedCoupon ? (
+            /* Applied state */
+            <View style={styles.couponAppliedBox}>
+              <View style={styles.couponAppliedLeft}>
+                <Text style={styles.couponCheckmark}>✓</Text>
+                <View>
+                  <Text style={styles.couponAppliedCode}>{appliedCoupon.code}</Text>
+                  <Text style={styles.couponAppliedDesc}>
+                    {appliedCoupon.type === "PERCENT"
+                      ? `${appliedCoupon.value}% off${
+                          appliedCoupon.maxDiscountAmount !== null
+                            ? ` (up to ₹${appliedCoupon.maxDiscountAmount})`
+                            : ""
+                        }`
+                      : `₹${appliedCoupon.value} off`}
+                  </Text>
+                </View>
+              </View>
+              <Pressable
+                onPress={handleRemoveCoupon}
+                disabled={isPaying}
+                hitSlop={12}
+              >
+                <Text style={styles.couponRemoveText}>REMOVE</Text>
+              </Pressable>
+            </View>
+          ) : (
+            /* Input state */
+            <View style={styles.couponInputRow}>
+              <TextInput
+                style={[styles.input, styles.couponInput]}
+                placeholder="Enter coupon code"
+                placeholderTextColor={colors.brownSoft}
+                autoCapitalize="characters"
+                value={couponCode}
+                onChangeText={(text) => {
+                  setCouponCode(text.toUpperCase());
+                  if (couponError) setCouponError(null);
+                }}
+                editable={!isPaying && !couponLoading}
+                returnKeyType="done"
+                onSubmitEditing={handleApplyCoupon}
+              />
+              <AnimatedPressable
+                style={[
+                  styles.couponApplyButton,
+                  (couponLoading || !couponCode.trim()) && styles.buttonDisabled,
+                ]}
+                onPress={handleApplyCoupon}
+                disabled={couponLoading || isPaying || !couponCode.trim()}
+              >
+                <Text style={styles.couponApplyText}>
+                  {couponLoading ? "…" : "APPLY"}
+                </Text>
+              </AnimatedPressable>
+            </View>
+          )}
+
+          {couponError ? (
+            <Text style={styles.couponErrorText}>{couponError}</Text>
+          ) : null}
+        </View>
+
         {/* ---- Tax Summary ---- */}
         {taxSummary && (
           <View style={[styles.card, { marginTop: spacing.md }]}>
@@ -487,6 +628,14 @@ export default function CheckoutScreen() {
                 ₹{taxSummary.subTotalAmount.toFixed(0)}
               </Text>
             </View>
+            {taxSummary.discountAmount > 0 && (
+              <View style={styles.summaryRow}>
+                <Text style={[styles.summaryLabel, { color: "#2E7D32" }]}>Discount</Text>
+                <Text style={[styles.summaryValue, { color: "#2E7D32" }]}>
+                  −₹{taxSummary.discountAmount.toFixed(0)}
+                </Text>
+              </View>
+            )}
             {taxSummary.totalTaxAmount > 0 && (
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>GST</Text>
@@ -871,5 +1020,77 @@ const styles = StyleSheet.create({
     fontFamily: typography.sans,
     fontSize: 13,
     color: colors.charcoal,
+  },
+
+  // Coupon styles
+  couponAppliedBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#F0FFF4",
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: "#C6F6D5",
+    padding: spacing.md,
+  },
+  couponAppliedLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    flex: 1,
+  },
+  couponCheckmark: {
+    fontSize: 14,
+    color: "#2E7D32",
+    fontFamily: typography.sansMedium,
+  },
+  couponAppliedCode: {
+    fontFamily: typography.sansMedium,
+    fontSize: 13,
+    color: "#2E7D32",
+    letterSpacing: 0.5,
+  },
+  couponAppliedDesc: {
+    fontFamily: typography.sans,
+    fontSize: 11,
+    color: "#4CAF50",
+    marginTop: 1,
+  },
+  couponRemoveText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 10,
+    letterSpacing: 1.2,
+    color: colors.brownSoft,
+  },
+  couponInputRow: {
+    flexDirection: "row",
+    gap: spacing.sm,
+  },
+  couponInput: {
+    flex: 1,
+    letterSpacing: 1.5,
+    textTransform: "uppercase",
+    marginBottom: 0,
+  },
+  couponApplyButton: {
+    height: 48,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.gold,
+    paddingHorizontal: spacing.lg,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  couponApplyText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 11,
+    letterSpacing: 1.2,
+    color: colors.gold,
+  },
+  couponErrorText: {
+    fontFamily: typography.sans,
+    fontSize: 12,
+    color: "#A65D57",
+    marginTop: spacing.xs,
   },
 });

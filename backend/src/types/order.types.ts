@@ -1,5 +1,6 @@
 // Order Domain Types
 import type { $Enums } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 
 // Re-export enum types for convenience
 export type OrderStatus = $Enums.OrderStatus;
@@ -20,6 +21,8 @@ export interface OrderEntity {
     subTotalAmount: number;
     totalTaxAmount: number;
     grandTotal: number;
+    couponCode?: string | null;
+    discountAmount?: Prisma.Decimal | number;
     invoiceNumber?: string | null;
     invoiceIssuedAt?: Date | null;
     shippingName?: string | null;

@@ -245,3 +245,42 @@ export const refundOverLimitRejectedTotal = new client.Counter({
     name: 'refund_over_limit_rejected_total',
     help: 'Total refund attempts rejected due to exceeding order total',
 });
+
+// ── Seller Commission Metrics ────────────────────────────────────
+
+export const sellerSettlementCreatedTotal = new client.Counter({
+    name: 'seller_settlement_created_total',
+    help: 'Total seller settlement rows created',
+});
+
+export const sellerSettlementAmountTotal = new client.Counter({
+    name: 'seller_settlement_amount_total',
+    help: 'Total gross settlement amount (INR)',
+});
+
+export const commissionAmountTotal = new client.Counter({
+    name: 'commission_amount_total',
+    help: 'Total commission earned by platform (INR)',
+});
+
+// ── Coupon / Promocode Metrics ───────────────────────────────────
+
+export const couponAppliedTotal = new client.Counter({
+    name: 'coupon_applied_total',
+    help: 'Total successful coupon applications',
+});
+
+export const couponRejectedTotal = new client.Counter({
+    name: 'coupon_rejected_total',
+    help: 'Total rejected coupon applications',
+});
+
+export const couponUsageExhaustedTotal = new client.Counter({
+    name: 'coupon_usage_exhausted_total',
+    help: 'Total coupon applications rejected because usage limit was exhausted',
+});
+
+export const couponDiscountAmountTotal = new client.Counter({
+    name: 'coupon_discount_amount_total',
+    help: 'Total coupon discount amount applied (INR)',
+});

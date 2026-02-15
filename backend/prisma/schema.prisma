@@ -43,6 +43,10 @@ model User {
   reviewedCancellationRequests CancellationRequest[] @relation("CancellationReviewer")
   returnRequests       ReturnRequest[]       @relation("UserReturnRequests")
   reviewedReturnRequests ReturnRequest[]     @relation("ReturnReviewer")
+  commissionConfig     SellerCommissionConfig?
+  sellerSettlements    SellerSettlement[]
+  sellerCoupons        Coupon[]              @relation("SellerCoupons")
+  couponRedemptions    CouponRedemption[]
 
   @@map("users")
 }
@@ -243,6 +247,8 @@ model Order {
   subTotalAmount       Float               @default(0) @map("sub_total_amount")
   totalTaxAmount       Float               @default(0) @map("total_tax_amount")
   grandTotal           Float               @default(0) @map("grand_total")
+  couponCode           String?             @map("coupon_code")
+  discountAmount       Decimal             @default(0) @map("discount_amount") @db.Decimal(10, 2)
   invoiceNumber        String?             @unique @map("invoice_number")
   invoiceIssuedAt      DateTime?           @map("invoice_issued_at")
   shippingName         String?             @map("shipping_name")
@@ -260,6 +266,8 @@ model Order {
   cancellationRequest  CancellationRequest?
   returnRequests       ReturnRequest[]
   refunds              Refund[]
+  sellerSettlements    SellerSettlement[]
+  couponRedemptions    CouponRedemption[]
 
   @@index([userId])
   @@map("orders")
@@ -435,18 +443,81 @@ model PaymentEvent {
   @@map("payment_events")
 }
 
-/// Seller settlements for order items (Foundation)
-model SellerSettlement {
-  id          String           @id @default(cuid())
-  sellerId    String           @map("seller_id")
-  orderItemId String           @map("order_item_id")
-  amount      Float
-  status      SettlementStatus @default(PENDING)
-  createdAt   DateTime         @default(now()) @map("created_at")
+/// Seller commission configuration per seller
+model SellerCommissionConfig {
+  id            String   @id @default(cuid())
+  sellerId      String   @unique @map("seller_id")
+  commissionPct Decimal  @map("commission_pct") @db.Decimal(5, 2)
+  platformFee   Decimal  @default(0) @map("platform_fee") @db.Decimal(10, 2)
+  createdAt     DateTime @default(now()) @map("created_at")
 
+  seller User @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  @@map("seller_commission_configs")
+}
+
+/// Seller settlements per order — commission snapshot (immutable)
+model SellerSettlement {
+  id               String           @id @default(cuid())
+  orderId          String           @map("order_id")
+  sellerId         String           @map("seller_id")
+  grossAmount      Float            @map("gross_amount")
+  commissionAmount Float            @map("commission_amount")
+  platformFee      Float            @default(0) @map("platform_fee")
+  netAmount        Float            @map("net_amount")
+  status           SettlementStatus @default(PENDING)
+  settledAt        DateTime?        @map("settled_at")
+  createdAt        DateTime         @default(now()) @map("created_at")
+
+  order  Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  seller User  @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  @@unique([orderId, sellerId])
   @@index([sellerId])
   @@index([status])
   @@map("seller_settlements")
+}
+
+model Coupon {
+  id                String             @id @default(uuid())
+  code              String             @unique
+  type              CouponType
+  value             Decimal            @db.Decimal(10, 2)
+  maxDiscountAmount Decimal?           @map("max_discount_amount") @db.Decimal(10, 2)
+  minOrderAmount    Decimal            @default(0) @map("min_order_amount") @db.Decimal(10, 2)
+  usageLimit        Int?               @map("usage_limit")
+  perUserLimit      Int?               @map("per_user_limit")
+  usedCount         Int                @default(0) @map("used_count")
+  validFrom         DateTime           @map("valid_from")
+  validUntil        DateTime           @map("valid_until")
+  isActive          Boolean            @default(true) @map("is_active")
+  sellerId          String?            @map("seller_id")
+  firstTimeUserOnly Boolean            @default(false) @map("first_time_user_only")
+  createdAt         DateTime           @default(now()) @map("created_at")
+
+  seller      User?               @relation("SellerCoupons", fields: [sellerId], references: [id], onDelete: SetNull)
+  redemptions CouponRedemption[]
+
+  @@index([sellerId])
+  @@index([validFrom, validUntil])
+  @@map("coupons")
+}
+
+model CouponRedemption {
+  id             String   @id @default(uuid())
+  couponId       String   @map("coupon_id")
+  userId         String   @map("user_id")
+  orderId        String   @map("order_id")
+  discountAmount Decimal  @map("discount_amount") @db.Decimal(10, 2)
+  redeemedAt     DateTime @default(now()) @map("redeemed_at")
+
+  coupon Coupon @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  order  Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([couponId, userId, orderId])
+  @@index([userId])
+  @@map("coupon_redemptions")
 }
 
 /// Audit logs for tracking all admin actions
@@ -653,7 +724,13 @@ enum PaymentEventType {
 
 enum SettlementStatus {
   PENDING
+  SETTLED
   PAID
+}
+
+enum CouponType {
+  PERCENT
+  FLAT
 }
 
 enum RefundStatus {

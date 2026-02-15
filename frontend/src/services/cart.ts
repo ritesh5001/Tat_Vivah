@@ -91,6 +91,31 @@ export async function removeCartItem(
   });
 }
 
+export interface CouponPreview {
+  code: string;
+  type: "PERCENT" | "FLAT";
+  value: number;
+  maxDiscountAmount: number | null;
+  minOrderAmount: number | null;
+}
+
+export interface ValidateCouponResponse {
+  valid: boolean;
+  message?: string;
+  coupon?: CouponPreview;
+}
+
+export async function validateCoupon(
+  code: string,
+  token?: string | null
+): Promise<ValidateCouponResponse> {
+  return apiRequest<ValidateCouponResponse>("/v1/coupons/validate", {
+    method: "POST",
+    body: { code },
+    token,
+  });
+}
+
 export async function checkout(
   payload?: {
     shippingName?: string;
@@ -100,6 +125,7 @@ export async function checkout(
     shippingAddressLine2?: string;
     shippingCity?: string;
     shippingNotes?: string;
+    couponCode?: string;
   },
   token?: string | null
 ) {
@@ -111,6 +137,8 @@ export async function checkout(
       subTotalAmount: number;
       totalTaxAmount: number;
       grandTotal: number;
+      couponCode?: string | null;
+      discountAmount?: number;
     };
   }>("/v1/checkout", {
     method: "POST",

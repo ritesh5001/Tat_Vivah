@@ -1,7 +1,7 @@
 
 import { paymentRepository } from '../repositories/payment.repository.js';
 import { orderRepository } from '../repositories/order.repository.js';
-import { PaymentProvider, PaymentStatus, PaymentEventType, SettlementStatus, OrderStatus } from '@prisma/client';
+import { PaymentProvider, PaymentStatus, PaymentEventType, OrderStatus } from '@prisma/client';
 import { prisma } from '../config/db.js';
 import { ApiError } from '../errors/ApiError.js';
 import { razorpayService } from './razorpay.service.js';
@@ -11,6 +11,7 @@ import { paymentLogger } from '../config/logger.js';
 import { paymentSuccessTotal, staleCancelTotal, refundSuccessTotal } from '../config/metrics.js';
 import { recordPaymentFailure } from '../monitoring/alerts.js';
 import { generateInvoiceNumber } from '../utils/invoice.util.js';
+import { commissionService } from './commission.service.js';
 
 /** Maximum age (ms) of a PLACED order eligible for payment retry. */
 const STALE_ORDER_TTL_MS = 30 * 60 * 1000; // 30 minutes
@@ -343,22 +344,6 @@ export class PaymentService {
                 },
             });
 
-            // 4. Create Seller Settlements
-            const orderItems = await tx.orderItem.findMany({
-                where: { orderId }
-            });
-
-            for (const item of orderItems) {
-                await tx.sellerSettlement.create({
-                    data: {
-                        sellerId: item.sellerId,
-                        orderItemId: item.id,
-                        amount: item.sellerPriceSnapshot ?? item.priceSnapshot,
-                        status: SettlementStatus.PENDING
-                    }
-                });
-            }
-
             return { alreadyProcessed: false };
         });
 
@@ -372,6 +357,9 @@ export class PaymentService {
             paymentId,
             providerPaymentId,
         }, `Payment succeeded for order ${orderId}`);
+
+        // Calculate and store seller commission settlements (idempotent)
+        await commissionService.calculateAndStoreSellerSettlement(orderId);
 
         // Trigger Notifications (event-driven, idempotent, best-effort)
         await emitPaymentSuccess(orderId);
