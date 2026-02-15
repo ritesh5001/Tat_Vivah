@@ -12,7 +12,7 @@
  */
 
 import {
-    CancellationStatus,
+    type CancellationStatus as _CancellationStatus,
     OrderStatus,
     PaymentProvider,
     PaymentStatus,
@@ -133,7 +133,7 @@ async function seedOrderWithPayment(
     productId: string,
     variantId: string,
     qty: number,
-    suffix: string,
+    _suffix: string,
 ) {
     const order = await prisma.order.create({
         data: {
@@ -166,7 +166,7 @@ async function seedOrderWithPayment(
         },
     });
 
-    const payment = await prisma.payment.create({
+    const _payment = await prisma.payment.create({
         data: {
             orderId: order.id,
             userId: buyerId,
@@ -193,7 +193,7 @@ async function seedOrderWithPayment(
         data: { stock: { decrement: qty } },
     });
 
-    return { order, payment };
+    return { order, payment: _payment };
 }
 
 // ═════════════════════════════════════════════════════════════════════
@@ -206,7 +206,7 @@ async function testConcurrentRefundPrevention() {
     const seller = await seedUser('seller-refund', Role.SELLER);
     const buyer = await seedUser('buyer-refund', Role.USER);
     const { product, variant } = await seedProductAndInventory(seller.id, 100);
-    const { order, payment } = await seedOrderWithPayment(buyer.id, seller.id, product.id, variant.id, 2, 'refund');
+    const { order } = await seedOrderWithPayment(buyer.id, seller.id, product.id, variant.id, 2, 'refund');
 
     const orderTotalPaise = 600 * 2 * 100; // 120000 paise
 
@@ -247,7 +247,7 @@ async function testConcurrentCancellationRequests() {
 
     const seller = await seedUser('seller-cancel', Role.SELLER);
     const buyer = await seedUser('buyer-cancel', Role.USER);
-    const admin = await seedUser('admin-cancel', Role.ADMIN);
+    await seedUser('admin-cancel', Role.ADMIN);
     const { product, variant } = await seedProductAndInventory(seller.id, 100);
 
     // Create a CONFIRMED order
