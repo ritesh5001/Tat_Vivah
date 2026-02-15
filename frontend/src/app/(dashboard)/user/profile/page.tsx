@@ -123,9 +123,11 @@ export default function ProfilePage() {
                 whileHover={{ x: 4 }}
                 transition={{ duration: 0.3, ease: "easeOut" }}
               >
-                <Button variant="outline" className="w-full justify-between h-12">
-                  <span>Manage Addresses</span>
-                  <span className="text-muted-foreground">→</span>
+                <Button asChild variant="outline" className="w-full justify-between h-12">
+                  <Link href="/user/addresses">
+                    <span>Manage Addresses</span>
+                    <span className="text-muted-foreground">→</span>
+                  </Link>
                 </Button>
               </motion.div>
               <motion.div

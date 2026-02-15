@@ -319,3 +319,17 @@ adminRouter.get(
     authorize('ADMIN', 'SUPER_ADMIN'),
     adminController.listAuditLogs
 );
+
+// ============================================================================
+// REFUND LEDGER
+// ============================================================================
+
+/**
+ * GET /v1/admin/refunds
+ * List all refund ledger entries (with optional orderId/status filters)
+ */
+adminRouter.get(
+    '/refunds',
+    authorize('ADMIN', 'SUPER_ADMIN'),
+    adminController.listRefunds
+);

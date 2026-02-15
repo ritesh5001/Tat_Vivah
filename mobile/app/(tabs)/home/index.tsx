@@ -15,8 +15,11 @@ import { Image } from "expo-image";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import { getBestsellers, BestsellerProduct } from "../../../src/services/bestsellers";
 import { getCategories, type Category } from "../../../src/services/catalog";
-import { getProducts, type ProductSummary } from "../../../src/services/products";
+import { getProducts, type ProductItem, type ProductSummary } from "../../../src/services/products";
+import { getRecentlyViewed, type RecentlyViewedProduct } from "../../../src/services/personalization";
+import { getRecommendations, type RecommendationProduct } from "../../../src/services/recommendation";
 import { isAbortError } from "../../../src/services/api";
+import { ProductGridCard } from "../../../src/components/ProductGridCard";
 
 const { width } = Dimensions.get("window");
 const cardWidth = width - spacing.lg * 2;
@@ -53,8 +56,11 @@ export default function HomeScreen() {
   const [loadingBestsellers, setLoadingBestsellers] = React.useState(true);
   const [categories, setCategories] = React.useState<Category[]>([]);
   const [arrivals, setArrivals] = React.useState<ProductSummary[]>([]);
+  const [recentlyViewed, setRecentlyViewed] = React.useState<RecentlyViewedProduct[]>([]);
+  const [recommendedProducts, setRecommendedProducts] = React.useState<ProductItem[]>([]);
 
   React.useEffect(() => {
+    const recommendationsController = new AbortController();
     let cancelled = false;
 
     const load = async () => {
@@ -100,12 +106,45 @@ export default function HomeScreen() {
       }
     };
 
+    const loadRecentlyViewed = async () => {
+      try {
+        const products = await getRecentlyViewed();
+        if (!cancelled) setRecentlyViewed(products);
+      } catch {
+        // Not logged in or no data — silently ignore
+      }
+    };
+
+    const loadRecommendations = async () => {
+      try {
+        const products = await getRecommendations(recommendationsController.signal);
+        if (cancelled) return;
+        const normalized = products.map((product: RecommendationProduct) => ({
+          id: product.id,
+          title: product.title,
+          images: product.images,
+          category: product.category,
+          price: product.adminListingPrice ?? product.sellerPrice,
+          sellerPrice: product.sellerPrice,
+          adminPrice: product.adminListingPrice,
+        }));
+        setRecommendedProducts(normalized);
+      } catch (err) {
+        if (!cancelled && !isAbortError(err)) {
+          setRecommendedProducts([]);
+        }
+      }
+    };
+
     load();
     loadCategories();
     loadArrivals();
+    loadRecentlyViewed();
+    loadRecommendations();
 
     return () => {
       cancelled = true;
+      recommendationsController.abort();
     };
   }, []);
 
@@ -146,6 +185,19 @@ export default function HomeScreen() {
       );
     },
     [handleProductPress, formatPrice]
+  );
+
+  const renderRecommendationItem = React.useCallback(
+    ({ item }: { item: ProductItem }) => (
+      <View style={styles.recommendationCardWrap}>
+        <ProductGridCard
+          product={item}
+          onExplore={() => handleProductPress(item.id)}
+          onBuyNow={() => handleProductPress(item.id)}
+        />
+      </View>
+    ),
+    [handleProductPress],
   );
 
   return (
@@ -251,6 +303,72 @@ export default function HomeScreen() {
         }
         ListFooterComponent={
           <View>
+            {recommendedProducts.length > 0 && (
+              <>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionEyebrow}>Personalized picks</Text>
+                  <Text style={styles.sectionTitle}>Recommended For You</Text>
+                </View>
+                <FlatList
+                  horizontal
+                  data={recommendedProducts}
+                  keyExtractor={(item) => item.id}
+                  showsHorizontalScrollIndicator={false}
+                  renderItem={renderRecommendationItem}
+                  removeClippedSubviews
+                  initialNumToRender={2}
+                  maxToRenderPerBatch={2}
+                  windowSize={5}
+                  contentContainerStyle={styles.recommendationListContent}
+                />
+              </>
+            )}
+
+            {recentlyViewed.length > 0 && (
+              <>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionEyebrow}>Continue exploring</Text>
+                  <Text style={styles.sectionTitle}>Recently viewed</Text>
+                </View>
+                <FlatList
+                  horizontal
+                  data={recentlyViewed}
+                  keyExtractor={(item) => item.id}
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ paddingHorizontal: spacing.lg }}
+                  renderItem={({ item }) => {
+                    const image = item.images?.[0] ?? fallbackImage;
+                    return (
+                      <Pressable
+                        style={styles.arrivalCard}
+                        onPress={() =>
+                          router.push({
+                            pathname: "/product/[id]",
+                            params: { id: item.id },
+                          })
+                        }
+                      >
+                        <Image
+                          source={{ uri: image }}
+                          style={styles.arrivalImage}
+                          contentFit="cover"
+                          transition={200}
+                          cachePolicy="memory-disk"
+                        />
+                        <Text style={styles.arrivalTitle} numberOfLines={2}>
+                          {item.title}
+                        </Text>
+                        <Text style={styles.arrivalPrice}>
+                          {item.adminListingPrice
+                            ? formatPrice(item.adminListingPrice)
+                            : formatPrice(item.sellerPrice)}
+                        </Text>
+                      </Pressable>
+                    );
+                  }}
+                />
+              </>
+            )}
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionEyebrow}>New arrivals</Text>
               <Text style={styles.sectionTitle}>Freshly tailored</Text>
@@ -571,6 +689,14 @@ const styles = StyleSheet.create({
     fontFamily: typography.sans,
     fontSize: 12,
     color: colors.brownSoft,
+  },
+  recommendationListContent: {
+    paddingHorizontal: spacing.lg,
+  },
+  recommendationCardWrap: {
+    width: 260,
+    marginRight: spacing.md,
+    marginTop: spacing.md,
   },
   footerCard: {
     marginTop: spacing.xl,

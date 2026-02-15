@@ -11,7 +11,7 @@ const protectedRoutes = [
 
 const authPages = ["/login", "/register", "/(auth)", "/forgot-password", "/reset-password"];
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const isProtected = protectedRoutes.some((route) => pathname.startsWith(route));

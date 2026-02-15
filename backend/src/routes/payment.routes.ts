@@ -3,7 +3,7 @@ import { Router } from 'express';
 import { paymentController } from '../controllers/payment.controller.js';
 import { authenticate } from '../middlewares/auth.middleware.js';
 import { validateRequest } from '../middlewares/validateRequest.js'; // Assuming this exists or similar
-import { initiatePaymentSchema, verifyPaymentSchema } from '../validators/payment.validation.js';
+import { initiatePaymentSchema, verifyPaymentSchema, retryPaymentSchema } from '../validators/payment.validation.js';
 
 const router = Router();
 
@@ -20,6 +20,12 @@ router.post(
     '/verify',
     validateRequest(verifyPaymentSchema),
     paymentController.verifyPayment
+);
+
+router.post(
+    '/retry/:orderId',
+    validateRequest(retryPaymentSchema),
+    paymentController.retryPayment
 );
 
 router.get(

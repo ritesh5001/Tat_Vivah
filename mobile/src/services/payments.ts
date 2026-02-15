@@ -62,12 +62,24 @@ export async function verifyPayment(
   });
 }
 
-export async function getPaymentDetails(
+export async function retryPayment(
   orderId: string,
   token?: string | null
+) {
+  return apiRequest<InitiatePaymentResponse>(`/v1/payments/retry/${orderId}`, {
+    method: "POST",
+    token,
+  });
+}
+
+export async function getPaymentDetails(
+  orderId: string,
+  token?: string | null,
+  signal?: AbortSignal
 ) {
   return apiRequest<PaymentDetailsResponse>(`/v1/payments/${orderId}`, {
     method: "GET",
     token,
+    signal,
   });
 }

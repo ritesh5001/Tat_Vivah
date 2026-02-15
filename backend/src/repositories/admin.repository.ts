@@ -128,10 +128,14 @@ export interface AdminPayment {
 
 export interface AdminSettlement {
     id: string;
+    orderId: string;
     sellerId: string;
-    orderItemId: string;
-    amount: number;
+    grossAmount: number;
+    commissionAmount: number;
+    platformFee: number;
+    netAmount: number;
     status: string;
+    settledAt: Date | null;
     createdAt: Date;
 }
 
@@ -874,10 +878,14 @@ export class AdminRepository {
 
         return settlements.map((s) => ({
             id: s.id,
+            orderId: s.orderId,
             sellerId: s.sellerId,
-            orderItemId: s.orderItemId,
-            amount: s.amount,
+            grossAmount: s.grossAmount,
+            commissionAmount: s.commissionAmount,
+            platformFee: s.platformFee,
+            netAmount: s.netAmount,
             status: s.status,
+            settledAt: s.settledAt,
             createdAt: s.createdAt,
         }));
     }

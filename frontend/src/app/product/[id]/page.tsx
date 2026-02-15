@@ -2,6 +2,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import ProductDetailClient from "@/components/product-detail-client";
 import ProductImageCarousel from "@/components/product-image-carousel";
 import ProductReviews from "@/components/product-reviews";
+import { RelatedProducts } from "@/components/related-products";
+import { RecentlyViewedTracker } from "@/components/recently-viewed-tracker";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
@@ -32,6 +34,9 @@ export default async function ProductDetailPage({
 
   return (
     <div className="min-h-[calc(100vh-160px)] bg-background">
+      {/* Track recently viewed (fire-and-forget, client component) */}
+      <RecentlyViewedTracker productId={resolvedParams.id} />
+
       <div className="mx-auto flex max-w-7xl flex-col gap-20 px-6 py-16 lg:py-20">
         {/* Main Product Section */}
         <section className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:gap-12">
@@ -98,6 +103,9 @@ export default async function ProductDetailPage({
         <section className="border-t border-border-soft pt-16">
           <ProductReviews productId={resolvedParams.id} />
         </section>
+
+        {/* Related Products */}
+        <RelatedProducts productId={resolvedParams.id} />
 
         {/* Trust Section */}
         <section className="border-t border-border-soft pt-12">

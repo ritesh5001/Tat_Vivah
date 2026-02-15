@@ -6,8 +6,10 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { checkout, getCart } from "@/services/cart";
+import { checkout, getCart, type CouponPreview } from "@/services/cart";
 import { initiatePayment, verifyPayment } from "@/services/payments";
+import { getAddresses, type Address } from "@/services/addresses";
+import CouponSection from "@/components/checkout/CouponSection";
 import { toast } from "sonner";
 
 const currency = new Intl.NumberFormat("en-IN", {
@@ -19,9 +21,16 @@ const currency = new Intl.NumberFormat("en-IN", {
 export default function CheckoutPage() {
   const router = useRouter();
   const [loading, setLoading] = React.useState(false);
+  const [isPaying, setIsPaying] = React.useState(false);
   const [cartTotal, setCartTotal] = React.useState(0);
   const [hasItems, setHasItems] = React.useState(false);
   const [razorpayReady, setRazorpayReady] = React.useState(false);
+  const [taxSummary, setTaxSummary] = React.useState<{
+    subTotalAmount: number;
+    totalTaxAmount: number;
+    grandTotal: number;
+    discountAmount: number;
+  } | null>(null);
   const [shipping, setShipping] = React.useState({
     name: "",
     phone: "",
@@ -31,6 +40,12 @@ export default function CheckoutPage() {
     city: "",
     notes: "",
   });
+  const [savedAddresses, setSavedAddresses] = React.useState<Address[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = React.useState<string | null>(null);
+
+  // ---- Coupon state ----
+  const [appliedCoupon, setAppliedCoupon] = React.useState<CouponPreview | null>(null);
+  const cartItemsRef = React.useRef<string>("");
 
   const loadRazorpayScript = React.useCallback(() => {
     return new Promise<boolean>((resolve) => {
@@ -54,14 +69,37 @@ export default function CheckoutPage() {
   React.useEffect(() => {
     const load = async () => {
       try {
-        const result = await getCart();
-        const items = result.cart.items ?? [];
+        const [cartResult, addrResult] = await Promise.all([
+          getCart(),
+          getAddresses().catch(() => ({ addresses: [] as Address[] })),
+        ]);
+        const items = cartResult.cart.items ?? [];
         setHasItems(items.length > 0);
         const subtotal = items.reduce(
           (sum, item) => sum + item.priceSnapshot * item.quantity,
           0
         );
         setCartTotal(subtotal + (items.length > 0 ? 180 : 0));
+
+        // Track cart fingerprint — clear coupon if items change
+        const fingerprint = items.map((i) => `${i.variantId}:${i.quantity}`).sort().join("|");
+        if (cartItemsRef.current && cartItemsRef.current !== fingerprint) {
+          setAppliedCoupon(null);
+        }
+        cartItemsRef.current = fingerprint;
+
+        setSavedAddresses(addrResult.addresses);
+        // Auto-select the default address
+        const defaultAddr = addrResult.addresses.find((a) => a.isDefault);
+        if (defaultAddr) {
+          setSelectedAddressId(defaultAddr.id);
+          setShipping((prev) => ({
+            ...prev,
+            addressLine1: defaultAddr.addressLine1,
+            addressLine2: defaultAddr.addressLine2 ?? "",
+            city: defaultAddr.city,
+          }));
+        }
       } catch (error) {
         toast.error(
           error instanceof Error ? error.message : "Unable to load cart"
@@ -76,7 +114,9 @@ export default function CheckoutPage() {
   }, [loadRazorpayScript]);
 
   const handleCheckout = async () => {
+    if (isPaying) return; // Prevent double-submit
     setLoading(true);
+    setIsPaying(true);
     try {
       const orderResult = await checkout({
         shippingName: shipping.name || undefined,
@@ -86,10 +126,21 @@ export default function CheckoutPage() {
         shippingAddressLine2: shipping.addressLine2 || undefined,
         shippingCity: shipping.city || undefined,
         shippingNotes: shipping.notes || undefined,
+        couponCode: appliedCoupon?.code || undefined,
       });
       const orderId = orderResult.order?.id;
       if (!orderId) {
         throw new Error("Order ID missing. Please try again.");
+      }
+
+      // Store GST summary from backend response
+      if (orderResult.order) {
+        setTaxSummary({
+          subTotalAmount: orderResult.order.subTotalAmount ?? 0,
+          totalTaxAmount: orderResult.order.totalTaxAmount ?? 0,
+          grandTotal: orderResult.order.grandTotal ?? 0,
+          discountAmount: orderResult.order.discountAmount ?? 0,
+        });
       }
 
       if (!razorpayReady) {
@@ -139,6 +190,7 @@ export default function CheckoutPage() {
       toast.error(error instanceof Error ? error.message : "Checkout failed");
     } finally {
       setLoading(false);
+      setIsPaying(false);
     }
   };
 
@@ -202,6 +254,85 @@ export default function CheckoutPage() {
             transition={{ delay: 0.15, duration: 0.6 }}
             className="space-y-8"
           >
+            {/* Saved Address Picker */}
+            {savedAddresses.length > 0 && (
+              <div className="border border-border-soft bg-card p-8 space-y-6">
+                <div>
+                  <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-gold mb-2">
+                    Saved Addresses
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Select a saved address or enter a new one below.
+                  </p>
+                </div>
+                <div className="h-px bg-border-soft" />
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {savedAddresses.map((addr) => {
+                    const isSelected = selectedAddressId === addr.id;
+                    return (
+                      <button
+                        key={addr.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedAddressId(addr.id);
+                          setShipping((prev) => ({
+                            ...prev,
+                            addressLine1: addr.addressLine1,
+                            addressLine2: addr.addressLine2 ?? "",
+                            city: addr.city,
+                          }));
+                        }}
+                        className={`text-left p-4 border transition-all duration-300 ${
+                          isSelected
+                            ? "border-gold bg-gold/5"
+                            : "border-border-soft hover:border-gold/40"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                            {addr.label}
+                          </span>
+                          {addr.isDefault && (
+                            <span className="text-[9px] font-medium uppercase tracking-wider text-[#5A7352]">
+                              Default
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-foreground">{addr.addressLine1}</p>
+                        {addr.addressLine2 && (
+                          <p className="text-xs text-muted-foreground">{addr.addressLine2}</p>
+                        )}
+                        <p className="text-xs text-muted-foreground">
+                          {addr.city}, {addr.state} — {addr.pincode}
+                        </p>
+                      </button>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedAddressId(null);
+                      setShipping((prev) => ({
+                        ...prev,
+                        addressLine1: "",
+                        addressLine2: "",
+                        city: "",
+                      }));
+                    }}
+                    className={`text-left p-4 border transition-all duration-300 flex items-center justify-center ${
+                      selectedAddressId === null
+                        ? "border-gold bg-gold/5"
+                        : "border-border-soft hover:border-gold/40"
+                    }`}
+                  >
+                    <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      Enter New Address
+                    </span>
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="border border-border-soft bg-card p-8 space-y-8">
               <div>
                 <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-gold mb-2">
@@ -327,8 +458,23 @@ export default function CheckoutPage() {
             </div>
           </motion.div>
 
-          {/* Payment Summary */}
-          <div className="lg:sticky lg:top-24">
+          {/* Coupon + Payment Summary */}
+          <div className="lg:sticky lg:top-24 space-y-6">
+            {/* Coupon Section */}
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.25, duration: 0.6 }}
+            >
+              <CouponSection
+                cartTotal={Math.max(cartTotal - 180, 0)}
+                appliedCoupon={appliedCoupon}
+                onApply={setAppliedCoupon}
+                onRemove={() => setAppliedCoupon(null)}
+                disabled={isPaying || loading}
+              />
+            </motion.div>
+
             <motion.div
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
@@ -345,8 +491,32 @@ export default function CheckoutPage() {
               <div className="space-y-4 text-sm">
                 <div className="flex items-center justify-between text-muted-foreground">
                   <span>Subtotal</span>
-                  <span>{currency.format(Math.max(cartTotal - 180, 0))}</span>
+                  <span>{currency.format(taxSummary ? taxSummary.subTotalAmount : Math.max(cartTotal - 180, 0))}</span>
                 </div>
+                {/* Discount row — only after checkout response */}
+                {taxSummary && taxSummary.discountAmount > 0 && (
+                  <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400">
+                    <span>Discount</span>
+                    <span>−{currency.format(taxSummary.discountAmount)}</span>
+                  </div>
+                )}
+                {/* Coupon preview badge (before checkout) */}
+                {!taxSummary && appliedCoupon && (
+                  <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400">
+                    <span>Coupon ({appliedCoupon.code})</span>
+                    <span className="text-xs">
+                      {appliedCoupon.type === "PERCENT"
+                        ? `${appliedCoupon.value}% off`
+                        : `₹${appliedCoupon.value} off`}
+                    </span>
+                  </div>
+                )}
+                {taxSummary && taxSummary.totalTaxAmount > 0 && (
+                  <div className="flex items-center justify-between text-muted-foreground">
+                    <span>GST</span>
+                    <span>{currency.format(taxSummary.totalTaxAmount)}</span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between text-muted-foreground">
                   <span>Shipping</span>
                   <span>{hasItems ? "₹180" : "—"}</span>
@@ -354,10 +524,10 @@ export default function CheckoutPage() {
                 <div className="h-px bg-border-soft" />
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-medium uppercase tracking-wider text-foreground">
-                    Total
+                    Grand Total
                   </span>
                   <span className="font-serif text-2xl font-light text-foreground">
-                    {currency.format(cartTotal)}
+                    {currency.format(taxSummary ? taxSummary.grandTotal : cartTotal)}
                   </span>
                 </div>
               </div>
@@ -371,9 +541,9 @@ export default function CheckoutPage() {
                     size="lg"
                     className="w-full h-14"
                     onClick={handleCheckout}
-                    disabled={!hasItems || loading || !razorpayReady}
+                    disabled={!hasItems || loading || isPaying || !razorpayReady}
                   >
-                    {loading ? "Processing..." : "Complete Purchase"}
+                    {isPaying ? "Processing Payment..." : loading ? "Processing..." : "Complete Purchase"}
                   </Button>
                 </motion.div>
 

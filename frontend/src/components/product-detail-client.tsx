@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { addCartItem } from "@/services/cart";
+import { toggleWishlistItem, checkWishlistItems } from "@/services/wishlist";
 
 interface Variant {
   id: string;
@@ -48,6 +49,43 @@ export default function ProductDetailClient({
     product.variants?.[0]?.id ?? ""
   );
   const [loading, setLoading] = React.useState(false);
+  const [wishlisted, setWishlisted] = React.useState(false);
+  const [wishlistLoading, setWishlistLoading] = React.useState(false);
+
+  // Check initial wishlist state
+  React.useEffect(() => {
+    let cancelled = false;
+    const hasToken = document.cookie.match(/(?:^|; )tatvivah_access=([^;]*)/);
+    if (!hasToken) return;
+    checkWishlistItems([product.id])
+      .then((res) => {
+        if (!cancelled) setWishlisted(res.wishlisted.includes(product.id));
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [product.id]);
+
+  const handleToggleWishlist = async () => {
+    const hasToken = document.cookie.match(/(?:^|; )tatvivah_access=([^;]*)/);
+    if (!hasToken) {
+      toast.error("Please sign in to save items.");
+      router.push("/login?force=1");
+      return;
+    }
+    setWishlistLoading(true);
+    const prev = wishlisted;
+    setWishlisted(!prev);
+    try {
+      const result = await toggleWishlistItem(product.id);
+      setWishlisted(result.added);
+      toast.success(result.added ? "Added to wishlist" : "Removed from wishlist");
+    } catch {
+      setWishlisted(prev);
+      toast.error("Unable to update wishlist");
+    } finally {
+      setWishlistLoading(false);
+    }
+  };
 
   const selectedVariant = product.variants.find(
     (variant) => variant.id === selectedVariantId
@@ -196,7 +234,7 @@ export default function ProductDetailClient({
         <div className="h-px bg-border-soft" />
 
         {/* 6. CTA Buttons - Heavy, Confident */}
-        <div className="flex flex-col gap-4 sm:flex-row">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
           <motion.div
             whileHover={{ y: -2 }}
             transition={{ duration: 0.4, ease: "easeOut" }}
@@ -223,6 +261,33 @@ export default function ProductDetailClient({
               View Cart
             </Link>
           </motion.div>
+
+          {/* Wishlist Heart */}
+          <motion.button
+            type="button"
+            onClick={handleToggleWishlist}
+            disabled={wishlistLoading}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            transition={{ duration: 0.2 }}
+            className="inline-flex h-14 w-14 items-center justify-center border border-border-soft text-foreground transition-all duration-300 hover:border-gold/50 disabled:opacity-50"
+            aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill={wishlisted ? "currentColor" : "none"}
+              stroke="currentColor"
+              strokeWidth={1.5}
+              className={`h-5 w-5 transition-colors duration-300 ${wishlisted ? "text-red-500" : ""}`}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z"
+              />
+            </svg>
+          </motion.button>
         </div>
       </div>
     </motion.div>

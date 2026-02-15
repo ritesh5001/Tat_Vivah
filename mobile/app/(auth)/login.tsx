@@ -8,17 +8,32 @@ import {
   Pressable,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Link, useRouter } from "expo-router";
+import { Link, useLocalSearchParams, useRouter } from "expo-router";
 import { colors, radius, spacing, typography, shadow } from "../../src/theme/tokens";
 import { useAuth } from "../../src/hooks/useAuth";
 
 export default function LoginScreen() {
   const router = useRouter();
+  const searchParams = useLocalSearchParams<{ returnTo?: string }>();
   const { signIn } = useAuth();
   const [identifier, setIdentifier] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+
+  const safeReturnTo = React.useMemo(() => {
+    const returnTo =
+      typeof searchParams.returnTo === "string"
+        ? searchParams.returnTo
+        : undefined;
+    if (!returnTo) return "/";
+    if (!returnTo.startsWith("/")) return "/";
+    if (returnTo.startsWith("//") || returnTo.includes("://")) return "/";
+    if (returnTo.startsWith("/login") || returnTo.startsWith("/(auth)/login")) {
+      return "/";
+    }
+    return returnTo;
+  }, [searchParams.returnTo]);
 
   const handleLogin = async () => {
     if (!identifier || !password) {
@@ -29,7 +44,7 @@ export default function LoginScreen() {
     setError(null);
     try {
       await signIn({ identifier, password });
-      router.replace("/home");
+      router.replace(safeReturnTo as any);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Login failed";
       setError(message);

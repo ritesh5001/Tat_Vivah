@@ -1,6 +1,10 @@
 import express, { type Application } from 'express';
 import cors from 'cors';
 import { errorMiddleware } from './middlewares/error.middleware.js';
+import { register, httpRequestDuration } from './config/metrics.js';
+import { prisma } from './config/db.js';
+import { checkRedisConnection } from './config/redis.js';
+import type { IntegrityReport } from './jobs/inventoryIntegrity.js';
 import {
     authRouter,
     sellerRouter,
@@ -11,8 +15,11 @@ import {
     bestsellerRouter,
     cartRouter,
     checkoutRouter,
+    couponRouter,
     orderRouter,
     sellerOrderRouter,
+    cancellationRouter,
+    returnRouter,
     paymentRouter,
     webhookRouter,
     sellerSettlementRouter,
@@ -23,7 +30,13 @@ import {
     adminShipmentRouter,
     adminNotificationRouter,
     reviewRouter,
+    addressRouter,
+    notificationRouter,
+    wishlistRouter,
+    searchRouter,
+    personalizationRouter,
 } from './routes/index.js';
+import { searchController } from './controllers/search.controller.js';
 import { apiReference } from "@scalar/express-api-reference";
 import { openApiSpec } from "./docs/openapi.js";
 
@@ -63,13 +76,82 @@ export function createApp(): Application {
     } as Parameters<typeof apiReference>[0]));
 
     // =========================================================================
-    // HEALTH CHECK
+    // OBSERVABILITY
     // =========================================================================
 
-    app.get('/health', (_req, res) => {
-        res.json({
-            status: 'ok',
-            timestamp: new Date().toISOString()
+    // Request duration tracking middleware
+    app.use((req, res, next) => {
+        const end = httpRequestDuration.startTimer();
+        res.on('finish', () => {
+            // Use route pattern if available, otherwise path
+            const route = (req.route?.path as string) ?? req.path;
+            end({ method: req.method, route, status: String(res.statusCode) });
+        });
+        next();
+    });
+
+    // Prometheus metrics endpoint
+    app.get('/metrics', async (_req, res) => {
+        try {
+            res.set('Content-Type', register.contentType);
+            res.end(await register.metrics());
+        } catch (err) {
+            res.status(500).end(String(err));
+        }
+    });
+
+    // ── Shared integrity state (refreshed by the server interval) ────
+    let lastIntegrityReport: IntegrityReport | null = null;
+    let lastStaleCleanupAt: Date | null = null;
+
+    /** Called by server.ts after each stale-order cleanup run. */
+    (app as any).__setLastStaleCleanup = (date: Date) => { lastStaleCleanupAt = date; };
+    /** Called by server.ts after each integrity check run. */
+    (app as any).__setIntegrityReport = (report: IntegrityReport) => { lastIntegrityReport = report; };
+
+    // Enhanced health endpoint
+    app.get('/health', async (_req, res) => {
+        const checks: Record<string, unknown> = {};
+
+        // DB connectivity
+        try {
+            await prisma.$queryRaw`SELECT 1`;
+            checks.db = { status: 'ok' };
+        } catch (err) {
+            checks.db = { status: 'error', message: String(err) };
+        }
+
+        // Redis connectivity
+        try {
+            const ok = await checkRedisConnection();
+            checks.redis = { status: ok ? 'ok' : 'error' };
+        } catch (err) {
+            checks.redis = { status: 'error', message: String(err) };
+        }
+
+        // Integrity drift status
+        if (lastIntegrityReport) {
+            checks.inventoryIntegrity = {
+                healthy: lastIntegrityReport.healthy,
+                mismatches: lastIntegrityReport.mismatches.length,
+                checkedAt: lastIntegrityReport.checkedAt.toISOString(),
+            };
+        } else {
+            checks.inventoryIntegrity = { healthy: 'unknown', checkedAt: null };
+        }
+
+        // Last stale cleanup
+        checks.lastStaleCleanup = lastStaleCleanupAt
+            ? lastStaleCleanupAt.toISOString()
+            : null;
+
+        const overallOk = (checks.db as any)?.status === 'ok'
+            && (checks.redis as any)?.status === 'ok';
+
+        res.status(overallOk ? 200 : 503).json({
+            status: overallOk ? 'ok' : 'degraded',
+            timestamp: new Date().toISOString(),
+            checks,
         });
     });
 
@@ -92,11 +174,17 @@ export function createApp(): Application {
     app.use('/v1/imagekit', imagekitRouter);
     app.use('/v1/bestsellers', bestsellerRouter);
 
+    // Address management
+    app.use('/v1/addresses', addressRouter);
+
     // Cart & Orders domain
     app.use('/v1/cart', cartRouter);
     app.use('/v1/checkout', checkoutRouter);
+    app.use('/v1/coupons', couponRouter);
     app.use('/v1/orders', orderRouter);
     app.use('/v1/seller/orders', sellerOrderRouter);
+    app.use('/v1/cancellations', cancellationRouter);
+    app.use('/v1/returns', returnRouter);
 
     // Payments & Settlement domain
     app.use('/v1/payments/webhook', webhookRouter); // Must be before /v1/payments to avoid auth middleware capture
@@ -145,6 +233,19 @@ export function createApp(): Application {
     // Admin domain
     app.use('/v1/admin', adminRouter);
     app.use('/v1/admin/notifications', adminNotificationRouter);
+
+    // User notifications
+    app.use('/v1/notifications', notificationRouter);
+
+    // Wishlist
+    app.use('/v1/wishlist', wishlistRouter);
+
+    // Search & Personalization
+    app.use('/v1/search', searchRouter);
+    app.use('/v1/personalization', personalizationRouter);
+
+    // Related products (mounted on products path)
+    app.get('/v1/products/:id/related', searchController.relatedProducts);
 
     // Notification Worker initialization removed to keep API process HTTP-only
 

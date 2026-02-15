@@ -9,7 +9,7 @@ import {
   RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { usePathname, useRouter } from "expo-router";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import {
   listNotifications,
@@ -21,6 +21,8 @@ import { useAuth } from "../../../src/hooks/useAuth";
 import { useToast } from "../../../src/providers/ToastProvider";
 import { useNotifications } from "../../../src/providers/NotificationProvider";
 import { SkeletonNotificationRow } from "../../../src/components/Skeleton";
+import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
+import { impactLight } from "../../../src/utils/haptics";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -32,6 +34,7 @@ const PAGE_SIZE = 20;
 // ---------------------------------------------------------------------------
 export default function NotificationsScreen() {
   const router = useRouter();
+  const pathname = usePathname();
   const { session, isLoading: authLoading } = useAuth();
   const token = session?.accessToken ?? null;
   const { showToast } = useToast();
@@ -51,6 +54,13 @@ export default function NotificationsScreen() {
       mountedRef.current = false;
     };
   }, []);
+
+  React.useEffect(() => {
+    if (!authLoading && !token) {
+      const returnTo = encodeURIComponent(pathname || "/notifications");
+      router.replace(`/login?returnTo=${returnTo}`);
+    }
+  }, [authLoading, token, pathname, router]);
 
   // ---- Fetch page ----
   const fetchPage = React.useCallback(
@@ -107,6 +117,7 @@ export default function NotificationsScreen() {
 
   // Pull to refresh
   const onRefresh = React.useCallback(() => {
+    impactLight();
     setRefreshing(true);
     fetchPage(1, { replace: true });
   }, [fetchPage]);
@@ -154,11 +165,10 @@ export default function NotificationsScreen() {
   // ---- Render helpers ----
   const renderItem = React.useCallback(
     ({ item }: { item: AppNotification }) => (
-      <Pressable
-        style={({ pressed }) => [
+      <AnimatedPressable
+        style={[
           styles.card,
           !item.isRead && styles.cardUnread,
-          pressed && { opacity: 0.7 },
         ]}
         onPress={() => handlePress(item)}
       >
@@ -174,7 +184,7 @@ export default function NotificationsScreen() {
         <Text style={styles.cardDate}>
           {formatDate(item.createdAt)}
         </Text>
-      </Pressable>
+      </AnimatedPressable>
     ),
     [handlePress]
   );
@@ -194,18 +204,6 @@ export default function NotificationsScreen() {
   }, [loadingMore]);
 
   // ---- Main render ----
-  if (!authLoading && !token) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.center}>
-          <Text style={styles.emptyText}>
-            Please sign in to see notifications.
-          </Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>

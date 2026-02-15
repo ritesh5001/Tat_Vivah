@@ -78,12 +78,35 @@ export class OrderRepository {
      * Find all orders for a user (buyer)
      */
     async findByUserId(userId: string): Promise<OrderWithItems[]> {
-        return prisma.order.findMany({
+        const orders = await prisma.order.findMany({
             where: { userId },
             include: {
                 items: true,
+                cancellationRequest: {
+                    select: {
+                        id: true,
+                        status: true,
+                    },
+                },
+                shipments: {
+                    select: {
+                        status: true,
+                        created_at: true,
+                    },
+                    orderBy: { created_at: 'desc' },
+                },
             },
             orderBy: { createdAt: 'desc' },
+        });
+
+        return orders.map((order) => {
+            const hasShipped = order.shipments.some((shipment) => shipment.status === 'SHIPPED');
+            const latestShipmentStatus = order.shipments[0]?.status ?? null;
+
+            return {
+                ...order,
+                shipmentStatus: hasShipped ? 'SHIPPED' : latestShipmentStatus,
+            } as OrderWithItems;
         });
     }
 

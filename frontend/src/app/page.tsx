@@ -14,6 +14,8 @@ import {
 import { ReviewSection } from "@/components/review-section";
 import { FeaturesMarquee } from "@/components/features-marquee";
 import { getBestsellers, type BestsellerProduct } from "@/services/bestsellers";
+import { RecommendedForYouSection } from "@/components/recommended-for-you-section";
+import { RecentlyViewedSection } from "@/components/recently-viewed-section";
 export default function Home() {
   const [bestsellers, setBestsellers] = React.useState<BestsellerProduct[]>([]);
   const [loadingBestsellers, setLoadingBestsellers] = React.useState(true);
@@ -339,6 +341,13 @@ export default function Home() {
           </motion.div>
         </div>
       </section>
+
+        <RecommendedForYouSection />
+
+      {/* =========================================================================
+          RECENTLY VIEWED SECTION (hidden if empty / not authenticated)
+          ========================================================================= */}
+      <RecentlyViewedSection />
 
       {/* =========================================================================
           NEW ARRIVALS SECTION

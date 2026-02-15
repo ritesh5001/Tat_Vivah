@@ -1,19 +1,17 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
+import { SearchAutocomplete } from "@/components/search-autocomplete";
+import { SortDropdown } from "@/components/sort-dropdown";
+import { MarketplaceProductCard } from "@/components/marketplace-product-card";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
-const currency = new Intl.NumberFormat("en-IN", {
-  style: "currency",
-  currency: "INR",
-  maximumFractionDigits: 0,
-});
 
 type SearchParams = {
   page?: string;
   categoryId?: string;
   search?: string;
+  sort?: string;
 };
 
 async function fetchCategories() {
@@ -35,6 +33,7 @@ async function fetchProducts(params: {
   limit: number;
   categoryId?: string;
   search?: string;
+  sort?: string;
 }) {
   if (!API_BASE_URL) {
     return { data: [], pagination: { page: 1, limit: params.limit, total: 0, totalPages: 1 } };
@@ -44,6 +43,7 @@ async function fetchProducts(params: {
   query.set("limit", String(params.limit));
   if (params.categoryId) query.set("categoryId", params.categoryId);
   if (params.search) query.set("search", params.search);
+  if (params.sort) query.set("sort", params.sort);
 
   const response = await fetch(`${API_BASE_URL}/v1/products?${query.toString()}`, {
     next: { revalidate: 60 },
@@ -63,10 +63,11 @@ export default async function MarketplacePage({
   const page = Number(resolvedParams?.page ?? "1") || 1;
   const categoryId = resolvedParams?.categoryId;
   const search = resolvedParams?.search?.trim();
+  const sort = resolvedParams?.sort?.trim();
 
   const [categories, productsResponse] = await Promise.all([
     fetchCategories(),
-    fetchProducts({ page, limit: 9, categoryId, search }),
+    fetchProducts({ page, limit: 9, categoryId, search, sort }),
   ]);
 
   const products = productsResponse?.data ?? [];
@@ -83,6 +84,7 @@ export default async function MarketplacePage({
     const categoryParam = typeof nextCategoryId === "string" ? nextCategoryId : categoryId;
     if (categoryParam) params.set("categoryId", categoryParam);
     if (search) params.set("search", search);
+    if (sort) params.set("sort", sort);
     return `/marketplace?${params.toString()}`;
   };
 
@@ -106,17 +108,13 @@ export default async function MarketplacePage({
             </p>
           </div>
 
-          {/* Search Form */}
-          <form className="flex w-full max-w-sm flex-col gap-4 border border-border-soft bg-card p-6">
-            <Input
-              name="search"
+          {/* Search Form with Autocomplete */}
+          <div className="flex w-full max-w-sm flex-col gap-4 border border-border-soft bg-card p-6">
+            <SearchAutocomplete
               defaultValue={search ?? ""}
               placeholder="Search collections, styles..."
             />
-            <Button size="md" type="submit">
-              Search
-            </Button>
-          </form>
+          </div>
         </section>
 
         {/* Category Filters */}
@@ -141,6 +139,14 @@ export default async function MarketplacePage({
           )}
         </section>
 
+        {/* Sort Controls */}
+        <section className="flex items-center justify-between">
+          <p className="text-xs text-muted-foreground uppercase tracking-wider">
+            {pagination.total} {pagination.total === 1 ? "product" : "products"} found
+          </p>
+          <SortDropdown />
+        </section>
+
         {/* Products Grid */}
         <section className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
           {products.length === 0 ? (
@@ -151,54 +157,7 @@ export default async function MarketplacePage({
             </Card>
           ) : (
             products.map((product: any) => (
-              <Link
-                key={product.id}
-                href={`/product/${product.id}`}
-                className="group block"
-              >
-                {/* Product Image */}
-                <div className="relative mb-5 overflow-hidden bg-cream dark:bg-brown/20 aspect-3/4 border border-border-soft transition-all duration-400 group-hover:border-gold/30">
-                  <img
-                    src={product.images?.[0] ?? "/images/product-placeholder.svg"}
-                    alt={product.title}
-                    className="h-full w-full object-contain p-6 transition-transform duration-500 group-hover:scale-[1.02]"
-                    loading="lazy"
-                  />
-                  {/* Category Tag */}
-                  <span className="absolute top-4 left-4 bg-card/90 backdrop-blur-sm px-3 py-1 text-[10px] uppercase tracking-wider text-muted-foreground border border-border-soft">
-                    {product.category?.name ?? "Featured"}
-                  </span>
-                  {/* Verified Badge */}
-                  <span className="absolute top-4 right-4 bg-card/90 backdrop-blur-sm px-3 py-1 text-[10px] uppercase tracking-wider text-gold border border-gold/20">
-                    Verified
-                  </span>
-                </div>
-
-                {/* Product Info */}
-                <div className="space-y-2">
-                  <h3 className="font-serif text-lg font-normal text-foreground group-hover:text-gold transition-colors duration-300">
-                    {product.title}
-                  </h3>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider">
-                    {product.category?.name ?? "Collection"}
-                  </p>
-                  {typeof (product.salePrice ?? product.adminPrice ?? product.price) === "number" ? (
-                    <div className="flex items-center gap-2 text-sm">
-                      <span className="font-medium text-foreground">
-                        {currency.format(product.salePrice ?? product.adminPrice ?? product.price)}
-                      </span>
-                      {typeof product.regularPrice === "number" &&
-                      product.regularPrice !== (product.salePrice ?? product.adminPrice ?? product.price) ? (
-                        <span className="text-muted-foreground line-through">
-                          {currency.format(product.regularPrice)}
-                        </span>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">Price on request</p>
-                  )}
-                </div>
-              </Link>
+              <MarketplaceProductCard key={product.id} product={product} />
             ))
           )}
         </section>

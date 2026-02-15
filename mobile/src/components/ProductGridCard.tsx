@@ -4,6 +4,7 @@ import { Image } from "expo-image";
 import { colors, typography } from "../theme/tokens";
 import { images } from "../data/images";
 import { type ProductItem } from "../services/products";
+import { useWishlist } from "../providers/WishlistProvider";
 
 interface ProductGridCardProps {
   product: ProductItem;
@@ -22,6 +23,10 @@ function ProductGridCardComponent({
   onBuyNow,
   onExplore,
 }: ProductGridCardProps) {
+  const { isWishlisted, toggleWishlist, mutatingIds } = useWishlist();
+  const wishlisted = isWishlisted(product.id);
+  const wishlistBusy = mutatingIds.has(product.id);
+
   const formatPrice = (price?: number | null) => {
     if (!price && price !== 0) return "Price on request";
     return currency.format(price);
@@ -51,6 +56,17 @@ function ProductGridCardComponent({
             <Text style={[styles.badgeText, styles.badgeTextAccent]}>Verified</Text>
           </View>
         </View>
+        {/* Wishlist heart overlay */}
+        <Pressable
+          onPress={() => toggleWishlist(product.id)}
+          disabled={wishlistBusy}
+          hitSlop={8}
+          style={styles.heartOverlay}
+        >
+          <Text style={{ fontSize: 18, opacity: wishlistBusy ? 0.5 : 1 }}>
+            {wishlisted ? "❤️" : "🤍"}
+          </Text>
+        </Pressable>
       </View>
 
       <View style={styles.info}>
@@ -117,6 +133,19 @@ const styles = StyleSheet.create({
     left: 8,
     flexDirection: "row",
     gap: 6,
+  },
+  heartOverlay: {
+    position: "absolute",
+    bottom: 8,
+    right: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255, 255, 255, 0.85)",
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    justifyContent: "center",
+    alignItems: "center",
   },
   badgePill: {
     paddingHorizontal: 8,

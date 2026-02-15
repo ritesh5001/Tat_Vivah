@@ -1,12 +1,13 @@
 import { PrismaClient } from '@prisma/client';
 import { env } from './env.js';
 
-/**
- * Prisma client singleton
- * Ensures only one instance is created across the application
- */
+// ---------------------------------------------------------------------------
+// Global singleton guard — prevents duplicate PrismaClient instances when
+// tsx watch-mode (or Next.js HMR) re-executes this module on file change.
+// ---------------------------------------------------------------------------
+
 const globalForPrisma = globalThis as unknown as {
-    prisma: PrismaClient | undefined;
+    __prisma: PrismaClient | undefined;
 };
 
 function buildPrismaDatabaseUrl(rawUrl: string): string {
@@ -30,33 +31,62 @@ function buildPrismaDatabaseUrl(rawUrl: string): string {
     }
 }
 
-const prismaDatabaseUrl = buildPrismaDatabaseUrl(env.DATABASE_URL);
-
-/**
- * Prisma client instance with logging based on environment
- */
-export const prisma: PrismaClient =
-    globalForPrisma.prisma ??
-    new PrismaClient({
+function createPrismaClient(): PrismaClient {
+    const client = new PrismaClient({
         datasources: {
-            db: {
-                url: prismaDatabaseUrl,
-            },
+            db: { url: buildPrismaDatabaseUrl(env.DATABASE_URL) },
         },
-        log: env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+        // Only log errors — removes noisy query/warn spam in dev terminal
+        log: ['error'],
     });
 
-// Prevent multiple instances in development (hot reloading)
-if (env.NODE_ENV !== 'production') {
-    globalForPrisma.prisma = prisma;
+    return client;
 }
 
 /**
- * Graceful shutdown handler for Prisma connection
+ * Singleton PrismaClient instance used across the entire backend.
+ * In non-production environments it is pinned to globalThis so tsx
+ * watch-mode restarts reuse the same connection pool.
+ */
+export const prisma: PrismaClient =
+    globalForPrisma.__prisma ?? createPrismaClient();
+
+if (env.NODE_ENV !== 'production') {
+    globalForPrisma.__prisma = prisma;
+}
+
+// ---------------------------------------------------------------------------
+// Neon idle-timeout safety
+// Neon serverless Postgres closes idle connections after ~5 min. Prisma's
+// query engine reconnects automatically on the next query, but the internal
+// error event fires first. We swallow it so it doesn't pollute logs or
+// trigger uncaught-error handlers.
+// ---------------------------------------------------------------------------
+
+// @ts-expect-error — Prisma's $on('error') is loosely typed at runtime
+prisma.$on('error', (e: { message?: string }) => {
+    if (e.message?.includes('Closed')) {
+        // Intentionally silent — Prisma reconnects automatically
+        return;
+    }
+    // All other Prisma-level errors still surface
+    console.error('[prisma] internal error:', e);
+});
+
+// ---------------------------------------------------------------------------
+// Lifecycle helpers (called from server.ts)
+// ---------------------------------------------------------------------------
+
+/**
+ * Graceful shutdown handler for Prisma connection.
+ * Safe to call multiple times (Prisma ignores repeat disconnects).
  */
 export async function disconnectDatabase(): Promise<void> {
-    await prisma.$disconnect();
-    console.log('🔌 Database disconnected');
+    try {
+        await prisma.$disconnect();
+    } catch {
+        // Swallow — connection may already be closed during forced shutdown
+    }
 }
 
 /**
