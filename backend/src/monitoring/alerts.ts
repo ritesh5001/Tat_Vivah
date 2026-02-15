@@ -119,3 +119,19 @@ export function recordPaymentFailure(): void {
         }, `ALERT: Payment failure spike — ${paymentFailures.timestamps.length} failures in 5 min window`);
     }
 }
+
+/**
+ * Fatal cancellation safety alert.
+ */
+export function recordCancellationFatal(context: {
+    orderId?: string;
+    cancellationId?: string;
+    reason: string;
+    adminId?: string;
+    userId?: string;
+}): void {
+    alertLogger.fatal({
+        alert: 'cancellation_safety_failure',
+        ...context,
+    }, `ALERT: Cancellation safety failure - ${context.reason}`);
+}

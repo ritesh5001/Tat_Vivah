@@ -38,6 +38,8 @@ model User {
   user_profiles      user_profiles?
   reviews            Review[]
   wishlist           Wishlist?
+  cancellationRequests CancellationRequest[] @relation("UserCancellationRequests")
+  reviewedCancellationRequests CancellationRequest[] @relation("CancellationReviewer")
 
   @@map("users")
 }
@@ -245,6 +247,7 @@ model Order {
   items                OrderItem[]
   payment              Payment?
   shipments            shipments[]
+  cancellationRequest  CancellationRequest?
 
   @@index([userId])
   @@map("orders")
@@ -267,6 +270,29 @@ model OrderItem {
   @@index([orderId])
   @@index([sellerId])
   @@map("order_items")
+}
+
+/// Buyer cancellation requests for orders
+model CancellationRequest {
+  id              String             @id @default(cuid())
+  orderId         String             @unique @map("order_id")
+  userId          String             @map("user_id")
+  reason          String
+  status          CancellationStatus @default(REQUESTED)
+  reviewedBy      String?            @map("reviewed_by")
+  reviewedAt      DateTime?          @map("reviewed_at")
+  rejectionReason String?            @map("rejection_reason")
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+
+  order     Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  user      User   @relation("UserCancellationRequests", fields: [userId], references: [id], onDelete: Cascade)
+  reviewer  User?  @relation("CancellationReviewer", fields: [reviewedBy], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@index([reviewedBy])
+  @@map("cancellation_requests")
 }
 
 /// Auditable inventory movements for stock changes
@@ -495,6 +521,12 @@ enum OrderStatus {
   CANCELLED
   SHIPPED
   DELIVERED
+}
+
+enum CancellationStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
 }
 
 enum InventoryMovementType {

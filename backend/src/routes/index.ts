@@ -21,6 +21,7 @@ export { cartRouter } from './cart.routes.js';
 export { checkoutRouter } from './checkout.routes.js';
 export { orderRouter } from './order.routes.js';
 export { sellerOrderRouter } from './seller-order.routes.js';
+export { cancellationRouter } from './cancellation.routes.js';
 
 // Payment & Settlement domain
 export { paymentRoutes as paymentRouter } from './payment.routes.js';

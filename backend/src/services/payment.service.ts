@@ -5,15 +5,110 @@ import { PaymentProvider, PaymentStatus, PaymentEventType, SettlementStatus, Ord
 import { prisma } from '../config/db.js';
 import { ApiError } from '../errors/ApiError.js';
 import { razorpayService } from './razorpay.service.js';
+import { isRazorpayConfigured, razorpayClient } from './razorpay.client.js';
 import { emitPaymentSuccess, emitPaymentFailed } from '../events/order.events.js';
 import { paymentLogger } from '../config/logger.js';
-import { paymentSuccessTotal, staleCancelTotal } from '../config/metrics.js';
+import { paymentSuccessTotal, staleCancelTotal, refundSuccessTotal } from '../config/metrics.js';
 import { recordPaymentFailure } from '../monitoring/alerts.js';
 
 /** Maximum age (ms) of a PLACED order eligible for payment retry. */
 const STALE_ORDER_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
 export class PaymentService {
+
+    // ------------------------------------------------------------------
+    // Refund processing (idempotent)
+    // ------------------------------------------------------------------
+
+    async processRefund(orderId: string): Promise<{
+        refundTriggered: boolean;
+        alreadyRefunded: boolean;
+        paymentStatus: PaymentStatus | null;
+    }> {
+        const payment = await paymentRepository.findPaymentByOrderId(orderId);
+        if (!payment) {
+            return { refundTriggered: false, alreadyRefunded: false, paymentStatus: null };
+        }
+
+        if (payment.status === PaymentStatus.REFUNDED) {
+            return {
+                refundTriggered: false,
+                alreadyRefunded: true,
+                paymentStatus: PaymentStatus.REFUNDED,
+            };
+        }
+
+        if (payment.status !== PaymentStatus.SUCCESS) {
+            return {
+                refundTriggered: false,
+                alreadyRefunded: false,
+                paymentStatus: payment.status,
+            };
+        }
+
+        // External provider refund (best effort + explicit failure on API errors)
+        if (
+            payment.provider === PaymentProvider.RAZORPAY
+            && payment.providerPaymentId
+            && isRazorpayConfigured()
+            && razorpayClient
+        ) {
+            try {
+                await razorpayClient.payments.refund(payment.providerPaymentId, {
+                    amount: Math.round(payment.amount * 100),
+                    notes: { orderId },
+                });
+            } catch (error: any) {
+                throw new ApiError(502, `Refund API failed: ${error?.message ?? 'unknown error'}`);
+            }
+        }
+
+        const updated = await prisma.$transaction(async (tx) => {
+            const result = await tx.payment.updateMany({
+                where: {
+                    id: payment.id,
+                    status: PaymentStatus.SUCCESS,
+                },
+                data: {
+                    status: PaymentStatus.REFUNDED,
+                },
+            });
+
+            if (result.count === 0) {
+                return false;
+            }
+
+            await tx.paymentEvent.create({
+                data: {
+                    paymentId: payment.id,
+                    type: PaymentEventType.WEBHOOK,
+                    payload: {
+                        event: 'REFUND_SUCCESS',
+                        orderId,
+                    },
+                },
+            });
+
+            return true;
+        });
+
+        if (!updated) {
+            return {
+                refundTriggered: false,
+                alreadyRefunded: true,
+                paymentStatus: PaymentStatus.REFUNDED,
+            };
+        }
+
+        refundSuccessTotal.inc();
+        paymentLogger.info({ orderId, paymentId: payment.id }, 'refund_processed');
+
+        return {
+            refundTriggered: true,
+            alreadyRefunded: false,
+            paymentStatus: PaymentStatus.REFUNDED,
+        };
+    }
 
     // ------------------------------------------------------------------
     // Initiate / Re-initiate payment

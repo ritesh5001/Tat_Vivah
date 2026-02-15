@@ -139,3 +139,30 @@ export const recommendationCandidateCount = new client.Histogram({
     help: 'Candidate product count considered per recommendation request',
     buckets: [0, 5, 10, 20, 40, 60, 80, 120, 200],
 });
+
+// ─── Cancellation & Refunds ─────────────────────────────────────────
+
+export const orderCancelRequestTotal = new client.Counter({
+    name: 'order_cancel_request_total',
+    help: 'Total order cancellation requests raised by buyers',
+});
+
+export const orderCancelTotal = new client.Counter({
+    name: 'order_cancel_total',
+    help: 'Total order cancellation lifecycle events requested by buyers',
+});
+
+export const orderCancelApprovedTotal = new client.Counter({
+    name: 'order_cancel_approved_total',
+    help: 'Total order cancellation requests approved by admins',
+});
+
+export const orderCancelRejectedTotal = new client.Counter({
+    name: 'order_cancel_rejected_total',
+    help: 'Total order cancellation requests rejected by admins',
+});
+
+export const refundSuccessTotal = new client.Counter({
+    name: 'refund_success_total',
+    help: 'Total successful refunds triggered after cancellation approval',
+});
