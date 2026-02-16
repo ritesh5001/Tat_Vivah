@@ -35,6 +35,7 @@ import {
     wishlistRouter,
     searchRouter,
     personalizationRouter,
+    sellerAnalyticsRouter,
 } from './routes/index.js';
 import { searchController } from './controllers/search.controller.js';
 import { apiReference } from "@scalar/express-api-reference";
@@ -243,6 +244,9 @@ export function createApp(): Application {
     // Search & Personalization
     app.use('/v1/search', searchRouter);
     app.use('/v1/personalization', personalizationRouter);
+
+    // Seller Analytics
+    app.use('/v1/seller/analytics', sellerAnalyticsRouter);
 
     // Related products (mounted on products path)
     app.get('/v1/products/:id/related', searchController.relatedProducts);

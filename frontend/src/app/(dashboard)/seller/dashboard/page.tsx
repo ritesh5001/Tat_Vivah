@@ -2,204 +2,752 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
+import useSWR from "swr";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+} from "recharts";
 import { Button } from "@/components/ui/button";
-import { listSellerOrders } from "@/services/orders";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { toast } from "sonner";
+import {
+  getAnalyticsSummary,
+  getRevenueChart,
+  getTopProducts,
+  getInventoryHealth,
+  getRefundImpact,
+  type AnalyticsSummary,
+  type ChartPoint,
+  type TopProduct,
+  type InventoryHealth,
+  type RefundImpact,
+} from "@/services/sellerAnalytics";
 
-const stats = [
-  { label: "New Inquiries", value: "92", description: "This month" },
-  { label: "Active Orders", value: "64", description: "In progress" },
-  { label: "Monthly Revenue", value: "₹12.4L", description: "Current period" },
-  { label: "Seller Rating", value: "4.8", description: "Verified reviews" },
-];
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+const currency = new Intl.NumberFormat("en-IN", {
+  style: "currency",
+  currency: "INR",
+  maximumFractionDigits: 0,
+});
+
+const compact = new Intl.NumberFormat("en-IN", {
+  notation: "compact",
+  compactDisplay: "short",
+  maximumFractionDigits: 1,
+});
+
+function pct(v: number) {
+  return `${v.toFixed(1)}%`;
+}
+
+const EASE = [0.25, 0.1, 0.25, 1] as const;
+
+// ─── Skeleton Primitives ─────────────────────────────────────────────────────
+
+function Skeleton({ className = "", style }: { className?: string; style?: React.CSSProperties }) {
+  return (
+    <div
+      className={`animate-pulse rounded bg-border-soft dark:bg-border ${className}`}
+      style={style}
+    />
+  );
+}
+
+function StatSkeleton() {
+  return (
+    <div className="bg-card p-5 lg:p-6 space-y-3">
+      <Skeleton className="h-3 w-20" />
+      <Skeleton className="h-7 w-24" />
+    </div>
+  );
+}
+
+function ChartSkeleton() {
+  return (
+    <div className="space-y-4">
+      <Skeleton className="h-4 w-40" />
+      <div className="flex items-end gap-2 h-64">
+        {Array.from({ length: 12 }).map((_, i) => (
+          <Skeleton
+            key={i}
+            className="flex-1"
+            style={{ height: `${30 + Math.random() * 60}%` }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TableSkeleton() {
+  return (
+    <div className="space-y-3 p-6">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <Skeleton key={i} className="h-12 w-full" />
+      ))}
+    </div>
+  );
+}
+
+// ─── Empty / Error states ────────────────────────────────────────────────────
+
+function EmptyState({ message }: { message: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 text-center">
+      <div className="h-12 w-12 rounded-full bg-border-soft dark:bg-border flex items-center justify-center mb-4">
+        <svg
+          className="h-6 w-6 text-muted-foreground"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={1.5}
+            d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
+          />
+        </svg>
+      </div>
+      <p className="text-sm text-muted-foreground max-w-xs">{message}</p>
+    </div>
+  );
+}
+
+function ErrorBanner({ message, onRetry }: { message: string; onRetry?: () => void }) {
+  return (
+    <div className="border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-950/30 rounded-md p-4 flex items-center justify-between">
+      <p className="text-sm text-red-700 dark:text-red-300">{message}</p>
+      {onRetry && (
+        <Button variant="outline" size="sm" onClick={onRetry}>
+          Retry
+        </Button>
+      )}
+    </div>
+  );
+}
+
+// ─── SWR Fetcher wrappers ────────────────────────────────────────────────────
+
+const summaryFetcher = () => getAnalyticsSummary();
+const topProductsFetcher = () => getTopProducts(10);
+const inventoryFetcher = () => getInventoryHealth();
+const refundFetcher = () => getRefundImpact();
+
+// ─── Custom tooltip ──────────────────────────────────────────────────────────
+
+function RevenueTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number }>; label?: string }) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-md border border-border-soft bg-card px-3 py-2 shadow-lg text-xs">
+      <p className="text-muted-foreground mb-1">{label}</p>
+      <p className="font-medium text-foreground">{currency.format(payload[0].value)}</p>
+    </div>
+  );
+}
+
+// ─── Main Page ───────────────────────────────────────────────────────────────
 
 export default function SellerDashboardPage() {
-  const [orders, setOrders] = React.useState<
-    Array<{ id: string; customer: string; date: string; status: string }>
-  >([]);
+  const [chartInterval, setChartInterval] = React.useState<
+    "daily" | "weekly" | "monthly"
+  >("daily");
+  const [topSortKey, setTopSortKey] = React.useState<keyof TopProduct>("unitsSold");
+  const [topSortDir, setTopSortDir] = React.useState<"asc" | "desc">("desc");
+  const [topPage, setTopPage] = React.useState(0);
+  const TOP_PER_PAGE = 5;
 
-  React.useEffect(() => {
-    const loadOrders = async () => {
-      try {
-        const result = await listSellerOrders();
-        const mapped = (result.orderItems ?? []).slice(0, 3).map((item) => ({
-          id: item.order?.id ?? item.orderId,
-          customer: item.productTitle ?? "Order item",
-          date: item.order?.createdAt
-            ? new Date(item.order.createdAt).toLocaleDateString("en-IN", {
-              month: "short",
-              day: "numeric",
-              year: "numeric",
-            })
-            : "—",
-          status: item.order?.status ?? "PLACED",
-        }));
-        setOrders(mapped);
-      } catch (error) {
-        toast.error(
-          error instanceof Error ? error.message : "Unable to load orders"
-        );
-      }
-    };
-    loadOrders();
-  }, []);
+  // ── SWR hooks ────────────────────────────────────────────────────────
+  const {
+    data: summary,
+    error: summaryErr,
+    isLoading: summaryLoading,
+    mutate: retrySummary,
+  } = useSWR<AnalyticsSummary>("seller-analytics-summary", summaryFetcher, {
+    revalidateOnFocus: false,
+    dedupingInterval: 60_000,
+    onError: (e: Error) => toast.error(e.message ?? "Failed to load summary"),
+  });
 
+  const chartKey = `seller-analytics-chart-${chartInterval}`;
+  const {
+    data: chartData,
+    error: chartErr,
+    isLoading: chartLoading,
+    mutate: retryChart,
+  } = useSWR<ChartPoint[]>(chartKey, () => getRevenueChart(chartInterval), {
+    revalidateOnFocus: false,
+    dedupingInterval: 60_000,
+  });
+
+  const {
+    data: topProducts,
+    error: topErr,
+    isLoading: topLoading,
+    mutate: retryTop,
+  } = useSWR<TopProduct[]>("seller-analytics-top", topProductsFetcher, {
+    revalidateOnFocus: false,
+    dedupingInterval: 60_000,
+  });
+
+  const {
+    data: inventory,
+    error: inventoryErr,
+    isLoading: inventoryLoading,
+    mutate: retryInventory,
+  } = useSWR<InventoryHealth>("seller-analytics-inventory", inventoryFetcher, {
+    revalidateOnFocus: false,
+    dedupingInterval: 60_000,
+  });
+
+  const {
+    data: refundData,
+    error: refundErr,
+    isLoading: refundLoading,
+    mutate: retryRefund,
+  } = useSWR<RefundImpact>("seller-analytics-refund", refundFetcher, {
+    revalidateOnFocus: false,
+    dedupingInterval: 60_000,
+  });
+
+  // ── Derived data ─────────────────────────────────────────────────────
+  const sortedProducts = React.useMemo(() => {
+    if (!topProducts) return [];
+    const copy = [...topProducts];
+    copy.sort((a, b) => {
+      const av = a[topSortKey] as number;
+      const bv = b[topSortKey] as number;
+      return topSortDir === "desc" ? bv - av : av - bv;
+    });
+    return copy;
+  }, [topProducts, topSortKey, topSortDir]);
+
+  const pagedProducts = sortedProducts.slice(
+    topPage * TOP_PER_PAGE,
+    (topPage + 1) * TOP_PER_PAGE,
+  );
+  const totalPages = Math.ceil(sortedProducts.length / TOP_PER_PAGE);
+
+  const handleSort = (key: keyof TopProduct) => {
+    if (key === topSortKey) {
+      setTopSortDir((d) => (d === "desc" ? "asc" : "desc"));
+    } else {
+      setTopSortKey(key);
+      setTopSortDir("desc");
+    }
+    setTopPage(0);
+  };
+
+  // ── KPI stat cards config ────────────────────────────────────────────
+  const statCards = React.useMemo(() => {
+    if (!summary) return [];
+    return [
+      { label: "Total Revenue", value: currency.format(summary.totalRevenue) },
+      { label: "Net Revenue", value: currency.format(summary.netRevenue) },
+      { label: "Orders", value: compact.format(summary.totalOrders) },
+      { label: "Units Sold", value: compact.format(summary.totalUnitsSold) },
+      { label: "Avg Order Value", value: currency.format(summary.averageOrderValue) },
+      { label: "Refund Impact", value: currency.format(summary.totalRefundAmount) },
+      { label: "Return Rate", value: pct(summary.returnRate) },
+      { label: "Cancellation Rate", value: pct(summary.cancellationRate) },
+    ];
+  }, [summary]);
+
+  // ── Render ───────────────────────────────────────────────────────────
   return (
     <div className="min-h-[calc(100vh-160px)] bg-background">
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.7, ease: [0.25, 0.1, 0.25, 1] }}
-        className="mx-auto flex max-w-6xl flex-col gap-12 px-6 py-16 lg:py-20"
+        transition={{ duration: 0.7, ease: EASE }}
+        className="mx-auto flex max-w-7xl flex-col gap-10 px-4 py-12 sm:px-6 lg:px-8 lg:py-16"
       >
-        {/* Header */}
-        <div className="space-y-4">
-          <p className="text-[11px] font-medium uppercase tracking-[0.3em] text-gold">
-            Seller Console
-          </p>
-          <h1 className="font-serif text-4xl font-light tracking-tight text-foreground sm:text-5xl">
-            Business Overview
-          </h1>
-          <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-            Track orders, manage inventory, and maintain performance across your fashion listings.
-          </p>
+        {/* ── Header ─────────────────────────────────────────────── */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div className="space-y-2">
+            <p className="text-[11px] font-medium uppercase tracking-[0.3em] text-gold">
+              Seller Analytics
+            </p>
+            <h1 className="font-serif text-3xl font-light tracking-tight text-foreground sm:text-4xl">
+              Performance Dashboard
+            </h1>
+            <p className="max-w-lg text-sm leading-relaxed text-muted-foreground">
+              Real-time insights into your revenue, inventory, top products, and refund trends.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Link href="/seller/orders">
+              <Button variant="outline" size="sm">
+                Manage Orders
+              </Button>
+            </Link>
+            <Link href="/seller/products">
+              <Button variant="primary" size="sm">
+                View Products
+              </Button>
+            </Link>
+          </div>
         </div>
 
-        {/* Stats Grid - Business Insights */}
-        <section className="grid gap-px bg-border-soft sm:grid-cols-2 lg:grid-cols-4">
-          {stats.map((stat, index) => (
-            <motion.div
-              key={stat.label}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 + index * 0.05, duration: 0.5 }}
-              className="bg-card p-6 lg:p-8 space-y-4"
-            >
-              <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-gold">
-                {stat.label}
-              </p>
-              <div className="space-y-1">
-                <p className="font-serif text-3xl font-light text-foreground">
+        {/* ── KPI Cards ──────────────────────────────────────────── */}
+        {summaryErr ? (
+          <ErrorBanner
+            message="Unable to load summary metrics"
+            onRetry={() => retrySummary()}
+          />
+        ) : summaryLoading ? (
+          <section className="grid gap-px bg-border-soft sm:grid-cols-2 lg:grid-cols-4 rounded-md overflow-hidden">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <StatSkeleton key={i} />
+            ))}
+          </section>
+        ) : (
+          <section className="grid gap-px bg-border-soft sm:grid-cols-2 lg:grid-cols-4 rounded-md overflow-hidden">
+            {statCards.map((stat, i) => (
+              <motion.div
+                key={stat.label}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.05 + i * 0.03, duration: 0.5, ease: EASE }}
+                className="bg-card p-5 lg:p-6 space-y-3 group transition-colors duration-300 hover:bg-cream/60 dark:hover:bg-brown/20"
+              >
+                <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-gold">
+                  {stat.label}
+                </p>
+                <p className="font-serif text-2xl font-light tracking-tight text-foreground">
                   {stat.value}
                 </p>
-                <p className="text-[11px] text-muted-foreground">
-                  {stat.description}
-                </p>
-              </div>
-            </motion.div>
-          ))}
-        </section>
+              </motion.div>
+            ))}
+          </section>
+        )}
 
-        {/* Main Content */}
-        <section className="grid gap-8 lg:grid-cols-[1.5fr_1fr]">
-          {/* Recent Orders */}
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.5 }}
-            className="border border-border-soft bg-card"
-          >
-            <div className="flex items-center justify-between border-b border-border-soft p-6">
+        {/* ── Revenue Chart ──────────────────────────────────────── */}
+        <Card>
+          <CardHeader>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground mb-1">
-                  Recent Orders
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Latest customer orders requiring attention
-                </p>
+                <CardTitle>Revenue Over Time</CardTitle>
+                <CardDescription>
+                  Gross revenue from confirmed &amp; delivered orders
+                </CardDescription>
               </div>
-              <Link href="/seller/orders">
-                <Button variant="outline" size="sm">
-                  View All
-                </Button>
-              </Link>
-            </div>
-
-            <div className="divide-y divide-border-soft">
-              {orders.length === 0 ? (
-                <div className="p-8 text-center">
-                  <p className="text-sm text-muted-foreground">
-                    No recent orders yet.
-                  </p>
-                </div>
-              ) : (
-                orders.map((order, index) => (
-                  <motion.div
-                    key={order.id}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.4 + index * 0.05, duration: 0.4 }}
-                    className="flex items-center justify-between gap-4 p-6"
+              <div className="flex gap-1 rounded-sm border border-border-soft p-0.5">
+                {(["daily", "weekly", "monthly"] as const).map((iv) => (
+                  <button
+                    key={iv}
+                    onClick={() => setChartInterval(iv)}
+                    className={`rounded-sm px-3 py-1.5 text-[11px] font-medium uppercase tracking-wide transition-all duration-300 ${
+                      chartInterval === iv
+                        ? "bg-charcoal text-ivory dark:bg-gold dark:text-charcoal"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
                   >
-                    <div className="space-y-1">
-                      <p className="font-medium text-foreground">
-                        {order.customer}
+                    {iv}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {chartErr ? (
+              <ErrorBanner
+                message="Unable to load chart data"
+                onRetry={() => retryChart()}
+              />
+            ) : chartLoading ? (
+              <ChartSkeleton />
+            ) : !chartData || chartData.length === 0 ? (
+              <EmptyState message="No revenue data available yet. Revenue will appear here once orders are confirmed." />
+            ) : (
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={chartInterval}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.35, ease: EASE }}
+                  className="h-72 sm:h-80"
+                >
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={chartData}>
+                      <defs>
+                        <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="var(--color-gold, #B8860B)" stopOpacity={0.4} />
+                          <stop offset="100%" stopColor="var(--color-gold, #B8860B)" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border-soft" />
+                      <XAxis
+                        dataKey="date"
+                        tick={{ fontSize: 10 }}
+                        className="text-muted-foreground"
+                        tickFormatter={(v: string) => {
+                          const d = new Date(v);
+                          return chartInterval === "monthly"
+                            ? d.toLocaleDateString("en-IN", { month: "short", year: "2-digit" })
+                            : d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+                        }}
+                      />
+                      <YAxis
+                        tick={{ fontSize: 10 }}
+                        className="text-muted-foreground"
+                        tickFormatter={(v: number) => compact.format(v)}
+                        width={50}
+                      />
+                      <Tooltip content={<RevenueTooltip />} />
+                      <Line
+                        type="monotone"
+                        dataKey="revenue"
+                        stroke="var(--color-gold, #B8860B)"
+                        strokeWidth={2.5}
+                        dot={false}
+                        activeDot={{ r: 4, fill: "var(--color-gold, #B8860B)" }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </motion.div>
+              </AnimatePresence>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* ── Two-column: Top Products + Inventory ───────────────── */}
+        <div className="grid gap-8 lg:grid-cols-[1.5fr_1fr]">
+          {/* Top Products */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Top Products</CardTitle>
+              <CardDescription>Best sellers by units sold. Click column headers to sort.</CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              {topErr ? (
+                <div className="p-6">
+                  <ErrorBanner message="Unable to load products" onRetry={() => retryTop()} />
+                </div>
+              ) : topLoading ? (
+                <TableSkeleton />
+              ) : !topProducts || topProducts.length === 0 ? (
+                <EmptyState message="No product data yet. Sell some products to see analytics here." />
+              ) : (
+                <>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-border-soft text-left">
+                          <th className="px-6 py-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                            Product
+                          </th>
+                          {([
+                            ["unitsSold", "Units"],
+                            ["revenue", "Revenue"],
+                            ["returnCount", "Returns"],
+                            ["ratingAverage", "Rating"],
+                          ] as const).map(([key, label]) => (
+                            <th
+                              key={key}
+                              onClick={() => handleSort(key)}
+                              className="px-4 py-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground cursor-pointer hover:text-foreground transition-colors whitespace-nowrap"
+                            >
+                              <span className="inline-flex items-center gap-1">
+                                {label}
+                                {topSortKey === key && (
+                                  <span className="text-gold">{topSortDir === "desc" ? "↓" : "↑"}</span>
+                                )}
+                              </span>
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <AnimatePresence>
+                          {pagedProducts.map((p, i) => (
+                            <motion.tr
+                              key={p.productId}
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              exit={{ opacity: 0 }}
+                              transition={{ delay: i * 0.03, duration: 0.3 }}
+                              className="border-b border-border-soft last:border-0 hover:bg-cream/40 dark:hover:bg-brown/10 transition-colors"
+                            >
+                              <td className="px-6 py-4">
+                                <div className="flex items-center gap-3">
+                                  {p.image ? (
+                                    <img
+                                      src={p.image}
+                                      alt={p.title}
+                                      className="h-9 w-9 rounded object-cover bg-border-soft"
+                                    />
+                                  ) : (
+                                    <div className="h-9 w-9 rounded bg-border-soft dark:bg-border flex items-center justify-center text-[10px] text-muted-foreground">
+                                      N/A
+                                    </div>
+                                  )}
+                                  <span className="font-medium text-foreground line-clamp-1 max-w-[180px]">
+                                    {p.title}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="px-4 py-4 tabular-nums">{p.unitsSold}</td>
+                              <td className="px-4 py-4 tabular-nums">{currency.format(p.revenue)}</td>
+                              <td className="px-4 py-4 tabular-nums">{p.returnCount}</td>
+                              <td className="px-4 py-4">
+                                <span className="inline-flex items-center gap-1 text-xs">
+                                  <span className="text-gold">★</span>
+                                  {p.ratingAverage.toFixed(1)}
+                                </span>
+                              </td>
+                            </motion.tr>
+                          ))}
+                        </AnimatePresence>
+                      </tbody>
+                    </table>
+                  </div>
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-between border-t border-border-soft px-6 py-3">
+                      <p className="text-[11px] text-muted-foreground">
+                        Page {topPage + 1} of {totalPages}
                       </p>
-                      <p className="text-xs text-muted-foreground">
-                        {order.date}
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={topPage <= 0}
+                          onClick={() => setTopPage((p) => p - 1)}
+                        >
+                          Prev
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={topPage >= totalPages - 1}
+                          onClick={() => setTopPage((p) => p + 1)}
+                        >
+                          Next
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Inventory Health */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Inventory Health</CardTitle>
+              <CardDescription>Stock status and fast-moving items</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {inventoryErr ? (
+                <ErrorBanner message="Unable to load inventory" onRetry={() => retryInventory()} />
+              ) : inventoryLoading ? (
+                <div className="space-y-4">
+                  <Skeleton className="h-16 w-full" />
+                  <Skeleton className="h-16 w-full" />
+                  <Skeleton className="h-16 w-full" />
+                </div>
+              ) : !inventory ? (
+                <EmptyState message="No inventory data available." />
+              ) : (
+                <div className="space-y-6">
+                  {/* Badges row */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="rounded-md border border-border-soft p-3 text-center">
+                      <p className="font-serif text-xl font-light text-foreground">
+                        {inventory.totalVariants}
+                      </p>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">
+                        Total SKUs
                       </p>
                     </div>
-                    <span className="px-3 py-1 text-[10px] font-medium uppercase tracking-wider border border-border-soft text-muted-foreground">
-                      {order.status}
-                    </span>
-                  </motion.div>
-                ))
+                    <div
+                      className={`rounded-md border p-3 text-center ${
+                        inventory.lowStockProducts > 0
+                          ? "border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30"
+                          : "border-border-soft"
+                      }`}
+                    >
+                      <p className="font-serif text-xl font-light text-foreground">
+                        {inventory.lowStockProducts}
+                      </p>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">
+                        Low Stock
+                      </p>
+                    </div>
+                    <div
+                      className={`rounded-md border p-3 text-center ${
+                        inventory.outOfStockProducts > 0
+                          ? "border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/30"
+                          : "border-border-soft"
+                      }`}
+                    >
+                      <p className="font-serif text-xl font-light text-foreground">
+                        {inventory.outOfStockProducts}
+                      </p>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">
+                        Out of Stock
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Fast movers */}
+                  {inventory.fastMovingProducts.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-gold mb-3">
+                        Fast Moving (30 days)
+                      </p>
+                      <div className="space-y-2">
+                        {inventory.fastMovingProducts.map((p) => (
+                          <div
+                            key={p.productId}
+                            className="flex items-center gap-3 rounded border border-border-soft px-3 py-2 hover:bg-cream/40 dark:hover:bg-brown/10 transition-colors"
+                          >
+                            {p.image ? (
+                              <img
+                                src={p.image}
+                                alt={p.title}
+                                className="h-7 w-7 rounded object-cover bg-border-soft"
+                              />
+                            ) : (
+                              <div className="h-7 w-7 rounded bg-border-soft" />
+                            )}
+                            <span className="text-xs font-medium text-foreground flex-1 line-clamp-1">
+                              {p.title}
+                            </span>
+                            <span className="text-[11px] tabular-nums text-muted-foreground">
+                              {p.unitsSold} sold
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {inventory.fastMovingProducts.length === 0 &&
+                    inventory.totalVariants === 0 && (
+                      <EmptyState message="Add products to track inventory health." />
+                    )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* ── Refund Impact ──────────────────────────────────────── */}
+        <Card>
+          <CardHeader>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <CardTitle>Refund Impact</CardTitle>
+                <CardDescription>
+                  Financial impact of returns and refunds on your store
+                </CardDescription>
+              </div>
+              {refundData && (
+                <div className="flex gap-4 text-right">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                      Total Refunds
+                    </p>
+                    <p className="font-serif text-lg font-light text-foreground">
+                      {refundData.totalRefunds}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                      Revenue Impact
+                    </p>
+                    <p className="font-serif text-lg font-light text-foreground">
+                      {currency.format(refundData.refundRevenueImpact)}
+                    </p>
+                  </div>
+                </div>
               )}
             </div>
-          </motion.div>
-
-          {/* Quick Actions */}
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4, duration: 0.5 }}
-            className="border border-border-soft bg-card h-fit"
-          >
-            <div className="border-b border-border-soft p-6">
-              <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground mb-1">
-                Quick Actions
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Common seller operations
-              </p>
-            </div>
-
-            <div className="p-6 space-y-3">
-              {[
-                { label: "Add New Listing", href: "/seller/products" },
-                { label: "Manage Orders", href: "/seller/orders" },
-                { label: "Update Profile", href: "/seller/profile" },
-              ].map((action) => (
-                <Link key={action.label} href={action.href}>
-                  <motion.div
-                    whileHover={{ x: 4 }}
-                    transition={{ duration: 0.3, ease: "easeOut" }}
-                    className="flex items-center justify-between py-3 px-4 border border-border-soft text-sm text-foreground transition-all duration-300 hover:border-gold/50 hover:bg-cream/50 dark:hover:bg-brown/20"
+          </CardHeader>
+          <CardContent>
+            {refundErr ? (
+              <ErrorBanner message="Unable to load refund data" onRetry={() => retryRefund()} />
+            ) : refundLoading ? (
+              <ChartSkeleton />
+            ) : !refundData || refundData.mostReturnedProducts.length === 0 ? (
+              <EmptyState message="No returns or refunds recorded yet — great news for your store!" />
+            ) : (
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={refundData.mostReturnedProducts}
+                    layout="vertical"
+                    margin={{ left: 10, right: 20, top: 5, bottom: 5 }}
                   >
-                    <span>{action.label}</span>
-                    <span className="text-muted-foreground">→</span>
-                  </motion.div>
-                </Link>
-              ))}
-            </div>
-          </motion.div>
-        </section>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border-soft" horizontal={false} />
+                    <XAxis type="number" tick={{ fontSize: 10 }} className="text-muted-foreground" />
+                    <YAxis
+                      type="category"
+                      dataKey="title"
+                      tick={{ fontSize: 10 }}
+                      className="text-muted-foreground"
+                      width={120}
+                      tickFormatter={(v: string) => (v.length > 18 ? v.slice(0, 18) + "\u2026" : v)}
+                    />
+                    <Tooltip
+                      content={({ active, payload }: Record<string, unknown>) => {
+                        if (!active || !Array.isArray(payload) || payload.length === 0) return null;
+                        const d = (payload as Array<{ payload: Record<string, unknown> }>)[0].payload;
+                        return (
+                          <div className="rounded-md border border-border-soft bg-card px-3 py-2 shadow-lg text-xs space-y-1">
+                            <p className="font-medium text-foreground">{String(d.title)}</p>
+                            <p className="text-muted-foreground">
+                              Returns: {String(d.returnCount)} &middot; Impact: {currency.format(Number(d.refundAmount))}
+                            </p>
+                          </div>
+                        );
+                      }}
+                    />
+                    <Bar
+                      dataKey="returnCount"
+                      fill="var(--color-gold, #B8860B)"
+                      radius={[0, 4, 4, 0]}
+                      barSize={20}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-        {/* Trust Footer */}
-        <section className="border-t border-border-soft pt-8">
+        {/* ── Quick Links Footer ─────────────────────────────────── */}
+        <section className="border-t border-border-soft pt-6">
           <div className="flex flex-wrap items-center justify-center gap-8 text-xs text-muted-foreground">
             <span className="flex items-center gap-2">
               <span className="h-1 w-1 rounded-full bg-gold" />
-              Seller Protection
+              Real-time Data
             </span>
             <span className="flex items-center gap-2">
               <span className="h-1 w-1 rounded-full bg-gold" />
-              Secure Payouts
+              Cached for 5 min
             </span>
             <span className="flex items-center gap-2">
               <span className="h-1 w-1 rounded-full bg-gold" />
-              Dedicated Support
+              Rate Limited
             </span>
           </div>
         </section>

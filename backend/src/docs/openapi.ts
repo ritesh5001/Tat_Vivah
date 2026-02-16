@@ -39,6 +39,7 @@ export const openApiSpec: OpenAPIObject = {
         { name: "Shipping (Admin)", description: "Admin shipment overrides" },
         { name: "Notifications (Admin)", description: "Admin notification management" },
         { name: "Admin", description: "Admin panel operations" },
+        { name: "Seller Analytics", description: "Seller dashboard analytics & KPIs" },
         { name: "Utils", description: "Utility endpoints" },
     ],
     components: {
@@ -2574,6 +2575,231 @@ export const openApiSpec: OpenAPIObject = {
                         },
                     },
                     "404": { description: "Product not found" },
+                },
+            },
+        },
+
+        // ── Seller Analytics ──────────────────────────────────────────────
+
+        "/v1/seller/analytics/summary": {
+            get: {
+                tags: ["Seller Analytics"],
+                summary: "Dashboard summary KPIs",
+                description: "Returns revenue, orders, units sold, refund rate, cancellation rate, etc. for the authenticated seller.",
+                security: [{ bearerAuth: [] }],
+                parameters: [
+                    { name: "startDate", in: "query", required: false, schema: { type: "string", format: "date-time" }, description: "ISO start date" },
+                    { name: "endDate", in: "query", required: false, schema: { type: "string", format: "date-time" }, description: "ISO end date" },
+                ],
+                responses: {
+                    "200": {
+                        description: "Summary data",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    type: "object",
+                                    properties: {
+                                        success: { type: "boolean" },
+                                        data: {
+                                            type: "object",
+                                            properties: {
+                                                totalRevenue: { type: "number" },
+                                                totalOrders: { type: "number" },
+                                                totalUnitsSold: { type: "number" },
+                                                averageOrderValue: { type: "number" },
+                                                totalRefundAmount: { type: "number" },
+                                                netRevenue: { type: "number" },
+                                                returnRate: { type: "number" },
+                                                cancellationRate: { type: "number" },
+                                                conversionRate: { type: "number" },
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    "401": { description: "Unauthorized" },
+                    "403": { description: "Forbidden — SELLER role required" },
+                    "429": { description: "Rate limit exceeded" },
+                },
+            },
+        },
+
+        "/v1/seller/analytics/revenue-chart": {
+            get: {
+                tags: ["Seller Analytics"],
+                summary: "Revenue over time chart data",
+                description: "Returns time-series revenue data grouped by daily, weekly, or monthly intervals.",
+                security: [{ bearerAuth: [] }],
+                parameters: [
+                    { name: "interval", in: "query", required: false, schema: { type: "string", enum: ["daily", "weekly", "monthly"], default: "daily" } },
+                ],
+                responses: {
+                    "200": {
+                        description: "Chart points",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    type: "object",
+                                    properties: {
+                                        success: { type: "boolean" },
+                                        data: {
+                                            type: "array",
+                                            items: {
+                                                type: "object",
+                                                properties: {
+                                                    date: { type: "string" },
+                                                    revenue: { type: "number" },
+                                                },
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    "401": { description: "Unauthorized" },
+                    "403": { description: "Forbidden" },
+                },
+            },
+        },
+
+        "/v1/seller/analytics/top-products": {
+            get: {
+                tags: ["Seller Analytics"],
+                summary: "Top selling products",
+                description: "Returns top N products by units sold with revenue, return count, and average rating.",
+                security: [{ bearerAuth: [] }],
+                parameters: [
+                    { name: "limit", in: "query", required: false, schema: { type: "integer", default: 10, minimum: 1, maximum: 50 } },
+                ],
+                responses: {
+                    "200": {
+                        description: "Top products list",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    type: "object",
+                                    properties: {
+                                        success: { type: "boolean" },
+                                        data: {
+                                            type: "array",
+                                            items: {
+                                                type: "object",
+                                                properties: {
+                                                    productId: { type: "string" },
+                                                    title: { type: "string" },
+                                                    image: { type: "string", nullable: true },
+                                                    unitsSold: { type: "number" },
+                                                    revenue: { type: "number" },
+                                                    returnCount: { type: "number" },
+                                                    ratingAverage: { type: "number" },
+                                                },
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    "401": { description: "Unauthorized" },
+                    "403": { description: "Forbidden" },
+                },
+            },
+        },
+
+        "/v1/seller/analytics/inventory-health": {
+            get: {
+                tags: ["Seller Analytics"],
+                summary: "Inventory health overview",
+                description: "Returns low stock count, out of stock count, total variants, and fast-moving products.",
+                security: [{ bearerAuth: [] }],
+                responses: {
+                    "200": {
+                        description: "Inventory health data",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    type: "object",
+                                    properties: {
+                                        success: { type: "boolean" },
+                                        data: {
+                                            type: "object",
+                                            properties: {
+                                                lowStockProducts: { type: "number" },
+                                                outOfStockProducts: { type: "number" },
+                                                totalVariants: { type: "number" },
+                                                fastMovingProducts: {
+                                                    type: "array",
+                                                    items: {
+                                                        type: "object",
+                                                        properties: {
+                                                            productId: { type: "string" },
+                                                            title: { type: "string" },
+                                                            image: { type: "string", nullable: true },
+                                                            unitsSold: { type: "number" },
+                                                        },
+                                                    },
+                                                },
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    "401": { description: "Unauthorized" },
+                    "403": { description: "Forbidden" },
+                },
+            },
+        },
+
+        "/v1/seller/analytics/refund-impact": {
+            get: {
+                tags: ["Seller Analytics"],
+                summary: "Refund impact analysis",
+                description: "Returns total refund count, revenue impact in rupees, and top returned products.",
+                security: [{ bearerAuth: [] }],
+                parameters: [
+                    { name: "startDate", in: "query", required: false, schema: { type: "string", format: "date-time" } },
+                    { name: "endDate", in: "query", required: false, schema: { type: "string", format: "date-time" } },
+                ],
+                responses: {
+                    "200": {
+                        description: "Refund impact data",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    type: "object",
+                                    properties: {
+                                        success: { type: "boolean" },
+                                        data: {
+                                            type: "object",
+                                            properties: {
+                                                totalRefunds: { type: "number" },
+                                                refundRevenueImpact: { type: "number" },
+                                                mostReturnedProducts: {
+                                                    type: "array",
+                                                    items: {
+                                                        type: "object",
+                                                        properties: {
+                                                            productId: { type: "string" },
+                                                            title: { type: "string" },
+                                                            returnCount: { type: "number" },
+                                                            refundAmount: { type: "number" },
+                                                        },
+                                                    },
+                                                },
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    "401": { description: "Unauthorized" },
+                    "403": { description: "Forbidden" },
                 },
             },
         },

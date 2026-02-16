@@ -21,6 +21,18 @@ export const CACHE_KEYS = {
 
     // Shipping domain
     TRACKING: (orderId: string) => `tracking:${orderId}`,
+
+    // Seller Analytics domain
+    SELLER_ANALYTICS_SUMMARY: (sellerId: string, start?: string, end?: string) =>
+        `seller:analytics:summary:${sellerId}:${start ?? '_'}:${end ?? '_'}`,
+    SELLER_ANALYTICS_CHART: (sellerId: string, interval: string) =>
+        `seller:analytics:chart:${sellerId}:${interval}`,
+    SELLER_ANALYTICS_TOP_PRODUCTS: (sellerId: string, limit: number) =>
+        `seller:analytics:top-products:${sellerId}:${limit}`,
+    SELLER_ANALYTICS_INVENTORY: (sellerId: string) =>
+        `seller:analytics:inventory:${sellerId}`,
+    SELLER_ANALYTICS_REFUND: (sellerId: string, start?: string, end?: string) =>
+        `seller:analytics:refund:${sellerId}:${start ?? '_'}:${end ?? '_'}`,
 } as const;
 
 /**

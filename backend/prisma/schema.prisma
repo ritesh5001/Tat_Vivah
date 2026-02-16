@@ -270,6 +270,7 @@ model Order {
   couponRedemptions    CouponRedemption[]
 
   @@index([userId])
+  @@index([createdAt])
   @@map("orders")
 }
 
@@ -476,6 +477,7 @@ model SellerSettlement {
   @@unique([orderId, sellerId])
   @@index([sellerId])
   @@index([status])
+  @@index([createdAt])
   @@map("seller_settlements")
 }
 
