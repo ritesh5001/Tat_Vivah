@@ -17,6 +17,13 @@ function isOrderCancellable(status: OrderStatus): boolean {
 }
 
 export class CancellationService {
+    private isRetryableTransactionError(error: unknown): boolean {
+        const code = (error as { code?: string } | null)?.code;
+        const message = error instanceof Error ? error.message : String(error ?? '');
+
+        return code === 'P2028' || message.includes('Transaction API error: Transaction not found');
+    }
+
     async requestCancellation(userId: string, orderId: string, reason: string) {
         const normalizedReason = reason.trim();
         if (!normalizedReason) {
@@ -177,7 +184,7 @@ export class CancellationService {
         cancellationId: string,
         reviewerType: 'ADMIN' | 'SELLER',
     ) {
-        const txResult = await prisma.$transaction(async (tx) => {
+        const runApprovalTransaction = async () => prisma.$transaction(async (tx) => {
             const cancellation = await tx.cancellationRequest.findUnique({
                 where: { id: cancellationId },
                 include: {
@@ -330,12 +337,18 @@ export class CancellationService {
             });
 
             const sellerIds = new Set<string>();
+            const restockByVariant = new Map<string, number>();
             for (const item of cancellation.order.items) {
                 sellerIds.add(item.sellerId);
 
+                const currentQty = restockByVariant.get(item.variantId) ?? 0;
+                restockByVariant.set(item.variantId, currentQty + item.quantity);
+            }
+
+            for (const [variantId, quantity] of restockByVariant) {
                 const inventoryUpdate = await tx.inventory.updateMany({
-                    where: { variantId: item.variantId },
-                    data: { stock: { increment: item.quantity } },
+                    where: { variantId },
+                    data: { stock: { increment: quantity } },
                 });
 
                 if (inventoryUpdate.count === 0) {
@@ -343,21 +356,21 @@ export class CancellationService {
                         cancellationId,
                         orderId: lockedOrder.id,
                         adminId: reviewerId,
-                        reason: `Inventory increment failed for variant ${item.variantId}`,
+                        reason: `Inventory increment failed for variant ${variantId}`,
                     });
-                    throw ApiError.internal(`Failed to restore inventory for variant ${item.variantId}`);
+                    throw ApiError.internal(`Failed to restore inventory for variant ${variantId}`);
                 }
+            }
 
+            if (restockByVariant.size > 0) {
                 await tx.inventoryMovement.createMany({
-                    data: [
-                        {
-                            variantId: item.variantId,
-                            orderId: lockedOrder.id,
-                            quantity: item.quantity,
-                            type: 'RELEASE',
-                            reason: 'CANCELLATION',
-                        },
-                    ],
+                    data: Array.from(restockByVariant.entries()).map(([variantId, quantity]) => ({
+                        variantId,
+                        orderId: lockedOrder.id,
+                        quantity,
+                        type: 'RELEASE' as const,
+                        reason: 'CANCELLATION' as const,
+                    })),
                     skipDuplicates: true,
                 });
             }
@@ -369,7 +382,38 @@ export class CancellationService {
                 paymentStatus: lockedOrder.payment?.status ?? null,
                 alreadyCancelled: false,
             };
+        }, {
+            maxWait: 10_000,
+            timeout: 30_000,
         });
+
+        let txResult: {
+            orderId: string;
+            userId: string;
+            sellerIds: string[];
+            paymentStatus: PaymentStatus | null;
+            alreadyCancelled: boolean;
+        };
+
+        try {
+            txResult = await runApprovalTransaction();
+        } catch (error) {
+            if (!this.isRetryableTransactionError(error)) {
+                throw error;
+            }
+
+            cancellationLogger.warn(
+                {
+                    cancellationId,
+                    reviewerId,
+                    reviewerType,
+                    reason: error instanceof Error ? error.message : String(error),
+                },
+                'approve_cancellation_retrying_transaction',
+            );
+
+            txResult = await runApprovalTransaction();
+        }
 
         let refundTriggered = false;
         if (txResult.paymentStatus === PaymentStatus.SUCCESS) {

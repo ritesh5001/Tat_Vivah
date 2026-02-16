@@ -30,4 +30,5 @@ export { notificationRouter } from './notification.routes.js';
 export { wishlistRouter } from './wishlist.routes.js';
 export { searchRouter } from './search.routes.js';
 export { personalizationRouter } from './personalization.routes.js';
+export { sellerAnalyticsRouter } from './sellerAnalytics.routes.js';
 //# sourceMappingURL=index.d.ts.map

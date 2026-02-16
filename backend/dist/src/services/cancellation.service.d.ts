@@ -1,5 +1,6 @@
 import { CancellationStatus } from '@prisma/client';
 export declare class CancellationService {
+    private isRetryableTransactionError;
     requestCancellation(userId: string, orderId: string, reason: string): Promise<{
         order: {
             status: import(".prisma/client").$Enums.OrderStatus;

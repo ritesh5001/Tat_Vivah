@@ -17,6 +17,12 @@ export const CACHE_KEYS = {
     ADMIN_PAYMENTS: 'admin:payments:list',
     // Shipping domain
     TRACKING: (orderId) => `tracking:${orderId}`,
+    // Seller Analytics domain
+    SELLER_ANALYTICS_SUMMARY: (sellerId, start, end) => `seller:analytics:summary:${sellerId}:${start ?? '_'}:${end ?? '_'}`,
+    SELLER_ANALYTICS_CHART: (sellerId, interval) => `seller:analytics:chart:${sellerId}:${interval}`,
+    SELLER_ANALYTICS_TOP_PRODUCTS: (sellerId, limit) => `seller:analytics:top-products:${sellerId}:${limit}`,
+    SELLER_ANALYTICS_INVENTORY: (sellerId) => `seller:analytics:inventory:${sellerId}`,
+    SELLER_ANALYTICS_REFUND: (sellerId, start, end) => `seller:analytics:refund:${sellerId}:${start ?? '_'}:${end ?? '_'}`,
 };
 /**
  * Default cache TTL in seconds (5 minutes)

@@ -6,7 +6,7 @@ import { prisma } from './config/db.js';
 import { checkRedisConnection } from './config/redis.js';
 import { authRouter, sellerRouter, categoryRouter, productRouter, sellerProductRouter, imagekitRouter, bestsellerRouter, cartRouter, checkoutRouter, couponRouter, orderRouter, sellerOrderRouter, cancellationRouter, returnRouter, paymentRouter, webhookRouter, sellerSettlementRouter, adminRouter, 
 // Shipping imports
-shipmentRouter, sellerShipmentRouter, adminShipmentRouter, adminNotificationRouter, reviewRouter, addressRouter, notificationRouter, wishlistRouter, searchRouter, personalizationRouter, } from './routes/index.js';
+shipmentRouter, sellerShipmentRouter, adminShipmentRouter, adminNotificationRouter, reviewRouter, addressRouter, notificationRouter, wishlistRouter, searchRouter, personalizationRouter, sellerAnalyticsRouter, } from './routes/index.js';
 import { searchController } from './controllers/search.controller.js';
 import { apiReference } from "@scalar/express-api-reference";
 import { openApiSpec } from "./docs/openapi.js";
@@ -186,6 +186,8 @@ export function createApp() {
     // Search & Personalization
     app.use('/v1/search', searchRouter);
     app.use('/v1/personalization', personalizationRouter);
+    // Seller Analytics
+    app.use('/v1/seller/analytics', sellerAnalyticsRouter);
     // Related products (mounted on products path)
     app.get('/v1/products/:id/related', searchController.relatedProducts);
     // Notification Worker initialization removed to keep API process HTTP-only

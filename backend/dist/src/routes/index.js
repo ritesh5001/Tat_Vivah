@@ -38,4 +38,6 @@ export { wishlistRouter } from './wishlist.routes.js';
 // Search & Personalization
 export { searchRouter } from './search.routes.js';
 export { personalizationRouter } from './personalization.routes.js';
+// Seller Analytics
+export { sellerAnalyticsRouter } from './sellerAnalytics.routes.js';
 //# sourceMappingURL=index.js.map
