@@ -193,8 +193,7 @@ export class CancellationService {
                     throw ApiError.badRequest('Multi-seller order cancellation must be approved by admin');
                 }
             }
-            await tx.$queryRaw `SELECT id FROM "orders" WHERE id = ${cancellation.order.id} FOR UPDATE`;
-            const lockedOrder = await tx.order.findUnique({
+            const liveOrder = await tx.order.findUnique({
                 where: { id: cancellation.order.id },
                 select: {
                     id: true,
@@ -207,28 +206,28 @@ export class CancellationService {
                     },
                 },
             });
-            if (!lockedOrder) {
+            if (!liveOrder) {
                 recordCancellationFatal({
                     cancellationId,
                     orderId: cancellation.order.id,
                     adminId: reviewerId,
-                    reason: 'Order not found after row lock during approval',
+                    reason: 'Order not found during cancellation approval',
                 });
                 throw ApiError.notFound('Order not found');
             }
-            if (lockedOrder.status === OrderStatus.SHIPPED || lockedOrder.status === OrderStatus.DELIVERED) {
+            if (liveOrder.status === OrderStatus.SHIPPED || liveOrder.status === OrderStatus.DELIVERED) {
                 recordCancellationFatal({
                     cancellationId,
-                    orderId: lockedOrder.id,
+                    orderId: liveOrder.id,
                     adminId: reviewerId,
-                    userId: lockedOrder.userId,
+                    userId: liveOrder.userId,
                     reason: 'Cancellation attempted after shipped/delivered stage',
                 });
-                throw ApiError.badRequest(`Order with status ${lockedOrder.status} cannot be cancelled`);
+                throw ApiError.badRequest(`Order with status ${liveOrder.status} cannot be cancelled`);
             }
             const shipped = await tx.shipments.findFirst({
                 where: {
-                    order_id: lockedOrder.id,
+                    order_id: liveOrder.id,
                     status: 'SHIPPED',
                 },
                 select: { id: true },
@@ -236,14 +235,14 @@ export class CancellationService {
             if (shipped) {
                 recordCancellationFatal({
                     cancellationId,
-                    orderId: lockedOrder.id,
+                    orderId: liveOrder.id,
                     adminId: reviewerId,
-                    userId: lockedOrder.userId,
+                    userId: liveOrder.userId,
                     reason: 'Cancellation approval attempted after shipment SHIPPED',
                 });
                 throw ApiError.badRequest('Order has already been shipped and cannot be cancelled');
             }
-            if (cancellation.status === CancellationStatus.APPROVED || lockedOrder.status === OrderStatus.CANCELLED) {
+            if (cancellation.status === CancellationStatus.APPROVED || liveOrder.status === OrderStatus.CANCELLED) {
                 if (cancellation.status !== CancellationStatus.APPROVED) {
                     await tx.cancellationRequest.update({
                         where: { id: cancellation.id },
@@ -255,31 +254,71 @@ export class CancellationService {
                     });
                 }
                 return {
-                    orderId: lockedOrder.id,
-                    userId: lockedOrder.userId,
+                    orderId: liveOrder.id,
+                    userId: liveOrder.userId,
                     sellerIds: [],
-                    paymentStatus: lockedOrder.payment?.status ?? null,
+                    paymentStatus: liveOrder.payment?.status ?? null,
                     alreadyCancelled: true,
                 };
             }
             if (cancellation.status === CancellationStatus.REJECTED) {
                 throw ApiError.conflict('Cannot approve a rejected cancellation request');
             }
-            if (!isOrderCancellable(lockedOrder.status)) {
-                throw ApiError.badRequest(`Order with status ${lockedOrder.status} is not eligible for cancellation`);
+            if (!isOrderCancellable(liveOrder.status)) {
+                throw ApiError.badRequest(`Order with status ${liveOrder.status} is not eligible for cancellation`);
             }
-            await tx.order.update({
-                where: { id: lockedOrder.id },
-                data: { status: OrderStatus.CANCELLED },
-            });
-            await tx.cancellationRequest.update({
-                where: { id: cancellation.id },
+            const approvalClaim = await tx.cancellationRequest.updateMany({
+                where: {
+                    id: cancellation.id,
+                    status: CancellationStatus.REQUESTED,
+                },
                 data: {
                     status: CancellationStatus.APPROVED,
                     reviewedBy: reviewerId,
                     reviewedAt: new Date(),
                 },
             });
+            if (approvalClaim.count === 0) {
+                const latestCancellation = await tx.cancellationRequest.findUnique({
+                    where: { id: cancellation.id },
+                    select: { status: true },
+                });
+                if (latestCancellation?.status === CancellationStatus.REJECTED) {
+                    throw ApiError.conflict('Cannot approve a rejected cancellation request');
+                }
+                return {
+                    orderId: liveOrder.id,
+                    userId: liveOrder.userId,
+                    sellerIds: [],
+                    paymentStatus: liveOrder.payment?.status ?? null,
+                    alreadyCancelled: true,
+                };
+            }
+            const orderUpdate = await tx.order.updateMany({
+                where: {
+                    id: liveOrder.id,
+                    status: {
+                        in: [OrderStatus.PLACED, OrderStatus.CONFIRMED],
+                    },
+                },
+                data: { status: OrderStatus.CANCELLED },
+            });
+            if (orderUpdate.count === 0) {
+                const latestOrder = await tx.order.findUnique({
+                    where: { id: liveOrder.id },
+                    select: { status: true },
+                });
+                if (latestOrder?.status === OrderStatus.CANCELLED) {
+                    return {
+                        orderId: liveOrder.id,
+                        userId: liveOrder.userId,
+                        sellerIds: [],
+                        paymentStatus: liveOrder.payment?.status ?? null,
+                        alreadyCancelled: true,
+                    };
+                }
+                throw ApiError.badRequest(`Order with status ${latestOrder?.status ?? 'UNKNOWN'} is not eligible for cancellation`);
+            }
             const sellerIds = new Set();
             const restockByVariant = new Map();
             for (const item of cancellation.order.items) {
@@ -295,7 +334,7 @@ export class CancellationService {
                 if (inventoryUpdate.count === 0) {
                     recordCancellationFatal({
                         cancellationId,
-                        orderId: lockedOrder.id,
+                        orderId: liveOrder.id,
                         adminId: reviewerId,
                         reason: `Inventory increment failed for variant ${variantId}`,
                     });
@@ -306,7 +345,7 @@ export class CancellationService {
                 await tx.inventoryMovement.createMany({
                     data: Array.from(restockByVariant.entries()).map(([variantId, quantity]) => ({
                         variantId,
-                        orderId: lockedOrder.id,
+                        orderId: liveOrder.id,
                         quantity,
                         type: 'RELEASE',
                         reason: 'CANCELLATION',
@@ -315,10 +354,10 @@ export class CancellationService {
                 });
             }
             return {
-                orderId: lockedOrder.id,
-                userId: lockedOrder.userId,
+                orderId: liveOrder.id,
+                userId: liveOrder.userId,
                 sellerIds: Array.from(sellerIds),
-                paymentStatus: lockedOrder.payment?.status ?? null,
+                paymentStatus: liveOrder.payment?.status ?? null,
                 alreadyCancelled: false,
             };
         }, {
