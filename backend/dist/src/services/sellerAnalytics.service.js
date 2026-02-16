@@ -1,4 +1,4 @@
-import { Prisma, OrderStatus, RefundStatus, ReturnStatus } from '@prisma/client';
+import { Prisma, OrderStatus, RefundStatus, ReturnStatus, SettlementStatus } from '@prisma/client';
 import { prisma } from '../config/db.js';
 import { getFromCache, setCache } from '../utils/cache.util.js';
 /**
@@ -40,19 +40,29 @@ class SellerAnalyticsService {
         if (endDate)
             createdAtFilter.lte = endDate;
         const hasDate = Object.keys(createdAtFilter).length > 0;
-        const orderDateWhere = hasDate ? { order: { createdAt: createdAtFilter } } : {};
+        // Exclude cancelled orders from revenue / units / order-count
+        const activeStatusFilter = {
+            order: {
+                status: { notIn: [OrderStatus.CANCELLED] },
+                ...(hasDate ? { createdAt: createdAtFilter } : {}),
+            },
+        };
         // ── Batch 1: aggregates ──────────────────────────────────────────
         const [settlementAgg, orderItemAgg, distinctOrders] = await Promise.all([
             prisma.sellerSettlement.aggregate({
-                where: { sellerId, ...orderDateWhere },
+                where: {
+                    sellerId,
+                    status: { not: SettlementStatus.CANCELLED },
+                    ...activeStatusFilter,
+                },
                 _sum: { grossAmount: true, netAmount: true },
             }),
             prisma.orderItem.aggregate({
-                where: { sellerId, ...orderDateWhere },
+                where: { sellerId, ...activeStatusFilter },
                 _sum: { quantity: true },
             }),
             prisma.orderItem.findMany({
-                where: { sellerId, ...orderDateWhere },
+                where: { sellerId, ...activeStatusFilter },
                 select: { orderId: true },
                 distinct: ['orderId'],
             }),
@@ -139,6 +149,7 @@ class SellerAnalyticsService {
              JOIN orders o ON ss.order_id = o.id
              WHERE ss.seller_id = $1
                AND o.status IN ('CONFIRMED', 'DELIVERED')
+               AND ss.status != 'CANCELLED'
              GROUP BY 1
              ORDER BY 1 ASC`, sellerId);
         const result = rows.map((r) => ({
@@ -156,7 +167,10 @@ class SellerAnalyticsService {
             return cached;
         const productAggs = await prisma.orderItem.groupBy({
             by: ['productId'],
-            where: { sellerId },
+            where: {
+                sellerId,
+                order: { status: { notIn: [OrderStatus.CANCELLED] } },
+            },
             _sum: { quantity: true, totalAmount: true },
             orderBy: { _sum: { quantity: 'desc' } },
             take: limit,
@@ -222,7 +236,13 @@ class SellerAnalyticsService {
             }),
             prisma.orderItem.groupBy({
                 by: ['productId'],
-                where: { sellerId, order: { createdAt: { gte: thirtyDaysAgo } } },
+                where: {
+                    sellerId,
+                    order: {
+                        createdAt: { gte: thirtyDaysAgo },
+                        status: { notIn: [OrderStatus.CANCELLED] },
+                    },
+                },
                 _sum: { quantity: true },
                 orderBy: { _sum: { quantity: 'desc' } },
                 take: 10,

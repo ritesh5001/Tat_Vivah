@@ -739,6 +739,7 @@ enum SettlementStatus {
   PENDING
   SETTLED
   PAID
+  CANCELLED
 }
 
 enum CouponType {

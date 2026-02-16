@@ -1,4 +1,4 @@
-import { CancellationStatus, NotificationChannel, NotificationType, OrderStatus, PaymentStatus, Role } from '@prisma/client';
+import { CancellationStatus, NotificationChannel, NotificationType, OrderStatus, PaymentStatus, Role, SettlementStatus } from '@prisma/client';
 import { prisma } from '../config/db.js';
 import { cancellationLogger } from '../config/logger.js';
 import { orderCancelApprovedTotal, orderCancelRejectedTotal, orderCancelTotal, orderCancelRequestTotal, } from '../config/metrics.js';
@@ -353,6 +353,14 @@ export class CancellationService {
                     skipDuplicates: true,
                 });
             }
+            // Void seller settlements so cancelled revenue is excluded from analytics
+            await tx.sellerSettlement.updateMany({
+                where: {
+                    orderId: liveOrder.id,
+                    status: { not: SettlementStatus.CANCELLED },
+                },
+                data: { status: SettlementStatus.CANCELLED },
+            });
             return {
                 orderId: liveOrder.id,
                 userId: liveOrder.userId,

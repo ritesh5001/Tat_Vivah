@@ -462,6 +462,30 @@ export class ReturnService {
                 where: { id: returnId },
                 data: { status: ReturnStatus.REFUNDED },
             });
+            // Reduce seller settlement amounts to reflect the return refund
+            // For full-order returns this effectively zeros the settlements
+            if (locked.refundAmount && locked.refundAmount > 0) {
+                const settlements = await tx.sellerSettlement.findMany({
+                    where: { orderId: locked.orderId },
+                    select: { id: true, grossAmount: true, netAmount: true, commissionAmount: true, platformFee: true },
+                });
+                let remainingRefund = locked.refundAmount;
+                for (const s of settlements) {
+                    if (remainingRefund <= 0)
+                        break;
+                    const deduction = Math.min(remainingRefund, s.grossAmount);
+                    const ratio = s.grossAmount > 0 ? (s.grossAmount - deduction) / s.grossAmount : 0;
+                    await tx.sellerSettlement.update({
+                        where: { id: s.id },
+                        data: {
+                            grossAmount: Math.round((s.grossAmount - deduction) * 100) / 100,
+                            commissionAmount: Math.round(s.commissionAmount * ratio * 100) / 100,
+                            netAmount: Math.round(s.netAmount * ratio * 100) / 100,
+                        },
+                    });
+                    remainingRefund -= deduction;
+                }
+            }
             return {
                 alreadyRefunded: false,
                 orderId: locked.orderId,
