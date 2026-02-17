@@ -9,7 +9,7 @@ import {
   RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { usePathname, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import {
   listNotifications,
@@ -22,6 +22,7 @@ import { useToast } from "../../../src/providers/ToastProvider";
 import { useNotifications } from "../../../src/providers/NotificationProvider";
 import { SkeletonNotificationRow } from "../../../src/components/Skeleton";
 import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
+import { AppHeader } from "../../../src/components/AppHeader";
 import { impactLight } from "../../../src/utils/haptics";
 
 // ---------------------------------------------------------------------------
@@ -34,7 +35,6 @@ const PAGE_SIZE = 20;
 // ---------------------------------------------------------------------------
 export default function NotificationsScreen() {
   const router = useRouter();
-  const pathname = usePathname();
   const { session, isLoading: authLoading } = useAuth();
   const token = session?.accessToken ?? null;
   const { showToast } = useToast();
@@ -56,11 +56,32 @@ export default function NotificationsScreen() {
   }, []);
 
   React.useEffect(() => {
-    if (!authLoading && !token) {
-      const returnTo = encodeURIComponent(pathname || "/notifications");
-      router.replace(`/login?returnTo=${returnTo}`);
-    }
-  }, [authLoading, token, pathname, router]);
+    if (!authLoading && !token) return;
+  }, [authLoading, token, router]);
+  if (!authLoading && !token) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <AppHeader title="Notifications" subtitle="Updates & offers" showMenu showBack />
+        <AppHeader title="Notifications" subtitle="Updates & offers" showMenu showBack />
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Notifications</Text>
+          <Text style={styles.headerCopy}>Stay updated on orders and offers.</Text>
+        </View>
+        <View style={styles.emptyCard}>
+          <Text style={styles.emptyTitle}>No notifications yet</Text>
+          <Text style={styles.emptySubtitle}>
+            Check back here for order updates and offers.
+          </Text>
+          <AnimatedPressable
+            onPress={() => router.push("/home")}
+            style={styles.ctaButton}
+          >
+            <Text style={styles.ctaButtonText}>Explore home</Text>
+          </AnimatedPressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   // ---- Fetch page ----
   const fetchPage = React.useCallback(

@@ -1,4 +1,3 @@
-import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
 import Constants from "expo-constants";
 import { Platform } from "react-native";
@@ -16,6 +15,15 @@ interface RegisterDeviceResponse {
 // ---------------------------------------------------------------------------
 let _tokenCache: string | null = null;
 
+let notificationsModulePromise: Promise<typeof import("expo-notifications")> | null = null;
+
+async function getNotificationsModule() {
+  if (!notificationsModulePromise) {
+    notificationsModulePromise = import("expo-notifications");
+  }
+  return notificationsModulePromise;
+}
+
 // ---------------------------------------------------------------------------
 // Permission + Token
 // ---------------------------------------------------------------------------
@@ -32,6 +40,11 @@ let _tokenCache: string | null = null;
 export async function getExpoPushToken(): Promise<string | null> {
   if (_tokenCache) return _tokenCache;
 
+  if (Constants.appOwnership === "expo") {
+    console.warn("[push] Push notifications require a development build.");
+    return null;
+  }
+
   // Push only works on physical devices
   if (!Device.isDevice) {
     console.warn("[push] Must use a physical device for push notifications");
@@ -39,6 +52,7 @@ export async function getExpoPushToken(): Promise<string | null> {
   }
 
   // Check / request permission
+  const Notifications = await getNotificationsModule();
   const { status: existing } = await Notifications.getPermissionsAsync();
   let finalStatus = existing;
 
@@ -133,7 +147,8 @@ export async function registerDeviceToken(
 // ---------------------------------------------------------------------------
 
 /** Configure how notifications appear when the app is in foreground. */
-export function configureForegroundPresentation() {
+export async function configureForegroundPresentation() {
+  const Notifications = await getNotificationsModule();
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
       shouldShowAlert: true,

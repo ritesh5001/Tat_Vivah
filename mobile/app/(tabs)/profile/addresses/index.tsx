@@ -10,7 +10,7 @@ import {
   Pressable,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { usePathname, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import {
   colors,
   radius,
@@ -99,7 +99,6 @@ const AddressRow = React.memo(function AddressRow({
 
 export default function AddressesScreen() {
   const router = useRouter();
-  const pathname = usePathname();
   const { session, isLoading: authLoading } = useAuth();
   const token = session?.accessToken ?? null;
   const {
@@ -115,13 +114,40 @@ export default function AddressesScreen() {
   const [deleteTarget, setDeleteTarget] = React.useState<string | null>(null);
   const [isDeleting, setIsDeleting] = React.useState(false);
 
-  // ---- Auth redirect ----
-  React.useEffect(() => {
-    if (!authLoading && !token) {
-      const returnTo = encodeURIComponent(pathname || "/profile/addresses");
-      router.replace(`/login?returnTo=${returnTo}`);
-    }
-  }, [authLoading, token, pathname, router]);
+  const handleGoBack = React.useCallback(() => {
+    router.back();
+  }, [router]);
+
+  if (!authLoading && !token) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          <AnimatedPressable onPress={handleGoBack} style={styles.backButton}>
+            <Text style={styles.backArrow}>←</Text>
+          </AnimatedPressable>
+          <View>
+            <Text style={styles.headerTitle}>Manage Addresses</Text>
+            <Text style={styles.headerCopy}>
+              Add, edit, or remove delivery addresses.
+            </Text>
+          </View>
+        </View>
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyIcon}>📍</Text>
+          <Text style={styles.emptyTitle}>No saved addresses</Text>
+          <Text style={styles.emptySubtitle}>
+            Add a delivery address when you're ready to check out.
+          </Text>
+          <AnimatedPressable
+            onPress={handleGoBack}
+            style={styles.primaryButton}
+          >
+            <Text style={styles.primaryButtonText}>Back to profile</Text>
+          </AnimatedPressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   // ---- Handlers (stable references) ----
 
@@ -166,10 +192,6 @@ export default function AddressesScreen() {
 
   const handleAdd = React.useCallback(() => {
     router.push("/profile/addresses/form");
-  }, [router]);
-
-  const handleGoBack = React.useCallback(() => {
-    router.back();
   }, [router]);
 
   // ---- Stable key extractor ----

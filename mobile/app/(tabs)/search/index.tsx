@@ -15,10 +15,15 @@ import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import { getCategories } from "../../../src/services/catalog";
-import { getProducts, type ProductSummary } from "../../../src/services/products";
+import {
+  getProductsAndCache,
+  getProductsCached,
+  type ProductSummary,
+} from "../../../src/services/products";
 import { isAbortError } from "../../../src/services/api";
 import { SkeletonProductCard } from "../../../src/components/Skeleton";
 import { getSuggestions, type SuggestionItem, type SortOption } from "../../../src/services/search";
+import { AppHeader } from "../../../src/components/AppHeader";
 
 const { width } = Dimensions.get("window");
 const cardWidth = (width - spacing.lg * 2 - spacing.md) / 2;
@@ -177,14 +182,27 @@ export default function SearchScreen() {
         setLoadingMore(true);
       }
 
+      const cacheParams = {
+        page: nextPage,
+        limit: 10,
+        categoryId: selectedCategory,
+        search: overrideSearch ?? (search.trim() || undefined),
+        sort: sortBy || undefined,
+      };
+
+      const cached = await getProductsCached(cacheParams);
+      const hadCache = Boolean(cached?.data?.length);
+      if (cached && replace && hadCache) {
+        setProducts(cached.data ?? []);
+        setPage(cached.pagination?.page ?? nextPage);
+        setTotalPages(cached.pagination?.totalPages ?? 1);
+        setLoading(false);
+      }
+
       try {
-        const response = await getProducts({
+        const response = await getProductsAndCache({
+          ...cacheParams,
           page: nextPage,
-          limit: 10,
-          categoryId: selectedCategory,
-          search: overrideSearch ?? (search.trim() || undefined),
-          sort: sortBy || undefined,
-          signal,
         });
         if (signal?.aborted) return;
         const nextItems = response.data ?? [];
@@ -196,7 +214,7 @@ export default function SearchScreen() {
         const message =
           err instanceof Error ? err.message : "Failed to load products";
         setFetchError(message);
-        if (replace) setProducts([]);
+        if (replace && !hadCache) setProducts([]);
       } finally {
         if (!signal?.aborted) {
           setLoading(false);
@@ -344,12 +362,12 @@ export default function SearchScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Marketplace</Text>
-        <Text style={styles.headerCopy}>
-          Discover verified sellers and curated collections.
-        </Text>
-      </View>
+      <AppHeader
+        title="Marketplace"
+        subtitle="Discover verified sellers"
+        showMenu
+        showBack
+      />
 
       <View style={styles.searchRow}>
         <TextInput
@@ -509,21 +527,6 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.background,
-  },
-  header: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-  },
-  headerTitle: {
-    fontFamily: typography.serif,
-    fontSize: 24,
-    color: colors.charcoal,
-  },
-  headerCopy: {
-    marginTop: spacing.xs,
-    fontFamily: typography.sans,
-    fontSize: 12,
-    color: colors.brownSoft,
   },
   searchRow: {
     marginTop: spacing.lg,

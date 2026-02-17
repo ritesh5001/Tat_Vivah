@@ -17,6 +17,7 @@ import {
   shadow,
 } from "../../src/theme/tokens";
 import { forgotPassword } from "../../src/services/auth";
+import { AppHeader } from "../../src/components/AppHeader";
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
@@ -49,6 +50,7 @@ export default function ForgotPasswordScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <AppHeader title="Forgot password" subtitle="TatVivah" showMenu showBack />
       <ScrollView contentContainerStyle={styles.container}>
         {/* Logo row */}
         <View style={styles.logoRow}>

@@ -20,6 +20,8 @@ import {
 } from "../../src/theme/tokens";
 import { useAuth } from "../../src/hooks/useAuth";
 import { requestOtp } from "../../src/services/auth";
+import { useToast } from "../../src/providers/ToastProvider";
+import { AppHeader } from "../../src/components/AppHeader";
 
 const OTP_LENGTH = 6;
 const RESEND_COOLDOWN_SECONDS = 60;
@@ -27,6 +29,7 @@ const RESEND_COOLDOWN_SECONDS = 60;
 export default function VerifyOtpScreen() {
   const router = useRouter();
   const { signInWithOtp } = useAuth();
+  const { showToast } = useToast();
   const { email } = useLocalSearchParams<{ email: string }>();
 
   const [digits, setDigits] = React.useState<string[]>(
@@ -124,8 +127,10 @@ export default function VerifyOtpScreen() {
       if (message) {
         // Server returned a non-login message (e.g. "Pending approval")
         setInfo(message);
+        showToast(message, "info");
       } else {
         // Successful login
+        showToast("Signed in successfully", "success");
         router.replace("/home");
       }
     } catch (err) {
@@ -165,6 +170,7 @@ export default function VerifyOtpScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <AppHeader title="Verify OTP" subtitle="TatVivah" showMenu showBack />
       <ScrollView contentContainerStyle={styles.container}>
         {/* Logo row */}
         <View style={styles.logoRow}>

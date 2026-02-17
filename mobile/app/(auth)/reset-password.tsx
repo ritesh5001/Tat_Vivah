@@ -19,6 +19,7 @@ import {
   shadow,
 } from "../../src/theme/tokens";
 import { resetPassword, forgotPassword } from "../../src/services/auth";
+import { AppHeader } from "../../src/components/AppHeader";
 
 const OTP_LENGTH = 6;
 const RESEND_COOLDOWN_SECONDS = 60;
@@ -165,6 +166,7 @@ export default function ResetPasswordScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <AppHeader title="Reset password" subtitle="TatVivah" showMenu showBack />
       <ScrollView contentContainerStyle={styles.container}>
         {/* Logo row */}
         <View style={styles.logoRow}>

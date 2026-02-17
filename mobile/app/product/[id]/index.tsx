@@ -41,6 +41,7 @@ import { ApiError, isAbortError } from "../../../src/services/api";
 import { SkeletonBlock } from "../../../src/components/Skeleton";
 import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
 import { impactMedium, impactLight, notifySuccess } from "../../../src/utils/haptics";
+import { AppHeader } from "../../../src/components/AppHeader";
 import {
   buildReviewImageName,
   uploadReviewImage,
@@ -232,6 +233,8 @@ export default function ProductDetailScreen() {
   const [loading, setLoading] = React.useState(true);
   const [selectedVariantId, setSelectedVariantId] = React.useState<string | null>(null);
   const [adding, setAdding] = React.useState(false);
+  const [showViewCart, setShowViewCart] = React.useState(false);
+  const viewCartTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [reviews, setReviews] = React.useState<Review[]>([]);
   const [rating, setRating] = React.useState(0);
@@ -250,6 +253,9 @@ export default function ProductDetailScreen() {
   React.useEffect(() => {
     return () => {
       mountedRef.current = false;
+      if (viewCartTimerRef.current) {
+        clearTimeout(viewCartTimerRef.current);
+      }
     };
   }, []);
 
@@ -364,6 +370,7 @@ export default function ProductDetailScreen() {
   // ---- Handlers ----
   const handleAddToCart = React.useCallback(async () => {
     if (!token) {
+      showToast("Please sign in to add to cart", "info");
       router.push("/login");
       return;
     }
@@ -371,7 +378,14 @@ export default function ProductDetailScreen() {
       showToast("You're offline. Please check your connection.", "error");
       return;
     }
-    if (!product || !selectedVariant || outOfStock) return;
+    if (!product || !selectedVariant) {
+      showToast("Select a variant to continue", "info");
+      return;
+    }
+    if (outOfStock) {
+      showToast("This variant is out of stock", "info");
+      return;
+    }
     setAdding(true);
     try {
       await addToCart({
@@ -381,6 +395,11 @@ export default function ProductDetailScreen() {
       });
       impactMedium();
       showToast("Added to cart", "success");
+      setShowViewCart(true);
+      if (viewCartTimerRef.current) clearTimeout(viewCartTimerRef.current);
+      viewCartTimerRef.current = setTimeout(() => {
+        if (mountedRef.current) setShowViewCart(false);
+      }, 6000);
     } catch {
       // CartProvider shows error toast
     } finally {
@@ -567,6 +586,7 @@ export default function ProductDetailScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea}>
+        <AppHeader showMenu showBack showCart />
         <ScrollView contentContainerStyle={styles.container}>
           <SkeletonBlock
             width={IMAGE_WIDTH}
@@ -588,6 +608,7 @@ export default function ProductDetailScreen() {
   if (!product) {
     return (
       <SafeAreaView style={styles.safeArea}>
+        <AppHeader showMenu showBack showCart />
         <View style={styles.centerCard}>
           <Text style={styles.emptyTitle}>Product unavailable</Text>
           <Pressable style={styles.primaryButton} onPress={() => router.back()}>
@@ -600,12 +621,14 @@ export default function ProductDetailScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <AppHeader showMenu showBack showCart />
+      {adding && (
+        <View style={styles.loaderOverlay}>
+          <ActivityIndicator size="large" color={colors.gold} />
+          <Text style={styles.loaderText}>Adding to cart...</Text>
+        </View>
+      )}
       <ScrollView contentContainerStyle={styles.container}>
-        {/* ---- Back button ---- */}
-        <Pressable style={styles.backButton} onPress={() => router.back()} hitSlop={12}>
-          <Text style={styles.backText}>← Back</Text>
-        </Pressable>
-
         {/* ---- Image gallery with paging dots ---- */}
         <FlatList
           data={images}
@@ -783,6 +806,15 @@ export default function ProductDetailScreen() {
               </Text>
             </Pressable>
           </View>
+
+          {showViewCart && (
+            <Pressable
+              style={styles.secondaryButton}
+              onPress={() => router.push("/cart")}
+            >
+              <Text style={styles.secondaryButtonText}>View cart</Text>
+            </Pressable>
+          )}
         </View>
 
         {/* ---- Reviews section ---- */}
@@ -932,16 +964,6 @@ const styles = StyleSheet.create({
   },
   container: {
     paddingBottom: spacing.xxl,
-  },
-  backButton: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.xs,
-  },
-  backText: {
-    fontFamily: typography.sans,
-    fontSize: 13,
-    color: colors.brownSoft,
   },
 
   // Gallery
@@ -1128,6 +1150,23 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.5,
+  },
+  loaderOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(250, 247, 242, 0.75)",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 20,
+  },
+  loaderText: {
+    marginTop: spacing.sm,
+    fontFamily: typography.sans,
+    fontSize: 12,
+    color: colors.brownSoft,
   },
 
   // Reviews

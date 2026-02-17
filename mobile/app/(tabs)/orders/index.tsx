@@ -18,12 +18,13 @@ import { listMyReturns, requestReturn } from "../../../src/services/returns";
 import { getPaymentDetails, retryPayment, verifyPayment } from "../../../src/services/payments";
 import { openRazorpayCheckout } from "../../../src/services/razorpay";
 import { useAuth } from "../../../src/hooks/useAuth";
-import { usePathname, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { isAbortError } from "../../../src/services/api";
 import { SkeletonOrderRow } from "../../../src/components/Skeleton";
 import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
 import { useToast } from "../../../src/providers/ToastProvider";
 import { notifySuccess, notifyError, impactMedium } from "../../../src/utils/haptics";
+import { AppHeader } from "../../../src/components/AppHeader";
 
 const currency = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -169,7 +170,6 @@ const OrderCard = React.memo(function OrderCard({
 
 export default function OrdersScreen() {
   const router = useRouter();
-  const pathname = usePathname();
   const { session, isLoading: authLoading } = useAuth();
   const token = session?.accessToken ?? null;
   const { showToast } = useToast();
@@ -191,6 +191,36 @@ export default function OrdersScreen() {
   const [returnReason, setReturnReason] = React.useState("");
   const [requestingReturnIds, setRequestingReturnIds] = React.useState<Set<string>>(new Set());
   const returnLockRef = React.useRef<Set<string>>(new Set());
+
+  if (!authLoading && !token) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <AppHeader title="Orders" subtitle="Track purchases" showMenu showBack />
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Orders</Text>
+          <Text style={styles.headerCopy}>Track every purchase in one place.</Text>
+        </View>
+        <View style={styles.emptyCard}>
+          <Text style={styles.emptyTitle}>Sign in to view orders</Text>
+          <Text style={styles.emptySubtitle}>
+            Access order history, invoices, and delivery tracking after login.
+          </Text>
+          <Pressable
+            style={styles.primaryButton}
+            onPress={() => router.push("/login?returnTo=%2Forders")}
+          >
+            <Text style={styles.primaryButtonText}>Sign in</Text>
+          </Pressable>
+          <Pressable
+            style={styles.secondaryButton}
+            onPress={() => router.push("/search")}
+          >
+            <Text style={styles.secondaryButtonText}>Continue browsing</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   const mountedRef = React.useRef(true);
   React.useEffect(() => {
@@ -267,6 +297,7 @@ export default function OrdersScreen() {
       router.replace(`/login?returnTo=${returnTo}`);
       return;
     }
+          <AppHeader title="Orders" subtitle="Track purchases" showMenu showBack />
     loadOrders();
   }, [authLoading, token, router, loadOrders, pathname]);
 
@@ -745,6 +776,38 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 18,
     marginBottom: spacing.md,
+  },
+  primaryButton: {
+    marginTop: spacing.sm,
+    backgroundColor: colors.charcoal,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    alignItems: "center",
+  },
+  primaryButtonText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 12,
+    letterSpacing: 1.4,
+    textTransform: "uppercase",
+    color: colors.background,
+  },
+  secondaryButton: {
+    marginTop: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    alignItems: "center",
+    backgroundColor: colors.warmWhite,
+  },
+  secondaryButtonText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 12,
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+    color: colors.charcoal,
   },
   retryButton: {
     backgroundColor: colors.charcoal,
