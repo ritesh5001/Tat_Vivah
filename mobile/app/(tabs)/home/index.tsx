@@ -267,7 +267,7 @@ export default function HomeScreen() {
   );
 
   const handlePrivacyPolicyPress = React.useCallback(() => {
-    router.push("/(tabs)/privacy-policy");
+    router.push({ pathname: "/(tabs)/privacy-policy" as any });
   }, [router]);
 
   const handleExternalLink = React.useCallback((url: string) => {
@@ -316,32 +316,6 @@ export default function HomeScreen() {
     [handleProductPress],
   );
 
-  const renderMarketplaceItem = React.useCallback(
-    ({ item }: { item: ProductItem }) => (
-      <View style={styles.marketplaceCardWrap}>
-        <ProductGridCard
-          product={item}
-          onExplore={() => handleProductPress(item.id)}
-          onBuyNow={() => handleProductPress(item.id)}
-        />
-      </View>
-    ),
-    [handleProductPress]
-  );
-
-  const renderMarketplaceStackItem = React.useCallback(
-    ({ item }: { item: ProductItem }) => (
-      <View style={styles.marketplaceStackCard}>
-        <ProductGridCard
-          product={item}
-          onExplore={() => handleProductPress(item.id)}
-          onBuyNow={() => handleProductPress(item.id)}
-        />
-      </View>
-    ),
-    [handleProductPress]
-  );
-
   return (
     <>
       <AppHeader showSearch showCart showMenu showBack={false} />
@@ -371,34 +345,60 @@ export default function HomeScreen() {
             <View style={styles.heroCard}>
               <View style={styles.heroGlowOne} />
               <View style={styles.heroGlowTwo} />
-              <Text style={styles.heroEyebrow}>Tatvivah atelier</Text>
+              <View style={styles.heroMetaRow}>
+                <Text style={styles.heroEyebrow}>Tatvivah atelier</Text>
+                <View style={styles.heroMetaPill}>
+                  <Text style={styles.heroMetaPillText}>Premium edit</Text>
+                </View>
+              </View>
               <Text style={styles.heroTitle}>Sherwani stories for grand moments</Text>
               <Text style={styles.heroSubtitle}>
                 Discover heirloom-ready craftsmanship, styled for weddings and celebrations.
               </Text>
+              <View style={styles.heroDivider} />
               <View style={styles.heroActions}>
                 <Pressable
-                  style={styles.primaryButton}
+                  style={[styles.primaryButton, styles.heroPrimaryButton]}
                   onPress={() => router.push("/search")}
                 >
                   <Text style={styles.primaryButtonText}>Explore collection</Text>
                 </Pressable>
-                <Pressable style={styles.ghostButton}>
+                <Pressable
+                  style={[styles.ghostButton, styles.heroGhostButton]}
+                  onPress={() => router.push("/marketplace")}
+                >
                   <Text style={styles.ghostButtonText}>Partner with us</Text>
                 </Pressable>
               </View>
             </View>
 
             <View style={styles.searchBlock}>
-              <Text style={styles.sectionTitle}>Find your look</Text>
-              <TextInput
-                placeholder="Search sherwani, kurta, accessories"
-                placeholderTextColor={colors.brownSoft}
-                style={styles.searchInput}
-                onFocus={() => router.push("/search")}
-              />
+              <Text style={styles.searchTitle}>Find your look</Text>
+              <Text style={styles.searchSubtitle}>
+                Browse wedding fits, premium fabrics, and celebration-ready accessories.
+              </Text>
+              <Pressable style={styles.searchInputShell} onPress={() => router.push("/search")}>
+                <TextInput
+                  placeholder="Search sherwani, kurta, accessories"
+                  placeholderTextColor={colors.brownSoft}
+                  style={styles.searchInput}
+                  onFocus={() => router.push("/search")}
+                />
+              </Pressable>
+              <View style={styles.searchQuickRow}>
+                <Pressable style={styles.searchQuickChip} onPress={() => router.push("/search?q=sherwani") }>
+                  <Text style={styles.searchQuickChipText}>Sherwani</Text>
+                </Pressable>
+                <Pressable style={styles.searchQuickChip} onPress={() => router.push("/search?q=kurta") }>
+                  <Text style={styles.searchQuickChipText}>Kurta</Text>
+                </Pressable>
+                <Pressable style={styles.searchQuickChip} onPress={() => router.push("/search?q=accessories") }>
+                  <Text style={styles.searchQuickChipText}>Accessories</Text>
+                </Pressable>
+              </View>
             </View>
 
+            <View style={styles.sectionTransition} />
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionEyebrow}>Latest drops</Text>
               <Text style={styles.sectionTitle}>New season arrivals</Text>
@@ -475,11 +475,17 @@ export default function HomeScreen() {
               </View>
             </View>
 
+            <View style={styles.sectionTransition} />
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionEyebrow}>Shop by category</Text>
               <Text style={styles.sectionTitle}>Style edits</Text>
             </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryRow}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.categoryRow}
+              contentContainerStyle={styles.categoryRowContent}
+            >
               {categoryCards.map((card) => (
                 <Pressable
                   key={card.label}
@@ -497,6 +503,7 @@ export default function HomeScreen() {
               ))}
             </ScrollView>
 
+            <View style={styles.sectionTransition} />
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionEyebrow}>Shop by category</Text>
               <Text style={styles.sectionTitle}>Curated collections</Text>
@@ -515,10 +522,14 @@ export default function HomeScreen() {
               )}
             </ScrollView>
 
+            <View style={styles.sectionTransition} />
             <View style={styles.sectionHeaderRow}>
               <View>
                 <Text style={styles.sectionEyebrow}>Curated collections</Text>
                 <Text style={styles.sectionTitle}>Handpicked for you</Text>
+                <Text style={styles.sectionSupportText}>
+                  Signature picks selected by our in-house stylists.
+                </Text>
               </View>
               <Pressable
                 style={styles.sectionAction}
@@ -528,20 +539,23 @@ export default function HomeScreen() {
               </Pressable>
             </View>
             {loadingMarketplace ? (
-              <View style={styles.marketplaceLoading}>
-                <View style={styles.marketplaceSkeleton} />
-                <View style={styles.marketplaceSkeleton} />
+              <View style={styles.marketplaceFeatureLoading}>
+                <View style={styles.marketplaceFeatureSkeleton} />
+                <View style={styles.marketplaceFeatureSkeleton} />
+                <View style={styles.marketplaceFeatureSkeleton} />
               </View>
             ) : (
-              <FlatList
-                data={marketplaceProducts}
-                keyExtractor={(item) => item.id}
-                renderItem={renderMarketplaceStackItem}
-                numColumns={2}
-                columnWrapperStyle={styles.marketplaceGridRow}
-                scrollEnabled={false}
-                contentContainerStyle={styles.marketplaceStackContent}
-              />
+              <View style={styles.marketplaceFeatureList}>
+                {marketplaceProducts.slice(0, 3).map((item) => (
+                  <View key={item.id} style={styles.marketplaceFeatureCard}>
+                    <ProductGridCard
+                      product={item}
+                      onExplore={() => handleProductPress(item.id)}
+                      onBuyNow={() => handleProductPress(item.id)}
+                    />
+                  </View>
+                ))}
+              </View>
             )}
 
             <View style={styles.sectionHeader}>
@@ -581,7 +595,7 @@ export default function HomeScreen() {
                   data={recentlyViewed}
                   keyExtractor={(item) => item.id}
                   showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={{ paddingHorizontal: spacing.lg }}
+                  contentContainerStyle={styles.horizontalContent}
                   renderItem={({ item }) => {
                     const image = item.images?.[0] ?? fallbackImage;
                     return (
@@ -621,7 +635,11 @@ export default function HomeScreen() {
                   <Text style={styles.sectionEyebrow}>Guest picks</Text>
                   <Text style={styles.sectionTitle}>Wedding-ready gifting</Text>
                 </View>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.horizontalContent}
+                >
                   {guestPicks.map((item) => (
                     <Pressable key={item.id} style={styles.arrivalCard}>
                       <Image
@@ -643,7 +661,11 @@ export default function HomeScreen() {
               <Text style={styles.sectionEyebrow}>New arrivals</Text>
               <Text style={styles.sectionTitle}>Freshly tailored</Text>
             </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.horizontalContent}
+            >
               {(arrivals.length ? arrivals : fallbackArrivals).map((item) => {
                 const image = "image" in item ? item.image : item.images?.[0];
                 const canNavigate = "images" in item;
@@ -810,12 +832,33 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     color: colors.gold,
   },
+  heroMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.sm,
+  },
+  heroMetaPill: {
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    borderRadius: 14,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    backgroundColor: colors.warmWhite,
+  },
+  heroMetaPillText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 10,
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+    color: colors.brown,
+  },
   heroTitle: {
     marginTop: spacing.sm,
     fontFamily: typography.serif,
-    fontSize: 30,
+    fontSize: 32,
     color: colors.charcoal,
-    lineHeight: 36,
+    lineHeight: 38,
   },
   heroSubtitle: {
     marginTop: spacing.sm,
@@ -824,9 +867,23 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: colors.brownSoft,
   },
+  heroDivider: {
+    marginTop: spacing.md,
+    height: 1,
+    backgroundColor: colors.borderSoft,
+  },
   heroActions: {
-    marginTop: spacing.lg,
+    marginTop: spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     gap: spacing.sm,
+  },
+  heroPrimaryButton: {
+    flex: 1,
+  },
+  heroGhostButton: {
+    flex: 1,
   },
   primaryButton: {
     backgroundColor: colors.charcoal,
@@ -859,15 +916,53 @@ const styles = StyleSheet.create({
     marginTop: spacing.xl,
     paddingHorizontal: spacing.lg,
   },
-  searchInput: {
+  searchTitle: {
+    fontFamily: typography.serif,
+    fontSize: 24,
+    color: colors.charcoal,
+  },
+  searchSubtitle: {
+    marginTop: spacing.xs,
+    fontFamily: typography.sans,
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.brownSoft,
+  },
+  searchInputShell: {
     marginTop: spacing.sm,
-    backgroundColor: colors.warmWhite,
     borderRadius: radius.md,
+    backgroundColor: colors.warmWhite,
     borderWidth: 1,
     borderColor: colors.borderSoft,
+    ...shadow.card,
+  },
+  searchInput: {
+    backgroundColor: colors.warmWhite,
+    borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: 12,
     fontFamily: typography.sans,
+    color: colors.charcoal,
+  },
+  searchQuickRow: {
+    marginTop: spacing.sm,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  searchQuickChip: {
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    borderRadius: 14,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+    backgroundColor: colors.warmWhite,
+  },
+  searchQuickChipText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 10,
+    letterSpacing: 1.1,
+    textTransform: "uppercase",
     color: colors.charcoal,
   },
   latestStack: {
@@ -936,6 +1031,12 @@ const styles = StyleSheet.create({
     marginTop: spacing.xl,
     paddingHorizontal: spacing.lg,
   },
+  sectionTransition: {
+    marginTop: spacing.xl,
+    marginHorizontal: spacing.lg,
+    height: 1,
+    backgroundColor: colors.borderSoft,
+  },
   sectionEyebrow: {
     fontFamily: typography.sans,
     fontSize: 10,
@@ -946,8 +1047,15 @@ const styles = StyleSheet.create({
   sectionTitle: {
     marginTop: spacing.xs,
     fontFamily: typography.serif,
-    fontSize: 22,
+    fontSize: 24,
     color: colors.charcoal,
+  },
+  sectionSupportText: {
+    marginTop: spacing.xs,
+    fontFamily: typography.sans,
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.brownSoft,
   },
   promiseWrap: {
     marginTop: spacing.xl,
@@ -1058,9 +1166,9 @@ const styles = StyleSheet.create({
   arrivalCard: {
     width: 200,
     marginTop: spacing.md,
-    marginLeft: spacing.lg,
+    marginRight: spacing.md,
     padding: spacing.md,
-    borderRadius: radius.sm,
+    borderRadius: radius.lg,
     backgroundColor: colors.warmWhite,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -1142,8 +1250,9 @@ const styles = StyleSheet.create({
     marginTop: spacing.xl,
     paddingHorizontal: spacing.lg,
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
+    gap: spacing.md,
   },
   sectionAction: {
     borderWidth: 1,
@@ -1160,51 +1269,42 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     color: colors.charcoal,
   },
-  marketplaceListContent: {
+  marketplaceFeatureList: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
-  },
-  marketplaceStackContent: {
-    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
     paddingBottom: spacing.lg,
     gap: spacing.md,
   },
-  marketplaceGridRow: {
-    gap: spacing.md,
+  marketplaceFeatureCard: {
+    width: "100%",
   },
-  marketplaceCardWrap: {
-    width: 240,
-    marginRight: spacing.md,
-    marginTop: spacing.md,
-  },
-  marketplaceStackCard: {
-    flex: 1,
-  },
-  marketplaceLoading: {
+  marketplaceFeatureLoading: {
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
-    flexDirection: "row",
     gap: spacing.md,
   },
-  marketplaceSkeleton: {
+  marketplaceFeatureSkeleton: {
     height: 320,
-    width: 240,
     borderRadius: radius.lg,
     backgroundColor: colors.cream,
   },
   categoryRow: {
     marginTop: spacing.md,
-    paddingLeft: spacing.lg,
+  },
+  categoryRowContent: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xs,
   },
   categoryCard: {
-    height: 160,
-    width: 140,
-    borderRadius: radius.lg,
+    height: 172,
+    width: 152,
+    borderRadius: radius.xl,
     marginRight: spacing.md,
     overflow: "hidden",
     backgroundColor: colors.cream,
     borderWidth: 1,
     borderColor: colors.borderSoft,
+    ...shadow.card,
   },
   categoryImage: {
     height: "100%",
@@ -1215,16 +1315,20 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 60,
+    height: 74,
     backgroundColor: "rgba(44, 40, 37, 0.55)",
   },
   categoryLabel: {
     position: "absolute",
-    bottom: 12,
-    left: 12,
+    bottom: 16,
+    left: 16,
     fontFamily: typography.serif,
-    fontSize: 14,
+    fontSize: 16,
     color: colors.warmWhite,
+  },
+  horizontalContent: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xs,
   },
   footerCard: {
     marginTop: spacing.xl,

@@ -198,6 +198,10 @@ export default function OrderDetailScreen() {
   const activeStepIndex = STATUS_FLOW.indexOf(
     timelineStatus as (typeof STATUS_FLOW)[number]
   );
+  const payableTotal =
+    typeof order?.grandTotal === "number" && order.grandTotal > 0
+      ? order.grandTotal
+      : order?.totalAmount ?? 0;
 
   // ---- Loading ----
   if (loading && !order) {
@@ -340,7 +344,7 @@ export default function OrderDetailScreen() {
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Total</Text>
             <Text style={styles.totalValue}>
-              {currency.format(order.totalAmount)}
+              {currency.format(payableTotal)}
             </Text>
           </View>
         </View>

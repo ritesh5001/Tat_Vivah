@@ -100,6 +100,10 @@ const OrderCard = React.memo(function OrderCard({
     (order.status === "PLACED" || order.status === "CONFIRMED") &&
     order.shipmentStatus !== "SHIPPED" &&
     !showCancellationRequested;
+  const payableTotal =
+    typeof order.grandTotal === "number" && order.grandTotal > 0
+      ? order.grandTotal
+      : order.totalAmount ?? 0;
   const hasReturnRequest = !!returnStatus && returnStatus !== "REJECTED";
   const canRequestReturn =
     order.status === "DELIVERED" && !hasReturnRequest;
@@ -138,7 +142,7 @@ const OrderCard = React.memo(function OrderCard({
 
       <View style={styles.orderFooter}>
         <Text style={styles.orderTotal}>
-          {currency.format(order.totalAmount ?? 0)}
+          {currency.format(payableTotal)}
           {itemCount ? ` | ${itemCount} item${itemCount > 1 ? "s" : ""}` : ""}
         </Text>
         {onTrack && order.status !== "CANCELLED" ? (

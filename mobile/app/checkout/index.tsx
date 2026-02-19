@@ -141,20 +141,12 @@ export default function CheckoutScreen() {
     () => cartItems.reduce((sum, item) => sum + item.priceSnapshot * item.quantity, 0),
     [cartItems]
   );
-  const cartItemCount = React.useMemo(
-    () => cartItems.reduce((sum, item) => sum + item.quantity, 0),
-    [cartItems]
-  );
   const shippingFee = cartItems.length ? 180 : 0;
-  const gstPerItem = 180;
-  const estimatedGst = cartItemCount ? gstPerItem * cartItemCount : 0;
   const displaySubtotal = taxSummary?.subTotalAmount ?? cartSubtotal;
   const displayDiscount = taxSummary?.discountAmount ?? 0;
-  const displayGst = taxSummary
-    ? Math.max(taxSummary.totalTaxAmount, estimatedGst)
-    : estimatedGst;
+  const displayGst = taxSummary?.totalTaxAmount ?? 0;
   const displayGrandTotal =
-    displaySubtotal - displayDiscount + shippingFee + displayGst;
+    taxSummary?.grandTotal ?? (displaySubtotal - displayDiscount + shippingFee + displayGst);
 
   // ---------- Clear coupon when cart items change ----------
   React.useEffect(() => {
