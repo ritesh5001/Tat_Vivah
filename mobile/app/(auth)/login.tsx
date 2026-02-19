@@ -11,11 +11,14 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Link, useLocalSearchParams, useRouter } from "expo-router";
 import { colors, radius, spacing, typography, shadow } from "../../src/theme/tokens";
 import { useAuth } from "../../src/hooks/useAuth";
+import { useToast } from "../../src/providers/ToastProvider";
+import { AppHeader } from "../../src/components/AppHeader";
 
 export default function LoginScreen() {
   const router = useRouter();
   const searchParams = useLocalSearchParams<{ returnTo?: string }>();
   const { signIn } = useAuth();
+  const { showToast } = useToast();
   const [identifier, setIdentifier] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [loading, setLoading] = React.useState(false);
@@ -44,10 +47,18 @@ export default function LoginScreen() {
     setError(null);
     try {
       await signIn({ identifier, password });
+      showToast("Welcome back", "success");
       router.replace(safeReturnTo as any);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Login failed";
+      const raw = err instanceof Error ? err.message : "Login failed";
+      const lowered = raw.toLowerCase();
+      const message = lowered.includes("not found")
+        ? "User not found"
+        : lowered.includes("invalid")
+          ? "Invalid credentials"
+          : raw;
       setError(message);
+      showToast(message, "error");
     } finally {
       setLoading(false);
     }
@@ -55,6 +66,7 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <AppHeader title="Sign in" subtitle="TatVivah" showMenu showBack />
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.logoRow}>
           <View style={styles.logoBadge}>

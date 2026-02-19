@@ -24,7 +24,7 @@ export function SessionExpiredModal() {
 
   const handlePress = () => {
     acknowledgeSessionExpired();
-    router.replace("/(auth)/login");
+    router.replace("/login");
   };
 
   return (

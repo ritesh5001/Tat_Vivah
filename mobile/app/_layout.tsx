@@ -13,7 +13,6 @@ import { CartProvider } from "../src/providers/CartProvider";
 import { AddressProvider } from "../src/providers/AddressProvider";
 import { WishlistProvider } from "../src/providers/WishlistProvider";
 import { OfflineBanner } from "../src/components/OfflineBanner";
-import { SessionExpiredModal } from "../src/components/SessionExpiredModal";
 import { useNetworkStatus } from "../src/hooks/useNetworkStatus";
 
 function AppShell() {
@@ -22,8 +21,8 @@ function AppShell() {
   return (
     <>
       <OfflineBanner visible={!isConnected} />
-      <SessionExpiredModal />
       <Stack
+        initialRouteName="(tabs)"
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: "#FAF7F2" },
@@ -31,6 +30,8 @@ function AppShell() {
           gestureEnabled: true,
         }}
       >
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="(auth)" />
         {/* Order detail — slides in from right */}
         <Stack.Screen
           name="orders/[id]/index"

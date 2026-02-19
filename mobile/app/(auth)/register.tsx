@@ -12,6 +12,7 @@ import { Link } from "expo-router";
 import { useRouter } from "expo-router";
 import { colors, radius, spacing, typography, shadow } from "../../src/theme/tokens";
 import { registerUser } from "../../src/services/auth";
+import { AppHeader } from "../../src/components/AppHeader";
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -47,6 +48,7 @@ export default function RegisterScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <AppHeader title="Create account" subtitle="TatVivah" showMenu showBack />
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.logoRow}>
           <View style={styles.logoBadge}>

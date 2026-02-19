@@ -17,6 +17,7 @@ import {
   shadow,
 } from "../../src/theme/tokens";
 import { requestOtp } from "../../src/services/auth";
+import { AppHeader } from "../../src/components/AppHeader";
 
 export default function RequestOtpScreen() {
   const router = useRouter();
@@ -47,6 +48,7 @@ export default function RequestOtpScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <AppHeader title="Request OTP" subtitle="TatVivah" showMenu showBack />
       <ScrollView contentContainerStyle={styles.container}>
         {/* Logo row — same as login */}
         <View style={styles.logoRow}>

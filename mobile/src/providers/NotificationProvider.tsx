@@ -1,7 +1,7 @@
 import * as React from "react";
-import * as Notifications from "expo-notifications";
 import { useRouter } from "expo-router";
 import { AppState, type AppStateStatus } from "react-native";
+import Constants from "expo-constants";
 import { useAuth } from "../hooks/useAuth";
 import { useToast } from "./ToastProvider";
 import {
@@ -72,6 +72,7 @@ export function NotificationProvider({
   const token = session?.accessToken ?? null;
   const router = useRouter();
   const { showToast } = useToast();
+  const isExpoGo = Constants.appOwnership === "expo";
 
   const [unreadCount, setUnreadCount] = React.useState(0);
   const mountedRef = React.useRef(true);
@@ -104,7 +105,12 @@ export function NotificationProvider({
       return;
     }
 
-    configureForegroundPresentation();
+    if (isExpoGo) {
+      refreshUnreadCount();
+      return;
+    }
+
+    void configureForegroundPresentation();
 
     let cancelled = false;
 
@@ -132,37 +138,57 @@ export function NotificationProvider({
 
   // ---- Foreground listener: toast + increment badge ----
   React.useEffect(() => {
-    if (!token) return;
+    if (!token || isExpoGo) return;
 
-    const subscription = Notifications.addNotificationReceivedListener(
-      (notification) => {
-        const data = (notification.request.content.data ?? {}) as NotificationData;
-        const title =
-          notification.request.content.title ?? "New notification";
-        showToast(title, "info");
-        incrementUnread();
-      }
-    );
+    let subscription: { remove: () => void } | null = null;
+    let active = true;
 
-    return () => subscription.remove();
-  }, [token, showToast, incrementUnread]);
+    (async () => {
+      const Notifications = await import("expo-notifications");
+      if (!active) return;
+      subscription = Notifications.addNotificationReceivedListener(
+        (notification) => {
+          const data = (notification.request.content.data ?? {}) as NotificationData;
+          const title =
+            notification.request.content.title ?? "New notification";
+          showToast(title, "info");
+          incrementUnread();
+        }
+      );
+    })();
+
+    return () => {
+      active = false;
+      subscription?.remove();
+    };
+  }, [token, isExpoGo, showToast, incrementUnread]);
 
   // ---- Tap / response listener: deep link ----
   React.useEffect(() => {
-    if (!token) return;
+    if (!token || isExpoGo) return;
 
-    const subscription =
-      Notifications.addNotificationResponseReceivedListener((response) => {
-        const data = (response.notification.request.content.data ??
-          {}) as NotificationData;
-        const route = routeForNotification(data);
-        if (route) {
-          router.push(route as any);
-        }
-      });
+    let subscription: { remove: () => void } | null = null;
+    let active = true;
 
-    return () => subscription.remove();
-  }, [token, router]);
+    (async () => {
+      const Notifications = await import("expo-notifications");
+      if (!active) return;
+      subscription =
+        Notifications.addNotificationResponseReceivedListener((response) => {
+          const data = (response.notification.request.content.data ??
+            {}) as NotificationData;
+          const route = routeForNotification(data);
+          if (route) {
+            router.push(route as any);
+          }
+        });
+    })();
+
+    return () => {
+      active = false;
+      subscription?.remove();
+    };
+  }, [token, isExpoGo, router]);
 
   // ---- Refresh count when app comes to foreground ----
   React.useEffect(() => {

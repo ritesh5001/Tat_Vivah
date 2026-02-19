@@ -24,6 +24,7 @@ import { useAddresses } from "../../src/providers/AddressProvider";
 import { useToast } from "../../src/providers/ToastProvider";
 import { AnimatedPressable } from "../../src/components/AnimatedPressable";
 import { notifySuccess, notifyError, impactLight } from "../../src/utils/haptics";
+import { AppHeader } from "../../src/components/AppHeader";
 import type { Address } from "../../src/services/addresses";
 
 // ---------------------------------------------------------------------------
@@ -180,7 +181,7 @@ export default function CheckoutScreen() {
 
   const navigateToAddAddress = React.useCallback(() => {
     setShowAddressModal(false);
-    router.push("/(tabs)/profile/addresses/form");
+    router.push("/profile/addresses/form");
   }, [router]);
 
   // ---- Coupon handlers ----
@@ -396,6 +397,7 @@ export default function CheckoutScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <AppHeader title="Checkout" subtitle="Secure payment" showMenu showBack />
       <ScrollView contentContainerStyle={styles.container}>
         <Text style={styles.title}>Checkout</Text>
         <Text style={styles.subtitle}>
