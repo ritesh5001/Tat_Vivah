@@ -1,4 +1,4 @@
-import { apiRequest } from "./api";
+import { apiRequest } from "./apiClient";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -49,18 +49,20 @@ export interface WishlistCheckResponse {
 export async function getWishlist(
   token?: string | null
 ): Promise<WishlistResponse> {
-  return apiRequest<WishlistResponse>("/v1/wishlist", {
+  return apiRequest<WishlistResponse>({
+    url: "/v1/wishlist",
     method: "GET",
-    token,
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
 }
 
 export async function getWishlistCount(
   token?: string | null
 ): Promise<WishlistCountResponse> {
-  return apiRequest<WishlistCountResponse>("/v1/wishlist/count", {
+  return apiRequest<WishlistCountResponse>({
+    url: "/v1/wishlist/count",
     method: "GET",
-    token,
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
 }
 
@@ -68,10 +70,11 @@ export async function toggleWishlistItem(
   productId: string,
   token?: string | null
 ): Promise<WishlistToggleResponse> {
-  return apiRequest<WishlistToggleResponse>("/v1/wishlist/toggle", {
+  return apiRequest<WishlistToggleResponse>({
+    url: "/v1/wishlist/toggle",
     method: "POST",
-    body: { productId },
-    token,
+    data: { productId },
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
 }
 
@@ -79,10 +82,11 @@ export async function addWishlistItem(
   productId: string,
   token?: string | null
 ): Promise<WishlistToggleResponse> {
-  return apiRequest<WishlistToggleResponse>("/v1/wishlist/items", {
+  return apiRequest<WishlistToggleResponse>({
+    url: "/v1/wishlist/items",
     method: "POST",
-    body: { productId },
-    token,
+    data: { productId },
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
 }
 
@@ -90,22 +94,21 @@ export async function removeWishlistItem(
   productId: string,
   token?: string | null
 ): Promise<WishlistToggleResponse> {
-  return apiRequest<WishlistToggleResponse>(
-    `/v1/wishlist/items/${productId}`,
-    {
-      method: "DELETE",
-      token,
-    }
-  );
+  return apiRequest<WishlistToggleResponse>({
+    url: `/v1/wishlist/items/${productId}`,
+    method: "DELETE",
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  });
 }
 
 export async function checkWishlistItems(
   productIds: string[],
   token?: string | null
 ): Promise<WishlistCheckResponse> {
-  return apiRequest<WishlistCheckResponse>("/v1/wishlist/check", {
+  return apiRequest<WishlistCheckResponse>({
+    url: "/v1/wishlist/check",
     method: "POST",
-    body: { productIds },
-    token,
+    data: { productIds },
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
 }

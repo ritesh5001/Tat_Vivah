@@ -18,6 +18,7 @@ import {
 } from "../../src/theme/tokens";
 import { requestOtp } from "../../src/services/auth";
 import { AppHeader } from "../../src/components/AppHeader";
+import { TatvivahLoader } from "../../src/components/TatvivahLoader";
 
 export default function RequestOtpScreen() {
   const router = useRouter();
@@ -90,9 +91,11 @@ export default function RequestOtpScreen() {
             onPress={handleRequestOtp}
             disabled={loading}
           >
-            <Text style={styles.primaryButtonText}>
-              {loading ? "Sending…" : "Send OTP"}
-            </Text>
+            {loading ? (
+              <TatvivahLoader size="sm" color={colors.background} />
+            ) : (
+              <Text style={styles.primaryButtonText}>Send OTP</Text>
+            )}
           </Pressable>
         </View>
 

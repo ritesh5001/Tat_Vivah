@@ -29,6 +29,10 @@ export function setSessionExpiredHandler(handler: () => void) {
   sessionExpiredHandler = handler;
 }
 
+export function triggerSessionExpired() {
+  sessionExpiredHandler?.();
+}
+
 // ---------------------------------------------------------------------------
 // Centralized API error
 // ---------------------------------------------------------------------------

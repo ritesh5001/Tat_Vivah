@@ -5,7 +5,6 @@ import {
   StyleSheet,
   FlatList,
   Pressable,
-  ActivityIndicator,
   RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -24,6 +23,7 @@ import { SkeletonNotificationRow } from "../../../src/components/Skeleton";
 import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
 import { AppHeader } from "../../../src/components/AppHeader";
 import { impactLight } from "../../../src/utils/haptics";
+import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -219,7 +219,7 @@ export default function NotificationsScreen() {
     if (!loadingMore) return null;
     return (
       <View style={styles.footer}>
-        <ActivityIndicator color={colors.gold} size="small" />
+        <TatvivahLoader size="sm" color={colors.gold} />
       </View>
     );
   }, [loadingMore]);

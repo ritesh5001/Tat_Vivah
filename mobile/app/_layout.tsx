@@ -1,3 +1,4 @@
+import * as React from "react";
 import { Stack } from "expo-router";
 import { useFonts } from "expo-font";
 import {
@@ -14,6 +15,7 @@ import { AddressProvider } from "../src/providers/AddressProvider";
 import { WishlistProvider } from "../src/providers/WishlistProvider";
 import { OfflineBanner } from "../src/components/OfflineBanner";
 import { useNetworkStatus } from "../src/hooks/useNetworkStatus";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 function AppShell() {
   const { isConnected } = useNetworkStatus();
@@ -55,25 +57,43 @@ export default function RootLayout() {
     Inter_500Medium,
   });
 
+  const queryClient = React.useMemo(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            retry: 1,
+            refetchOnWindowFocus: false,
+          },
+          mutations: {
+            retry: 0,
+          },
+        },
+      }),
+    []
+  );
+
   if (!fontsLoaded) {
     return null;
   }
 
   return (
     <ErrorBoundary>
-      <ToastProvider>
-        <AuthProvider>
-          <NotificationProvider>
-            <CartProvider>
-              <WishlistProvider>
-                <AddressProvider>
-                  <AppShell />
-                </AddressProvider>
-              </WishlistProvider>
-            </CartProvider>
-          </NotificationProvider>
-        </AuthProvider>
-      </ToastProvider>
+      <QueryClientProvider client={queryClient}>
+        <ToastProvider>
+          <AuthProvider>
+            <NotificationProvider>
+              <CartProvider>
+                <WishlistProvider>
+                  <AddressProvider>
+                    <AppShell />
+                  </AddressProvider>
+                </WishlistProvider>
+              </CartProvider>
+            </NotificationProvider>
+          </AuthProvider>
+        </ToastProvider>
+      </QueryClientProvider>
     </ErrorBoundary>
   );
 }

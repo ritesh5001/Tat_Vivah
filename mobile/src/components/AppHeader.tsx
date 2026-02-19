@@ -15,6 +15,7 @@ interface AppHeaderProps {
   showMenu?: boolean;
   showSearch?: boolean;
   showCart?: boolean;
+  showHome?: boolean;
 }
 
 export function AppHeader({
@@ -24,6 +25,7 @@ export function AppHeader({
   showMenu = true,
   showSearch = false,
   showCart = false,
+  showHome = true,
 }: AppHeaderProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -41,13 +43,19 @@ export function AppHeader({
   }, [pathname, router]);
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + spacing.sm }]}> 
+    <View style={[styles.container, { paddingTop: insets.top + spacing.sm }]}>
       <View style={styles.row}>
         <View style={styles.leftSlot}>
           {shouldShowBack ? (
-            <Pressable onPress={handleBack} style={styles.iconButton} hitSlop={8}>
-              <Ionicons name="chevron-back" size={18} color={colors.charcoal} />
-            </Pressable>
+            <View style={styles.leftRow}>
+              <Pressable onPress={handleBack} style={styles.iconButton} hitSlop={8}>
+                <Ionicons name="chevron-back" size={18} color={colors.charcoal} />
+              </Pressable>
+              <View style={styles.brandWrap}>
+                <Image source={images.logo} style={styles.logo} contentFit="contain" />
+                <Text style={styles.brandText}>TatVivah</Text>
+              </View>
+            </View>
           ) : (
             <View style={styles.brandWrap}>
               <Image source={images.logo} style={styles.logo} contentFit="contain" />
@@ -56,12 +64,15 @@ export function AppHeader({
           )}
         </View>
 
-        <View style={styles.centerSlot}>
-          {title ? <Text style={styles.title}>{title}</Text> : null}
-          {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
-        </View>
-
         <View style={styles.actions}>
+          {showHome ? (
+            <Pressable
+              style={styles.iconButton}
+              onPress={() => router.push("/home")}
+            >
+              <Ionicons name="home-outline" size={18} color={colors.charcoal} />
+            </Pressable>
+          ) : null}
           {showSearch ? (
             <Pressable
               style={styles.iconButton}
@@ -103,7 +114,7 @@ export function AppHeader({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: colors.background,
+    backgroundColor: colors.warmWhite,
     borderBottomWidth: 1,
     borderBottomColor: colors.borderSoft,
     paddingHorizontal: spacing.lg,
@@ -113,25 +124,27 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
+    minHeight: 52,
   },
   leftSlot: {
     flex: 1,
     justifyContent: "flex-start",
   },
-  centerSlot: {
-    flex: 2,
+  leftRow: {
+    flexDirection: "row",
     alignItems: "center",
+    gap: spacing.sm,
   },
   actions: {
-    flex: 1,
+    flex: 0,
     flexDirection: "row",
     justifyContent: "flex-end",
     gap: spacing.sm,
   },
   iconButton: {
-    height: 34,
-    width: 34,
-    borderRadius: 17,
+    height: 40,
+    width: 40,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     alignItems: "center",
@@ -144,25 +157,12 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   logo: {
-    height: 22,
-    width: 22,
+    height: 34,
+    width: 34,
   },
   brandText: {
     fontFamily: typography.serif,
-    fontSize: 16,
+    fontSize: 22,
     color: colors.charcoal,
-  },
-  title: {
-    fontFamily: typography.serif,
-    fontSize: 16,
-    color: colors.charcoal,
-  },
-  subtitle: {
-    marginTop: 2,
-    fontFamily: typography.sans,
-    fontSize: 10,
-    letterSpacing: 1.2,
-    textTransform: "uppercase",
-    color: colors.brownSoft,
   },
 });

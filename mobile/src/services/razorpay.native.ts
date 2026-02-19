@@ -39,10 +39,14 @@ interface RazorpayModule {
 function getRazorpayModule(): RazorpayModule {
   try {
     const mod = require("react-native-razorpay");
-    return (mod.default ?? mod) as RazorpayModule;
+    const resolved = (mod?.default ?? mod) as RazorpayModule | null | undefined;
+    if (!resolved || typeof resolved.open !== "function") {
+      throw new Error("Razorpay module is not available");
+    }
+    return resolved;
   } catch {
     throw new Error(
-      "react-native-razorpay is not installed. Run: npx expo install react-native-razorpay"
+      "Razorpay SDK is not available. Install react-native-razorpay and rebuild the dev client."
     );
   }
 }

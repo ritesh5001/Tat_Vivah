@@ -6,7 +6,6 @@ import {
   Pressable,
   ScrollView,
   Modal,
-  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -14,6 +13,7 @@ import { colors, radius, spacing, typography, shadow } from "../../../src/theme/
 import { useAuth } from "../../../src/hooks/useAuth";
 import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
 import { AppHeader } from "../../../src/components/AppHeader";
+import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -63,8 +63,7 @@ export default function ProfileScreen() {
 
         {isLoading ? (
           <View style={styles.card}>
-            <ActivityIndicator color={colors.gold} />
-            <Text style={styles.loadingText}>Loading profile…</Text>
+            <TatvivahLoader label="Loading profile" color={colors.gold} />
           </View>
         ) : !user ? (
           <View style={styles.card}>
@@ -205,7 +204,7 @@ export default function ProfileScreen() {
                 disabled={loggingOut}
               >
                 {loggingOut ? (
-                  <ActivityIndicator color={colors.background} size="small" />
+                  <TatvivahLoader size="sm" color={colors.background} />
                 ) : (
                   <Text style={styles.modalConfirmText}>Sign Out</Text>
                 )}

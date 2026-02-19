@@ -8,6 +8,7 @@ import {
   TextInput,
   Pressable,
   Dimensions,
+  Linking,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -30,8 +31,6 @@ import { images } from "../../../src/data/images";
 import { AppHeader } from "../../../src/components/AppHeader";
 
 const { width } = Dimensions.get("window");
-const cardWidth = width - spacing.lg * 2;
-
 const fallbackCategories = [
   "Sherwanis",
   "Kurtas",
@@ -81,6 +80,27 @@ const fallbackArrivals = [
   },
 ];
 
+const guestPicks = [
+  {
+    id: "g1",
+    title: "Royal Sherwani Set",
+    image:
+      "https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?auto=format&fit=crop&w=900&q=80",
+  },
+  {
+    id: "g2",
+    title: "Signature Kurta Edit",
+    image:
+      "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80",
+  },
+  {
+    id: "g3",
+    title: "Wedding Guest Essentials",
+    image:
+      "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=900&q=80",
+  },
+];
+
 export default function HomeScreen() {
   const router = useRouter();
   const [bestsellers, setBestsellers] = React.useState<BestsellerProduct[]>([]);
@@ -91,6 +111,11 @@ export default function HomeScreen() {
   const [recommendedProducts, setRecommendedProducts] = React.useState<ProductItem[]>([]);
   const [marketplaceProducts, setMarketplaceProducts] = React.useState<ProductItem[]>([]);
   const [loadingMarketplace, setLoadingMarketplace] = React.useState(true);
+
+  const latestArrivals = React.useMemo(
+    () => (arrivals.length ? arrivals : fallbackArrivals).slice(0, 3),
+    [arrivals]
+  );
 
   React.useEffect(() => {
     const recommendationsController = new AbortController();
@@ -241,6 +266,14 @@ export default function HomeScreen() {
     [categories, router]
   );
 
+  const handlePrivacyPolicyPress = React.useCallback(() => {
+    router.push("/(tabs)/privacy-policy");
+  }, [router]);
+
+  const handleExternalLink = React.useCallback((url: string) => {
+    Linking.openURL(url);
+  }, []);
+
   const renderProduct = React.useCallback(
     ({ item }: { item: BestsellerProduct }) => {
       const imageUri = item.image ?? fallbackImage;
@@ -252,11 +285,17 @@ export default function HomeScreen() {
           <Image
             source={{ uri: imageUri }}
             style={styles.productImage}
-            contentFit="cover"
+            contentFit="contain"
             transition={200}
             cachePolicy="memory-disk"
           />
           <Text style={styles.productTitle}>{item.title}</Text>
+          <Text style={styles.productDescription} numberOfLines={2}>
+            Crafted edit for wedding celebrations.
+          </Text>
+          <Text style={styles.productCategory}>
+            {item.categoryName ?? "Curated edit"}
+          </Text>
           <Text style={styles.productPrice}>{formatPrice(item.minPrice)}</Text>
         </Pressable>
       );
@@ -290,6 +329,19 @@ export default function HomeScreen() {
     [handleProductPress]
   );
 
+  const renderMarketplaceStackItem = React.useCallback(
+    ({ item }: { item: ProductItem }) => (
+      <View style={styles.marketplaceStackCard}>
+        <ProductGridCard
+          product={item}
+          onExplore={() => handleProductPress(item.id)}
+          onBuyNow={() => handleProductPress(item.id)}
+        />
+      </View>
+    ),
+    [handleProductPress]
+  );
+
   return (
     <>
       <AppHeader showSearch showCart showMenu showBack={false} />
@@ -301,6 +353,8 @@ export default function HomeScreen() {
               ? (item as BestsellerProduct).id
               : `skeleton-${index}`
           }
+          numColumns={2}
+          columnWrapperStyle={styles.productGridRow}
           renderItem={({ item }) =>
             typeof item === "object" && item !== null ? (
               renderProduct({ item: item as BestsellerProduct })
@@ -317,10 +371,10 @@ export default function HomeScreen() {
             <View style={styles.heroCard}>
               <View style={styles.heroGlowOne} />
               <View style={styles.heroGlowTwo} />
-              <Text style={styles.heroEyebrow}>Curated mens fashion</Text>
-              <Text style={styles.heroTitle}>The art of timeless elegance</Text>
+              <Text style={styles.heroEyebrow}>Tatvivah atelier</Text>
+              <Text style={styles.heroTitle}>Sherwani stories for grand moments</Text>
               <Text style={styles.heroSubtitle}>
-                Discover premium ethnic wear, crafted by verified artisans.
+                Discover heirloom-ready craftsmanship, styled for weddings and celebrations.
               </Text>
               <View style={styles.heroActions}>
                 <Pressable
@@ -346,8 +400,84 @@ export default function HomeScreen() {
             </View>
 
             <View style={styles.sectionHeader}>
+              <Text style={styles.sectionEyebrow}>Latest drops</Text>
+              <Text style={styles.sectionTitle}>New season arrivals</Text>
+            </View>
+            <View style={styles.latestStack}>
+              {latestArrivals.map((item) => {
+                const image = "image" in item ? item.image : item.images?.[0];
+                const canNavigate = "images" in item;
+                const rawPrice = "price" in item ? item.price : undefined;
+                const price =
+                  typeof rawPrice === "number" ? formatPrice(rawPrice) : undefined;
+
+                return (
+                  <Pressable
+                    key={item.id}
+                    style={styles.latestCard}
+                    onPress={() =>
+                      canNavigate
+                        ? router.push({
+                            pathname: "/product/[id]",
+                            params: { id: item.id },
+                          })
+                        : undefined
+                    }
+                  >
+                    <Image
+                      source={{ uri: image ?? fallbackImage }}
+                      style={styles.latestImage}
+                      contentFit="cover"
+                      transition={200}
+                      cachePolicy="memory-disk"
+                    />
+                    <View style={styles.latestInfo}>
+                      <Text style={styles.latestLabel}>Latest</Text>
+                      <Text style={styles.latestTitle} numberOfLines={2}>
+                        {item.title}
+                      </Text>
+                      <Text style={styles.latestMeta}>
+                        Premium tailoring for modern ceremonies
+                      </Text>
+                      {price ? (
+                        <Text style={styles.latestPrice}>{price}</Text>
+                      ) : null}
+                      <View style={styles.latestCta}>
+                        <Text style={styles.latestCtaText}>View details</Text>
+                      </View>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <View style={styles.promiseWrap}>
+              <Text style={styles.sectionEyebrow}>Tatvivah promise</Text>
+              <View style={styles.promiseRow}>
+                <View style={styles.promiseCard}>
+                  <Text style={styles.promiseTitle}>Verified ateliers</Text>
+                  <Text style={styles.promiseCopy}>
+                    Certified artisans and premium fabric sourcing.
+                  </Text>
+                </View>
+                <View style={styles.promiseCard}>
+                  <Text style={styles.promiseTitle}>Secure checkout</Text>
+                  <Text style={styles.promiseCopy}>
+                    Protected payments with order tracking.
+                  </Text>
+                </View>
+                <View style={styles.promiseCard}>
+                  <Text style={styles.promiseTitle}>Concierge care</Text>
+                  <Text style={styles.promiseCopy}>
+                    Styling support for every celebration.
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.sectionHeader}>
               <Text style={styles.sectionEyebrow}>Shop by category</Text>
-              <Text style={styles.sectionTitle}>Visual edits</Text>
+              <Text style={styles.sectionTitle}>Style edits</Text>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryRow}>
               {categoryCards.map((card) => (
@@ -385,18 +515,10 @@ export default function HomeScreen() {
               )}
             </ScrollView>
 
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionEyebrow}>Bestsellers</Text>
-              <Text style={styles.sectionTitle}>Crafted favorites</Text>
-            </View>
-            </View>
-          }
-          ListFooterComponent={
-            <View>
             <View style={styles.sectionHeaderRow}>
               <View>
-                <Text style={styles.sectionEyebrow}>Marketplace</Text>
-                <Text style={styles.sectionTitle}>Explore the full catalog</Text>
+                <Text style={styles.sectionEyebrow}>Curated collections</Text>
+                <Text style={styles.sectionTitle}>Handpicked for you</Text>
               </View>
               <Pressable
                 style={styles.sectionAction}
@@ -412,15 +534,24 @@ export default function HomeScreen() {
               </View>
             ) : (
               <FlatList
-                horizontal
                 data={marketplaceProducts}
                 keyExtractor={(item) => item.id}
-                showsHorizontalScrollIndicator={false}
-                renderItem={renderMarketplaceItem}
-                contentContainerStyle={styles.marketplaceListContent}
+                renderItem={renderMarketplaceStackItem}
+                numColumns={2}
+                columnWrapperStyle={styles.marketplaceGridRow}
+                scrollEnabled={false}
+                contentContainerStyle={styles.marketplaceStackContent}
               />
             )}
 
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionEyebrow}>Bestsellers</Text>
+              <Text style={styles.sectionTitle}>Crafted favorites</Text>
+            </View>
+            </View>
+          }
+          ListFooterComponent={
+            <View>
             {recommendedProducts.length > 0 && (
               <>
                 <View style={styles.sectionHeader}>
@@ -428,16 +559,13 @@ export default function HomeScreen() {
                   <Text style={styles.sectionTitle}>Recommended For You</Text>
                 </View>
                 <FlatList
-                  horizontal
                   data={recommendedProducts}
                   keyExtractor={(item) => item.id}
-                  showsHorizontalScrollIndicator={false}
                   renderItem={renderRecommendationItem}
-                  removeClippedSubviews
-                  initialNumToRender={2}
-                  maxToRenderPerBatch={2}
-                  windowSize={5}
-                  contentContainerStyle={styles.recommendationListContent}
+                  numColumns={2}
+                  columnWrapperStyle={styles.recommendationGridRow}
+                  scrollEnabled={false}
+                  contentContainerStyle={styles.recommendationGridContent}
                 />
               </>
             )}
@@ -469,7 +597,7 @@ export default function HomeScreen() {
                         <Image
                           source={{ uri: image }}
                           style={styles.arrivalImage}
-                          contentFit="cover"
+                          contentFit="contain"
                           transition={200}
                           cachePolicy="memory-disk"
                         />
@@ -487,6 +615,30 @@ export default function HomeScreen() {
                 />
               </>
             )}
+            {recommendedProducts.length === 0 && recentlyViewed.length === 0 && (
+              <>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionEyebrow}>Guest picks</Text>
+                  <Text style={styles.sectionTitle}>Wedding-ready gifting</Text>
+                </View>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {guestPicks.map((item) => (
+                    <Pressable key={item.id} style={styles.arrivalCard}>
+                      <Image
+                        source={{ uri: item.image }}
+                        style={styles.arrivalImage}
+                        contentFit="contain"
+                        transition={200}
+                        cachePolicy="memory-disk"
+                      />
+                      <Text style={styles.arrivalTitle}>{item.title}</Text>
+                      <Text style={styles.arrivalPrice}>Premium edit</Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              </>
+            )}
+
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionEyebrow}>New arrivals</Text>
               <Text style={styles.sectionTitle}>Freshly tailored</Text>
@@ -495,7 +647,9 @@ export default function HomeScreen() {
               {(arrivals.length ? arrivals : fallbackArrivals).map((item) => {
                 const image = "image" in item ? item.image : item.images?.[0];
                 const canNavigate = "images" in item;
-                const price = "price" in item ? String(item.price) : undefined;
+                const rawPrice = "price" in item ? item.price : undefined;
+                const price =
+                  typeof rawPrice === "number" ? formatPrice(rawPrice) : undefined;
                 return (
                   <Pressable
                     key={item.id}
@@ -512,7 +666,7 @@ export default function HomeScreen() {
                     <Image
                       source={{ uri: image ?? fallbackImage }}
                       style={styles.arrivalImage}
-                      contentFit="cover"
+                      contentFit="contain"
                       transition={200}
                       cachePolicy="memory-disk"
                     />
@@ -522,6 +676,34 @@ export default function HomeScreen() {
                 );
               })}
             </ScrollView>
+
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionEyebrow}>Style journal</Text>
+              <Text style={styles.sectionTitle}>Crafting celebrations</Text>
+            </View>
+            <View style={styles.editorialStack}>
+              <View style={styles.editorialCard}>
+                <Text style={styles.editorialTitle}>Signature edit</Text>
+                <Text style={styles.editorialCopy}>
+                  Curated looks for pre-wedding, main ceremony, and reception.
+                </Text>
+                <Pressable
+                  style={styles.editorialCta}
+                  onPress={() => router.push("/marketplace")}
+                >
+                  <Text style={styles.editorialCtaText}>Explore edits</Text>
+                </Pressable>
+              </View>
+              <View style={styles.editorialCard}>
+                <Text style={styles.editorialTitle}>Style concierge</Text>
+                <Text style={styles.editorialCopy}>
+                  Personalized fit guidance, fabric advice, and sizing support.
+                </Text>
+                <Pressable style={styles.editorialCta}>
+                  <Text style={styles.editorialCtaText}>Talk to us</Text>
+                </Pressable>
+              </View>
+            </View>
 
             <View style={styles.footerCard}>
               <Text style={styles.footerTitle}>Crafted with care</Text>
@@ -546,6 +728,27 @@ export default function HomeScreen() {
               >
                 <Text style={styles.footerBannerButtonText}>Shop the edit</Text>
               </Pressable>
+            </View>
+
+            <View style={styles.footerLinks}>
+              <Text style={styles.footerLinksTitle}>Tatvivah Trends</Text>
+              <View style={styles.footerLinkRow}>
+                <Pressable
+                  style={styles.footerLinkButton}
+                  onPress={handlePrivacyPolicyPress}
+                >
+                  <Text style={styles.footerLinkText}>Privacy policy</Text>
+                </Pressable>
+                <Pressable
+                  style={styles.footerLinkButton}
+                  onPress={() => handleExternalLink("https://tatvivahtrends.com")}
+                >
+                  <Text style={styles.footerLinkText}>tatvivahtrends.com</Text>
+                </Pressable>
+              </View>
+              <Text style={styles.footerSignature}>
+                Made with ❤️ by Nextgenfusion team
+              </Text>
             </View>
             </View>
           }
@@ -584,10 +787,10 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: -60,
     left: -40,
-    height: 140,
-    width: 140,
+    height: 160,
+    width: 160,
     borderRadius: 100,
-    backgroundColor: colors.gold,
+    backgroundColor: colors.goldMuted,
     opacity: 0.08,
   },
   heroGlowTwo: {
@@ -667,6 +870,68 @@ const styles = StyleSheet.create({
     fontFamily: typography.sans,
     color: colors.charcoal,
   },
+  latestStack: {
+    marginTop: spacing.md,
+    paddingHorizontal: spacing.lg,
+    gap: spacing.md,
+  },
+  latestCard: {
+    flexDirection: "row",
+    borderRadius: radius.lg,
+    backgroundColor: colors.warmWhite,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    overflow: "hidden",
+    ...shadow.card,
+  },
+  latestImage: {
+    width: 140,
+    height: 160,
+    backgroundColor: colors.cream,
+  },
+  latestInfo: {
+    flex: 1,
+    padding: spacing.md,
+    gap: 6,
+  },
+  latestLabel: {
+    fontFamily: typography.sans,
+    fontSize: 10,
+    letterSpacing: 1.6,
+    textTransform: "uppercase",
+    color: colors.gold,
+  },
+  latestTitle: {
+    fontFamily: typography.serif,
+    fontSize: 18,
+    color: colors.charcoal,
+  },
+  latestMeta: {
+    fontFamily: typography.sans,
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.brownSoft,
+  },
+  latestPrice: {
+    fontFamily: typography.serif,
+    fontSize: 16,
+    color: colors.charcoal,
+  },
+  latestCta: {
+    marginTop: spacing.xs,
+    alignSelf: "flex-start",
+    backgroundColor: colors.charcoal,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: 14,
+  },
+  latestCtaText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 10,
+    letterSpacing: 1.4,
+    textTransform: "uppercase",
+    color: colors.background,
+  },
   sectionHeader: {
     marginTop: spacing.xl,
     paddingHorizontal: spacing.lg,
@@ -683,6 +948,34 @@ const styles = StyleSheet.create({
     fontFamily: typography.serif,
     fontSize: 22,
     color: colors.charcoal,
+  },
+  promiseWrap: {
+    marginTop: spacing.xl,
+    paddingHorizontal: spacing.lg,
+  },
+  promiseRow: {
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+  promiseCard: {
+    borderRadius: radius.md,
+    padding: spacing.md,
+    backgroundColor: colors.warmWhite,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    ...shadow.card,
+  },
+  promiseTitle: {
+    fontFamily: typography.serif,
+    fontSize: 16,
+    color: colors.charcoal,
+  },
+  promiseCopy: {
+    marginTop: spacing.xs,
+    fontFamily: typography.sans,
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.brownSoft,
   },
   chipRow: {
     marginTop: spacing.md,
@@ -703,15 +996,18 @@ const styles = StyleSheet.create({
     color: colors.brown,
   },
   productCard: {
-    width: cardWidth,
+    flex: 1,
     marginTop: spacing.md,
-    marginHorizontal: spacing.lg,
     padding: spacing.md,
     borderRadius: radius.lg,
     backgroundColor: colors.warmWhite,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     ...shadow.card,
+  },
+  productGridRow: {
+    paddingHorizontal: spacing.lg,
+    gap: spacing.md,
   },
   productImage: {
     height: 180,
@@ -722,7 +1018,23 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     fontFamily: typography.serif,
     fontSize: 18,
-    color: colors.charcoal,
+    borderRadius: radius.sm,
+  },
+  productDescription: {
+    marginTop: spacing.xs,
+    fontFamily: typography.sans,
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.brownSoft,
+    borderRadius: radius.sm,
+  },
+  productCategory: {
+    marginTop: spacing.xs,
+    fontFamily: typography.sans,
+    fontSize: 10,
+    letterSpacing: 1.4,
+    textTransform: "uppercase",
+    color: colors.brownSoft,
   },
   productPrice: {
     marginTop: spacing.xs,
@@ -748,7 +1060,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     marginLeft: spacing.lg,
     padding: spacing.md,
-    borderRadius: radius.lg,
+    borderRadius: radius.sm,
     backgroundColor: colors.warmWhite,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -756,7 +1068,7 @@ const styles = StyleSheet.create({
   },
   arrivalImage: {
     height: 140,
-    borderRadius: radius.md,
+    borderRadius: radius.sm,
     backgroundColor: colors.cream,
   },
   arrivalTitle: {
@@ -771,13 +1083,60 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.brownSoft,
   },
+  editorialStack: {
+    marginTop: spacing.md,
+    paddingHorizontal: spacing.lg,
+    gap: spacing.md,
+  },
+  editorialCard: {
+    borderRadius: radius.lg,
+    backgroundColor: colors.warmWhite,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    padding: spacing.lg,
+    ...shadow.card,
+  },
+  editorialTitle: {
+    fontFamily: typography.serif,
+    fontSize: 18,
+    color: colors.charcoal,
+  },
+  editorialCopy: {
+    marginTop: spacing.xs,
+    fontFamily: typography.sans,
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.brownSoft,
+  },
+  editorialCta: {
+    marginTop: spacing.sm,
+    alignSelf: "flex-start",
+    backgroundColor: colors.charcoal,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: 14,
+  },
+  editorialCtaText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 10,
+    letterSpacing: 1.4,
+    textTransform: "uppercase",
+    color: colors.background,
+  },
   recommendationListContent: {
     paddingHorizontal: spacing.lg,
   },
   recommendationCardWrap: {
-    width: 260,
-    marginRight: spacing.md,
+    flex: 1,
     marginTop: spacing.md,
+  },
+  recommendationGridContent: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg,
+    gap: spacing.md,
+  },
+  recommendationGridRow: {
+    gap: spacing.md,
   },
   sectionHeaderRow: {
     marginTop: spacing.xl,
@@ -805,10 +1164,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.md,
   },
+  marketplaceStackContent: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg,
+    gap: spacing.md,
+  },
+  marketplaceGridRow: {
+    gap: spacing.md,
+  },
   marketplaceCardWrap: {
     width: 240,
     marginRight: spacing.md,
     marginTop: spacing.md,
+  },
+  marketplaceStackCard: {
+    flex: 1,
   },
   marketplaceLoading: {
     paddingHorizontal: spacing.lg,
@@ -931,5 +1301,48 @@ const styles = StyleSheet.create({
     letterSpacing: 1.4,
     textTransform: "uppercase",
     color: "#1F1A17",
+  },
+  footerLinks: {
+    marginTop: spacing.xl,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.xl,
+    padding: spacing.lg,
+    borderRadius: radius.lg,
+    backgroundColor: colors.warmWhite,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    ...shadow.card,
+  },
+  footerLinksTitle: {
+    fontFamily: typography.serif,
+    fontSize: 16,
+    color: colors.charcoal,
+  },
+  footerLinkRow: {
+    marginTop: spacing.sm,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  footerLinkButton: {
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    borderRadius: 16,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    backgroundColor: colors.warmWhite,
+  },
+  footerLinkText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 11,
+    letterSpacing: 1.1,
+    textTransform: "uppercase",
+    color: colors.charcoal,
+  },
+  footerSignature: {
+    marginTop: spacing.md,
+    fontFamily: typography.sans,
+    fontSize: 11,
+    color: colors.brownSoft,
   },
 });

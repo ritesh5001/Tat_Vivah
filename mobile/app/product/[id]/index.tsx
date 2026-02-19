@@ -12,7 +12,6 @@ import {
   type ListRenderItemInfo,
   type NativeSyntheticEvent,
   type NativeScrollEvent,
-  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -33,15 +32,17 @@ import {
   type Review,
 } from "../../../src/services/reviews";
 import { useAuth } from "../../../src/hooks/useAuth";
-import { useCart } from "../../../src/providers/CartProvider";
-import { useWishlist } from "../../../src/providers/WishlistProvider";
+import { useCart } from "@/src/providers/CartProvider";
+import { useWishlist } from "@/src/providers/WishlistProvider";
 import { useNetworkStatus } from "../../../src/hooks/useNetworkStatus";
 import { useToast } from "../../../src/providers/ToastProvider";
 import { ApiError, isAbortError } from "../../../src/services/api";
 import { SkeletonBlock } from "../../../src/components/Skeleton";
+import { TatvivahLoader, TatvivahOverlayLoader } from "../../../src/components/TatvivahLoader";
 import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
 import { impactMedium, impactLight, notifySuccess } from "../../../src/utils/haptics";
 import { AppHeader } from "../../../src/components/AppHeader";
+import { useQuery } from "@tanstack/react-query";
 import {
   buildReviewImageName,
   uploadReviewImage,
@@ -259,33 +260,24 @@ export default function ProductDetailScreen() {
     };
   }, []);
 
-  // ---- Fetch product ----
+  const productQuery = useQuery({
+    queryKey: ["product", productId],
+    queryFn: ({ signal }) => getProductById(productId, signal),
+    enabled: Boolean(productId),
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 30,
+  });
+
   React.useEffect(() => {
-    const controller = new AbortController();
-    let active = true;
+    setLoading(productQuery.isLoading);
+    setProduct(productQuery.data?.product ?? null);
+  }, [productQuery.isLoading, productQuery.data]);
 
-    (async () => {
-      setLoading(true);
-      setGalleryIndex(0);
-      try {
-        const response = await getProductById(productId, controller.signal);
-        if (!active) return;
-        const p = response.product;
-        setProduct(p);
-        setSelectedVariantId(p.variants?.[0]?.id ?? null);
-      } catch (err) {
-        if (isAbortError(err) || !active) return;
-        if (active) setProduct(null);
-      } finally {
-        if (active) setLoading(false);
-      }
-    })();
-
-    return () => {
-      active = false;
-      controller.abort();
-    };
-  }, [productId]);
+  React.useEffect(() => {
+    if (!product?.id) return;
+    setGalleryIndex(0);
+    setSelectedVariantId(product.variants?.[0]?.id ?? null);
+  }, [product?.id, product?.variants]);
 
   // ---- Track recently viewed (fire-and-forget) ----
   React.useEffect(() => {
@@ -356,6 +348,7 @@ export default function ProductDetailScreen() {
   const selectedVariant = product?.variants?.find(
     (v: ProductVariant) => v.id === selectedVariantId
   );
+  const fallbackVariant = selectedVariant ?? product?.variants?.[0] ?? null;
   const images = product?.images?.length ? product.images : [fallbackImage];
   const avgRating = computeAvgRating(reviews);
   // Duplicate‐prevention: backend prevents via unique constraint; we hide the form
@@ -365,7 +358,7 @@ export default function ProductDetailScreen() {
     hasLocalReviewSubmission ||
     Boolean(userId && reviews.length > 0 && reviews.some((r) => r.userId === userId));
   const outOfStock =
-    selectedVariant?.inventory != null && selectedVariant.inventory.stock <= 0;
+    fallbackVariant?.inventory != null && fallbackVariant.inventory.stock <= 0;
 
   // ---- Handlers ----
   const handleAddToCart = React.useCallback(async () => {
@@ -378,8 +371,13 @@ export default function ProductDetailScreen() {
       showToast("You're offline. Please check your connection.", "error");
       return;
     }
-    if (!product || !selectedVariant) {
-      showToast("Select a variant to continue", "info");
+    if (!product || !fallbackVariant) {
+      showToast(
+        product?.variants?.length
+          ? "Select a variant to continue"
+          : "Variants are not available for this item",
+        "info"
+      );
       return;
     }
     if (outOfStock) {
@@ -390,7 +388,7 @@ export default function ProductDetailScreen() {
     try {
       await addToCart({
         productId: product.id,
-        variantId: selectedVariant.id,
+        variantId: fallbackVariant.id,
         quantity: 1,
       });
       impactMedium();
@@ -405,7 +403,7 @@ export default function ProductDetailScreen() {
     } finally {
       if (mountedRef.current) setAdding(false);
     }
-  }, [token, isConnected, product, selectedVariant, outOfStock, addToCart, router, showToast]);
+  }, [token, isConnected, product, fallbackVariant, outOfStock, addToCart, router, showToast]);
 
   const handlePickReviewImages = React.useCallback(async () => {
     if (reviewImages.length >= MAX_REVIEW_IMAGES) {
@@ -622,30 +620,36 @@ export default function ProductDetailScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <AppHeader showMenu showBack showCart />
-      {adding && (
-        <View style={styles.loaderOverlay}>
-          <ActivityIndicator size="large" color={colors.gold} />
-          <Text style={styles.loaderText}>Adding to cart...</Text>
-        </View>
-      )}
-      <ScrollView contentContainerStyle={styles.container}>
+      {adding && <TatvivahOverlayLoader label="Adding to cart" />}
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         {/* ---- Image gallery with paging dots ---- */}
-        <FlatList
-          data={images}
-          keyExtractor={galleryKeyExtractor}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          onScroll={handleGalleryScroll}
-          scrollEventThrottle={16}
-          contentContainerStyle={styles.galleryContainer}
-          getItemLayout={(_data, index) => ({
-            length: IMAGE_WIDTH,
-            offset: IMAGE_WIDTH * index,
-            index,
-          })}
-          renderItem={renderGalleryItem}
-        />
+        <View style={styles.galleryFrame}>
+          <FlatList
+            data={images}
+            keyExtractor={galleryKeyExtractor}
+            horizontal
+            pagingEnabled
+            snapToInterval={IMAGE_WIDTH}
+            decelerationRate="fast"
+            showsHorizontalScrollIndicator={false}
+            onScroll={handleGalleryScroll}
+            scrollEventThrottle={16}
+            contentContainerStyle={styles.galleryContainer}
+            getItemLayout={(_data, index) => ({
+              length: IMAGE_WIDTH,
+              offset: IMAGE_WIDTH * index,
+              index,
+            })}
+            renderItem={renderGalleryItem}
+          />
+          {images.length > 1 ? (
+            <View style={styles.galleryIndexBadge}>
+              <Text style={styles.galleryIndexText}>
+                {galleryIndex + 1}/{images.length}
+              </Text>
+            </View>
+          ) : null}
+        </View>
 
         {/* Dots indicator */}
         {images.length > 1 && (
@@ -762,12 +766,17 @@ export default function ProductDetailScreen() {
               ]}
               onPress={handleAddToCart}
               disabled={outOfStock || adding}
+              hitSlop={10}
             >
               {adding ? (
-                <ActivityIndicator color={colors.background} size="small" />
+                <TatvivahLoader size="sm" color={colors.background} />
               ) : (
                 <Text style={styles.primaryButtonText}>
-                  {outOfStock ? "Out of stock" : "Add to cart"}
+                  {!selectedVariant
+                    ? "Select variant"
+                    : outOfStock
+                      ? "Out of stock"
+                      : "Add to cart"}
                 </Text>
               )}
             </AnimatedPressable>
@@ -889,7 +898,7 @@ export default function ProductDetailScreen() {
                 disabled={submitting}
               >
                 {submitting ? (
-                  <ActivityIndicator color={colors.charcoal} size="small" />
+                  <TatvivahLoader size="sm" color={colors.charcoal} />
                 ) : (
                   <Text style={styles.secondaryButtonText}>Submit review</Text>
                 )}
@@ -933,7 +942,7 @@ export default function ProductDetailScreen() {
 
           {loadingRelated ? (
             <View style={styles.relatedLoadingWrap}>
-              <ActivityIndicator size="small" color={colors.gold} />
+              <TatvivahLoader size="sm" color={colors.gold} />
             </View>
           ) : relatedProducts.length === 0 ? (
             <Text style={styles.mutedText}>More products coming soon.</Text>
@@ -967,8 +976,26 @@ const styles = StyleSheet.create({
   },
 
   // Gallery
+  galleryFrame: {
+    marginTop: spacing.md,
+  },
   galleryContainer: {
     paddingHorizontal: spacing.lg,
+  },
+  galleryIndexBadge: {
+    position: "absolute",
+    bottom: 10,
+    right: spacing.lg,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: "rgba(44, 40, 37, 0.65)",
+  },
+  galleryIndexText: {
+    fontFamily: typography.sans,
+    fontSize: 10,
+    color: colors.warmWhite,
+    letterSpacing: 1,
   },
   dotsRow: {
     flexDirection: "row",

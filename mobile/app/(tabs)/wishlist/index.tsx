@@ -5,7 +5,6 @@ import {
   StyleSheet,
   FlatList,
   Pressable,
-  ActivityIndicator,
   type ListRenderItemInfo,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -18,6 +17,7 @@ import { type WishlistItemDetail } from "../../../src/services/wishlist";
 import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
 import { impactLight } from "../../../src/utils/haptics";
 import { AppHeader } from "../../../src/components/AppHeader";
+import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
 
 const currency = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -81,7 +81,7 @@ const WishlistRow = React.memo(function WishlistRow({
         hitSlop={8}
       >
         {removing ? (
-          <ActivityIndicator size="small" color={colors.brownSoft} />
+          <TatvivahLoader size="sm" color={colors.brownSoft} />
         ) : (
           <Text style={{ fontSize: 20 }}>❤️</Text>
         )}
@@ -180,7 +180,7 @@ export default function WishlistScreen() {
 
       {isLoading ? (
         <View style={styles.emptyWrap}>
-          <ActivityIndicator size="large" color={colors.gold} />
+          <TatvivahLoader label="Loading wishlist" color={colors.gold} />
         </View>
       ) : fetchError ? (
         <View style={styles.emptyWrap}>

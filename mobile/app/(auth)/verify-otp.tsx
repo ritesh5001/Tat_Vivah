@@ -22,6 +22,7 @@ import { useAuth } from "../../src/hooks/useAuth";
 import { requestOtp } from "../../src/services/auth";
 import { useToast } from "../../src/providers/ToastProvider";
 import { AppHeader } from "../../src/components/AppHeader";
+import { TatvivahLoader } from "../../src/components/TatvivahLoader";
 
 const OTP_LENGTH = 6;
 const RESEND_COOLDOWN_SECONDS = 60;
@@ -225,9 +226,11 @@ export default function VerifyOtpScreen() {
             onPress={() => handleVerify()}
             disabled={loading || !isComplete}
           >
-            <Text style={styles.primaryButtonText}>
-              {loading ? "Verifying…" : "Verify & Sign In"}
-            </Text>
+            {loading ? (
+              <TatvivahLoader size="sm" color={colors.background} />
+            ) : (
+              <Text style={styles.primaryButtonText}>Verify & Sign In</Text>
+            )}
           </Pressable>
 
           {/* Resend row */}

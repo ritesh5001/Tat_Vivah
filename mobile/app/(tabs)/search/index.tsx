@@ -7,7 +7,6 @@ import {
   TextInput,
   Pressable,
   Dimensions,
-  ActivityIndicator,
   Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -24,6 +23,7 @@ import { isAbortError } from "../../../src/services/api";
 import { SkeletonProductCard } from "../../../src/components/Skeleton";
 import { getSuggestions, type SuggestionItem, type SortOption } from "../../../src/services/search";
 import { AppHeader } from "../../../src/components/AppHeader";
+import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
 
 const { width } = Dimensions.get("window");
 const cardWidth = (width - spacing.lg * 2 - spacing.md) / 2;
@@ -510,7 +510,7 @@ export default function SearchScreen() {
         ListFooterComponent={
           loadingMore ? (
             <View style={styles.loadingMoreWrap}>
-              <ActivityIndicator size="small" color={colors.gold} />
+              <TatvivahLoader size="sm" color={colors.gold} />
             </View>
           ) : null
         }
