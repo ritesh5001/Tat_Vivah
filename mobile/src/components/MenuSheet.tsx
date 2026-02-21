@@ -22,6 +22,8 @@ export function MenuSheet({ visible, onClose, onNavigate, items }: MenuSheetProp
   const insets = useSafeAreaInsets();
   const { session, signOut } = useAuth();
   const { showToast } = useToast();
+  const [loggingOut, setLoggingOut] = React.useState(false);
+  const logoutLockRef = React.useRef(false);
 
   const menuItems = React.useMemo(() => {
     if (items) return items;
@@ -31,6 +33,7 @@ export function MenuSheet({ visible, onClose, onNavigate, items }: MenuSheetProp
         { label: "Cart", route: "/cart" },
         { label: "Wishlist", route: "/wishlist" },
         { label: "Orders", route: "/orders" },
+        { label: "Addresses", route: "/profile/addresses" },
         { label: "Notifications", route: "/notifications" },
         { label: "Profile", route: "/profile" },
         { label: "Logout", route: "__logout__" },
@@ -46,14 +49,22 @@ export function MenuSheet({ visible, onClose, onNavigate, items }: MenuSheetProp
   const handleNavigate = React.useCallback(
     async (route: string) => {
       if (route === "__logout__") {
-        await signOut();
-        showToast("Signed out successfully", "success");
-        onClose();
+        if (loggingOut || logoutLockRef.current) return;
+        logoutLockRef.current = true;
+        setLoggingOut(true);
+        try {
+          await signOut();
+          showToast("Signed out successfully", "success");
+          onClose();
+        } finally {
+          logoutLockRef.current = false;
+          setLoggingOut(false);
+        }
         return;
       }
       onNavigate?.(route);
     },
-    [onNavigate, onClose, signOut, showToast]
+    [loggingOut, onNavigate, onClose, signOut, showToast]
   );
 
   return (
@@ -73,8 +84,12 @@ export function MenuSheet({ visible, onClose, onNavigate, items }: MenuSheetProp
           {menuItems.map((item) => (
             <Pressable
               key={item.route}
-              style={styles.menuItem}
+              style={[
+                styles.menuItem,
+                item.route === "__logout__" && loggingOut && styles.menuItemDisabled,
+              ]}
               onPress={() => handleNavigate(item.route)}
+              disabled={item.route === "__logout__" && loggingOut}
             >
               <Text style={styles.menuItemText}>{item.label}</Text>
             </Pressable>
@@ -134,5 +149,8 @@ const styles = StyleSheet.create({
     color: colors.charcoal,
     textTransform: "uppercase",
     letterSpacing: 1.4,
+  },
+  menuItemDisabled: {
+    opacity: 0.5,
   },
 });

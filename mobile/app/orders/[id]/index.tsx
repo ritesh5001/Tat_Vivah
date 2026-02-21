@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  ActivityIndicator,
   RefreshControl,
   type ListRenderItemInfo,
   FlatList,
@@ -77,6 +76,8 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   "PAYMENT FAILED": { label: "PAYMENT FAILED", color: "#7A5656" },
 };
 
+const STATUS_FLOW = ["PLACED", "CONFIRMED", "SHIPPED", "DELIVERED"] as const;
+
 function getStatusInfo(status: string, paymentStatus?: string | null) {
   if (status === "PLACED") {
     if (paymentStatus === "FAILED") return STATUS_LABELS["PAYMENT FAILED"];
@@ -85,6 +86,12 @@ function getStatusInfo(status: string, paymentStatus?: string | null) {
     }
   }
   return STATUS_LABELS[status] ?? { label: status, color: colors.brownSoft };
+}
+
+function normalizeStatusForTimeline(status: string) {
+  if (status === "PROCESSING") return "CONFIRMED";
+  if (status === "CANCELLED") return "CANCELLED";
+  return status;
 }
 
 // ---------------------------------------------------------------------------
@@ -187,6 +194,14 @@ export default function OrderDetailScreen() {
     order?.status === "PLACED" &&
     paymentStatus != null &&
     paymentStatus !== "SUCCESS";
+  const timelineStatus = normalizeStatusForTimeline(order?.status ?? "PLACED");
+  const activeStepIndex = STATUS_FLOW.indexOf(
+    timelineStatus as (typeof STATUS_FLOW)[number]
+  );
+  const payableTotal =
+    typeof order?.grandTotal === "number" && order.grandTotal > 0
+      ? order.grandTotal
+      : order?.totalAmount ?? 0;
 
   // ---- Loading ----
   if (loading && !order) {
@@ -265,6 +280,43 @@ export default function OrderDetailScreen() {
           </View>
         )}
 
+        {/* Status timeline */}
+        {timelineStatus === "CANCELLED" ? (
+          <View style={styles.cancelledBanner}>
+            <Text style={styles.cancelledTitle}>Order cancelled</Text>
+            <Text style={styles.cancelledCopy}>
+              Your order was cancelled. If you need help, reach out to support.
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.timelineCard}>
+            <Text style={styles.sectionTitle}>Order progress</Text>
+            <View style={styles.timelineRow}>
+              {STATUS_FLOW.map((step, index) => {
+                const isActive = index <= activeStepIndex;
+                return (
+                  <View key={step} style={styles.timelineStep}>
+                    <View
+                      style={[
+                        styles.timelineDot,
+                        isActive && styles.timelineDotActive,
+                      ]}
+                    />
+                    <Text
+                      style={[
+                        styles.timelineLabel,
+                        isActive && styles.timelineLabelActive,
+                      ]}
+                    >
+                      {step}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        )}
+
         {/* Order summary card */}
         <DeliveredShimmer active={isDelivered}>
           <View style={[
@@ -292,7 +344,7 @@ export default function OrderDetailScreen() {
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Total</Text>
             <Text style={styles.totalValue}>
-              {currency.format(order.totalAmount)}
+              {currency.format(payableTotal)}
             </Text>
           </View>
         </View>
@@ -431,6 +483,65 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#E65100",
     lineHeight: 18,
+  },
+
+  cancelledBanner: {
+    marginBottom: spacing.md,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    backgroundColor: "#FBEFEF",
+    borderWidth: 1,
+    borderColor: "#E7C9C7",
+  },
+  cancelledTitle: {
+    fontFamily: typography.serif,
+    fontSize: 16,
+    color: colors.charcoal,
+  },
+  cancelledCopy: {
+    marginTop: spacing.xs,
+    fontFamily: typography.sans,
+    fontSize: 12,
+    color: colors.brownSoft,
+    lineHeight: 18,
+  },
+
+  timelineCard: {
+    marginBottom: spacing.md,
+    padding: spacing.lg,
+    borderRadius: radius.lg,
+    backgroundColor: colors.warmWhite,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    ...shadow.card,
+  },
+  timelineRow: {
+    marginTop: spacing.md,
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  timelineStep: {
+    alignItems: "center",
+    gap: spacing.xs,
+  },
+  timelineDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.borderSoft,
+  },
+  timelineDotActive: {
+    backgroundColor: colors.gold,
+  },
+  timelineLabel: {
+    fontFamily: typography.sans,
+    fontSize: 9,
+    color: colors.brownSoft,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  timelineLabelActive: {
+    color: colors.charcoal,
   },
 
   // Cards

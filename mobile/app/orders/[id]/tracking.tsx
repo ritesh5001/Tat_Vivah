@@ -6,7 +6,6 @@ import {
   ScrollView,
   RefreshControl,
   Pressable,
-  ActivityIndicator,
   AppState,
   type AppStateStatus,
 } from "react-native";
@@ -21,6 +20,7 @@ import {
 } from "../../../src/services/shipping";
 import { ApiError, isAbortError } from "../../../src/services/api";
 import { ShippingTimeline } from "../../../src/components/ShippingTimeline";
+import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
 import { useToast } from "../../../src/providers/ToastProvider";
 import { useAuth } from "../../../src/hooks/useAuth";
 import { impactLight } from "../../../src/utils/haptics";
@@ -215,8 +215,7 @@ export default function TrackingScreen() {
       {/* Loading state */}
       {loading && !tracking ? (
         <View style={styles.center}>
-          <ActivityIndicator color={colors.gold} size="large" />
-          <Text style={styles.loadingText}>Loading tracking…</Text>
+          <TatvivahLoader label="Loading tracking" color={colors.gold} />
         </View>
       ) : error && !tracking ? (
         /* Error state with retry */

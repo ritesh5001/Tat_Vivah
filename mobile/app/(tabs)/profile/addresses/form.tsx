@@ -7,7 +7,6 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -22,6 +21,7 @@ import { useAuth } from "../../../../src/hooks/useAuth";
 import { useAddresses } from "../../../../src/providers/AddressProvider";
 import { AnimatedPressable } from "../../../../src/components/AnimatedPressable";
 import { notifySuccess, notifyError } from "../../../../src/utils/haptics";
+import { TatvivahLoader } from "../../../../src/components/TatvivahLoader";
 import type {
   AddressLabel,
   CreateAddressPayload,
@@ -339,7 +339,7 @@ export default function AddressFormScreen() {
               disabled={isSaving}
             >
               {isSaving ? (
-                <ActivityIndicator color={colors.background} size="small" />
+                <TatvivahLoader size="sm" color={colors.background} />
               ) : (
                 <Text style={styles.primaryButtonText}>
                   {isEdit ? "Update address" : "Save address"}

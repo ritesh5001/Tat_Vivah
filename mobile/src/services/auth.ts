@@ -1,4 +1,4 @@
-import { apiRequest } from "./api";
+import { apiRequest } from "./apiClient";
 
 // ---------------------------------------------------------------------------
 // Types — mirrors backend auth contracts exactly
@@ -73,9 +73,10 @@ export const ALLOWED_ROLE = "USER" as const;
 
 /** POST /v1/auth/login */
 export async function loginUser(payload: LoginPayload): Promise<LoginResponse> {
-  return apiRequest<LoginResponse>("/v1/auth/login", {
+  return apiRequest<LoginResponse>({
+    url: "/v1/auth/login",
     method: "POST",
-    body: payload,
+    data: payload,
   });
 }
 
@@ -83,9 +84,10 @@ export async function loginUser(payload: LoginPayload): Promise<LoginResponse> {
 export async function registerUser(
   payload: RegisterUserPayload
 ): Promise<RegisterResponse> {
-  return apiRequest<RegisterResponse>("/v1/auth/register", {
+  return apiRequest<RegisterResponse>({
+    url: "/v1/auth/register",
     method: "POST",
-    body: payload,
+    data: payload,
   });
 }
 
@@ -93,9 +95,10 @@ export async function registerUser(
 export async function requestOtp(
   payload: RequestOtpPayload
 ): Promise<MessageResponse> {
-  return apiRequest<MessageResponse>("/v1/auth/request-otp", {
+  return apiRequest<MessageResponse>({
+    url: "/v1/auth/request-otp",
     method: "POST",
-    body: payload,
+    data: payload,
   });
 }
 
@@ -103,9 +106,10 @@ export async function requestOtp(
 export async function verifyOtp(
   payload: VerifyOtpPayload
 ): Promise<VerifyOtpResponse> {
-  return apiRequest<VerifyOtpResponse>("/v1/auth/verify-otp", {
+  return apiRequest<VerifyOtpResponse>({
+    url: "/v1/auth/verify-otp",
     method: "POST",
-    body: payload,
+    data: payload,
   });
 }
 
@@ -115,10 +119,11 @@ export async function logoutUser(
   accessToken: string
 ): Promise<void> {
   try {
-    await apiRequest<MessageResponse>("/v1/auth/logout", {
+    await apiRequest<MessageResponse>({
+      url: "/v1/auth/logout",
       method: "POST",
-      body: { refreshToken },
-      token: accessToken,
+      data: { refreshToken },
+      headers: { Authorization: `Bearer ${accessToken}` },
     });
   } catch {
     // Best-effort — if server is unreachable we still clear locally
@@ -143,9 +148,10 @@ export interface ResetPasswordPayload {
 export async function forgotPassword(
   payload: ForgotPasswordPayload
 ): Promise<MessageResponse> {
-  return apiRequest<MessageResponse>("/v1/auth/forgot-password", {
+  return apiRequest<MessageResponse>({
+    url: "/v1/auth/forgot-password",
     method: "POST",
-    body: payload,
+    data: payload,
   });
 }
 
@@ -153,8 +159,9 @@ export async function forgotPassword(
 export async function resetPassword(
   payload: ResetPasswordPayload
 ): Promise<MessageResponse> {
-  return apiRequest<MessageResponse>("/v1/auth/reset-password", {
+  return apiRequest<MessageResponse>({
+    url: "/v1/auth/reset-password",
     method: "POST",
-    body: payload,
+    data: payload,
   });
 }

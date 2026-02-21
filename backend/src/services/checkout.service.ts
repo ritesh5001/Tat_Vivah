@@ -292,6 +292,8 @@ export class CheckoutService {
                 };
             });
 
+            const totalQty = itemsWithStock.reduce((sum, item) => sum + item.quantity, 0);
+            const flatGstFee = new Prisma.Decimal(180).mul(totalQty);
             const orderSubTotal = round2(
                 discountedLines.reduce((sum, item) => sum.add(item.discountedTaxable), new Prisma.Decimal(0)),
             );
@@ -301,7 +303,9 @@ export class CheckoutService {
             const orderGrandTotal = round2(
                 discountedLines.reduce((sum, item) => sum.add(item.lineTotal), new Prisma.Decimal(0)),
             );
-            const grandTotalWithShipping = round2(orderGrandTotal.add(shippingFee));
+            const orderTaxTotalWithFlat = round2(orderTaxTotal.add(flatGstFee));
+            const orderGrandTotalWithFlat = round2(orderGrandTotal.add(flatGstFee));
+            const grandTotalWithShipping = round2(orderGrandTotalWithFlat.add(shippingFee));
             const totalAmount = grandTotalWithShipping;
 
             // 2b. Create order with items
@@ -310,7 +314,7 @@ export class CheckoutService {
                     userId,
                     totalAmount: Number(totalAmount.toString()),
                     subTotalAmount: Number(orderSubTotal.toString()),
-                    totalTaxAmount: Number(orderTaxTotal.toString()),
+                    totalTaxAmount: Number(orderTaxTotalWithFlat.toString()),
                     grandTotal: Number(grandTotalWithShipping.toString()),
                     couponCode: appliedCoupon?.couponCode ?? null,
                     discountAmount: totalDiscount,

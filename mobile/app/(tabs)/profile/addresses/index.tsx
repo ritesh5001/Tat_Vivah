@@ -6,7 +6,6 @@ import {
   FlatList,
   Alert,
   Modal,
-  ActivityIndicator,
   Pressable,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -23,6 +22,7 @@ import { useAddresses } from "../../../../src/providers/AddressProvider";
 import { AnimatedPressable } from "../../../../src/components/AnimatedPressable";
 import { impactLight, notifySuccess, notifyError } from "../../../../src/utils/haptics";
 import type { Address } from "../../../../src/services/addresses";
+import { TatvivahLoader } from "../../../../src/components/TatvivahLoader";
 
 // ---------------------------------------------------------------------------
 // Row component — memoized for FlatList performance
@@ -241,8 +241,7 @@ export default function AddressesScreen() {
 
       {isLoading ? (
         <View style={styles.loaderContainer}>
-          <ActivityIndicator color={colors.gold} />
-          <Text style={styles.loadingText}>Loading addresses…</Text>
+          <TatvivahLoader label="Loading addresses" color={colors.gold} />
         </View>
       ) : fetchError ? (
         <View style={styles.emptyContainer}>
@@ -303,7 +302,7 @@ export default function AddressesScreen() {
                 disabled={isDeleting}
               >
                 {isDeleting ? (
-                  <ActivityIndicator color={colors.background} size="small" />
+                  <TatvivahLoader size="sm" color={colors.background} />
                 ) : (
                   <Text style={styles.modalConfirmText}>Delete</Text>
                 )}

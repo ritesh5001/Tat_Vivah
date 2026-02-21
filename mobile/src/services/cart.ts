@@ -1,4 +1,4 @@
-import { apiRequest } from "./api";
+import { apiRequest } from "./apiClient";
 
 export interface CartItemDetails {
   id: string;
@@ -52,17 +52,22 @@ export interface AddCartItemPayload {
 }
 
 export async function getCart(token?: string | null): Promise<CartResponse> {
-  return apiRequest<CartResponse>("/v1/cart", { method: "GET", token });
+  return apiRequest<CartResponse>({
+    url: "/v1/cart",
+    method: "GET",
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  });
 }
 
 export async function addCartItem(
   payload: AddCartItemPayload,
   token?: string | null
 ): Promise<CartItemMutationResponse> {
-  return apiRequest<CartItemMutationResponse>("/v1/cart/items", {
+  return apiRequest<CartItemMutationResponse>({
+    url: "/v1/cart/items",
     method: "POST",
-    body: payload,
-    token,
+    data: payload,
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
 }
 
@@ -71,10 +76,11 @@ export async function updateCartItem(
   quantity: number,
   token?: string | null
 ): Promise<CartItemMutationResponse> {
-  return apiRequest<CartItemMutationResponse>(`/v1/cart/items/${itemId}`, {
+  return apiRequest<CartItemMutationResponse>({
+    url: `/v1/cart/items/${itemId}`,
     method: "PUT",
-    body: { quantity },
-    token,
+    data: { quantity },
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
 }
 
@@ -82,9 +88,10 @@ export async function removeCartItem(
   itemId: string,
   token?: string | null
 ): Promise<CartItemDeleteResponse> {
-  return apiRequest<CartItemDeleteResponse>(`/v1/cart/items/${itemId}`, {
+  return apiRequest<CartItemDeleteResponse>({
+    url: `/v1/cart/items/${itemId}`,
     method: "DELETE",
-    token,
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
 }
 
@@ -106,10 +113,11 @@ export async function validateCoupon(
   code: string,
   token?: string | null
 ): Promise<ValidateCouponResponse> {
-  return apiRequest<ValidateCouponResponse>("/v1/coupons/validate", {
+  return apiRequest<ValidateCouponResponse>({
+    url: "/v1/coupons/validate",
     method: "POST",
-    body: { code },
-    token,
+    data: { code },
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
 }
 
@@ -137,12 +145,10 @@ export async function checkout(
       couponCode?: string | null;
       discountAmount?: number;
     };
-  }>(
-    "/v1/checkout",
-    {
-      method: "POST",
-      body: payload ?? {},
-      token,
-    }
-  );
+  }>({
+    url: "/v1/checkout",
+    method: "POST",
+    data: payload ?? {},
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  });
 }

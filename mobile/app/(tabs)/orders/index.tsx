@@ -7,7 +7,6 @@ import {
   Pressable,
   Modal,
   TextInput,
-  ActivityIndicator,
   type ListRenderItemInfo,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -18,13 +17,14 @@ import { listMyReturns, requestReturn } from "../../../src/services/returns";
 import { getPaymentDetails, retryPayment, verifyPayment } from "../../../src/services/payments";
 import { openRazorpayCheckout } from "../../../src/services/razorpay";
 import { useAuth } from "../../../src/hooks/useAuth";
-import { useRouter } from "expo-router";
+import { usePathname, useRouter } from "expo-router";
 import { isAbortError } from "../../../src/services/api";
 import { SkeletonOrderRow } from "../../../src/components/Skeleton";
 import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
 import { useToast } from "../../../src/providers/ToastProvider";
 import { notifySuccess, notifyError, impactMedium } from "../../../src/utils/haptics";
 import { AppHeader } from "../../../src/components/AppHeader";
+import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
 
 const currency = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -67,6 +67,7 @@ const OrderCard = React.memo(function OrderCard({
   paymentLabel,
   paymentStyle,
   onPress,
+  onTrack,
   onRetry,
   isRetrying,
   onRequestCancellation,
@@ -80,6 +81,7 @@ const OrderCard = React.memo(function OrderCard({
   paymentLabel: string;
   paymentStyle: { color: string };
   onPress: (id: string) => void;
+  onTrack?: (id: string) => void;
   onRetry?: (id: string) => void;
   isRetrying?: boolean;
   onRequestCancellation?: (id: string) => void;
@@ -90,10 +92,18 @@ const OrderCard = React.memo(function OrderCard({
   returnStatus?: string | null;
 }) {
   const canRetry = paymentLabel === "PAYMENT FAILED" || paymentLabel === "PAYMENT PENDING";
+  const itemCount = order.items?.length ?? 0;
+  const firstItemTitle = order.items?.[0]?.productTitle ?? "Item";
+  const itemSummary =
+    itemCount > 1 ? `${firstItemTitle} + ${itemCount - 1} more` : firstItemTitle;
   const canRequestCancellation =
     (order.status === "PLACED" || order.status === "CONFIRMED") &&
     order.shipmentStatus !== "SHIPPED" &&
     !showCancellationRequested;
+  const payableTotal =
+    typeof order.grandTotal === "number" && order.grandTotal > 0
+      ? order.grandTotal
+      : order.totalAmount ?? 0;
   const hasReturnRequest = !!returnStatus && returnStatus !== "REJECTED";
   const canRequestReturn =
     order.status === "DELIVERED" && !hasReturnRequest;
@@ -104,23 +114,46 @@ const OrderCard = React.memo(function OrderCard({
       onPress={() => onPress(order.id)}
     >
       <View style={styles.orderHeader}>
-        <Text style={styles.orderTitle}>
-          Order {order.id.slice(0, 8).toUpperCase()}
-        </Text>
-        <Text style={[styles.orderStatus, paymentStyle]}>{paymentLabel}</Text>
+        <View>
+          <Text style={styles.orderTitle}>
+            Order {order.id.slice(0, 8).toUpperCase()}
+          </Text>
+          <Text style={styles.orderMeta}>
+            {order.createdAt
+              ? new Date(order.createdAt).toLocaleDateString("en-IN", {
+                  month: "long",
+                  day: "numeric",
+                  year: "numeric",
+                })
+              : "—"}
+          </Text>
+        </View>
+        <View style={[styles.statusPill, { borderColor: paymentStyle.color }]}>
+          <View
+            style={[styles.statusDot, { backgroundColor: paymentStyle.color }]}
+          />
+          <Text style={[styles.orderStatus, paymentStyle]}>{paymentLabel}</Text>
+        </View>
       </View>
-      <Text style={styles.orderMeta}>
-        {order.createdAt
-          ? new Date(order.createdAt).toLocaleDateString("en-IN", {
-              month: "long",
-              day: "numeric",
-              year: "numeric",
-            })
-          : "—"}
+
+      <Text style={styles.orderItems} numberOfLines={1}>
+        {itemSummary}
       </Text>
-      <Text style={styles.orderTotal}>
-        {currency.format(order.totalAmount ?? 0)}
-      </Text>
+
+      <View style={styles.orderFooter}>
+        <Text style={styles.orderTotal}>
+          {currency.format(payableTotal)}
+          {itemCount ? ` | ${itemCount} item${itemCount > 1 ? "s" : ""}` : ""}
+        </Text>
+        {onTrack && order.status !== "CANCELLED" ? (
+          <Pressable
+            style={styles.trackLink}
+            onPress={() => onTrack(order.id)}
+          >
+            <Text style={styles.trackLinkText}>Track</Text>
+          </Pressable>
+        ) : null}
+      </View>
       {canRetry && onRetry && (
         <Pressable
           style={[styles.retryPaymentButton, isRetrying && styles.retryPaymentButtonDisabled]}
@@ -170,6 +203,7 @@ const OrderCard = React.memo(function OrderCard({
 
 export default function OrdersScreen() {
   const router = useRouter();
+  const pathname = usePathname();
   const { session, isLoading: authLoading } = useAuth();
   const token = session?.accessToken ?? null;
   const { showToast } = useToast();
@@ -297,7 +331,6 @@ export default function OrdersScreen() {
       router.replace(`/login?returnTo=${returnTo}`);
       return;
     }
-          <AppHeader title="Orders" subtitle="Track purchases" showMenu showBack />
     loadOrders();
   }, [authLoading, token, router, loadOrders, pathname]);
 
@@ -515,6 +548,7 @@ export default function OrdersScreen() {
           paymentLabel={label}
           paymentStyle={getStatusStyle(label)}
           onPress={handleOrderPress}
+          onTrack={(id) => router.push(`/orders/${id}/tracking`)}
           onRetry={handleRetryPayment}
           isRetrying={retryingOrderId === item.id}
           onRequestCancellation={openCancellationModal}
@@ -526,7 +560,7 @@ export default function OrdersScreen() {
         />
       );
     },
-    [paymentStatus, cancellationByOrder, returnByOrder, handleOrderPress, handleRetryPayment, retryingOrderId, openCancellationModal, requestingCancellationIds, openReturnModal, requestingReturnIds]
+    [paymentStatus, cancellationByOrder, returnByOrder, handleOrderPress, handleRetryPayment, retryingOrderId, openCancellationModal, requestingCancellationIds, openReturnModal, requestingReturnIds, router]
   );
 
   const keyExtractorOrder = React.useCallback(
@@ -616,7 +650,7 @@ export default function OrdersScreen() {
                 disabled={!cancelReason.trim() || (cancelModalOrderId ? requestingCancellationIds.has(cancelModalOrderId) : false)}
               >
                 {cancelModalOrderId && requestingCancellationIds.has(cancelModalOrderId) ? (
-                  <ActivityIndicator color={colors.background} size="small" />
+                  <TatvivahLoader size="sm" color={colors.background} />
                 ) : (
                   <Text style={styles.modalConfirmText}>Submit</Text>
                 )}
@@ -659,7 +693,7 @@ export default function OrdersScreen() {
                 disabled={!returnReason.trim() || (returnModalOrderId ? requestingReturnIds.has(returnModalOrderId) : false)}
               >
                 {returnModalOrderId && requestingReturnIds.has(returnModalOrderId) ? (
-                  <ActivityIndicator color={colors.background} size="small" />
+                  <TatvivahLoader size="sm" color={colors.background} />
                 ) : (
                   <Text style={styles.modalConfirmText}>Submit</Text>
                 )}
@@ -699,8 +733,8 @@ const styles = StyleSheet.create({
   },
   orderCard: {
     marginBottom: spacing.md,
-    padding: spacing.md,
-    borderRadius: radius.lg,
+    padding: spacing.lg,
+    borderRadius: radius.xl,
     backgroundColor: colors.warmWhite,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -709,18 +743,34 @@ const styles = StyleSheet.create({
   orderHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: spacing.sm,
   },
   orderTitle: {
     fontFamily: typography.serif,
-    fontSize: 16,
+    fontSize: 17,
     color: colors.charcoal,
   },
   orderStatus: {
     fontFamily: typography.sans,
-    fontSize: 10,
-    color: colors.gold,
+    fontSize: 9,
     textTransform: "uppercase",
     letterSpacing: 1.2,
+  },
+  statusPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    backgroundColor: colors.background,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   orderMeta: {
     marginTop: spacing.xs,
@@ -728,10 +778,37 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.brownSoft,
   },
-  orderTotal: {
+  orderItems: {
+    marginTop: spacing.md,
+    fontFamily: typography.sans,
+    fontSize: 12,
+    color: colors.brown,
+  },
+  orderFooter: {
     marginTop: spacing.sm,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.sm,
+  },
+  orderTotal: {
     fontFamily: typography.sansMedium,
     fontSize: 12,
+    color: colors.charcoal,
+  },
+  trackLink: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.background,
+  },
+  trackLinkText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 10,
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
     color: colors.charcoal,
   },
   loadingCard: {

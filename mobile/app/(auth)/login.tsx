@@ -13,6 +13,8 @@ import { colors, radius, spacing, typography, shadow } from "../../src/theme/tok
 import { useAuth } from "../../src/hooks/useAuth";
 import { useToast } from "../../src/providers/ToastProvider";
 import { AppHeader } from "../../src/components/AppHeader";
+import { ApiError } from "../../src/services/api";
+import { TatvivahLoader } from "../../src/components/TatvivahLoader";
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -52,11 +54,14 @@ export default function LoginScreen() {
     } catch (err) {
       const raw = err instanceof Error ? err.message : "Login failed";
       const lowered = raw.toLowerCase();
-      const message = lowered.includes("not found")
-        ? "User not found"
-        : lowered.includes("invalid")
-          ? "Invalid credentials"
-          : raw;
+      const message =
+        err instanceof ApiError && err.statusCode === 401
+          ? "Invalid email or password"
+          : lowered.includes("not found")
+            ? "User not found"
+            : lowered.includes("invalid")
+              ? "Invalid credentials"
+              : raw;
       setError(message);
       showToast(message, "error");
     } finally {
@@ -111,10 +116,16 @@ export default function LoginScreen() {
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-          <Pressable style={styles.primaryButton} onPress={handleLogin}>
-            <Text style={styles.primaryButtonText}>
-              {loading ? "Signing in..." : "Sign in"}
-            </Text>
+          <Pressable
+            style={[styles.primaryButton, loading && styles.buttonDisabled]}
+            onPress={handleLogin}
+            disabled={loading}
+          >
+            {loading ? (
+              <TatvivahLoader size="sm" color={colors.background} />
+            ) : (
+              <Text style={styles.primaryButtonText}>Sign in</Text>
+            )}
           </Pressable>
 
           <View style={styles.dividerRow}>
@@ -235,6 +246,9 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     paddingVertical: spacing.sm,
     alignItems: "center",
+  },
+  buttonDisabled: {
+    opacity: 0.7,
   },
   primaryButtonText: {
     fontFamily: typography.sansMedium,
