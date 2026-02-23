@@ -19,9 +19,30 @@ import {
 } from "@/services/admin";
 import { toast } from "sonner";
 
-const emptyForm: CreateCommissionRulePayload = {
-  type: "GLOBAL",
-  percentage: 0,
+type RuleScope = "GLOBAL" | "CATEGORY" | "SELLER";
+
+function getRuleScope(rule: { sellerId?: string | null; categoryId?: string | null }): RuleScope {
+  if (rule.sellerId) return "SELLER";
+  if (rule.categoryId) return "CATEGORY";
+  return "GLOBAL";
+}
+
+interface FormState {
+  scope: RuleScope;
+  sellerId: string;
+  categoryId: string;
+  commissionPercent: number;
+  platformFee: number;
+  isActive: boolean;
+}
+
+const emptyForm: FormState = {
+  scope: "GLOBAL",
+  sellerId: "",
+  categoryId: "",
+  commissionPercent: 0,
+  platformFee: 0,
+  isActive: true,
 };
 
 export default function AdminCommissionsPage() {
@@ -32,11 +53,11 @@ export default function AdminCommissionsPage() {
 
   // Create modal
   const [showCreate, setShowCreate] = React.useState(false);
-  const [createForm, setCreateForm] = React.useState<CreateCommissionRulePayload>({ ...emptyForm });
+  const [createForm, setCreateForm] = React.useState<FormState>({ ...emptyForm });
 
   // Edit modal
   const [editingId, setEditingId] = React.useState<string | null>(null);
-  const [editForm, setEditForm] = React.useState<UpdateCommissionRulePayload>({});
+  const [editForm, setEditForm] = React.useState<FormState>({ ...emptyForm });
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -56,22 +77,30 @@ export default function AdminCommissionsPage() {
 
   React.useEffect(() => { load(); }, [load]);
 
+  const formToPayload = (form: FormState): CreateCommissionRulePayload => ({
+    commissionPercent: form.commissionPercent,
+    platformFee: form.platformFee,
+    isActive: form.isActive,
+    sellerId: form.scope === "SELLER" ? form.sellerId || null : null,
+    categoryId: form.scope === "CATEGORY" ? form.categoryId || null : null,
+  });
+
   const handleCreate = async () => {
-    if (createForm.percentage <= 0 || createForm.percentage > 100) {
-      toast.error("Percentage must be between 0.01 and 100.");
+    if (createForm.commissionPercent <= 0 || createForm.commissionPercent > 100) {
+      toast.error("Commission percentage must be between 0.01 and 100.");
       return;
     }
-    if (createForm.type === "CATEGORY" && !createForm.categoryId) {
+    if (createForm.scope === "CATEGORY" && !createForm.categoryId) {
       toast.error("Select a category for category-level rules.");
       return;
     }
-    if (createForm.type === "SELLER" && !createForm.sellerId) {
+    if (createForm.scope === "SELLER" && !createForm.sellerId) {
       toast.error("Enter a seller ID for seller-level rules.");
       return;
     }
     setSaving(true);
     try {
-      await createCommissionRule(createForm);
+      await createCommissionRule(formToPayload(createForm));
       toast.success("Commission rule created.");
       setCreateForm({ ...emptyForm });
       setShowCreate(false);
@@ -86,22 +115,31 @@ export default function AdminCommissionsPage() {
   const openEdit = (rule: CommissionRule) => {
     setEditingId(rule.id);
     setEditForm({
-      type: rule.type,
-      percentage: rule.percentage,
-      categoryId: rule.categoryId ?? undefined,
-      sellerId: rule.sellerId ?? undefined,
+      scope: getRuleScope(rule),
+      commissionPercent: rule.commissionPercent,
+      platformFee: rule.platformFee,
+      isActive: rule.isActive,
+      categoryId: rule.categoryId ?? "",
+      sellerId: rule.sellerId ?? "",
     });
   };
 
   const handleUpdate = async () => {
     if (!editingId) return;
-    if ((editForm.percentage ?? 0) <= 0 || (editForm.percentage ?? 0) > 100) {
-      toast.error("Percentage must be between 0.01 and 100.");
+    if (editForm.commissionPercent <= 0 || editForm.commissionPercent > 100) {
+      toast.error("Commission percentage must be between 0.01 and 100.");
       return;
     }
     setSaving(true);
     try {
-      await updateCommissionRule(editingId, editForm);
+      const payload: UpdateCommissionRulePayload = {
+        commissionPercent: editForm.commissionPercent,
+        platformFee: editForm.platformFee,
+        isActive: editForm.isActive,
+        sellerId: editForm.scope === "SELLER" ? editForm.sellerId || null : null,
+        categoryId: editForm.scope === "CATEGORY" ? editForm.categoryId || null : null,
+      };
+      await updateCommissionRule(editingId, payload);
       toast.success("Commission rule updated.");
       setEditingId(null);
       load();
@@ -124,18 +162,19 @@ export default function AdminCommissionsPage() {
   };
 
   const getRuleLabel = (rule: CommissionRule) => {
-    if (rule.type === "GLOBAL") return "Global Default";
-    if (rule.type === "CATEGORY") {
+    const scope = getRuleScope(rule);
+    if (scope === "GLOBAL") return "Global Default";
+    if (scope === "CATEGORY") {
       const cat = categories.find((c) => c.id === rule.categoryId);
-      return `Category: ${cat?.name ?? rule.categoryId}`;
+      return `Category: ${cat?.name ?? rule.category?.name ?? rule.categoryId}`;
     }
-    if (rule.type === "SELLER") return `Seller: ${rule.sellerId}`;
-    return rule.type;
+    const sellerLabel = rule.seller?.seller_profiles?.store_name ?? rule.seller?.email ?? rule.sellerId;
+    return `Seller: ${sellerLabel}`;
   };
 
-  const typeBadgeClass = (type: string) => {
-    if (type === "GLOBAL") return "border-[#7B9971]/30 text-[#5A7352] bg-[#7B9971]/5";
-    if (type === "CATEGORY") return "border-[#B7956C]/30 text-[#8A7054] bg-[#B7956C]/5";
+  const typeBadgeClass = (scope: RuleScope) => {
+    if (scope === "GLOBAL") return "border-[#7B9971]/30 text-[#5A7352] bg-[#7B9971]/5";
+    if (scope === "CATEGORY") return "border-gold/30 text-[#8A7054] bg-gold/5";
     return "border-[#6B8CAE]/30 text-[#4A6B8C] bg-[#6B8CAE]/5";
   };
 
@@ -143,15 +182,15 @@ export default function AdminCommissionsPage() {
     values,
     onChange,
   }: {
-    values: Record<string, any>;
-    onChange: (field: string, value: any) => void;
+    values: FormState;
+    onChange: (field: keyof FormState, value: any) => void;
   }) => (
     <div className="space-y-4">
       <div>
-        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Rule Type *</Label>
+        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Rule Scope *</Label>
         <select
-          value={values.type ?? "GLOBAL"}
-          onChange={(e) => onChange("type", e.target.value)}
+          value={values.scope}
+          onChange={(e) => onChange("scope", e.target.value)}
           className="mt-1 flex h-11 w-full items-center rounded-md border border-input bg-background px-3 py-2 text-sm"
         >
           <option value="GLOBAL">Global</option>
@@ -160,12 +199,12 @@ export default function AdminCommissionsPage() {
         </select>
       </div>
 
-      {values.type === "CATEGORY" && (
+      {values.scope === "CATEGORY" && (
         <div>
           <Label className="text-xs uppercase tracking-wider text-muted-foreground">Category *</Label>
           <select
-            value={values.categoryId ?? ""}
-            onChange={(e) => onChange("categoryId", e.target.value || undefined)}
+            value={values.categoryId}
+            onChange={(e) => onChange("categoryId", e.target.value)}
             className="mt-1 flex h-11 w-full items-center rounded-md border border-input bg-background px-3 py-2 text-sm"
           >
             <option value="">Select category</option>
@@ -176,11 +215,11 @@ export default function AdminCommissionsPage() {
         </div>
       )}
 
-      {values.type === "SELLER" && (
+      {values.scope === "SELLER" && (
         <div>
           <Label className="text-xs uppercase tracking-wider text-muted-foreground">Seller ID *</Label>
           <Input
-            value={values.sellerId ?? ""}
+            value={values.sellerId}
             onChange={(e) => onChange("sellerId", e.target.value)}
             className="mt-1 h-11"
             placeholder="Paste seller UUID"
@@ -188,19 +227,43 @@ export default function AdminCommissionsPage() {
         </div>
       )}
 
-      <div>
-        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Commission Percentage *</Label>
-        <Input
-          type="number"
-          min={0.01}
-          max={100}
-          step={0.01}
-          value={values.percentage ?? 0}
-          onChange={(e) => onChange("percentage", Number(e.target.value))}
-          className="mt-1 h-11"
-          placeholder="e.g. 12.5"
-        />
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Commission % *</Label>
+          <Input
+            type="number"
+            min={0.01}
+            max={100}
+            step={0.01}
+            value={values.commissionPercent}
+            onChange={(e) => onChange("commissionPercent", Number(e.target.value))}
+            className="mt-1 h-11"
+            placeholder="e.g. 12.5"
+          />
+        </div>
+        <div>
+          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Platform Fee (₹)</Label>
+          <Input
+            type="number"
+            min={0}
+            step={1}
+            value={values.platformFee}
+            onChange={(e) => onChange("platformFee", Number(e.target.value))}
+            className="mt-1 h-11"
+            placeholder="e.g. 50"
+          />
+        </div>
       </div>
+
+      <label className="flex items-center gap-2 text-sm cursor-pointer">
+        <input
+          type="checkbox"
+          checked={values.isActive}
+          onChange={(e) => onChange("isActive", e.target.checked)}
+          className="h-4 w-4"
+        />
+        Active
+      </label>
     </div>
   );
 
@@ -241,26 +304,32 @@ export default function AdminCommissionsPage() {
             <div className="p-8 text-center"><p className="text-sm text-muted-foreground">No commission rules yet.</p></div>
           ) : (
             <div className="divide-y divide-border-soft">
-              {rules.map((rule) => (
-                <div key={rule.id} className="flex flex-col gap-3 p-6 md:flex-row md:items-center md:justify-between">
-                  <div className="flex-1 space-y-1">
-                    <p className="font-medium text-foreground">{getRuleLabel(rule)}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Created {new Date(rule.createdAt).toLocaleDateString()}
-                    </p>
+              {rules.map((rule) => {
+                const scope = getRuleScope(rule);
+                return (
+                  <div key={rule.id} className="flex flex-col gap-3 p-6 md:flex-row md:items-center md:justify-between">
+                    <div className="flex-1 space-y-1">
+                      <p className="font-medium text-foreground">{getRuleLabel(rule)}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Platform fee: ₹{rule.platformFee} · Created {new Date(rule.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className={`px-3 py-1 text-[10px] uppercase tracking-wider border ${typeBadgeClass(scope)}`}>
+                        {scope}
+                      </span>
+                      <span className={`px-3 py-1 text-[10px] uppercase tracking-wider border ${rule.isActive ? "border-[#7B9971]/30 text-[#5A7352] bg-[#7B9971]/5" : "border-[#A67575]/30 text-[#7A5656] bg-[#A67575]/5"}`}>
+                        {rule.isActive ? "Active" : "Inactive"}
+                      </span>
+                      <span className="px-3 py-1 text-sm font-medium text-foreground">
+                        {rule.commissionPercent}%
+                      </span>
+                      <Button size="sm" variant="outline" onClick={() => openEdit(rule)}>Edit</Button>
+                      <Button size="sm" variant="outline" className="border-[#A67575]/40 text-[#7A5656]" onClick={() => handleDelete(rule.id)}>Delete</Button>
+                    </div>
                   </div>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <span className={`px-3 py-1 text-[10px] uppercase tracking-wider border ${typeBadgeClass(rule.type)}`}>
-                      {rule.type}
-                    </span>
-                    <span className="px-3 py-1 text-sm font-medium text-foreground">
-                      {rule.percentage}%
-                    </span>
-                    <Button size="sm" variant="outline" onClick={() => openEdit(rule)}>Edit</Button>
-                    <Button size="sm" variant="outline" className="border-[#A67575]/40 text-[#7A5656]" onClick={() => handleDelete(rule.id)}>Delete</Button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
