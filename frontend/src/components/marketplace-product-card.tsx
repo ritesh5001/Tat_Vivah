@@ -68,28 +68,28 @@ export function MarketplaceProductCard({ product }: { product: MarketplaceCardPr
       </div>
 
       <div className="pt-4 text-center">
-        <h3 className="line-clamp-2 font-serif text-[1.05rem] font-normal tracking-[0.01em] text-foreground transition-colors duration-300 group-hover:text-gold">
+        <h3 className="line-clamp-2 font-serif text-[14px] font-normal tracking-[0.01em] text-foreground transition-colors duration-300 group-hover:text-gold">
           {product.title}
         </h3>
-        <p className="mt-4 text-xs uppercase tracking-[0.35em] text-muted-foreground/90">
+        <p className="mt-3 text-[11px] uppercase tracking-[0.3em] text-muted-foreground/90">
           {product.category?.name ?? "Collection"}
         </p>
         {typeof displayPrice === "number" ? (
           <div className="mt-2 flex items-baseline justify-center gap-2">
-            <span className="text-2xl font-normal tracking-[0.01em] text-foreground">
+            <span className="text-[15px] font-normal tracking-[0.01em] text-foreground">
               {currency.format(displayPrice)}
             </span>
             {typeof originalPrice === "number" ? (
-              <span className="text-2xl font-normal text-muted-foreground/70 line-through">
+              <span className="text-[15px] font-normal text-muted-foreground/70 line-through">
                 {currency.format(originalPrice)}
               </span>
             ) : null}
             {typeof discountPercentage === "number" && discountPercentage > 0 ? (
-              <span className="text-sm font-medium uppercase tracking-widest text-destructive">{discountPercentage}% OFF</span>
+              <span className="text-[12px] font-medium uppercase tracking-wider text-destructive">{discountPercentage}% OFF</span>
             ) : null}
           </div>
         ) : (
-          <p className="mt-2 text-sm text-muted-foreground">Price on request</p>
+          <p className="mt-2 text-[13px] text-muted-foreground">Price on request</p>
         )}
       </div>
     </Link>
