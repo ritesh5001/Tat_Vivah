@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { WishlistHeartButton } from "@/components/wishlist-heart-button";
 
 const currency = new Intl.NumberFormat("en-IN", {
@@ -54,11 +55,14 @@ export function MarketplaceProductCard({ product }: { product: MarketplaceCardPr
   return (
     <Link href={`/product/${product.id}`} className="group block">
       <div className="relative overflow-hidden bg-cream dark:bg-brown/20 aspect-3/4">
-        <img
+        <Image
           src={product.images?.[0] ?? "/images/product-placeholder.svg"}
           alt={product.title}
-          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+          fill
+          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+          className="object-cover transition-transform duration-500 group-hover:scale-[1.02]"
           loading="lazy"
+          quality={75}
         />
         <WishlistHeartButton
           productId={product.id}

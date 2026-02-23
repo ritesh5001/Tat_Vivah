@@ -1,5 +1,6 @@
 import express, { type Application } from 'express';
 import cors from 'cors';
+import compression from 'compression';
 import { errorMiddleware } from './middlewares/error.middleware.js';
 import { register, httpRequestDuration } from './config/metrics.js';
 import { prisma } from './config/db.js';
@@ -54,6 +55,9 @@ export function createApp(): Application {
     // =========================================================================
     // GLOBAL MIDDLEWARE
     // =========================================================================
+
+    // Gzip / Brotli compression for all responses (reduces payload ~70%)
+    app.use(compression());
 
     // Parse JSON bodies
     app.use(express.json());

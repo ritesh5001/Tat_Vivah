@@ -235,6 +235,7 @@ function SlideBackground({
           fill
           className="object-cover"
           sizes="100vw"
+          quality={priority ? 80 : 70}
           priority={priority}
           loading={priority ? "eager" : "lazy"}
         />
@@ -250,6 +251,7 @@ function SlideBackground({
           fill
           className="object-cover"
           sizes="100vw"
+          quality={priority ? 80 : 70}
           priority={priority}
           loading={priority ? "eager" : "lazy"}
         />

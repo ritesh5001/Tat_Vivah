@@ -2,6 +2,8 @@
 
 import * as React from "react";
 import Link from "next/link";
+import Image from "next/image";
+import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import {
   staggerContainerVariants,
@@ -9,14 +11,28 @@ import {
   fadeInVariants,
   viewportSettings
 } from "@/lib/motion.config";
-import { ReviewSection } from "@/components/review-section";
-import { FeaturesMarquee } from "@/components/features-marquee";
 import { getBestsellers, type BestsellerProduct } from "@/services/bestsellers";
-import { RecommendedForYouSection } from "@/components/recommended-for-you-section";
-import { RecentlyViewedSection } from "@/components/recently-viewed-section";
 import { LuxuryHero } from "@/components/home/LuxuryHero";
-import { WeddingSectionBanner } from "@/components/home/WeddingSectionBanner";
+import { FeaturesMarquee } from "@/components/features-marquee";
 import { WishlistHeartButton } from "@/components/wishlist-heart-button";
+
+/* ── Below-fold components loaded on demand to reduce initial JS ── */
+const WeddingSectionBanner = dynamic(
+  () => import("@/components/home/WeddingSectionBanner").then((m) => m.WeddingSectionBanner),
+  { ssr: false },
+);
+const ReviewSection = dynamic(
+  () => import("@/components/review-section").then((m) => m.ReviewSection),
+  { ssr: false },
+);
+const RecommendedForYouSection = dynamic(
+  () => import("@/components/recommended-for-you-section").then((m) => m.RecommendedForYouSection),
+  { ssr: false },
+);
+const RecentlyViewedSection = dynamic(
+  () => import("@/components/recently-viewed-section").then((m) => m.RecentlyViewedSection),
+  { ssr: false },
+);
 export default function Home() {
   const [bestsellers, setBestsellers] = React.useState<BestsellerProduct[]>([]);
   const [loadingBestsellers, setLoadingBestsellers] = React.useState(true);
@@ -124,10 +140,14 @@ export default function Home() {
                   className="group flex flex-col items-center text-center"
                 >
                   <div className="mb-5 h-56 w-56 overflow-hidden rounded-full border border-border-soft bg-cream dark:bg-brown/20 transition-all duration-400 group-hover:border-gold/40 group-hover:scale-[1.02]">
-                    <img
+                    <Image
                       src={category.image}
                       alt={category.name}
+                      width={224}
+                      height={224}
                       className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      loading="lazy"
+                      quality={75}
                     />
                   </div>
                   <h3 className="font-serif text-xl font-normal text-foreground">
@@ -206,10 +226,14 @@ export default function Home() {
                   <Link href="/marketplace" className="group block">
                     <div className="relative overflow-hidden bg-cream dark:bg-brown/20 aspect-3/4">
                       {item.image ? (
-                        <img
+                        <Image
                           src={item.image}
                           alt={item.title}
-                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+                          fill
+                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                          className="object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+                          loading="lazy"
+                          quality={75}
                         />
                       ) : (
                         <div className="absolute inset-0 flex items-center justify-center">

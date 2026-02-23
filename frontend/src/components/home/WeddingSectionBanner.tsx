@@ -42,6 +42,7 @@ export function WeddingSectionBanner() {
             fill
             className="object-cover"
             sizes="100vw"
+            quality={70}
             priority={false}
             loading="lazy"
           />
@@ -54,6 +55,7 @@ export function WeddingSectionBanner() {
             fill
             className="object-cover"
             sizes="100vw"
+            quality={70}
             priority={false}
             loading="lazy"
           />

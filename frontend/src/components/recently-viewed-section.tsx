@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import {
   staggerContainerVariants,
@@ -116,11 +117,14 @@ export function RecentlyViewedSection() {
                 className="group block"
               >
                 <div className="relative mb-4 overflow-hidden bg-cream dark:bg-brown/20 aspect-3/4 border border-border-soft transition-all duration-400 group-hover:border-gold/30">
-                  <img
+                  <Image
                     src={product.images?.[0] ?? "/images/product-placeholder.svg"}
                     alt={product.title}
-                    className="h-full w-full object-contain p-4 transition-transform duration-500 group-hover:scale-[1.02]"
+                    fill
+                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                    className="object-contain p-4 transition-transform duration-500 group-hover:scale-[1.02]"
                     loading="lazy"
+                    quality={75}
                   />
                   <span className="absolute top-3 left-3 bg-card/90 backdrop-blur-sm px-2.5 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground border border-border-soft">
                     {product.category?.name ?? "Featured"}
