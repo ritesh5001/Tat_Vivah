@@ -59,7 +59,7 @@ export function WeddingSectionBanner() {
           />
         </div>
 
-        <div className="absolute inset-0 z-10 hidden bg-linear-to-r from-black/80 via-black/45 to-transparent md:block" />
+        <div className="absolute inset-0 z-10 hidden bg-linear-to-l from-black/80 via-black/45 to-transparent md:block" />
         <div className="absolute inset-0 z-10 block bg-linear-to-b from-black/55 via-black/20 to-transparent md:hidden" />
         <div className="absolute inset-0 z-10 bg-[radial-gradient(ellipse_at_center,transparent_55%,rgba(0,0,0,0.25)_100%)]" />
 
