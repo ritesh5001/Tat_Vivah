@@ -29,8 +29,8 @@ interface HeroSlide {
 const slides: HeroSlide[] = [
   {
     id: 1,
-    heading: "Define Your Wedding Presence",
-    subtext: "Luxury groomwear curated for unforgettable moments.",
+    heading: "Crafted for Regal Grooms",
+    subtext: "Heritage silhouettes tailored for majestic celebrations.",
     button: "Explore Groom Collection",
     href: "/marketplace",
     desktopImage: "/images/hero/1st desktop banner.png",
