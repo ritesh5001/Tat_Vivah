@@ -4,8 +4,6 @@ import * as React from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
-  heroContainerVariants,
-  heroItemVariants,
   staggerContainerVariants,
   staggerItemVariants,
   fadeInVariants,
@@ -16,6 +14,7 @@ import { FeaturesMarquee } from "@/components/features-marquee";
 import { getBestsellers, type BestsellerProduct } from "@/services/bestsellers";
 import { RecommendedForYouSection } from "@/components/recommended-for-you-section";
 import { RecentlyViewedSection } from "@/components/recently-viewed-section";
+import { LuxuryHero } from "@/components/home/LuxuryHero";
 export default function Home() {
   const [bestsellers, setBestsellers] = React.useState<BestsellerProduct[]>([]);
   const [loadingBestsellers, setLoadingBestsellers] = React.useState(true);
@@ -59,103 +58,9 @@ export default function Home() {
   return (
     <div className="min-h-[calc(100vh-160px)] bg-background">
       {/* =========================================================================
-          HERO SECTION - Full Height, Cinematic
+          HERO SECTION - Luxury Carousel
           ========================================================================= */}
-      <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
-        {/* Subtle background pattern */}
-
-        <div className="absolute inset-0 opacity-30">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(184,149,108,0.08),transparent_50%)]" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,rgba(184,149,108,0.05),transparent_50%)]" />
-        </div>
-
-        <div className="relative mx-auto max-w-5xl px-6 py-24 text-center">
-          <motion.div
-            initial="hidden"
-            animate="visible"
-            variants={heroContainerVariants}
-            className="space-y-8"
-          >
-            {/* Eyebrow */}
-            <motion.p
-              variants={heroItemVariants}
-              className="text-xs font-medium uppercase tracking-[0.3em] text-gold"
-            >
-              Curated Men's Fashion
-            </motion.p>
-
-            {/* Main Heading */}
-            <motion.h1
-              variants={heroItemVariants}
-              className="font-serif text-5xl font-light leading-tight tracking-tight text-foreground sm:text-6xl md:text-7xl lg:text-8xl"
-            >
-              The Art of
-              <br />
-              <span className="italic">Timeless</span> Elegance
-            </motion.h1>
-
-            {/* Subheading */}
-            <motion.p
-              variants={heroItemVariants}
-              className="mx-auto max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg"
-            >
-              Discover India's finest ethnic wear, handcrafted by artisans
-              and curated for the modern gentleman. Every piece tells a story.
-            </motion.p>
-
-            {/* CTA Buttons */}
-            <motion.div
-              variants={heroItemVariants}
-              className="flex flex-col items-center gap-4 pt-4 sm:flex-row sm:justify-center"
-            >
-              <Link
-                href="/marketplace"
-                className="inline-flex h-14 items-center justify-center bg-charcoal px-10 text-xs font-medium uppercase tracking-[0.15em] text-ivory transition-all duration-400 hover:bg-brown dark:bg-gold dark:text-charcoal dark:hover:bg-gold-muted"
-              >
-                Explore Collection
-              </Link>
-              <Link
-                href="/register/seller"
-                className="inline-flex h-14 items-center justify-center border border-border-warm px-10 text-xs font-medium uppercase tracking-[0.15em] text-foreground transition-all duration-400 hover:bg-cream dark:hover:bg-brown/30"
-              >
-                Partner With Us
-              </Link>
-            </motion.div>
-
-            {/* Trust Badges */}
-            <motion.div
-              variants={heroItemVariants}
-              className="flex flex-wrap items-center justify-center gap-6 pt-8 text-xs text-muted-foreground"
-            >
-              <span className="flex items-center gap-2">
-                <span className="h-1 w-1 rounded-full bg-gold" />
-                Verified Artisans
-              </span>
-              <span className="flex items-center gap-2">
-                <span className="h-1 w-1 rounded-full bg-gold" />
-                Secure Checkout
-              </span>
-              <span className="flex items-center gap-2">
-                <span className="h-1 w-1 rounded-full bg-gold" />
-                Free Alterations
-              </span>
-            </motion.div>
-          </motion.div>
-        </div>
-
-        {/* Scroll Indicator */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2">
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1.5, duration: 0.6 }}
-            className="flex flex-col items-center gap-2 text-muted-foreground"
-          >
-            <span className="text-[10px] uppercase tracking-[0.2em]">Scroll</span>
-            <div className="h-8 w-px bg-border-warm" />
-          </motion.div>
-        </div>
-      </section>
+      <LuxuryHero />
 
       {/* =========================================================================
           FEATURES MARQUEE

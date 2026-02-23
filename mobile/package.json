@@ -11,6 +11,9 @@
     "web": "expo start --web",
     "lint": "expo lint"
   },
+
+
+
   "dependencies": {
     "@expo-google-fonts/cormorant-garamond": "^0.2.3",
     "@expo-google-fonts/inter": "^0.2.3",
