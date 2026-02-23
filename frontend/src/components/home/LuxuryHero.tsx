@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
@@ -24,6 +24,7 @@ interface HeroSlide {
   href: string;
   desktopImage: string;
   mobileImage: string;
+  textPosition: "left" | "right";
 }
 
 const slides: HeroSlide[] = [
@@ -33,8 +34,9 @@ const slides: HeroSlide[] = [
     subtext: "Luxury groomwear curated for unforgettable moments.",
     button: "Explore Groom Collection",
     href: "/marketplace",
-    desktopImage: "/images/hero/hero-desktop-1.svg",
-    mobileImage: "/images/hero/hero-mobile-1.svg",
+    desktopImage: "/images/hero/1st desktop banner.png",
+    mobileImage: "/images/hero/1st mobile banner.png",
+    textPosition: "left",
   },
   {
     id: 2,
@@ -42,8 +44,9 @@ const slides: HeroSlide[] = [
     subtext: "Modern wedding fashion crafted with elegance.",
     button: "Shop Wedding Looks",
     href: "/marketplace",
-    desktopImage: "/images/hero/hero-desktop-2.svg",
-    mobileImage: "/images/hero/hero-mobile-2.svg",
+    desktopImage: "/images/hero/2nd desktop banner.png",
+    mobileImage: "/images/hero/2nd mobile banner.png",
+    textPosition: "right",
   },
   {
     id: 3,
@@ -51,8 +54,9 @@ const slides: HeroSlide[] = [
     subtext: "From haldi to reception, complete your story.",
     button: "Discover Collections",
     href: "/marketplace",
-    desktopImage: "/images/hero/hero-desktop-3.svg",
-    mobileImage: "/images/hero/hero-mobile-3.svg",
+    desktopImage: "/images/hero/3rd desktop banner.png",
+    mobileImage: "/images/hero/3rd mobile banner.png",
+    textPosition: "left",
   },
   {
     id: 4,
@@ -60,8 +64,9 @@ const slides: HeroSlide[] = [
     subtext: "Premium wedding fashion for modern India.",
     button: "Start Exploring",
     href: "/marketplace",
-    desktopImage: "/images/hero/hero-desktop-4.svg",
-    mobileImage: "/images/hero/hero-mobile-4.svg",
+    desktopImage: "/images/hero/4th desktop banner.png",
+    mobileImage: "/images/hero/4th mobile banner.png",
+    textPosition: "right",
   },
 ];
 
@@ -74,7 +79,7 @@ const headingVariants = {
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.8, ease: "easeOut" as const },
+    transition: { duration: 0.9, ease: "easeOut" as const },
   },
   exit: {
     opacity: 0,
@@ -88,7 +93,7 @@ const subtextVariants = {
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.8, ease: "easeOut" as const, delay: 0.2 },
+    transition: { duration: 0.9, ease: "easeOut" as const, delay: 0.2 },
   },
   exit: {
     opacity: 0,
@@ -102,7 +107,7 @@ const buttonVariants = {
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.8, ease: "easeOut" as const, delay: 0.4 },
+    transition: { duration: 0.6, ease: "easeOut" as const, delay: 0.4 },
   },
   exit: {
     opacity: 0,
@@ -129,14 +134,14 @@ function PaginationDot({
       type="button"
       aria-label={`Go to slide ${index + 1}`}
       onClick={() => onClick(index)}
-      className="group relative flex items-center justify-center p-1"
+      className="group relative flex items-center justify-center p-1.5"
     >
       <span
         className={`
           block rounded-full transition-all duration-500 ease-out
           ${
             active
-              ? "h-3 w-3 bg-white shadow-[0_0_8px_rgba(255,255,255,0.4)]"
+              ? "h-3 w-3 bg-white shadow-[0_0_8px_rgba(255,255,255,0.35)]"
               : "h-2 w-2 bg-white/40 group-hover:bg-white/70"
           }
         `}
@@ -156,42 +161,46 @@ function SlideContent({
   slide: HeroSlide;
   isActive: boolean;
 }) {
+  const isRight = slide.textPosition === "right";
+
   return (
     <AnimatePresence mode="wait">
       {isActive && (
         <motion.div
           key={slide.id}
-          className="absolute inset-0 z-20 flex items-center"
+          className="absolute inset-0 z-20 flex items-start pt-[20%] justify-center md:items-center md:pt-0 md:justify-start"
           initial="hidden"
           animate="visible"
           exit="exit"
         >
           <div className="mx-auto w-full max-w-7xl px-6 sm:px-10 lg:px-16">
-            <div className="max-w-xl">
-              {/* Heading */}
+            <div
+              className={`max-w-xl text-center md:text-left ${isRight ? "md:ml-auto md:text-right" : ""}`}
+            >
               <motion.h1
                 variants={headingVariants}
-                className="font-serif text-4xl font-light leading-[1.1] tracking-tight text-white sm:text-5xl md:text-6xl lg:text-7xl"
+                className="font-serif text-3xl font-light leading-[1.1] tracking-tight text-white sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl"
               >
                 {slide.heading}
               </motion.h1>
 
-              {/* Subtext */}
               <motion.p
                 variants={subtextVariants}
-                className="mt-5 max-w-md text-base leading-relaxed text-white/80 sm:mt-6 sm:text-lg"
+                className={`mt-4 max-w-md text-sm leading-relaxed text-white/75 sm:mt-5 sm:text-base md:text-lg ${isRight ? "md:ml-auto" : ""}`}
               >
                 {slide.subtext}
               </motion.p>
 
-              {/* Button */}
-              <motion.div variants={buttonVariants} className="mt-8 sm:mt-10">
+              <motion.div
+                variants={buttonVariants}
+                className={`mt-7 sm:mt-9 ${isRight ? "md:flex md:justify-end" : ""}`}
+              >
                 <Link
                   href={slide.href}
-                  className="group/btn inline-flex items-center gap-3 rounded-full bg-[#E64A19] px-8 py-3 text-sm font-medium text-white shadow-lg transition-all duration-300 hover:bg-[#D84315] hover:shadow-[0_4px_24px_rgba(230,74,25,0.4)] hover:scale-105 active:scale-[0.98]"
+                  className="group/btn inline-flex items-center gap-2.5 rounded-full bg-linear-to-br from-[#7C2D12] to-[#9A3412] px-8 py-3 text-sm font-medium text-white/95 shadow-[0_4px_16px_rgba(124,45,18,0.35)] backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.75 hover:shadow-[0_8px_28px_rgba(124,45,18,0.45)] hover:scale-[1.03] active:translate-y-0 active:scale-[0.98] sm:px-10 sm:py-3.5"
                 >
                   <span>{slide.button}</span>
-                  <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover/btn:translate-x-1" />
+                  <ArrowRight className="h-4 w-4 opacity-0 transition-opacity duration-300 group-hover/btn:opacity-100" />
                 </Link>
               </motion.div>
             </div>
@@ -209,23 +218,19 @@ function SlideContent({
 function SlideBackground({
   slide,
   isActive,
-  index,
   priority,
 }: {
   slide: HeroSlide;
   isActive: boolean;
-  index: number;
   priority: boolean;
 }) {
+  const isRight = slide.textPosition === "right";
+
   return (
     <div className="absolute inset-0 overflow-hidden">
       {/* Desktop Image */}
       <div
-        className={`
-          hidden md:block absolute inset-0
-          transition-transform duration-6000 ease-[cubic-bezier(0.25,0.1,0.25,1)]
-          ${isActive ? "scale-105" : "scale-100"}
-        `}
+        className={`hidden md:block absolute inset-0 transition-transform duration-6000 ease-in-out ${isActive ? "scale-[1.04]" : "scale-100"}`}
       >
         <Image
           src={slide.desktopImage}
@@ -240,11 +245,7 @@ function SlideBackground({
 
       {/* Mobile Image */}
       <div
-        className={`
-          block md:hidden absolute inset-0
-          transition-transform duration-6000 ease-[cubic-bezier(0.25,0.1,0.25,1)]
-          ${isActive ? "scale-105" : "scale-100"}
-        `}
+        className={`block md:hidden absolute inset-0 transition-transform duration-6000 ease-in-out ${isActive ? "scale-[1.04]" : "scale-100"}`}
       >
         <Image
           src={slide.mobileImage}
@@ -257,14 +258,23 @@ function SlideBackground({
         />
       </div>
 
-      {/* Dark Gradient Overlay (left to right) */}
-      <div className="absolute inset-0 bg-linear-to-r from-black/70 via-black/40 to-transparent z-10" />
+      {/* Desktop Gradient Overlay — direction based on text position */}
+      <div
+        className={`absolute inset-0 z-10 hidden md:block ${
+          isRight
+            ? "bg-linear-to-l from-black/60 via-black/30 to-transparent"
+            : "bg-linear-to-r from-black/60 via-black/30 to-transparent"
+        }`}
+      />
+
+      {/* Mobile Gradient Overlay — top dark fade */}
+      <div className="absolute inset-0 z-10 block md:hidden bg-linear-to-b from-black/55 via-black/20 to-transparent" />
 
       {/* Subtle Vignette */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_50%,rgba(0,0,0,0.3)_100%)] z-10" />
+      <div className="absolute inset-0 z-10 bg-[radial-gradient(ellipse_at_center,transparent_55%,rgba(0,0,0,0.25)_100%)]" />
 
-      {/* Bottom gradient for pagination readability */}
-      <div className="absolute bottom-0 left-0 right-0 h-32 bg-linear-to-t from-black/30 to-transparent z-10" />
+      {/* Bottom gradient for mobile pagination readability */}
+      <div className="absolute bottom-0 left-0 right-0 z-10 h-28 bg-linear-to-t from-black/25 to-transparent md:hidden" />
     </div>
   );
 }
@@ -289,7 +299,6 @@ export function LuxuryHero() {
 
   return (
     <section className="relative h-screen w-full overflow-hidden bg-charcoal">
-      {/* Swiper Carousel */}
       <Swiper
         modules={[Autoplay, EffectFade]}
         effect="fade"
@@ -318,14 +327,13 @@ export function LuxuryHero() {
             <SlideBackground
               slide={slide}
               isActive={activeIndex === index}
-              index={index}
               priority={index === 0}
             />
           </SwiperSlide>
         ))}
       </Swiper>
 
-      {/* Text Content Overlay (outside Swiper for smooth AnimatePresence) */}
+      {/* Text Content Overlay */}
       {slides.map((slide, index) => (
         <SlideContent
           key={slide.id}
@@ -334,7 +342,7 @@ export function LuxuryHero() {
         />
       ))}
 
-      {/* Custom Pagination - Desktop (right side vertical) */}
+      {/* Pagination — Desktop (right side vertical) */}
       <div className="absolute right-6 top-1/2 z-30 hidden -translate-y-1/2 flex-col gap-3 md:flex lg:right-10">
         {slides.map((_, index) => (
           <PaginationDot
@@ -346,8 +354,8 @@ export function LuxuryHero() {
         ))}
       </div>
 
-      {/* Custom Pagination - Mobile (bottom center) */}
-      <div className="absolute bottom-8 left-1/2 z-30 flex -translate-x-1/2 gap-3 md:hidden">
+      {/* Pagination — Mobile (bottom center) */}
+      <div className="absolute bottom-6 left-1/2 z-30 flex -translate-x-1/2 gap-3 md:hidden">
         {slides.map((_, index) => (
           <PaginationDot
             key={index}
@@ -358,21 +366,21 @@ export function LuxuryHero() {
         ))}
       </div>
 
-      {/* Scroll Indicator */}
-      <div className="absolute bottom-8 left-6 z-30 hidden md:flex flex-col items-center gap-2 lg:left-10">
+      {/* Scroll Indicator — Desktop only */}
+      <div className="absolute bottom-8 left-6 z-30 hidden flex-col items-center gap-2 md:flex lg:left-10">
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 1.5, duration: 0.6 }}
           className="flex flex-col items-center gap-2"
         >
-          <span className="text-[10px] font-medium uppercase tracking-[0.25em] text-white/60">
+          <span className="text-[10px] font-medium uppercase tracking-[0.25em] text-white/50">
             Scroll
           </span>
           <motion.div
             animate={{ y: [0, 6, 0] }}
-            transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
-            className="h-8 w-px bg-white/30"
+            transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" as const }}
+            className="h-8 w-px bg-white/25"
           />
         </motion.div>
       </div>
