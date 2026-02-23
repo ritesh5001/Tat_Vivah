@@ -33,8 +33,8 @@ const slides: HeroSlide[] = [
     subtext: "Heritage silhouettes for majestic celebrations.",
     button: "Explore Groom Collection",
     href: "/marketplace",
-    desktopImage: "/images/hero/1st desktop banner.png",
-    mobileImage: "/images/hero/1st mobile banner.png",
+    desktopImage: "/images/hero/1st desktop banner.jpeg",
+    mobileImage: "/images/hero/1st mobile banner.jpeg",
     textPosition: "left",
   },
   {
@@ -43,8 +43,8 @@ const slides: HeroSlide[] = [
     subtext: "Modern wedding fashion crafted with elegance.",
     button: "Shop Wedding Looks",
     href: "/marketplace",
-    desktopImage: "/images/hero/2nd desktop banner.png",
-    mobileImage: "/images/hero/2nd mobile banner.png",
+    desktopImage: "/images/hero/2nd desktop banner.jpeg",
+    mobileImage: "/images/hero/2nd mobile banner.jpeg",
     textPosition: "right",
   },
   {
@@ -53,8 +53,8 @@ const slides: HeroSlide[] = [
     subtext: "From haldi to reception, complete your story.",
     button: "Discover Collections",
     href: "/marketplace",
-    desktopImage: "/images/hero/3rd desktop banner.png",
-    mobileImage: "/images/hero/3rd mobile banner.png",
+    desktopImage: "/images/hero/3rd desktop banner.jpeg",
+    mobileImage: "/images/hero/3rd mobile banner.jpeg",
     textPosition: "left",
   },
   {
@@ -63,8 +63,8 @@ const slides: HeroSlide[] = [
     subtext: "Premium wedding fashion for modern India.",
     button: "Start Exploring",
     href: "/marketplace",
-    desktopImage: "/images/hero/4th desktop banner.png",
-    mobileImage: "/images/hero/4th mobile banner.png",
+    desktopImage: "/images/hero/4th desktop banner.jpeg",
+    mobileImage: "/images/hero/4th mobile banner.jpeg",
     textPosition: "right",
   },
 ];

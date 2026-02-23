@@ -37,7 +37,7 @@ export function WeddingSectionBanner() {
       <div className="relative h-[70vh] w-full overflow-hidden aspect-square md:h-[80vh] md:aspect-21/8">
         <div className="absolute inset-0 hidden md:block">
           <Image
-            src="/images/hero/wedding section desktop banner.png"
+            src="/images/hero/wedding section desktop banner.jpeg"
             alt="Wedding season essentials"
             fill
             className="object-cover"
@@ -49,7 +49,7 @@ export function WeddingSectionBanner() {
 
         <div className="absolute inset-0 block md:hidden">
           <Image
-            src="/images/hero/wedding section mobile banner.png"
+            src="/images/hero/wedding section mobile banner.jpeg"
             alt="Wedding season essentials"
             fill
             className="object-cover"
