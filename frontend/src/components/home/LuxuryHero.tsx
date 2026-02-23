@@ -30,7 +30,7 @@ const slides: HeroSlide[] = [
   {
     id: 1,
     heading: "Crafted for Regal Grooms",
-    subtext: "Heritage silhouettes tailored for majestic celebrations.",
+    subtext: "Heritage silhouettes for majestic celebrations.",
     button: "Explore Groom Collection",
     href: "/marketplace",
     desktopImage: "/images/hero/1st desktop banner.png",
