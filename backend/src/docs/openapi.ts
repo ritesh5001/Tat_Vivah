@@ -38,6 +38,11 @@ export const openApiSpec: OpenAPIObject = {
         { name: "Shipping (Seller)", description: "Seller shipment management" },
         { name: "Shipping (Admin)", description: "Admin shipment overrides" },
         { name: "Notifications (Admin)", description: "Admin notification management" },
+        { name: "Notifications (User)", description: "Authenticated user notification inbox" },
+        { name: "Addresses", description: "Buyer address book management" },
+        { name: "Wishlist", description: "Buyer wishlist operations" },
+        { name: "Search", description: "Search, suggest, and trending discovery" },
+        { name: "Bestsellers", description: "Public bestseller products" },
         { name: "Admin", description: "Admin panel operations" },
         { name: "Seller Analytics", description: "Seller dashboard analytics & KPIs" },
         { name: "Utils", description: "Utility endpoints" },
@@ -2575,6 +2580,398 @@ export const openApiSpec: OpenAPIObject = {
                         },
                     },
                     "404": { description: "Product not found" },
+                },
+            },
+        },
+
+        // =====================================================================
+        // DISCOVERY & USER EXPERIENCE ENDPOINTS
+        // =====================================================================
+        "/v1/bestsellers": {
+            get: {
+                tags: ["Bestsellers"],
+                summary: "List bestseller products",
+                security: [],
+                responses: {
+                    "200": {
+                        description: "Bestseller products list",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    type: "object",
+                                    properties: {
+                                        data: {
+                                            type: "array",
+                                            items: { $ref: "#/components/schemas/Product" },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+
+        "/v1/products/{id}/related": {
+            get: {
+                tags: ["Products", "Search"],
+                summary: "Get related products",
+                security: [],
+                parameters: [
+                    { name: "id", in: "path", required: true, schema: { type: "string" }, description: "Product ID" },
+                ],
+                responses: {
+                    "200": {
+                        description: "Related products",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    type: "object",
+                                    properties: {
+                                        products: {
+                                            type: "array",
+                                            items: { $ref: "#/components/schemas/Product" },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+
+        "/v1/search": {
+            get: {
+                tags: ["Search"],
+                summary: "Search products",
+                description: "Full-text product search with sorting and pagination.",
+                security: [],
+                parameters: [
+                    { name: "q", in: "query", required: false, schema: { type: "string" }, description: "Search query" },
+                    { name: "page", in: "query", required: false, schema: { type: "integer", minimum: 1 } },
+                    { name: "limit", in: "query", required: false, schema: { type: "integer", minimum: 1, maximum: 100 } },
+                    { name: "sort", in: "query", required: false, schema: { type: "string" } },
+                ],
+                responses: {
+                    "200": {
+                        description: "Search results",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    type: "object",
+                                    properties: {
+                                        data: {
+                                            type: "array",
+                                            items: { $ref: "#/components/schemas/Product" },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+
+        "/v1/search/suggest": {
+            get: {
+                tags: ["Search"],
+                summary: "Get search suggestions",
+                security: [],
+                parameters: [
+                    { name: "q", in: "query", required: false, schema: { type: "string" }, description: "Partial query" },
+                    { name: "limit", in: "query", required: false, schema: { type: "integer", minimum: 1, maximum: 20 } },
+                ],
+                responses: {
+                    "200": {
+                        description: "Suggestion list",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    type: "object",
+                                    properties: {
+                                        suggestions: { type: "array", items: { type: "string" } },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+
+        "/v1/search/trending": {
+            get: {
+                tags: ["Search"],
+                summary: "Get trending search queries",
+                security: [],
+                responses: {
+                    "200": {
+                        description: "Trending query terms",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    type: "object",
+                                    properties: {
+                                        queries: { type: "array", items: { type: "string" } },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+
+        "/v1/addresses": {
+            get: {
+                tags: ["Addresses"],
+                summary: "List buyer addresses",
+                security: [{ bearerAuth: [] }],
+                responses: {
+                    "200": { description: "Address list" },
+                    "401": { description: "Unauthorized" },
+                    "403": { description: "Requires USER role" },
+                },
+            },
+            post: {
+                tags: ["Addresses"],
+                summary: "Create address",
+                security: [{ bearerAuth: [] }],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                description: "Address payload",
+                            },
+                        },
+                    },
+                },
+                responses: {
+                    "201": { description: "Address created" },
+                    "401": { description: "Unauthorized" },
+                    "403": { description: "Requires USER role" },
+                },
+            },
+        },
+
+        "/v1/addresses/{addressId}": {
+            put: {
+                tags: ["Addresses"],
+                summary: "Update address",
+                security: [{ bearerAuth: [] }],
+                parameters: [
+                    { name: "addressId", in: "path", required: true, schema: { type: "string" } },
+                ],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "application/json": {
+                            schema: { type: "object" },
+                        },
+                    },
+                },
+                responses: {
+                    "200": { description: "Address updated" },
+                    "401": { description: "Unauthorized" },
+                    "403": { description: "Requires USER role" },
+                    "404": { description: "Address not found" },
+                },
+            },
+            delete: {
+                tags: ["Addresses"],
+                summary: "Delete address",
+                security: [{ bearerAuth: [] }],
+                parameters: [
+                    { name: "addressId", in: "path", required: true, schema: { type: "string" } },
+                ],
+                responses: {
+                    "200": { description: "Address deleted" },
+                    "401": { description: "Unauthorized" },
+                    "403": { description: "Requires USER role" },
+                    "404": { description: "Address not found" },
+                },
+            },
+        },
+
+        "/v1/addresses/{addressId}/default": {
+            patch: {
+                tags: ["Addresses"],
+                summary: "Set default address",
+                security: [{ bearerAuth: [] }],
+                parameters: [
+                    { name: "addressId", in: "path", required: true, schema: { type: "string" } },
+                ],
+                responses: {
+                    "200": { description: "Default address updated" },
+                    "401": { description: "Unauthorized" },
+                    "403": { description: "Requires USER role" },
+                    "404": { description: "Address not found" },
+                },
+            },
+        },
+
+        "/v1/wishlist": {
+            get: {
+                tags: ["Wishlist"],
+                summary: "List wishlist items",
+                security: [{ bearerAuth: [] }],
+                responses: {
+                    "200": { description: "Wishlist items" },
+                    "401": { description: "Unauthorized" },
+                    "403": { description: "Requires USER role" },
+                },
+            },
+        },
+
+        "/v1/wishlist/count": {
+            get: {
+                tags: ["Wishlist"],
+                summary: "Get wishlist count",
+                security: [{ bearerAuth: [] }],
+                responses: {
+                    "200": { description: "Wishlist count" },
+                    "401": { description: "Unauthorized" },
+                },
+            },
+        },
+
+        "/v1/wishlist/toggle": {
+            post: {
+                tags: ["Wishlist"],
+                summary: "Toggle wishlist item",
+                security: [{ bearerAuth: [] }],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                required: ["productId"],
+                                properties: {
+                                    productId: { type: "string" },
+                                },
+                            },
+                        },
+                    },
+                },
+                responses: {
+                    "200": { description: "Wishlist updated" },
+                    "401": { description: "Unauthorized" },
+                },
+            },
+        },
+
+        "/v1/wishlist/items": {
+            post: {
+                tags: ["Wishlist"],
+                summary: "Add item to wishlist",
+                security: [{ bearerAuth: [] }],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                required: ["productId"],
+                                properties: {
+                                    productId: { type: "string" },
+                                },
+                            },
+                        },
+                    },
+                },
+                responses: {
+                    "201": { description: "Wishlist item added" },
+                    "401": { description: "Unauthorized" },
+                },
+            },
+        },
+
+        "/v1/wishlist/check": {
+            post: {
+                tags: ["Wishlist"],
+                summary: "Check wishlist state for products",
+                security: [{ bearerAuth: [] }],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                properties: {
+                                    productIds: {
+                                        type: "array",
+                                        items: { type: "string" },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+                responses: {
+                    "200": { description: "Wishlist check result" },
+                    "401": { description: "Unauthorized" },
+                },
+            },
+        },
+
+        "/v1/wishlist/items/{productId}": {
+            delete: {
+                tags: ["Wishlist"],
+                summary: "Remove wishlist item",
+                security: [{ bearerAuth: [] }],
+                parameters: [
+                    { name: "productId", in: "path", required: true, schema: { type: "string" } },
+                ],
+                responses: {
+                    "200": { description: "Wishlist item removed" },
+                    "401": { description: "Unauthorized" },
+                    "404": { description: "Wishlist item not found" },
+                },
+            },
+        },
+
+        "/v1/notifications": {
+            get: {
+                tags: ["Notifications (User)"],
+                summary: "List user notifications",
+                security: [{ bearerAuth: [] }],
+                responses: {
+                    "200": { description: "Paginated notifications" },
+                    "401": { description: "Unauthorized" },
+                },
+            },
+        },
+
+        "/v1/notifications/unread-count": {
+            get: {
+                tags: ["Notifications (User)"],
+                summary: "Get unread notification count",
+                security: [{ bearerAuth: [] }],
+                responses: {
+                    "200": { description: "Unread count" },
+                    "401": { description: "Unauthorized" },
+                },
+            },
+        },
+
+        "/v1/notifications/{id}/read": {
+            patch: {
+                tags: ["Notifications (User)"],
+                summary: "Mark notification as read",
+                security: [{ bearerAuth: [] }],
+                parameters: [
+                    { name: "id", in: "path", required: true, schema: { type: "string" } },
+                ],
+                responses: {
+                    "200": { description: "Notification marked as read" },
+                    "401": { description: "Unauthorized" },
+                    "404": { description: "Notification not found" },
                 },
             },
         },
