@@ -196,7 +196,7 @@ function SlideContent({
               >
                 <Link
                   href={slide.href}
-                  className="inline-flex items-center justify-center rounded-sm border border-white/12 bg-charcoal/88 px-8 py-3 text-[11px] font-medium uppercase tracking-[0.22em] text-warm-white shadow-[0_8px_24px_rgba(44,40,37,0.35)] backdrop-blur-[2px] transition-all duration-300 hover:-translate-y-0.5 hover:bg-brown/90 hover:shadow-[0_12px_28px_rgba(44,40,37,0.45)] sm:px-10 sm:py-3.5"
+                  className="inline-flex items-center justify-center rounded-sm border border-gold-light/50 bg-gold px-8 py-3 text-[11px] font-medium uppercase tracking-[0.22em] text-charcoal shadow-[0_8px_24px_rgba(183,149,108,0.35)] backdrop-blur-[2px] transition-all duration-300 hover:-translate-y-0.5 hover:bg-gold-dark hover:shadow-[0_12px_28px_rgba(183,149,108,0.45)] hover:text-warm-white sm:px-10 sm:py-3.5"
                 >
                   {slide.button}
                 </Link>
