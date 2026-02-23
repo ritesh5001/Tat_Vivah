@@ -11,6 +11,7 @@ import {
     categoryRouter,
     productRouter,
     sellerProductRouter,
+    productMediaRouter,
     imagekitRouter,
     bestsellerRouter,
     cartRouter,
@@ -172,6 +173,7 @@ export function createApp(): Application {
     app.use('/v1/categories', categoryRouter);
     app.use('/v1/products', productRouter);
     app.use('/v1/seller/products', sellerProductRouter);
+    app.use('/v1/seller/products', productMediaRouter);
     app.use('/v1/imagekit', imagekitRouter);
     app.use('/v1/bestsellers', bestsellerRouter);
 

@@ -61,7 +61,7 @@ export default function ProductDetailClient({
       .then((res) => {
         if (!cancelled) setWishlisted(res.wishlisted.includes(product.id));
       })
-      .catch(() => {});
+      .catch(() => { });
     return () => { cancelled = true; };
   }, [product.id]);
 
@@ -141,155 +141,175 @@ export default function ProductDetailClient({
       className="flex flex-col justify-center py-6 lg:py-12"
     >
       {/* Editorial Content Block */}
-      <div className="space-y-10">
-        {/* 1. Category / Style - Small, Uppercase */}
-        <div className="space-y-6">
-          <p className="text-[11px] font-medium uppercase tracking-[0.25em] text-gold">
-            {product.category?.name ?? "Curated Collection"}
-          </p>
+      {/* Editorial Content Block */}
+      <div className="space-y-6">
+        {/* 1. Title */}
+        <h1 className="font-serif text-3xl font-light leading-tight tracking-tight text-foreground lg:text-4xl xl:text-5xl">
+          {product.title}
+        </h1>
 
-          {/* 2. Product Name - Hero Typography */}
-          <h1 className="font-serif text-3xl font-light leading-tight tracking-tight text-foreground sm:text-4xl lg:text-5xl">
-            {product.title}
-          </h1>
-
-          {/* 3. Trust Signals */}
-          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-            <span className="flex items-center gap-2">
-              <span className="h-1 w-1 rounded-full bg-gold" />
-              Verified Seller
-            </span>
-            <span className="flex items-center gap-2">
-              <span className="h-1 w-1 rounded-full bg-gold" />
-              Pan-India Delivery
-            </span>
-          </div>
-        </div>
-
-        {/* Separator */}
-        <div className="h-px bg-border-soft" />
-
-        {/* 4. Price - Quiet Confidence */}
-        <div className="space-y-2">
-          <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
-            Price
-          </p>
-          <div className="flex items-baseline gap-4">
-            <p className="font-serif text-2xl font-light text-foreground sm:text-3xl">
+        {/* 2. Price & SKU */}
+        <div className="space-y-2 pt-1 border-b border-border-soft pb-6">
+          <div className="flex items-baseline gap-3 relative">
+            <span className="font-serif text-3xl font-medium text-foreground sm:text-4xl">
               {typeof salePrice === "number" ? currency.format(salePrice) : "—"}
-            </p>
-            {typeof compareAtPrice === "number" &&
-            typeof salePrice === "number" &&
-            compareAtPrice > salePrice ? (
+            </span>
+            {typeof compareAtPrice === "number" && typeof salePrice === "number" && compareAtPrice > salePrice && (
               <span className="text-sm text-muted-foreground line-through">
                 {currency.format(compareAtPrice)}
               </span>
-            ) : null}
+            )}
+            <span className="text-[10px] text-muted-foreground ml-2 uppercase tracking-wide">MRP (Inclusive of all taxes)</span>
           </div>
-          {/* Stock Badge - Soft Pill */}
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground border border-border-soft">
-            <span className="h-1.5 w-1.5 rounded-full bg-green-600/60" />
-            In Stock
-          </span>
+          <p className="text-[11px] text-muted-foreground uppercase tracking-widest pt-2">
+            SKU ID- {selectedVariant?.sku ?? product.variants[0]?.sku ?? "N/A"}
+          </p>
         </div>
 
-        {/* Description */}
-        <p className="text-sm leading-relaxed text-muted-foreground max-w-md">
-          {product.description ??
-            "Curated premium listing with verified quality assurance. Each piece is handcrafted with attention to detail and heritage craftsmanship."}
-        </p>
-
-        {/* Separator */}
-        <div className="h-px bg-border-soft" />
-
-        {/* 5. Variant Selection - Fabric Choice Feel */}
-        <div className="space-y-4">
-          <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
-            Select Variant
+        {/* 3. Colour Selection */}
+        <div className="space-y-4 pt-4">
+          <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-foreground">
+            SELECT COLOUR
           </p>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-4 mt-2">
+            {/* Mock colors for visual structure to match design */}
+            {['bg-[#8b7d72]', 'bg-[#1a1c19]', 'bg-[#0f111a]', 'bg-[#2a1b1b]'].map((color, idx) => (
+              <button
+                key={idx}
+                className={`flex h-12 w-12 items-center justify-center rounded-full border-[1.5px] ${idx === 3 ? 'border-gold p-[2px]' : 'border-transparent'} hover:opacity-80 transition-all`}
+              >
+                <div className={`h-full w-full rounded-full ${color}`} />
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 4. Size Selection */}
+        <div className="space-y-4 pt-6">
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-foreground">
+              SELECT SIZE
+            </p>
+            <button className="flex items-center gap-1.5 text-[11px] text-foreground underline decoration-1 underline-offset-4 hover:text-gold transition-colors tracking-wide">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" /></svg>
+              Size Chart
+            </button>
+          </div>
+
+          <div className="flex flex-wrap gap-2.5 mt-2">
             {product.variants.length === 0 ? (
-              <span className="text-sm text-muted-foreground">
-                Variants coming soon
-              </span>
+              <span className="text-sm text-muted-foreground">Variants coming soon</span>
             ) : (
-              product.variants.map((variant) => (
+              product.variants.map((variant, idx) => (
                 <motion.button
                   key={variant.id}
                   type="button"
                   onClick={() => setSelectedVariantId(variant.id)}
                   whileHover={{ y: -1 }}
                   transition={{ duration: 0.3, ease: "easeOut" }}
-                  className={`px-5 py-3 text-xs font-medium uppercase tracking-wider transition-all duration-300 ${selectedVariantId === variant.id
-                      ? "border-2 border-gold bg-cream text-charcoal dark:bg-brown/30 dark:text-ivory"
+                  className={`relative px-5 py-3 text-xs font-medium uppercase tracking-wider transition-all duration-300 min-w-[3.5rem]
+                     ${selectedVariantId === variant.id
+                      ? "border border-gold bg-cream text-charcoal dark:bg-brown/30 dark:text-ivory"
                       : "border border-border-soft text-muted-foreground hover:border-gold/50 hover:text-foreground"
                     }`}
                 >
-                  {variant.sku}
+                  {variant.sku.split('-').pop() || variant.sku}
+                  {/* Stock Badge - Mocked for matching design visually */}
+                  {(idx === 6 || idx === 8) && (
+                    <span className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 bg-[#d85025] text-white text-[9px] font-semibold px-2 py-0.5 rounded-sm shadow-sm whitespace-nowrap z-10 tracking-widest">
+                      3 Left
+                    </span>
+                  )}
                 </motion.button>
               ))
             )}
           </div>
+          <button className="text-[11px] text-muted-foreground underline decoration-1 underline-offset-4 hover:text-foreground transition-colors pt-2 block tracking-wide">
+            - Less sizes
+          </button>
         </div>
 
-        {/* Separator */}
-        <div className="h-px bg-border-soft" />
+        {/* 5. Views Counter */}
+        <div className="flex items-center gap-2 pt-6 pb-2 text-[13px] text-foreground">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" /><circle cx="12" cy="12" r="3" /></svg>
+          <span className="font-medium tracking-wide">671</span> people have viewed the product recently
+        </div>
 
-        {/* 6. CTA Buttons - Heavy, Confident */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-          <motion.div
-            whileHover={{ y: -2 }}
-            transition={{ duration: 0.4, ease: "easeOut" }}
-            className="flex-1 sm:flex-initial"
-          >
+        {/* 6. Action Buttons */}
+        <div className="flex flex-col sm:flex-row gap-4 pt-4">
+          <motion.div whileHover={{ y: -2 }} transition={{ duration: 0.4 }} className="flex-1">
             <Button
               size="lg"
+              variant="outline"
               onClick={handleAddToCart}
               disabled={loading}
-              className="w-full sm:w-auto min-w-50 h-14"
+              className="w-full h-14 border border-gold/40 bg-[#fefaf6] dark:bg-brown/20 text-[#d85025] hover:bg-cream dark:hover:bg-brown/40 hover:text-[#b03d19] font-medium tracking-[0.1em] uppercase text-[13px] transition-colors"
             >
               {loading ? "Adding..." : "Add to Cart"}
             </Button>
           </motion.div>
 
-          <motion.div
-            whileHover={{ y: -2 }}
-            transition={{ duration: 0.4, ease: "easeOut" }}
-          >
-            <Link
-              href="/cart"
-              className="inline-flex h-14 min-w-40 items-center justify-center border border-border-warm px-8 text-xs font-medium uppercase tracking-[0.15em] text-foreground transition-all duration-400 hover:bg-cream dark:hover:bg-brown/30"
+          <motion.div whileHover={{ y: -2 }} transition={{ duration: 0.4 }} className="flex-1">
+            <Button
+              size="lg"
+              onClick={() => router.push('/checkout')}
+              className="w-full h-14 bg-[#d85025] hover:bg-[#b03d19] text-white font-medium tracking-[0.1em] uppercase text-[13px] border-none transition-colors"
             >
-              View Cart
-            </Link>
+              Buy Now
+            </Button>
           </motion.div>
+        </div>
 
-          {/* Wishlist Heart */}
-          <motion.button
-            type="button"
-            onClick={handleToggleWishlist}
-            disabled={wishlistLoading}
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-            transition={{ duration: 0.2 }}
-            className="inline-flex h-14 w-14 items-center justify-center border border-border-soft text-foreground transition-all duration-300 hover:border-gold/50 disabled:opacity-50"
-            aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill={wishlisted ? "currentColor" : "none"}
-              stroke="currentColor"
-              strokeWidth={1.5}
-              className={`h-5 w-5 transition-colors duration-300 ${wishlisted ? "text-red-500" : ""}`}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z"
-              />
-            </svg>
-          </motion.button>
+        {/* 7. Pincode Check */}
+        <div className="pt-6 relative">
+          <div className="flex items-center border border-border-soft overflow-hidden h-14">
+            <input
+              type="text"
+              placeholder="Enter pincode"
+              className="flex-1 bg-transparent px-5 py-2 outline-none text-[13px] placeholder:text-muted-foreground tracking-wide font-medium"
+            />
+            <button className="h-full px-8 text-[12px] font-bold tracking-[0.15em] border-l border-border-soft hover:bg-border-soft/30 transition-colors uppercase text-foreground">
+              Check
+            </button>
+          </div>
+        </div>
+
+        {/* 8. Delivery Features */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-10 pb-6 border-b border-border-soft">
+          <div className="flex items-center gap-4">
+            <div className="h-12 w-12 flex items-center justify-center rounded-full bg-[#fefaf6] dark:bg-brown/30 text-gold shrink-0 border border-gold/10">
+              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2" /><path d="M15 18H9" /><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14" /><circle cx="17" cy="18" r="2" /><circle cx="7" cy="18" r="2" /></svg>
+            </div>
+            <p className="text-[14px] font-medium leading-tight text-foreground">Free delivery<br /><span className="text-[13px] text-muted-foreground font-normal">within 2-3 days</span></p>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="h-12 w-12 flex items-center justify-center rounded-full bg-[#fefaf6] dark:bg-brown/30 text-gold shrink-0 border border-gold/10">
+              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v6h6" /><path d="M21 17v-6h-6" /><path d="M18.5 4.5 21 7l-2.5 2.5" /><path d="M5.5 19.5 3 17l2.5-2.5" /></svg>
+            </div>
+            <p className="text-[14px] font-medium leading-tight text-foreground">Easy Exchange in<br /><span className="text-[13px] text-muted-foreground font-normal">10 days</span></p>
+          </div>
+        </div>
+
+        {/* 9. Accordions */}
+        <div className="pt-2 space-y-0">
+          <div className="border-b border-border-soft">
+            <button className="flex w-full items-center justify-between py-5 text-[12px] font-bold uppercase tracking-[0.15em] text-foreground hover:text-gold transition-colors">
+              Product Details
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="M12 5v14" /></svg>
+            </button>
+          </div>
+          <div className="border-b border-border-soft">
+            <button className="flex w-full items-center justify-between py-5 text-[12px] font-bold uppercase tracking-[0.15em] text-foreground hover:text-gold transition-colors">
+              Product Declaration
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="M12 5v14" /></svg>
+            </button>
+          </div>
+          <div className="border-b border-border-soft">
+            <button className="flex w-full items-center justify-between py-5 text-[12px] font-bold uppercase tracking-[0.15em] text-foreground hover:text-gold transition-colors">
+              Shipping & Returns
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="M12 5v14" /></svg>
+            </button>
+          </div>
         </div>
       </div>
     </motion.div>

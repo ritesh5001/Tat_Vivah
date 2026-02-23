@@ -1,7 +1,158 @@
+import { prisma } from '../config/db.js';
 import { ApiError } from '../errors/ApiError.js';
 import { reviewRepository } from '../repositories/review.repository.js';
 
+interface CreateReviewInput {
+    rating: number;
+    title?: string;
+    comment: string;
+}
+
+interface ReviewQuery {
+    page: number;
+    limit: number;
+    sort: string;
+}
+
 export class ReviewService {
+    /**
+     * Create a review (one per user per product)
+     */
+    async createReview(productId: string, userId: string, input: CreateReviewInput) {
+        // Verify product exists
+        const product = await prisma.product.findUnique({ where: { id: productId }, select: { id: true } });
+        if (!product) throw ApiError.notFound('Product not found');
+
+        // Check duplicate
+        const existing = await prisma.review.findFirst({
+            where: { productId, userId },
+        });
+        if (existing) throw ApiError.conflict('You have already reviewed this product');
+
+        return prisma.review.create({
+            data: {
+                productId,
+                userId,
+                rating: input.rating,
+                title: input.title ?? null,
+                text: input.comment,
+            },
+        });
+    }
+
+    /**
+     * Get reviews for a product with pagination, sorting, and rating summary
+     */
+    async getProductReviews(productId: string, query: ReviewQuery) {
+        const skip = (query.page - 1) * query.limit;
+
+        const orderBy: any = (() => {
+            switch (query.sort) {
+                case 'oldest': return { createdAt: 'asc' as const };
+                case 'highest': return { rating: 'desc' as const };
+                case 'lowest': return { rating: 'asc' as const };
+                case 'helpful': return { helpfulCount: 'desc' as const };
+                case 'newest':
+                default: return { createdAt: 'desc' as const };
+            }
+        })();
+
+        const where = { productId, isHidden: false };
+
+        const [reviews, total, ratingAgg] = await Promise.all([
+            prisma.review.findMany({
+                where,
+                orderBy,
+                skip,
+                take: query.limit,
+                include: {
+                    user: {
+                        select: {
+                            id: true,
+                            email: true,
+                            user_profiles: { select: { full_name: true, avatar: true } },
+                        },
+                    },
+                },
+            }),
+            prisma.review.count({ where }),
+            prisma.review.groupBy({
+                by: ['rating'],
+                where: { productId },
+                _count: { rating: true },
+            }),
+        ]);
+
+        // Build rating distribution
+        const ratingDistribution: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+        let totalRatings = 0;
+        let ratingSum = 0;
+        for (const r of ratingAgg) {
+            ratingDistribution[r.rating] = r._count.rating;
+            totalRatings += r._count.rating;
+            ratingSum += r.rating * r._count.rating;
+        }
+
+        return {
+            reviews: reviews.map((r: any) => ({
+                id: r.id,
+                rating: r.rating,
+                title: r.title,
+                text: r.text,
+                images: r.images,
+                helpfulCount: r.helpfulCount,
+                createdAt: r.createdAt,
+                user: {
+                    id: r.user.id,
+                    email: r.user.email,
+                    fullName: r.user.user_profiles?.full_name ?? 'Anonymous',
+                    avatar: r.user.user_profiles?.avatar ?? null,
+                },
+            })),
+            summary: {
+                averageRating: totalRatings > 0 ? +(ratingSum / totalRatings).toFixed(1) : 0,
+                totalReviews: totalRatings,
+                ratingDistribution,
+            },
+            pagination: {
+                page: query.page,
+                limit: query.limit,
+                total,
+                totalPages: Math.ceil(total / query.limit),
+            },
+        };
+    }
+
+    /**
+     * Mark a review as helpful (increment counter)
+     */
+    async markHelpful(reviewId: string) {
+        const review = await prisma.review.findUnique({ where: { id: reviewId } });
+        if (!review) throw ApiError.notFound('Review not found');
+
+        return prisma.review.update({
+            where: { id: reviewId },
+            data: { helpfulCount: { increment: 1 } },
+            select: { id: true, helpfulCount: true },
+        });
+    }
+
+    /**
+     * Set hidden state on a review (admin)
+     */
+    async setHidden(reviewId: string, isHidden: boolean) {
+        const review = await prisma.review.findUnique({ where: { id: reviewId } });
+        if (!review) throw ApiError.notFound('Review not found');
+
+        return prisma.review.update({
+            where: { id: reviewId },
+            data: { isHidden },
+        });
+    }
+
+    /**
+     * List all reviews for admin (includes hidden)
+     */
     async listReviews() {
         const reviews = await reviewRepository.findAll();
 
@@ -9,8 +160,11 @@ export class ReviewService {
             reviews: reviews.map((review: any) => ({
                 id: review.id,
                 rating: review.rating,
+                title: review.title,
                 text: review.text,
                 images: review.images,
+                helpfulCount: review.helpfulCount,
+                isHidden: review.isHidden,
                 createdAt: review.createdAt,
                 product: {
                     id: review.product.id,

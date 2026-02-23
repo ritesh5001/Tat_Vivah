@@ -288,7 +288,7 @@ export const adminController = {
     ): Promise<void> => {
         try {
             const validated = createCategorySchema.parse(req.body);
-            const category = await categoryService.createCategory(validated.name);
+            const category = await categoryService.createCategory(validated);
             res.status(201).json({ message: 'Category created', category });
         } catch (error) {
             next(error);
@@ -307,17 +307,7 @@ export const adminController = {
         try {
             const id = req.params['id'] as string;
             const validated = updateCategorySchema.parse(req.body);
-            if (validated.name === undefined && validated.isActive === undefined) {
-                throw ApiError.badRequest('No updates provided');
-            }
-            const updateData: { name?: string; isActive?: boolean } = {};
-            if (validated.name !== undefined) {
-                updateData.name = validated.name;
-            }
-            if (validated.isActive !== undefined) {
-                updateData.isActive = validated.isActive;
-            }
-            const category = await categoryService.updateCategory(id, updateData);
+            const category = await categoryService.updateCategory(id, validated);
             res.json({ message: 'Category updated', category });
         } catch (error) {
             next(error);
@@ -326,7 +316,7 @@ export const adminController = {
 
     /**
      * DELETE /v1/admin/categories/:id
-     * Deactivate category
+     * Delete category (fails if products exist)
      */
     deleteCategory: async (
         req: Request,
@@ -335,8 +325,27 @@ export const adminController = {
     ): Promise<void> => {
         try {
             const id = req.params['id'] as string;
-            const category = await categoryService.deactivateCategory(id);
-            res.json({ message: 'Category deactivated', category });
+            await categoryService.deleteCategory(id);
+            res.json({ message: 'Category deleted' });
+        } catch (error) {
+            next(error);
+        }
+    },
+
+    /**
+     * PATCH /v1/admin/categories/:id/toggle
+     * Toggle category active state
+     */
+    toggleCategory: async (
+        req: Request,
+        res: Response,
+        next: NextFunction
+    ): Promise<void> => {
+        try {
+            const id = req.params['id'] as string;
+            const category = await categoryService.toggleCategory(id);
+            const action = category.isActive ? 'activated' : 'deactivated';
+            res.json({ message: `Category ${action}`, category });
         } catch (error) {
             next(error);
         }
@@ -376,6 +385,29 @@ export const adminController = {
             const id = req.params['id'] as string;
             await reviewService.deleteReview(id);
             res.json({ message: 'Review deleted' });
+        } catch (error) {
+            next(error);
+        }
+    },
+
+    /**
+     * PATCH /v1/admin/reviews/:id/hide
+     * Hide/unhide a review
+     */
+    hideReview: async (
+        req: Request,
+        res: Response,
+        next: NextFunction
+    ): Promise<void> => {
+        try {
+            const id = req.params['id'] as string;
+            const { isHidden } = req.body as { isHidden: boolean };
+            if (typeof isHidden !== 'boolean') {
+                throw ApiError.badRequest('isHidden must be a boolean');
+            }
+            const review = await reviewService.setHidden(id, isHidden);
+            const action = isHidden ? 'hidden' : 'unhidden';
+            res.json({ message: `Review ${action}`, review });
         } catch (error) {
             next(error);
         }
