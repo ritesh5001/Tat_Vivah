@@ -7,7 +7,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Autoplay, EffectFade } from "swiper/modules";
 import type { Swiper as SwiperType } from "swiper";
-import { ArrowRight } from "lucide-react";
 
 import "swiper/css";
 import "swiper/css/effect-fade";
@@ -197,10 +196,9 @@ function SlideContent({
               >
                 <Link
                   href={slide.href}
-                  className="group/btn inline-flex items-center gap-2.5 rounded-full bg-linear-to-br from-[#7C2D12] to-[#9A3412] px-8 py-3 text-sm font-medium text-white/95 shadow-[0_4px_16px_rgba(124,45,18,0.35)] backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.75 hover:shadow-[0_8px_28px_rgba(124,45,18,0.45)] hover:scale-[1.03] active:translate-y-0 active:scale-[0.98] sm:px-10 sm:py-3.5"
+                  className="inline-flex items-center justify-center rounded-sm border border-white/12 bg-charcoal/88 px-8 py-3 text-[11px] font-medium uppercase tracking-[0.22em] text-warm-white shadow-[0_8px_24px_rgba(44,40,37,0.35)] backdrop-blur-[2px] transition-all duration-300 hover:-translate-y-0.5 hover:bg-brown/90 hover:shadow-[0_12px_28px_rgba(44,40,37,0.45)] sm:px-10 sm:py-3.5"
                 >
-                  <span>{slide.button}</span>
-                  <ArrowRight className="h-4 w-4 opacity-0 transition-opacity duration-300 group-hover/btn:opacity-100" />
+                  {slide.button}
                 </Link>
               </motion.div>
             </div>
