@@ -13,7 +13,41 @@ import { generateInvoiceNumber } from '../utils/invoice.util.js';
 import { commissionService } from './commission.service.js';
 /** Maximum age (ms) of a PLACED order eligible for payment retry. */
 const STALE_ORDER_TTL_MS = 30 * 60 * 1000; // 30 minutes
+const DEFAULT_SHIPPING_FEE_INR = 180;
+const TX_MAX_WAIT_MS = 20000;
+const TX_TIMEOUT_MS = 30000;
+function roundMoney(value) {
+    return Math.round(value * 100) / 100;
+}
+function toNumber(value) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+}
+function isTransactionStartTimeout(error) {
+    if (!(error instanceof Error))
+        return false;
+    const msg = error.message.toLowerCase();
+    return (msg.includes('unable to start a transaction in the given time') ||
+        msg.includes('transaction api error') ||
+        msg.includes('p2028'));
+}
 export class PaymentService {
+    resolvePayableAmount(order) {
+        const totalAmount = toNumber(order.totalAmount);
+        const grandTotal = toNumber(order.grandTotal);
+        const subTotalAmount = toNumber(order.subTotalAmount);
+        const totalTaxAmount = toNumber(order.totalTaxAmount);
+        const hasItems = Array.isArray(order.items) && order.items.length > 0;
+        const inferredShippingFromGrand = Math.max(0, grandTotal - subTotalAmount - totalTaxAmount);
+        const shippingFee = inferredShippingFromGrand > 0
+            ? inferredShippingFromGrand
+            : hasItems
+                ? DEFAULT_SHIPPING_FEE_INR
+                : 0;
+        const derivedAmount = subTotalAmount + totalTaxAmount + shippingFee;
+        const payableAmount = Math.max(totalAmount, grandTotal, derivedAmount);
+        return roundMoney(payableAmount);
+    }
     // ------------------------------------------------------------------
     // Refund processing (idempotent, crash-safe)
     //
@@ -129,16 +163,35 @@ export class PaymentService {
         if (existingPayment && existingPayment.status === PaymentStatus.SUCCESS) {
             throw new ApiError(400, 'Order already paid');
         }
+        const payableAmount = this.resolvePayableAmount(order);
+        if (payableAmount > toNumber(order.totalAmount)) {
+            await prisma.order.update({
+                where: { id: order.id },
+                data: {
+                    totalAmount: payableAmount,
+                    grandTotal: Math.max(payableAmount, toNumber(order.grandTotal)),
+                },
+            });
+        }
         // Create Payment Record (INITIATED) — reuse row on retry
         let payment;
         if (existingPayment) {
-            payment = await paymentRepository.updatePaymentStatus(existingPayment.id, PaymentStatus.INITIATED, null);
+            payment = await prisma.payment.update({
+                where: { id: existingPayment.id },
+                data: {
+                    status: PaymentStatus.INITIATED,
+                    amount: payableAmount,
+                    providerOrderId: null,
+                    providerPaymentId: null,
+                    providerSignature: null,
+                },
+            });
         }
         else {
             payment = await paymentRepository.createPayment({
                 orderId,
                 userId,
-                amount: order.totalAmount,
+                amount: payableAmount,
                 currency: 'INR',
                 provider,
                 status: PaymentStatus.INITIATED
@@ -148,7 +201,7 @@ export class PaymentService {
         await paymentRepository.createPaymentEvent({
             paymentId: payment.id,
             type: PaymentEventType.INITIATED,
-            payload: { provider, amount: order.totalAmount }
+            payload: { provider, amount: payableAmount }
         });
         // Handle MOCK Provider
         if (provider === PaymentProvider.MOCK) {
@@ -156,13 +209,13 @@ export class PaymentService {
                 paymentId: payment.id,
                 providerPaymentId: `mock_${payment.id}`,
                 checkoutUrl: `https://mock-gateway.com/pay/${payment.id}`,
-                amount: order.totalAmount,
+                amount: payableAmount,
                 currency: 'INR'
             };
         }
         // Handle RAZORPAY Provider
         if (provider === PaymentProvider.RAZORPAY) {
-            const razorpayOrder = await razorpayService.createOrder(order.totalAmount, 'INR', orderId, { orderId, userId });
+            const razorpayOrder = await razorpayService.createOrder(payableAmount, 'INR', orderId, { orderId, userId });
             // Update payment with Razorpay order ID
             await paymentRepository.updateProviderOrderId(payment.id, razorpayOrder.razorpayOrderId);
             return {
@@ -236,7 +289,19 @@ export class PaymentService {
         if (payment.status === PaymentStatus.SUCCESS) {
             return { message: 'Payment already verified', paymentId: payment.id };
         }
-        await this.handlePaymentSuccess(payment.id, payment.orderId, razorpayPaymentId, { razorpayOrderId, razorpayPaymentId }, razorpaySignature);
+        try {
+            await this.handlePaymentSuccess(payment.id, payment.orderId, razorpayPaymentId, { razorpayOrderId, razorpayPaymentId }, razorpaySignature);
+        }
+        catch (error) {
+            if (isTransactionStartTimeout(error)) {
+                const latest = await paymentRepository.findPaymentById(payment.id);
+                if (latest?.status === PaymentStatus.SUCCESS) {
+                    return { message: 'Payment already verified', paymentId: payment.id };
+                }
+                throw new ApiError(503, 'Payment is being finalized. Please refresh order status in a few seconds.');
+            }
+            throw error;
+        }
         return { message: 'Payment verified', paymentId: payment.id };
     }
     // ------------------------------------------------------------------
@@ -281,6 +346,9 @@ export class PaymentService {
                 },
             });
             return { alreadyProcessed: false };
+        }, {
+            maxWait: TX_MAX_WAIT_MS,
+            timeout: TX_TIMEOUT_MS,
         });
         // Skip notifications if another call already handled this
         if (result.alreadyProcessed)

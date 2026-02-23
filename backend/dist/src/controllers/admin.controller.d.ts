@@ -83,9 +83,14 @@ export declare const adminController: {
     updateCategory: (req: Request, res: Response, next: NextFunction) => Promise<void>;
     /**
      * DELETE /v1/admin/categories/:id
-     * Deactivate category
+     * Delete category (fails if products exist)
      */
     deleteCategory: (req: Request, res: Response, next: NextFunction) => Promise<void>;
+    /**
+     * PATCH /v1/admin/categories/:id/toggle
+     * Toggle category active state
+     */
+    toggleCategory: (req: Request, res: Response, next: NextFunction) => Promise<void>;
     /**
      * GET /v1/admin/reviews
      * List all reviews
@@ -96,6 +101,11 @@ export declare const adminController: {
      * Delete review
      */
     deleteReview: (req: Request, res: Response, next: NextFunction) => Promise<void>;
+    /**
+     * PATCH /v1/admin/reviews/:id/hide
+     * Hide/unhide a review
+     */
+    hideReview: (req: Request, res: Response, next: NextFunction) => Promise<void>;
     /**
      * GET /v1/admin/bestsellers
      */

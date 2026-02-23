@@ -18,9 +18,12 @@ export declare class ReviewRepository {
         updatedAt: Date;
         userId: string;
         productId: string;
+        title: string | null;
         images: string[];
         rating: number;
         text: string;
+        helpfulCount: number;
+        isHidden: boolean;
     })[]>;
     deleteById(id: string): Promise<{
         id: string;
@@ -28,9 +31,12 @@ export declare class ReviewRepository {
         updatedAt: Date;
         userId: string;
         productId: string;
+        title: string | null;
         images: string[];
         rating: number;
         text: string;
+        helpfulCount: number;
+        isHidden: boolean;
     }>;
 }
 export declare const reviewRepository: ReviewRepository;

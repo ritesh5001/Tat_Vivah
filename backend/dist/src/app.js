@@ -4,7 +4,7 @@ import { errorMiddleware } from './middlewares/error.middleware.js';
 import { register, httpRequestDuration } from './config/metrics.js';
 import { prisma } from './config/db.js';
 import { checkRedisConnection } from './config/redis.js';
-import { authRouter, sellerRouter, categoryRouter, productRouter, sellerProductRouter, imagekitRouter, bestsellerRouter, cartRouter, checkoutRouter, couponRouter, orderRouter, sellerOrderRouter, cancellationRouter, returnRouter, paymentRouter, webhookRouter, sellerSettlementRouter, adminRouter, 
+import { authRouter, sellerRouter, categoryRouter, productRouter, sellerProductRouter, productMediaRouter, imagekitRouter, bestsellerRouter, cartRouter, checkoutRouter, couponRouter, orderRouter, sellerOrderRouter, cancellationRouter, returnRouter, paymentRouter, webhookRouter, sellerSettlementRouter, adminRouter, 
 // Shipping imports
 shipmentRouter, sellerShipmentRouter, adminShipmentRouter, adminNotificationRouter, reviewRouter, addressRouter, notificationRouter, wishlistRouter, searchRouter, personalizationRouter, sellerAnalyticsRouter, } from './routes/index.js';
 import { searchController } from './controllers/search.controller.js';
@@ -124,6 +124,7 @@ export function createApp() {
     app.use('/v1/categories', categoryRouter);
     app.use('/v1/products', productRouter);
     app.use('/v1/seller/products', sellerProductRouter);
+    app.use('/v1/seller/products', productMediaRouter);
     app.use('/v1/imagekit', imagekitRouter);
     app.use('/v1/bestsellers', bestsellerRouter);
     // Address management

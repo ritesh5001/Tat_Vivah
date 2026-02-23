@@ -5,6 +5,8 @@
 import { Router } from 'express';
 import { authenticate, authorize } from '../middlewares/auth.middleware.js';
 import { adminController } from '../controllers/admin.controller.js';
+import { commissionRuleController } from '../controllers/commissionRule.controller.js';
+import { couponAdminController } from '../controllers/couponAdmin.controller.js';
 export const adminRouter = Router();
 // ============================================================================
 // All routes require authentication
@@ -87,9 +89,14 @@ adminRouter.post('/categories', authorize('ADMIN', 'SUPER_ADMIN'), adminControll
 adminRouter.put('/categories/:id', authorize('ADMIN', 'SUPER_ADMIN'), adminController.updateCategory);
 /**
  * DELETE /v1/admin/categories/:id
- * Deactivate category
+ * Delete category (fails if products exist)
  */
 adminRouter.delete('/categories/:id', authorize('ADMIN', 'SUPER_ADMIN'), adminController.deleteCategory);
+/**
+ * PATCH /v1/admin/categories/:id/toggle
+ * Toggle category active state
+ */
+adminRouter.patch('/categories/:id/toggle', authorize('ADMIN', 'SUPER_ADMIN'), adminController.toggleCategory);
 // ============================================================================
 // BESTSELLER MANAGEMENT (ADMIN + SUPER_ADMIN)
 // ============================================================================
@@ -126,6 +133,11 @@ adminRouter.get('/reviews', authorize('ADMIN', 'SUPER_ADMIN'), adminController.l
  * Delete review
  */
 adminRouter.delete('/reviews/:id', authorize('ADMIN', 'SUPER_ADMIN'), adminController.deleteReview);
+/**
+ * PATCH /v1/admin/reviews/:id/hide
+ * Hide/unhide a review
+ */
+adminRouter.patch('/reviews/:id/hide', authorize('ADMIN', 'SUPER_ADMIN'), adminController.hideReview);
 // ============================================================================
 // ORDER MANAGEMENT
 // ============================================================================
@@ -175,4 +187,55 @@ adminRouter.get('/audit-logs', authorize('ADMIN', 'SUPER_ADMIN'), adminControlle
  * List all refund ledger entries (with optional orderId/status filters)
  */
 adminRouter.get('/refunds', authorize('ADMIN', 'SUPER_ADMIN'), adminController.listRefunds);
+// ============================================================================
+// COMMISSION RULES (ADMIN + SUPER_ADMIN)
+// ============================================================================
+/**
+ * GET /v1/admin/commission-rules
+ * List commission rules (with optional seller/category/isActive filters)
+ */
+adminRouter.get('/commission-rules', authorize('ADMIN', 'SUPER_ADMIN'), commissionRuleController.listRules);
+/**
+ * POST /v1/admin/commission-rules
+ * Create a commission rule
+ */
+adminRouter.post('/commission-rules', authorize('ADMIN', 'SUPER_ADMIN'), commissionRuleController.createRule);
+/**
+ * PUT /v1/admin/commission-rules/:id
+ * Update a commission rule
+ */
+adminRouter.put('/commission-rules/:id', authorize('ADMIN', 'SUPER_ADMIN'), commissionRuleController.updateRule);
+/**
+ * DELETE /v1/admin/commission-rules/:id
+ * Delete a commission rule
+ */
+adminRouter.delete('/commission-rules/:id', authorize('ADMIN', 'SUPER_ADMIN'), commissionRuleController.deleteRule);
+// ============================================================================
+// COUPON ADMIN CRUD (ADMIN + SUPER_ADMIN)
+// ============================================================================
+/**
+ * GET /v1/admin/coupons
+ * List coupons with pagination/filters
+ */
+adminRouter.get('/coupons', authorize('ADMIN', 'SUPER_ADMIN'), couponAdminController.listCoupons);
+/**
+ * POST /v1/admin/coupons
+ * Create a coupon
+ */
+adminRouter.post('/coupons', authorize('ADMIN', 'SUPER_ADMIN'), couponAdminController.createCoupon);
+/**
+ * PUT /v1/admin/coupons/:id
+ * Update a coupon
+ */
+adminRouter.put('/coupons/:id', authorize('ADMIN', 'SUPER_ADMIN'), couponAdminController.updateCoupon);
+/**
+ * DELETE /v1/admin/coupons/:id
+ * Delete a coupon (must have 0 redemptions)
+ */
+adminRouter.delete('/coupons/:id', authorize('ADMIN', 'SUPER_ADMIN'), couponAdminController.deleteCoupon);
+/**
+ * PATCH /v1/admin/coupons/:id/toggle
+ * Toggle coupon active state
+ */
+adminRouter.patch('/coupons/:id/toggle', authorize('ADMIN', 'SUPER_ADMIN'), couponAdminController.toggleCoupon);
 //# sourceMappingURL=admin.routes.js.map

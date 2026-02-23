@@ -1,3 +1,4 @@
+import { apiRequest } from "@/services/api";
 
 interface User {
     id: string;
@@ -8,60 +9,70 @@ interface User {
 export interface Review {
     id: string;
     rating: number;
+    title?: string | null;
     text: string;
     images: string[];
+    helpfulCount?: number;
     createdAt: string;
     user: User;
 }
 
-export interface CreateReviewPayload {
-    rating: number;
-    text: string;
-    images: string[];
+export interface ReviewSummary {
+    averageRating: number;
+    totalReviews: number;
+    ratingDistribution: Record<number, number>;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+export interface ReviewListResponse {
+    reviews: Review[];
+    summary: ReviewSummary;
+    pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+    };
+}
 
-export async function fetchProductReviews(productId: string): Promise<Review[]> {
-    if (!API_BASE_URL) return [];
+export interface CreateReviewPayload {
+    rating: number;
+    title?: string;
+    comment: string;
+}
 
-    const response = await fetch(`${API_BASE_URL}/v1/reviews/product/${productId}`, {
-        method: "GET",
-        headers: {
-            "Content-Type": "application/json",
-        },
-        cache: "no-store", // Ensure fresh data
-    });
+export async function fetchProductReviews(
+    productId: string,
+    query?: { page?: number; limit?: number; sort?: string }
+): Promise<ReviewListResponse> {
+    const params = new URLSearchParams();
+    if (query?.page) params.set("page", String(query.page));
+    if (query?.limit) params.set("limit", String(query.limit));
+    if (query?.sort) params.set("sort", query.sort);
+    const qs = params.toString();
 
-    if (!response.ok) {
-        return [];
-    }
-
-    const data = await response.json();
-    return data.reviews || [];
+    return apiRequest<ReviewListResponse>(
+        `/v1/products/${productId}/reviews${qs ? `?${qs}` : ""}`,
+        { method: "GET", showLoader: false }
+    );
 }
 
 export async function submitProductReview(
     productId: string,
     payload: CreateReviewPayload,
-    token: string
-): Promise<Review> {
-    if (!API_BASE_URL) throw new Error("API URL not configured");
+    token?: string | null
+): Promise<{ message: string; review: Review }> {
+    return apiRequest<{ message: string; review: Review }>(
+        `/v1/products/${productId}/reviews`,
+        { method: "POST", body: payload, token }
+    );
+}
 
-    const response = await fetch(`${API_BASE_URL}/v1/reviews/product/${productId}`, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify(payload)
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.message || "Failed to submit review");
-    }
-
-    return data.review;
+export async function markReviewHelpful(
+    reviewId: string,
+    token?: string | null
+): Promise<{ message: string; helpfulCount: number }> {
+    return apiRequest<{ message: string; helpfulCount: number }>(
+        `/v1/reviews/${reviewId}/helpful`,
+        { method: "POST", token }
+    );
 }

@@ -7,6 +7,7 @@ export { sellerRouter } from './seller.routes.js';
 export { categoryRouter } from './category.routes.js';
 export { productRouter } from './product.routes.js';
 export { sellerProductRouter } from './seller-product.routes.js';
+export { productMediaRouter } from './product-media.routes.js';
 export { reviewRouter } from './review.routes.js';
 export { imagekitRouter } from './imagekit.routes.js';
 export { bestsellerRouter } from './bestseller.routes.js';

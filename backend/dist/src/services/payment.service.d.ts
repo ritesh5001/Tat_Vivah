@@ -1,5 +1,6 @@
 import { PaymentProvider, PaymentStatus } from '@prisma/client';
 export declare class PaymentService {
+    private resolvePayableAmount;
     processRefund(orderId: string): Promise<{
         refundTriggered: boolean;
         alreadyRefunded: boolean;

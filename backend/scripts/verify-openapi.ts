@@ -45,7 +45,7 @@ const newPaths = [
 let allOk = true;
 newPaths.forEach((p) => {
     if (paths.includes(p)) {
-        const methods = Object.keys(openApiSpec.paths[p]).join(', ').toUpperCase();
+        const methods = Object.keys(openApiSpec.paths?.[p] || {}).join(', ').toUpperCase();
         console.log(`  ✅ ${p}: ${methods}`);
     } else {
         console.log(`  ❌ ${p}: MISSING`);
