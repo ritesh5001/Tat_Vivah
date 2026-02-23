@@ -16,6 +16,7 @@ import { RecommendedForYouSection } from "@/components/recommended-for-you-secti
 import { RecentlyViewedSection } from "@/components/recently-viewed-section";
 import { LuxuryHero } from "@/components/home/LuxuryHero";
 import { WeddingSectionBanner } from "@/components/home/WeddingSectionBanner";
+import { WishlistHeartButton } from "@/components/wishlist-heart-button";
 export default function Home() {
   const [bestsellers, setBestsellers] = React.useState<BestsellerProduct[]>([]);
   const [loadingBestsellers, setLoadingBestsellers] = React.useState(true);
@@ -203,13 +204,12 @@ export default function Home() {
               bestsellers.map((item) => (
                 <motion.div key={item.id} variants={staggerItemVariants}>
                   <Link href="/marketplace" className="group block">
-                    {/* Product Image */}
-                    <div className="relative mb-5 overflow-hidden bg-cream dark:bg-brown/20 aspect-[3/4]">
+                    <div className="relative overflow-hidden bg-cream dark:bg-brown/20 aspect-3/4">
                       {item.image ? (
                         <img
                           src={item.image}
                           alt={item.title}
-                          className="h-full w-full object-cover"
+                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
                         />
                       ) : (
                         <div className="absolute inset-0 flex items-center justify-center">
@@ -218,27 +218,46 @@ export default function Home() {
                           </span>
                         </div>
                       )}
-                      {/* Tag */}
-                      <span className="absolute top-4 left-4 bg-card/90 backdrop-blur-sm px-3 py-1 text-[10px] uppercase tracking-wider text-muted-foreground border border-border-soft">
-                        Bestseller
-                      </span>
+                      <WishlistHeartButton
+                        productId={item.productId}
+                        size={18}
+                        className="absolute left-4 top-4 h-10 w-10 rounded-sm bg-card text-destructive shadow-sm opacity-0 transition-opacity duration-300 group-hover:opacity-100 focus-visible:opacity-100"
+                      />
                     </div>
 
-                    {/* Product Info */}
-                    <h3 className="font-serif text-base font-normal text-foreground mb-1 group-hover:text-gold transition-colors duration-300">
-                      {item.title}
-                    </h3>
-                    <div className="flex items-center gap-2 text-sm">
-                      <span className="font-medium text-foreground">
-                        {formatPrice(item.salePrice ?? item.adminPrice ?? item.minPrice)}
-                      </span>
-                      {typeof item.regularPrice === "number" &&
-                      typeof (item.salePrice ?? item.adminPrice ?? item.minPrice) === "number" &&
-                      item.regularPrice !== (item.salePrice ?? item.adminPrice ?? item.minPrice) ? (
-                        <span className="text-muted-foreground line-through">
-                          {formatPrice(item.regularPrice)}
-                        </span>
-                      ) : null}
+                    <div className="pt-4 text-center">
+                      <h3 className="line-clamp-2 font-serif text-[1.05rem] font-normal tracking-[0.01em] text-foreground transition-colors duration-300 group-hover:text-gold">
+                        {item.title}
+                      </h3>
+                      <p className="mt-4 text-xs uppercase tracking-[0.35em] text-muted-foreground/90">
+                        {item.categoryName ?? "Tatvivah Curated"}
+                      </p>
+                      {typeof (item.salePrice ?? item.adminPrice ?? item.minPrice) === "number" ? (
+                        <div className="mt-2 flex items-baseline justify-center gap-2">
+                          <span className="text-3xl font-normal tracking-[0.01em] text-foreground">
+                            {formatPrice(item.salePrice ?? item.adminPrice ?? item.minPrice)}
+                          </span>
+                          {typeof item.regularPrice === "number" &&
+                          item.regularPrice > (item.salePrice ?? item.adminPrice ?? item.minPrice)! ? (
+                            <span className="text-3xl font-normal text-muted-foreground/70 line-through">
+                              {formatPrice(item.regularPrice)}
+                            </span>
+                          ) : null}
+                          {typeof item.regularPrice === "number" &&
+                          item.regularPrice > (item.salePrice ?? item.adminPrice ?? item.minPrice)! ? (
+                            <span className="text-3xl font-normal text-destructive">
+                              {Math.round(
+                                ((item.regularPrice - (item.salePrice ?? item.adminPrice ?? item.minPrice)!) /
+                                  item.regularPrice) *
+                                  100
+                              )}
+                              % OFF
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <p className="mt-2 text-sm text-muted-foreground">Contact for price</p>
+                      )}
                     </div>
                   </Link>
                 </motion.div>
