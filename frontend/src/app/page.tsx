@@ -15,6 +15,7 @@ import { getBestsellers, type BestsellerProduct } from "@/services/bestsellers";
 import { RecommendedForYouSection } from "@/components/recommended-for-you-section";
 import { RecentlyViewedSection } from "@/components/recently-viewed-section";
 import { LuxuryHero } from "@/components/home/LuxuryHero";
+import { WeddingSectionBanner } from "@/components/home/WeddingSectionBanner";
 export default function Home() {
   const [bestsellers, setBestsellers] = React.useState<BestsellerProduct[]>([]);
   const [loadingBestsellers, setLoadingBestsellers] = React.useState(true);
@@ -246,6 +247,8 @@ export default function Home() {
           </motion.div>
         </div>
       </section>
+
+      <WeddingSectionBanner />
 
         <RecommendedForYouSection />
 
