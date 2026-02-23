@@ -167,7 +167,7 @@ function SlideContent({
       {isActive && (
         <motion.div
           key={slide.id}
-          className="absolute inset-0 z-20 flex items-start pt-[20%] justify-center md:items-center md:pt-0 md:justify-start"
+          className="absolute inset-0 z-20 flex items-end justify-center px-6 pb-12 sm:pb-16 md:items-center md:pb-0 md:px-0 md:justify-start"
           initial="hidden"
           animate="visible"
           exit="exit"
@@ -178,14 +178,14 @@ function SlideContent({
             >
               <motion.h1
                 variants={headingVariants}
-                className="font-serif text-3xl font-light leading-[1.1] tracking-tight text-white sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl"
+                className="font-serif text-3xl font-light leading-[1.1] tracking-tight text-white drop-shadow-[0_16px_32px_rgba(0,0,0,0.75)] sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl"
               >
                 {slide.heading}
               </motion.h1>
 
               <motion.p
                 variants={subtextVariants}
-                className={`mt-4 max-w-md text-sm leading-relaxed text-white/75 sm:mt-5 sm:text-base md:text-lg ${isRight ? "md:ml-auto" : ""}`}
+                className={`mt-4 max-w-md text-sm leading-relaxed text-white/80 drop-shadow-[0_12px_28px_rgba(0,0,0,0.6)] sm:mt-5 sm:text-base md:text-lg ${isRight ? "md:ml-auto" : ""}`}
               >
                 {slide.subtext}
               </motion.p>
@@ -260,8 +260,8 @@ function SlideBackground({
       <div
         className={`absolute inset-0 z-10 hidden md:block ${
           isRight
-            ? "bg-linear-to-l from-black/60 via-black/30 to-transparent"
-            : "bg-linear-to-r from-black/60 via-black/30 to-transparent"
+            ? "bg-linear-to-l from-black/80 via-black/45 to-transparent"
+            : "bg-linear-to-r from-black/80 via-black/45 to-transparent"
         }`}
       />
 
