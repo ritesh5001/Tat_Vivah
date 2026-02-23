@@ -298,7 +298,7 @@ export function LuxuryHero() {
   }, []);
 
   return (
-    <section className="relative h-screen w-full overflow-hidden bg-charcoal">
+    <section className="relative w-full overflow-hidden bg-charcoal aspect-square md:aspect-21/8">
       <Swiper
         modules={[Autoplay, EffectFade]}
         effect="fade"
