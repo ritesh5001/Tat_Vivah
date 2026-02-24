@@ -4,6 +4,8 @@ import * as React from "react";
 
 export function GlobalLoader() {
   const [count, setCount] = React.useState(0);
+  const [visible, setVisible] = React.useState(false);
+  const showTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   React.useEffect(() => {
     const handleStart = () => setCount((prev) => prev + 1);
@@ -19,7 +21,24 @@ export function GlobalLoader() {
     };
   }, []);
 
-  if (count <= 0) return null;
+  React.useEffect(() => {
+    if (count > 0) {
+      if (showTimer.current) return;
+      showTimer.current = setTimeout(() => {
+        showTimer.current = null;
+        setVisible(true);
+      }, 300);
+      return;
+    }
+
+    if (showTimer.current) {
+      clearTimeout(showTimer.current);
+      showTimer.current = null;
+    }
+    setVisible(false);
+  }, [count]);
+
+  if (!visible) return null;
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-background/80 backdrop-blur-sm">

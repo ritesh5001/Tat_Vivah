@@ -34,8 +34,10 @@ export async function apiRequest<T>(
     throw new Error("API base URL is not configured");
   }
 
-  const { body, token, headers, showLoader = true, ...rest } = options;
+  const { body, token, headers, showLoader, ...rest } = options;
   const authToken = token ?? getAuthToken();
+  const method = rest.method ?? "GET";
+  const shouldShowLoader = typeof showLoader === "boolean" ? showLoader : method !== "GET";
 
   const finalHeaders: HeadersInit = {
     ...(body ? { "Content-Type": "application/json" } : {}),
@@ -43,7 +45,7 @@ export async function apiRequest<T>(
     ...(headers ?? {}),
   };
 
-  if (showLoader && typeof window !== "undefined") {
+  if (shouldShowLoader && typeof window !== "undefined") {
     window.dispatchEvent(new Event("tv-global-loading-start"));
   }
 
@@ -65,7 +67,7 @@ export async function apiRequest<T>(
 
     return data as T;
   } finally {
-    if (showLoader && typeof window !== "undefined") {
+    if (shouldShowLoader && typeof window !== "undefined") {
       window.dispatchEvent(new Event("tv-global-loading-end"));
     }
   }
