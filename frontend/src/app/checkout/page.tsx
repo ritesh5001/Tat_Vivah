@@ -570,7 +570,7 @@ export default function CheckoutPage() {
                 <div className="flex items-center gap-3">
                   <span className="h-1.5 w-1.5 rounded-full bg-gold" />
                   <span className="text-xs text-muted-foreground">
-                    7-Day Easy Returns
+                    10-Day Easy Returns
                   </span>
                 </div>
               </div>

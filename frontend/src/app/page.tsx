@@ -334,21 +334,66 @@ export default function Home() {
           TRUST SECTION
           ========================================================================= */}
       <section className="border-t border-border-soft bg-cream/50 dark:bg-card/50">
-        <div className="mx-auto max-w-6xl px-6 py-16">
+        <div className="mx-auto max-w-6xl px-6 py-12">
           <motion.div
             initial="hidden"
             whileInView="visible"
             viewport={viewportSettings}
             variants={staggerContainerVariants}
-            className="grid gap-8 text-center sm:grid-cols-3"
+            className="grid gap-6 text-center sm:grid-cols-3"
           >
             {[
-              { title: "Verified Artisans", desc: "Every seller is personally vetted" },
-              { title: "Secure Payments", desc: "Protected by Razorpay" },
-              { title: "Hassle-Free Returns", desc: "7-day easy returns" },
+              { title: "Verified Artisans", desc: "Every seller is personally vetted", icon: "shield" },
+              { title: "Secure Payments", desc: "Protected by Razorpay", icon: "lock" },
+              { title: "Hassle-Free Returns", desc: "10-day easy returns", icon: "refresh" },
             ].map((item) => (
               <motion.div key={item.title} variants={staggerItemVariants}>
-                <h4 className="text-sm font-medium text-foreground mb-2">
+                <div className="mb-2 flex justify-center text-gold">
+                  {item.icon === "shield" ? (
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={1.6}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="h-5 w-5"
+                    >
+                      <path d="M12 3 5 6v6c0 5 3.5 8 7 9 3.5-1 7-4 7-9V6l-7-3Z" />
+                      <path d="m9 12 2 2 4-4" />
+                    </svg>
+                  ) : item.icon === "lock" ? (
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={1.6}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="h-5 w-5"
+                    >
+                      <rect x="4" y="11" width="16" height="10" />
+                      <path d="M8 11V8a4 4 0 1 1 8 0v3" />
+                    </svg>
+                  ) : (
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={1.6}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="h-5 w-5"
+                    >
+                      <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+                      <path d="M21 3v6h-6" />
+                    </svg>
+                  )}
+                </div>
+                <h4 className="text-sm font-medium text-foreground mb-1">
                   {item.title}
                 </h4>
                 <p className="text-xs text-muted-foreground">
