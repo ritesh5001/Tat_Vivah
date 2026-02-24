@@ -6,24 +6,32 @@ import { useState } from "react";
 
 const policyLinks = [
   {
-    label: "Cancellation Policy",
-    href: "/contact",
-  },
-  {
-    label: "Refund & Return Policy",
-    href: "/contact",
+    label: "Terms & Conditions",
+    href: "/terms",
   },
   {
     label: "Privacy Policy",
-    href: "/contact",
+    href: "/privacy",
   },
   {
-    label: "Terms & Conditions",
-    href: "/contact",
+    label: "Refund Policy",
+    href: "/refund-policy",
   },
   {
     label: "Shipping Policy",
-    href: "/contact",
+    href: "/shipping-policy",
+  },
+  {
+    label: "Return Policy",
+    href: "/return-policy",
+  },
+  {
+    label: "Seller Terms",
+    href: "/seller-terms",
+  },
+  {
+    label: "Disclaimer",
+    href: "/disclaimer",
   },
 ];
 
@@ -62,7 +70,7 @@ const collections = [
 export function SiteFooter() {
   const accordionSections = [
     {
-      title: "Our Policies",
+      title: "Legal",
       links: policyLinks,
     },
     {
@@ -126,12 +134,11 @@ export function SiteFooter() {
                     </svg>
                   </button>
 
-                    <div
-                      className={`overflow-hidden transition-[max-height] duration-300 ease-in-out ${
-                        isOpen ? "max-h-125" : "max-h-0"
+                  <div
+                    className={`overflow-hidden transition-[max-height] duration-300 ease-in-out ${isOpen ? "max-h-125" : "max-h-0"
                       }`}
-                    >
-                      <ul className="space-y-3 px-4 pb-4 text-sm font-medium tracking-[0.05em] text-foreground">
+                  >
+                    <ul className="space-y-3 px-4 pb-4 text-sm font-medium tracking-[0.05em] text-foreground">
                       {section.links.map((item) => (
                         <li key={item.label}>
                           <Link
