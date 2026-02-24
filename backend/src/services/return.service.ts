@@ -366,17 +366,21 @@ export class ReturnService {
                 if (orderItem) {
                     sellerIds.add(orderItem.sellerId);
 
-                    const inventoryUpdate = await tx.inventory.updateMany({
-                        where: { variantId: returnItem.variantId },
-                        data: { stock: { increment: returnItem.quantity } },
-                    });
-
-                    if (inventoryUpdate.count === 0) {
+                    try {
+                        await tx.inventory.upsert({
+                            where: { variantId: returnItem.variantId },
+                            update: { stock: { increment: returnItem.quantity } },
+                            create: {
+                                variantId: returnItem.variantId,
+                                stock: returnItem.quantity,
+                            },
+                        });
+                    } catch (error) {
                         recordReturnFatal({
                             returnId,
                             orderId: returnReq.order.id,
                             adminId,
-                            reason: `Inventory increment failed for variant ${returnItem.variantId}`,
+                            reason: `Inventory restore failed for variant ${returnItem.variantId}`,
                         });
                         throw ApiError.internal(`Failed to restore inventory for variant ${returnItem.variantId}`);
                     }
