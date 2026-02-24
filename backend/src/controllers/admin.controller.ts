@@ -248,7 +248,7 @@ export const adminController = {
         try {
             const id = req.params['id'] as string;
             const actorId = req.user!.userId as string;
-            const { reason } = req.body as { reason?: string };
+            const reason = req.body?.reason as string | undefined;
             const result = await adminService.deleteProduct(id, actorId, reason);
             res.json(result);
         } catch (error) {
