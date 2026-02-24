@@ -340,15 +340,33 @@ export default function Home() {
             whileInView="visible"
             viewport={viewportSettings}
             variants={staggerContainerVariants}
-            className="grid gap-6 text-center sm:grid-cols-3"
+            className="grid grid-cols-3 gap-3 text-center sm:gap-6"
           >
             {[
-              { title: "Verified Artisans", desc: "Every seller is personally vetted", icon: "shield" },
-              { title: "Secure Payments", desc: "Protected by Razorpay", icon: "lock" },
-              { title: "Hassle-Free Returns", desc: "10-day easy returns", icon: "refresh" },
+              {
+                title: "Verified Artisans",
+                titleShort: "Verified",
+                desc: "Every seller is personally vetted",
+                descShort: "Seller vetted",
+                icon: "shield",
+              },
+              {
+                title: "Secure Payments",
+                titleShort: "Payments",
+                desc: "Protected by Razorpay",
+                descShort: "Razorpay",
+                icon: "lock",
+              },
+              {
+                title: "Hassle-Free Returns",
+                titleShort: "Returns",
+                desc: "10-day easy returns",
+                descShort: "10-day",
+                icon: "refresh",
+              },
             ].map((item) => (
-              <motion.div key={item.title} variants={staggerItemVariants}>
-                <div className="mb-2 flex justify-center text-gold">
+              <motion.div key={item.title} variants={staggerItemVariants} className="px-1">
+                <div className="mb-1.5 flex justify-center text-gold">
                   {item.icon === "shield" ? (
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
@@ -358,7 +376,7 @@ export default function Home() {
                       strokeWidth={1.6}
                       strokeLinecap="round"
                       strokeLinejoin="round"
-                      className="h-5 w-5"
+                      className="h-4 w-4 sm:h-5 sm:w-5"
                     >
                       <path d="M12 3 5 6v6c0 5 3.5 8 7 9 3.5-1 7-4 7-9V6l-7-3Z" />
                       <path d="m9 12 2 2 4-4" />
@@ -372,7 +390,7 @@ export default function Home() {
                       strokeWidth={1.6}
                       strokeLinecap="round"
                       strokeLinejoin="round"
-                      className="h-5 w-5"
+                      className="h-4 w-4 sm:h-5 sm:w-5"
                     >
                       <rect x="4" y="11" width="16" height="10" />
                       <path d="M8 11V8a4 4 0 1 1 8 0v3" />
@@ -386,18 +404,20 @@ export default function Home() {
                       strokeWidth={1.6}
                       strokeLinecap="round"
                       strokeLinejoin="round"
-                      className="h-5 w-5"
+                      className="h-4 w-4 sm:h-5 sm:w-5"
                     >
                       <path d="M21 12a9 9 0 1 1-2.64-6.36" />
                       <path d="M21 3v6h-6" />
                     </svg>
                   )}
                 </div>
-                <h4 className="text-sm font-medium text-foreground mb-1">
-                  {item.title}
+                <h4 className="mb-0.5 text-[11px] font-medium leading-tight text-foreground sm:text-sm">
+                  <span className="sm:hidden">{item.titleShort}</span>
+                  <span className="hidden sm:inline">{item.title}</span>
                 </h4>
-                <p className="text-xs text-muted-foreground">
-                  {item.desc}
+                <p className="text-[10px] leading-tight text-muted-foreground sm:text-xs">
+                  <span className="sm:hidden">{item.descShort}</span>
+                  <span className="hidden sm:inline">{item.desc}</span>
                 </p>
               </motion.div>
             ))}
