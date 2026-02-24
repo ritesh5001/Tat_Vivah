@@ -84,9 +84,9 @@ export function SiteFooter() {
       className="relative overflow-hidden border-t border-border-soft bg-cream text-foreground font-sans"
       style={{
         backgroundImage:
-          "radial-gradient(color-mix(in oklab, var(--color-gold) 28%, transparent) 0.6px, transparent 0.6px), radial-gradient(color-mix(in oklab, var(--color-gold) 28%, transparent) 0.6px, var(--color-cream) 0.6px)",
-        backgroundSize: "20px 20px",
-        backgroundPosition: "0 0, 10px 10px",
+          "radial-gradient(color-mix(in oklab, var(--color-gold) 45%, transparent) 1.6px, transparent 1.6px), radial-gradient(color-mix(in oklab, var(--color-gold) 45%, transparent) 1.6px, var(--color-cream) 1.6px)",
+        backgroundSize: "26px 26px",
+        backgroundPosition: "0 0, 13px 13px",
       }}
     >
       <div className="absolute left-0 top-0 h-1.5 w-full bg-[repeating-linear-gradient(45deg,var(--color-brown),var(--color-brown)_10px,var(--color-gold)_10px,var(--color-gold)_12px)] shadow-[0_4px_12px_rgba(44,40,37,0.15)]" />
