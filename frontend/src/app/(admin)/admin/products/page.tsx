@@ -33,12 +33,15 @@ const getProductStatusLabel = (product: any) => {
 export default function AdminProductsPage() {
   const [loading, setLoading] = React.useState(true);
   const [products, setProducts] = React.useState<Array<any>>([]);
-  const [reasons, setReasons] = React.useState<Record<string, string>>({});
   const [categories, setCategories] = React.useState<Array<{ id: string; name: string }>>([]);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [categoryFilter, setCategoryFilter] = React.useState("all");
   const [selectedProduct, setSelectedProduct] = React.useState<any | null>(null);
   const [adminPriceInput, setAdminPriceInput] = React.useState("");
+  const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
+  const [bulkReason, setBulkReason] = React.useState("");
+  const [showReasonModal, setShowReasonModal] = React.useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = React.useState(false);
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -63,7 +66,11 @@ export default function AdminProductsPage() {
   }, [load]);
 
   const handleDelete = async (id: string) => {
-    const reason = reasons[id];
+    const reason = (reasons[id] ?? "").trim();
+    if (!reason) {
+      toast.error("Please mention the reason for the removal of the product.");
+      return;
+    }
     try {
       await deleteProduct(id, reason);
       toast.success("Product deleted by admin.");
