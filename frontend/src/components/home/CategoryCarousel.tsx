@@ -86,9 +86,8 @@ export function CategoryCarousel() {
       className="border-t border-border-soft bg-cream/50 dark:bg-card/50"
     >
       <div
-        className={`mx-auto max-w-6xl px-6 py-10 sm:py-12 lg:py-16 transition-all duration-700 ${
-          visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
-        }`}
+        className={`mx-auto max-w-6xl px-6 py-10 sm:py-12 lg:py-16 transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+          }`}
       >
         <div className="mb-10 text-center">
           <p className="mb-4 text-xs font-medium uppercase tracking-[0.3em] text-gold">
@@ -131,7 +130,7 @@ export function CategoryCarousel() {
 
         <div className="mt-10 text-center">
           <Link
-            href="/marketplace"
+            href="/categories"
             className="inline-flex items-center gap-2 border-b border-transparent pb-1 text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground transition-colors duration-300 hover:border-gold hover:text-foreground"
           >
             View All Categories
