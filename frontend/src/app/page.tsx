@@ -16,6 +16,8 @@ import { LuxuryHero } from "@/components/home/LuxuryHero";
 import { FeaturesMarquee } from "@/components/features-marquee";
 import { CategoryCarousel } from "@/components/home/CategoryCarousel";
 import { WishlistHeartButton } from "@/components/wishlist-heart-button";
+import { MotionCarousel } from "@/components/motion/MotionCarousel";
+import { MotionCard } from "@/components/motion/MotionCard";
 
 /* ── Below-fold components loaded on demand to reduce initial JS ── */
 const WeddingSectionBanner = dynamic(
@@ -95,13 +97,13 @@ export default function Home() {
           BESTSELLERS SECTION
           ========================================================================= */}
       <section id="bestsellers" className="border-t border-border-soft">
-        <div className="mx-auto max-w-6xl px-6 py-24">
+        <div className="mx-auto max-w-6xl px-6 py-10 sm:py-12 lg:py-16">
           <motion.div
             initial="hidden"
             whileInView="visible"
             viewport={viewportSettings}
             variants={fadeInVariants}
-            className="mb-16 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"
+            className="mb-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"
           >
             <div>
               <p className="text-xs font-medium uppercase tracking-[0.3em] text-gold mb-4">
@@ -120,71 +122,52 @@ export default function Home() {
             </Link>
           </motion.div>
 
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={viewportSettings}
-            variants={staggerContainerVariants}
-            className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4"
-          >
-            {loadingBestsellers ? (
-              <div className="col-span-full rounded-none border border-border-soft bg-card p-10 text-center text-sm text-muted-foreground">
-                Loading bestsellers...
-              </div>
-            ) : bestsellers.length === 0 ? (
-              <div className="col-span-full rounded-none border border-border-soft bg-card p-10 text-center text-sm text-muted-foreground">
-                No bestsellers available yet.
-              </div>
-            ) : (
-              bestsellers.map((item) => (
-                <motion.div key={item.id} variants={staggerItemVariants}>
-                  <Link href="/marketplace" className="group block">
-                    <div className="relative overflow-hidden bg-cream dark:bg-brown/20 aspect-3/4">
-                      {item.image ? (
-                        <Image
-                          src={item.image}
-                          alt={item.title}
-                          fill
-                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-                          className="object-cover transition-transform duration-500 group-hover:scale-[1.02]"
-                          loading="lazy"
-                          quality={75}
-                        />
-                      ) : (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <span className="text-xs text-muted-foreground/50 uppercase tracking-wider">
-                            Image
-                          </span>
-                        </div>
-                      )}
+          {loadingBestsellers ? (
+            <div className="rounded-none border border-border-soft bg-card p-10 text-center text-sm text-muted-foreground">
+              Loading bestsellers...
+            </div>
+          ) : bestsellers.length === 0 ? (
+            <div className="rounded-none border border-border-soft bg-card p-10 text-center text-sm text-muted-foreground">
+              No bestsellers available yet.
+            </div>
+          ) : (
+            <MotionCarousel>
+              {bestsellers.map((item) => (
+                <Link key={item.id} href="/marketplace" className="contents">
+                  <MotionCard
+                    imageSrc={item.image || "/images/product-placeholder.svg"}
+                    imageAlt={item.title}
+                    aspectClass="aspect-3/4"
+                    sizes="(max-width: 768px) 50vw, (max-width: 1280px) 33vw, 20vw"
+                    overlay={
                       <WishlistHeartButton
                         productId={item.productId}
                         size={18}
-                        className="absolute left-4 top-4 h-10 w-10 rounded-none bg-card text-destructive shadow-sm opacity-0 transition-opacity duration-300 group-hover:opacity-100 focus-visible:opacity-100"
+                        className="absolute left-4 top-4 z-10 h-10 w-10 rounded-none bg-card text-destructive shadow-sm opacity-0 transition-opacity duration-300 group-hover:opacity-100 focus-visible:opacity-100"
                       />
-                    </div>
-
-                    <div className="pt-4 text-center">
+                    }
+                  >
+                    <div className="px-4 pt-4 pb-5 text-center">
                       <h3 className="line-clamp-2 font-serif text-[1.05rem] font-normal tracking-[0.01em] text-foreground transition-colors duration-300 group-hover:text-gold">
                         {item.title}
                       </h3>
-                      <p className="mt-4 text-xs uppercase tracking-[0.35em] text-muted-foreground/90">
+                      <p className="mt-3 text-xs uppercase tracking-[0.35em] text-muted-foreground/90">
                         {item.categoryName ?? "Tatvivah Curated"}
                       </p>
                       {typeof (item.salePrice ?? item.adminPrice ?? item.minPrice) === "number" ? (
                         <div className="mt-2 flex items-baseline justify-center gap-2">
-                          <span className="text-3xl font-normal tracking-[0.01em] text-foreground">
+                          <span className="text-2xl font-normal tracking-[0.01em] text-foreground">
                             {formatPrice(item.salePrice ?? item.adminPrice ?? item.minPrice)}
                           </span>
                           {typeof item.regularPrice === "number" &&
                           item.regularPrice > (item.salePrice ?? item.adminPrice ?? item.minPrice)! ? (
-                            <span className="text-3xl font-normal text-muted-foreground/70 line-through">
+                            <span className="text-sm font-normal text-muted-foreground/70 line-through">
                               {formatPrice(item.regularPrice)}
                             </span>
                           ) : null}
                           {typeof item.regularPrice === "number" &&
                           item.regularPrice > (item.salePrice ?? item.adminPrice ?? item.minPrice)! ? (
-                            <span className="text-3xl font-normal text-destructive">
+                            <span className="text-sm font-medium text-destructive">
                               {Math.round(
                                 ((item.regularPrice - (item.salePrice ?? item.adminPrice ?? item.minPrice)!) /
                                   item.regularPrice) *
@@ -198,11 +181,11 @@ export default function Home() {
                         <p className="mt-2 text-sm text-muted-foreground">Contact for price</p>
                       )}
                     </div>
-                  </Link>
-                </motion.div>
-              ))
-            )}
-          </motion.div>
+                  </MotionCard>
+                </Link>
+              ))}
+            </MotionCarousel>
+          )}
         </div>
       </section>
 

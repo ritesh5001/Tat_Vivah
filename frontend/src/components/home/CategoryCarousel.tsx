@@ -1,9 +1,10 @@
 "use client";
 
 import * as React from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { getCategories, type Category } from "@/services/catalog";
+import { MotionCarousel } from "@/components/motion/MotionCarousel";
+import { MotionCard } from "@/components/motion/MotionCard";
 
 type CategoryItem = Category & {
   image?: string | null;
@@ -20,7 +21,7 @@ function resolveCategoryImage(category: CategoryItem): string {
 
 function CategorySkeletonCard() {
   return (
-    <div className="snap-center shrink-0 w-[calc(50%-0.5rem)] md:w-[calc((100%-1rem)/3)] xl:w-[calc((100%-3.2rem)/5)]">
+    <div className="snap-center shrink-0 w-[calc(50%-0.75rem)] md:w-[calc(33.333%-1rem)] xl:w-[calc(20%-1.2rem)]">
       <div className="overflow-hidden rounded-none border border-border-soft bg-card shadow-sm">
         <div className="aspect-square w-full animate-pulse bg-muted" />
         <div className="p-3">
@@ -85,11 +86,11 @@ export function CategoryCarousel() {
       className="border-t border-border-soft bg-cream/50 dark:bg-card/50"
     >
       <div
-        className={`mx-auto max-w-6xl px-6 py-24 transition-all duration-700 ${
+        className={`mx-auto max-w-6xl px-6 py-10 sm:py-12 lg:py-16 transition-all duration-700 ${
           visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
         }`}
       >
-        <div className="mb-12 text-center">
+        <div className="mb-10 text-center">
           <p className="mb-4 text-xs font-medium uppercase tracking-[0.3em] text-gold">
             Shop by Category
           </p>
@@ -99,7 +100,7 @@ export function CategoryCarousel() {
         </div>
 
         {loading ? (
-          <div className="flex gap-4 overflow-x-auto px-1 py-1 scrollbar-hide">
+          <div className="flex gap-6 overflow-x-auto px-1 py-1 scrollbar-hide">
             {Array.from({ length: 5 }).map((_, index) => (
               <CategorySkeletonCard key={index} />
             ))}
@@ -109,34 +110,23 @@ export function CategoryCarousel() {
             Categories will be available soon.
           </div>
         ) : (
-          <div className="flex gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory px-1 py-1 scrollbar-hide">
+          <MotionCarousel>
             {categories.map((category) => (
-              <Link
-                key={category.id}
-                href="/marketplace"
-                className="group snap-center shrink-0 w-[calc(50%-0.5rem)] md:w-[calc((100%-1rem)/3)] xl:w-[calc((100%-3.2rem)/5)]"
-              >
-                <article className="overflow-hidden rounded-none border border-border-soft bg-card shadow-sm transition-all duration-300 group-hover:shadow-md">
-                  <div className="relative aspect-square w-full overflow-hidden bg-cream dark:bg-brown/20">
-                    <Image
-                      src={resolveCategoryImage(category)}
-                      alt={category.name}
-                      fill
-                      sizes="(max-width: 768px) 50vw, (max-width: 1280px) 33vw, 20vw"
-                      quality={70}
-                      loading="lazy"
-                      className="object-cover transition-transform duration-500 group-hover:scale-105"
-                    />
-                  </div>
+              <Link key={category.id} href="/marketplace" className="contents">
+                <MotionCard
+                  imageSrc={resolveCategoryImage(category)}
+                  imageAlt={category.name}
+                  aspectClass="aspect-square"
+                >
                   <div className="px-3 py-4 text-center">
-                    <h3 className="line-clamp-2 font-serif text-base font-normal tracking-tight text-foreground">
+                    <h3 className="line-clamp-2 font-serif text-base font-normal tracking-tight text-foreground transition-colors duration-300 group-hover:text-gold">
                       {category.name}
                     </h3>
                   </div>
-                </article>
+                </MotionCard>
               </Link>
             ))}
-          </div>
+          </MotionCarousel>
         )}
 
         <div className="mt-10 text-center">
