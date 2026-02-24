@@ -123,7 +123,12 @@ export class CategoryRepository {
      * Check if category has products assigned
      */
     async hasProducts(id: string): Promise<boolean> {
-        const count = await prisma.product.count({ where: { categoryId: id } });
+        const count = await prisma.product.count({
+            where: {
+                categoryId: id,
+                deletedByAdmin: false,
+            },
+        });
         return count > 0;
     }
 
