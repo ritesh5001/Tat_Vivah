@@ -103,7 +103,7 @@ export function SiteFooter() {
                 className="mb-5 h-auto w-40"
               />
             </Link>
-            <p className="max-w-xl border-l-[3px] border-gold pl-4 text-[15px] italic leading-7 text-muted-foreground max-sm:border-l-0 max-sm:border-t-[2px] max-sm:border-gold max-sm:pl-0 max-sm:pt-3">
+            <p className="max-w-xl border-l-[3px] border-gold pl-4 text-[15px] italic leading-7 text-muted-foreground max-sm:border-l-0 max-sm:border-t-2 max-sm:border-gold max-sm:pl-0 max-sm:pt-3">
               "Elegance Woven in Tradition." At TatVivah, we bring curated ethnic wear and handcrafted wedding fashion for modern celebrations rooted in heritage.
             </p>
           </div>
@@ -135,7 +135,7 @@ export function SiteFooter() {
 
                     <div
                       className={`overflow-hidden transition-[max-height] duration-300 ease-in-out ${
-                        isOpen ? "max-h-[500px]" : "max-h-0"
+                        isOpen ? "max-h-125" : "max-h-0"
                       }`}
                     >
                       <ul className="space-y-3 px-4 pb-4 text-sm font-medium tracking-[0.05em] text-foreground">
@@ -157,7 +157,7 @@ export function SiteFooter() {
                 </div>
 
                 <div className="hidden md:block group max-sm:text-center">
-                  <h3 className="mb-6 inline-block text-lg font-semibold uppercase tracking-[0.08em] text-foreground after:mt-2 after:block after:h-[2px] after:w-10 group-hover:after:w-full after:bg-gold after:shadow-[0_2px_0_var(--color-brown)] after:transition-all after:duration-300">
+                  <h3 className="mb-6 inline-block text-lg font-semibold uppercase tracking-[0.08em] text-foreground after:mt-2 after:block after:h-0.5 after:w-10 group-hover:after:w-full after:bg-gold after:shadow-[0_2px_0_var(--color-brown)] after:transition-all after:duration-300">
                     {section.title}
                   </h3>
                   <ul className="space-y-2.5">

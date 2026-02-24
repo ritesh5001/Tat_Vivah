@@ -173,17 +173,17 @@ export function SiteHeader() {
   return (
     <header className="sticky top-0 z-30 flex flex-col border-b border-border-soft bg-background/95 backdrop-blur-sm">
       <AnnouncementBar />
-      <div className="mx-auto w-full max-w-6xl px-6 py-4">
+      <div className="mx-auto w-full max-w-6xl px-4 py-3 sm:px-6 sm:py-4">
         {/* Mobile Header: menu left, logo center, cart right */}
         <div className="grid grid-cols-3 items-center sm:hidden">
           <div className="justify-self-start">
             <button
               type="button"
-              className="inline-flex h-10 w-10 items-center justify-center border border-border-soft bg-card text-foreground transition-colors duration-300 hover:bg-cream dark:hover:bg-brown/50"
+              className="inline-flex h-9 w-9 items-center justify-center border border-border-soft bg-card text-foreground transition-colors duration-300 hover:bg-cream dark:hover:bg-brown/50"
               aria-label="Toggle menu"
               onClick={() => setMenuOpen((prev) => !prev)}
             >
-              <span className="text-lg">{menuOpen ? "✕" : "☰"}</span>
+              <span className="text-base">{menuOpen ? "✕" : "☰"}</span>
             </button>
           </div>
 
@@ -191,9 +191,9 @@ export function SiteHeader() {
             <Image
               src="/logo.png"
               alt="TatVivah Trends"
-              width={120}
-              height={50}
-              className="h-auto w-auto transition-transform duration-300 group-hover:scale-105"
+              width={108}
+              height={45}
+              className="h-auto w-[108px] transition-transform duration-300 group-hover:scale-105"
               priority
             />
           </Link>
@@ -201,7 +201,7 @@ export function SiteHeader() {
           <div className="justify-self-end">
             <Link
               href="/cart"
-              className="inline-flex h-10 w-10 items-center justify-center border border-border-soft bg-card text-foreground transition-colors duration-300 hover:bg-cream dark:hover:bg-brown/50"
+              className="inline-flex h-9 w-9 items-center justify-center border border-border-soft bg-card text-foreground transition-colors duration-300 hover:bg-cream dark:hover:bg-brown/50"
               aria-label="Cart"
             >
               <svg
@@ -212,7 +212,7 @@ export function SiteHeader() {
                 strokeWidth={1.5}
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className="h-4 w-4"
+                className="h-3.5 w-3.5"
               >
                 <circle cx="9" cy="21" r="1" />
                 <circle cx="20" cy="21" r="1" />
@@ -222,7 +222,7 @@ export function SiteHeader() {
           </div>
         </div>
 
-        <div className="mt-3 sm:hidden">
+        <div className="mt-2 sm:hidden">
           <SearchBar placeholder="Search products..." className="w-full" />
         </div>
 
