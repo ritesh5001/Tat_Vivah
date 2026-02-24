@@ -399,7 +399,7 @@ export default function UserOrdersPage() {
                         {label}
                       </span>
                       {hasCancellationRequest ? (
-                        <span className="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider border border-[#B7956C]/30 text-[#8A7054] bg-[#B7956C]/5">
+                        <span className="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider border border-gold/30 text-[#8A7054] bg-gold/5">
                           Cancellation Requested
                         </span>
                       ) : null}
@@ -550,7 +550,7 @@ export default function UserOrdersPage() {
               value={cancelReason}
               onChange={(event) => setCancelReason(event.target.value)}
               placeholder="Enter your cancellation reason"
-              className="min-h-[120px]"
+              className="min-h-30"
             />
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={closeCancellationModal}>
@@ -578,7 +578,7 @@ export default function UserOrdersPage() {
               value={returnReason}
               onChange={(event) => setReturnReason(event.target.value)}
               placeholder="Enter your return reason (e.g., wrong size, damaged item)"
-              className="min-h-[120px]"
+              className="min-h-30"
             />
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={closeReturnModal}>

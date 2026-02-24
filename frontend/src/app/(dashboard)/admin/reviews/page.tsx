@@ -158,7 +158,7 @@ export default function AdminReviewsPage() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider border border-[#B7956C]/30 text-[#8A7054] bg-[#B7956C]/5">
+                    <span className="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider border border-gold/30 text-[#8A7054] bg-gold/5">
                       {review.rating} ★
                     </span>
                     {typeof review.helpfulCount === "number" && review.helpfulCount > 0 && (
@@ -186,7 +186,7 @@ export default function AdminReviewsPage() {
                         className={
                           review.isHidden
                             ? "border-[#7B9971]/40 text-[#5A7352]"
-                            : "border-[#B7956C]/40 text-[#8A7054]"
+                            : "border-gold/40 text-[#8A7054]"
                         }
                         onClick={() => handleToggleHide(review.id, !!review.isHidden)}
                       >

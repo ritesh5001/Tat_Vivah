@@ -354,7 +354,7 @@ export default function AdminCouponsPage() {
                   <div className="flex-1 space-y-1">
                     <div className="flex items-center gap-3">
                       <p className="font-mono text-lg font-medium text-foreground">{coupon.code}</p>
-                      <span className="px-2 py-0.5 text-[10px] uppercase tracking-wider border border-[#B7956C]/30 text-[#8A7054] bg-[#B7956C]/5">
+                      <span className="px-2 py-0.5 text-[10px] uppercase tracking-wider border border-gold/30 text-[#8A7054] bg-gold/5">
                         {coupon.type === "PERCENT" ? `${coupon.value}%` : currency.format(coupon.value)}
                       </span>
                     </div>
