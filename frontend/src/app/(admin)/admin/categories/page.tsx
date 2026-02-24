@@ -19,6 +19,7 @@ import {
 } from "@/services/admin";
 import { toast } from "sonner";
 import { Loader2, X } from "lucide-react";
+import { compressImageForUpload } from "@/lib/image-compression";
 
 const IMAGEKIT_PUBLIC_KEY = process.env.NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY;
 const IMAGEKIT_URL_ENDPOINT = process.env.NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT;
@@ -116,9 +117,10 @@ export default function AdminCategoriesPage() {
           expire: number;
         };
 
+        const compressedFile = await compressImageForUpload(file);
         const result = await imagekit.upload({
-          file,
-          fileName: file.name,
+          file: compressedFile,
+          fileName: compressedFile.name,
           folder: "/tatvivah/categories",
           useUniqueFileName: true,
           signature: authData.signature,
@@ -138,9 +140,9 @@ export default function AdminCategoriesPage() {
           error instanceof Error
             ? error.message
             : (error as any)?.response?.data?.message ??
-              (error as any)?.response?.message ??
-              (error as any)?.message ??
-              "Image upload failed";
+            (error as any)?.response?.message ??
+            (error as any)?.message ??
+            "Image upload failed";
         toast.error(message);
       } finally {
         setUploading(false);

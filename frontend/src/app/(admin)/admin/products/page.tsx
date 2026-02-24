@@ -13,6 +13,7 @@ import type {
 } from "@/services/admin";
 import { getCategories } from "@/services/catalog";
 import { toast } from "sonner";
+import { compressImageForUpload } from "@/lib/image-compression";
 
 const IMAGEKIT_PUBLIC_KEY = process.env.NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY;
 const IMAGEKIT_URL_ENDPOINT = process.env.NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT;
@@ -210,8 +211,8 @@ export default function AdminProductsPage() {
     });
     setEditImages(
       product.images && product.images.length > 0
-          ? [...product.images]
-          : []
+        ? [...product.images]
+        : []
     );
 
     const variantState: Record<string, { price: string; compareAtPrice: string; stock: string }> = {};
@@ -312,9 +313,10 @@ export default function AdminProductsPage() {
       };
 
       for (const file of limitedFiles) {
+        const compressedFile = await compressImageForUpload(file);
         const result = await imagekit.upload({
-          file,
-          fileName: file.name,
+          file: compressedFile,
+          fileName: compressedFile.name,
           folder: "/tatvivah/products",
           useUniqueFileName: true,
           signature: authData.signature,
@@ -329,9 +331,9 @@ export default function AdminProductsPage() {
         error instanceof Error
           ? error.message
           : (error as any)?.response?.data?.message ??
-            (error as any)?.response?.message ??
-            (error as any)?.message ??
-            "Image upload failed";
+          (error as any)?.response?.message ??
+          (error as any)?.message ??
+          "Image upload failed";
       toast.error(message);
     } finally {
       setUploadingEditImages(false);
@@ -579,7 +581,7 @@ export default function AdminProductsPage() {
                   Catalog
                 </p>
                 <p className="font-serif text-lg font-light text-foreground">
-                    {viewMode === "trash" ? "Trash" : "All Products"}
+                  {viewMode === "trash" ? "Trash" : "All Products"}
                 </p>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <Button
@@ -601,7 +603,7 @@ export default function AdminProductsPage() {
                 </div>
               </div>
               <p className="text-sm text-muted-foreground">
-                  {visibleProducts.length} {viewMode === "trash" ? "trashed listings" : "listings"}
+                {visibleProducts.length} {viewMode === "trash" ? "trashed listings" : "listings"}
               </p>
             </div>
           </div>

@@ -24,6 +24,7 @@ import {
   deleteProductMedia,
   type ProductMedia,
 } from "@/services/product-media";
+import { compressImageForUpload } from "@/lib/image-compression";
 
 const currency = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -430,9 +431,10 @@ export default function SellerProductsPage() {
       };
 
       for (const file of limitedFiles) {
+        const compressedFile = await compressImageForUpload(file);
         const result = await imagekit.upload({
-          file,
-          fileName: file.name,
+          file: compressedFile,
+          fileName: compressedFile.name,
           folder: "/tatvivah/products",
           useUniqueFileName: true,
           signature: authData.signature,
@@ -482,9 +484,10 @@ export default function SellerProductsPage() {
       };
 
       for (const file of files.slice(0, 5)) {
+        const compressedFile = await compressImageForUpload(file);
         const result = await imagekit.upload({
-          file,
-          fileName: file.name,
+          file: compressedFile,
+          fileName: compressedFile.name,
           folder: "/tatvivah/products",
           useUniqueFileName: true,
           signature: authData.signature,
@@ -637,7 +640,7 @@ export default function SellerProductsPage() {
                         Seller Price: {currency.format(Number(product.sellerPrice ?? 0))}
                       </p>
                       {String(product.status ?? "PENDING").toUpperCase() === "APPROVED" &&
-                      product.adminListingPrice != null ? (
+                        product.adminListingPrice != null ? (
                         <p className="text-xs text-gold mt-1">
                           Listed at {currency.format(Number(product.adminListingPrice))} by Admin
                         </p>
