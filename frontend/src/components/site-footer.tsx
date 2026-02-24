@@ -92,7 +92,7 @@ export function SiteFooter() {
       <div className="absolute left-0 top-0 h-1.5 w-full bg-[repeating-linear-gradient(45deg,var(--color-brown),var(--color-brown)_10px,var(--color-gold)_10px,var(--color-gold)_12px)] shadow-[0_4px_12px_rgba(44,40,37,0.15)]" />
 
       <div className="mx-auto w-full max-w-6xl px-6 pt-14">
-        <div className="grid gap-8 pb-10 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1fr]">
+        <div className="grid gap-6 pb-10 md:gap-8 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1fr]">
           <div className="min-w-0 pr-0 lg:pr-6">
             <Link href="/" className="inline-block transition-transform duration-300 hover:-translate-y-1">
               <Image
@@ -116,7 +116,7 @@ export function SiteFooter() {
                   <button
                     type="button"
                     onClick={() => toggleSection(index)}
-                    className="flex w-full items-center justify-between px-0 py-4 text-left text-sm font-semibold uppercase tracking-[0.08em] text-foreground"
+                    className="flex w-full items-center justify-between px-2 py-3 text-left text-sm font-semibold uppercase tracking-[0.18em] text-foreground"
                   >
                     <span>{section.title}</span>
                     <svg
@@ -133,12 +133,12 @@ export function SiteFooter() {
                     </svg>
                   </button>
 
-                  <div
-                    className={`overflow-hidden transition-[max-height] duration-300 ease-in-out ${
-                      isOpen ? "max-h-[500px]" : "max-h-0"
-                    }`}
-                  >
-                    <ul className="space-y-2.5 px-0 pb-4 text-sm font-medium tracking-[0.03em] text-foreground">
+                    <div
+                      className={`overflow-hidden transition-[max-height] duration-300 ease-in-out ${
+                        isOpen ? "max-h-[500px]" : "max-h-0"
+                      }`}
+                    >
+                      <ul className="space-y-3 px-4 pb-4 text-sm font-medium tracking-[0.05em] text-foreground">
                       {section.links.map((item) => (
                         <li key={item.label}>
                           <Link
