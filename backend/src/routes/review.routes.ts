@@ -8,9 +8,6 @@ const reviewRouter = Router();
 reviewRouter.post('/:id/helpful', authenticate, reviewController.markHelpful);
 
 // GET /v1/reviews/product/:productId - Get reviews (Public) — legacy route
-reviewRouter.get('/product/:productId', (req, res, next) => {
-    (req.params as Record<string, string>)['id'] = req.params['productId'] as string;
-    reviewController.getProductReviews(req, res, next);
-});
+reviewRouter.get('/product/:productId', reviewController.getProductReviews);
 
 export { reviewRouter };
