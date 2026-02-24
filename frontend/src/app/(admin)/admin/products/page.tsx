@@ -3,6 +3,7 @@
 import * as React from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Search, X } from "lucide-react";
+import ImageKit from "imagekit-javascript";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { deleteProduct, getAllProducts, setProductPrice, updateProductDetails } from "@/services/admin";
@@ -12,6 +13,18 @@ import type {
 } from "@/services/admin";
 import { getCategories } from "@/services/catalog";
 import { toast } from "sonner";
+
+const IMAGEKIT_PUBLIC_KEY = process.env.NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY;
+const IMAGEKIT_URL_ENDPOINT = process.env.NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT;
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+
+const getMissingImageKitConfig = () => {
+  const missing: string[] = [];
+  if (!IMAGEKIT_PUBLIC_KEY) missing.push("NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY");
+  if (!IMAGEKIT_URL_ENDPOINT) missing.push("NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT");
+  if (!API_BASE_URL) missing.push("NEXT_PUBLIC_API_BASE_URL");
+  return missing;
+};
 
 const getProductStatusStyle = (product: any) => {
   if (product.deletedByAdmin) {
@@ -68,10 +81,21 @@ export default function AdminProductsPage() {
     isPublished: false,
   });
   const [editImages, setEditImages] = React.useState<string[]>([]);
+  const [uploadingEditImages, setUploadingEditImages] = React.useState(false);
   const [variantEditValues, setVariantEditValues] = React.useState<
     Record<string, { price: string; compareAtPrice: string; stock: string }>
   >({});
   const [isSavingEdit, setIsSavingEdit] = React.useState(false);
+
+  const imagekit = React.useMemo(() => {
+    if (!IMAGEKIT_PUBLIC_KEY || !IMAGEKIT_URL_ENDPOINT || !API_BASE_URL) {
+      return null;
+    }
+    return new ImageKit({
+      publicKey: IMAGEKIT_PUBLIC_KEY,
+      urlEndpoint: IMAGEKIT_URL_ENDPOINT,
+    });
+  }, []);
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -186,8 +210,8 @@ export default function AdminProductsPage() {
     });
     setEditImages(
       product.images && product.images.length > 0
-        ? [...product.images]
-        : [""]
+          ? [...product.images]
+          : []
     );
 
     const variantState: Record<string, { price: string; compareAtPrice: string; stock: string }> = {};
@@ -216,12 +240,12 @@ export default function AdminProductsPage() {
   };
 
   const addImageField = () => {
-    if (editImages.length >= 5) return;
+    const currentCount = editImages.filter((url) => url.trim()).length;
+    if (currentCount >= 5) return;
     setEditImages((prev) => [...prev, ""]);
   };
 
   const removeImageField = (index: number) => {
-    if (editImages.length <= 1) return;
     setEditImages((prev) => prev.filter((_, idx) => idx !== index));
   };
 
@@ -239,6 +263,80 @@ export default function AdminProductsPage() {
         [field]: value,
       },
     }));
+  };
+
+  const handleUploadEditImages = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const inputElement = event.currentTarget;
+    const files = Array.from(inputElement.files ?? []);
+    if (!files.length) {
+      inputElement.value = "";
+      return;
+    }
+    if (!imagekit) {
+      inputElement.value = "";
+      const missing = getMissingImageKitConfig();
+      toast.error(
+        missing.length
+          ? `Missing env: ${missing.join(", ")}`
+          : "ImageKit is not configured."
+      );
+      return;
+    }
+
+    const currentCount = editImages.filter((url) => url.trim()).length;
+    const remaining = 5 - currentCount;
+    if (remaining <= 0) {
+      inputElement.value = "";
+      toast.error("You can upload up to 5 images.");
+      return;
+    }
+
+    const limitedFiles = files.slice(0, remaining);
+    setUploadingEditImages(true);
+
+    try {
+      const authResponse = await fetch(`${API_BASE_URL}/v1/imagekit/auth`);
+      if (!authResponse.ok) {
+        const authData = await authResponse.json().catch(() => null);
+        const authMessage = authData?.message ?? "ImageKit auth failed.";
+        toast.error(authMessage);
+        return;
+      }
+
+      const authData = (await authResponse.json()) as {
+        signature: string;
+        token: string;
+        expire: number;
+      };
+
+      for (const file of limitedFiles) {
+        const result = await imagekit.upload({
+          file,
+          fileName: file.name,
+          folder: "/tatvivah/products",
+          useUniqueFileName: true,
+          signature: authData.signature,
+          token: authData.token,
+          expire: authData.expire,
+        });
+        setEditImages((prev) => [...prev, result.url]);
+      }
+      toast.success("Images uploaded.");
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : (error as any)?.response?.data?.message ??
+            (error as any)?.response?.message ??
+            (error as any)?.message ??
+            "Image upload failed";
+      toast.error(message);
+    } finally {
+      setUploadingEditImages(false);
+      inputElement.value = "";
+    }
   };
 
   const handleSaveEdit = async () => {
@@ -911,36 +1009,63 @@ export default function AdminProductsPage() {
                   </label>
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
                     Images
                   </p>
                   <div className="space-y-2">
-                    {editImages.map((image, index) => (
-                      <div key={index} className="flex items-center gap-2">
-                        <Input
-                          value={image}
-                          placeholder="Image URL"
-                          onChange={(event) =>
-                            handleImageChange(index, event.target.value)
-                          }
-                        />
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeImageField(index)}
-                          disabled={editImages.length <= 1}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
+                    {editImages.map((image, index) => {
+                      const trimmed = image.trim();
+                      return (
+                        <div key={index} className="space-y-1">
+                          {trimmed ? (
+                            <img
+                              src={trimmed}
+                              alt={`Product image ${index + 1}`}
+                              className="h-24 w-full rounded border border-border-soft object-cover"
+                            />
+                          ) : null}
+                          <div className="flex items-center gap-2">
+                            <Input
+                              value={image}
+                              placeholder="Image URL"
+                              onChange={(event) =>
+                                handleImageChange(index, event.target.value)
+                              }
+                              className="flex-1"
+                            />
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeImageField(index)}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                  {editImages.length < 5 ? (
-                    <Button size="sm" variant="outline" onClick={addImageField}>
-                      Add image
-                    </Button>
-                  ) : null}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <label className="flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-border-soft px-3 py-2 text-sm text-muted-foreground transition hover:border-foreground hover:text-foreground">
+                      Upload images
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="sr-only"
+                        onChange={handleUploadEditImages}
+                      />
+                    </label>
+                    {editImages.filter((url) => url.trim()).length < 5 ? (
+                      <Button size="sm" variant="outline" onClick={addImageField}>
+                        Add image
+                      </Button>
+                    ) : null}
+                  </div>
+                  {uploadingEditImages && (
+                    <p className="text-xs text-muted-foreground">Uploading images…</p>
+                  )}
                 </div>
 
                 {(editingProduct.variants ?? []).length > 0 ? (
