@@ -51,7 +51,7 @@ export function RelatedProducts({ productId }: RelatedProductsProps) {
       </div>
 
       {loading ? (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
           {Array.from({ length: 4 }).map((_, i) => (
             <div
               key={i}
@@ -64,7 +64,7 @@ export function RelatedProducts({ productId }: RelatedProductsProps) {
           ))}
         </div>
       ) : (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
           {products.map((product) => (
             <Link
               key={product.id}

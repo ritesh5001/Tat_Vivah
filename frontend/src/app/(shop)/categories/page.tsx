@@ -47,7 +47,7 @@ export default async function CategoriesPage() {
                         No active categories found right now. Check back soon.
                     </div>
                 ) : (
-                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:gap-6 lg:grid-cols-4 xl:gap-8">
+                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 md:gap-6 lg:gap-8">
                         {categories.map((category) => (
                             <Link key={category.id} href={`/marketplace?categoryId=${category.id}`} className="group contents">
                                 <MotionCard

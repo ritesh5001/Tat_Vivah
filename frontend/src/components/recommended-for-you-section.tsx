@@ -81,7 +81,7 @@ export function RecommendedForYouSection() {
           whileInView="visible"
           viewport={viewportSettings}
           variants={staggerContainerVariants}
-          className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3"
+          className="grid gap-8 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5"
         >
           {products.slice(0, 6).map((product) => (
             <motion.div key={product.id} variants={staggerItemVariants}>

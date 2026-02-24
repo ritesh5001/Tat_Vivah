@@ -129,8 +129,8 @@ export default async function MarketplacePage({
                 key={category.id}
                 href={buildUrl(1, category.id)}
                 className={`px-5 py-2.5 text-xs uppercase tracking-wider transition-all duration-300 border ${categoryId === category.id
-                    ? "border-gold bg-cream text-charcoal dark:bg-brown/30 dark:text-ivory"
-                    : "border-border-soft bg-card text-muted-foreground hover:border-gold/50 hover:text-foreground"
+                  ? "border-gold bg-cream text-charcoal dark:bg-brown/30 dark:text-ivory"
+                  : "border-border-soft bg-card text-muted-foreground hover:border-gold/50 hover:text-foreground"
                   }`}
               >
                 {category.name}
@@ -148,7 +148,7 @@ export default async function MarketplacePage({
         </section>
 
         {/* Products Grid */}
-        <section className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+        <section className="grid gap-8 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
           {products.length === 0 ? (
             <Card className="sm:col-span-2 lg:col-span-3 border-border-soft">
               <CardContent className="p-8 text-center text-muted-foreground">
