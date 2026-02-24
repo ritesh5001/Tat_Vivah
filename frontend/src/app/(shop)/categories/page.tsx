@@ -54,6 +54,7 @@ export default async function CategoriesPage() {
                                     imageSrc={resolveCategoryImage(category)}
                                     imageAlt={category.name}
                                     aspectClass="aspect-square"
+                                    widthClass="w-full"
                                 >
                                     <div className="px-3 py-5 text-center">
                                         <h3 className="line-clamp-2 font-serif text-lg font-normal tracking-tight text-foreground transition-colors duration-300 group-hover:text-gold">
