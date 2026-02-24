@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import ImageKit from "imagekit-javascript";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,7 +18,19 @@ import {
   type UpdateCategoryPayload,
 } from "@/services/admin";
 import { toast } from "sonner";
-import { X } from "lucide-react";
+import { Loader2, X } from "lucide-react";
+
+const IMAGEKIT_PUBLIC_KEY = process.env.NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY;
+const IMAGEKIT_URL_ENDPOINT = process.env.NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT;
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+
+const getMissingImageKitConfig = () => {
+  const missing: string[] = [];
+  if (!IMAGEKIT_PUBLIC_KEY) missing.push("NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY");
+  if (!IMAGEKIT_URL_ENDPOINT) missing.push("NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT");
+  if (!API_BASE_URL) missing.push("NEXT_PUBLIC_API_BASE_URL");
+  return missing;
+};
 
 const emptyForm: CreateCategoryPayload = {
   name: "",
@@ -38,10 +51,103 @@ export default function AdminCategoriesPage() {
   // Create modal
   const [showCreate, setShowCreate] = React.useState(false);
   const [createForm, setCreateForm] = React.useState<CreateCategoryPayload>({ ...emptyForm });
+  const [uploadingCreateImage, setUploadingCreateImage] = React.useState(false);
+  const [uploadingCreateBannerImage, setUploadingCreateBannerImage] = React.useState(false);
 
   // Edit modal
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [editForm, setEditForm] = React.useState<UpdateCategoryPayload>({});
+  const [uploadingEditImage, setUploadingEditImage] = React.useState(false);
+  const [uploadingEditBannerImage, setUploadingEditBannerImage] = React.useState(false);
+
+  const imagekit = React.useMemo(() => {
+    if (!IMAGEKIT_PUBLIC_KEY || !IMAGEKIT_URL_ENDPOINT || !API_BASE_URL) {
+      return null;
+    }
+    return new ImageKit({
+      publicKey: IMAGEKIT_PUBLIC_KEY,
+      urlEndpoint: IMAGEKIT_URL_ENDPOINT,
+    });
+  }, []);
+
+  const uploadCategoryAsset = React.useCallback(
+    async ({
+      file,
+      field,
+      mode,
+    }: {
+      file: File;
+      field: "image" | "bannerImage";
+      mode: "create" | "edit";
+    }) => {
+      if (!imagekit) {
+        const missing = getMissingImageKitConfig();
+        toast.error(
+          missing.length
+            ? `Missing env: ${missing.join(", ")}`
+            : "ImageKit is not configured."
+        );
+        return;
+      }
+
+      const setUploading = (value: boolean) => {
+        if (mode === "create") {
+          if (field === "image") setUploadingCreateImage(value);
+          else setUploadingCreateBannerImage(value);
+          return;
+        }
+        if (field === "image") setUploadingEditImage(value);
+        else setUploadingEditBannerImage(value);
+      };
+
+      try {
+        setUploading(true);
+        const authResponse = await fetch(`${API_BASE_URL}/v1/imagekit/auth`);
+        if (!authResponse.ok) {
+          const authData = await authResponse.json().catch(() => null);
+          const authMessage = authData?.message ?? "ImageKit auth failed.";
+          toast.error(authMessage);
+          return;
+        }
+
+        const authData = (await authResponse.json()) as {
+          signature: string;
+          token: string;
+          expire: number;
+        };
+
+        const result = await imagekit.upload({
+          file,
+          fileName: file.name,
+          folder: "/tatvivah/categories",
+          useUniqueFileName: true,
+          signature: authData.signature,
+          token: authData.token,
+          expire: authData.expire,
+        });
+
+        if (mode === "create") {
+          setCreateForm((prev) => ({ ...prev, [field]: result.url }));
+        } else {
+          setEditForm((prev) => ({ ...prev, [field]: result.url }));
+        }
+
+        toast.success(`${field === "image" ? "Category" : "Banner"} image uploaded.`);
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : (error as any)?.response?.data?.message ??
+              (error as any)?.response?.message ??
+              (error as any)?.message ??
+              "Image upload failed";
+        toast.error(message);
+      } finally {
+        setUploading(false);
+      }
+    },
+    [imagekit]
+  );
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -129,11 +235,17 @@ export default function AdminCategoriesPage() {
     onChange,
     parentOptions,
     excludeId,
+    onUpload,
+    uploadingImage,
+    uploadingBannerImage,
   }: {
     values: Record<string, any>;
     onChange: (field: string, value: any) => void;
     parentOptions: AdminCategory[];
     excludeId?: string;
+    onUpload: (field: "image" | "bannerImage", file: File) => void;
+    uploadingImage: boolean;
+    uploadingBannerImage: boolean;
   }) => (
     <div className="space-y-4">
       <div>
@@ -146,12 +258,56 @@ export default function AdminCategoriesPage() {
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Image URL</Label>
-          <Input value={values.image ?? ""} onChange={(e) => onChange("image", e.target.value)} className="mt-1 h-11" placeholder="https://..." />
+          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Category Image</Label>
+          <div className="mt-1 space-y-2">
+            <Input
+              type="file"
+              accept="image/*"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) onUpload("image", file);
+                event.currentTarget.value = "";
+              }}
+              className="h-11"
+            />
+            {uploadingImage && (
+              <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Uploading...
+              </p>
+            )}
+            {values.image ? (
+              <div className="space-y-2">
+                <img src={values.image} alt="Category" className="h-24 w-full border border-border-soft object-cover" />
+                <Button type="button" variant="outline" size="sm" onClick={() => onChange("image", "")}>Remove Image</Button>
+              </div>
+            ) : null}
+          </div>
         </div>
         <div>
-          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Banner Image URL</Label>
-          <Input value={values.bannerImage ?? ""} onChange={(e) => onChange("bannerImage", e.target.value)} className="mt-1 h-11" placeholder="https://..." />
+          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Banner Image</Label>
+          <div className="mt-1 space-y-2">
+            <Input
+              type="file"
+              accept="image/*"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) onUpload("bannerImage", file);
+                event.currentTarget.value = "";
+              }}
+              className="h-11"
+            />
+            {uploadingBannerImage && (
+              <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Uploading...
+              </p>
+            )}
+            {values.bannerImage ? (
+              <div className="space-y-2">
+                <img src={values.bannerImage} alt="Category banner" className="h-24 w-full border border-border-soft object-cover" />
+                <Button type="button" variant="outline" size="sm" onClick={() => onChange("bannerImage", "")}>Remove Banner</Button>
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
       <div className="grid grid-cols-2 gap-4">
@@ -261,10 +417,13 @@ export default function AdminCategoriesPage() {
                 values={createForm}
                 onChange={(field, value) => setCreateForm((prev) => ({ ...prev, [field]: value }))}
                 parentOptions={categories}
+                onUpload={(field, file) => uploadCategoryAsset({ file, field, mode: "create" })}
+                uploadingImage={uploadingCreateImage}
+                uploadingBannerImage={uploadingCreateBannerImage}
               />
               <div className="mt-6 flex justify-end gap-3">
                 <Button variant="outline" onClick={() => setShowCreate(false)}>Cancel</Button>
-                <Button onClick={handleCreate} disabled={saving}>{saving ? "Saving..." : "Create"}</Button>
+                <Button onClick={handleCreate} disabled={saving || uploadingCreateImage || uploadingCreateBannerImage}>{saving ? "Saving..." : "Create"}</Button>
               </div>
             </motion.div>
           </motion.div>
@@ -283,10 +442,13 @@ export default function AdminCategoriesPage() {
                 onChange={(field, value) => setEditForm((prev) => ({ ...prev, [field]: value }))}
                 parentOptions={categories}
                 excludeId={editingId}
+                onUpload={(field, file) => uploadCategoryAsset({ file, field, mode: "edit" })}
+                uploadingImage={uploadingEditImage}
+                uploadingBannerImage={uploadingEditBannerImage}
               />
               <div className="mt-6 flex justify-end gap-3">
                 <Button variant="outline" onClick={() => setEditingId(null)}>Cancel</Button>
-                <Button onClick={handleUpdate} disabled={saving}>{saving ? "Saving..." : "Update"}</Button>
+                <Button onClick={handleUpdate} disabled={saving || uploadingEditImage || uploadingEditBannerImage}>{saving ? "Saving..." : "Update"}</Button>
               </div>
             </motion.div>
           </motion.div>
