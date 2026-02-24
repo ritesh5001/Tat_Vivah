@@ -41,7 +41,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       return React.cloneElement(props.children as React.ReactElement<any>, {
         className: cn(
           // Base styles
-          "inline-flex items-center justify-center gap-2 rounded-sm font-medium tracking-wide uppercase",
+          "inline-flex items-center justify-center gap-2 font-medium tracking-wide uppercase",
           // Premium transition
           "transition-all duration-400 ease-out",
           // Focus ring - muted gold
@@ -51,7 +51,8 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
           variantClasses[variant],
           sizeClasses[size],
           className,
-          (props.children as React.ReactElement<any>).props.className
+          (props.children as React.ReactElement<any>).props.className,
+          "!rounded-none"
         ),
         ref,
       });
@@ -62,7 +63,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         ref={ref}
         className={cn(
           // Base styles
-          "inline-flex items-center justify-center gap-2 rounded-sm font-medium tracking-wide uppercase",
+          "inline-flex items-center justify-center gap-2 font-medium tracking-wide uppercase",
           // Premium transition
           "transition-all duration-400 ease-out",
           // Focus ring - muted gold
@@ -71,7 +72,8 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
           "disabled:pointer-events-none disabled:opacity-50",
           variantClasses[variant],
           sizeClasses[size],
-          className
+          className,
+          "!rounded-none"
         )}
         {...props}
       />
