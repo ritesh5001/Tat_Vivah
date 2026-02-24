@@ -1,5 +1,8 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
+import { useState } from "react";
 
 const policyLinks = [
   {
@@ -56,6 +59,26 @@ const collections = [
 ];
 
 export function SiteFooter() {
+  const accordionSections = [
+    {
+      title: "Our Policies",
+      links: policyLinks,
+    },
+    {
+      title: "Quick Links",
+      links: quickLinks,
+    },
+    {
+      title: "Collections",
+      links: collections,
+    },
+  ];
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
+
+  const toggleSection = (index: number) => {
+    setOpenIndex((prev) => (prev === index ? null : index));
+  };
+
   return (
     <footer
       className="relative overflow-hidden border-t border-border-soft bg-cream text-foreground font-sans"
@@ -85,62 +108,75 @@ export function SiteFooter() {
             </p>
           </div>
 
-          <div className="min-w-0 group max-sm:text-center">
-            <h3 className="mb-6 inline-block text-lg font-semibold uppercase tracking-[0.08em] text-foreground after:mt-2 after:block after:h-[2px] after:w-10 group-hover:after:w-full after:bg-gold after:shadow-[0_2px_0_var(--color-brown)] after:transition-all after:duration-300">
-              Our Policies
-            </h3>
-            <ul className="space-y-2.5">
-              {policyLinks.map((item) => (
-                <li key={item.label}>
-                  <Link
-                    href={item.href}
-                    className="group inline-flex items-center gap-2 text-sm font-medium tracking-[0.03em] text-foreground transition-all duration-300 hover:translate-x-1 hover:text-gold"
+          {accordionSections.map((section, index) => {
+            const isOpen = openIndex === index;
+            return (
+              <div key={section.title} className="min-w-0">
+                <div className="md:hidden border-b border-border-soft">
+                  <button
+                    type="button"
+                    onClick={() => toggleSection(index)}
+                    className="flex w-full items-center justify-between px-0 py-4 text-left text-sm font-semibold uppercase tracking-[0.08em] text-foreground"
                   >
-                    <span className="-ml-1 inline-block text-gold opacity-70 transition-opacity duration-300 group-hover:opacity-100">✿</span>
-                    {item.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
+                    <span>{section.title}</span>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className={`h-4 w-4 text-gold transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`}
+                    >
+                      <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                  </button>
 
-          <div className="min-w-0 group max-sm:text-center">
-            <h3 className="mb-6 inline-block text-lg font-semibold uppercase tracking-[0.08em] text-foreground after:mt-2 after:block after:h-[2px] after:w-10 group-hover:after:w-full after:bg-gold after:shadow-[0_2px_0_var(--color-brown)] after:transition-all after:duration-300">
-              Quick Links
-            </h3>
-            <ul className="space-y-2.5">
-              {quickLinks.map((item) => (
-                <li key={item.label}>
-                  <Link
-                    href={item.href}
-                    className="group inline-flex items-center gap-2 text-sm font-medium tracking-[0.03em] text-foreground transition-all duration-300 hover:translate-x-1 hover:text-gold"
+                  <div
+                    className={`overflow-hidden transition-[max-height] duration-300 ease-in-out ${
+                      isOpen ? "max-h-[500px]" : "max-h-0"
+                    }`}
                   >
-                    <span className="-ml-1 inline-block text-gold opacity-70 transition-opacity duration-300 group-hover:opacity-100">✿</span>
-                    {item.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
+                    <ul className="space-y-2.5 px-0 pb-4 text-sm font-medium tracking-[0.03em] text-foreground">
+                      {section.links.map((item) => (
+                        <li key={item.label}>
+                          <Link
+                            href={item.href}
+                            className="group flex items-center gap-2 transition-all duration-300 hover:translate-x-1 hover:text-gold"
+                          >
+                            <span className="-ml-1 inline-block text-gold opacity-70 transition-opacity duration-300 group-hover:opacity-100">
+                              ✿
+                            </span>
+                            {item.label}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
 
-          <div className="min-w-0 group max-sm:text-center">
-            <h3 className="mb-6 inline-block text-lg font-semibold uppercase tracking-[0.08em] text-foreground after:mt-2 after:block after:h-[2px] after:w-10 group-hover:after:w-full after:bg-gold after:shadow-[0_2px_0_var(--color-brown)] after:transition-all after:duration-300">
-              Collections
-            </h3>
-            <ul className="space-y-2.5">
-              {collections.map((item) => (
-                <li key={item.label}>
-                  <Link
-                    href={item.href}
-                    className="group inline-flex items-center gap-2 text-sm font-medium tracking-[0.03em] text-foreground transition-all duration-300 hover:translate-x-1 hover:text-gold"
-                  >
-                    <span className="-ml-1 inline-block text-gold opacity-70 transition-opacity duration-300 group-hover:opacity-100">✿</span>
-                    {item.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
+                <div className="hidden md:block group max-sm:text-center">
+                  <h3 className="mb-6 inline-block text-lg font-semibold uppercase tracking-[0.08em] text-foreground after:mt-2 after:block after:h-[2px] after:w-10 group-hover:after:w-full after:bg-gold after:shadow-[0_2px_0_var(--color-brown)] after:transition-all after:duration-300">
+                    {section.title}
+                  </h3>
+                  <ul className="space-y-2.5">
+                    {section.links.map((item) => (
+                      <li key={item.label}>
+                        <Link
+                          href={item.href}
+                          className="group inline-flex items-center gap-2 text-sm font-medium tracking-[0.03em] text-foreground transition-all duration-300 hover:translate-x-1 hover:text-gold"
+                        >
+                          <span className="-ml-1 inline-block text-gold opacity-70 transition-opacity duration-300 group-hover:opacity-100">✿</span>
+                          {item.label}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
