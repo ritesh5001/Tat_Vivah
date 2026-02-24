@@ -111,7 +111,7 @@ export function SiteHeader() {
   React.useEffect(() => {
     // Only USER accounts have wishlist + notifications UI right now.
     // Also avoid calling auth endpoints when access token is missing.
-    if (!user || role === "SELLER" || role === "ADMIN" || !hasAccessToken) {
+    if (!user || role === "SELLER" || role === "ADMIN" || role === "SUPER_ADMIN" || !hasAccessToken) {
       setUnreadCount(0);
       setWishlistCount(0);
       return;
@@ -145,7 +145,7 @@ export function SiteHeader() {
     if (role === "SELLER") {
       return "/seller/profile";
     }
-    if (role === "ADMIN") {
+    if (role === "ADMIN" || role === "SUPER_ADMIN") {
       return "/admin/profile";
     }
     return "/user/profile";
@@ -159,7 +159,7 @@ export function SiteHeader() {
       return sellerLinks;
     }
 
-    if (role === "ADMIN") {
+    if (role === "ADMIN" || role === "SUPER_ADMIN") {
       return adminLinks;
     }
 
@@ -262,7 +262,7 @@ export function SiteHeader() {
             <ThemeToggle className="hidden sm:inline-flex" />
 
           {/* Wishlist Heart (visible when logged in as USER) */}
-          {user && role !== "SELLER" && role !== "ADMIN" && (
+          {user && role !== "SELLER" && role !== "ADMIN" && role !== "SUPER_ADMIN" && (
             <Link
               href="/user/wishlist"
               className="relative hidden h-9 w-9 items-center justify-center border border-border-soft bg-card text-foreground transition-colors duration-300 hover:bg-cream dark:hover:bg-brown/50 sm:inline-flex"
@@ -289,7 +289,7 @@ export function SiteHeader() {
           )}
 
           {/* Notification Bell (visible when logged in as USER) */}
-          {user && role !== "SELLER" && role !== "ADMIN" && (
+          {user && role !== "SELLER" && role !== "ADMIN" && role !== "SUPER_ADMIN" && (
             <Link
               href="/user/notifications"
               className="relative hidden h-9 w-9 items-center justify-center border border-border-soft bg-card text-foreground transition-colors duration-300 hover:bg-cream dark:hover:bg-brown/50 sm:inline-flex"

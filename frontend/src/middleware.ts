@@ -25,6 +25,7 @@ export function middleware(request: NextRequest) {
   if (isAuthPage && accessToken && role && !forceLogin) {
     const roleRedirects: Record<string, string> = {
       ADMIN: "/admin/dashboard",
+      SUPER_ADMIN: "/admin/dashboard",
       SELLER: "/seller/dashboard",
       USER: "/user/dashboard",
     };
@@ -45,7 +46,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/marketplace", request.url));
   }
 
-  if (pathname.startsWith("/admin") && role !== "ADMIN") {
+  if (pathname.startsWith("/admin") && role !== "ADMIN" && role !== "SUPER_ADMIN") {
     return NextResponse.redirect(new URL("/marketplace", request.url));
   }
 

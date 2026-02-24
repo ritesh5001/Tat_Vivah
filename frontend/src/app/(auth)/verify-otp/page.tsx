@@ -52,6 +52,7 @@ export default function VerifyOtpPage() {
         const role = result.user.role?.toUpperCase();
         const redirectMap: Record<string, string> = {
           ADMIN: "/admin/dashboard",
+          SUPER_ADMIN: "/admin/dashboard",
           SELLER: "/seller/dashboard",
           USER: "/user/dashboard",
         };
