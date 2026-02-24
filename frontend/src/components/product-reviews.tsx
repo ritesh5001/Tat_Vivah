@@ -168,7 +168,7 @@ export default function ProductReviews({ productId }: ProductReviewsProps) {
             {/* Summary */}
             {summary && summary.totalReviews > 0 && (
                 <div className="flex flex-col sm:flex-row gap-8 p-6 border rounded-lg bg-card">
-                    <div className="flex flex-col items-center justify-center gap-1 min-w-[120px]">
+                    <div className="flex flex-col items-center justify-center gap-1 min-w-30">
                         <p className="text-4xl font-light">{summary.averageRating.toFixed(1)}</p>
                         <div className="flex text-yellow-400 text-lg">
                             {Array.from({ length: 5 }).map((_, i) => (

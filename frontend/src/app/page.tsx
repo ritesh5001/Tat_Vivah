@@ -261,7 +261,7 @@ export default function Home() {
               {["Modern Fusion", "Heritage Edit"].map((item) => (
                 <div
                   key={item}
-                  className="aspect-[3/4] bg-card border border-border-soft flex items-end p-6"
+                  className="aspect-3/4 bg-card border border-border-soft flex items-end p-6"
                 >
                   <span className="font-serif text-sm text-foreground">{item}</span>
                 </div>

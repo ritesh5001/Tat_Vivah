@@ -56,7 +56,7 @@ export default function ProductImageCarousel({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.4, ease: "easeOut" }}
-              className="aspect-[4/5] w-full relative bg-card"
+              className="aspect-4/5 w-full relative bg-card"
             >
               <Image
                 src={safeImages[activeIndex]}
@@ -106,7 +106,7 @@ export default function ProductImageCarousel({
                 key={`${image}-${index}`}
                 type="button"
                 onClick={() => goTo(index)}
-                className={`group relative w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 overflow-hidden transition-all duration-300 ${isActive
+                className={`group relative w-16 h-16 sm:w-20 sm:h-20 shrink-0 overflow-hidden transition-all duration-300 ${isActive
                     ? "border-2 border-gold"
                     : "border border-border-soft hover:border-gold/50"
                   }`}

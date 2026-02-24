@@ -52,7 +52,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
           sizeClasses[size],
           className,
           (props.children as React.ReactElement<any>).props.className,
-          "!rounded-none"
+          "rounded-none!"
         ),
         ref,
       });
@@ -73,7 +73,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
           variantClasses[variant],
           sizeClasses[size],
           className,
-          "!rounded-none"
+          "rounded-none!"
         )}
         {...props}
       />

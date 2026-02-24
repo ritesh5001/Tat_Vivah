@@ -189,7 +189,7 @@ export default function ProductDetailClient({
               <button
                 key={idx}
                 type="button"
-                className={`flex h-12 w-12 items-center justify-center rounded-full border-[1.5px] ${idx === 0 ? 'border-gold p-[2px]' : 'border-transparent'} hover:opacity-80 transition-all`}
+                className={`flex h-12 w-12 items-center justify-center rounded-full border-[1.5px] ${idx === 0 ? 'border-gold p-0.5' : 'border-transparent'} hover:opacity-80 transition-all`}
               >
                 <div className={`h-full w-full rounded-full ${colorClass}`} />
               </button>
@@ -220,7 +220,7 @@ export default function ProductDetailClient({
                   onClick={() => setSelectedVariantId(variant.id)}
                   whileHover={{ y: -1 }}
                   transition={{ duration: 0.3, ease: "easeOut" }}
-                  className={`relative px-5 py-3 text-xs font-medium uppercase tracking-wider transition-all duration-300 min-w-[3.5rem]
+                  className={`relative px-5 py-3 text-xs font-medium uppercase tracking-wider transition-all duration-300 min-w-14
                      ${selectedVariantId === variant.id
                       ? "border border-gold bg-cream text-charcoal dark:bg-brown/30 dark:text-ivory"
                       : "border border-border-soft text-muted-foreground hover:border-gold/50 hover:text-foreground"
@@ -256,7 +256,7 @@ export default function ProductDetailClient({
               variant="outline"
               onClick={handleAddToCart}
               disabled={loading}
-              className="w-full h-14 border border-gold/40 bg-[#fefaf6] dark:bg-brown/20 text-[#d85025] hover:bg-cream dark:hover:bg-brown/40 hover:text-[#b03d19] font-medium tracking-[0.1em] uppercase text-[13px] transition-colors"
+              className="w-full h-14 border border-gold/40 bg-[#fefaf6] dark:bg-brown/20 text-[#d85025] hover:bg-cream dark:hover:bg-brown/40 hover:text-[#b03d19] font-medium tracking-widest uppercase text-[13px] transition-colors"
             >
               {loading ? "Adding..." : "Add to Cart"}
             </Button>
@@ -266,7 +266,7 @@ export default function ProductDetailClient({
             <Button
               size="lg"
               onClick={() => router.push('/checkout')}
-              className="w-full h-14 bg-[#d85025] hover:bg-[#b03d19] text-white font-medium tracking-[0.1em] uppercase text-[13px] border-none transition-colors"
+              className="w-full h-14 bg-[#d85025] hover:bg-[#b03d19] text-white font-medium tracking-widest uppercase text-[13px] border-none transition-colors"
             >
               Buy Now
             </Button>

@@ -90,7 +90,7 @@ export function WeddingSectionBanner() {
               <motion.div variants={buttonVariants} className="mt-7 sm:mt-9 md:flex md:justify-end">
                 <Link
                   href="/marketplace"
-                  className="inline-flex items-center justify-center rounded-sm border border-gold-light/50 bg-gold px-8 py-3 text-[11px] font-medium uppercase tracking-[0.22em] text-white shadow-[0_8px_24px_rgba(183,149,108,0.35)] backdrop-blur-[2px] transition-all duration-300 hover:-translate-y-0.5 hover:bg-gold-dark hover:shadow-[0_12px_28px_rgba(183,149,108,0.45)] sm:px-10 sm:py-3.5"
+                  className="inline-flex items-center justify-center rounded-none border border-gold-light/50 bg-gold px-8 py-3 text-[11px] font-medium uppercase tracking-[0.22em] text-white shadow-[0_8px_24px_rgba(183,149,108,0.35)] backdrop-blur-[2px] transition-all duration-300 hover:-translate-y-0.5 hover:bg-gold-dark hover:shadow-[0_12px_28px_rgba(183,149,108,0.45)] sm:px-10 sm:py-3.5"
                 >
                   Explore Wedding Collection
                 </Link>
