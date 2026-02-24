@@ -167,7 +167,13 @@ export default function AdminCategoriesPage() {
     if (!createForm.name?.trim()) { toast.error("Name is required."); return; }
     setSaving(true);
     try {
-      await createAdminCategory({ ...createForm, name: createForm.name.trim() });
+      const payload: CreateCategoryPayload = {
+        ...createForm,
+        name: createForm.name.trim(),
+        image: createForm.image?.trim() || undefined,
+        bannerImage: createForm.bannerImage?.trim() || undefined,
+      };
+      await createAdminCategory(payload);
       toast.success("Category created.");
       setCreateForm({ ...emptyForm });
       setShowCreate(false);
@@ -197,7 +203,12 @@ export default function AdminCategoriesPage() {
     if (!editingId) return;
     setSaving(true);
     try {
-      await updateAdminCategory(editingId, editForm);
+      const payload: UpdateCategoryPayload = {
+        ...editForm,
+        image: editForm.image === "" ? null : editForm.image,
+        bannerImage: editForm.bannerImage === "" ? null : editForm.bannerImage,
+      };
+      await updateAdminCategory(editingId, payload);
       toast.success("Category updated.");
       setEditingId(null);
       load();
