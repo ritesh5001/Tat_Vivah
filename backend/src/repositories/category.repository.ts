@@ -133,6 +133,18 @@ export class CategoryRepository {
     }
 
     /**
+     * Remove soft-deleted products that still reference the category
+     */
+    async purgeSoftDeletedProducts(categoryId: string): Promise<void> {
+        await prisma.product.deleteMany({
+            where: {
+                categoryId,
+                deletedByAdmin: true,
+            },
+        });
+    }
+
+    /**
      * Hard delete a category
      */
     async delete(id: string): Promise<void> {
