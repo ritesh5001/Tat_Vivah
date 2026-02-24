@@ -7,12 +7,26 @@ export function SellerFooter() {
         <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
           Seller Console · Performance Dashboard
         </p>
-        <Link
-          href="/contact"
-          className="text-[11px] uppercase tracking-[0.14em] text-foreground transition-colors hover:text-gold"
-        >
-          Support
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link
+            href="/seller/settlements"
+            className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground transition-colors hover:text-gold"
+          >
+            Settlements
+          </Link>
+          <Link
+            href="/seller/profile"
+            className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground transition-colors hover:text-gold"
+          >
+            Profile
+          </Link>
+          <Link
+            href="/contact"
+            className="text-[11px] uppercase tracking-[0.14em] text-foreground transition-colors hover:text-gold"
+          >
+            Support
+          </Link>
+        </div>
       </div>
     </footer>
   );

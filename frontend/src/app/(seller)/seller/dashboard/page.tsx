@@ -296,6 +296,11 @@ export default function SellerDashboardPage() {
                 Manage Orders
               </Button>
             </Link>
+            <Link href="/seller/settlements">
+              <Button variant="outline" size="sm">
+                Settlements
+              </Button>
+            </Link>
             <Link href="/seller/products">
               <Button variant="primary" size="sm">
                 View Products

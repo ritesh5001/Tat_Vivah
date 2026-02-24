@@ -336,6 +336,15 @@ export async function setProductPrice(
 }
 
 export async function getPricingOverview(token?: string | null) {
+  return apiRequest<{ products: PricingOverviewProduct[] }>(
+    "/v1/admin/products/pricing-overview",
+    {
+      method: "GET",
+      token,
+    }
+  );
+}
+
 export async function updateProductDetails(
   id: string,
   payload: AdminProductUpdatePayload,
@@ -346,15 +355,6 @@ export async function updateProductDetails(
     {
       method: "PATCH",
       body: payload,
-      token,
-    }
-  );
-}
-
-  return apiRequest<{ products: PricingOverviewProduct[] }>(
-    "/v1/admin/products/pricing-overview",
-    {
-      method: "GET",
       token,
     }
   );

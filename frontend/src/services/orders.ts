@@ -40,6 +40,13 @@ export interface SellerOrderItem {
     id: string;
     status: string;
     createdAt: string;
+    shippingName?: string;
+    shippingPhone?: string;
+    shippingEmail?: string;
+    shippingAddressLine1?: string;
+    shippingAddressLine2?: string;
+    shippingCity?: string;
+    shippingNotes?: string;
     cancellationRequest?: {
       id: string;
       status: "REQUESTED" | "APPROVED" | "REJECTED";
@@ -47,6 +54,21 @@ export interface SellerOrderItem {
       createdAt: string;
     } | null;
   };
+}
+
+export interface SellerOrderDetail {
+  orderId: string;
+  status: string;
+  createdAt: string;
+  items: Array<{
+    id: string;
+    productId: string;
+    variantId: string;
+    quantity: number;
+    priceSnapshot: number;
+    productTitle?: string;
+    variantSku?: string;
+  }>;
 }
 
 export interface SellerOrderListResponse {
@@ -62,6 +84,16 @@ export async function listBuyerOrders(token?: string | null) {
 
 export async function listSellerOrders(token?: string | null) {
   return apiRequest<SellerOrderListResponse>("/v1/seller/orders", {
+    method: "GET",
+    token,
+  });
+}
+
+export async function getSellerOrder(
+  orderId: string,
+  token?: string | null
+) {
+  return apiRequest<SellerOrderDetail>(`/v1/seller/orders/${orderId}`, {
     method: "GET",
     token,
   });

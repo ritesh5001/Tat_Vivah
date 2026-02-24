@@ -142,6 +142,7 @@ export class OrderRepository {
                 },
             },
             orderBy: { order: { createdAt: 'desc' } },
+            take: 500,
         });
 
         // Batch lookup instead of N+1

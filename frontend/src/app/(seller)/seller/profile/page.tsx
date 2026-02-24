@@ -172,6 +172,20 @@ export default function SellerProfilePage() {
             >
               Orders
             </Link>
+            <span className="h-1 w-1 rounded-full bg-border-soft" />
+            <Link
+              href="/seller/settlements"
+              className="text-xs font-medium uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors duration-300"
+            >
+              Settlements
+            </Link>
+            <span className="h-1 w-1 rounded-full bg-border-soft" />
+            <Link
+              href="/seller/notifications"
+              className="text-xs font-medium uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors duration-300"
+            >
+              Notifications
+            </Link>
           </div>
         </section>
       </motion.div>

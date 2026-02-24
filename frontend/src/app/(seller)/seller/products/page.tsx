@@ -806,6 +806,15 @@ export default function SellerProductsPage() {
                                 </p>
                                 <p className="text-xs text-muted-foreground">
                                   Stock: {variant.inventory?.stock ?? 0}
+                                  {(variant.inventory?.stock ?? 0) === 0 ? (
+                                    <span className="ml-2 inline-flex px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider border border-[#A67575]/30 text-[#7A5656] bg-[#A67575]/5">
+                                      Out of Stock
+                                    </span>
+                                  ) : (variant.inventory?.stock ?? 0) < 10 ? (
+                                    <span className="ml-2 inline-flex px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider border border-amber-400/30 text-amber-700 bg-amber-50 dark:border-amber-700/30 dark:text-amber-300 dark:bg-amber-950/30">
+                                      Low Stock
+                                    </span>
+                                  ) : null}
                                 </p>
                               </div>
                               <div className="flex items-center gap-3">

@@ -100,6 +100,7 @@ export class ProductRepository {
                 },
             },
             orderBy: { createdAt: 'desc' },
+            take: 500,
         });
 
         return products.map((product) => this.mapProductDecimals(product)) as ProductWithDetails[];

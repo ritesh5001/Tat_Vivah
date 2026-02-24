@@ -927,7 +927,7 @@ export default function AdminProductsPage() {
                         />
                         <Button
                           variant="ghost"
-                          size="icon"
+                          size="sm"
                           onClick={() => removeImageField(index)}
                           disabled={editImages.length <= 1}
                         >
