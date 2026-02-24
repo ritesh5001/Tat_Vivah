@@ -31,6 +31,7 @@ const quickLinks = [
   { label: "Home", href: "/" },
   { label: "About Us", href: "/about" },
   { label: "Shop", href: "/marketplace" },
+  { label: "Become a Seller", href: "/register/seller" },
   { label: "Contact Support", href: "/contact" },
   { label: "My Account", href: "/login" },
 ];
@@ -80,16 +81,8 @@ export function SiteFooter() {
   };
 
   return (
-    <footer
-      className="relative overflow-hidden border-t border-border-soft bg-cream text-foreground font-sans"
-      style={{
-        backgroundImage:
-          "radial-gradient(circle at center, color-mix(in oklab, var(--color-gold) 45%, transparent) 1.5px, transparent 1.5px), radial-gradient(circle at center, color-mix(in oklab, var(--color-ivory) 60%, transparent) 0.8px, transparent 0.8px), repeating-linear-gradient(135deg, rgba(183, 149, 108, 0.12) 0, rgba(183, 149, 108, 0.12) 1px, transparent 1px, transparent 24px)",
-        backgroundSize: "30px 30px, 60px 60px, 120px 120px",
-        backgroundPosition: "0 0, 15px 15px, 0 0",
-      }}
-    >
-      <div className="absolute left-0 top-0 h-1.5 w-full bg-[repeating-linear-gradient(45deg,var(--color-brown),var(--color-brown)_10px,var(--color-gold)_10px,var(--color-gold)_12px)] shadow-[0_4px_12px_rgba(44,40,37,0.15)]" />
+    <footer className="relative overflow-hidden border-t border-border-soft bg-cream text-foreground font-sans">
+      {/* ornamental stripe removed per design request */}
 
       <div className="mx-auto w-full max-w-6xl px-6 pt-14">
         <div className="grid gap-6 pb-10 md:gap-8 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1fr]">
