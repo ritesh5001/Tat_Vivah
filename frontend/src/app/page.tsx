@@ -128,11 +128,11 @@ export default function Home() {
             className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4"
           >
             {loadingBestsellers ? (
-              <div className="col-span-full rounded-md border border-border-soft bg-card p-10 text-center text-sm text-muted-foreground">
+              <div className="col-span-full rounded-none border border-border-soft bg-card p-10 text-center text-sm text-muted-foreground">
                 Loading bestsellers...
               </div>
             ) : bestsellers.length === 0 ? (
-              <div className="col-span-full rounded-md border border-border-soft bg-card p-10 text-center text-sm text-muted-foreground">
+              <div className="col-span-full rounded-none border border-border-soft bg-card p-10 text-center text-sm text-muted-foreground">
                 No bestsellers available yet.
               </div>
             ) : (
@@ -160,7 +160,7 @@ export default function Home() {
                       <WishlistHeartButton
                         productId={item.productId}
                         size={18}
-                        className="absolute left-4 top-4 h-10 w-10 rounded-sm bg-card text-destructive shadow-sm opacity-0 transition-opacity duration-300 group-hover:opacity-100 focus-visible:opacity-100"
+                        className="absolute left-4 top-4 h-10 w-10 rounded-none bg-card text-destructive shadow-sm opacity-0 transition-opacity duration-300 group-hover:opacity-100 focus-visible:opacity-100"
                       />
                     </div>
 

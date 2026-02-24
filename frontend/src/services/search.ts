@@ -38,6 +38,7 @@ export async function searchProducts(params: {
   limit?: number;
   categoryId?: string;
   sort?: SortOption;
+  signal?: AbortSignal;
 }): Promise<SearchResponse> {
   const query = new URLSearchParams();
   query.set("q", params.q);
@@ -47,6 +48,7 @@ export async function searchProducts(params: {
   if (params.sort) query.set("sort", params.sort);
   return apiRequest<SearchResponse>(`/v1/search?${query.toString()}`, {
     showLoader: false,
+    signal: params.signal,
   });
 }
 

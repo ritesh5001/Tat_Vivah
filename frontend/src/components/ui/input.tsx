@@ -20,7 +20,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         type={type}
         className={cn(
           // Base structure
-          "flex h-12 w-full rounded-sm border border-border-soft bg-card px-4",
+          "flex h-12 w-full rounded-none border border-border-soft bg-card px-4",
           // Typography
           "text-sm text-foreground placeholder:text-muted-foreground",
           // Premium transition

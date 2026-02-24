@@ -15,7 +15,7 @@ const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElemen
       ref={ref}
       className={cn(
         // Base structure
-        "rounded-md border border-border-soft bg-card",
+        "rounded-none border border-border-soft bg-card",
         // Premium shadow - very subtle
         "shadow-[0_1px_3px_rgba(44,40,37,0.04),0_4px_12px_rgba(44,40,37,0.02)]",
         // Dark mode shadow

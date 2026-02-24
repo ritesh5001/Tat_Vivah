@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
+import { SearchBar } from "@/components/layout/SearchBar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,13 +21,10 @@ import { getWishlistCount } from "@/services/wishlist";
 import { signOut } from "@/services/auth";
 
 const buyerLinks = [
+  { href: "/", label: "Home" },
   { href: "/marketplace", label: "Shop" },
-  { href: "/#categories", label: "Categories" },
-  { href: "/#bestsellers", label: "Bestsellers" },
-  { href: "/#new", label: "New" },
-  { href: "/#gifting", label: "Gifting" },
-  { href: "/vendors", label: "Vendors" },
-  { href: "/cart", label: "Cart" },
+  { href: "/about", label: "About Us" },
+  { href: "/contact", label: "Contact Us" },
 ];
 
 const sellerLinks = [
@@ -224,6 +222,10 @@ export function SiteHeader() {
           </div>
         </div>
 
+        <div className="mt-3 sm:hidden">
+          <SearchBar placeholder="Search products..." className="w-full" />
+        </div>
+
         {/* Desktop Header */}
         <div className="hidden w-full items-center justify-between sm:flex">
           {/* Logo */}
@@ -239,7 +241,7 @@ export function SiteHeader() {
           </Link>
 
           {/* Desktop Navigation */}
-          <nav className="hidden items-center gap-8 text-sm font-medium text-muted-foreground md:flex">
+          <nav className="hidden items-center gap-8 text-sm font-medium text-muted-foreground lg:flex">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
@@ -250,6 +252,10 @@ export function SiteHeader() {
               </Link>
             ))}
           </nav>
+
+          <div className="hidden lg:block lg:w-[320px]">
+            <SearchBar placeholder="Search products..." className="w-full" />
+          </div>
 
           {/* Right Side */}
           <div className="flex items-center gap-4">

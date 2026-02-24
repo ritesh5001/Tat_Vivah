@@ -21,10 +21,10 @@ function resolveCategoryImage(category: CategoryItem): string {
 function CategorySkeletonCard() {
   return (
     <div className="snap-center shrink-0 w-[calc(50%-0.5rem)] md:w-[calc((100%-1rem)/3)] xl:w-[calc((100%-3.2rem)/5)]">
-      <div className="overflow-hidden rounded-xl border border-border-soft bg-card shadow-sm">
+      <div className="overflow-hidden rounded-none border border-border-soft bg-card shadow-sm">
         <div className="aspect-square w-full animate-pulse bg-muted" />
         <div className="p-3">
-          <div className="h-4 w-3/4 animate-pulse rounded bg-muted" />
+          <div className="h-4 w-3/4 animate-pulse rounded-none bg-muted" />
         </div>
       </div>
     </div>
@@ -105,7 +105,7 @@ export function CategoryCarousel() {
             ))}
           </div>
         ) : categories.length === 0 ? (
-          <div className="rounded-xl border border-border-soft bg-card px-6 py-10 text-center text-sm text-muted-foreground">
+          <div className="rounded-none border border-border-soft bg-card px-6 py-10 text-center text-sm text-muted-foreground">
             Categories will be available soon.
           </div>
         ) : (
@@ -116,7 +116,7 @@ export function CategoryCarousel() {
                 href="/marketplace"
                 className="group snap-center shrink-0 w-[calc(50%-0.5rem)] md:w-[calc((100%-1rem)/3)] xl:w-[calc((100%-3.2rem)/5)]"
               >
-                <article className="overflow-hidden rounded-xl border border-border-soft bg-card shadow-sm transition-all duration-300 group-hover:shadow-md">
+                <article className="overflow-hidden rounded-none border border-border-soft bg-card shadow-sm transition-all duration-300 group-hover:shadow-md">
                   <div className="relative aspect-square w-full overflow-hidden bg-cream dark:bg-brown/20">
                     <Image
                       src={resolveCategoryImage(category)}
