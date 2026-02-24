@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Cormorant_Garamond } from "next/font/google";
 import "./globals.css";
-import { SiteHeader } from "@/components/site-header";
-import { SiteFooter } from "@/components/site-footer";
+import { PublicLayoutShell } from "@/components/layout/PublicLayoutShell";
 import { Toaster } from "@/components/ui/sonner";
 import { GlobalLoader } from "@/components/global-loader";
 
@@ -62,11 +61,9 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${cormorant.variable} min-h-screen bg-background text-foreground antialiased`}
       >
-        <SiteHeader />
         <GlobalLoader />
         <Toaster />
-        <main className="min-h-[calc(100vh-160px)]">{children}</main>
-        <SiteFooter />
+        <PublicLayoutShell>{children}</PublicLayoutShell>
       </body>
     </html>
   );
