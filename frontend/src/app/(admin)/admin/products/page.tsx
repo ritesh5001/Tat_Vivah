@@ -65,21 +65,30 @@ export default function AdminProductsPage() {
     load();
   }, [load]);
 
-  const handleDelete = async (id: string) => {
-    const reason = (reasons[id] ?? "").trim();
-    if (!reason) {
+  const removeSelected = async (reason: string) => {
+    const trimmed = reason.trim();
+    if (!trimmed) {
       toast.error("Please mention the reason for the removal of the product.");
       return;
     }
+
+    setIsBulkDeleting(true);
+    const ids = Array.from(selectedIds);
     try {
-      await deleteProduct(id, reason);
-      toast.success("Product deleted by admin.");
-      setReasons((prev) => ({ ...prev, [id]: "" }));
+      for (const id of ids) {
+        await deleteProduct(id, trimmed);
+      }
+      toast.success(`${ids.length} product${ids.length === 1 ? "" : "s"} removed.`);
+      setSelectedIds(new Set());
+      setBulkReason("");
       load();
+      setShowReasonModal(false);
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Unable to delete product"
+        error instanceof Error ? error.message : "Unable to remove selected products"
       );
+    } finally {
+      setIsBulkDeleting(false);
     }
   };
 
@@ -144,6 +153,38 @@ export default function AdminProductsPage() {
       return matchesCategory && haystack.includes(query);
     });
   }, [products, searchQuery, categoryFilter]);
+
+  const toggleSelection = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const allSelected =
+    filteredProducts.length > 0 &&
+    filteredProducts.every((product) => selectedIds.has(product.id));
+
+  const handleSelectAll = () => {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredProducts.map((product) => product.id)));
+    }
+  };
+
+  const hasSelection = selectedIds.size > 0;
+
+  const openRemovalModal = (ids: string[]) => {
+    setSelectedIds(new Set(ids));
+    setBulkReason("");
+    setShowReasonModal(true);
+  };
 
   return (
     <div className="min-h-[calc(100vh-160px)] bg-background">
@@ -224,6 +265,33 @@ export default function AdminProductsPage() {
             </div>
           </div>
 
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-soft px-6 py-4">
+            <div className="flex items-center gap-3">
+              <label className="inline-flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={handleSelectAll}
+                  disabled={filteredProducts.length === 0}
+                  className="h-4 w-4 rounded border border-border-soft bg-card"
+                />
+                <span>Select All</span>
+              </label>
+              <span className="text-[11px] text-muted-foreground">
+                {selectedIds.size} selected
+              </span>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={!hasSelection}
+              onClick={() => hasSelection && openRemovalModal(Array.from(selectedIds))}
+              className="h-9"
+            >
+              Remove Selected
+            </Button>
+          </div>
+
           <div className="overflow-x-auto">
             {loading ? (
               <div className="p-8 text-center">
@@ -237,6 +305,9 @@ export default function AdminProductsPage() {
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-border-soft">
+                    <th className="p-6 text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                      <span>Select</span>
+                    </th>
                     <th className="p-6 text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
                       Title
                     </th>
@@ -263,6 +334,15 @@ export default function AdminProductsPage() {
                       transition={{ delay: 0.2 + index * 0.02, duration: 0.3 }}
                       className="hover:bg-cream/30 dark:hover:bg-brown/10 transition-colors duration-200"
                     >
+                      <td className="p-6">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(product.id)}
+                          onChange={() => toggleSelection(product.id)}
+                          className="h-4 w-4" 
+                        />
+                        <span className="sr-only">Select {product.title}</span>
+                      </td>
                       <td className="p-6 font-medium text-foreground">
                         {product.title}
                       </td>
@@ -289,22 +369,10 @@ export default function AdminProductsPage() {
                               Approve
                             </Button>
                           ) : null}
-                          <Input
-                            placeholder="Reason for removal"
-                            value={reasons[product.id] ?? ""}
-                            onChange={(event) =>
-                              setReasons((prev) => ({
-                                ...prev,
-                                [product.id]: event.target.value,
-                              }))
-                            }
-                            className="h-9 text-xs"
-                            disabled={product.deletedByAdmin}
-                          />
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => handleDelete(product.id)}
+                            onClick={() => openRemovalModal([product.id])}
                             disabled={product.deletedByAdmin}
                             className="h-9 text-muted-foreground hover:text-[#7A5656] hover:border-[#A67575]/40"
                           >
@@ -374,6 +442,70 @@ export default function AdminProductsPage() {
                   onClick={() => setSelectedProduct(null)}
                 >
                   Close
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showReasonModal ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-charcoal/50 p-4"
+            onClick={() => setShowReasonModal(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 12, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.98 }}
+              transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
+              onClick={(event) => event.stopPropagation()}
+              className="w-full max-w-lg border border-border-soft bg-card p-6 space-y-5"
+            >
+              <div className="space-y-1">
+                <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-gold">
+                  Removal Reason
+                </p>
+                <h2 className="font-serif text-2xl font-light text-foreground">
+                  {selectedIds.size} product{selectedIds.size === 1 ? "" : "s"}
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  Provide a clear justification so the seller knows why their listing was removed.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                  Reason
+                </p>
+                <Input
+                  placeholder="Why are you removing these listings?"
+                  value={bulkReason}
+                  onChange={(event) => setBulkReason(event.target.value)}
+                  className="h-10"
+                  disabled={isBulkDeleting}
+                />
+              </div>
+
+              <div className="flex flex-wrap gap-3">
+                <Button
+                  size="sm"
+                  onClick={() => removeSelected(bulkReason)}
+                  disabled={isBulkDeleting}
+                >
+                  {isBulkDeleting ? "Removing…" : "Remove Product(s)"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setShowReasonModal(false)}
+                  disabled={isBulkDeleting}
+                >
+                  Cancel
                 </Button>
               </div>
             </motion.div>
