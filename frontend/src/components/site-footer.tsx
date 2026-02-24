@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { getCategories } from "@/services/catalog";
 
 const policyLinks = [
   {
@@ -68,6 +69,31 @@ const collections = [
 ];
 
 export function SiteFooter() {
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const [dynamicCollections, setDynamicCollections] = useState(collections);
+
+  useEffect(() => {
+    getCategories()
+      .then((res) => {
+        if (res?.categories?.length > 0) {
+          const mapped = res.categories
+            .filter((c) => c.isActive)
+            .slice(0, 5)
+            .map((c) => ({
+              label: c.name,
+              href: `/marketplace?categoryId=${c.id}`,
+            }));
+
+          if (mapped.length > 0) {
+            setDynamicCollections(mapped);
+          }
+        }
+      })
+      .catch(() => {
+        // Fallback to static collections if API fails
+      });
+  }, []);
+
   const accordionSections = [
     {
       title: "Legal",
@@ -79,10 +105,9 @@ export function SiteFooter() {
     },
     {
       title: "Collections",
-      links: collections,
+      links: dynamicCollections,
     },
   ];
-  const [openIndex, setOpenIndex] = useState<number | null>(null);
 
   const toggleSection = (index: number) => {
     setOpenIndex((prev) => (prev === index ? null : index));
