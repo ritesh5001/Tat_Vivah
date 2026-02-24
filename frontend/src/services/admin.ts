@@ -83,24 +83,91 @@ export interface AdminSeller {
 
 export interface AdminOrder {
   id: string;
-  status: string;
+  userId: string;
+  status: "PLACED" | "CONFIRMED" | "CANCELLED" | "SHIPPED" | "DELIVERED";
   totalAmount: number;
   createdAt: string;
-  items?: Array<{ id: string }>;
+  items?: Array<{
+    id: string;
+    sellerId: string;
+    productId: string;
+    variantId: string;
+    quantity: number;
+    priceSnapshot: number;
+    sellerPriceSnapshot: number;
+    adminPriceSnapshot: number;
+    platformMargin: number;
+  }>;
 }
 
 export interface AdminPayment {
   id: string;
+  orderId: string;
+  userId: string;
   amount: number;
-  status: string;
+  currency: string;
+  status: "PENDING" | "SUCCESS" | "FAILED" | "REFUNDED";
   provider: string;
+  providerPaymentId?: string | null;
   createdAt: string;
 }
 
 export interface AdminSettlement {
   id: string;
+  orderId: string;
+  sellerId: string;
+  grossAmount: number;
+  commissionAmount: number;
+  platformFee: number;
+  netAmount: number;
+  status: "PENDING" | "SETTLED" | "FAILED";
+  settledAt?: string | null;
+  createdAt: string;
+  order?: {
+    id: string;
+    totalAmount: number;
+    status: string;
+    invoiceNumber?: string | null;
+  } | null;
+}
+
+export interface AdminRefund {
+  id: string;
+  orderId: string;
+  paymentId: string;
   amount: number;
-  status: string;
+  reason?: string | null;
+  status: "PENDING" | "SUCCESS" | "FAILED";
+  initiatedBy: "ADMIN" | "SYSTEM" | "BUYER";
+  razorpayRefundId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  order?: {
+    id: string;
+    totalAmount: number;
+    status: string;
+  } | null;
+  payment?: {
+    id: string;
+    provider: string;
+    providerPaymentId?: string | null;
+  } | null;
+}
+
+export interface AdminNotification {
+  id: string;
+  userId?: string | null;
+  role?: string | null;
+  type: string;
+  channel: string;
+  status: "PENDING" | "SENT" | "FAILED";
+  subject?: string | null;
+  content: string;
+  metadata?: Record<string, unknown> | null;
+  eventKey?: string | null;
+  isRead: boolean;
+  readAt?: string | null;
+  sentAt?: string | null;
   createdAt: string;
 }
 
@@ -672,4 +739,81 @@ export async function deleteAdminBestseller(id: string, token?: string | null) {
     method: "DELETE",
     token,
   });
+}
+
+// =====================================================================
+// ORDERS (ADMIN)
+// =====================================================================
+
+export async function cancelOrder(id: string, token?: string | null) {
+  return apiRequest<{ message: string; order: AdminOrder }>(
+    `/v1/admin/orders/${id}/cancel`,
+    { method: "PUT", token }
+  );
+}
+
+export async function forceConfirmOrder(id: string, token?: string | null) {
+  return apiRequest<{ message: string; order: AdminOrder }>(
+    `/v1/admin/orders/${id}/force-confirm`,
+    { method: "PUT", token }
+  );
+}
+
+// =====================================================================
+// REFUNDS (ADMIN)
+// =====================================================================
+
+export async function getRefunds(
+  filters?: { orderId?: string; status?: string },
+  token?: string | null
+) {
+  const params = new URLSearchParams();
+  if (filters?.orderId) params.set("orderId", filters.orderId);
+  if (filters?.status) params.set("status", filters.status);
+  const qs = params.toString();
+  return apiRequest<{ refunds: AdminRefund[] }>(
+    `/v1/admin/refunds${qs ? `?${qs}` : ""}`,
+    { method: "GET", token }
+  );
+}
+
+// =====================================================================
+// NOTIFICATIONS (ADMIN)
+// =====================================================================
+
+export async function getAdminNotifications(
+  query?: { page?: number; limit?: number },
+  token?: string | null
+) {
+  const params = new URLSearchParams();
+  if (query?.page) params.set("page", String(query.page));
+  if (query?.limit) params.set("limit", String(query.limit));
+  const qs = params.toString();
+  return apiRequest<{
+    success: boolean;
+    data: AdminNotification[];
+    meta: { total: number; page: number; limit: number };
+  }>(`/v1/admin/notifications${qs ? `?${qs}` : ""}`, { method: "GET", token });
+}
+
+export async function getAdminNotification(id: string, token?: string | null) {
+  return apiRequest<{ success: boolean; data: AdminNotification }>(
+    `/v1/admin/notifications/${id}`,
+    { method: "GET", token }
+  );
+}
+
+// =====================================================================
+// SHIPMENTS (ADMIN)
+// =====================================================================
+
+export async function overrideShipmentStatus(
+  id: string,
+  data: { status: "SHIPPED" | "DELIVERED"; note: string },
+  token?: string | null
+) {
+  return apiRequest<{ success: boolean; data: unknown }>(
+    `/v1/admin/shipments/${id}/override-status`,
+    { method: "PUT", body: data, token }
+  );
 }

@@ -6,7 +6,18 @@ const adminLinks = [
   { href: "/admin/categories", label: "Categories" },
   { href: "/admin/products", label: "Products" },
   { href: "/admin/moderation", label: "Moderation" },
+  { href: "/admin/orders", label: "Orders" },
+  { href: "/admin/payments", label: "Payments" },
+  { href: "/admin/settlements", label: "Settlements" },
+  { href: "/admin/refunds", label: "Refunds" },
+  { href: "/admin/coupons", label: "Coupons" },
+  { href: "/admin/commissions", label: "Commissions" },
   { href: "/admin/reviews", label: "Reviews" },
+  { href: "/admin/bestsellers", label: "Bestsellers" },
+  { href: "/admin/cancellations", label: "Cancellations" },
+  { href: "/admin/returns", label: "Returns" },
+  { href: "/admin/notifications", label: "Notifications" },
+  { href: "/admin/analytics", label: "Analytics" },
   { href: "/admin/security", label: "Security" },
 ];
 
