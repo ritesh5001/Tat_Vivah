@@ -29,6 +29,10 @@ export function setSessionExpiredHandler(handler: () => void) {
   sessionExpiredHandler = handler;
 }
 
+export function triggerSessionExpired() {
+  sessionExpiredHandler?.();
+}
+
 // ---------------------------------------------------------------------------
 // Centralized API error
 // ---------------------------------------------------------------------------
@@ -175,7 +179,7 @@ export async function apiRequest<T>(
       });
     } catch (err) {
       // AbortError should propagate as-is so callers can distinguish cancellation
-      if (err instanceof DOMException && err.name === "AbortError") {
+      if (isAbortError(err)) {
         throw err;
       }
       // Network-level failure (no internet, DNS, timeout …)
@@ -196,10 +200,18 @@ export async function apiRequest<T>(
           _skipDedup: true,
         });
       }
-      // Refresh also failed → force sign-out
-      await clearSession();
-      sessionExpiredHandler?.();
-      throw new ApiError(401, "Session expired. Please sign in again.");
+
+      const hasAuthContext = Boolean(authToken);
+      // Refresh also failed → force sign-out only when we had a session
+      if (hasAuthContext) {
+        await clearSession();
+        sessionExpiredHandler?.();
+      }
+
+      throw new ApiError(
+        401,
+        hasAuthContext ? "Session expired. Please sign in again." : "Unauthorized."
+      );
     }
 
     const data: unknown = await response.json().catch(() => null);
@@ -251,5 +263,10 @@ export function resetRefreshMutex(): void {
 // Helper: check if an error is an AbortError (cancelled request)
 // ---------------------------------------------------------------------------
 export function isAbortError(err: unknown): boolean {
-  return err instanceof DOMException && err.name === "AbortError";
+  if (!err) return false;
+  if (err instanceof Error) {
+    return err.name === "AbortError" || err.message.includes("AbortError");
+  }
+  const maybe = err as { name?: string } | null;
+  return maybe?.name === "AbortError";
 }

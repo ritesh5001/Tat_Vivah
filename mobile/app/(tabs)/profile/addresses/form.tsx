@@ -7,7 +7,6 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -22,6 +21,7 @@ import { useAuth } from "../../../../src/hooks/useAuth";
 import { useAddresses } from "../../../../src/providers/AddressProvider";
 import { AnimatedPressable } from "../../../../src/components/AnimatedPressable";
 import { notifySuccess, notifyError } from "../../../../src/utils/haptics";
+import { TatvivahLoader } from "../../../../src/components/TatvivahLoader";
 import type {
   AddressLabel,
   CreateAddressPayload,
@@ -91,12 +91,38 @@ export default function AddressFormScreen() {
     }
   }, [existing, isEdit]);
 
-  // ---- Auth redirect ----
-  React.useEffect(() => {
-    if (!authLoading && !token) {
-      router.replace("/login");
-    }
-  }, [authLoading, token, router]);
+  const handleGoBack = React.useCallback(() => {
+    router.back();
+  }, [router]);
+
+  if (!authLoading && !token) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          <AnimatedPressable onPress={handleGoBack} style={styles.backButton}>
+            <Text style={styles.backArrow}>←</Text>
+          </AnimatedPressable>
+          <View>
+            <Text style={styles.headerTitle}>
+              {isEdit ? "Edit Address" : "New Address"}
+            </Text>
+            <Text style={styles.headerCopy}>
+              Add delivery details when you're ready to check out.
+            </Text>
+          </View>
+        </View>
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyTitle}>Address details unavailable</Text>
+          <Text style={styles.emptySubtitle}>
+            You can add a delivery address during checkout.
+          </Text>
+          <AnimatedPressable onPress={handleGoBack} style={styles.primaryButton}>
+            <Text style={styles.primaryButtonText}>Back</Text>
+          </AnimatedPressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   // ---- Validation ----
 
@@ -174,10 +200,6 @@ export default function AddressFormScreen() {
     editAddress,
     router,
   ]);
-
-  const handleGoBack = React.useCallback(() => {
-    router.back();
-  }, [router]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -317,7 +339,7 @@ export default function AddressFormScreen() {
               disabled={isSaving}
             >
               {isSaving ? (
-                <ActivityIndicator color={colors.background} size="small" />
+                <TatvivahLoader size="sm" color={colors.background} />
               ) : (
                 <Text style={styles.primaryButtonText}>
                   {isEdit ? "Update address" : "Save address"}

@@ -1,4 +1,4 @@
-import { CancellationStatus, NotificationChannel, NotificationType, OrderStatus, PaymentStatus, Role } from '@prisma/client';
+import { CancellationStatus, NotificationChannel, NotificationType, OrderStatus, PaymentStatus, Role, SettlementStatus } from '@prisma/client';
 import { prisma } from '../config/db.js';
 import { cancellationLogger } from '../config/logger.js';
 import {
@@ -17,6 +17,13 @@ function isOrderCancellable(status: OrderStatus): boolean {
 }
 
 export class CancellationService {
+    private isRetryableTransactionError(error: unknown): boolean {
+        const code = (error as { code?: string } | null)?.code;
+        const message = error instanceof Error ? error.message : String(error ?? '');
+
+        return code === 'P2028' || message.includes('Transaction API error: Transaction not found');
+    }
+
     async requestCancellation(userId: string, orderId: string, reason: string) {
         const normalizedReason = reason.trim();
         if (!normalizedReason) {
@@ -165,7 +172,19 @@ export class CancellationService {
     }
 
     async approveCancellation(adminId: string, cancellationId: string) {
-        const txResult = await prisma.$transaction(async (tx) => {
+        return this.approveCancellationInternal(adminId, cancellationId, 'ADMIN');
+    }
+
+    async approveCancellationBySeller(sellerId: string, cancellationId: string) {
+        return this.approveCancellationInternal(sellerId, cancellationId, 'SELLER');
+    }
+
+    private async approveCancellationInternal(
+        reviewerId: string,
+        cancellationId: string,
+        reviewerType: 'ADMIN' | 'SELLER',
+    ) {
+        const runApprovalTransaction = async () => prisma.$transaction(async (tx) => {
             const cancellation = await tx.cancellationRequest.findUnique({
                 where: { id: cancellationId },
                 include: {
@@ -200,15 +219,25 @@ export class CancellationService {
             if (!cancellation.order) {
                 recordCancellationFatal({
                     cancellationId,
-                    adminId,
+                    adminId: reviewerId,
                     reason: 'Order not found during cancellation approval',
                 });
                 throw ApiError.notFound('Order not found for cancellation request');
             }
 
-            await tx.$queryRaw`SELECT id FROM "orders" WHERE id = ${cancellation.order.id} FOR UPDATE`;
+            const sellerIdsInOrder = new Set(cancellation.order.items.map((item) => item.sellerId));
 
-            const lockedOrder = await tx.order.findUnique({
+            if (reviewerType === 'SELLER') {
+                if (!sellerIdsInOrder.has(reviewerId)) {
+                    throw ApiError.forbidden('You are not authorized to approve cancellation for this order');
+                }
+
+                if (sellerIdsInOrder.size > 1) {
+                    throw ApiError.badRequest('Multi-seller order cancellation must be approved by admin');
+                }
+            }
+
+            const liveOrder = await tx.order.findUnique({
                 where: { id: cancellation.order.id },
                 select: {
                     id: true,
@@ -222,30 +251,30 @@ export class CancellationService {
                 },
             });
 
-            if (!lockedOrder) {
+            if (!liveOrder) {
                 recordCancellationFatal({
                     cancellationId,
                     orderId: cancellation.order.id,
-                    adminId,
-                    reason: 'Order not found after row lock during approval',
+                    adminId: reviewerId,
+                    reason: 'Order not found during cancellation approval',
                 });
                 throw ApiError.notFound('Order not found');
             }
 
-            if (lockedOrder.status === OrderStatus.SHIPPED || lockedOrder.status === OrderStatus.DELIVERED) {
+            if (liveOrder.status === OrderStatus.SHIPPED || liveOrder.status === OrderStatus.DELIVERED) {
                 recordCancellationFatal({
                     cancellationId,
-                    orderId: lockedOrder.id,
-                    adminId,
-                    userId: lockedOrder.userId,
+                    orderId: liveOrder.id,
+                    adminId: reviewerId,
+                    userId: liveOrder.userId,
                     reason: 'Cancellation attempted after shipped/delivered stage',
                 });
-                throw ApiError.badRequest(`Order with status ${lockedOrder.status} cannot be cancelled`);
+                throw ApiError.badRequest(`Order with status ${liveOrder.status} cannot be cancelled`);
             }
 
             const shipped = await tx.shipments.findFirst({
                 where: {
-                    order_id: lockedOrder.id,
+                    order_id: liveOrder.id,
                     status: 'SHIPPED',
                 },
                 select: { id: true },
@@ -254,31 +283,31 @@ export class CancellationService {
             if (shipped) {
                 recordCancellationFatal({
                     cancellationId,
-                    orderId: lockedOrder.id,
-                    adminId,
-                    userId: lockedOrder.userId,
+                    orderId: liveOrder.id,
+                    adminId: reviewerId,
+                    userId: liveOrder.userId,
                     reason: 'Cancellation approval attempted after shipment SHIPPED',
                 });
                 throw ApiError.badRequest('Order has already been shipped and cannot be cancelled');
             }
 
-            if (cancellation.status === CancellationStatus.APPROVED || lockedOrder.status === OrderStatus.CANCELLED) {
+            if (cancellation.status === CancellationStatus.APPROVED || liveOrder.status === OrderStatus.CANCELLED) {
                 if (cancellation.status !== CancellationStatus.APPROVED) {
                     await tx.cancellationRequest.update({
                         where: { id: cancellation.id },
                         data: {
                             status: CancellationStatus.APPROVED,
-                            reviewedBy: adminId,
+                            reviewedBy: reviewerId,
                             reviewedAt: new Date(),
                         },
                     });
                 }
 
                 return {
-                    orderId: lockedOrder.id,
-                    userId: lockedOrder.userId,
+                    orderId: liveOrder.id,
+                    userId: liveOrder.userId,
                     sellerIds: [] as string[],
-                    paymentStatus: lockedOrder.payment?.status ?? null,
+                    paymentStatus: liveOrder.payment?.status ?? null,
                     alreadyCancelled: true,
                 };
             }
@@ -287,65 +316,157 @@ export class CancellationService {
                 throw ApiError.conflict('Cannot approve a rejected cancellation request');
             }
 
-            if (!isOrderCancellable(lockedOrder.status)) {
-                throw ApiError.badRequest(`Order with status ${lockedOrder.status} is not eligible for cancellation`);
+            if (!isOrderCancellable(liveOrder.status)) {
+                throw ApiError.badRequest(`Order with status ${liveOrder.status} is not eligible for cancellation`);
             }
 
-            await tx.order.update({
-                where: { id: lockedOrder.id },
-                data: { status: OrderStatus.CANCELLED },
-            });
-
-            await tx.cancellationRequest.update({
-                where: { id: cancellation.id },
+            const approvalClaim = await tx.cancellationRequest.updateMany({
+                where: {
+                    id: cancellation.id,
+                    status: CancellationStatus.REQUESTED,
+                },
                 data: {
                     status: CancellationStatus.APPROVED,
-                    reviewedBy: adminId,
+                    reviewedBy: reviewerId,
                     reviewedAt: new Date(),
                 },
             });
 
+            if (approvalClaim.count === 0) {
+                const latestCancellation = await tx.cancellationRequest.findUnique({
+                    where: { id: cancellation.id },
+                    select: { status: true },
+                });
+
+                if (latestCancellation?.status === CancellationStatus.REJECTED) {
+                    throw ApiError.conflict('Cannot approve a rejected cancellation request');
+                }
+
+                return {
+                    orderId: liveOrder.id,
+                    userId: liveOrder.userId,
+                    sellerIds: [] as string[],
+                    paymentStatus: liveOrder.payment?.status ?? null,
+                    alreadyCancelled: true,
+                };
+            }
+
+            const orderUpdate = await tx.order.updateMany({
+                where: {
+                    id: liveOrder.id,
+                    status: {
+                        in: [OrderStatus.PLACED, OrderStatus.CONFIRMED],
+                    },
+                },
+                data: { status: OrderStatus.CANCELLED },
+            });
+
+            if (orderUpdate.count === 0) {
+                const latestOrder = await tx.order.findUnique({
+                    where: { id: liveOrder.id },
+                    select: { status: true },
+                });
+
+                if (latestOrder?.status === OrderStatus.CANCELLED) {
+                    return {
+                        orderId: liveOrder.id,
+                        userId: liveOrder.userId,
+                        sellerIds: [] as string[],
+                        paymentStatus: liveOrder.payment?.status ?? null,
+                        alreadyCancelled: true,
+                    };
+                }
+
+                throw ApiError.badRequest(`Order with status ${latestOrder?.status ?? 'UNKNOWN'} is not eligible for cancellation`);
+            }
+
             const sellerIds = new Set<string>();
+            const restockByVariant = new Map<string, number>();
             for (const item of cancellation.order.items) {
                 sellerIds.add(item.sellerId);
 
+                const currentQty = restockByVariant.get(item.variantId) ?? 0;
+                restockByVariant.set(item.variantId, currentQty + item.quantity);
+            }
+
+            for (const [variantId, quantity] of restockByVariant) {
                 const inventoryUpdate = await tx.inventory.updateMany({
-                    where: { variantId: item.variantId },
-                    data: { stock: { increment: item.quantity } },
+                    where: { variantId },
+                    data: { stock: { increment: quantity } },
                 });
 
                 if (inventoryUpdate.count === 0) {
                     recordCancellationFatal({
                         cancellationId,
-                        orderId: lockedOrder.id,
-                        adminId,
-                        reason: `Inventory increment failed for variant ${item.variantId}`,
+                        orderId: liveOrder.id,
+                        adminId: reviewerId,
+                        reason: `Inventory increment failed for variant ${variantId}`,
                     });
-                    throw ApiError.internal(`Failed to restore inventory for variant ${item.variantId}`);
+                    throw ApiError.internal(`Failed to restore inventory for variant ${variantId}`);
                 }
+            }
 
+            if (restockByVariant.size > 0) {
                 await tx.inventoryMovement.createMany({
-                    data: [
-                        {
-                            variantId: item.variantId,
-                            orderId: lockedOrder.id,
-                            quantity: item.quantity,
-                            type: 'RELEASE',
-                            reason: 'CANCELLATION',
-                        },
-                    ],
+                    data: Array.from(restockByVariant.entries()).map(([variantId, quantity]) => ({
+                        variantId,
+                        orderId: liveOrder.id,
+                        quantity,
+                        type: 'RELEASE' as const,
+                        reason: 'CANCELLATION' as const,
+                    })),
                     skipDuplicates: true,
                 });
             }
 
+            // Void seller settlements so cancelled revenue is excluded from analytics
+            await tx.sellerSettlement.updateMany({
+                where: {
+                    orderId: liveOrder.id,
+                    status: { not: SettlementStatus.CANCELLED },
+                },
+                data: { status: SettlementStatus.CANCELLED },
+            });
+
             return {
-                orderId: lockedOrder.id,
-                userId: lockedOrder.userId,
+                orderId: liveOrder.id,
+                userId: liveOrder.userId,
                 sellerIds: Array.from(sellerIds),
-                paymentStatus: lockedOrder.payment?.status ?? null,
+                paymentStatus: liveOrder.payment?.status ?? null,
                 alreadyCancelled: false,
             };
+        }, {
+            maxWait: 10_000,
+            timeout: 30_000,
         });
+
+        let txResult: {
+            orderId: string;
+            userId: string;
+            sellerIds: string[];
+            paymentStatus: PaymentStatus | null;
+            alreadyCancelled: boolean;
+        };
+
+        try {
+            txResult = await runApprovalTransaction();
+        } catch (error) {
+            if (!this.isRetryableTransactionError(error)) {
+                throw error;
+            }
+
+            cancellationLogger.warn(
+                {
+                    cancellationId,
+                    reviewerId,
+                    reviewerType,
+                    reason: error instanceof Error ? error.message : String(error),
+                },
+                'approve_cancellation_retrying_transaction',
+            );
+
+            txResult = await runApprovalTransaction();
+        }
 
         let refundTriggered = false;
         if (txResult.paymentStatus === PaymentStatus.SUCCESS) {
@@ -366,7 +487,7 @@ export class CancellationService {
                 recordCancellationFatal({
                     cancellationId,
                     orderId: txResult.orderId,
-                    adminId,
+                    adminId: reviewerId,
                     userId: txResult.userId,
                     reason: 'Refund API failed during cancellation approval',
                 });
@@ -379,28 +500,33 @@ export class CancellationService {
             role: Role.USER,
             type: NotificationType.ADMIN_ALERT,
             channel: NotificationChannel.EMAIL,
-            content: `Cancellation approved for order #${txResult.orderId}`,
+            content: reviewerType === 'SELLER'
+                ? `Cancellation approved by seller for order #${txResult.orderId}`
+                : `Cancellation approved for order #${txResult.orderId}`,
             metadata: { orderId: txResult.orderId, status: 'APPROVED' },
             eventKey: `CANCELLATION_APPROVED:${txResult.orderId}`,
         });
 
-        for (const sellerId of txResult.sellerIds) {
-            await notificationService.create({
-                userId: sellerId,
-                role: Role.SELLER,
-                type: NotificationType.ADMIN_ALERT,
-                channel: NotificationChannel.EMAIL,
-                content: `Order #${txResult.orderId} has been cancelled by admin approval`,
-                metadata: { orderId: txResult.orderId, status: 'CANCELLED' },
-                eventKey: `SELLER_ORDER_CANCELLED:${txResult.orderId}:${sellerId}`,
-            });
+        if (reviewerType === 'ADMIN') {
+            for (const sellerId of txResult.sellerIds) {
+                await notificationService.create({
+                    userId: sellerId,
+                    role: Role.SELLER,
+                    type: NotificationType.ADMIN_ALERT,
+                    channel: NotificationChannel.EMAIL,
+                    content: `Order #${txResult.orderId} has been cancelled by admin approval`,
+                    metadata: { orderId: txResult.orderId, status: 'CANCELLED' },
+                    eventKey: `SELLER_ORDER_CANCELLED:${txResult.orderId}:${sellerId}`,
+                });
+            }
         }
 
         orderCancelApprovedTotal.inc();
         cancellationLogger.info({
             orderId: txResult.orderId,
             userId: txResult.userId,
-            adminId,
+            adminId: reviewerId,
+            reviewerType,
             paymentStatus: txResult.paymentStatus,
             refundTriggered,
             alreadyCancelled: txResult.alreadyCancelled,

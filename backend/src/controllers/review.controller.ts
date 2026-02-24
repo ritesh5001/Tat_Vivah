@@ -1,102 +1,72 @@
-import { type Request, type Response } from 'express';
-import { prisma } from '../config/db.js';
+/**
+ * Review Controller
+ * HTTP handlers for product reviews
+ */
+
+import type { Request, Response, NextFunction } from 'express';
+import { reviewService } from '../services/review.service.js';
+import { createReviewSchema, reviewQuerySchema, hideReviewSchema } from '../validators/review.validation.js';
 
 export const reviewController = {
-    createReview: async (req: Request, res: Response): Promise<void> => {
+    /**
+     * POST /v1/products/:id/reviews
+     * Create a product review (USER only)
+     */
+    createReview: async (req: Request, res: Response, next: NextFunction): Promise<void> => {
         try {
-            const { productId } = req.params;
-            const { rating, text, images } = req.body;
-
-            const user = (req as any).user;
-            const userId = user?.id || user?.userId; // Handle both potential cases
-            const userRole = user?.role;
-
-            if (!userId || !userRole) {
-                res.status(401).json({ message: 'Unauthorized' });
-                return;
-            }
-
-            if (userRole !== 'USER') {
-                res.status(403).json({ message: 'Only users can submit reviews' });
-                return;
-            }
-
-            if (!productId || !rating || !text) {
-                res.status(400).json({ message: 'Missing required fields' });
-                return;
-            }
-
-            const ratingInt = parseInt(rating as string);
-            if (isNaN(ratingInt) || ratingInt < 1 || ratingInt > 5) {
-                res.status(400).json({ message: 'Rating must be between 1 and 5' });
-                return;
-            }
-
-            if (images && Array.isArray(images)) {
-                if (images.length > 3) {
-                    res.status(400).json({ message: 'Maximum 3 images allowed' });
-                    return;
-                }
-            }
-
-            // Check if product exists to avoid FK error
-            // (Optional safety, FK constraint handles it but explicit message is nicer)
-
-            const review = await prisma.review.create({
-                data: {
-                    productId: productId as string,
-                    userId: userId,
-                    rating: ratingInt,
-                    text,
-                    images: images || [],
-                },
-            });
-
-            res.status(201).json({ message: 'Review submitted successfully', review });
+            const productId = req.params['id'] as string;
+            const userId = req.user!.userId as string;
+            const validated = createReviewSchema.parse(req.body);
+            const review = await reviewService.createReview(productId, userId, validated);
+            res.status(201).json({ message: 'Review submitted', review });
         } catch (error) {
-            console.error('Error creating review:', error);
-            res.status(500).json({ message: 'Internal server error' });
+            next(error);
         }
     },
 
-    getProductReviews: async (req: Request, res: Response): Promise<void> => {
+    /**
+     * GET /v1/products/:id/reviews
+     * Get product reviews (public, paginated)
+     */
+    getProductReviews: async (req: Request, res: Response, next: NextFunction): Promise<void> => {
         try {
-            const { productId } = req.params;
-
-            const reviews = await prisma.review.findMany({
-                where: { productId: productId as string },
-                orderBy: { createdAt: 'desc' },
-                include: {
-                    user: {
-                        select: {
-                            id: true,
-                            user_profiles: {
-                                select: { full_name: true, avatar: true }
-                            }
-                        }
-                    }
-                }
-            });
-
-            // Transform data
-            const formattedReviews = reviews.map((r: any) => ({
-                id: r.id,
-                rating: r.rating,
-                text: r.text,
-                images: r.images,
-                createdAt: r.createdAt,
-                user: {
-                    id: r.userId,
-                    fullName: r.user.user_profiles?.full_name || 'Anonymous',
-                    avatar: r.user.user_profiles?.avatar
-                }
-            }));
-
-            res.status(200).json({ reviews: formattedReviews });
+            const productId = req.params['id'] as string;
+            const query = reviewQuerySchema.parse(req.query);
+            const result = await reviewService.getProductReviews(productId, query);
+            res.json(result);
         } catch (error) {
-            console.error('Error fetching reviews:', error);
-            res.status(500).json({ message: 'Internal server error' });
+            next(error);
         }
-    }
+    },
+
+    /**
+     * POST /v1/reviews/:id/helpful
+     * Mark a review as helpful (authenticated)
+     */
+    markHelpful: async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+        try {
+            const reviewId = req.params['id'] as string;
+            const result = await reviewService.markHelpful(reviewId);
+            res.json({ message: 'Marked as helpful', helpfulCount: result.helpfulCount });
+        } catch (error) {
+            next(error);
+        }
+    },
+
+    /**
+     * PATCH /v1/admin/reviews/:id/hide
+     * Hide/unhide a review (ADMIN only)
+     */
+    hideReview: async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+        try {
+            const reviewId = req.params['id'] as string;
+            const { isHidden } = hideReviewSchema.parse(req.body);
+            const review = await reviewService.setHidden(reviewId, isHidden);
+            const action = isHidden ? 'hidden' : 'unhidden';
+            res.json({ message: `Review ${action}`, review });
+        } catch (error) {
+            next(error);
+        }
+    },
 };
 

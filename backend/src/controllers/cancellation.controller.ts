@@ -90,6 +90,20 @@ export class CancellationController {
     }
 
     /**
+     * PATCH /v1/cancellations/:id/seller-approve
+     */
+    async sellerApproveCancellation(req: Request, res: Response, next: NextFunction): Promise<void> {
+        try {
+            const sellerId = req.user!.userId;
+            const cancellationId = req.params.id as string;
+            const result = await cancellationService.approveCancellationBySeller(sellerId, cancellationId);
+            res.json(result);
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
      * PATCH /v1/cancellations/:id/reject
      */
     async rejectCancellation(req: Request, res: Response, next: NextFunction): Promise<void> {

@@ -110,6 +110,12 @@ export interface SellerOrderItem extends OrderItemEntity {
         id: string;
         status: OrderStatus;
         createdAt: Date;
+        cancellationRequest?: {
+            id: string;
+            status: string;
+            reason: string;
+            createdAt: Date;
+        } | null;
         shippingName?: string | null;
         shippingPhone?: string | null;
         shippingEmail?: string | null;

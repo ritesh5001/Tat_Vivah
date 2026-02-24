@@ -11,11 +11,29 @@ import { ApiError } from '../errors/ApiError.js';
 import { bestsellerService } from '../services/bestseller.service.js';
 import { createBestsellerSchema, updateBestsellerSchema } from '../validators/bestseller.validation.js';
 import { productIdParamSchema, productRejectSchema, productSetPriceSchema, } from '../validators/admin.validation.js';
+import { refundService } from '../services/refund.service.js';
+import { commissionService } from '../services/commission.service.js';
 /**
  * Admin Controller
  * Handles HTTP requests for admin panel
  */
 export const adminController = {
+    // =========================================================================
+    // DASHBOARD STATS
+    // =========================================================================
+    /**
+     * GET /v1/admin/stats
+     * Lightweight counts + recent items for admin dashboard
+     */
+    getStats: async (_req, res, next) => {
+        try {
+            const result = await adminService.getStats();
+            res.json(result);
+        }
+        catch (error) {
+            next(error);
+        }
+    },
     // =========================================================================
     // SELLER MANAGEMENT
     // =========================================================================
@@ -201,7 +219,7 @@ export const adminController = {
     createCategory: async (req, res, next) => {
         try {
             const validated = createCategorySchema.parse(req.body);
-            const category = await categoryService.createCategory(validated.name);
+            const category = await categoryService.createCategory(validated);
             res.status(201).json({ message: 'Category created', category });
         }
         catch (error) {
@@ -216,9 +234,6 @@ export const adminController = {
         try {
             const id = req.params['id'];
             const validated = updateCategorySchema.parse(req.body);
-            if (validated.name === undefined && validated.isActive === undefined) {
-                throw ApiError.badRequest('No updates provided');
-            }
             const category = await categoryService.updateCategory(id, validated);
             res.json({ message: 'Category updated', category });
         }
@@ -228,13 +243,28 @@ export const adminController = {
     },
     /**
      * DELETE /v1/admin/categories/:id
-     * Deactivate category
+     * Delete category (fails if products exist)
      */
     deleteCategory: async (req, res, next) => {
         try {
             const id = req.params['id'];
-            const category = await categoryService.deactivateCategory(id);
-            res.json({ message: 'Category deactivated', category });
+            await categoryService.deleteCategory(id);
+            res.json({ message: 'Category deleted' });
+        }
+        catch (error) {
+            next(error);
+        }
+    },
+    /**
+     * PATCH /v1/admin/categories/:id/toggle
+     * Toggle category active state
+     */
+    toggleCategory: async (req, res, next) => {
+        try {
+            const id = req.params['id'];
+            const category = await categoryService.toggleCategory(id);
+            const action = category.isActive ? 'activated' : 'deactivated';
+            res.json({ message: `Category ${action}`, category });
         }
         catch (error) {
             next(error);
@@ -265,6 +295,25 @@ export const adminController = {
             const id = req.params['id'];
             await reviewService.deleteReview(id);
             res.json({ message: 'Review deleted' });
+        }
+        catch (error) {
+            next(error);
+        }
+    },
+    /**
+     * PATCH /v1/admin/reviews/:id/hide
+     * Hide/unhide a review
+     */
+    hideReview: async (req, res, next) => {
+        try {
+            const id = req.params['id'];
+            const { isHidden } = req.body;
+            if (typeof isHidden !== 'boolean') {
+                throw ApiError.badRequest('isHidden must be a boolean');
+            }
+            const review = await reviewService.setHidden(id, isHidden);
+            const action = isHidden ? 'hidden' : 'unhidden';
+            res.json({ message: `Review ${action}`, review });
         }
         catch (error) {
             next(error);
@@ -389,11 +438,19 @@ export const adminController = {
     },
     /**
      * GET /v1/admin/settlements
-     * List all settlements
+     * List all settlements with optional filters
      */
-    listSettlements: async (_req, res, next) => {
+    listSettlements: async (req, res, next) => {
         try {
-            const result = await adminService.listSettlements();
+            const { sellerId, orderId, status } = req.query;
+            const filters = {};
+            if (typeof sellerId === 'string')
+                filters.sellerId = sellerId;
+            if (typeof orderId === 'string')
+                filters.orderId = orderId;
+            if (typeof status === 'string')
+                filters.status = status;
+            const result = await commissionService.listSettlements(filters);
             res.json(result);
         }
         catch (error) {
@@ -427,6 +484,28 @@ export const adminController = {
                 filters.endDate = new Date(endDate);
             }
             const result = await auditService.getAuditLogs(filters);
+            res.json(result);
+        }
+        catch (error) {
+            next(error);
+        }
+    },
+    // =========================================================================
+    // REFUND LEDGER
+    // =========================================================================
+    /**
+     * GET /v1/admin/refunds
+     * List all refund ledger entries with optional filters
+     */
+    async listRefunds(req, res, next) {
+        try {
+            const { orderId, status } = req.query;
+            const filters = {};
+            if (typeof orderId === 'string')
+                filters.orderId = orderId;
+            if (typeof status === 'string')
+                filters.status = status;
+            const result = await refundService.listRefunds(filters);
             res.json(result);
         }
         catch (error) {

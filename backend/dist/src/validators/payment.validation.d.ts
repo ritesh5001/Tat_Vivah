@@ -52,6 +52,23 @@ export declare const verifyPaymentSchema: z.ZodObject<{
         razorpaySignature: string;
     };
 }>;
+export declare const retryPaymentSchema: z.ZodObject<{
+    params: z.ZodObject<{
+        orderId: z.ZodString;
+    }, "strip", z.ZodTypeAny, {
+        orderId: string;
+    }, {
+        orderId: string;
+    }>;
+}, "strip", z.ZodTypeAny, {
+    params: {
+        orderId: string;
+    };
+}, {
+    params: {
+        orderId: string;
+    };
+}>;
 export declare const webhookSchema: z.ZodObject<{
     params: z.ZodObject<{
         provider: z.ZodString;

@@ -134,4 +134,34 @@ export declare const verifyOtpSchema: z.ZodObject<{
     otp: string;
 }>;
 export type VerifyOtpInput = z.infer<typeof verifyOtpSchema>;
+/**
+ * Forgot Password Validation Schema
+ * POST /v1/auth/forgot-password
+ */
+export declare const forgotPasswordSchema: z.ZodObject<{
+    email: z.ZodString;
+}, "strip", z.ZodTypeAny, {
+    email: string;
+}, {
+    email: string;
+}>;
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+/**
+ * Reset Password Validation Schema
+ * POST /v1/auth/reset-password
+ */
+export declare const resetPasswordSchema: z.ZodObject<{
+    email: z.ZodString;
+    otp: z.ZodString;
+    newPassword: z.ZodString;
+}, "strip", z.ZodTypeAny, {
+    email: string;
+    otp: string;
+    newPassword: string;
+}, {
+    email: string;
+    otp: string;
+    newPassword: string;
+}>;
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 //# sourceMappingURL=auth.validation.d.ts.map

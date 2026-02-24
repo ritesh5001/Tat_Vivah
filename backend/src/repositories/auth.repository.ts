@@ -62,21 +62,19 @@ export class AuthRepository {
     }
 
     /**
-     * Create a new user with transaction
+     * Create a new user (no transaction needed for single create)
      */
     async createUser(data: CreateUserData): Promise<UserEntity> {
-        return prisma.$transaction(async (tx) => {
-            return tx.user.create({
-                data: {
-                    email: data.email,
-                    phone: data.phone,
-                    passwordHash: data.passwordHash,
-                    role: data.role,
-                    status: data.status,
-                    isEmailVerified: data.isEmailVerified,
-                    isPhoneVerified: data.isPhoneVerified,
-                },
-            });
+        return prisma.user.create({
+            data: {
+                email: data.email,
+                phone: data.phone,
+                passwordHash: data.passwordHash,
+                role: data.role,
+                status: data.status,
+                isEmailVerified: data.isEmailVerified,
+                isPhoneVerified: data.isPhoneVerified,
+            },
         });
     }
 
@@ -222,13 +220,14 @@ export class AuthRepository {
     async findSessionByIdAndUser(sessionId: string, userId: string): Promise<{
         id: string;
         refreshToken: string;
+        expiresAt: Date;
     } | null> {
         return prisma.loginSession.findFirst({
             where: {
                 id: sessionId,
                 userId: userId,
             },
-            select: { id: true, refreshToken: true },
+            select: { id: true, refreshToken: true, expiresAt: true },
         });
     }
 }

@@ -7,16 +7,17 @@ import {
   Pressable,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { usePathname, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import { useAuth } from "../../../src/hooks/useAuth";
-import { useCart } from "../../../src/providers/CartProvider";
+import { useCart } from "@/src/providers/CartProvider";
 import { useNetworkStatus } from "../../../src/hooks/useNetworkStatus";
 import { useToast } from "../../../src/providers/ToastProvider";
 import { SkeletonCartRow } from "../../../src/components/Skeleton";
 import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
 import { impactLight } from "../../../src/utils/haptics";
 import type { CartItemDetails } from "../../../src/services/cart";
+import { AppHeader } from "../../../src/components/AppHeader";
 
 const currency = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -26,7 +27,6 @@ const currency = new Intl.NumberFormat("en-IN", {
 
 export default function CartScreen() {
   const router = useRouter();
-  const pathname = usePathname();
   const { session, isLoading: authLoading } = useAuth();
   const token = session?.accessToken ?? null;
   const { isConnected } = useNetworkStatus();
@@ -41,14 +41,6 @@ export default function CartScreen() {
     refreshCart,
     fetchError,
   } = useCart();
-
-  // Redirect to login if unauthenticated
-  React.useEffect(() => {
-    if (!authLoading && !token) {
-      const returnTo = encodeURIComponent(pathname || "/cart");
-      router.replace(`/login?returnTo=${returnTo}`);
-    }
-  }, [authLoading, token, router, pathname]);
 
   const handleQty = React.useCallback(
     (itemId: string, nextQty: number) => {
@@ -90,8 +82,11 @@ export default function CartScreen() {
     (sum, item) => sum + item.priceSnapshot * item.quantity,
     0
   );
+  const itemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+  const gstPerItem = 180;
   const shipping = cartItems.length ? 180 : 0;
-  const total = subtotal + shipping;
+  const estimatedGst = itemCount ? gstPerItem * itemCount : 0;
+  const total = subtotal + shipping + estimatedGst;
 
   const renderItem = React.useCallback(
     ({ item }: { item: CartItemDetails }) => {
@@ -153,8 +148,34 @@ export default function CartScreen() {
 
   const showSkeleton = (isLoading || authLoading) && cartItems.length === 0;
 
+  if (!authLoading && !token) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <AppHeader title="Your Cart" subtitle="Review your selection" showMenu showBack />
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Your Cart</Text>
+          <Text style={styles.headerCopy}>Review your curated selection.</Text>
+        </View>
+        <View style={styles.emptyCard}>
+          <Text style={styles.emptyIcon}>🛒</Text>
+          <Text style={styles.emptyTitle}>Your cart is empty</Text>
+          <Text style={styles.emptySubtitle}>
+            Discover our premium collection and add something beautiful.
+          </Text>
+          <Pressable
+            style={styles.primaryButton}
+            onPress={() => router.push("/search")}
+          >
+            <Text style={styles.primaryButtonText}>Continue shopping</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safeArea}>
+      <AppHeader title="Your Cart" subtitle="Review your selection" showMenu showBack />
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Your Cart</Text>
         <Text style={styles.headerCopy}>Review your curated selection.</Text>
@@ -212,6 +233,12 @@ export default function CartScreen() {
               <Text style={styles.summaryLabel}>Shipping</Text>
               <Text style={styles.summaryValue}>
                 {currency.format(shipping)}
+              </Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>GST</Text>
+              <Text style={styles.summaryValue}>
+                {estimatedGst ? currency.format(estimatedGst) : "—"}
               </Text>
             </View>
             <View style={styles.summaryRow}>

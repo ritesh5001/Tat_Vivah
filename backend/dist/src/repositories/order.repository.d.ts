@@ -22,6 +22,7 @@ export declare class OrderRepository {
     findByUserId(userId: string): Promise<OrderWithItems[]>;
     /**
      * Find order items for a seller
+     * Uses batch lookups instead of N+1 queries
      */
     findBySellerId(sellerId: string): Promise<SellerOrderItem[]>;
     /**
@@ -37,6 +38,7 @@ export declare class OrderRepository {
     }>;
     /**
      * Helper to enrich order items with product/variant details
+     * Uses batch lookups (2 queries total) instead of 2N individual queries.
      */
     private enrichOrderItems;
 }

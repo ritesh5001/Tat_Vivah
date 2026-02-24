@@ -26,3 +26,8 @@ cancellationRouter.patch('/:id/approve', authorize('ADMIN'), (req, res, next) =>
 cancellationRouter.patch('/:id/reject', authorize('ADMIN'), (req, res, next) =>
     cancellationController.rejectCancellation(req, res, next),
 );
+
+// Seller endpoint
+cancellationRouter.patch('/:id/seller-approve', authorize('SELLER'), (req, res, next) =>
+    cancellationController.sellerApproveCancellation(req, res, next),
+);

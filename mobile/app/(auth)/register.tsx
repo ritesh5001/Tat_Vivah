@@ -11,7 +11,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Link } from "expo-router";
 import { useRouter } from "expo-router";
 import { colors, radius, spacing, typography, shadow } from "../../src/theme/tokens";
-import { registerUser } from "../../src/services/auth";
+import { registerUser, requestOtp } from "../../src/services/auth";
+import { AppHeader } from "../../src/components/AppHeader";
+import { ApiError } from "../../src/services/api";
+import { TatvivahLoader } from "../../src/components/TatvivahLoader";
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -36,9 +39,15 @@ export default function RegisterScreen() {
     setError(null);
     try {
       await registerUser({ fullName, email, phone, password });
-      router.replace("/login");
+      await requestOtp({ email });
+      router.replace({ pathname: "/(auth)/verify-otp", params: { email } });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Registration failed";
+      const message =
+        err instanceof ApiError && err.statusCode === 409
+          ? "An account with this email already exists"
+          : err instanceof Error
+            ? err.message
+            : "Registration failed";
       setError(message);
     } finally {
       setLoading(false);
@@ -47,6 +56,7 @@ export default function RegisterScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <AppHeader title="Create account" subtitle="TatVivah" showMenu showBack />
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.logoRow}>
           <View style={styles.logoBadge}>
@@ -117,10 +127,16 @@ export default function RegisterScreen() {
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-          <Pressable style={styles.primaryButton} onPress={handleRegister}>
-            <Text style={styles.primaryButtonText}>
-              {loading ? "Creating..." : "Create account"}
-            </Text>
+          <Pressable
+            style={[styles.primaryButton, loading && styles.buttonDisabled]}
+            onPress={handleRegister}
+            disabled={loading}
+          >
+            {loading ? (
+              <TatvivahLoader size="sm" color={colors.background} />
+            ) : (
+              <Text style={styles.primaryButtonText}>Create account</Text>
+            )}
           </Pressable>
         </View>
 
@@ -235,6 +251,9 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     alignItems: "center",
     marginTop: spacing.sm,
+  },
+  buttonDisabled: {
+    opacity: 0.7,
   },
   primaryButtonText: {
     fontFamily: typography.sansMedium,

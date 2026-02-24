@@ -7,10 +7,7 @@ import { Button } from "@/components/ui/button";
 import {
   AdminProduct,
   AdminSeller,
-  getAllProducts,
-  getOrders,
-  getPayments,
-  getSellers,
+  getAdminStats,
 } from "@/services/admin";
 import { toast } from "sonner";
 
@@ -40,21 +37,16 @@ export default function AdminOverviewPage() {
   React.useEffect(() => {
     const load = async () => {
       try {
-        const [sellerRes, productsRes, ordersRes, paymentsRes] =
-          await Promise.all([
-            getSellers(),
-            getAllProducts(),
-            getOrders(),
-            getPayments(),
-          ]);
+        // Single lightweight API call with COUNT queries instead of 4 full-table fetches
+        const res = await getAdminStats();
         setStats({
-          sellers: sellerRes.sellers?.length ?? 0,
-          products: productsRes.products?.length ?? 0,
-          orders: ordersRes.orders?.length ?? 0,
-          payments: paymentsRes.payments?.length ?? 0,
+          sellers: res.stats.sellers,
+          products: res.stats.products,
+          orders: res.stats.orders,
+          payments: res.stats.payments,
         });
-        setRecentSellers((sellerRes.sellers ?? []).slice(0, 5));
-        setRecentProducts((productsRes.products ?? []).slice(0, 5));
+        setRecentSellers(res.recentSellers ?? []);
+        setRecentProducts(res.recentProducts ?? []);
       } catch (error) {
         toast.error(
           error instanceof Error ? error.message : "Unable to load admin stats"

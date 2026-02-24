@@ -19,12 +19,14 @@ import { openRazorpayCheckout } from "../../src/services/razorpay";
 import { ApiError } from "../../src/services/api";
 import { useAuth } from "../../src/hooks/useAuth";
 import { useNetworkStatus } from "../../src/hooks/useNetworkStatus";
-import { useCart } from "../../src/providers/CartProvider";
+import { useCart } from "@/src/providers/CartProvider";
 import { useAddresses } from "../../src/providers/AddressProvider";
 import { useToast } from "../../src/providers/ToastProvider";
 import { AnimatedPressable } from "../../src/components/AnimatedPressable";
 import { notifySuccess, notifyError, impactLight } from "../../src/utils/haptics";
+import { AppHeader } from "../../src/components/AppHeader";
 import type { Address } from "../../src/services/addresses";
+import { TatvivahLoader, TatvivahOverlayLoader } from "../../src/components/TatvivahLoader";
 
 // ---------------------------------------------------------------------------
 // Address selector row — memoized for FlatList
@@ -84,6 +86,7 @@ export default function CheckoutScreen() {
 
   // ---------- Payment guard — prevents double-submit ----------
   const [isPaying, setIsPaying] = React.useState(false);
+  const [payLabel, setPayLabel] = React.useState("Starting payment");
   const [error, setError] = React.useState<string | null>(null);
   const [taxSummary, setTaxSummary] = React.useState<{
     subTotalAmount: number;
@@ -134,6 +137,16 @@ export default function CheckoutScreen() {
   });
 
   const hasAddresses = addresses.length > 0;
+  const cartSubtotal = React.useMemo(
+    () => cartItems.reduce((sum, item) => sum + item.priceSnapshot * item.quantity, 0),
+    [cartItems]
+  );
+  const shippingFee = cartItems.length ? 180 : 0;
+  const displaySubtotal = taxSummary?.subTotalAmount ?? cartSubtotal;
+  const displayDiscount = taxSummary?.discountAmount ?? 0;
+  const displayGst = taxSummary?.totalTaxAmount ?? 0;
+  const displayGrandTotal =
+    taxSummary?.grandTotal ?? (displaySubtotal - displayDiscount + shippingFee + displayGst);
 
   // ---------- Clear coupon when cart items change ----------
   React.useEffect(() => {
@@ -180,7 +193,7 @@ export default function CheckoutScreen() {
 
   const navigateToAddAddress = React.useCallback(() => {
     setShowAddressModal(false);
-    router.push("/(tabs)/profile/addresses/form");
+    router.push("/profile/addresses/form");
   }, [router]);
 
   // ---- Coupon handlers ----
@@ -276,9 +289,11 @@ export default function CheckoutScreen() {
           couponCode: appliedCoupon?.code || undefined,
         };
 
+    setPayLabel("Creating order");
     setIsPaying(true);
     setError(null);
 
+    let createdOrderId: string | null = null;
     try {
       // 1. Create order via checkout
       const orderResult = await checkout(shippingPayload, token);
@@ -287,14 +302,17 @@ export default function CheckoutScreen() {
       if (!orderId) {
         throw new Error("Order ID missing. Please try again.");
       }
+      createdOrderId = orderId;
 
       // Store GST summary from backend response
       if (orderResult.order && mountedRef.current) {
+        const toNumber = (value: number | string | null | undefined) =>
+          typeof value === "string" ? Number(value) : value ?? 0;
         setTaxSummary({
-          subTotalAmount: orderResult.order.subTotalAmount ?? 0,
-          totalTaxAmount: orderResult.order.totalTaxAmount ?? 0,
-          grandTotal: orderResult.order.grandTotal ?? 0,
-          discountAmount: orderResult.order.discountAmount ?? 0,
+          subTotalAmount: toNumber(orderResult.order.subTotalAmount),
+          totalTaxAmount: toNumber(orderResult.order.totalTaxAmount),
+          grandTotal: toNumber(orderResult.order.grandTotal),
+          discountAmount: toNumber(orderResult.order.discountAmount),
         });
       }
 
@@ -307,6 +325,7 @@ export default function CheckoutScreen() {
       const prefillContact = shipping.phone || undefined;
       const prefillEmail = shipping.email || undefined;
 
+      setPayLabel("Opening Razorpay");
       const razorpayResult = await openRazorpayCheckout({
         key,
         amount,
@@ -323,6 +342,7 @@ export default function CheckoutScreen() {
       });
 
       // 4. Verify payment on backend — CRITICAL: do NOT navigate before this
+      setPayLabel("Verifying payment");
       await verifyPayment(
         {
           razorpayOrderId: razorpayResult.razorpay_order_id,
@@ -355,8 +375,12 @@ export default function CheckoutScreen() {
         return;
       }
 
-      const message =
-        err instanceof ApiError
+      const lowered = rawMessage.toLowerCase();
+      const isRazorpayMissing =
+        lowered.includes("razorpay") || lowered.includes("open") || lowered.includes("sdk");
+      const message = isRazorpayMissing
+        ? "Razorpay SDK is not available. Install it and rebuild the app."
+        : err instanceof ApiError
           ? err.message
           : err instanceof Error
             ? err.message
@@ -364,9 +388,15 @@ export default function CheckoutScreen() {
       setError(message);
       notifyError();
       showToast(message, "error");
+
+      if (createdOrderId) {
+        showToast("Order created. Payment pending — retry from orders.", "info");
+        router.replace(`/orders/${createdOrderId}`);
+      }
     } finally {
       if (mountedRef.current) {
         setIsPaying(false);
+        setPayLabel("Starting payment");
       }
     }
   };
@@ -396,7 +426,11 @@ export default function CheckoutScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.container}>
+      <AppHeader title="Checkout" subtitle="Secure payment" showMenu showBack />
+      {isPaying ? (
+        <TatvivahOverlayLoader label={payLabel} />
+      ) : null}
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <Text style={styles.title}>Checkout</Text>
         <Text style={styles.subtitle}>
           Confirm delivery address and complete your order.
@@ -618,44 +652,32 @@ export default function CheckoutScreen() {
           ) : null}
         </View>
 
-        {/* ---- Tax Summary ---- */}
-        {taxSummary && (
-          <View style={[styles.card, { marginTop: spacing.md }]}>
-            <Text style={styles.sectionTitle}>Order Summary</Text>
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Subtotal</Text>
-              <Text style={styles.summaryValue}>
-                ₹{taxSummary.subTotalAmount.toFixed(0)}
-              </Text>
-            </View>
-            {taxSummary.discountAmount > 0 && (
-              <View style={styles.summaryRow}>
-                <Text style={[styles.summaryLabel, { color: "#2E7D32" }]}>Discount</Text>
-                <Text style={[styles.summaryValue, { color: "#2E7D32" }]}>
-                  −₹{taxSummary.discountAmount.toFixed(0)}
-                </Text>
-              </View>
-            )}
-            {taxSummary.totalTaxAmount > 0 && (
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>GST</Text>
-                <Text style={styles.summaryValue}>
-                  ₹{taxSummary.totalTaxAmount.toFixed(0)}
-                </Text>
-              </View>
-            )}
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Shipping</Text>
-              <Text style={styles.summaryValue}>₹180</Text>
-            </View>
-            <View style={[styles.summaryRow, { marginTop: spacing.sm, paddingTop: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.borderSoft }]}>
-              <Text style={[styles.summaryLabel, { fontFamily: typography.sansMedium, color: colors.charcoal }]}>Grand Total</Text>
-              <Text style={[styles.summaryValue, { fontFamily: typography.serif, fontSize: 18, color: colors.charcoal }]}>
-                ₹{taxSummary.grandTotal.toFixed(0)}
-              </Text>
-            </View>
+        {/* ---- Order Summary ---- */}
+        <View style={[styles.card, { marginTop: spacing.md }]}>
+          <Text style={styles.sectionTitle}>Order Summary</Text>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Subtotal</Text>
+            <Text style={styles.summaryValue}>₹{displaySubtotal.toFixed(0)}</Text>
           </View>
-        )}
+          {displayDiscount > 0 && (
+            <View style={styles.summaryRow}>
+              <Text style={[styles.summaryLabel, { color: "#2E7D32" }]}>Discount</Text>
+              <Text style={[styles.summaryValue, { color: "#2E7D32" }]}>−₹{displayDiscount.toFixed(0)}</Text>
+            </View>
+          )}
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>GST</Text>
+            <Text style={styles.summaryValue}>₹{displayGst.toFixed(0)}</Text>
+          </View>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Shipping</Text>
+            <Text style={styles.summaryValue}>₹{shippingFee.toFixed(0)}</Text>
+          </View>
+          <View style={[styles.summaryRow, { marginTop: spacing.sm, paddingTop: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.borderSoft }]}>
+            <Text style={[styles.summaryLabel, { fontFamily: typography.sansMedium, color: colors.charcoal }]}>Grand Total</Text>
+            <Text style={[styles.summaryValue, { fontFamily: typography.serif, fontSize: 18, color: colors.charcoal }]}>₹{displayGrandTotal.toFixed(0)}</Text>
+          </View>
+        </View>
 
         {/* ---- CTA ---- */}
         <AnimatedPressable
@@ -665,18 +687,21 @@ export default function CheckoutScreen() {
           ]}
           onPress={handleCheckout}
           disabled={isButtonDisabled}
+          hitSlop={10}
         >
-          <Text style={styles.primaryButtonText}>
-            {isPaying
-              ? "Processing\u2026"
-              : !isConnected
+          {isPaying ? (
+            <TatvivahLoader size="sm" color={colors.background} />
+          ) : (
+            <Text style={styles.primaryButtonText}>
+              {!isConnected
                 ? "Offline"
                 : cartItems.length === 0
                   ? "Cart is empty"
                   : hasAddresses && !selectedAddressId
                     ? "Select address"
                     : "Complete order"}
-          </Text>
+            </Text>
+          )}
         </AnimatedPressable>
 
         {error ? (
@@ -735,16 +760,17 @@ const styles = StyleSheet.create({
   container: {
     padding: spacing.lg,
     paddingBottom: spacing.xxl,
+    paddingTop: spacing.md,
   },
   title: {
     fontFamily: typography.serif,
-    fontSize: 24,
+    fontSize: 28,
     color: colors.charcoal,
   },
   subtitle: {
     marginTop: spacing.xs,
     fontFamily: typography.sans,
-    fontSize: 12,
+    fontSize: 14,
     color: colors.brownSoft,
     marginBottom: spacing.lg,
   },

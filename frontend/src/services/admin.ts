@@ -118,6 +118,13 @@ export interface AdminCategory {
   id: string;
   name: string;
   slug: string;
+  description?: string | null;
+  image?: string | null;
+  bannerImage?: string | null;
+  parentId?: string | null;
+  sortOrder?: number;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
   isActive: boolean;
   createdAt: string;
 }
@@ -125,8 +132,11 @@ export interface AdminCategory {
 export interface AdminReview {
   id: string;
   rating: number;
+  title?: string | null;
   text: string;
   images: string[];
+  helpfulCount?: number;
+  isHidden?: boolean;
   createdAt: string;
   product: {
     id: string;
@@ -154,6 +164,21 @@ export interface AdminBestseller {
 
 export async function getSellers(token?: string | null) {
   return apiRequest<{ sellers: AdminSeller[] }>("/v1/admin/sellers", {
+    method: "GET",
+    token,
+  });
+}
+
+/**
+ * Lightweight admin dashboard stats — uses COUNT queries on the backend
+ * instead of downloading all records just to get `.length`.
+ */
+export async function getAdminStats(token?: string | null) {
+  return apiRequest<{
+    stats: { sellers: number; products: number; orders: number; payments: number };
+    recentSellers: AdminSeller[];
+    recentProducts: AdminProduct[];
+  }>("/v1/admin/stats", {
     method: "GET",
     token,
   });
@@ -293,12 +318,38 @@ export async function getAdminCategories(token?: string | null) {
   });
 }
 
-export async function createAdminCategory(name: string, token?: string | null) {
+export interface CreateCategoryPayload {
+  name: string;
+  description?: string;
+  image?: string;
+  bannerImage?: string;
+  parentId?: string;
+  sortOrder?: number;
+  seoTitle?: string;
+  seoDescription?: string;
+}
+
+export interface UpdateCategoryPayload {
+  name?: string;
+  description?: string | null;
+  image?: string | null;
+  bannerImage?: string | null;
+  parentId?: string | null;
+  sortOrder?: number;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
+  isActive?: boolean;
+}
+
+export async function createAdminCategory(
+  data: CreateCategoryPayload,
+  token?: string | null
+) {
   return apiRequest<{ message: string; category: AdminCategory }>(
     "/v1/admin/categories",
     {
       method: "POST",
-      body: { name },
+      body: data,
       token,
     }
   );
@@ -306,7 +357,7 @@ export async function createAdminCategory(name: string, token?: string | null) {
 
 export async function updateAdminCategory(
   id: string,
-  data: { name?: string; isActive?: boolean },
+  data: UpdateCategoryPayload,
   token?: string | null
 ) {
   return apiRequest<{ message: string; category: AdminCategory }>(
@@ -320,10 +371,20 @@ export async function updateAdminCategory(
 }
 
 export async function deleteAdminCategory(id: string, token?: string | null) {
-  return apiRequest<{ message: string; category: AdminCategory }>(
+  return apiRequest<{ message: string }>(
     `/v1/admin/categories/${id}`,
     {
       method: "DELETE",
+      token,
+    }
+  );
+}
+
+export async function toggleAdminCategory(id: string, token?: string | null) {
+  return apiRequest<{ message: string; category: AdminCategory }>(
+    `/v1/admin/categories/${id}/toggle`,
+    {
+      method: "PATCH",
       token,
     }
   );
@@ -341,6 +402,224 @@ export async function deleteAdminReview(id: string, token?: string | null) {
     method: "DELETE",
     token,
   });
+}
+
+export async function hideAdminReview(
+  id: string,
+  isHidden: boolean,
+  token?: string | null
+) {
+  return apiRequest<{ message: string; review: AdminReview }>(
+    `/v1/admin/reviews/${id}/hide`,
+    {
+      method: "PATCH",
+      body: { isHidden },
+      token,
+    }
+  );
+}
+
+// =====================================================================
+// COMMISSION RULES
+// =====================================================================
+
+export interface CommissionRule {
+  id: string;
+  sellerId?: string | null;
+  categoryId?: string | null;
+  commissionPercent: number;
+  platformFee: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  seller?: {
+    id: string;
+    email: string;
+    seller_profiles?: { store_name: string } | null;
+  } | null;
+  category?: { id: string; name: string } | null;
+}
+
+export interface CreateCommissionRulePayload {
+  sellerId?: string | null;
+  categoryId?: string | null;
+  commissionPercent: number;
+  platformFee: number;
+  isActive?: boolean;
+}
+
+export interface UpdateCommissionRulePayload {
+  sellerId?: string | null;
+  categoryId?: string | null;
+  commissionPercent?: number;
+  platformFee?: number;
+  isActive?: boolean;
+}
+
+export async function getCommissionRules(
+  filters?: { sellerId?: string; categoryId?: string; isActive?: string },
+  token?: string | null
+) {
+  const params = new URLSearchParams();
+  if (filters?.sellerId) params.set("sellerId", filters.sellerId);
+  if (filters?.categoryId) params.set("categoryId", filters.categoryId);
+  if (filters?.isActive) params.set("isActive", filters.isActive);
+  const qs = params.toString();
+  return apiRequest<{ rules: CommissionRule[] }>(
+    `/v1/admin/commission-rules${qs ? `?${qs}` : ""}`,
+    { method: "GET", token }
+  );
+}
+
+export async function createCommissionRule(
+  data: CreateCommissionRulePayload,
+  token?: string | null
+) {
+  return apiRequest<{ message: string; rule: CommissionRule }>(
+    "/v1/admin/commission-rules",
+    { method: "POST", body: data, token }
+  );
+}
+
+export async function updateCommissionRule(
+  id: string,
+  data: UpdateCommissionRulePayload,
+  token?: string | null
+) {
+  return apiRequest<{ message: string; rule: CommissionRule }>(
+    `/v1/admin/commission-rules/${id}`,
+    { method: "PUT", body: data, token }
+  );
+}
+
+export async function deleteCommissionRule(
+  id: string,
+  token?: string | null
+) {
+  return apiRequest<{ message: string }>(
+    `/v1/admin/commission-rules/${id}`,
+    { method: "DELETE", token }
+  );
+}
+
+// =====================================================================
+// COUPON ADMIN
+// =====================================================================
+
+export interface AdminCoupon {
+  id: string;
+  code: string;
+  type: "PERCENT" | "FLAT";
+  value: number;
+  maxDiscountAmount?: number | null;
+  minOrderAmount: number;
+  usageLimit?: number | null;
+  perUserLimit?: number | null;
+  usedCount: number;
+  validFrom: string;
+  validUntil: string;
+  isActive: boolean;
+  sellerId?: string | null;
+  firstTimeUserOnly: boolean;
+  createdAt: string;
+  seller?: {
+    id: string;
+    email: string;
+    seller_profiles?: { store_name: string } | null;
+  } | null;
+  _count?: { redemptions: number };
+}
+
+export interface CreateCouponPayload {
+  code: string;
+  type: "PERCENT" | "FLAT";
+  value: number;
+  maxDiscountAmount?: number | null;
+  minOrderAmount?: number;
+  usageLimit?: number | null;
+  perUserLimit?: number | null;
+  validFrom: string;
+  validUntil: string;
+  isActive?: boolean;
+  sellerId?: string | null;
+  firstTimeUserOnly?: boolean;
+}
+
+export interface UpdateCouponPayload {
+  code?: string;
+  type?: "PERCENT" | "FLAT";
+  value?: number;
+  maxDiscountAmount?: number | null;
+  minOrderAmount?: number;
+  usageLimit?: number | null;
+  perUserLimit?: number | null;
+  validFrom?: string;
+  validUntil?: string;
+  isActive?: boolean;
+  sellerId?: string | null;
+  firstTimeUserOnly?: boolean;
+}
+
+export interface AdminCouponListResponse {
+  coupons: AdminCoupon[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export async function getAdminCoupons(
+  query?: { page?: number; limit?: number; isActive?: string; type?: string; search?: string },
+  token?: string | null
+) {
+  const params = new URLSearchParams();
+  if (query?.page) params.set("page", String(query.page));
+  if (query?.limit) params.set("limit", String(query.limit));
+  if (query?.isActive) params.set("isActive", query.isActive);
+  if (query?.type) params.set("type", query.type);
+  if (query?.search) params.set("search", query.search);
+  const qs = params.toString();
+  return apiRequest<AdminCouponListResponse>(
+    `/v1/admin/coupons${qs ? `?${qs}` : ""}`,
+    { method: "GET", token }
+  );
+}
+
+export async function createAdminCoupon(
+  data: CreateCouponPayload,
+  token?: string | null
+) {
+  return apiRequest<{ message: string; coupon: AdminCoupon }>(
+    "/v1/admin/coupons",
+    { method: "POST", body: data, token }
+  );
+}
+
+export async function updateAdminCoupon(
+  id: string,
+  data: UpdateCouponPayload,
+  token?: string | null
+) {
+  return apiRequest<{ message: string; coupon: AdminCoupon }>(
+    `/v1/admin/coupons/${id}`,
+    { method: "PUT", body: data, token }
+  );
+}
+
+export async function deleteAdminCoupon(id: string, token?: string | null) {
+  return apiRequest<{ message: string }>(
+    `/v1/admin/coupons/${id}`,
+    { method: "DELETE", token }
+  );
+}
+
+export async function toggleAdminCoupon(id: string, token?: string | null) {
+  return apiRequest<{ message: string; coupon: AdminCoupon }>(
+    `/v1/admin/coupons/${id}/toggle`,
+    { method: "PATCH", token }
+  );
 }
 
 export async function getAdminBestsellers(token?: string | null) {

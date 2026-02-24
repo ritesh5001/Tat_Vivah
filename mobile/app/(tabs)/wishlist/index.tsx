@@ -5,7 +5,6 @@ import {
   StyleSheet,
   FlatList,
   Pressable,
-  ActivityIndicator,
   type ListRenderItemInfo,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -17,6 +16,8 @@ import { useAuth } from "../../../src/hooks/useAuth";
 import { type WishlistItemDetail } from "../../../src/services/wishlist";
 import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
 import { impactLight } from "../../../src/utils/haptics";
+import { AppHeader } from "../../../src/components/AppHeader";
+import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
 
 const currency = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -80,7 +81,7 @@ const WishlistRow = React.memo(function WishlistRow({
         hitSlop={8}
       >
         {removing ? (
-          <ActivityIndicator size="small" color={colors.brownSoft} />
+          <TatvivahLoader size="sm" color={colors.brownSoft} />
         ) : (
           <Text style={{ fontSize: 20 }}>❤️</Text>
         )}
@@ -140,17 +141,27 @@ export default function WishlistScreen() {
   if (!token) {
     return (
       <SafeAreaView style={styles.container} edges={["top"]}>
+        <AppHeader title="Wishlist" subtitle="Saved styles" showMenu showBack />
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Wishlist</Text>
         </View>
         <View style={styles.emptyWrap}>
           <Text style={{ fontSize: 48 }}>🤍</Text>
-          <Text style={styles.emptyTitle}>Sign in to see your wishlist</Text>
+          <Text style={styles.emptyTitle}>Sign in to use wishlist</Text>
+          <Text style={styles.emptySubtitle}>
+            Save favorites and keep them synced to your account.
+          </Text>
           <AnimatedPressable
-            onPress={() => router.push("/login")}
+            onPress={() => router.push("/login?returnTo=%2Fwishlist")}
             style={styles.ctaButton}
           >
             <Text style={styles.ctaButtonText}>Sign in</Text>
+          </AnimatedPressable>
+          <AnimatedPressable
+            onPress={() => router.push("/search")}
+            style={styles.secondaryButton}
+          >
+            <Text style={styles.secondaryButtonText}>Continue browsing</Text>
           </AnimatedPressable>
         </View>
       </SafeAreaView>
@@ -159,6 +170,7 @@ export default function WishlistScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
+      <AppHeader title="Wishlist" subtitle="Saved styles" showMenu showBack />
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Wishlist</Text>
         <Text style={styles.headerSubtitle}>
@@ -168,7 +180,7 @@ export default function WishlistScreen() {
 
       {isLoading ? (
         <View style={styles.emptyWrap}>
-          <ActivityIndicator size="large" color={colors.gold} />
+          <TatvivahLoader label="Loading wishlist" color={colors.gold} />
         </View>
       ) : fetchError ? (
         <View style={styles.emptyWrap}>
@@ -185,7 +197,7 @@ export default function WishlistScreen() {
             Browse our collections and tap the heart to save items you love.
           </Text>
           <AnimatedPressable
-            onPress={() => router.push("/(tabs)/search")}
+            onPress={() => router.push("/search")}
             style={styles.ctaButton}
           >
             <Text style={styles.ctaButtonText}>Explore Shop</Text>
@@ -321,5 +333,19 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
     textTransform: "uppercase",
     color: colors.background,
+  },
+  secondaryButton: {
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    paddingHorizontal: 32,
+    paddingVertical: 12,
+    borderRadius: radius.md,
+  },
+  secondaryButtonText: {
+    fontFamily: typography.sans,
+    fontSize: 12,
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+    color: colors.charcoal,
   },
 });

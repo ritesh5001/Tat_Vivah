@@ -12,6 +12,11 @@ export declare const CACHE_KEYS: {
     readonly ADMIN_ORDERS: "admin:orders:list";
     readonly ADMIN_PAYMENTS: "admin:payments:list";
     readonly TRACKING: (orderId: string) => string;
+    readonly SELLER_ANALYTICS_SUMMARY: (sellerId: string, start?: string, end?: string) => string;
+    readonly SELLER_ANALYTICS_CHART: (sellerId: string, interval: string) => string;
+    readonly SELLER_ANALYTICS_TOP_PRODUCTS: (sellerId: string, limit: number) => string;
+    readonly SELLER_ANALYTICS_INVENTORY: (sellerId: string) => string;
+    readonly SELLER_ANALYTICS_REFUND: (sellerId: string, start?: string, end?: string) => string;
 };
 /**
  * Get data from cache

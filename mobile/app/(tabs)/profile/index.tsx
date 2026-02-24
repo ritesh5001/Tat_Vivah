@@ -6,17 +6,17 @@ import {
   Pressable,
   ScrollView,
   Modal,
-  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { usePathname, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import { useAuth } from "../../../src/hooks/useAuth";
 import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
+import { AppHeader } from "../../../src/components/AppHeader";
+import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const pathname = usePathname();
   const { session, signOut, isLoading } = useAuth();
   const user = session?.user;
 
@@ -30,12 +30,6 @@ export default function ProfileScreen() {
     };
   }, []);
 
-  React.useEffect(() => {
-    if (!isLoading && !session?.accessToken) {
-      const returnTo = encodeURIComponent(pathname || "/profile");
-      router.replace(`/login?returnTo=${returnTo}`);
-    }
-  }, [isLoading, session?.accessToken, pathname, router]);
 
   const handleLogout = React.useCallback(async () => {
     setLoggingOut(true);
@@ -60,6 +54,7 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <AppHeader title="Profile" subtitle="Account settings" showMenu showBack />
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Profile</Text>
@@ -68,21 +63,26 @@ export default function ProfileScreen() {
 
         {isLoading ? (
           <View style={styles.card}>
-            <ActivityIndicator color={colors.gold} />
-            <Text style={styles.loadingText}>Loading profile…</Text>
+            <TatvivahLoader label="Loading profile" color={colors.gold} />
           </View>
         ) : !user ? (
           <View style={styles.card}>
             <Text style={styles.emptyIcon}>👤</Text>
-            <Text style={styles.emptyTitle}>Not signed in</Text>
+            <Text style={styles.emptyTitle}>Sign in to view profile</Text>
             <Text style={styles.emptySubtitle}>
-              Sign in to manage your account and track your orders.
+              Manage addresses, orders, and account settings after login.
             </Text>
             <Pressable
               style={styles.primaryButton}
-              onPress={() => router.replace("/login")}
+              onPress={() => router.push("/login?returnTo=%2Fprofile")}
             >
               <Text style={styles.primaryButtonText}>Sign in</Text>
+            </Pressable>
+            <Pressable
+              style={styles.secondaryButton}
+              onPress={() => router.push("/home")}
+            >
+              <Text style={styles.secondaryButtonText}>Back to home</Text>
             </Pressable>
           </View>
         ) : (
@@ -145,7 +145,7 @@ export default function ProfileScreen() {
 
               <AnimatedPressable
                 style={styles.actionRow}
-                onPress={() => router.push("/(auth)/forgot-password")}
+                onPress={() => router.push("/forgot-password")}
               >
                 <Text style={styles.actionText}>Reset Password</Text>
                 <Text style={styles.actionChevron}>→</Text>
@@ -204,7 +204,7 @@ export default function ProfileScreen() {
                 disabled={loggingOut}
               >
                 {loggingOut ? (
-                  <ActivityIndicator color={colors.background} size="small" />
+                  <TatvivahLoader size="sm" color={colors.background} />
                 ) : (
                   <Text style={styles.modalConfirmText}>Sign Out</Text>
                 )}
@@ -339,6 +339,21 @@ const styles = StyleSheet.create({
     letterSpacing: 1.4,
     textTransform: "uppercase",
     color: colors.background,
+  },
+  secondaryButton: {
+    marginTop: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    borderRadius: radius.md,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  secondaryButtonText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 12,
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+    color: colors.charcoal,
   },
   buttonDisabled: {
     opacity: 0.5,

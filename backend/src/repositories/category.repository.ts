@@ -11,8 +11,8 @@ export class CategoryRepository {
      */
     async findAll(): Promise<CategoryEntity[]> {
         return prisma.category.findMany({
-            orderBy: { name: 'asc' },
-        });
+            orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+        }) as unknown as CategoryEntity[];
     }
 
     /**
@@ -21,8 +21,8 @@ export class CategoryRepository {
     async findAllActive(): Promise<CategoryEntity[]> {
         return prisma.category.findMany({
             where: { isActive: true },
-            orderBy: { name: 'asc' },
-        });
+            orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+        }) as unknown as CategoryEntity[];
     }
 
     /**
@@ -57,14 +57,31 @@ export class CategoryRepository {
     /**
      * Create category
      */
-    async create(data: { name: string; slug: string }): Promise<CategoryEntity> {
+    async create(data: {
+        name: string;
+        slug: string;
+        description?: string | undefined;
+        image?: string | undefined;
+        bannerImage?: string | undefined;
+        parentId?: string | undefined;
+        sortOrder?: number | undefined;
+        seoTitle?: string | undefined;
+        seoDescription?: string | undefined;
+    }): Promise<CategoryEntity> {
         return prisma.category.create({
             data: {
                 name: data.name,
                 slug: data.slug,
                 isActive: true,
+                ...(data.description !== undefined && { description: data.description }),
+                ...(data.image !== undefined && { image: data.image }),
+                ...(data.bannerImage !== undefined && { bannerImage: data.bannerImage }),
+                ...(data.parentId !== undefined && { parentId: data.parentId }),
+                ...(data.sortOrder !== undefined && { sortOrder: data.sortOrder }),
+                ...(data.seoTitle !== undefined && { seoTitle: data.seoTitle }),
+                ...(data.seoDescription !== undefined && { seoDescription: data.seoDescription }),
             },
-        });
+        }) as unknown as CategoryEntity;
     }
 
     /**
@@ -72,16 +89,49 @@ export class CategoryRepository {
      */
     async update(
         id: string,
-        data: { name?: string; slug?: string; isActive?: boolean }
+        data: {
+            name?: string | undefined;
+            slug?: string | undefined;
+            description?: string | null | undefined;
+            image?: string | null | undefined;
+            bannerImage?: string | null | undefined;
+            parentId?: string | null | undefined;
+            sortOrder?: number | undefined;
+            isActive?: boolean | undefined;
+            seoTitle?: string | null | undefined;
+            seoDescription?: string | null | undefined;
+        }
     ): Promise<CategoryEntity> {
         return prisma.category.update({
             where: { id },
             data: {
                 ...(data.name !== undefined && { name: data.name }),
                 ...(data.slug !== undefined && { slug: data.slug }),
+                ...(data.description !== undefined && { description: data.description }),
+                ...(data.image !== undefined && { image: data.image }),
+                ...(data.bannerImage !== undefined && { bannerImage: data.bannerImage }),
+                ...(data.parentId !== undefined && { parentId: data.parentId }),
+                ...(data.sortOrder !== undefined && { sortOrder: data.sortOrder }),
                 ...(data.isActive !== undefined && { isActive: data.isActive }),
+                ...(data.seoTitle !== undefined && { seoTitle: data.seoTitle }),
+                ...(data.seoDescription !== undefined && { seoDescription: data.seoDescription }),
             },
-        });
+        }) as unknown as CategoryEntity;
+    }
+
+    /**
+     * Check if category has products assigned
+     */
+    async hasProducts(id: string): Promise<boolean> {
+        const count = await prisma.product.count({ where: { categoryId: id } });
+        return count > 0;
+    }
+
+    /**
+     * Hard delete a category
+     */
+    async delete(id: string): Promise<void> {
+        await prisma.category.delete({ where: { id } });
     }
 }
 

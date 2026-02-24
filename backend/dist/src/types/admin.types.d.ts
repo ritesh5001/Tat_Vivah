@@ -80,10 +80,14 @@ export interface AdminPaymentListResponse {
 }
 export interface AdminSettlementEntity {
     id: string;
+    orderId: string;
     sellerId: string;
-    orderItemId: string;
-    amount: number;
+    grossAmount: number;
+    commissionAmount: number;
+    platformFee: number;
+    netAmount: number;
     status: SettlementStatus;
+    settledAt: Date | null;
     createdAt: Date;
 }
 export interface AdminSettlementListResponse {

@@ -5,6 +5,7 @@ import { z } from 'zod';
  */
 export const checkoutSchema = z.object({
     body: z.object({
+        couponCode: z.string().min(1).max(64).optional(),
         shippingName: z.string().min(1).optional(),
         shippingPhone: z.string().min(5).optional(),
         shippingEmail: z.string().email().optional(),

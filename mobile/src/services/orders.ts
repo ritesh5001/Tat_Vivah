@@ -17,6 +17,9 @@ export interface BuyerOrder {
   id: string;
   status: string;
   totalAmount: number;
+  subTotalAmount?: number;
+  totalTaxAmount?: number;
+  grandTotal?: number;
   createdAt: string;
   items: OrderItem[];
   shipmentStatus?: string | null;
@@ -36,6 +39,9 @@ export interface BuyerOrderDetail {
   userId: string;
   status: string;
   totalAmount: number;
+  subTotalAmount?: number;
+  totalTaxAmount?: number;
+  grandTotal?: number;
   shippingName?: string | null;
   shippingPhone?: string | null;
   shippingEmail?: string | null;

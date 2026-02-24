@@ -112,6 +112,7 @@ export class OrderRepository {
 
     /**
      * Find order items for a seller
+     * Uses batch lookups instead of N+1 queries
      */
     async findBySellerId(sellerId: string): Promise<SellerOrderItem[]> {
         const orderItems = await prisma.orderItem.findMany({
@@ -122,6 +123,14 @@ export class OrderRepository {
                         id: true,
                         status: true,
                         createdAt: true,
+                        cancellationRequest: {
+                            select: {
+                                id: true,
+                                status: true,
+                                reason: true,
+                                createdAt: true,
+                            },
+                        },
                         shippingName: true,
                         shippingPhone: true,
                         shippingEmail: true,
@@ -135,27 +144,33 @@ export class OrderRepository {
             orderBy: { order: { createdAt: 'desc' } },
         });
 
-        // Enhance with product/variant details
-        return Promise.all(
-            orderItems.map(async (item) => {
-                const [product, variant] = await Promise.all([
-                    prisma.product.findUnique({
-                        where: { id: item.productId },
-                        select: { title: true },
-                    }),
-                    prisma.productVariant.findUnique({
-                        where: { id: item.variantId },
-                        select: { sku: true },
-                    }),
-                ]);
+        // Batch lookup instead of N+1
+        const productIds = [...new Set(orderItems.map((i) => i.productId))];
+        const variantIds = [...new Set(orderItems.map((i) => i.variantId))];
 
-                return {
-                    ...item,
-                    productTitle: product?.title,
-                    variantSku: variant?.sku,
-                };
-            })
-        );
+        const [products, variants] = await Promise.all([
+            productIds.length
+                ? prisma.product.findMany({
+                    where: { id: { in: productIds } },
+                    select: { id: true, title: true },
+                })
+                : [],
+            variantIds.length
+                ? prisma.productVariant.findMany({
+                    where: { id: { in: variantIds } },
+                    select: { id: true, sku: true },
+                })
+                : [],
+        ]);
+
+        const productMap = new Map(products.map((p) => [p.id, p.title]));
+        const variantMap = new Map(variants.map((v) => [v.id, v.sku]));
+
+        return orderItems.map((item) => ({
+            ...item,
+            productTitle: productMap.get(item.productId),
+            variantSku: variantMap.get(item.variantId),
+        }));
     }
 
     /**
@@ -196,28 +211,33 @@ export class OrderRepository {
 
     /**
      * Helper to enrich order items with product/variant details
+     * Uses batch lookups (2 queries total) instead of 2N individual queries.
      */
     private async enrichOrderItems(items: { productId: string; variantId: string;[key: string]: any }[]): Promise<OrderItemWithProduct[]> {
-        return Promise.all(
-            items.map(async (item) => {
-                const [product, variant] = await Promise.all([
-                    prisma.product.findUnique({
-                        where: { id: item.productId },
-                        select: { title: true },
-                    }),
-                    prisma.productVariant.findUnique({
-                        where: { id: item.variantId },
-                        select: { sku: true },
-                    }),
-                ]);
+        if (items.length === 0) return [];
 
-                return {
-                    ...item,
-                    productTitle: product?.title,
-                    variantSku: variant?.sku,
-                } as OrderItemWithProduct;
-            })
-        );
+        const productIds = [...new Set(items.map((i) => i.productId))];
+        const variantIds = [...new Set(items.map((i) => i.variantId))];
+
+        const [products, variants] = await Promise.all([
+            prisma.product.findMany({
+                where: { id: { in: productIds } },
+                select: { id: true, title: true },
+            }),
+            prisma.productVariant.findMany({
+                where: { id: { in: variantIds } },
+                select: { id: true, sku: true },
+            }),
+        ]);
+
+        const productMap = new Map(products.map((p) => [p.id, p.title]));
+        const variantMap = new Map(variants.map((v) => [v.id, v.sku]));
+
+        return items.map((item) => ({
+            ...item,
+            productTitle: productMap.get(item.productId),
+            variantSku: variantMap.get(item.variantId),
+        } as OrderItemWithProduct));
     }
 }
 

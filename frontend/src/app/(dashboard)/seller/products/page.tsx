@@ -19,6 +19,11 @@ import {
   updateVariant,
   updateVariantStock,
 } from "@/services/seller-products";
+import {
+  addProductMedia,
+  deleteProductMedia,
+  type ProductMedia,
+} from "@/services/product-media";
 
 const currency = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -114,6 +119,10 @@ export default function SellerProductsPage() {
   const [variantEdits, setVariantEdits] = React.useState<
     Record<string, { price: string; compareAtPrice: string }>
   >({});
+
+  // Product media state
+  const [productMedia, setProductMedia] = React.useState<Record<string, ProductMedia[]>>({});
+  const [uploadingMedia, setUploadingMedia] = React.useState(false);
 
   const loadAll = React.useCallback(async () => {
     setLoading(true);
@@ -457,6 +466,62 @@ export default function SellerProductsPage() {
     setImages((prev) => prev.filter((image) => image.fileId !== fileId));
   };
 
+  const handleUploadMediaForProduct = async (
+    productId: string,
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const files = Array.from(event.target.files ?? []);
+    if (!files.length || !imagekit) return;
+
+    setUploadingMedia(true);
+    try {
+      const authResponse = await fetch(`${API_BASE_URL}/v1/imagekit/auth`);
+      if (!authResponse.ok) { toast.error("ImageKit auth failed."); return; }
+      const authData = (await authResponse.json()) as {
+        signature: string; token: string; expire: number;
+      };
+
+      for (const file of files.slice(0, 5)) {
+        const result = await imagekit.upload({
+          file,
+          fileName: file.name,
+          folder: "/tatvivah/products",
+          useUniqueFileName: true,
+          signature: authData.signature,
+          token: authData.token,
+          expire: authData.expire,
+        });
+        const media = await addProductMedia(productId, {
+          type: "IMAGE",
+          url: result.url,
+        });
+        setProductMedia((prev) => ({
+          ...prev,
+          [productId]: [...(prev[productId] ?? []), media.media],
+        }));
+      }
+      toast.success("Media uploaded.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Media upload failed");
+    } finally {
+      setUploadingMedia(false);
+      event.target.value = "";
+    }
+  };
+
+  const handleDeleteMedia = async (productId: string, mediaId: string) => {
+    try {
+      await deleteProductMedia(mediaId);
+      setProductMedia((prev) => ({
+        ...prev,
+        [productId]: (prev[productId] ?? []).filter((m) => m.id !== mediaId),
+      }));
+      toast.success("Media deleted.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Delete failed");
+    }
+  };
+
   const filteredProducts = React.useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     if (!query) return products;
@@ -681,6 +746,45 @@ export default function SellerProductsPage() {
                         >
                           Save Changes
                         </Button>
+
+                        {/* Product Media Management */}
+                        <div className="mt-6 space-y-3 pt-4 border-t border-border-soft">
+                          <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                            Product Media
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {(productMedia[product.id] ?? []).map((media) => (
+                              <div key={media.id} className="relative h-16 w-16 overflow-hidden border border-border-soft group">
+                                <img src={media.url} alt="media" className="h-full w-full object-cover" />
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteMedia(product.id, media.id)}
+                                  className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity"
+                                >
+                                  <X className="h-4 w-4 text-white" />
+                                </button>
+                              </div>
+                            ))}
+                            <label className="h-16 w-16 flex items-center justify-center border border-dashed border-border-soft text-muted-foreground hover:text-foreground cursor-pointer transition-colors">
+                              {uploadingMedia ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <span className="text-xl">+</span>
+                              )}
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                multiple
+                                onChange={(e) => handleUploadMediaForProduct(product.id, e)}
+                                disabled={uploadingMedia || product.deletedByAdmin}
+                              />
+                            </label>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            Upload additional images via ImageKit. Hover to remove.
+                          </p>
+                        </div>
                       </div>
                     )}
 

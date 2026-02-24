@@ -2,9 +2,19 @@ import { notificationRepository } from './notification.repository.js';
 import { notificationQueue } from './notification.queue.js';
 export class NotificationService {
     /**
-     * Core method to create notification and add to queue
+     * Core method to create notification and add to queue.
+     * IDEMPOTENT: If eventKey is provided and a notification with that key
+     * already exists for the user, the duplicate is silently skipped.
      */
     async create(data) {
+        // Idempotency gate: check eventKey
+        if (data.eventKey && data.userId) {
+            const existing = await notificationRepository.findByEventKey(data.userId, data.eventKey);
+            if (existing) {
+                console.log(`[Notification] Duplicate skipped: eventKey=${data.eventKey}`);
+                return existing;
+            }
+        }
         // 1. Persist to DB (Status: PENDING)
         const notification = await notificationRepository.create(data);
         // 2. Add to BullMQ
@@ -23,7 +33,8 @@ export class NotificationService {
             type: 'ORDER_PLACED',
             channel: 'EMAIL',
             content: `Order #${orderId} Placed`,
-            metadata: { orderId, totalAmount }
+            metadata: { orderId, totalAmount },
+            eventKey: `ORDER_PLACED:${orderId}`
         });
     }
     /**
@@ -36,7 +47,36 @@ export class NotificationService {
             type: 'SELLER_NEW_ORDER',
             channel: 'EMAIL',
             content: `New Order #${orderId}`,
-            metadata: { orderId, itemsCount }
+            metadata: { orderId, itemsCount },
+            eventKey: `SELLER_NEW_ORDER:${orderId}`
+        });
+    }
+    /**
+     * Trigger PAYMENT_SUCCESS (Buyer)
+     */
+    async notifyPaymentSuccess(userId, orderId, amount) {
+        return this.create({
+            userId,
+            role: 'USER',
+            type: 'PAYMENT_SUCCESS',
+            channel: 'EMAIL',
+            content: `Payment confirmed for Order #${orderId}`,
+            metadata: { orderId, amount },
+            eventKey: `PAYMENT_SUCCESS:${orderId}`
+        });
+    }
+    /**
+     * Trigger PAYMENT_FAILED (Buyer)
+     */
+    async notifyPaymentFailed(userId, orderId) {
+        return this.create({
+            userId,
+            role: 'USER',
+            type: 'PAYMENT_FAILED',
+            channel: 'EMAIL',
+            content: `Payment failed for Order #${orderId}`,
+            metadata: { orderId },
+            eventKey: `PAYMENT_FAILED:${orderId}`
         });
     }
     /**
@@ -49,7 +89,8 @@ export class NotificationService {
             type: 'ORDER_SHIPPED',
             channel: 'EMAIL',
             content: `Order #${orderId} Shipped`,
-            metadata: { orderId, carrier, trackingNumber }
+            metadata: { orderId, carrier, trackingNumber },
+            eventKey: `ORDER_SHIPPED:${orderId}`
         });
     }
     /**
@@ -62,7 +103,8 @@ export class NotificationService {
             type: 'ORDER_DELIVERED',
             channel: 'EMAIL',
             content: `Order #${orderId} Delivered`,
-            metadata: { orderId }
+            metadata: { orderId },
+            eventKey: `ORDER_DELIVERED:${orderId}`
         });
     }
     /**
@@ -75,7 +117,8 @@ export class NotificationService {
             type: 'SELLER_APPROVED',
             channel: 'EMAIL',
             content: 'Your seller account is approved',
-            metadata: { sellerEmail: email }
+            metadata: { sellerEmail: email },
+            eventKey: `SELLER_APPROVED:${sellerId}`
         });
     }
     async notifySellerProductApproved(sellerId, productTitle, email) {
@@ -85,7 +128,8 @@ export class NotificationService {
             type: 'SELLER_PRODUCT_APPROVED',
             channel: 'EMAIL',
             content: `Your product '${productTitle}' has been approved.`,
-            metadata: { productTitle, email }
+            metadata: { productTitle, email },
+            eventKey: `SELLER_PRODUCT_APPROVED:${sellerId}:${productTitle}`
         });
     }
     async notifySellerProductRejected(sellerId, productTitle, reason, email) {
@@ -95,27 +139,21 @@ export class NotificationService {
             type: 'SELLER_PRODUCT_REJECTED',
             channel: 'EMAIL',
             content: `Your product was rejected. Reason: ${reason}`,
-            metadata: { productTitle, reason, email }
+            metadata: { productTitle, reason, email },
+            eventKey: `SELLER_PRODUCT_REJECTED:${sellerId}:${productTitle}`
         });
     }
     /**
      * Trigger ADMIN_ALERT
      */
     async notifyAdmin(title, message) {
-        // Note: userId is null for generic admin alert usually, 
-        // or we need a specific admin ID. 
-        // For now, we'll set userId null and expect metadata email strictly?
-        // OR we don't send email if no user? 
-        // Let's assume metadata has target email or we broadcast.
-        // For simplicity: We create generic alert. Worker might fail if no email.
-        // We will fallback to logging.
         return this.create({
             userId: null,
             role: 'ADMIN',
             type: 'ADMIN_ALERT',
             channel: 'EMAIL',
             content: title,
-            metadata: { title, message } // Requires email in metadata in real world or specialized worker logic
+            metadata: { title, message }
         });
     }
 }

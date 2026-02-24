@@ -58,46 +58,7 @@ export default async function ProductDetailPage({
           )}
         </section>
 
-        {/* Editorial Details Section */}
-        <section className="border-t border-border-soft pt-16">
-          <div className="mb-10">
-            <p className="text-[11px] font-medium uppercase tracking-[0.25em] text-gold mb-4">
-              Product Details
-            </p>
-            <h2 className="font-serif text-2xl font-light text-foreground">
-              Craftsmanship & Care
-            </h2>
-          </div>
 
-          <div className="grid gap-px bg-border-soft lg:grid-cols-3">
-            {[
-              {
-                title: "Highlights",
-                copy: "Handwoven silk, rich zari border, artisan-crafted finish.",
-              },
-              {
-                title: "Fabric & Care",
-                copy: "Dry clean only. Store folded with muslin cloth.",
-              },
-              {
-                title: "Delivery",
-                copy: "Ships within 48 hours with insured delivery.",
-              },
-            ].map((item) => (
-              <div
-                key={item.title}
-                className="bg-card p-8 lg:p-10 space-y-4"
-              >
-                <p className="text-xs font-medium uppercase tracking-[0.15em] text-foreground">
-                  {item.title}
-                </p>
-                <p className="text-sm leading-relaxed text-muted-foreground">
-                  {item.copy}
-                </p>
-              </div>
-            ))}
-          </div>
-        </section>
 
         {/* Reviews Section */}
         <section className="border-t border-border-soft pt-16">

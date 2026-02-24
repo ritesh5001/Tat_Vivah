@@ -11,11 +11,16 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Link, useLocalSearchParams, useRouter } from "expo-router";
 import { colors, radius, spacing, typography, shadow } from "../../src/theme/tokens";
 import { useAuth } from "../../src/hooks/useAuth";
+import { useToast } from "../../src/providers/ToastProvider";
+import { AppHeader } from "../../src/components/AppHeader";
+import { ApiError } from "../../src/services/api";
+import { TatvivahLoader } from "../../src/components/TatvivahLoader";
 
 export default function LoginScreen() {
   const router = useRouter();
   const searchParams = useLocalSearchParams<{ returnTo?: string }>();
   const { signIn } = useAuth();
+  const { showToast } = useToast();
   const [identifier, setIdentifier] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [loading, setLoading] = React.useState(false);
@@ -44,10 +49,21 @@ export default function LoginScreen() {
     setError(null);
     try {
       await signIn({ identifier, password });
+      showToast("Welcome back", "success");
       router.replace(safeReturnTo as any);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Login failed";
+      const raw = err instanceof Error ? err.message : "Login failed";
+      const lowered = raw.toLowerCase();
+      const message =
+        err instanceof ApiError && err.statusCode === 401
+          ? "Invalid email or password"
+          : lowered.includes("not found")
+            ? "User not found"
+            : lowered.includes("invalid")
+              ? "Invalid credentials"
+              : raw;
       setError(message);
+      showToast(message, "error");
     } finally {
       setLoading(false);
     }
@@ -55,6 +71,7 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <AppHeader title="Sign in" subtitle="TatVivah" showMenu showBack />
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.logoRow}>
           <View style={styles.logoBadge}>
@@ -99,10 +116,16 @@ export default function LoginScreen() {
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-          <Pressable style={styles.primaryButton} onPress={handleLogin}>
-            <Text style={styles.primaryButtonText}>
-              {loading ? "Signing in..." : "Sign in"}
-            </Text>
+          <Pressable
+            style={[styles.primaryButton, loading && styles.buttonDisabled]}
+            onPress={handleLogin}
+            disabled={loading}
+          >
+            {loading ? (
+              <TatvivahLoader size="sm" color={colors.background} />
+            ) : (
+              <Text style={styles.primaryButtonText}>Sign in</Text>
+            )}
           </Pressable>
 
           <View style={styles.dividerRow}>
@@ -223,6 +246,9 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     paddingVertical: spacing.sm,
     alignItems: "center",
+  },
+  buttonDisabled: {
+    opacity: 0.7,
   },
   primaryButtonText: {
     fontFamily: typography.sansMedium,

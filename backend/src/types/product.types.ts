@@ -11,7 +11,14 @@ export interface CategoryEntity {
     id: string;
     name: string;
     slug: string;
+    description: string | null;
+    image: string | null;
+    bannerImage: string | null;
+    parentId: string | null;
+    sortOrder: number;
     isActive: boolean;
+    seoTitle: string | null;
+    seoDescription: string | null;
     createdAt: Date;
 }
 

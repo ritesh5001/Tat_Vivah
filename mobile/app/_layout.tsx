@@ -1,3 +1,4 @@
+import * as React from "react";
 import { Stack } from "expo-router";
 import { useFonts } from "expo-font";
 import {
@@ -13,8 +14,8 @@ import { CartProvider } from "../src/providers/CartProvider";
 import { AddressProvider } from "../src/providers/AddressProvider";
 import { WishlistProvider } from "../src/providers/WishlistProvider";
 import { OfflineBanner } from "../src/components/OfflineBanner";
-import { SessionExpiredModal } from "../src/components/SessionExpiredModal";
 import { useNetworkStatus } from "../src/hooks/useNetworkStatus";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 function AppShell() {
   const { isConnected } = useNetworkStatus();
@@ -22,8 +23,8 @@ function AppShell() {
   return (
     <>
       <OfflineBanner visible={!isConnected} />
-      <SessionExpiredModal />
       <Stack
+        initialRouteName="(tabs)"
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: "#FAF7F2" },
@@ -31,6 +32,8 @@ function AppShell() {
           gestureEnabled: true,
         }}
       >
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="(auth)" />
         {/* Order detail — slides in from right */}
         <Stack.Screen
           name="orders/[id]/index"
@@ -54,25 +57,43 @@ export default function RootLayout() {
     Inter_500Medium,
   });
 
+  const queryClient = React.useMemo(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            retry: 1,
+            refetchOnWindowFocus: false,
+          },
+          mutations: {
+            retry: 0,
+          },
+        },
+      }),
+    []
+  );
+
   if (!fontsLoaded) {
     return null;
   }
 
   return (
     <ErrorBoundary>
-      <ToastProvider>
-        <AuthProvider>
-          <NotificationProvider>
-            <CartProvider>
-              <WishlistProvider>
-                <AddressProvider>
-                  <AppShell />
-                </AddressProvider>
-              </WishlistProvider>
-            </CartProvider>
-          </NotificationProvider>
-        </AuthProvider>
-      </ToastProvider>
+      <QueryClientProvider client={queryClient}>
+        <ToastProvider>
+          <AuthProvider>
+            <NotificationProvider>
+              <CartProvider>
+                <WishlistProvider>
+                  <AddressProvider>
+                    <AppShell />
+                  </AddressProvider>
+                </WishlistProvider>
+              </CartProvider>
+            </NotificationProvider>
+          </AuthProvider>
+        </ToastProvider>
+      </QueryClientProvider>
     </ErrorBoundary>
   );
 }

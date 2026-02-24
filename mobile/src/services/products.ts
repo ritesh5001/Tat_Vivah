@@ -1,4 +1,5 @@
-import { apiRequest } from "./api";
+import { apiRequest } from "./apiClient";
+import { getCache, setCache } from "./cache";
 
 export type ProductImage = string;
 
@@ -15,6 +16,7 @@ export interface ProductSummary {
   id: string;
   categoryId?: string;
   title: string;
+  description?: string | null;
   images?: ProductImage[];
   category?: { id?: string; name: string } | null;
   /** Public listing price (admin-set). Available on list endpoints. */
@@ -29,7 +31,6 @@ export interface ProductItem extends ProductSummary {
 }
 
 export interface ProductDetail extends ProductSummary {
-  description?: string | null;
   variants: ProductVariant[];
 }
 
@@ -41,6 +42,24 @@ export interface ProductListResponse {
     total: number;
     totalPages: number;
   };
+}
+
+type ProductsCacheParams = {
+  page: number;
+  limit: number;
+  categoryId?: string;
+  search?: string;
+  sort?: string;
+};
+
+function buildProductsCacheKey(params: ProductsCacheParams): string {
+  const query = new URLSearchParams();
+  query.set("page", String(params.page));
+  query.set("limit", String(params.limit));
+  if (params.categoryId) query.set("categoryId", params.categoryId);
+  if (params.search) query.set("search", params.search);
+  if (params.sort) query.set("sort", params.sort);
+  return `products:${query.toString()}`;
 }
 
 export async function getProducts(params: {
@@ -58,14 +77,30 @@ export async function getProducts(params: {
   if (params.search) query.set("search", params.search);
   if (params.sort) query.set("sort", params.sort);
 
-  return apiRequest<ProductListResponse>(`/v1/products?${query.toString()}`, {
+  return apiRequest<ProductListResponse>({
+    url: `/v1/products?${query.toString()}`,
     method: "GET",
     signal: params.signal,
   });
 }
 
+export async function getProductsCached(
+  params: ProductsCacheParams
+): Promise<ProductListResponse | null> {
+  return getCache<ProductListResponse>(buildProductsCacheKey(params));
+}
+
+export async function getProductsAndCache(
+  params: ProductsCacheParams
+): Promise<ProductListResponse> {
+  const response = await getProducts(params);
+  await setCache(buildProductsCacheKey(params), response);
+  return response;
+}
+
 export async function getProductById(id: string, signal?: AbortSignal) {
-  return apiRequest<{ product: ProductDetail }>(`/v1/products/${id}`, {
+  return apiRequest<{ product: ProductDetail }>({
+    url: `/v1/products/${id}`,
     method: "GET",
     signal,
   });

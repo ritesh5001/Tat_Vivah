@@ -5,7 +5,14 @@ export interface CategoryEntity {
     id: string;
     name: string;
     slug: string;
+    description: string | null;
+    image: string | null;
+    bannerImage: string | null;
+    parentId: string | null;
+    sortOrder: number;
     isActive: boolean;
+    seoTitle: string | null;
+    seoDescription: string | null;
     createdAt: Date;
 }
 /**
@@ -90,6 +97,10 @@ export interface PublicProductWithCategory {
     createdAt: Date;
     updatedAt: Date;
     category: CategoryEntity;
+    regularPrice: number;
+    sellerPrice: number;
+    adminPrice: number;
+    salePrice: number;
     price: number;
 }
 export interface PublicProductWithDetails {
@@ -104,6 +115,10 @@ export interface PublicProductWithDetails {
     updatedAt: Date;
     category: CategoryEntity;
     variants: PublicProductVariant[];
+    regularPrice: number;
+    sellerPrice: number;
+    adminPrice: number;
+    salePrice: number;
     price: number;
 }
 /**

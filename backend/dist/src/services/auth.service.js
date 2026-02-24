@@ -5,6 +5,10 @@ import { ApiError } from '../errors/ApiError.js';
 import { env } from '../config/env.js';
 import ms from 'ms';
 import { otpService } from './otp.service.js';
+import { generateOtpCode, hashOtp } from '../utils/otp.util.js';
+import { otpRepository } from '../repositories/otp.repository.js';
+import { sendEmail } from '../notifications/email/resend.client.js';
+import { OtpPurpose } from '@prisma/client';
 /**
  * Auth Service
  * Contains all business logic for authentication
@@ -27,9 +31,11 @@ export class AuthService {
         });
         const refreshTokenExpiryMs = ms(env.REFRESH_TOKEN_EXPIRY);
         const expiresAt = new Date(Date.now() + refreshTokenExpiryMs);
+        // Generate a temporary session ID to embed in the refresh token
+        // We create session with a placeholder, then update in one step
         const session = await this.repository.createSession({
             userId: user.id,
-            refreshToken: '',
+            refreshToken: '', // placeholder
             userAgent: userAgent ?? undefined,
             ipAddress: ipAddress ?? undefined,
             expiresAt,
@@ -40,6 +46,7 @@ export class AuthService {
             isEmailVerified: user.isEmailVerified,
             isPhoneVerified: user.isPhoneVerified,
         });
+        // Hash and update the session in one call
         const hashedRefreshToken = await hashToken(refreshToken);
         await this.repository.updateSessionRefreshToken(session.id, hashedRefreshToken);
         return {
@@ -152,6 +159,11 @@ export class AuthService {
             status: 'ACTIVE',
             isEmailVerified: false,
             isPhoneVerified: false,
+        }).catch((error) => {
+            if (error?.code === 'P2002' || String(error?.message ?? '').includes('Unique constraint')) {
+                throw ApiError.conflict('Email or phone already in use');
+            }
+            throw error;
         });
         return { message: 'Admin registered successfully' };
     }
@@ -255,6 +267,11 @@ export class AuthService {
             status,
             isEmailVerified: true,
             isPhoneVerified: false,
+        }).catch((error) => {
+            if (error?.code === 'P2002' || String(error?.message ?? '').includes('Unique constraint')) {
+                throw ApiError.conflict('Email or phone already in use');
+            }
+            throw error;
         });
         if (created.role === 'SELLER') {
             return {
@@ -288,40 +305,36 @@ export class AuthService {
         // 1. Verify refresh token JWT (throws if invalid/expired)
         const decoded = verifyRefreshToken(refreshToken);
         const { userId, sessionId } = decoded;
-        // 2. Get all sessions for this user
-        const sessions = await this.repository.findSessionsByUserId(userId);
-        // 3. Find matching session by comparing refresh token hash
-        let matchingSession;
-        for (const session of sessions) {
-            const isMatch = await compareToken(refreshToken, session.refreshToken);
-            if (isMatch) {
-                matchingSession = session;
-                break;
-            }
+        // 2. Look up the specific session by ID (O(1) instead of O(N) bcrypt loop)
+        const session = await this.repository.findSessionByIdAndUser(sessionId, userId);
+        if (!session) {
+            // No session found — potential token reuse attack
+            await this.repository.deleteAllUserSessions(userId);
+            throw ApiError.unauthorized('Invalid refresh token');
         }
-        // 4. If no matching session found, potential token reuse attack
-        if (!matchingSession) {
-            // Invalidate ALL sessions for this user (security measure)
+        // 3. Compare refresh token hash (single bcrypt call instead of N)
+        const isMatch = await compareToken(refreshToken, session.refreshToken);
+        if (!isMatch) {
             await this.repository.deleteAllUserSessions(userId);
             throw ApiError.unauthorized('Invalid refresh token');
         }
         // Check session expiry
-        if (matchingSession.expiresAt < new Date()) {
-            await this.repository.deleteSession(matchingSession.id);
+        if (session.expiresAt < new Date()) {
+            await this.repository.deleteSession(session.id);
             throw ApiError.unauthorized('Refresh token has expired');
         }
-        // 5. Get user data for new access token
+        // 4. Get user data for new access token
         const user = await this.repository.findUserById(userId);
         if (!user) {
-            await this.repository.deleteSession(matchingSession.id);
+            await this.repository.deleteSession(session.id);
             throw ApiError.unauthorized('User not found');
         }
         // Check user status
         if (user.status !== 'ACTIVE') {
-            await this.repository.deleteSession(matchingSession.id);
+            await this.repository.deleteSession(session.id);
             throw ApiError.forbidden('Account not active');
         }
-        // 6. Generate new tokens
+        // 5. Generate new tokens
         const newAccessToken = generateAccessToken({
             userId: user.id,
             email: user.email,
@@ -337,10 +350,10 @@ export class AuthService {
             isEmailVerified: user.isEmailVerified,
             isPhoneVerified: user.isPhoneVerified,
         });
-        // 7. Hash new refresh token and update session
+        // 6. Hash new refresh token and update session
         const hashedNewRefreshToken = await hashToken(newRefreshToken);
-        await this.repository.updateSessionRefreshToken(matchingSession.id, hashedNewRefreshToken);
-        // 8. Return new tokens
+        await this.repository.updateSessionRefreshToken(session.id, hashedNewRefreshToken);
+        // 7. Return new tokens
         return {
             accessToken: newAccessToken,
             refreshToken: newRefreshToken,
@@ -357,14 +370,15 @@ export class AuthService {
      */
     async logout(userId, refreshToken) {
         if (refreshToken) {
-            // Find and delete matching session by comparing token hash
-            const sessions = await this.repository.findSessionsByUserId(userId);
-            for (const session of sessions) {
-                const isMatch = await compareToken(refreshToken, session.refreshToken);
-                if (isMatch) {
-                    await this.repository.deleteSession(session.id);
-                    break;
+            // Decode the JWT to get the sessionId, then delete that single session (O(1))
+            try {
+                const decoded = verifyRefreshToken(refreshToken);
+                if (decoded.sessionId) {
+                    await this.repository.deleteUserSession(userId, decoded.sessionId);
                 }
+            }
+            catch {
+                // Token may be expired/invalid; that's fine for logout — it's idempotent
             }
         }
         // Idempotent - always return success
@@ -396,6 +410,85 @@ export class AuthService {
             throw ApiError.notFound('Session not found');
         }
         return { message: 'Session revoked successfully' };
+    }
+    // ========================================================================
+    // PASSWORD RESET FLOW
+    // ========================================================================
+    static PASSWORD_RESET_EXPIRY_MINUTES = 10;
+    /**
+     * Forgot Password — request a password-reset OTP
+     * POST /v1/auth/forgot-password
+     *
+     * Security:
+     *   - Generic success response regardless of whether the email exists,
+     *     to prevent user-existence enumeration.
+     *   - OTP is hashed (SHA-256) before storage.
+     *   - Previous unused password-reset OTPs remain (only the latest valid
+     *     one is checked during reset).
+     */
+    async forgotPassword(email) {
+        const user = await this.repository.findUserByEmail(email);
+        // Always return a generic message to avoid leaking user existence
+        if (!user) {
+            return { message: 'If an account with that email exists, an OTP has been sent.' };
+        }
+        const code = generateOtpCode();
+        const codeHash = hashOtp(code);
+        const expiresAt = new Date(Date.now() + AuthService.PASSWORD_RESET_EXPIRY_MINUTES * 60 * 1000);
+        await otpRepository.createOtp({
+            userId: user.id,
+            email,
+            codeHash,
+            purpose: OtpPurpose.PASSWORD_RESET,
+            expiresAt,
+        });
+        const html = `
+            <div style="font-family:Arial,sans-serif; line-height:1.6;">
+                <h2>Reset your TatVivah password</h2>
+                <p>Your password-reset OTP is:</p>
+                <p style="font-size:24px; font-weight:bold; letter-spacing:4px;">${code}</p>
+                <p>This OTP expires in ${AuthService.PASSWORD_RESET_EXPIRY_MINUTES} minutes.</p>
+                <p>If you did not request this, please ignore this email.</p>
+            </div>
+        `;
+        await sendEmail(email, 'Reset your TatVivah password', html);
+        return { message: 'If an account with that email exists, an OTP has been sent.' };
+    }
+    /**
+     * Reset Password — verify OTP and set a new password
+     * POST /v1/auth/reset-password
+     *
+     * Security:
+     *   - Finds the latest valid (non-expired, non-used) PASSWORD_RESET OTP.
+     *   - Compares the hashed OTP.
+     *   - Hashes the new password with bcrypt.
+     *   - Marks the OTP as used.
+     *   - Invalidates ALL existing login sessions (force re-login).
+     */
+    async resetPassword(email, otp, newPassword) {
+        // 1. Find latest valid password-reset OTP
+        const otpRecord = await otpRepository.findLatestValid(email, OtpPurpose.PASSWORD_RESET);
+        if (!otpRecord) {
+            throw ApiError.badRequest('Invalid or expired OTP');
+        }
+        // 2. Compare hashed OTP
+        const hashed = hashOtp(otp);
+        if (otpRecord.codeHash !== hashed) {
+            throw ApiError.badRequest('Invalid or expired OTP');
+        }
+        // 3. Look up the user
+        const user = await this.repository.findUserByEmail(email);
+        if (!user) {
+            throw ApiError.badRequest('Invalid or expired OTP');
+        }
+        // 4. Hash new password and update
+        const passwordHash = await hashPassword(newPassword);
+        await this.repository.updateUser(user.id, { passwordHash });
+        // 5. Mark OTP as used
+        await otpRepository.markUsed(otpRecord.id);
+        // 6. Invalidate all sessions → forces re-login everywhere
+        await this.repository.deleteAllUserSessions(user.id);
+        return { message: 'Password reset successfully. Please login with your new password.' };
     }
 }
 // Export singleton instance with default repository

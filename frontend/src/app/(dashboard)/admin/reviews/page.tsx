@@ -4,12 +4,17 @@ import * as React from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { deleteAdminReview, getAdminReviews } from "@/services/admin";
+import {
+  deleteAdminReview,
+  getAdminReviews,
+  hideAdminReview,
+  type AdminReview,
+} from "@/services/admin";
 import { toast } from "sonner";
 
 export default function AdminReviewsPage() {
   const [loading, setLoading] = React.useState(true);
-  const [reviews, setReviews] = React.useState<Array<any>>([]);
+  const [reviews, setReviews] = React.useState<AdminReview[]>([]);
   const [query, setQuery] = React.useState("");
 
   const load = React.useCallback(async () => {
@@ -31,6 +36,7 @@ export default function AdminReviewsPage() {
   }, [load]);
 
   const handleDelete = async (id: string) => {
+    if (!confirm("Delete this review permanently?")) return;
     try {
       await deleteAdminReview(id);
       toast.success("Review deleted.");
@@ -38,6 +44,20 @@ export default function AdminReviewsPage() {
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Unable to delete review"
+      );
+    }
+  };
+
+  const handleToggleHide = async (id: string, currentlyHidden: boolean) => {
+    try {
+      await hideAdminReview(id, !currentlyHidden);
+      toast.success(currentlyHidden ? "Review visible again." : "Review hidden.");
+      setReviews((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, isHidden: !currentlyHidden } : r))
+      );
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Unable to update review"
       );
     }
   };
@@ -51,6 +71,7 @@ export default function AdminReviewsPage() {
         review.product?.title,
         review.user?.email,
         review.user?.fullName,
+        review.title,
         review.text,
         review.rating?.toString(),
       ]
@@ -79,7 +100,7 @@ export default function AdminReviewsPage() {
             Reviews
           </h1>
           <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-            Monitor product reviews, spot trends, and remove harmful content.
+            Monitor product reviews, spot trends, and manage visibility.
           </p>
         </div>
 
@@ -90,7 +111,7 @@ export default function AdminReviewsPage() {
           className="border border-border-soft bg-card p-4 flex items-center gap-3"
         >
           <Input
-            placeholder="Search by product, user, rating, or review text..."
+            placeholder="Search by product, user, rating, title, or review text..."
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             className="border-0 bg-transparent focus-visible:ring-0 h-10"
@@ -118,22 +139,39 @@ export default function AdminReviewsPage() {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 + index * 0.04, duration: 0.5 }}
-                className="border border-border-soft bg-card"
+                className={`border bg-card ${review.isHidden ? "border-[#A67575]/30 opacity-60" : "border-border-soft"}`}
               >
                 <div className="flex flex-col gap-4 border-b border-border-soft p-6 sm:flex-row sm:items-center sm:justify-between">
                   <div className="space-y-1">
-                    <p className="font-serif text-lg font-normal text-foreground">
-                      {review.product?.title ?? "Unknown product"}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-serif text-lg font-normal text-foreground">
+                        {review.product?.title ?? "Unknown product"}
+                      </p>
+                      {review.isHidden && (
+                        <span className="px-2 py-0.5 text-[9px] uppercase tracking-wider border border-[#A67575]/30 text-[#7A5656] bg-[#A67575]/5">
+                          Hidden
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-muted-foreground">
                       {review.user?.fullName ?? "Anonymous"} · {review.user?.email ?? "No email"}
                     </p>
                   </div>
-                  <span className="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider border border-[#B7956C]/30 text-[#8A7054] bg-[#B7956C]/5">
-                    {review.rating} ★
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider border border-[#B7956C]/30 text-[#8A7054] bg-[#B7956C]/5">
+                      {review.rating} ★
+                    </span>
+                    {typeof review.helpfulCount === "number" && review.helpfulCount > 0 && (
+                      <span className="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider border border-[#7B9971]/30 text-[#5A7352] bg-[#7B9971]/5">
+                        {review.helpfulCount} helpful
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="p-6 space-y-4">
+                  {review.title && (
+                    <p className="text-sm font-medium text-foreground">{review.title}</p>
+                  )}
                   <p className="text-sm leading-relaxed text-foreground">
                     {review.text}
                   </p>
@@ -141,13 +179,28 @@ export default function AdminReviewsPage() {
                     <p className="text-xs text-muted-foreground">
                       {new Date(review.createdAt).toLocaleString()}
                     </p>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleDelete(review.id)}
-                    >
-                      Delete Review
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className={
+                          review.isHidden
+                            ? "border-[#7B9971]/40 text-[#5A7352]"
+                            : "border-[#B7956C]/40 text-[#8A7054]"
+                        }
+                        onClick={() => handleToggleHide(review.id, !!review.isHidden)}
+                      >
+                        {review.isHidden ? "Show" : "Hide"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-[#A67575]/40 text-[#7A5656]"
+                        onClick={() => handleDelete(review.id)}
+                      >
+                        Delete
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </motion.div>

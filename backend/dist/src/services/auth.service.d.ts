@@ -92,6 +92,31 @@ export declare class AuthService {
      * DELETE /v1/auth/sessions/:sessionId
      */
     revokeSession(userId: string, sessionId: string): Promise<MessageResponse>;
+    private static readonly PASSWORD_RESET_EXPIRY_MINUTES;
+    /**
+     * Forgot Password — request a password-reset OTP
+     * POST /v1/auth/forgot-password
+     *
+     * Security:
+     *   - Generic success response regardless of whether the email exists,
+     *     to prevent user-existence enumeration.
+     *   - OTP is hashed (SHA-256) before storage.
+     *   - Previous unused password-reset OTPs remain (only the latest valid
+     *     one is checked during reset).
+     */
+    forgotPassword(email: string): Promise<MessageResponse>;
+    /**
+     * Reset Password — verify OTP and set a new password
+     * POST /v1/auth/reset-password
+     *
+     * Security:
+     *   - Finds the latest valid (non-expired, non-used) PASSWORD_RESET OTP.
+     *   - Compares the hashed OTP.
+     *   - Hashes the new password with bcrypt.
+     *   - Marks the OTP as used.
+     *   - Invalidates ALL existing login sessions (force re-login).
+     */
+    resetPassword(email: string, otp: string, newPassword: string): Promise<MessageResponse>;
 }
 export declare const authService: AuthService;
 //# sourceMappingURL=auth.service.d.ts.map

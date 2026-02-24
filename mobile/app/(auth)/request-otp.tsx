@@ -17,6 +17,8 @@ import {
   shadow,
 } from "../../src/theme/tokens";
 import { requestOtp } from "../../src/services/auth";
+import { AppHeader } from "../../src/components/AppHeader";
+import { TatvivahLoader } from "../../src/components/TatvivahLoader";
 
 export default function RequestOtpScreen() {
   const router = useRouter();
@@ -47,6 +49,7 @@ export default function RequestOtpScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <AppHeader title="Request OTP" subtitle="TatVivah" showMenu showBack />
       <ScrollView contentContainerStyle={styles.container}>
         {/* Logo row — same as login */}
         <View style={styles.logoRow}>
@@ -88,9 +91,11 @@ export default function RequestOtpScreen() {
             onPress={handleRequestOtp}
             disabled={loading}
           >
-            <Text style={styles.primaryButtonText}>
-              {loading ? "Sending…" : "Send OTP"}
-            </Text>
+            {loading ? (
+              <TatvivahLoader size="sm" color={colors.background} />
+            ) : (
+              <Text style={styles.primaryButtonText}>Send OTP</Text>
+            )}
           </Pressable>
         </View>
 

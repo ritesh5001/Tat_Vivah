@@ -12,8 +12,9 @@
 import { PrismaClient, PaymentStatus, OrderStatus, PaymentProvider } from '@prisma/client';
 import { generateAccessToken, Role, UserStatus } from '../src/utils/jwt.util.js';
 import crypto from 'crypto';
+import { env } from '../src/config/env.js';
 const prisma = new PrismaClient();
-const API_URL = 'http://localhost:3000/v1';
+const API_URL = `http://localhost:${env.PORT}/v1`;
 // Mock Razorpay webhook secret for testing
 const MOCK_WEBHOOK_SECRET = process.env['RAZORPAY_WEBHOOK_SECRET'] || 'test_webhook_secret';
 function generateWebhookSignature(body, secret) {
@@ -131,7 +132,7 @@ async function verifyRazorpay() {
             // If Razorpay is not configured, test with MOCK provider instead
             if (initData.error?.message?.includes('not configured')) {
                 console.log('  ⚠️  Razorpay not configured, falling back to MOCK provider verification...');
-                await verifyMockProvider(order.id, buyer, token, seller);
+                await verifyMockProvider(order.id, token);
                 return;
             }
             console.error('  ❌ Initiate Response:', JSON.stringify(initData, null, 2));
@@ -255,7 +256,7 @@ async function verifyRazorpay() {
 /**
  * Fallback verification using MOCK provider
  */
-async function verifyMockProvider(orderId, buyer, token, seller) {
+async function verifyMockProvider(orderId, token) {
     console.log('\n💳 Testing with MOCK provider instead...');
     const initRes = await fetch(`${API_URL}/payments/initiate`, {
         method: 'POST',

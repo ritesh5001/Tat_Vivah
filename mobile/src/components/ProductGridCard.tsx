@@ -34,9 +34,22 @@ function ProductGridCardComponent({
 
   const primaryPrice =
     product.salePrice ?? product.adminPrice ?? product.price ?? product.sellerPrice;
+  const regularPrice = product.regularPrice;
+  const hasDiscount =
+    typeof regularPrice === "number" &&
+    typeof primaryPrice === "number" &&
+    regularPrice > primaryPrice;
+  const discountPercent = hasDiscount
+    ? Math.round(((regularPrice - primaryPrice) / regularPrice) * 100)
+    : null;
+  const description = product.description?.trim();
+  const tagLabel = discountPercent && discountPercent >= 30 ? "Hot Deal" : null;
 
   return (
-    <View style={styles.card}>
+    <Pressable
+      style={styles.card}
+      onPress={() => onExplore?.(product)}
+    >
       <View style={styles.imageWrap}>
         <Image
           source={product.images?.[0] ? { uri: product.images[0] } : images.productPlaceholder}
@@ -52,9 +65,13 @@ function ProductGridCardComponent({
               {product.category?.name ?? "Featured"}
             </Text>
           </View>
-          <View style={[styles.badgePill, styles.badgePillAccent]}>
-            <Text style={[styles.badgeText, styles.badgeTextAccent]}>Verified</Text>
-          </View>
+          {discountPercent != null ? (
+            <View style={[styles.badgePill, styles.badgePillAccent]}>
+              <Text style={[styles.badgeText, styles.badgeTextAccent]}>
+                {discountPercent}% off
+              </Text>
+            </View>
+          ) : null}
         </View>
         {/* Wishlist heart overlay */}
         <Pressable
@@ -70,33 +87,37 @@ function ProductGridCardComponent({
       </View>
 
       <View style={styles.info}>
+        <Text style={styles.brandText} numberOfLines={1}>
+          {product.category?.name ?? "Curated edit"}
+        </Text>
         <Text style={styles.title} numberOfLines={2}>
           {product.title}
         </Text>
+        {description ? (
+          <Text style={styles.description} numberOfLines={2}>
+            {description}
+          </Text>
+        ) : null}
+        <View style={styles.ratingRow}>
+          <Text style={styles.ratingText}>⭐ 4.3</Text>
+          <Text style={styles.ratingMeta}>| 2k</Text>
+        </View>
         <View style={styles.priceRow}>
-          <Text style={styles.price}>{formatPrice(primaryPrice)}</Text>
-          {typeof product.regularPrice === "number" &&
-          typeof primaryPrice === "number" &&
-          product.regularPrice !== primaryPrice ? (
-            <Text style={styles.priceStrike}>{formatPrice(product.regularPrice)}</Text>
+          {hasDiscount ? (
+            <Text style={styles.discountText}>-{discountPercent}%</Text>
           ) : null}
+          {hasDiscount ? (
+            <Text style={styles.priceStrike}>{formatPrice(regularPrice)}</Text>
+          ) : null}
+          <Text style={styles.price}>{formatPrice(primaryPrice)}</Text>
         </View>
-        <View style={styles.actionRow}>
-          <Pressable
-            style={styles.buyButton}
-            onPress={() => onBuyNow?.(product)}
-          >
-            <Text style={styles.buyButtonText}>Buy now</Text>
-          </Pressable>
-          <Pressable
-            style={styles.exploreButton}
-            onPress={() => onExplore?.(product)}
-          >
-            <Text style={styles.exploreButtonText}>Explore</Text>
-          </Pressable>
-        </View>
+        {tagLabel ? (
+          <View style={styles.tagPill}>
+            <Text style={styles.tagText}>{tagLabel}</Text>
+          </View>
+        ) : null}
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -105,22 +126,22 @@ export const ProductGridCard = React.memo(ProductGridCardComponent);
 const styles = StyleSheet.create({
   card: {
     flex: 1,
-    borderRadius: 16,
-    backgroundColor: "#FFFFFF",
+    borderRadius: 8,
+    backgroundColor: colors.warmWhite,
     borderWidth: 1,
-    borderColor: colors.borderSoft,
+    borderColor: "rgba(209, 199, 186, 0.8)",
     overflow: "hidden",
     shadowColor: "#2C2825",
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 6 },
-    shadowRadius: 12,
-    elevation: 1,
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 10 },
+    shadowRadius: 16,
+    elevation: 2,
   },
   imageWrap: {
-    height: 230,
+    aspectRatio: 0.8,
     backgroundColor: colors.cream,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
     overflow: "hidden",
   },
   image: {
@@ -129,35 +150,35 @@ const styles = StyleSheet.create({
   },
   badgeRow: {
     position: "absolute",
-    top: 8,
-    left: 8,
+    top: 10,
+    left: 10,
     flexDirection: "row",
     gap: 6,
   },
   heartOverlay: {
     position: "absolute",
-    bottom: 8,
-    right: 8,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(255, 255, 255, 0.85)",
+    top: 10,
+    right: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
     borderWidth: 1,
     borderColor: colors.borderSoft,
     justifyContent: "center",
     alignItems: "center",
   },
   badgePill: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 12,
-    backgroundColor: "rgba(255, 255, 255, 0.85)",
+    borderRadius: 14,
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
     borderWidth: 1,
     borderColor: colors.borderSoft,
   },
   badgePillAccent: {
-    backgroundColor: "rgba(44, 40, 37, 0.8)",
-    borderColor: "rgba(44, 40, 37, 0.7)",
+    backgroundColor: "rgba(44, 40, 37, 0.9)",
+    borderColor: "rgba(44, 40, 37, 0.8)",
   },
   badgeText: {
     fontFamily: typography.serif,
@@ -170,18 +191,53 @@ const styles = StyleSheet.create({
     color: colors.warmWhite,
   },
   info: {
-    padding: 16,
-    gap: 8,
+    paddingHorizontal: 10,
+    paddingTop: 10,
+    paddingBottom: 12,
+    gap: 4,
+  },
+  brandText: {
+    fontFamily: typography.sans,
+    fontSize: 10,
+    textTransform: "uppercase",
+    letterSpacing: 1.2,
+    color: colors.brownSoft,
   },
   title: {
     fontFamily: typography.serif,
-    fontSize: 17,
+    fontSize: 14,
     color: colors.charcoal,
+  },
+  description: {
+    fontFamily: typography.sans,
+    fontSize: 11,
+    color: colors.brownSoft,
+    lineHeight: 16,
+  },
+  ratingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  ratingText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 11,
+    color: colors.charcoal,
+  },
+  ratingMeta: {
+    fontFamily: typography.sans,
+    fontSize: 10,
+    color: colors.brownSoft,
   },
   priceRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
+  },
+  discountText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 11,
+    color: "#2E7D32",
   },
   price: {
     fontFamily: typography.serif,
@@ -190,40 +246,23 @@ const styles = StyleSheet.create({
   },
   priceStrike: {
     fontFamily: typography.serif,
-    fontSize: 12,
+    fontSize: 11,
     color: colors.brownSoft,
     textDecorationLine: "line-through",
   },
-  actionRow: {
-    marginTop: 8,
-    flexDirection: "row",
-    gap: 8,
+  tagPill: {
+    alignSelf: "flex-start",
+    marginTop: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    backgroundColor: "#E7F5EE",
   },
-  buyButton: {
-    flex: 1,
-    backgroundColor: colors.charcoal,
-    paddingVertical: 10,
-    borderRadius: 12,
-    alignItems: "center",
-  },
-  buyButtonText: {
-    fontFamily: typography.serif,
-    fontSize: 11,
+  tagText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 10,
+    color: "#1F6C4C",
+    textTransform: "uppercase",
     letterSpacing: 1,
-    color: colors.background,
-  },
-  exploreButton: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    paddingVertical: 10,
-    borderRadius: 12,
-    alignItems: "center",
-  },
-  exploreButtonText: {
-    fontFamily: typography.serif,
-    fontSize: 11,
-    letterSpacing: 1,
-    color: colors.charcoal,
   },
 });

@@ -2,20 +2,37 @@
 
 import * as React from "react";
 import Link from "next/link";
+import Image from "next/image";
+import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import {
-  heroContainerVariants,
-  heroItemVariants,
   staggerContainerVariants,
   staggerItemVariants,
   fadeInVariants,
   viewportSettings
 } from "@/lib/motion.config";
-import { ReviewSection } from "@/components/review-section";
-import { FeaturesMarquee } from "@/components/features-marquee";
 import { getBestsellers, type BestsellerProduct } from "@/services/bestsellers";
-import { RecommendedForYouSection } from "@/components/recommended-for-you-section";
-import { RecentlyViewedSection } from "@/components/recently-viewed-section";
+import { LuxuryHero } from "@/components/home/LuxuryHero";
+import { FeaturesMarquee } from "@/components/features-marquee";
+import { WishlistHeartButton } from "@/components/wishlist-heart-button";
+
+/* ── Below-fold components loaded on demand to reduce initial JS ── */
+const WeddingSectionBanner = dynamic(
+  () => import("@/components/home/WeddingSectionBanner").then((m) => m.WeddingSectionBanner),
+  { ssr: false },
+);
+const ReviewSection = dynamic(
+  () => import("@/components/review-section").then((m) => m.ReviewSection),
+  { ssr: false },
+);
+const RecommendedForYouSection = dynamic(
+  () => import("@/components/recommended-for-you-section").then((m) => m.RecommendedForYouSection),
+  { ssr: false },
+);
+const RecentlyViewedSection = dynamic(
+  () => import("@/components/recently-viewed-section").then((m) => m.RecentlyViewedSection),
+  { ssr: false },
+);
 export default function Home() {
   const [bestsellers, setBestsellers] = React.useState<BestsellerProduct[]>([]);
   const [loadingBestsellers, setLoadingBestsellers] = React.useState(true);
@@ -59,103 +76,9 @@ export default function Home() {
   return (
     <div className="min-h-[calc(100vh-160px)] bg-background">
       {/* =========================================================================
-          HERO SECTION - Full Height, Cinematic
+          HERO SECTION - Luxury Carousel
           ========================================================================= */}
-      <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
-        {/* Subtle background pattern */}
-
-        <div className="absolute inset-0 opacity-30">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(184,149,108,0.08),transparent_50%)]" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,rgba(184,149,108,0.05),transparent_50%)]" />
-        </div>
-
-        <div className="relative mx-auto max-w-5xl px-6 py-24 text-center">
-          <motion.div
-            initial="hidden"
-            animate="visible"
-            variants={heroContainerVariants}
-            className="space-y-8"
-          >
-            {/* Eyebrow */}
-            <motion.p
-              variants={heroItemVariants}
-              className="text-xs font-medium uppercase tracking-[0.3em] text-gold"
-            >
-              Curated Men's Fashion
-            </motion.p>
-
-            {/* Main Heading */}
-            <motion.h1
-              variants={heroItemVariants}
-              className="font-serif text-5xl font-light leading-tight tracking-tight text-foreground sm:text-6xl md:text-7xl lg:text-8xl"
-            >
-              The Art of
-              <br />
-              <span className="italic">Timeless</span> Elegance
-            </motion.h1>
-
-            {/* Subheading */}
-            <motion.p
-              variants={heroItemVariants}
-              className="mx-auto max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg"
-            >
-              Discover India's finest ethnic wear, handcrafted by artisans
-              and curated for the modern gentleman. Every piece tells a story.
-            </motion.p>
-
-            {/* CTA Buttons */}
-            <motion.div
-              variants={heroItemVariants}
-              className="flex flex-col items-center gap-4 pt-4 sm:flex-row sm:justify-center"
-            >
-              <Link
-                href="/marketplace"
-                className="inline-flex h-14 items-center justify-center bg-charcoal px-10 text-xs font-medium uppercase tracking-[0.15em] text-ivory transition-all duration-400 hover:bg-brown dark:bg-gold dark:text-charcoal dark:hover:bg-gold-muted"
-              >
-                Explore Collection
-              </Link>
-              <Link
-                href="/register/seller"
-                className="inline-flex h-14 items-center justify-center border border-border-warm px-10 text-xs font-medium uppercase tracking-[0.15em] text-foreground transition-all duration-400 hover:bg-cream dark:hover:bg-brown/30"
-              >
-                Partner With Us
-              </Link>
-            </motion.div>
-
-            {/* Trust Badges */}
-            <motion.div
-              variants={heroItemVariants}
-              className="flex flex-wrap items-center justify-center gap-6 pt-8 text-xs text-muted-foreground"
-            >
-              <span className="flex items-center gap-2">
-                <span className="h-1 w-1 rounded-full bg-gold" />
-                Verified Artisans
-              </span>
-              <span className="flex items-center gap-2">
-                <span className="h-1 w-1 rounded-full bg-gold" />
-                Secure Checkout
-              </span>
-              <span className="flex items-center gap-2">
-                <span className="h-1 w-1 rounded-full bg-gold" />
-                Free Alterations
-              </span>
-            </motion.div>
-          </motion.div>
-        </div>
-
-        {/* Scroll Indicator */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2">
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1.5, duration: 0.6 }}
-            className="flex flex-col items-center gap-2 text-muted-foreground"
-          >
-            <span className="text-[10px] uppercase tracking-[0.2em]">Scroll</span>
-            <div className="h-8 w-px bg-border-warm" />
-          </motion.div>
-        </div>
-      </section>
+      <LuxuryHero />
 
       {/* =========================================================================
           FEATURES MARQUEE
@@ -217,10 +140,14 @@ export default function Home() {
                   className="group flex flex-col items-center text-center"
                 >
                   <div className="mb-5 h-56 w-56 overflow-hidden rounded-full border border-border-soft bg-cream dark:bg-brown/20 transition-all duration-400 group-hover:border-gold/40 group-hover:scale-[1.02]">
-                    <img
+                    <Image
                       src={category.image}
                       alt={category.name}
+                      width={224}
+                      height={224}
                       className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      loading="lazy"
+                      quality={75}
                     />
                   </div>
                   <h3 className="font-serif text-xl font-normal text-foreground">
@@ -297,13 +224,16 @@ export default function Home() {
               bestsellers.map((item) => (
                 <motion.div key={item.id} variants={staggerItemVariants}>
                   <Link href="/marketplace" className="group block">
-                    {/* Product Image */}
-                    <div className="relative mb-5 overflow-hidden bg-cream dark:bg-brown/20 aspect-[3/4]">
+                    <div className="relative overflow-hidden bg-cream dark:bg-brown/20 aspect-3/4">
                       {item.image ? (
-                        <img
+                        <Image
                           src={item.image}
                           alt={item.title}
-                          className="h-full w-full object-cover"
+                          fill
+                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                          className="object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+                          loading="lazy"
+                          quality={75}
                         />
                       ) : (
                         <div className="absolute inset-0 flex items-center justify-center">
@@ -312,27 +242,46 @@ export default function Home() {
                           </span>
                         </div>
                       )}
-                      {/* Tag */}
-                      <span className="absolute top-4 left-4 bg-card/90 backdrop-blur-sm px-3 py-1 text-[10px] uppercase tracking-wider text-muted-foreground border border-border-soft">
-                        Bestseller
-                      </span>
+                      <WishlistHeartButton
+                        productId={item.productId}
+                        size={18}
+                        className="absolute left-4 top-4 h-10 w-10 rounded-sm bg-card text-destructive shadow-sm opacity-0 transition-opacity duration-300 group-hover:opacity-100 focus-visible:opacity-100"
+                      />
                     </div>
 
-                    {/* Product Info */}
-                    <h3 className="font-serif text-base font-normal text-foreground mb-1 group-hover:text-gold transition-colors duration-300">
-                      {item.title}
-                    </h3>
-                    <div className="flex items-center gap-2 text-sm">
-                      <span className="font-medium text-foreground">
-                        {formatPrice(item.salePrice ?? item.adminPrice ?? item.minPrice)}
-                      </span>
-                      {typeof item.regularPrice === "number" &&
-                      typeof (item.salePrice ?? item.adminPrice ?? item.minPrice) === "number" &&
-                      item.regularPrice !== (item.salePrice ?? item.adminPrice ?? item.minPrice) ? (
-                        <span className="text-muted-foreground line-through">
-                          {formatPrice(item.regularPrice)}
-                        </span>
-                      ) : null}
+                    <div className="pt-4 text-center">
+                      <h3 className="line-clamp-2 font-serif text-[1.05rem] font-normal tracking-[0.01em] text-foreground transition-colors duration-300 group-hover:text-gold">
+                        {item.title}
+                      </h3>
+                      <p className="mt-4 text-xs uppercase tracking-[0.35em] text-muted-foreground/90">
+                        {item.categoryName ?? "Tatvivah Curated"}
+                      </p>
+                      {typeof (item.salePrice ?? item.adminPrice ?? item.minPrice) === "number" ? (
+                        <div className="mt-2 flex items-baseline justify-center gap-2">
+                          <span className="text-3xl font-normal tracking-[0.01em] text-foreground">
+                            {formatPrice(item.salePrice ?? item.adminPrice ?? item.minPrice)}
+                          </span>
+                          {typeof item.regularPrice === "number" &&
+                          item.regularPrice > (item.salePrice ?? item.adminPrice ?? item.minPrice)! ? (
+                            <span className="text-3xl font-normal text-muted-foreground/70 line-through">
+                              {formatPrice(item.regularPrice)}
+                            </span>
+                          ) : null}
+                          {typeof item.regularPrice === "number" &&
+                          item.regularPrice > (item.salePrice ?? item.adminPrice ?? item.minPrice)! ? (
+                            <span className="text-3xl font-normal text-destructive">
+                              {Math.round(
+                                ((item.regularPrice - (item.salePrice ?? item.adminPrice ?? item.minPrice)!) /
+                                  item.regularPrice) *
+                                  100
+                              )}
+                              % OFF
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <p className="mt-2 text-sm text-muted-foreground">Contact for price</p>
+                      )}
                     </div>
                   </Link>
                 </motion.div>
@@ -341,6 +290,8 @@ export default function Home() {
           </motion.div>
         </div>
       </section>
+
+      <WeddingSectionBanner />
 
         <RecommendedForYouSection />
 

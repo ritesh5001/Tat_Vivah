@@ -1,6 +1,8 @@
 import type { $Enums } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 export type OrderStatus = $Enums.OrderStatus;
 export type InventoryMovementType = $Enums.InventoryMovementType;
+export type InventoryMovementReason = $Enums.InventoryMovementReason;
 /**
  * Order entity as returned from database
  */
@@ -9,6 +11,13 @@ export interface OrderEntity {
     userId: string;
     status: OrderStatus;
     totalAmount: number;
+    subTotalAmount: number;
+    totalTaxAmount: number;
+    grandTotal: number;
+    couponCode?: string | null;
+    discountAmount?: Prisma.Decimal | number;
+    invoiceNumber?: string | null;
+    invoiceIssuedAt?: Date | null;
     shippingName?: string | null;
     shippingPhone?: string | null;
     shippingEmail?: string | null;
@@ -32,6 +41,12 @@ export interface OrderItemEntity {
     sellerPriceSnapshot: number;
     adminPriceSnapshot: number;
     platformMargin: number;
+    taxRate: number;
+    taxableAmount: number;
+    cgstAmount: number;
+    sgstAmount: number;
+    igstAmount: number;
+    totalAmount: number;
 }
 /**
  * InventoryMovement entity as returned from database
@@ -49,6 +64,11 @@ export interface InventoryMovementEntity {
  */
 export interface OrderWithItems extends OrderEntity {
     items: OrderItemEntity[];
+    cancellationRequest?: {
+        id: string;
+        status: string;
+    } | null;
+    shipmentStatus?: string | null;
 }
 /**
  * Order with items and movements (full detail)
@@ -72,6 +92,12 @@ export interface SellerOrderItem extends OrderItemEntity {
         id: string;
         status: OrderStatus;
         createdAt: Date;
+        cancellationRequest?: {
+            id: string;
+            status: string;
+            reason: string;
+            createdAt: Date;
+        } | null;
         shippingName?: string | null;
         shippingPhone?: string | null;
         shippingEmail?: string | null;
@@ -119,6 +145,7 @@ export interface CreateInventoryMovementRequest {
     orderId: string;
     quantity: number;
     type: InventoryMovementType;
+    reason?: InventoryMovementReason;
 }
 /**
  * Order list response (buyer)

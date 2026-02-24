@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { motion } from "framer-motion";
-import { listSellerOrders } from "@/services/orders";
+import { approveCancellationAsSeller, listSellerOrders } from "@/services/orders";
 import {
   createShipment,
   listSellerShipments,
@@ -146,6 +146,40 @@ export default function SellerOrdersPage() {
     }
   };
 
+  const handleApproveCancellation = async (orderId: string, cancellationId: string) => {
+    try {
+      const result = await approveCancellationAsSeller(cancellationId);
+      setItems((prev) =>
+        prev.map((item) =>
+          item.order?.id === orderId
+            ? {
+                ...item,
+                order: {
+                  ...item.order,
+                  status: "CANCELLED",
+                  cancellationRequest: item.order?.cancellationRequest
+                    ? {
+                        ...item.order.cancellationRequest,
+                        status: "APPROVED",
+                      }
+                    : item.order?.cancellationRequest,
+                },
+              }
+            : item
+        )
+      );
+      toast.success(
+        result.refundTriggered
+          ? "Cancellation approved. Refund initiated automatically."
+          : "Cancellation approved."
+      );
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Unable to approve cancellation"
+      );
+    }
+  };
+
   return (
     <div className="min-h-[calc(100vh-160px)] bg-background">
       <motion.div
@@ -210,6 +244,8 @@ export default function SellerOrdersPage() {
             filteredItems.map((item, index) => {
               const orderId = item.order?.id as string;
               const shipment = shipmentsByOrder[orderId]?.[0];
+              const cancellationRequest = item.order?.cancellationRequest;
+              const cancellationRequested = cancellationRequest?.status === "REQUESTED";
               return (
                 <motion.div
                   key={item.id}
@@ -276,6 +312,30 @@ export default function SellerOrdersPage() {
                       </span>
                     </div>
 
+                    {cancellationRequest ? (
+                      <div className="space-y-3 p-5 border border-border-soft bg-rose-50/30 dark:bg-rose-900/10">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-rose-700 dark:text-rose-300">
+                            Cancellation Request • {cancellationRequest.status}
+                          </p>
+                          {cancellationRequested ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() =>
+                                handleApproveCancellation(orderId, cancellationRequest.id)
+                              }
+                            >
+                              Approve Cancellation
+                            </Button>
+                          ) : null}
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          {cancellationRequest.reason}
+                        </p>
+                      </div>
+                    ) : null}
+
                     {/* Shipment Section */}
                     {shipment ? (
                       <div className="flex flex-wrap items-center justify-between gap-4 p-5 border border-border-soft">
@@ -313,6 +373,11 @@ export default function SellerOrdersPage() {
                         <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
                           Create Shipment
                         </p>
+                        {cancellationRequested ? (
+                          <p className="text-xs text-rose-700 dark:text-rose-300">
+                            Shipment is blocked while cancellation request is pending.
+                          </p>
+                        ) : null}
                         <div className="grid gap-4 sm:grid-cols-3">
                           <Input
                             placeholder="Carrier name"
@@ -340,7 +405,10 @@ export default function SellerOrdersPage() {
                               }))
                             }
                           />
-                          <Button onClick={() => handleCreateShipment(orderId)}>
+                          <Button
+                            onClick={() => handleCreateShipment(orderId)}
+                            disabled={cancellationRequested}
+                          >
                             Create Shipment
                           </Button>
                         </div>

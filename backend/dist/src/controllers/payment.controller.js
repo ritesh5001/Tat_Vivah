@@ -19,6 +19,18 @@ export class PaymentController {
             data: result
         });
     });
+    retryPayment = asyncHandler(async (req, res) => {
+        const orderId = req.params.orderId;
+        const userId = req.user.userId;
+        if (!orderId) {
+            throw new Error('Order ID required');
+        }
+        const result = await paymentService.retryPayment(userId, orderId);
+        res.status(200).json({
+            success: true,
+            data: result
+        });
+    });
     getPaymentDetails = asyncHandler(async (req, res) => {
         const { orderId } = req.params;
         const userId = req.user.userId;

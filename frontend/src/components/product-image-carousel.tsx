@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface ProductImageCarouselProps {
@@ -49,17 +50,24 @@ export default function ProductImageCarousel({
         {/* Subtle inner frame */}
         <div className="relative border border-border-soft bg-card overflow-hidden">
           <AnimatePresence mode="wait">
-            <motion.img
+            <motion.div
               key={activeIndex}
-              src={safeImages[activeIndex]}
-              alt={title ?? "Product image"}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.4, ease: "easeOut" }}
-              className="aspect-[4/5] w-full bg-card object-contain p-8 sm:p-12"
-              loading="lazy"
-            />
+              className="aspect-[4/5] w-full relative bg-card"
+            >
+              <Image
+                src={safeImages[activeIndex]}
+                alt={title ?? "Product image"}
+                fill
+                sizes="(max-width: 768px) 100vw, 50vw"
+                className="object-contain p-8 sm:p-12"
+                quality={80}
+                priority={activeIndex === 0}
+              />
+            </motion.div>
           </AnimatePresence>
 
           {/* Navigation - Minimal */}
@@ -104,11 +112,14 @@ export default function ProductImageCarousel({
                   }`}
                 aria-label={`View image ${index + 1}`}
               >
-                <img
+                <Image
                   src={image}
                   alt={title ?? "Product thumbnail"}
+                  width={80}
+                  height={80}
                   className="h-full w-full object-contain p-1 bg-card"
                   loading="lazy"
+                  quality={60}
                 />
                 {showMore ? (
                   <div className="absolute inset-0 grid place-items-center bg-charcoal/70 text-xs font-medium text-ivory">

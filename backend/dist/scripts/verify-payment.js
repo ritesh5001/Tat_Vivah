@@ -1,7 +1,8 @@
 import { PrismaClient, PaymentStatus, OrderStatus } from '@prisma/client';
 import { generateAccessToken, Role, UserStatus } from '../src/utils/jwt.util.js';
+import { env } from '../src/config/env.js';
 const prisma = new PrismaClient();
-const API_URL = 'http://localhost:3000/v1';
+const API_URL = `http://localhost:${env.PORT}/v1`;
 async function verifyPayment() {
     console.log('🚀 Starting Payment Service Verification...');
     try {
@@ -59,6 +60,9 @@ async function verifyPayment() {
             throw new Error("Failed to create product variant");
         }
         const variant = product.variants[0];
+        if (!variant) {
+            throw new Error("Failed to resolve product variant");
+        }
         // Create Order (PLACED)
         const order = await prisma.order.create({
             data: {

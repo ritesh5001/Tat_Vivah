@@ -15,8 +15,57 @@ import { commissionService } from './commission.service.js';
 
 /** Maximum age (ms) of a PLACED order eligible for payment retry. */
 const STALE_ORDER_TTL_MS = 30 * 60 * 1000; // 30 minutes
+const DEFAULT_SHIPPING_FEE_INR = 180;
+const TX_MAX_WAIT_MS = 20000;
+const TX_TIMEOUT_MS = 30000;
+
+function roundMoney(value: number): number {
+    return Math.round(value * 100) / 100;
+}
+
+function toNumber(value: unknown): number {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function isTransactionStartTimeout(error: unknown): boolean {
+    if (!(error instanceof Error)) return false;
+    const msg = error.message.toLowerCase();
+    return (
+        msg.includes('unable to start a transaction in the given time') ||
+        msg.includes('transaction api error') ||
+        msg.includes('p2028')
+    );
+}
 
 export class PaymentService {
+
+    private resolvePayableAmount(order: {
+        totalAmount: number;
+        grandTotal?: number | null;
+        subTotalAmount?: number | null;
+        totalTaxAmount?: number | null;
+        items?: Array<unknown>;
+    }): number {
+        const totalAmount = toNumber(order.totalAmount);
+        const grandTotal = toNumber(order.grandTotal);
+        const subTotalAmount = toNumber(order.subTotalAmount);
+        const totalTaxAmount = toNumber(order.totalTaxAmount);
+        const hasItems = Array.isArray(order.items) && order.items.length > 0;
+
+        const inferredShippingFromGrand = Math.max(0, grandTotal - subTotalAmount - totalTaxAmount);
+        const shippingFee =
+            inferredShippingFromGrand > 0
+                ? inferredShippingFromGrand
+                : hasItems
+                    ? DEFAULT_SHIPPING_FEE_INR
+                    : 0;
+
+        const derivedAmount = subTotalAmount + totalTaxAmount + shippingFee;
+        const payableAmount = Math.max(totalAmount, grandTotal, derivedAmount);
+
+        return roundMoney(payableAmount);
+    }
 
     // ------------------------------------------------------------------
     // Refund processing (idempotent, crash-safe)
@@ -58,7 +107,7 @@ export class PaymentService {
         // Mark as REFUNDED before calling external provider.
         // If the provider call fails, we revert. This prevents the
         // "money refunded but DB still SUCCESS" double-refund bug.
-        const updated = await prisma.$transaction(async (tx) => {
+        const updated = await prisma.$transaction(async (tx: any) => {
             const result = await tx.payment.updateMany({
                 where: {
                     id: payment.id,
@@ -158,15 +207,36 @@ export class PaymentService {
             throw new ApiError(400, 'Order already paid');
         }
 
+        const payableAmount = this.resolvePayableAmount(order as any);
+
+        if (payableAmount > toNumber((order as any).totalAmount)) {
+            await prisma.order.update({
+                where: { id: order.id },
+                data: {
+                    totalAmount: payableAmount,
+                    grandTotal: Math.max(payableAmount, toNumber((order as any).grandTotal)),
+                },
+            });
+        }
+
         // Create Payment Record (INITIATED) — reuse row on retry
         let payment;
         if (existingPayment) {
-            payment = await paymentRepository.updatePaymentStatus(existingPayment.id, PaymentStatus.INITIATED, null);
+            payment = await prisma.payment.update({
+                where: { id: existingPayment.id },
+                data: {
+                    status: PaymentStatus.INITIATED,
+                    amount: payableAmount,
+                    providerOrderId: null,
+                    providerPaymentId: null,
+                    providerSignature: null,
+                },
+            });
         } else {
             payment = await paymentRepository.createPayment({
                 orderId,
                 userId,
-                amount: order.totalAmount,
+                amount: payableAmount,
                 currency: 'INR',
                 provider,
                 status: PaymentStatus.INITIATED
@@ -177,7 +247,7 @@ export class PaymentService {
         await paymentRepository.createPaymentEvent({
             paymentId: payment.id,
             type: PaymentEventType.INITIATED,
-            payload: { provider, amount: order.totalAmount }
+            payload: { provider, amount: payableAmount }
         });
 
         // Handle MOCK Provider
@@ -186,7 +256,7 @@ export class PaymentService {
                 paymentId: payment.id,
                 providerPaymentId: `mock_${payment.id}`,
                 checkoutUrl: `https://mock-gateway.com/pay/${payment.id}`,
-                amount: order.totalAmount,
+                amount: payableAmount,
                 currency: 'INR'
             };
         }
@@ -194,7 +264,7 @@ export class PaymentService {
         // Handle RAZORPAY Provider
         if (provider === PaymentProvider.RAZORPAY) {
             const razorpayOrder = await razorpayService.createOrder(
-                order.totalAmount,
+                payableAmount,
                 'INR',
                 orderId,
                 { orderId, userId }
@@ -300,13 +370,24 @@ export class PaymentService {
             return { message: 'Payment already verified', paymentId: payment.id };
         }
 
-        await this.handlePaymentSuccess(
-            payment.id,
-            payment.orderId,
-            razorpayPaymentId,
-            { razorpayOrderId, razorpayPaymentId },
-            razorpaySignature
-        );
+        try {
+            await this.handlePaymentSuccess(
+                payment.id,
+                payment.orderId,
+                razorpayPaymentId,
+                { razorpayOrderId, razorpayPaymentId },
+                razorpaySignature
+            );
+        } catch (error) {
+            if (isTransactionStartTimeout(error)) {
+                const latest = await paymentRepository.findPaymentById(payment.id);
+                if (latest?.status === PaymentStatus.SUCCESS) {
+                    return { message: 'Payment already verified', paymentId: payment.id };
+                }
+                throw new ApiError(503, 'Payment is being finalized. Please refresh order status in a few seconds.');
+            }
+            throw error;
+        }
 
         return { message: 'Payment verified', paymentId: payment.id };
     }
@@ -327,7 +408,7 @@ export class PaymentService {
         // WHERE clause that includes `status != SUCCESS`. If another concurrent
         // call already flipped the status, the updateMany returns count === 0
         // and we bail out without creating duplicate settlements.
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await prisma.$transaction(async (tx:any) => {
             // 1. Optimistic-lock update: only flip to SUCCESS if not already SUCCESS
             const updated = await tx.payment.updateMany({
                 where: { id: paymentId, status: { not: PaymentStatus.SUCCESS } },
@@ -364,6 +445,9 @@ export class PaymentService {
             });
 
             return { alreadyProcessed: false };
+        }, {
+            maxWait: TX_MAX_WAIT_MS,
+            timeout: TX_TIMEOUT_MS,
         });
 
         // Skip notifications if another call already handled this
@@ -393,7 +477,7 @@ export class PaymentService {
         if (!payment) return;
         if (payment.status === PaymentStatus.SUCCESS) return;
 
-        await prisma.$transaction(async (tx) => {
+        await prisma.$transaction(async (tx:any) => {
             await tx.payment.update({
                 where: { id: paymentId },
                 data: { status: PaymentStatus.FAILED }
@@ -455,7 +539,7 @@ export class PaymentService {
 
         for (const order of staleOrders) {
             try {
-                const wasCancelled = await prisma.$transaction(async (tx) => {
+                const wasCancelled = await prisma.$transaction(async (tx:any) => {
                     // 1. Optimistic-lock cancel: only flip to CANCELLED if still PLACED.
                     //    Between the findMany above and this tx, handlePaymentSuccess
                     //    may have already flipped the order to CONFIRMED — in that case

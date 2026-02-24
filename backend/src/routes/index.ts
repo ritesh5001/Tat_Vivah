@@ -8,6 +8,7 @@ export { sellerRouter } from './seller.routes.js';
 export { categoryRouter } from './category.routes.js';
 export { productRouter } from './product.routes.js';
 export { sellerProductRouter } from './seller-product.routes.js';
+export { productMediaRouter } from './product-media.routes.js';
 export { reviewRouter } from './review.routes.js';
 export { imagekitRouter } from './imagekit.routes.js';
 export { bestsellerRouter } from './bestseller.routes.js';
@@ -48,3 +49,6 @@ export { wishlistRouter } from './wishlist.routes.js';
 // Search & Personalization
 export { searchRouter } from './search.routes.js';
 export { personalizationRouter } from './personalization.routes.js';
+
+// Seller Analytics
+export { sellerAnalyticsRouter } from './sellerAnalytics.routes.js';

@@ -119,7 +119,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       resetRefreshMutex();
       clearSession(); // async but fire-and-forget — storage will be wiped
       setSession(null);
-      setSessionExpired(true);
+      setSessionExpired(false);
     });
     return () => setSessionExpiredHandler(() => {});
   }, []);
