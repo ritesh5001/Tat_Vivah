@@ -30,6 +30,18 @@ const getProductStatusLabel = (product: any) => {
   return "DRAFT";
 };
 
+const formatTimestamp = (value?: string | null) => {
+  if (!value) return "—";
+  return new Date(value).toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+};
+
 export default function AdminProductsPage() {
   const [loading, setLoading] = React.useState(true);
   const [products, setProducts] = React.useState<Array<any>>([]);
@@ -42,6 +54,7 @@ export default function AdminProductsPage() {
   const [bulkReason, setBulkReason] = React.useState("");
   const [showReasonModal, setShowReasonModal] = React.useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = React.useState(false);
+  const [viewMode, setViewMode] = React.useState<"active" | "trash">("active");
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -66,6 +79,7 @@ export default function AdminProductsPage() {
   }, [load]);
 
   const removeSelected = async (reason: string) => {
+    if (viewMode !== "active") return;
     const trimmed = reason.trim();
     if (!trimmed) {
       toast.error("Please mention the reason for the removal of the product.");
@@ -154,7 +168,22 @@ export default function AdminProductsPage() {
     });
   }, [products, searchQuery, categoryFilter]);
 
+  const visibleProducts = React.useMemo(
+    () =>
+      filteredProducts.filter((product) =>
+        viewMode === "trash" ? product.deletedByAdmin : !product.deletedByAdmin
+      ),
+    [filteredProducts, viewMode]
+  );
+
+  React.useEffect(() => {
+    setSelectedIds(new Set());
+    setBulkReason("");
+    setShowReasonModal(false);
+  }, [viewMode]);
+
   const toggleSelection = (id: string) => {
+    if (viewMode !== "active") return;
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) {
@@ -167,20 +196,23 @@ export default function AdminProductsPage() {
   };
 
   const allSelected =
-    filteredProducts.length > 0 &&
-    filteredProducts.every((product) => selectedIds.has(product.id));
+    viewMode === "active" &&
+    visibleProducts.length > 0 &&
+    visibleProducts.every((product) => selectedIds.has(product.id));
 
   const handleSelectAll = () => {
+    if (viewMode !== "active") return;
     if (allSelected) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(filteredProducts.map((product) => product.id)));
+      setSelectedIds(new Set(visibleProducts.map((product) => product.id)));
     }
   };
 
   const hasSelection = selectedIds.size > 0;
 
   const openRemovalModal = (ids: string[]) => {
+    if (viewMode !== "active" || ids.length === 0) return;
     setSelectedIds(new Set(ids));
     setBulkReason("");
     setShowReasonModal(true);
@@ -256,40 +288,66 @@ export default function AdminProductsPage() {
                   Catalog
                 </p>
                 <p className="font-serif text-lg font-light text-foreground">
-                  All Products
+                    {viewMode === "trash" ? "Trash" : "All Products"}
                 </p>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant={viewMode === "active" ? "outline" : "ghost"}
+                    onClick={() => setViewMode("active")}
+                    className="h-9"
+                  >
+                    Active Products
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={viewMode === "trash" ? "outline" : "ghost"}
+                    onClick={() => setViewMode("trash")}
+                    className="h-9"
+                  >
+                    Trash
+                  </Button>
+                </div>
               </div>
               <p className="text-sm text-muted-foreground">
-                {filteredProducts.length} listings
+                  {visibleProducts.length} {viewMode === "trash" ? "trashed listings" : "listings"}
               </p>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-soft px-6 py-4">
-            <div className="flex items-center gap-3">
-              <label className="inline-flex items-center gap-2 text-xs font-medium text-muted-foreground">
-                <input
-                  type="checkbox"
-                  checked={allSelected}
-                  onChange={handleSelectAll}
-                  disabled={filteredProducts.length === 0}
-                  className="h-4 w-4 rounded border border-border-soft bg-card"
-                />
-                <span>Select All</span>
-              </label>
-              <span className="text-[11px] text-muted-foreground">
-                {selectedIds.size} selected
-              </span>
-            </div>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={!hasSelection}
-              onClick={() => hasSelection && openRemovalModal(Array.from(selectedIds))}
-              className="h-9"
-            >
-              Remove Selected
-            </Button>
+          <div className="border-b border-border-soft px-6 py-4">
+            {viewMode === "active" ? (
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <label className="inline-flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      onChange={handleSelectAll}
+                      disabled={visibleProducts.length === 0}
+                      className="h-4 w-4 rounded border border-border-soft bg-card"
+                    />
+                    <span>Select All</span>
+                  </label>
+                  <span className="text-[11px] text-muted-foreground">
+                    {selectedIds.size} selected
+                  </span>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={!hasSelection}
+                  onClick={() => hasSelection && openRemovalModal(Array.from(selectedIds))}
+                  className="h-9"
+                >
+                  Remove Selected
+                </Button>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Trash is read-only. Switch back to Active Products to manage listings.
+              </p>
+            )}
           </div>
 
           <div className="overflow-x-auto">
@@ -297,17 +355,21 @@ export default function AdminProductsPage() {
               <div className="p-8 text-center">
                 <p className="text-sm text-muted-foreground">Loading products...</p>
               </div>
-            ) : filteredProducts.length === 0 ? (
+            ) : visibleProducts.length === 0 ? (
               <div className="p-8 text-center">
-                <p className="text-sm text-muted-foreground">No products found.</p>
+                <p className="text-sm text-muted-foreground">
+                  {viewMode === "trash" ? "No items have been sent to the trash yet." : "No products found."}
+                </p>
               </div>
             ) : (
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-border-soft">
-                    <th className="p-6 text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
-                      <span>Select</span>
-                    </th>
+                    {viewMode === "active" ? (
+                      <th className="p-6 text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                        <span>Select</span>
+                      </th>
+                    ) : null}
                     <th className="p-6 text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
                       Title
                     </th>
@@ -326,7 +388,7 @@ export default function AdminProductsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border-soft">
-                  {filteredProducts.map((product, index) => (
+                  {visibleProducts.map((product, index) => (
                     <motion.tr
                       key={product.id}
                       initial={{ opacity: 0 }}
@@ -334,15 +396,17 @@ export default function AdminProductsPage() {
                       transition={{ delay: 0.2 + index * 0.02, duration: 0.3 }}
                       className="hover:bg-cream/30 dark:hover:bg-brown/10 transition-colors duration-200"
                     >
-                      <td className="p-6">
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.has(product.id)}
-                          onChange={() => toggleSelection(product.id)}
-                          className="h-4 w-4" 
-                        />
-                        <span className="sr-only">Select {product.title}</span>
-                      </td>
+                      {viewMode === "active" ? (
+                        <td className="p-6">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(product.id)}
+                            onChange={() => toggleSelection(product.id)}
+                            className="h-4 w-4"
+                          />
+                          <span className="sr-only">Select {product.title}</span>
+                        </td>
+                      ) : null}
                       <td className="p-6 font-medium text-foreground">
                         {product.title}
                       </td>
@@ -353,32 +417,52 @@ export default function AdminProductsPage() {
                         {product.categoryName ?? product.categoryId?.slice(0, 6)}
                       </td>
                       <td className="p-6">
-                        <span className={`px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider border ${getProductStatusStyle(product)}`}>
-                          {getProductStatusLabel(product)}
-                        </span>
+                        <div className="flex flex-col gap-1">
+                          <span
+                            className={`px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider border ${getProductStatusStyle(product)}`}
+                          >
+                            {getProductStatusLabel(product)}
+                          </span>
+                          {viewMode === "trash" ? (
+                            <>
+                              <p className="text-[11px] text-muted-foreground">
+                                {product.deletedByAdminReason ?? "Removed by admin"}
+                              </p>
+                              <p className="text-[10px] text-muted-foreground">
+                                {formatTimestamp(product.deletedByAdminAt)}
+                              </p>
+                            </>
+                          ) : null}
+                        </div>
                       </td>
                       <td className="p-6">
-                        <div className="flex flex-col gap-2 min-w-40">
-                          {String(product.status ?? "").toUpperCase() === "PENDING" && !product.deletedByAdmin ? (
+                        {viewMode === "trash" ? (
+                          <p className="text-sm text-muted-foreground">
+                            This listing was removed by admin.
+                          </p>
+                        ) : (
+                          <div className="flex flex-col gap-2 min-w-40">
+                            {String(product.status ?? "").toUpperCase() === "PENDING" && !product.deletedByAdmin ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => openApproveModal(product)}
+                                className="h-9"
+                              >
+                                Approve
+                              </Button>
+                            ) : null}
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => openApproveModal(product)}
-                              className="h-9"
+                              onClick={() => openRemovalModal([product.id])}
+                              disabled={product.deletedByAdmin}
+                              className="h-9 text-muted-foreground hover:text-[#7A5656] hover:border-[#A67575]/40"
                             >
-                              Approve
+                              {product.deletedByAdmin ? "Deleted" : "Remove"}
                             </Button>
-                          ) : null}
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => openRemovalModal([product.id])}
-                            disabled={product.deletedByAdmin}
-                            className="h-9 text-muted-foreground hover:text-[#7A5656] hover:border-[#A67575]/40"
-                          >
-                            {product.deletedByAdmin ? "Deleted" : "Remove"}
-                          </Button>
-                        </div>
+                          </div>
+                        )}
                       </td>
                     </motion.tr>
                   ))}
