@@ -14,6 +14,7 @@ import {
 import { getBestsellers, type BestsellerProduct } from "@/services/bestsellers";
 import { LuxuryHero } from "@/components/home/LuxuryHero";
 import { FeaturesMarquee } from "@/components/features-marquee";
+import { CategoryCarousel } from "@/components/home/CategoryCarousel";
 import { WishlistHeartButton } from "@/components/wishlist-heart-button";
 
 /* ── Below-fold components loaded on demand to reduce initial JS ── */
@@ -88,93 +89,7 @@ export default function Home() {
       {/* =========================================================================
           CATEGORIES SECTION
           ========================================================================= */}
-      <section id="categories" className="border-t border-border-soft bg-cream/50 dark:bg-card/50">
-        <div className="mx-auto max-w-6xl px-6 py-24">
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={viewportSettings}
-            variants={fadeInVariants}
-            className="mb-16 text-center"
-          >
-            <p className="text-xs font-medium uppercase tracking-[0.3em] text-gold mb-4">
-              Shop by Category
-            </p>
-            <h2 className="font-serif text-3xl font-light tracking-tight text-foreground sm:text-4xl">
-              Curated Collections
-            </h2>
-          </motion.div>
-
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={viewportSettings}
-            variants={staggerContainerVariants}
-            className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4"
-          >
-            {[
-              {
-                name: "Wedding Sherwanis",
-                desc: "Regal attire for the groom",
-                image: "/SherwaniTatvivah.jpg",
-              },
-              {
-                name: "Ethnic Kurtas",
-                desc: "Traditional elegance",
-                image: "/EthanicKurtaTatvivah.jpg",
-              },
-              {
-                name: "Indo Western",
-                desc: "Modern heritage fusion",
-                image: "/IndoWesternTatvivah.jpg",
-              },
-              {
-                name: "Accessories",
-                desc: "Complete the look",
-                image: "/Accesories.jpg",
-              },
-            ].map((category) => (
-              <motion.div key={category.name} variants={staggerItemVariants}>
-                <Link
-                  href="/marketplace"
-                  className="group flex flex-col items-center text-center"
-                >
-                  <div className="mb-5 h-56 w-56 overflow-hidden rounded-full border border-border-soft bg-cream dark:bg-brown/20 transition-all duration-400 group-hover:border-gold/40 group-hover:scale-[1.02]">
-                    <Image
-                      src={category.image}
-                      alt={category.name}
-                      width={224}
-                      height={224}
-                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                      loading="lazy"
-                      quality={75}
-                    />
-                  </div>
-                  <h3 className="font-serif text-xl font-normal text-foreground">
-                    {category.name}
-                  </h3>
-                </Link>
-              </motion.div>
-            ))}
-          </motion.div>
-
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={viewportSettings}
-            variants={fadeInVariants}
-            className="mt-12 text-center"
-          >
-            <Link
-              href="/marketplace"
-              className="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground transition-colors duration-300 hover:text-foreground border-b border-transparent hover:border-gold pb-1"
-            >
-              View All Categories
-              <span className="text-gold">→</span>
-            </Link>
-          </motion.div>
-        </div>
-      </section>
+      <CategoryCarousel />
 
       {/* =========================================================================
           BESTSELLERS SECTION

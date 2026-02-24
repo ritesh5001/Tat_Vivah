@@ -15,5 +15,6 @@ export interface CategoryListResponse {
 export async function getCategories(): Promise<CategoryListResponse> {
   return apiRequest<CategoryListResponse>("/v1/categories", {
     method: "GET",
+    showLoader: false,
   });
 }
