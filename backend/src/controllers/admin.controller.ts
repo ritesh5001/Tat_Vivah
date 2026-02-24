@@ -17,6 +17,7 @@ import {
     productIdParamSchema,
     productRejectSchema,
     productSetPriceSchema,
+    adminProductUpdateSchema,
 } from '../validators/admin.validation.js';
 import { refundService } from '../services/refund.service.js';
 import { commissionService } from '../services/commission.service.js';
@@ -198,6 +199,26 @@ export const adminController = {
             const { adminListingPrice } = productSetPriceSchema.parse(req.body);
             const actorId = req.user!.userId as string;
             const result = await adminService.setProductPrice(id, adminListingPrice, actorId);
+            res.json(result);
+        } catch (error) {
+            next(error);
+        }
+    },
+
+    /**
+     * PATCH /v1/admin/products/:id
+     * Update product metadata (category, description, images, variants) as admin
+     */
+    updateProduct: async (
+        req: Request,
+        res: Response,
+        next: NextFunction
+    ): Promise<void> => {
+        try {
+            const { id } = productIdParamSchema.parse(req.params);
+            const payload = adminProductUpdateSchema.parse(req.body);
+            const actorId = req.user!.userId as string;
+            const result = await adminService.updateProductDetails(id, actorId, payload);
             res.json(result);
         } catch (error) {
             next(error);

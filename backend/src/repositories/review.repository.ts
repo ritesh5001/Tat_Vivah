@@ -4,6 +4,7 @@ export class ReviewRepository {
     async findAll() {
         return prisma.review.findMany({
             orderBy: { createdAt: 'desc' },
+            take: 1000,
             include: {
                 product: { select: { id: true, title: true } },
                 user: {
@@ -18,7 +19,10 @@ export class ReviewRepository {
     }
 
     async deleteById(id: string) {
-        return prisma.review.delete({ where: { id } });
+        return prisma.review.update({
+            where: { id },
+            data: { isHidden: true },
+        });
     }
 }
 

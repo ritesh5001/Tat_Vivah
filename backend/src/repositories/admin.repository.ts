@@ -5,6 +5,33 @@
 
 import { prisma } from '../config/db.js';
 
+// ---------------------------------------------------------------------------
+// Lightweight in-memory TTL cache for expensive aggregate queries.
+// Avoids re-scanning large tables on every admin dashboard load.
+// ---------------------------------------------------------------------------
+
+interface CacheEntry<T> {
+    data: T;
+    expiresAt: number;
+}
+
+const memCache = new Map<string, CacheEntry<unknown>>();
+const PROFIT_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+function getMemCache<T>(key: string): T | null {
+    const entry = memCache.get(key);
+    if (!entry) return null;
+    if (Date.now() > entry.expiresAt) {
+        memCache.delete(key);
+        return null;
+    }
+    return entry.data as T;
+}
+
+function setMemCache<T>(key: string, data: T, ttlMs: number): void {
+    memCache.set(key, { data, expiresAt: Date.now() + ttlMs });
+}
+
 // ============================================================================
 // TYPES
 // ============================================================================
@@ -255,6 +282,7 @@ export class AdminRepository {
                 createdAt: true,
             },
             orderBy: { createdAt: 'desc' },
+            take: 1000,
         });
         return sellers;
     }
@@ -453,6 +481,7 @@ export class AdminRepository {
                 category: { select: { name: true } },
             },
             orderBy: { createdAt: 'desc' },
+            take: 2000,
         });
 
         return products.map((product) => ({
@@ -715,6 +744,7 @@ export class AdminRepository {
                 },
             },
             orderBy: { updatedAt: 'desc' },
+            take: 2000,
         });
 
         return products.map((product) => {
@@ -742,12 +772,25 @@ export class AdminRepository {
     }
 
     async getProfitAnalytics(): Promise<AdminProfitAnalytics> {
+        const cached = getMemCache<AdminProfitAnalytics>('profit_analytics');
+        if (cached) return cached;
+
         const items = await prisma.orderItem.findMany({
             where: {
                 order: {
                     status: { in: ['CONFIRMED', 'SHIPPED', 'DELIVERED'] },
                 },
             },
+            select: {
+                productId: true,
+                sellerId: true,
+                quantity: true,
+                priceSnapshot: true,
+                sellerPriceSnapshot: true,
+                adminPriceSnapshot: true,
+                platformMargin: true,
+            },
+            take: 50000,
         });
 
         const uniqueProductIds = [...new Set(items.map((item) => item.productId))];
@@ -812,7 +855,7 @@ export class AdminRepository {
             : [];
         const sellerLookup = new Map(sellers.map((seller) => [seller.id, seller]));
 
-        return {
+        const result = {
             totalPlatformRevenue,
             totalSellerPayout,
             totalMarginEarned,
@@ -833,6 +876,9 @@ export class AdminRepository {
                 };
             }),
         };
+
+        setMemCache('profit_analytics', result, PROFIT_CACHE_TTL_MS);
+        return result;
     }
 
     // =========================================================================
@@ -848,6 +894,7 @@ export class AdminRepository {
                 items: true,
             },
             orderBy: { createdAt: 'desc' },
+            take: 2000,
         });
 
         return orders.map((order) => ({
@@ -945,6 +992,18 @@ export class AdminRepository {
     async findAllPayments(): Promise<AdminPayment[]> {
         const payments = await prisma.payment.findMany({
             orderBy: { createdAt: 'desc' },
+            take: 2000,
+            select: {
+                id: true,
+                orderId: true,
+                userId: true,
+                amount: true,
+                currency: true,
+                status: true,
+                provider: true,
+                providerPaymentId: true,
+                createdAt: true,
+            },
         });
 
         return payments.map((p) => ({
@@ -966,6 +1025,7 @@ export class AdminRepository {
     async findAllSettlements(): Promise<AdminSettlement[]> {
         const settlements = await prisma.sellerSettlement.findMany({
             orderBy: { createdAt: 'desc' },
+            take: 2000,
         });
 
         return settlements.map((s) => ({

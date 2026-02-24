@@ -172,6 +172,8 @@ export class ProductRepository {
                 ...(data.title !== undefined && { title: data.title }),
                 ...(data.description !== undefined && { description: data.description }),
                 ...(data.images !== undefined && { images: data.images }),
+                ...(data.sellerPrice !== undefined && { sellerPrice: data.sellerPrice }),
+                ...(data.isPublished !== undefined && { isPublished: data.isPublished }),
             },
         });
 

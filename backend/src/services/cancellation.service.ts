@@ -113,6 +113,7 @@ export class CancellationService {
         const cancellations = await prisma.cancellationRequest.findMany({
             where: { userId },
             orderBy: { createdAt: 'desc' },
+            take: 200,
             include: {
                 order: {
                     select: {
@@ -142,6 +143,7 @@ export class CancellationService {
                 ...(filters.orderId ? { orderId: filters.orderId } : {}),
             },
             orderBy: { createdAt: 'desc' },
+            take: 1000,
             include: {
                 user: {
                     select: {

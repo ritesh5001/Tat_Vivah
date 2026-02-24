@@ -49,6 +49,9 @@ model User {
   sellerCoupons        Coupon[]              @relation("SellerCoupons")
   couponRedemptions    CouponRedemption[]
 
+  @@index([role])
+  @@index([status])
+  @@index([createdAt])
   @@map("users")
 }
 
@@ -139,6 +142,7 @@ model Category {
 
   @@index([parentId])
   @@index([sortOrder])
+  @@index([isActive])
   @@map("categories")
 }
 
@@ -182,6 +186,11 @@ model Product {
   @@index([status])
   @@index([adminListingPrice])
   @@index([priceApprovedById])
+  @@index([deletedByAdmin])
+  @@index([isPublished])
+  @@index([createdAt])
+  @@index([sellerId, status])
+  @@index([status, deletedByAdmin])
   @@map("products")
 }
 
@@ -249,6 +258,8 @@ model CartItem {
 
   @@unique([cartId, variantId])
   @@index([cartId])
+  @@index([productId])
+  @@index([variantId])
   @@map("cart_items")
 }
 
@@ -285,6 +296,8 @@ model Order {
 
   @@index([userId])
   @@index([createdAt])
+  @@index([status])
+  @@index([userId, createdAt])
   @@map("orders")
 }
 
@@ -311,6 +324,8 @@ model OrderItem {
 
   @@index([orderId])
   @@index([sellerId])
+  @@index([productId])
+  @@index([variantId])
   @@map("order_items")
 }
 
@@ -334,6 +349,7 @@ model CancellationRequest {
   @@index([userId])
   @@index([status])
   @@index([reviewedBy])
+  @@index([createdAt])
   @@map("cancellation_requests")
 }
 
@@ -360,6 +376,7 @@ model ReturnRequest {
   @@index([userId])
   @@index([status])
   @@index([reviewedBy])
+  @@index([createdAt])
   @@map("return_requests")
 }
 
@@ -421,6 +438,7 @@ model Payment {
   @@index([userId])
   @@index([status])
   @@index([providerOrderId])
+  @@index([createdAt])
   @@map("payments")
 }
 
@@ -443,6 +461,8 @@ model Refund {
 
   @@index([orderId])
   @@index([paymentId])
+  @@index([status])
+  @@index([createdAt])
   @@map("refunds")
 }
 
@@ -456,6 +476,7 @@ model PaymentEvent {
   payment   Payment          @relation(fields: [paymentId], references: [id], onDelete: Cascade)
 
   @@index([paymentId])
+  @@index([createdAt])
   @@map("payment_events")
 }
 
@@ -517,6 +538,7 @@ model Coupon {
 
   @@index([sellerId])
   @@index([validFrom, validUntil])
+  @@index([isActive])
   @@map("coupons")
 }
 
@@ -534,6 +556,8 @@ model CouponRedemption {
 
   @@unique([couponId, userId, orderId])
   @@index([userId])
+  @@index([couponId])
+  @@index([orderId])
   @@map("coupon_redemptions")
 }
 
@@ -550,6 +574,7 @@ model AuditLog {
 
   @@index([actorId])
   @@index([entityType, entityId])
+  @@index([createdAt])
   @@map("audit_logs")
 }
 
@@ -565,6 +590,8 @@ model ProductModeration {
   product    Product                 @relation(fields: [productId], references: [id], onDelete: Cascade)
   users      User?                   @relation(fields: [reviewedBy], references: [id])
 
+  @@index([status])
+  @@index([reviewedBy])
   @@map("product_moderation")
 }
 
@@ -606,6 +633,8 @@ model seller_profiles {
   updated_at           DateTime
   seller_bank_accounts seller_bank_accounts[]
   users                User                   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([kyc_status])
 }
 
 model shipment_events {
@@ -636,6 +665,7 @@ model shipments {
 
   @@index([order_id])
   @@index([seller_id])
+  @@index([status])
 }
 
 model user_addresses {
@@ -850,6 +880,9 @@ model Notification {
   @@unique([userId, eventKey], name: "notifications_user_event_key")
   @@index([userId])
   @@index([status])
+  @@index([createdAt])
+  @@index([isRead])
+  @@index([userId, isRead])
   @@map("notifications")
 }
 
@@ -863,6 +896,7 @@ model NotificationEvent {
   createdAt         DateTime           @default(now()) @map("created_at")
 
   @@index([notificationId])
+  @@index([createdAt])
   @@map("notification_events")
 }
 
@@ -880,6 +914,7 @@ model EmailOtp {
 
   @@index([userId])
   @@index([email])
+  @@index([expiresAt])
   @@map("email_otps")
 }
 
@@ -926,6 +961,8 @@ model Review {
   @@index([productId])
   @@index([userId])
   @@index([isHidden])
+  @@index([createdAt])
+  @@index([productId, createdAt])
   @@map("reviews")
 }
 

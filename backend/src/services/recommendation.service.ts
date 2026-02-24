@@ -73,6 +73,7 @@ export class RecommendationService {
                 productId: true,
                 product: { select: { categoryId: true } },
             },
+            take: 500,
         });
 
         const purchasedOrderItemsPromise = prisma.orderItem.findMany({
@@ -83,6 +84,7 @@ export class RecommendationService {
                 },
             },
             select: { productId: true },
+            take: 1000,
         });
 
         const recentlyViewedIdsPromise = redis.zrange<string[]>(

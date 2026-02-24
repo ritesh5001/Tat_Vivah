@@ -2,10 +2,14 @@
 
 import * as React from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Search } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { deleteProduct, getAllProducts, setProductPrice } from "@/services/admin";
+import { deleteProduct, getAllProducts, setProductPrice, updateProductDetails } from "@/services/admin";
+import type {
+  AdminProductUpdatePayload,
+  AdminProductVariantUpdatePayload,
+} from "@/services/admin";
 import { getCategories } from "@/services/catalog";
 import { toast } from "sonner";
 
@@ -55,6 +59,19 @@ export default function AdminProductsPage() {
   const [showReasonModal, setShowReasonModal] = React.useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = React.useState(false);
   const [viewMode, setViewMode] = React.useState<"active" | "trash">("active");
+  const [editingProduct, setEditingProduct] = React.useState<any | null>(null);
+  const [editForm, setEditForm] = React.useState({
+    categoryId: "",
+    title: "",
+    description: "",
+    sellerPrice: "",
+    isPublished: false,
+  });
+  const [editImages, setEditImages] = React.useState<string[]>([]);
+  const [variantEditValues, setVariantEditValues] = React.useState<
+    Record<string, { price: string; compareAtPrice: string; stock: string }>
+  >({});
+  const [isSavingEdit, setIsSavingEdit] = React.useState(false);
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -140,6 +157,182 @@ export default function AdminProductsPage() {
       toast.error(
         error instanceof Error ? error.message : "Unable to approve product"
       );
+    }
+  };
+
+  const resetEditModalState = () => {
+    setEditingProduct(null);
+    setEditForm({
+      categoryId: "",
+      title: "",
+      description: "",
+      sellerPrice: "",
+      isPublished: false,
+    });
+    setEditImages([]);
+    setVariantEditValues({});
+  };
+
+  const openEditModal = (product: any) => {
+    const categoryId = product.categoryId ?? product.category?.id ?? "";
+    setEditingProduct(product);
+    setEditForm({
+      categoryId,
+      title: product.title ?? "",
+      description: product.description ?? "",
+      sellerPrice:
+        product.sellerPrice != null ? String(product.sellerPrice) : "",
+      isPublished: Boolean(product.isPublished),
+    });
+    setEditImages(
+      product.images && product.images.length > 0
+        ? [...product.images]
+        : [""]
+    );
+
+    const variantState: Record<string, { price: string; compareAtPrice: string; stock: string }> = {};
+    (product.variants ?? []).forEach((variant: any) => {
+      variantState[variant.id] = {
+        price: variant.price != null ? String(variant.price) : "",
+        compareAtPrice:
+          variant.compareAtPrice != null ? String(variant.compareAtPrice) : "",
+        stock:
+          variant.stock != null
+            ? String(variant.stock)
+            : "",
+      };
+    });
+    setVariantEditValues(variantState);
+  };
+
+  const closeEditModal = () => {
+    resetEditModalState();
+  };
+
+  const handleImageChange = (index: number, value: string) => {
+    setEditImages((prev) =>
+      prev.map((image, idx) => (idx === index ? value : image))
+    );
+  };
+
+  const addImageField = () => {
+    if (editImages.length >= 5) return;
+    setEditImages((prev) => [...prev, ""]);
+  };
+
+  const removeImageField = (index: number) => {
+    if (editImages.length <= 1) return;
+    setEditImages((prev) => prev.filter((_, idx) => idx !== index));
+  };
+
+  const handleVariantFieldChange = (
+    variantId: string,
+    field: "price" | "compareAtPrice" | "stock",
+    value: string
+  ) => {
+    setVariantEditValues((prev) => ({
+      ...prev,
+      [variantId]: {
+        price: prev[variantId]?.price ?? "",
+        compareAtPrice: prev[variantId]?.compareAtPrice ?? "",
+        stock: prev[variantId]?.stock ?? "",
+        [field]: value,
+      },
+    }));
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingProduct) return;
+
+    const sanitizedImages = editImages
+      .map((url) => url.trim())
+      .filter(Boolean);
+    if (sanitizedImages.length === 0) {
+      toast.error("Add at least one product image.");
+      return;
+    }
+    if (sanitizedImages.length > 5) {
+      toast.error("You can upload up to 5 images.");
+      return;
+    }
+
+    const payload: AdminProductUpdatePayload = {
+      categoryId: editForm.categoryId || undefined,
+      title: editForm.title || undefined,
+      description: editForm.description || undefined,
+      images: sanitizedImages,
+      isPublished: editForm.isPublished,
+    };
+
+    if (editForm.sellerPrice.trim()) {
+      const sellerPriceValue = Number(editForm.sellerPrice);
+      if (Number.isNaN(sellerPriceValue) || sellerPriceValue <= 0) {
+        toast.error("Enter a valid seller price.");
+        return;
+      }
+      payload.sellerPrice = sellerPriceValue;
+    }
+
+    const variantPayloads: AdminProductVariantUpdatePayload[] = [];
+    for (const [variantId, fields] of Object.entries(variantEditValues)) {
+      const entry: AdminProductVariantUpdatePayload = { id: variantId };
+      let touched = false;
+
+      if (fields.price.trim()) {
+        const priceValue = Number(fields.price);
+        if (Number.isNaN(priceValue) || priceValue <= 0) {
+          toast.error("Enter a valid variant price.");
+          return;
+        }
+        entry.price = priceValue;
+        touched = true;
+      }
+
+      if (fields.compareAtPrice.trim()) {
+        const compareValue = Number(fields.compareAtPrice);
+        if (Number.isNaN(compareValue) || compareValue < 0) {
+          toast.error("Enter a valid compare-at price.");
+          return;
+        }
+        entry.compareAtPrice = compareValue;
+        touched = true;
+      }
+
+      if (fields.stock.trim()) {
+        const stockValue = Number(fields.stock);
+        if (
+          Number.isNaN(stockValue) ||
+          !Number.isInteger(stockValue) ||
+          stockValue < 0
+        ) {
+          toast.error("Enter a valid stock quantity.");
+          return;
+        }
+        entry.stock = stockValue;
+        touched = true;
+      }
+
+      if (touched) {
+        variantPayloads.push(entry);
+      }
+    }
+
+    if (variantPayloads.length > 0) {
+      payload.variants = variantPayloads;
+    }
+
+    setIsSavingEdit(true);
+    try {
+      await updateProductDetails(editingProduct.id, payload);
+      toast.success("Product updated successfully.");
+      resetEditModalState();
+      await load();
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Unable to save product"
+      );
+    } finally {
+      setIsSavingEdit(false);
     }
   };
 
@@ -454,6 +647,15 @@ export default function AdminProductsPage() {
                             ) : null}
                             <Button
                               size="sm"
+                              variant="ghost"
+                              onClick={() => openEditModal(product)}
+                              disabled={product.deletedByAdmin}
+                              className="h-9 text-muted-foreground hover:text-foreground"
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              size="sm"
                               variant="outline"
                               onClick={() => openRemovalModal([product.id])}
                               disabled={product.deletedByAdmin}
@@ -589,6 +791,249 @@ export default function AdminProductsPage() {
                   onClick={() => setShowReasonModal(false)}
                   disabled={isBulkDeleting}
                 >
+                  Cancel
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+      <AnimatePresence>
+        {editingProduct ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-charcoal/50 p-4"
+            onClick={closeEditModal}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 12, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.98 }}
+              transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
+              onClick={(event) => event.stopPropagation()}
+              className="w-full max-w-3xl space-y-6 border border-border-soft bg-card p-6"
+            >
+              <div className="space-y-1">
+                <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-gold">
+                  Edit Listing
+                </p>
+                <h2 className="font-serif text-2xl font-light text-foreground">
+                  {editingProduct.title}
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  Seller: {editingProduct.sellerEmail ?? editingProduct.sellerId}
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <label className="flex flex-col gap-2 text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                    Category
+                    <select
+                      value={editForm.categoryId}
+                      onChange={(event) =>
+                        setEditForm((prev) => ({
+                          ...prev,
+                          categoryId: event.target.value,
+                        }))
+                      }
+                      className="border border-border-soft bg-card px-3 py-2 text-sm text-foreground focus-visible:ring-2 focus-visible:ring-gold/40"
+                    >
+                      <option value="">Select category</option>
+                      {categories.map((category) => (
+                        <option key={category.id} value={category.id}>
+                          {category.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="flex flex-col gap-2 text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                    Seller Price
+                    <Input
+                      type="number"
+                      min="1"
+                      step="0.01"
+                      placeholder="Seller price"
+                      value={editForm.sellerPrice}
+                      onChange={(event) =>
+                        setEditForm((prev) => ({
+                          ...prev,
+                          sellerPrice: event.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+                </div>
+
+                <label className="flex flex-col gap-2 text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                  Title
+                  <Input
+                    value={editForm.title}
+                    onChange={(event) =>
+                      setEditForm((prev) => ({
+                        ...prev,
+                        title: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+
+                <label className="flex flex-col gap-2 text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                  Description
+                  <textarea
+                    value={editForm.description}
+                    onChange={(event) =>
+                      setEditForm((prev) => ({
+                        ...prev,
+                        description: event.target.value,
+                      }))
+                    }
+                    className="min-h-[120px] rounded border border-border-soft bg-card px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/40"
+                  />
+                </label>
+
+                <div className="flex items-center gap-3 text-sm">
+                  <input
+                    id="editPublished"
+                    type="checkbox"
+                    checked={editForm.isPublished}
+                    onChange={(event) =>
+                      setEditForm((prev) => ({
+                        ...prev,
+                        isPublished: event.target.checked,
+                      }))
+                    }
+                  />
+                  <label htmlFor="editPublished" className="text-muted-foreground">
+                    Published
+                  </label>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                    Images
+                  </p>
+                  <div className="space-y-2">
+                    {editImages.map((image, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <Input
+                          value={image}
+                          placeholder="Image URL"
+                          onChange={(event) =>
+                            handleImageChange(index, event.target.value)
+                          }
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeImageField(index)}
+                          disabled={editImages.length <= 1}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                  {editImages.length < 5 ? (
+                    <Button size="sm" variant="outline" onClick={addImageField}>
+                      Add image
+                    </Button>
+                  ) : null}
+                </div>
+
+                {(editingProduct.variants ?? []).length > 0 ? (
+                  <div className="space-y-3">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                      Variants
+                    </p>
+                    <div className="space-y-3">
+                      {editingProduct.variants.map((variant: any) => (
+                        <div
+                          key={variant.id}
+                          className="rounded border border-border-soft p-3"
+                        >
+                          <p className="text-sm font-medium text-foreground">
+                            SKU: {variant.sku}
+                          </p>
+                          <div className="mt-3 grid gap-3 md:grid-cols-3">
+                            <label className="flex flex-col gap-2 text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                              Price
+                              <Input
+                                type="number"
+                                min="1"
+                                step="0.01"
+                                value={
+                                  variantEditValues[variant.id]?.price ??
+                                  (variant.price != null ? String(variant.price) : "")
+                                }
+                                onChange={(event) =>
+                                  handleVariantFieldChange(
+                                    variant.id,
+                                    "price",
+                                    event.target.value
+                                  )
+                                }
+                              />
+                            </label>
+                            <label className="flex flex-col gap-2 text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                              Compare at
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={
+                                  variantEditValues[variant.id]?.compareAtPrice ??
+                                  (variant.compareAtPrice != null
+                                    ? String(variant.compareAtPrice)
+                                    : "")
+                                }
+                                onChange={(event) =>
+                                  handleVariantFieldChange(
+                                    variant.id,
+                                    "compareAtPrice",
+                                    event.target.value
+                                  )
+                                }
+                              />
+                            </label>
+                            <label className="flex flex-col gap-2 text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                              Stock
+                              <Input
+                                type="number"
+                                min="0"
+                                step="1"
+                                value={
+                                  variantEditValues[variant.id]?.stock ??
+                                  (variant.stock != null ? String(variant.stock) : "")
+                                }
+                                onChange={(event) =>
+                                  handleVariantFieldChange(
+                                    variant.id,
+                                    "stock",
+                                    event.target.value
+                                  )
+                                }
+                              />
+                            </label>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 pt-3">
+                <Button
+                  size="sm"
+                  onClick={handleSaveEdit}
+                  disabled={isSavingEdit}
+                >
+                  {isSavingEdit ? "Saving…" : "Save changes"}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={closeEditModal}>
                   Cancel
                 </Button>
               </div>

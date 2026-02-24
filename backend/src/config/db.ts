@@ -23,6 +23,16 @@ function buildPrismaDatabaseUrl(rawUrl: string): string {
             if (!parsed.searchParams.has('connection_limit')) {
                 parsed.searchParams.set('connection_limit', '1');
             }
+
+            // Prevent Prisma from waiting indefinitely for a pooled connection
+            if (!parsed.searchParams.has('pool_timeout')) {
+                parsed.searchParams.set('pool_timeout', '15');
+            }
+        }
+
+        // For non-pooled (direct) connections, set a reasonable pool size
+        if (!isPooledHost && !parsed.searchParams.has('connection_limit')) {
+            parsed.searchParams.set('connection_limit', '5');
         }
 
         return parsed.toString();

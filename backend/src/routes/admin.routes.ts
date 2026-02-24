@@ -116,6 +116,12 @@ adminRouter.patch(
     adminController.setProductPrice
 );
 
+adminRouter.patch(
+    '/products/:id',
+    authorize('ADMIN', 'SUPER_ADMIN'),
+    adminController.updateProduct
+);
+
 // Backward-compatible aliases
 adminRouter.put(
     '/products/:id/approve',
@@ -133,6 +139,12 @@ adminRouter.put(
     '/products/:id/set-price',
     authorize('ADMIN', 'SUPER_ADMIN'),
     adminController.setProductPrice
+);
+
+adminRouter.put(
+    '/products/:id',
+    authorize('ADMIN', 'SUPER_ADMIN'),
+    adminController.updateProduct
 );
 
 /**

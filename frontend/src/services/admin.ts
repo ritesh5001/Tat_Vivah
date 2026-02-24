@@ -39,6 +39,23 @@ export interface AdminProduct {
   } | null;
 }
 
+export interface AdminProductVariantUpdatePayload {
+  id: string;
+  price?: number;
+  compareAtPrice?: number | null;
+  stock?: number;
+}
+
+export interface AdminProductUpdatePayload {
+  categoryId?: string;
+  title?: string;
+  description?: string;
+  images?: string[];
+  isPublished?: boolean;
+  sellerPrice?: number;
+  variants?: AdminProductVariantUpdatePayload[];
+}
+
 export interface PricingOverviewProduct {
   productId: string;
   title: string;
@@ -319,6 +336,21 @@ export async function setProductPrice(
 }
 
 export async function getPricingOverview(token?: string | null) {
+export async function updateProductDetails(
+  id: string,
+  payload: AdminProductUpdatePayload,
+  token?: string | null
+) {
+  return apiRequest<{ message: string; product: AdminProduct }>(
+    `/v1/admin/products/${id}`,
+    {
+      method: "PATCH",
+      body: payload,
+      token,
+    }
+  );
+}
+
   return apiRequest<{ products: PricingOverviewProduct[] }>(
     "/v1/admin/products/pricing-overview",
     {

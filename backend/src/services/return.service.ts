@@ -186,6 +186,7 @@ export class ReturnService {
         const returns = await prisma.returnRequest.findMany({
             where: { userId },
             orderBy: { createdAt: 'desc' },
+            take: 200,
             include: {
                 items: true,
                 order: {
@@ -257,6 +258,7 @@ export class ReturnService {
                 ...(filters.orderId ? { orderId: filters.orderId } : {}),
             },
             orderBy: { createdAt: 'desc' },
+            take: 1000,
             include: {
                 items: true,
                 user: {

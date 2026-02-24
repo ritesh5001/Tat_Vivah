@@ -14,6 +14,10 @@ import {
     AdminPricingOverviewItem,
     AdminProfitAnalytics,
 } from '../repositories/admin.repository.js';
+import { productRepository } from '../repositories/product.repository.js';
+import { variantRepository } from '../repositories/variant.repository.js';
+import { inventoryRepository } from '../repositories/inventory.repository.js';
+import { categoryRepository } from '../repositories/category.repository.js';
 import { AuditService, auditService } from './audit.service.js';
 import { ApiError } from '../errors/ApiError.js';
 import {
@@ -26,6 +30,11 @@ import {
 import { notificationService } from '../notifications/notification.service.js';
 import { bestsellerService } from './bestseller.service.js';
 import { calculateMargin } from '../utils/pricing.util.js';
+import type {
+    UpdateProductRequest,
+    UpdateVariantRequest,
+} from '../types/product.types.js';
+import type { AdminProductUpdateInput } from '../validators/admin.validation.js';
 
 /**
  * Admin Service Class
@@ -334,6 +343,106 @@ export class AdminService {
             adminListingPrice,
             margin,
             marginPercentage: percentage,
+        };
+    }
+
+    async updateProductDetails(
+        productId: string,
+        actorId: string,
+        payload: AdminProductUpdateInput
+    ): Promise<{ message: string; product: AdminProduct }> {
+        const product = await this.adminRepo.findProductById(productId);
+        if (!product) {
+            throw ApiError.notFound('Product not found');
+        }
+
+        if (product.deletedByAdmin) {
+            throw ApiError.badRequest('Deleted products cannot be updated');
+        }
+
+        if (payload.categoryId) {
+            const categoryExists = await categoryRepository.existsAndActive(payload.categoryId);
+            if (!categoryExists) {
+                throw ApiError.badRequest('Invalid category ID');
+            }
+        }
+
+        const updatePayload: UpdateProductRequest = {};
+        const updatedFields: string[] = [];
+
+        if (payload.categoryId !== undefined) {
+            updatePayload.categoryId = payload.categoryId;
+            updatedFields.push('categoryId');
+        }
+        if (payload.title !== undefined) {
+            updatePayload.title = payload.title;
+            updatedFields.push('title');
+        }
+        if (payload.description !== undefined) {
+            updatePayload.description = payload.description;
+            updatedFields.push('description');
+        }
+        if (payload.images !== undefined) {
+            updatePayload.images = payload.images;
+            updatedFields.push('images');
+        }
+        if (payload.sellerPrice !== undefined) {
+            updatePayload.sellerPrice = payload.sellerPrice;
+            updatedFields.push('sellerPrice');
+        }
+        if (payload.isPublished !== undefined) {
+            updatePayload.isPublished = payload.isPublished;
+            updatedFields.push('isPublished');
+        }
+
+        if (Object.keys(updatePayload).length > 0) {
+            await productRepository.update(productId, updatePayload);
+        }
+
+        const variantUpdates: string[] = [];
+        if (payload.variants && payload.variants.length > 0) {
+            for (const variantInput of payload.variants) {
+                const variant = await variantRepository.findById(variantInput.id);
+                if (!variant || variant.productId !== productId) {
+                    throw ApiError.badRequest('One or more variant updates are invalid');
+                }
+
+                const variantPayload: UpdateVariantRequest = {};
+                if (variantInput.price !== undefined) {
+                    variantPayload.price = variantInput.price;
+                }
+                if (variantInput.compareAtPrice !== undefined) {
+                    variantPayload.compareAtPrice = variantInput.compareAtPrice;
+                }
+
+                if (Object.keys(variantPayload).length > 0) {
+                    await variantRepository.update(variantInput.id, variantPayload);
+                }
+
+                if (variantInput.stock !== undefined) {
+                    await inventoryRepository.updateStock(variantInput.id, variantInput.stock);
+                }
+
+                variantUpdates.push(variantInput.id);
+            }
+        }
+
+        await invalidateProductCaches(productId);
+
+        const refreshed = await this.adminRepo.findProductById(productId);
+        if (!refreshed) {
+            throw ApiError.internal('Unable to reload product after updates');
+        }
+
+        await this.auditSvc.logAction(actorId, 'PRODUCT_UPDATED', 'PRODUCT', productId, {
+            productTitle: product.title,
+            updatedFields,
+            variantUpdates,
+        });
+
+        return {
+            message: 'Product updated successfully',
+            product: refreshed,
         };
     }
 

@@ -165,6 +165,8 @@ export interface UpdateProductRequest {
     title?: string | undefined;
     description?: string | undefined;
     images?: string[] | undefined;
+    sellerPrice?: number | undefined;
+    isPublished?: boolean | undefined;
 }
 
 /**
