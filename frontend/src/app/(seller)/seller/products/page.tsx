@@ -415,22 +415,22 @@ export default function SellerProductsPage() {
     setUploadingImages(true);
 
     try {
-      const authResponse = await fetch(`${API_BASE_URL}/v1/imagekit/auth`);
-      if (!authResponse.ok) {
-        const authData = await authResponse.json().catch(() => null);
-        const authMessage =
-          authData?.message ?? "ImageKit auth failed. Check backend env.";
-        toast.error(authMessage);
-        return;
-      }
-
-      const authData = (await authResponse.json()) as {
-        signature: string;
-        token: string;
-        expire: number;
-      };
-
       for (const file of limitedFiles) {
+        const authResponse = await fetch(`${API_BASE_URL}/v1/imagekit/auth`);
+        if (!authResponse.ok) {
+          const authData = await authResponse.json().catch(() => null);
+          const authMessage =
+            authData?.message ?? "ImageKit auth failed. Check backend env.";
+          toast.error(authMessage);
+          return;
+        }
+
+        const authData = (await authResponse.json()) as {
+          signature: string;
+          token: string;
+          expire: number;
+        };
+
         const compressedFile = await compressImageForUpload(file);
         const result = await imagekit.upload({
           file: compressedFile,
@@ -477,13 +477,13 @@ export default function SellerProductsPage() {
 
     setUploadingMedia(true);
     try {
-      const authResponse = await fetch(`${API_BASE_URL}/v1/imagekit/auth`);
-      if (!authResponse.ok) { toast.error("ImageKit auth failed."); return; }
-      const authData = (await authResponse.json()) as {
-        signature: string; token: string; expire: number;
-      };
-
       for (const file of files.slice(0, 5)) {
+        const authResponse = await fetch(`${API_BASE_URL}/v1/imagekit/auth`);
+        if (!authResponse.ok) { toast.error("ImageKit auth failed."); return; }
+        const authData = (await authResponse.json()) as {
+          signature: string; token: string; expire: number;
+        };
+
         const compressedFile = await compressImageForUpload(file);
         const result = await imagekit.upload({
           file: compressedFile,
