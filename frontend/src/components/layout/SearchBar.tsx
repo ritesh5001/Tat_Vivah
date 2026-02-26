@@ -18,7 +18,7 @@ const currency = new Intl.NumberFormat("en-IN", {
 });
 
 function resolvePrice(item: SearchResultItem): number | null {
-  const price = item.adminListingPrice ?? item.sellerPrice;
+  const price = item.adminListingPrice;
   return typeof price === "number" ? price : null;
 }
 

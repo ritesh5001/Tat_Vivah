@@ -84,6 +84,7 @@ export default function SellerProductsPage() {
     categoryId: "",
     title: "",
     sellerPrice: "",
+    compareAtPrice: "",
     description: "",
     isPublished: false,
   });
@@ -180,8 +181,26 @@ export default function SellerProductsPage() {
       toast.error("Select a category, title, and seller price.");
       return;
     }
-    if (Number.isNaN(Number(form.sellerPrice)) || Number(form.sellerPrice) <= 0) {
+    const sellerPriceValue = Number(form.sellerPrice);
+    if (Number.isNaN(sellerPriceValue) || sellerPriceValue <= 0) {
       toast.error("Enter a valid seller price.");
+      return;
+    }
+    const compareAtPriceValue = form.compareAtPrice
+      ? Number(form.compareAtPrice)
+      : undefined;
+    if (
+      compareAtPriceValue !== undefined &&
+      (Number.isNaN(compareAtPriceValue) || compareAtPriceValue <= 0)
+    ) {
+      toast.error("Enter a valid compare-at price (MRP).");
+      return;
+    }
+    if (
+      compareAtPriceValue !== undefined &&
+      compareAtPriceValue <= sellerPriceValue
+    ) {
+      toast.error("Compare-at price (MRP) must be greater than seller price.");
       return;
     }
     if (images.length < 1) {
@@ -192,12 +211,44 @@ export default function SellerProductsPage() {
       const result = await createSellerProduct({
         categoryId: form.categoryId,
         title: form.title,
-        sellerPrice: Number(form.sellerPrice),
+        sellerPrice: sellerPriceValue,
         description: form.description || undefined,
         images: images.map((image) => image.url),
       });
+
+      let createdVariant: {
+        id: string;
+        sku: string;
+        price: number;
+        compareAtPrice?: number | null;
+        inventory?: { stock: number } | null;
+      } | null = null;
+
+      if (compareAtPriceValue !== undefined) {
+        try {
+          const variantResult = await addVariantToProduct(result.product.id, {
+            sku: `MRP-${Date.now()}`,
+            price: sellerPriceValue,
+            compareAtPrice: compareAtPriceValue,
+            initialStock: 0,
+          });
+          createdVariant = variantResult.variant;
+        } catch {
+          toast.warning(
+            "Product created, but MRP setup variant could not be auto-created. You can add it from Add Variant."
+          );
+        }
+      }
+
       toast.success("Your product has been submitted for price and approval.");
-      setForm({ categoryId: "", title: "", sellerPrice: "", description: "", isPublished: false });
+      setForm({
+        categoryId: "",
+        title: "",
+        sellerPrice: "",
+        compareAtPrice: "",
+        description: "",
+        isPublished: false,
+      });
       setImages([]);
       setShowCreateModal(false);
 
@@ -205,7 +256,7 @@ export default function SellerProductsPage() {
         {
           ...result.product,
           category: categories.find((c) => c.id === form.categoryId) ?? null,
-          variants: [],
+          variants: createdVariant ? [createdVariant] : [],
           images: images.map((image) => image.url),
         },
         ...prev,
@@ -1080,6 +1131,19 @@ export default function SellerProductsPage() {
                         setForm((prev) => ({ ...prev, sellerPrice: event.target.value }))
                       }
                       placeholder="Enter your selling price"
+                    />
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label>Compare-at Price (MRP)</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      step="0.01"
+                      value={form.compareAtPrice}
+                      onChange={(event) =>
+                        setForm((prev) => ({ ...prev, compareAtPrice: event.target.value }))
+                      }
+                      placeholder="Enter MRP"
                     />
                   </div>
                 </div>

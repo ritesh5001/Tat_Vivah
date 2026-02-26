@@ -103,10 +103,7 @@ export default function ProductDetailClient({
     (variant) => variant.id === selectedVariantId
   );
   const salePrice = product.salePrice ?? product.adminPrice ?? product.price;
-  // Compare-at should come from merchandising fields (variant compareAtPrice / product regularPrice),
-  // not from sellerPrice (which is a cost/baseline and breaks strike-through after admin repricing).
-  const compareAtPrice =
-    selectedVariant?.compareAtPrice ?? product.regularPrice ?? null;
+  const compareAtPrice = selectedVariant?.compareAtPrice ?? null;
 
   const handleAddToCart = async () => {
     if (!selectedVariant) {
