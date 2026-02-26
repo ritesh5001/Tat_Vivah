@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
+import Image from "next/image";
 import { MotionCarousel } from "@/components/motion/MotionCarousel";
-import { MotionCard } from "@/components/motion/MotionCard";
 
 type ShowcaseProduct = {
   id: string;
@@ -69,32 +70,44 @@ export function ProductShowcaseSection() {
 
         <MotionCarousel>
           {showcaseProducts.map((product) => (
-            <MotionCard
+            <div
               key={product.id}
-              imageSrc={product.imageSrc}
-              imageAlt={product.title}
-              aspectClass="aspect-3/4"
+              className="snap-center shrink-0 w-[calc(50%-0.75rem)] md:w-[calc(33.333%-1rem)] xl:w-[calc(20%-1.2rem)]"
             >
-              <div className="px-4 pt-5 pb-6 text-center">
-                <h3 className="font-serif text-[2rem] font-normal leading-tight tracking-tight text-foreground md:text-[1.35rem] xl:text-[1.2rem]">
-                  {product.title}
-                </h3>
-                <p className="mt-5 text-[1.05rem] uppercase tracking-[0.35em] text-muted-foreground md:text-[0.95rem]">
-                  {product.category}
-                </p>
-                <div className="mt-4 flex items-baseline justify-center gap-3">
-                  <span className="text-[2.05rem] font-normal tracking-tight text-foreground md:text-[1.7rem] xl:text-[1.55rem]">
-                    {product.salePrice}
-                  </span>
-                  <span className="text-[1.6rem] font-normal text-muted-foreground/70 line-through md:text-[1.3rem] xl:text-[1.15rem]">
-                    {product.regularPrice}
-                  </span>
-                  <span className="text-[1.1rem] font-medium uppercase tracking-[0.08em] text-destructive md:text-[0.95rem]">
-                    {product.discount}
-                  </span>
+              <Link href="/marketplace" className="group block">
+                <div className="relative overflow-hidden bg-cream dark:bg-brown/20 aspect-3/4">
+                  <Image
+                    src={product.imageSrc}
+                    alt={product.title}
+                    fill
+                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                    className="object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+                    loading="lazy"
+                    quality={75}
+                  />
                 </div>
-              </div>
-            </MotionCard>
+
+                <div className="pt-4 text-center">
+                  <h3 className="line-clamp-2 font-serif text-[14px] font-normal tracking-[0.01em] text-foreground transition-colors duration-300 group-hover:text-gold">
+                    {product.title}
+                  </h3>
+                  <p className="mt-3 text-[11px] uppercase tracking-[0.3em] text-muted-foreground/90">
+                    {product.category}
+                  </p>
+                  <div className="mt-2 flex items-baseline justify-center gap-2">
+                    <span className="text-[15px] font-normal tracking-[0.01em] text-foreground">
+                      {product.salePrice}
+                    </span>
+                    <span className="text-[15px] font-normal text-muted-foreground/70 line-through">
+                      {product.regularPrice}
+                    </span>
+                    <span className="text-[12px] font-medium uppercase tracking-wider text-destructive">
+                      {product.discount}
+                    </span>
+                  </div>
+                </div>
+              </Link>
+            </div>
           ))}
         </MotionCarousel>
       </div>
