@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import Link from "next/link";
-import Image from "next/image";
 import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import {
@@ -15,6 +14,7 @@ import { getBestsellers, type BestsellerProduct } from "@/services/bestsellers";
 import { LuxuryHero } from "@/components/home/LuxuryHero";
 import { FeaturesMarquee } from "@/components/features-marquee";
 import { CategoryCarousel } from "@/components/home/CategoryCarousel";
+import { ProductShowcaseSection } from "@/components/home/ProductShowcaseSection";
 import { WishlistHeartButton } from "@/components/wishlist-heart-button";
 import { MotionCarousel } from "@/components/motion/MotionCarousel";
 import { MotionCard } from "@/components/motion/MotionCard";
@@ -189,6 +189,8 @@ export default function Home() {
         </div>
       </section>
 
+      <ProductShowcaseSection />
+
       <WeddingSectionBanner />
 
         <RecommendedForYouSection />
@@ -222,7 +224,7 @@ export default function Home() {
               <p className="text-base leading-relaxed text-muted-foreground max-w-lg">
                 Introducing our latest curation of handwoven masterpieces,
                 each crafted by third-generation artisans from Varanasi and Lucknow.
-                Limited edition pieces that celebrate India's textile heritage.
+                Limited edition pieces that celebrate India&apos;s textile heritage.
               </p>
               <div className="pt-4">
                 <Link
