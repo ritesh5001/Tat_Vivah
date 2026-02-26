@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { requestEmailOtp, verifyEmailOtp } from "@/services/auth";
+import { requestEmailOtp, verifyEmailOtp, persistAuthCookies } from "@/services/auth";
 import { toast } from "sonner";
 import { heroContainerVariants, heroItemVariants } from "@/lib/motion.config";
 
@@ -38,14 +38,8 @@ export default function VerifyOtpPage() {
     setLoading(true);
     try {
       const result = await verifyEmailOtp({ email, otp });
-      if (result.accessToken && result.user) {
-        document.cookie = `tatvivah_access=${result.accessToken}; path=/; max-age=86400`;
-        document.cookie = `tatvivah_role=${result.user.role}; path=/; max-age=86400`;
-        document.cookie = `tatvivah_user=${encodeURIComponent(
-          JSON.stringify(result.user)
-        )}; path=/; max-age=86400`;
-
-        window.dispatchEvent(new Event("tatvivah-auth"));
+      if (result.accessToken && result.refreshToken && result.user) {
+        persistAuthCookies(result.accessToken, result.refreshToken, result.user);
 
         toast.success("Email verified successfully.");
 

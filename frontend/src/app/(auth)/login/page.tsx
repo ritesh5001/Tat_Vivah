@@ -16,7 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { loginUser } from "@/services/auth";
+import { loginUser, persistAuthCookies } from "@/services/auth";
 import { toast } from "sonner";
 import { heroContainerVariants, heroItemVariants } from "@/lib/motion.config";
 
@@ -40,13 +40,7 @@ export default function LoginPage() {
     try {
       const result = await loginUser({ identifier, password });
 
-      document.cookie = `tatvivah_access=${result.accessToken}; path=/; max-age=86400`;
-      document.cookie = `tatvivah_role=${result.user.role}; path=/; max-age=86400`;
-      document.cookie = `tatvivah_user=${encodeURIComponent(
-        JSON.stringify(result.user)
-      )}; path=/; max-age=86400`;
-
-      window.dispatchEvent(new Event("tatvivah-auth"));
+      persistAuthCookies(result.accessToken, result.refreshToken, result.user);
 
       toast.success("Welcome back to TatVivah.");
 
