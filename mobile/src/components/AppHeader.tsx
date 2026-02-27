@@ -25,7 +25,7 @@ export function AppHeader({
   showMenu = true,
   showSearch = false,
   showCart = false,
-  showHome = true,
+  showHome = false,
 }: AppHeaderProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -51,15 +51,11 @@ export function AppHeader({
               <Pressable onPress={handleBack} style={styles.iconButton} hitSlop={8}>
                 <Ionicons name="chevron-back" size={18} color={colors.charcoal} />
               </Pressable>
-              <View style={styles.brandWrap}>
-                <Image source={images.logo} style={styles.logo} contentFit="contain" />
-                <Text style={styles.brandText}>TatVivah</Text>
-              </View>
             </View>
           ) : (
             <View style={styles.brandWrap}>
               <Image source={images.logo} style={styles.logo} contentFit="contain" />
-              <Text style={styles.brandText}>TatVivah</Text>
+              <Text style={styles.brandText} numberOfLines={1}>TatVivah</Text>
             </View>
           )}
         </View>
@@ -100,6 +96,13 @@ export function AppHeader({
         </View>
       </View>
 
+      {(title || subtitle) ? (
+        <View style={styles.metaBlock}>
+          {title ? <Text style={styles.metaTitle}>{title}</Text> : null}
+          {subtitle ? <Text style={styles.metaSubtitle}>{subtitle}</Text> : null}
+        </View>
+      ) : null}
+
       <MenuSheet
         visible={menuOpen}
         onClose={() => setMenuOpen(false)}
@@ -124,10 +127,12 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     minHeight: 52,
   },
   leftSlot: {
     flex: 1,
+    maxWidth: "45%",
     justifyContent: "flex-start",
   },
   leftRow: {
@@ -139,30 +144,49 @@ const styles = StyleSheet.create({
     flex: 0,
     flexDirection: "row",
     justifyContent: "flex-end",
-    gap: spacing.sm,
+    gap: spacing.xs,
+    marginLeft: spacing.sm,
   },
   iconButton: {
-    height: 40,
-    width: 40,
-    borderRadius: 20,
+    height: 38,
+    width: 38,
+    borderRadius: 19,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.cream,
   },
   brandWrap: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.xs,
+    maxWidth: "100%",
   },
   logo: {
-    height: 34,
-    width: 34,
+    height: 30,
+    width: 30,
   },
   brandText: {
     fontFamily: typography.serif,
-    fontSize: 22,
+    fontSize: 20,
+    color: colors.gold,
+  },
+  metaBlock: {
+    marginTop: spacing.xs,
+    paddingBottom: spacing.xs,
+  },
+  metaTitle: {
+    fontFamily: typography.serif,
+    fontSize: 20,
     color: colors.charcoal,
+  },
+  metaSubtitle: {
+    marginTop: 2,
+    fontFamily: typography.sans,
+    fontSize: 11,
+    textTransform: "uppercase",
+    letterSpacing: 1.3,
+    color: colors.brownSoft,
   },
 });

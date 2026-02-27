@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { Image } from "expo-image";
 import { FlashList } from "@shopify/flash-list";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
@@ -18,11 +19,12 @@ import {
   getProducts,
   type ProductItem,
 } from "../../../src/services/products";
-import { ProductGridCard } from "../../../src/components/ProductGridCard";
 import { ApiError } from "../../../src/services/api";
 import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
 
 const LIMIT = 12;
+const fallbackImage =
+  "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80";
 
 export default function MarketplaceScreen() {
   const router = useRouter();
@@ -67,6 +69,15 @@ export default function MarketplaceScreen() {
     [productsQuery.data]
   );
 
+  const formatPrice = React.useCallback((price?: number | null) => {
+    if (!price && price !== 0) return "Price on request";
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 0,
+    }).format(price);
+  }, []);
+
   const handleSearch = React.useCallback(() => {
     setSearch(searchInput.trim());
   }, [searchInput]);
@@ -88,24 +99,44 @@ export default function MarketplaceScreen() {
   );
 
   const renderItem = React.useCallback(
-    ({ item, index }: { item: ProductItem; index: number }) => (
-      <View
-        style={styles.productCardWrap}
-      >
-        <ProductGridCard
-          product={item}
-          onExplore={() => handleProductPress(item)}
-          onBuyNow={() => handleProductPress(item)}
+    ({ item }: { item: ProductItem; index: number }) => (
+      <Pressable style={styles.luxuryCard} onPress={() => handleProductPress(item)}>
+        <Image
+          source={item.images?.[0] ? { uri: item.images[0] } : { uri: fallbackImage }}
+          style={styles.luxuryImage}
+          contentFit="cover"
+          transition={220}
+          cachePolicy="memory-disk"
         />
-      </View>
+        <View style={styles.luxuryOverlay} />
+        <View style={styles.luxuryInfo}>
+          <Text style={styles.luxuryCategory}>
+            {item.category?.name ?? "Tatvivah Curated"}
+          </Text>
+          <Text style={styles.luxuryTitle} numberOfLines={2}>
+            {item.title}
+          </Text>
+          <View style={styles.luxuryBottomRow}>
+            <Text style={styles.luxuryPrice}>
+              {formatPrice(item.salePrice ?? item.adminPrice ?? item.price ?? item.sellerPrice)}
+            </Text>
+            <View style={styles.luxuryCtaPill}>
+              <Text style={styles.luxuryCtaText}>Explore</Text>
+            </View>
+          </View>
+        </View>
+      </Pressable>
     ),
-    [handleProductPress]
+    [formatPrice, handleProductPress]
   );
 
   const ListHeader = (
     <View style={styles.header}>
       <Text style={styles.title}>Marketplace</Text>
       <Text style={styles.subtitle}>Premium curated catalog</Text>
+      <Text style={styles.subtitleCopy}>
+        Discover wedding-ready edits crafted with heritage silhouettes and modern luxury detailing.
+      </Text>
 
       <View style={styles.searchCard}>
         <TextInput
@@ -171,11 +202,11 @@ export default function MarketplaceScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <AppHeader title="Marketplace" subtitle="Premium curated catalog" showMenu showBack />
+      <AppHeader showMenu showBack showSearch showCart />
       <FlashList
         data={products}
         keyExtractor={(item) => item.id}
-        numColumns={2}
+        numColumns={1}
         contentContainerStyle={styles.container}
         
         renderItem={renderItem}
@@ -228,13 +259,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xl,
     paddingTop: spacing.sm,
-    gap: spacing.md,
+    gap: spacing.lg,
   },
   gridRow: {
     gap: spacing.md,
   },
   header: {
     marginBottom: spacing.md,
+    paddingHorizontal: spacing.xs,
   },
   title: {
     fontFamily: typography.serif,
@@ -249,26 +281,38 @@ const styles = StyleSheet.create({
     letterSpacing: 1.4,
     color: colors.brownSoft,
   },
+  subtitleCopy: {
+    marginTop: spacing.xs,
+    fontFamily: typography.sans,
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.brownSoft,
+  },
   searchCard: {
     marginTop: spacing.md,
-    padding: spacing.sm,
+    padding: spacing.md,
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    backgroundColor: colors.warmWhite,
+    backgroundColor: "#1E1A17",
     ...shadow.card,
   },
   searchInput: {
     fontFamily: typography.sans,
     fontSize: 14,
-    color: colors.charcoal,
-    borderBottomWidth: 1,
+    color: "#F5F1E8",
+    borderWidth: 1,
     borderBottomColor: colors.borderSoft,
-    paddingBottom: spacing.sm,
+    borderColor: colors.borderSoft,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
   searchButton: {
     marginTop: spacing.sm,
-    backgroundColor: colors.charcoal,
+    backgroundColor: "#E8DCC5",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.16)",
     borderRadius: radius.md,
     paddingVertical: spacing.sm,
     alignItems: "center",
@@ -278,7 +322,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     letterSpacing: 1.4,
     textTransform: "uppercase",
-    color: colors.background,
+    color: "#1A1A1A",
   },
   sortRow: {
     marginTop: spacing.md,
@@ -289,7 +333,7 @@ const styles = StyleSheet.create({
     flex: 1,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    backgroundColor: colors.warmWhite,
+    backgroundColor: "#1E1A17",
     paddingVertical: 10,
     borderRadius: radius.md,
     alignItems: "center",
@@ -299,7 +343,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     letterSpacing: 1.2,
     textTransform: "uppercase",
-    color: colors.charcoal,
+    color: "#F5F1E8",
   },
   filterRow: {
     marginTop: spacing.md,
@@ -311,30 +355,102 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    backgroundColor: colors.warmWhite,
+    backgroundColor: "#1E1A17",
   },
   filterChipActive: {
-    backgroundColor: colors.charcoal,
-    borderColor: colors.charcoal,
+    backgroundColor: "rgba(232,220,197,0.18)",
+    borderColor: "#E8DCC5",
   },
   filterText: {
     fontFamily: typography.sans,
     fontSize: 11,
     textTransform: "uppercase",
     letterSpacing: 1.2,
-    color: colors.charcoal,
+    color: "rgba(245,241,232,0.7)",
   },
   filterTextActive: {
-    color: colors.background,
+    color: "#F5F1E8",
   },
-  productCardWrap: {
-    flex: 1,
+  luxuryCard: {
+    width: "100%",
+    borderRadius: 14,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.06)",
+    backgroundColor: "#1E1A17",
+    shadowColor: "#000000",
+    shadowOpacity: 0.4,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 24,
+    elevation: 5,
+    marginBottom: spacing.lg,
+  },
+  luxuryImage: {
+    width: "100%",
+    aspectRatio: 0.75,
+    backgroundColor: colors.surface,
+  },
+  luxuryOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0, 0, 0, 0.18)",
+  },
+  luxuryInfo: {
+    position: "absolute",
+    left: spacing.md,
+    right: spacing.md,
+    bottom: spacing.md,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.25)",
+    backgroundColor: "rgba(15, 12, 9, 0.78)",
+  },
+  luxuryCategory: {
+    fontFamily: typography.sans,
+    fontSize: 10,
+    letterSpacing: 1.6,
+    textTransform: "uppercase",
+    color: colors.gold,
+    fontWeight: "400",
+  },
+  luxuryTitle: {
+    marginTop: spacing.xs,
+    fontFamily: typography.serif,
+    fontSize: 22,
+    color: "#F5F1E8",
+    fontWeight: "600",
+  },
+  luxuryBottomRow: {
+    marginTop: spacing.sm,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  luxuryPrice: {
+    fontFamily: typography.serif,
+    fontSize: 17,
+    color: "#F5F1E8",
+  },
+  luxuryCtaPill: {
+    borderWidth: 1,
+    borderColor: "rgba(246, 238, 226, 0.28)",
+    borderRadius: 16,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    backgroundColor: "rgba(232,220,197,0.95)",
+  },
+  luxuryCtaText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 10,
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+    color: "#1A1A1A",
   },
   emptyCard: {
     marginTop: spacing.lg,
     padding: spacing.lg,
     borderRadius: radius.lg,
-    backgroundColor: colors.warmWhite,
+    backgroundColor: "#1E1A17",
     borderWidth: 1,
     borderColor: colors.borderSoft,
     alignItems: "center",
@@ -354,7 +470,9 @@ const styles = StyleSheet.create({
   loadMoreButton: {
     marginTop: spacing.lg,
     marginBottom: spacing.xl,
-    backgroundColor: colors.charcoal,
+    backgroundColor: "#E8DCC5",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.16)",
     borderRadius: radius.md,
     paddingVertical: spacing.sm,
     alignItems: "center",
@@ -364,7 +482,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     letterSpacing: 1.4,
     textTransform: "uppercase",
-    color: colors.background,
+    color: "#1A1A1A",
   },
   footerSpacer: {
     height: spacing.xl,

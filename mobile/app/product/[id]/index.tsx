@@ -620,7 +620,6 @@ export default function ProductDetailScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <AppHeader showMenu showBack showCart />
-      {adding && <TatvivahOverlayLoader label="Adding to cart" />}
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         {/* ---- Image gallery with paging dots ---- */}
         <View style={styles.galleryFrame}>
@@ -665,9 +664,14 @@ export default function ProductDetailScreen() {
 
         {/* ---- Details card ---- */}
         <View style={styles.detailsCard}>
-          <Text style={styles.categoryLabel}>
-            {product.category?.name ?? "Curated Collection"}
-          </Text>
+          <View style={styles.detailsTopRow}>
+            <Text style={styles.categoryLabel}>
+              {product.category?.name ?? "Curated Collection"}
+            </Text>
+            <View style={styles.detailsBadge}>
+              <Text style={styles.detailsBadgeText}>Luxury Edit</Text>
+            </View>
+          </View>
           <Text style={styles.productTitle}>{product.title}</Text>
 
           {/* Average rating */}
@@ -757,11 +761,11 @@ export default function ProductDetailScreen() {
           </View>
 
           {/* Add to cart + Wishlist row */}
-          <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+          <View style={styles.actionRow}>
             <AnimatedPressable
               style={[
                 styles.primaryButton,
-                { flex: 1 },
+                styles.primaryAction,
                 (outOfStock || adding) && styles.buttonDisabled,
               ]}
               onPress={handleAddToCart}
@@ -794,20 +798,10 @@ export default function ProductDetailScreen() {
                 }
               }}
               disabled={!product || wishlistMutatingIds.has(product?.id ?? "")}
-              style={{
-                width: 52,
-                height: 52,
-                borderRadius: radius.md,
-                borderWidth: 1,
-                borderColor: product && isWishlisted(product.id)
-                  ? "#E8453C"
-                  : colors.borderSoft,
-                backgroundColor: product && isWishlisted(product.id)
-                  ? "#FEF2F2"
-                  : colors.warmWhite,
-                justifyContent: "center",
-                alignItems: "center",
-              }}
+              style={[
+                styles.wishlistButton,
+                product && isWishlisted(product.id) && styles.wishlistButtonActive,
+              ]}
               hitSlop={8}
             >
               <Text style={{ fontSize: 22 }}>
@@ -978,6 +972,10 @@ const styles = StyleSheet.create({
   // Gallery
   galleryFrame: {
     marginTop: spacing.md,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: colors.borderSoft,
+    paddingVertical: spacing.sm,
   },
   galleryContainer: {
     paddingHorizontal: spacing.lg,
@@ -1023,10 +1021,16 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.lg,
     padding: spacing.lg,
     borderRadius: radius.lg,
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     ...shadow.card,
+  },
+  detailsTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.sm,
   },
   categoryLabel: {
     fontFamily: typography.sans,
@@ -1034,6 +1038,21 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
     textTransform: "uppercase",
     color: colors.gold,
+  },
+  detailsBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.gold,
+    backgroundColor: "rgba(196, 167, 108, 0.12)",
+  },
+  detailsBadgeText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 9,
+    color: colors.gold,
+    textTransform: "uppercase",
+    letterSpacing: 1.1,
   },
   productTitle: {
     marginTop: spacing.xs,
@@ -1153,6 +1172,16 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: "center",
   },
+  actionRow: {
+    marginTop: spacing.sm,
+    flexDirection: "row",
+    gap: 12,
+    alignItems: "center",
+  },
+  primaryAction: {
+    flex: 1,
+    marginTop: 0,
+  },
   primaryButtonText: {
     fontFamily: typography.sansMedium,
     fontSize: 12,
@@ -1178,6 +1207,20 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     opacity: 0.5,
   },
+  wishlistButton: {
+    width: 52,
+    height: 52,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.surface,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  wishlistButtonActive: {
+    borderColor: "#E8453C",
+    backgroundColor: "#3B1E22",
+  },
   loaderOverlay: {
     position: "absolute",
     top: 0,
@@ -1202,7 +1245,7 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.lg,
     padding: spacing.lg,
     borderRadius: radius.lg,
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     ...shadow.card,
@@ -1369,7 +1412,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
     padding: spacing.lg,
     borderRadius: radius.lg,
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     ...shadow.card,

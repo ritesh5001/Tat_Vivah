@@ -228,6 +228,9 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderSoft,
   },
   headerTitle: {
     fontFamily: typography.serif,
@@ -239,6 +242,7 @@ const styles = StyleSheet.create({
     fontFamily: typography.sans,
     fontSize: 12,
     color: colors.brownSoft,
+    lineHeight: 18,
   },
 
   // Cards
@@ -247,7 +251,7 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.lg,
     padding: spacing.lg,
     borderRadius: radius.lg,
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     ...shadow.card,
@@ -258,7 +262,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: colors.cream,
+    backgroundColor: colors.surface,
     borderWidth: 2,
     borderColor: colors.gold,
     alignItems: "center",
@@ -294,7 +298,7 @@ const styles = StyleSheet.create({
   // Section title
   sectionTitle: {
     fontFamily: typography.serif,
-    fontSize: 16,
+    fontSize: 18,
     color: colors.charcoal,
     marginBottom: spacing.sm,
   },
@@ -329,6 +333,8 @@ const styles = StyleSheet.create({
   primaryButton: {
     marginTop: spacing.lg,
     backgroundColor: colors.charcoal,
+    borderWidth: 1,
+    borderColor: colors.gold,
     borderRadius: radius.md,
     paddingVertical: 14,
     alignItems: "center",
@@ -353,7 +359,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     letterSpacing: 1.2,
     textTransform: "uppercase",
-    color: colors.charcoal,
+    color: colors.foreground,
   },
   buttonDisabled: {
     opacity: 0.5,
@@ -398,9 +404,11 @@ const styles = StyleSheet.create({
   modalCard: {
     width: "100%",
     maxWidth: 340,
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surfaceElevated,
     borderRadius: radius.lg,
     padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
     ...shadow.card,
   },
   modalTitle: {
@@ -433,7 +441,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     letterSpacing: 1,
     textTransform: "uppercase",
-    color: colors.charcoal,
+    color: colors.foreground,
   },
   modalConfirmButton: {
     paddingVertical: spacing.sm,

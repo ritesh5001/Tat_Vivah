@@ -536,7 +536,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surface,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -547,6 +547,8 @@ const styles = StyleSheet.create({
   },
   searchButton: {
     backgroundColor: colors.charcoal,
+    borderWidth: 1,
+    borderColor: colors.gold,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     justifyContent: "center",
@@ -569,11 +571,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: 20,
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surface,
   },
   categoryChipActive: {
     borderColor: colors.gold,
-    backgroundColor: colors.cream,
+    backgroundColor: "rgba(184, 149, 108, 0.14)",
   },
   categoryChipText: {
     fontFamily: typography.sans,
@@ -593,9 +595,9 @@ const styles = StyleSheet.create({
   productCard: {
     width: cardWidth,
     marginBottom: spacing.md,
-    padding: spacing.sm,
+    padding: spacing.md,
     borderRadius: radius.lg,
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     ...shadow.card,
@@ -603,7 +605,7 @@ const styles = StyleSheet.create({
   productImage: {
     height: 160,
     borderRadius: radius.md,
-    backgroundColor: colors.cream,
+    backgroundColor: colors.surface,
   },
   productTitle: {
     marginTop: spacing.sm,
@@ -646,7 +648,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surfaceElevated,
     alignItems: "center",
     ...shadow.card,
   },
@@ -665,6 +667,8 @@ const styles = StyleSheet.create({
   retryButton: {
     marginTop: spacing.md,
     backgroundColor: colors.charcoal,
+    borderWidth: 1,
+    borderColor: colors.gold,
     borderRadius: radius.md,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
@@ -685,7 +689,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.borderSoft,
     borderRadius: radius.md,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surfaceElevated,
     ...shadow.card,
     maxHeight: 220,
   },
@@ -726,7 +730,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surface,
   },
   sortButtonText: {
     fontFamily: typography.sansMedium,
@@ -741,7 +745,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.35)",
   },
   sortSheet: {
-    backgroundColor: colors.background,
+    backgroundColor: colors.surfaceElevated,
     borderTopLeftRadius: radius.lg,
     borderTopRightRadius: radius.lg,
     paddingVertical: spacing.lg,
@@ -759,7 +763,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.borderSoft,
   },
   sortSheetOptionActive: {
-    backgroundColor: colors.cream,
+    backgroundColor: "rgba(184, 149, 108, 0.14)",
     borderRadius: radius.sm,
     marginHorizontal: -spacing.sm,
     paddingHorizontal: spacing.sm,

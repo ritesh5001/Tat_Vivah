@@ -82,11 +82,8 @@ export default function CartScreen() {
     (sum, item) => sum + item.priceSnapshot * item.quantity,
     0
   );
-  const itemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
-  const gstPerItem = 180;
   const shipping = cartItems.length ? 180 : 0;
-  const estimatedGst = itemCount ? gstPerItem * itemCount : 0;
-  const total = subtotal + shipping + estimatedGst;
+  const total = subtotal + shipping;
 
   const renderItem = React.useCallback(
     ({ item }: { item: CartItemDetails }) => {
@@ -238,7 +235,7 @@ export default function CartScreen() {
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>GST</Text>
               <Text style={styles.summaryValue}>
-                {estimatedGst ? currency.format(estimatedGst) : "—"}
+                Calculated at checkout
               </Text>
             </View>
             <View style={styles.summaryRow}>
@@ -279,6 +276,9 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderSoft,
   },
   headerTitle: {
     fontFamily: typography.serif,
@@ -290,6 +290,7 @@ const styles = StyleSheet.create({
     fontFamily: typography.sans,
     fontSize: 12,
     color: colors.brownSoft,
+    lineHeight: 18,
   },
   listContent: {
     paddingHorizontal: spacing.lg,
@@ -300,7 +301,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     padding: spacing.md,
     borderRadius: radius.lg,
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     ...shadow.card,
@@ -336,6 +337,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.borderSoft,
+    backgroundColor: colors.surface,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -362,10 +364,14 @@ const styles = StyleSheet.create({
     color: colors.gold,
   },
   summaryCard: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.lg,
     padding: spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: colors.borderSoft,
-    backgroundColor: colors.warmWhite,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surfaceElevated,
+    ...shadow.card,
   },
   summaryRow: {
     flexDirection: "row",
@@ -384,12 +390,14 @@ const styles = StyleSheet.create({
   },
   summaryTotal: {
     fontFamily: typography.serif,
-    fontSize: 16,
+    fontSize: 20,
     color: colors.charcoal,
   },
   primaryButton: {
     marginTop: spacing.md,
     backgroundColor: colors.charcoal,
+    borderWidth: 1,
+    borderColor: colors.gold,
     borderRadius: radius.md,
     paddingVertical: spacing.sm,
     alignItems: "center",
@@ -408,7 +416,7 @@ const styles = StyleSheet.create({
     margin: spacing.lg,
     padding: spacing.xl,
     borderRadius: radius.lg,
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     alignItems: "center",

@@ -345,6 +345,8 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderSoft,
   },
   backText: {
     fontFamily: typography.sans,
@@ -386,6 +388,8 @@ const styles = StyleSheet.create({
   },
   retryButton: {
     backgroundColor: colors.charcoal,
+    borderWidth: 1,
+    borderColor: colors.gold,
     borderRadius: radius.md,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
@@ -407,7 +411,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     padding: spacing.lg,
     borderRadius: radius.lg,
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     ...shadow.card,
@@ -445,10 +449,10 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   deliveredBanner: {
-    backgroundColor: "#FAF5EE",
+    backgroundColor: "rgba(184, 149, 108, 0.14)",
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: "#B7956C",
+    borderColor: colors.gold,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
     marginBottom: spacing.md,
@@ -457,7 +461,7 @@ const styles = StyleSheet.create({
   deliveredText: {
     fontFamily: typography.serif,
     fontSize: 15,
-    color: "#B7956C",
+    color: colors.gold,
     textAlign: "center",
   },
   noShipment: {

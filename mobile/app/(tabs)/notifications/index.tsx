@@ -62,7 +62,6 @@ export default function NotificationsScreen() {
     return (
       <SafeAreaView style={styles.safeArea}>
         <AppHeader title="Notifications" subtitle="Updates & offers" showMenu showBack />
-        <AppHeader title="Notifications" subtitle="Updates & offers" showMenu showBack />
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Notifications</Text>
           <Text style={styles.headerCopy}>Stay updated on orders and offers.</Text>
@@ -227,6 +226,7 @@ export default function NotificationsScreen() {
   // ---- Main render ----
   return (
     <SafeAreaView style={styles.safeArea}>
+      <AppHeader title="Notifications" subtitle="Updates & offers" showMenu showBack />
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Notifications</Text>
         <Text style={styles.headerCopy}>Stay updated on your orders.</Text>
@@ -310,6 +310,9 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderSoft,
   },
   headerTitle: {
     fontFamily: typography.serif,
@@ -331,13 +334,13 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     padding: spacing.md,
     borderRadius: radius.lg,
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     ...shadow.card,
   },
   cardUnread: {
-    borderLeftWidth: 3,
+    borderLeftWidth: 2,
     borderLeftColor: colors.gold,
   },
   cardHeader: {
@@ -369,7 +372,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     fontFamily: typography.sans,
     fontSize: 10,
-    color: colors.brownSoft,
+    color: colors.gold,
   },
 
   // States
@@ -413,6 +416,8 @@ const styles = StyleSheet.create({
   },
   retryButton: {
     backgroundColor: colors.charcoal,
+    borderWidth: 1,
+    borderColor: colors.gold,
     borderRadius: radius.md,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,

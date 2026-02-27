@@ -6,6 +6,8 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Link } from "expo-router";
@@ -23,6 +25,8 @@ export default function RegisterScreen() {
   const [phone, setPhone] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [confirmPassword, setConfirmPassword] = React.useState("");
+  const [showPassword, setShowPassword] = React.useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -57,7 +61,11 @@ export default function RegisterScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <AppHeader title="Create account" subtitle="TatVivah" showMenu showBack />
-      <ScrollView contentContainerStyle={styles.container}>
+      <KeyboardAvoidingView
+        style={styles.keyboardWrap}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <View style={styles.logoRow}>
           <View style={styles.logoBadge}>
             <Text style={styles.logoLetter}>T</Text>
@@ -106,24 +114,34 @@ export default function RegisterScreen() {
           />
 
           <Text style={styles.label}>Password</Text>
-          <TextInput
-            placeholder="Create a password"
-            placeholderTextColor={colors.brownSoft}
-            secureTextEntry
-            style={styles.input}
-            value={password}
-            onChangeText={setPassword}
-          />
+          <View style={styles.inputRow}>
+            <TextInput
+              placeholder="Create a password"
+              placeholderTextColor={colors.brownSoft}
+              secureTextEntry={!showPassword}
+              style={[styles.input, styles.passwordInput]}
+              value={password}
+              onChangeText={setPassword}
+            />
+            <Pressable style={styles.eyeButton} onPress={() => setShowPassword((prev) => !prev)}>
+              <Text style={styles.eyeText}>{showPassword ? "🙈" : "👁️"}</Text>
+            </Pressable>
+          </View>
 
           <Text style={styles.label}>Confirm password</Text>
-          <TextInput
-            placeholder="Re-enter password"
-            placeholderTextColor={colors.brownSoft}
-            secureTextEntry
-            style={styles.input}
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-          />
+          <View style={styles.inputRow}>
+            <TextInput
+              placeholder="Re-enter password"
+              placeholderTextColor={colors.brownSoft}
+              secureTextEntry={!showConfirmPassword}
+              style={[styles.input, styles.passwordInput]}
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+            />
+            <Pressable style={styles.eyeButton} onPress={() => setShowConfirmPassword((prev) => !prev)}>
+              <Text style={styles.eyeText}>{showConfirmPassword ? "🙈" : "👁️"}</Text>
+            </Pressable>
+          </View>
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
@@ -147,6 +165,7 @@ export default function RegisterScreen() {
           </Link>
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -155,6 +174,9 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  keyboardWrap: {
+    flex: 1,
   },
   container: {
     padding: spacing.lg,
@@ -170,7 +192,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    backgroundColor: colors.cream,
+    backgroundColor: colors.surface,
     alignItems: "center",
     justifyContent: "center",
     marginRight: spacing.sm,
@@ -189,7 +211,7 @@ const styles = StyleSheet.create({
     fontFamily: typography.sans,
     fontSize: 10,
     letterSpacing: 1.5,
-    color: colors.brownSoft,
+    color: colors.goldMuted,
     textTransform: "uppercase",
   },
   title: {
@@ -206,7 +228,9 @@ const styles = StyleSheet.create({
   },
   accountBadge: {
     alignSelf: "flex-start",
-    backgroundColor: colors.cream,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
     borderRadius: radius.md,
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.md,
@@ -215,12 +239,12 @@ const styles = StyleSheet.create({
   accountBadgeText: {
     fontFamily: typography.sansMedium,
     fontSize: 11,
-    color: colors.brown,
+    color: colors.gold,
     textTransform: "uppercase",
     letterSpacing: 1.4,
   },
   card: {
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surfaceElevated,
     borderRadius: radius.lg,
     padding: spacing.lg,
     borderWidth: 1,
@@ -243,10 +267,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     fontFamily: typography.sans,
     color: colors.charcoal,
+    backgroundColor: colors.surface,
     marginBottom: spacing.md,
+  },
+  inputRow: {
+    position: "relative",
+    justifyContent: "center",
+  },
+  passwordInput: {
+    paddingRight: 46,
+  },
+  eyeButton: {
+    position: "absolute",
+    right: spacing.sm,
+    top: 8,
+    width: 32,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  eyeText: {
+    fontSize: 16,
   },
   primaryButton: {
     backgroundColor: colors.charcoal,
+    borderWidth: 1,
+    borderColor: colors.gold,
     borderRadius: radius.md,
     paddingVertical: spacing.sm,
     alignItems: "center",

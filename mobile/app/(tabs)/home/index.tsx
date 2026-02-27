@@ -9,10 +9,13 @@ import {
   Pressable,
   Dimensions,
   Linking,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import { getBestsellers, BestsellerProduct } from "../../../src/services/bestsellers";
 import { getCategories, type Category } from "../../../src/services/catalog";
@@ -101,8 +104,42 @@ const guestPicks = [
   },
 ];
 
+const heroSlides = [
+  {
+    title: "Crafted for Regal Grooms",
+    subtitle: "Heritage silhouettes for majestic celebrations.",
+    cta: "Explore Groom Collection",
+    search: "sherwani",
+  },
+  {
+    title: "Celebrate In Style",
+    subtitle: "Modern wedding fashion crafted with elegance.",
+    cta: "Shop Wedding Looks",
+    search: "wedding",
+  },
+  {
+    title: "For Every Celebration",
+    subtitle: "From haldi to reception, complete your story.",
+    cta: "Discover Collections",
+    search: "kurta",
+  },
+  {
+    title: "Luxury Meets Tradition",
+    subtitle: "Premium wedding fashion for modern India.",
+    cta: "Start Exploring",
+    search: "indo western",
+  },
+  {
+    title: "Wedding Section Edit",
+    subtitle: "Statement ensembles curated for ceremonies and receptions.",
+    cta: "Explore Wedding Edit",
+    search: "wedding section",
+  },
+];
+
 export default function HomeScreen() {
   const router = useRouter();
+  const heroCardWidth = width;
   const [bestsellers, setBestsellers] = React.useState<BestsellerProduct[]>([]);
   const [loadingBestsellers, setLoadingBestsellers] = React.useState(true);
   const [categories, setCategories] = React.useState<Category[]>([]);
@@ -111,6 +148,7 @@ export default function HomeScreen() {
   const [recommendedProducts, setRecommendedProducts] = React.useState<ProductItem[]>([]);
   const [marketplaceProducts, setMarketplaceProducts] = React.useState<ProductItem[]>([]);
   const [loadingMarketplace, setLoadingMarketplace] = React.useState(true);
+  const [activeHeroIndex, setActiveHeroIndex] = React.useState(0);
 
   const latestArrivals = React.useMemo(
     () => (arrivals.length ? arrivals : fallbackArrivals).slice(0, 3),
@@ -270,9 +308,27 @@ export default function HomeScreen() {
     router.push({ pathname: "/(tabs)/privacy-policy" as any });
   }, [router]);
 
+  const handleLegalRoutePress = React.useCallback(
+    (route: string) => {
+      router.push({ pathname: route as any });
+    },
+    [router]
+  );
+
   const handleExternalLink = React.useCallback((url: string) => {
     Linking.openURL(url);
   }, []);
+
+  const handleHeroMomentumEnd = React.useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const nextIndex = Math.round(event.nativeEvent.contentOffset.x / heroCardWidth);
+      if (Number.isFinite(nextIndex)) {
+        const bounded = Math.max(0, Math.min(nextIndex, images.hero.mobile.length - 1));
+        setActiveHeroIndex(bounded);
+      }
+    },
+    [heroCardWidth]
+  );
 
   const renderProduct = React.useCallback(
     ({ item }: { item: BestsellerProduct }) => {
@@ -285,18 +341,21 @@ export default function HomeScreen() {
           <Image
             source={{ uri: imageUri }}
             style={styles.productImage}
-            contentFit="contain"
+            contentFit="cover"
+            contentPosition="top"
             transition={200}
             cachePolicy="memory-disk"
           />
-          <Text style={styles.productTitle}>{item.title}</Text>
-          <Text style={styles.productDescription} numberOfLines={2}>
-            Crafted edit for wedding celebrations.
-          </Text>
-          <Text style={styles.productCategory}>
-            {item.categoryName ?? "Curated edit"}
-          </Text>
-          <Text style={styles.productPrice}>{formatPrice(item.minPrice)}</Text>
+          <View style={styles.productInfo}>
+            <Text style={styles.productTitle}>{item.title}</Text>
+            <Text style={styles.productDescription} numberOfLines={2}>
+              Crafted edit for wedding celebrations.
+            </Text>
+            <Text style={styles.productCategory}>
+              {item.categoryName ?? "Curated edit"}
+            </Text>
+            <Text style={styles.productPrice}>{formatPrice(item.minPrice)}</Text>
+          </View>
         </Pressable>
       );
     },
@@ -342,33 +401,72 @@ export default function HomeScreen() {
           }
           ListHeaderComponent={
             <View>
-            <View style={styles.heroCard}>
-              <View style={styles.heroGlowOne} />
-              <View style={styles.heroGlowTwo} />
-              <View style={styles.heroMetaRow}>
-                <Text style={styles.heroEyebrow}>Tatvivah atelier</Text>
-                <View style={styles.heroMetaPill}>
-                  <Text style={styles.heroMetaPillText}>Premium edit</Text>
-                </View>
-              </View>
-              <Text style={styles.heroTitle}>Sherwani stories for grand moments</Text>
-              <Text style={styles.heroSubtitle}>
-                Discover heirloom-ready craftsmanship, styled for weddings and celebrations.
-              </Text>
-              <View style={styles.heroDivider} />
-              <View style={styles.heroActions}>
-                <Pressable
-                  style={[styles.primaryButton, styles.heroPrimaryButton]}
-                  onPress={() => router.push("/search")}
-                >
-                  <Text style={styles.primaryButtonText}>Explore collection</Text>
-                </Pressable>
-                <Pressable
-                  style={[styles.ghostButton, styles.heroGhostButton]}
-                  onPress={() => router.push("/marketplace")}
-                >
-                  <Text style={styles.ghostButtonText}>Partner with us</Text>
-                </Pressable>
+            <View style={styles.heroCarouselWrap}>
+              <ScrollView
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                snapToInterval={heroCardWidth}
+                decelerationRate="fast"
+                contentContainerStyle={styles.heroCarouselContent}
+                onMomentumScrollEnd={handleHeroMomentumEnd}
+              >
+                {images.hero.mobile.map((bannerImage, index) => {
+                  const copy = heroSlides[index] ?? heroSlides[0];
+                  return (
+                    <View
+                      key={`hero-slide-${index}`}
+                      style={[styles.heroCard, { width: heroCardWidth }]}
+                    >
+                      <Image
+                        source={bannerImage}
+                        style={styles.heroBannerImage}
+                        contentFit="cover"
+                        contentPosition="top"
+                        transition={220}
+                        cachePolicy="memory-disk"
+                      />
+                      <LinearGradient
+                        colors={["rgba(0,0,0,0)", "rgba(0,0,0,0.1)", "rgba(0,0,0,0.6)"]}
+                        locations={[0, 0.55, 1]}
+                        style={styles.heroBannerOverlay}
+                      />
+                      <View style={styles.heroContentLayer}>
+                        <View style={styles.heroMetaRow}>
+                          <Text style={styles.heroEyebrow}>Tatvivah atelier</Text>
+                          <View style={styles.heroMetaPill}>
+                            <Text style={styles.heroMetaPillText}>Premium edit</Text>
+                          </View>
+                        </View>
+                        <Text style={styles.heroTitle}>{copy.title}</Text>
+                        <Text style={styles.heroSubtitle}>{copy.subtitle}</Text>
+                        <View style={styles.heroDivider} />
+                        <View style={styles.heroActions}>
+                          <Pressable
+                            style={[styles.primaryButton, styles.heroPrimaryButton]}
+                            onPress={() => router.push(`/search?q=${encodeURIComponent(copy.search)}`)}
+                          >
+                            <Text style={styles.primaryButtonText}>{copy.cta}</Text>
+                          </Pressable>
+                          <Pressable
+                            style={[styles.ghostButton, styles.heroGhostButton]}
+                            onPress={() => router.push("/marketplace")}
+                          >
+                            <Text style={styles.ghostButtonText}>View Marketplace</Text>
+                          </Pressable>
+                        </View>
+                      </View>
+                    </View>
+                  );
+                })}
+              </ScrollView>
+              <View style={styles.heroDotsRow}>
+                {images.hero.mobile.map((_, idx) => (
+                  <View
+                    key={`hero-dot-${idx}`}
+                    style={[styles.heroDot, idx === activeHeroIndex && styles.heroDotActive]}
+                  />
+                ))}
               </View>
             </View>
 
@@ -611,7 +709,7 @@ export default function HomeScreen() {
                         <Image
                           source={{ uri: image }}
                           style={styles.arrivalImage}
-                          contentFit="contain"
+                          contentFit="cover"
                           transition={200}
                           cachePolicy="memory-disk"
                         />
@@ -645,7 +743,7 @@ export default function HomeScreen() {
                       <Image
                         source={{ uri: item.image }}
                         style={styles.arrivalImage}
-                        contentFit="contain"
+                        contentFit="cover"
                         transition={200}
                         cachePolicy="memory-disk"
                       />
@@ -688,7 +786,7 @@ export default function HomeScreen() {
                     <Image
                       source={{ uri: image ?? fallbackImage }}
                       style={styles.arrivalImage}
-                      contentFit="contain"
+                      contentFit="cover"
                       transition={200}
                       cachePolicy="memory-disk"
                     />
@@ -763,6 +861,30 @@ export default function HomeScreen() {
                 </Pressable>
                 <Pressable
                   style={styles.footerLinkButton}
+                  onPress={() => handleLegalRoutePress("/(tabs)/return-policy")}
+                >
+                  <Text style={styles.footerLinkText}>Return policy</Text>
+                </Pressable>
+                <Pressable
+                  style={styles.footerLinkButton}
+                  onPress={() => handleLegalRoutePress("/(tabs)/refund-policy")}
+                >
+                  <Text style={styles.footerLinkText}>Refund policy</Text>
+                </Pressable>
+                <Pressable
+                  style={styles.footerLinkButton}
+                  onPress={() => handleLegalRoutePress("/(tabs)/terms")}
+                >
+                  <Text style={styles.footerLinkText}>Terms</Text>
+                </Pressable>
+                <Pressable
+                  style={styles.footerLinkButton}
+                  onPress={() => handleLegalRoutePress("/(tabs)/contact")}
+                >
+                  <Text style={styles.footerLinkText}>Contact</Text>
+                </Pressable>
+                <Pressable
+                  style={styles.footerLinkButton}
                   onPress={() => handleExternalLink("https://tatvivahtrends.com")}
                 >
                   <Text style={styles.footerLinkText}>tatvivahtrends.com</Text>
@@ -795,15 +917,50 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
   },
   heroCard: {
-    marginTop: spacing.lg,
-    marginHorizontal: spacing.lg,
-    padding: spacing.lg,
-    borderRadius: radius.xl,
-    backgroundColor: colors.warmWhite,
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
+    marginTop: spacing.md,
+    marginHorizontal: 0,
+    borderRadius: 0,
+    backgroundColor: colors.surfaceElevated,
+    borderWidth: 0,
     overflow: "hidden",
-    ...shadow.card,
+    aspectRatio: 0.8,
+  },
+  heroCarouselWrap: {
+    marginTop: spacing.md,
+  },
+  heroCarouselContent: {
+    paddingHorizontal: 0,
+  },
+  heroBannerImage: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  heroBannerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  heroContentLayer: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "flex-end",
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg,
+    paddingTop: spacing.xxl,
+  },
+  heroDotsRow: {
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 8,
+  },
+  heroDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "rgba(255,255,255,0.3)",
+  },
+  heroDotActive: {
+    width: 8,
+    backgroundColor: "#E8DCC5",
   },
   heroGlowOne: {
     position: "absolute",
@@ -857,33 +1014,37 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     fontFamily: typography.serif,
     fontSize: 32,
-    color: colors.charcoal,
+    color: "#F5F1E8",
+    fontWeight: "600",
     lineHeight: 38,
   },
   heroSubtitle: {
     marginTop: spacing.sm,
-    fontFamily: typography.sans,
+    fontFamily: typography.sansMedium,
     fontSize: 14,
     lineHeight: 20,
-    color: colors.brownSoft,
+    color: "rgba(245,241,232,0.85)",
   },
   heroDivider: {
     marginTop: spacing.md,
     height: 1,
-    backgroundColor: colors.borderSoft,
+    backgroundColor: "rgba(245,241,232,0.28)",
   },
   heroActions: {
     marginTop: spacing.md,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent: "center",
     gap: spacing.sm,
   },
   heroPrimaryButton: {
-    flex: 1,
+    width: 164,
+    backgroundColor: "#E8DCC5",
   },
   heroGhostButton: {
-    flex: 1,
+    width: 164,
+    backgroundColor: "transparent",
+    borderColor: "rgba(255,255,255,0.4)",
   },
   primaryButton: {
     backgroundColor: colors.charcoal,
@@ -892,7 +1053,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   primaryButtonText: {
-    color: colors.background,
+    color: "#1A1A1A",
     fontFamily: typography.sansMedium,
     fontSize: 12,
     letterSpacing: 1.5,
@@ -906,7 +1067,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   ghostButtonText: {
-    color: colors.charcoal,
+    color: "#F5F1E8",
     fontFamily: typography.sansMedium,
     fontSize: 12,
     letterSpacing: 1.5,
@@ -972,6 +1133,7 @@ const styles = StyleSheet.create({
   },
   latestCard: {
     flexDirection: "row",
+    width: "100%",
     borderRadius: radius.lg,
     backgroundColor: colors.warmWhite,
     borderWidth: 1,
@@ -1106,35 +1268,42 @@ const styles = StyleSheet.create({
   productCard: {
     flex: 1,
     marginTop: spacing.md,
-    padding: spacing.md,
-    borderRadius: radius.lg,
-    backgroundColor: colors.warmWhite,
+    padding: 0,
+    borderRadius: 14,
+    backgroundColor: "#1E1A17",
     borderWidth: 1,
-    borderColor: colors.borderSoft,
-    ...shadow.card,
+    borderColor: "rgba(255,255,255,0.06)",
+    shadowColor: "#000000",
+    shadowOpacity: 0.4,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 24,
+    elevation: 5,
+    overflow: "hidden",
   },
   productGridRow: {
     paddingHorizontal: spacing.lg,
     gap: spacing.md,
   },
   productImage: {
-    height: 180,
-    borderRadius: radius.md,
-    backgroundColor: colors.cream,
+    height: 220,
+    backgroundColor: colors.surface,
+  },
+  productInfo: {
+    padding: 16,
   },
   productTitle: {
-    marginTop: spacing.sm,
+    marginTop: 0,
     fontFamily: typography.serif,
     fontSize: 18,
-    borderRadius: radius.sm,
+    color: "#F5F1E8",
+    fontWeight: "600",
   },
   productDescription: {
     marginTop: spacing.xs,
-    fontFamily: typography.sans,
+    fontFamily: typography.sansMedium,
     fontSize: 12,
     lineHeight: 18,
-    color: colors.brownSoft,
-    borderRadius: radius.sm,
+    color: "rgba(245,241,232,0.7)",
   },
   productCategory: {
     marginTop: spacing.xs,
@@ -1142,13 +1311,13 @@ const styles = StyleSheet.create({
     fontSize: 10,
     letterSpacing: 1.4,
     textTransform: "uppercase",
-    color: colors.brownSoft,
+    color: "rgba(245,241,232,0.7)",
   },
   productPrice: {
     marginTop: spacing.xs,
-    fontFamily: typography.sans,
-    fontSize: 12,
-    color: colors.brownSoft,
+    fontFamily: typography.serif,
+    fontSize: 14,
+    color: "#F5F1E8",
   },
   skeletonLine: {
     height: 12,
@@ -1165,31 +1334,40 @@ const styles = StyleSheet.create({
   },
   arrivalCard: {
     width: 200,
+    minHeight: 268,
     marginTop: spacing.md,
     marginRight: spacing.md,
-    padding: spacing.md,
-    borderRadius: radius.lg,
-    backgroundColor: colors.warmWhite,
+    padding: 0,
+    borderRadius: 14,
+    backgroundColor: "#1E1A17",
     borderWidth: 1,
-    borderColor: colors.borderSoft,
-    ...shadow.card,
+    borderColor: "rgba(255,255,255,0.06)",
+    overflow: "hidden",
+    shadowColor: "#000000",
+    shadowOpacity: 0.4,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 24,
+    elevation: 5,
   },
   arrivalImage: {
-    height: 140,
-    borderRadius: radius.sm,
-    backgroundColor: colors.cream,
+    height: 200,
+    backgroundColor: colors.surface,
   },
   arrivalTitle: {
     marginTop: spacing.sm,
+    marginHorizontal: 16,
     fontFamily: typography.serif,
     fontSize: 16,
-    color: colors.charcoal,
+    color: "#F5F1E8",
+    fontWeight: "600",
   },
   arrivalPrice: {
     marginTop: spacing.xs,
+    marginHorizontal: 16,
+    marginBottom: spacing.md,
     fontFamily: typography.sans,
     fontSize: 12,
-    color: colors.brownSoft,
+    color: "rgba(245,241,232,0.7)",
   },
   editorialStack: {
     marginTop: spacing.md,
@@ -1252,9 +1430,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     justifyContent: "space-between",
+    flexWrap: "wrap",
     gap: spacing.md,
   },
   sectionAction: {
+    marginTop: spacing.xs,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     paddingHorizontal: spacing.sm,

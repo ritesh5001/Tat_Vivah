@@ -1,7 +1,7 @@
 import * as React from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { Image } from "expo-image";
-import { colors, typography } from "../theme/tokens";
+import { colors, typography, spacing } from "../theme/tokens";
 import { images } from "../data/images";
 import { type ProductItem } from "../services/products";
 import { useWishlist } from "../providers/WishlistProvider";
@@ -126,22 +126,22 @@ export const ProductGridCard = React.memo(ProductGridCardComponent);
 const styles = StyleSheet.create({
   card: {
     flex: 1,
-    borderRadius: 8,
-    backgroundColor: colors.warmWhite,
+    borderRadius: 16,
+    backgroundColor: "#1E1A17",
     borderWidth: 1,
-    borderColor: "rgba(209, 199, 186, 0.8)",
+    borderColor: colors.borderSoft,
     overflow: "hidden",
-    shadowColor: "#2C2825",
-    shadowOpacity: 0.08,
-    shadowOffset: { width: 0, height: 10 },
-    shadowRadius: 16,
-    elevation: 2,
+    shadowColor: "#000000",
+    shadowOpacity: 0.4,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 24,
+    elevation: 5,
+    marginBottom: spacing.lg,
+    aspectRatio: 0.68,
   },
   imageWrap: {
-    aspectRatio: 0.8,
-    backgroundColor: colors.cream,
-    borderTopLeftRadius: 8,
-    borderTopRightRadius: 8,
+    flex: 3,
+    backgroundColor: colors.surface,
     overflow: "hidden",
   },
   image: {
@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    backgroundColor: "rgba(32, 26, 21, 0.9)",
     borderWidth: 1,
     borderColor: colors.borderSoft,
     justifyContent: "center",
@@ -172,28 +172,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 14,
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    backgroundColor: "rgba(32, 26, 21, 0.92)",
     borderWidth: 1,
     borderColor: colors.borderSoft,
   },
   badgePillAccent: {
-    backgroundColor: "rgba(44, 40, 37, 0.9)",
-    borderColor: "rgba(44, 40, 37, 0.8)",
+    backgroundColor: "rgba(184, 149, 108, 0.16)",
+    borderColor: "rgba(184, 149, 108, 0.45)",
   },
   badgeText: {
     fontFamily: typography.serif,
     fontSize: 9,
     letterSpacing: 1,
     textTransform: "uppercase",
-    color: colors.brownSoft,
+    color: colors.brown,
   },
   badgeTextAccent: {
-    color: colors.warmWhite,
+    color: colors.gold,
   },
   info: {
-    paddingHorizontal: 10,
-    paddingTop: 10,
-    paddingBottom: 12,
+    flex: 1,
+    padding: 16,
     gap: 4,
   },
   brandText: {
@@ -206,12 +205,13 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: typography.serif,
     fontSize: 14,
-    color: colors.charcoal,
+    color: "#F5F1E8",
+    fontWeight: "600",
   },
   description: {
     fontFamily: typography.sans,
     fontSize: 11,
-    color: colors.brownSoft,
+    color: "rgba(245,241,232,0.7)",
     lineHeight: 16,
   },
   ratingRow: {
@@ -222,7 +222,7 @@ const styles = StyleSheet.create({
   ratingText: {
     fontFamily: typography.sansMedium,
     fontSize: 11,
-    color: colors.charcoal,
+    color: "#F5F1E8",
   },
   ratingMeta: {
     fontFamily: typography.sans,
@@ -237,12 +237,12 @@ const styles = StyleSheet.create({
   discountText: {
     fontFamily: typography.sansMedium,
     fontSize: 11,
-    color: "#2E7D32",
+    color: colors.gold,
   },
   price: {
     fontFamily: typography.serif,
     fontSize: 14,
-    color: colors.charcoal,
+    color: "#F5F1E8",
   },
   priceStrike: {
     fontFamily: typography.serif,
@@ -256,12 +256,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 10,
-    backgroundColor: "#E7F5EE",
+    backgroundColor: "rgba(184, 149, 108, 0.14)",
   },
   tagText: {
     fontFamily: typography.sansMedium,
     fontSize: 10,
-    color: "#1F6C4C",
+    color: colors.gold,
     textTransform: "uppercase",
     letterSpacing: 1,
   },

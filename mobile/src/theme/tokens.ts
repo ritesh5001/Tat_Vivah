@@ -1,13 +1,16 @@
 export const colors = {
-  background: "#FAF7F2",
-  cream: "#F4EFE7",
-  warmWhite: "#FFFCF8",
+  background: "#0F0C09",
+  surface: "#17120E",
+  surfaceElevated: "#201A15",
+  cream: "#17120E",
+  warmWhite: "#201A15",
+  foreground: "#F6EEE2",
   gold: "#B8956C",
   goldMuted: "#C9AB82",
-  charcoal: "#2C2825",
-  brown: "#3D3329",
-  brownSoft: "#5C524A",
-  borderSoft: "#E8E2D9",
+  charcoal: "#F6EEE2",
+  brown: "#D9C1A2",
+  brownSoft: "#AF9678",
+  borderSoft: "#3A2F25",
 };
 
 export const typography = {
