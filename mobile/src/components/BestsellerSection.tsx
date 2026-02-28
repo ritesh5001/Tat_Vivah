@@ -1,6 +1,6 @@
 import * as React from "react";
 import { View, Text, StyleSheet, FlatList, Pressable } from "react-native";
-import { Image } from "expo-image";
+import { Image } from "./CompatImage";
 import { colors, radius, spacing, typography, shadow } from "../theme/tokens";
 import { images } from "../data/images";
 import { type BestsellerProduct } from "../services/bestsellers";

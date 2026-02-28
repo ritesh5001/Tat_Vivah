@@ -14,8 +14,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { Image } from "expo-image";
-import { LinearGradient } from "expo-linear-gradient";
+import { Image } from "../../../src/components/CompatImage";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import { getBestsellers, BestsellerProduct } from "../../../src/services/bestsellers";
 import { getCategories, type Category } from "../../../src/services/catalog";
@@ -426,11 +425,7 @@ export default function HomeScreen() {
                         transition={220}
                         cachePolicy="memory-disk"
                       />
-                      <LinearGradient
-                        colors={["rgba(0,0,0,0)", "rgba(0,0,0,0.1)", "rgba(0,0,0,0.6)"]}
-                        locations={[0, 0.55, 1]}
-                        style={styles.heroBannerOverlay}
-                      />
+                      <View style={styles.heroBannerOverlay} />
                       <View style={styles.heroContentLayer}>
                         <View style={styles.heroMetaRow}>
                           <Text style={styles.heroEyebrow}>Tatvivah atelier</Text>
@@ -936,6 +931,7 @@ const styles = StyleSheet.create({
   },
   heroBannerOverlay: {
     ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.38)",
   },
   heroContentLayer: {
     ...StyleSheet.absoluteFillObject,

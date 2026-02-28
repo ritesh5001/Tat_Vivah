@@ -1,6 +1,5 @@
 import * as React from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { colors, radius, spacing, typography, shadow } from "../theme/tokens";
 
 interface MarketplaceSectionProps {
@@ -29,12 +28,7 @@ export function MarketplaceSection({
 }: MarketplaceSectionProps) {
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={["#FFF7EC", "#F7EFE6"]}
-        start={{ x: 0.2, y: 0.1 }}
-        end={{ x: 0.9, y: 0.9 }}
-        style={styles.marketplaceCard}
-      >
+      <View style={styles.marketplaceCard}>
         <Text style={styles.eyebrow}>Visit our marketplace</Text>
         <Text style={styles.title}>A curated destination for modern heritage</Text>
         <Text style={styles.copy}>
@@ -45,7 +39,7 @@ export function MarketplaceSection({
         <Pressable style={styles.primaryButton} onPress={onMarketplacePress}>
           <Text style={styles.primaryButtonText}>Browse marketplace</Text>
         </Pressable>
-      </LinearGradient>
+      </View>
 
       <View style={styles.featureGrid}>
         {featureCards.map((feature) => (
@@ -78,6 +72,7 @@ const styles = StyleSheet.create({
   },
   marketplaceCard: {
     padding: spacing.lg,
+    backgroundColor: "#F8F2E8",
     borderRadius: radius.xl,
     borderWidth: 1,
     borderColor: colors.borderSoft,

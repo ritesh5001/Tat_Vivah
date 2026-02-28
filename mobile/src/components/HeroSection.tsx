@@ -1,16 +1,10 @@
 import * as React from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { colors, radius, spacing, typography, shadow } from "../theme/tokens";
 
 export function HeroSection() {
   return (
-    <LinearGradient
-      colors={["#FFFCF8", "#F4EFE7"]}
-      start={{ x: 0.1, y: 0.1 }}
-      end={{ x: 0.9, y: 0.9 }}
-      style={styles.heroCard}
-    >
+    <View style={styles.heroCard}>
       <Text style={styles.heroEyebrow}>Curated men's fashion</Text>
       <Text style={styles.heroTitle}>The art of timeless elegance</Text>
       <Text style={styles.heroSubtitle}>
@@ -24,7 +18,7 @@ export function HeroSection() {
           <Text style={styles.ghostButtonText}>Partner with us</Text>
         </Pressable>
       </View>
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -33,6 +27,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     marginHorizontal: spacing.lg,
     padding: spacing.lg,
+    backgroundColor: "#F8F2EA",
     borderRadius: radius.xl,
     borderWidth: 1,
     borderColor: colors.borderSoft,

@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Image } from "expo-image";
+import { Image } from "../../../src/components/CompatImage";
 import { FlashList } from "@shopify/flash-list";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";

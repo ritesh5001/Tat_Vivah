@@ -1,6 +1,6 @@
 import * as React from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
-import { Image } from "expo-image";
+import { Image } from "./CompatImage";
 import { colors, typography, spacing } from "../theme/tokens";
 import { images } from "../data/images";
 import { type ProductItem } from "../services/products";

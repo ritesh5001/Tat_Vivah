@@ -1,6 +1,6 @@
 import * as React from "react";
 import { View, Text, StyleSheet } from "react-native";
-import { Image } from "expo-image";
+import { Image } from "./CompatImage";
 import { categoryCards } from "../data/categories";
 import { colors, radius, spacing, typography, shadow } from "../theme/tokens";
 

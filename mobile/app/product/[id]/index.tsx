@@ -15,7 +15,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Image } from "expo-image";
+import { Image } from "../../../src/components/CompatImage";
 import * as ImagePicker from "expo-image-picker";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import {

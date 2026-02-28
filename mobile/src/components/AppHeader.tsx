@@ -6,7 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { colors, radius, spacing, typography, shadow } from "../theme/tokens";
 import { images } from "../data/images";
 import { MenuSheet } from "./MenuSheet";
-import { Image } from "expo-image";
+import { Image } from "./CompatImage";
 
 interface AppHeaderProps {
   title?: string;

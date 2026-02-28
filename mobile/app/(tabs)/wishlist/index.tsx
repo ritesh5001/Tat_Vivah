@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { Image } from "expo-image";
+import { Image } from "../../../src/components/CompatImage";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import { useWishlist } from "../../../src/providers/WishlistProvider";
 import { useAuth } from "../../../src/hooks/useAuth";
