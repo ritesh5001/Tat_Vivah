@@ -1,19 +1,16 @@
 import * as React from "react";
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   Pressable,
   FlatList,
-  TextInput,
   Dimensions,
   Alert,
   type ListRenderItemInfo,
   type NativeSyntheticEvent,
   type NativeScrollEvent,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Image } from "../../../src/components/CompatImage";
 import * as ImagePicker from "expo-image-picker";
@@ -38,6 +35,11 @@ import { useNetworkStatus } from "../../../src/hooks/useNetworkStatus";
 import { useToast } from "../../../src/providers/ToastProvider";
 import { ApiError, isAbortError } from "../../../src/services/api";
 import { SkeletonBlock } from "../../../src/components/Skeleton";
+import {
+  AppInput as TextInput,
+  AppText as Text,
+  ScreenContainer as SafeAreaView,
+} from "../../../src/components";
 import { TatvivahLoader, TatvivahOverlayLoader } from "../../../src/components/TatvivahLoader";
 import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
 import { impactMedium, impactLight, notifySuccess } from "../../../src/utils/haptics";
@@ -584,7 +586,7 @@ export default function ProductDetailScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <AppHeader showMenu showBack showCart />
+        <AppHeader showMenu showBack showWishlist showCart />
         <ScrollView contentContainerStyle={styles.container}>
           <SkeletonBlock
             width={IMAGE_WIDTH}
@@ -606,7 +608,7 @@ export default function ProductDetailScreen() {
   if (!product) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <AppHeader showMenu showBack showCart />
+        <AppHeader showMenu showBack showWishlist showCart />
         <View style={styles.centerCard}>
           <Text style={styles.emptyTitle}>Product unavailable</Text>
           <Pressable style={styles.primaryButton} onPress={() => router.back()}>
@@ -619,7 +621,7 @@ export default function ProductDetailScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <AppHeader showMenu showBack showCart />
+      <AppHeader showMenu showBack showWishlist showCart />
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         {/* ---- Image gallery with paging dots ---- */}
         <View style={styles.galleryFrame}>
@@ -1116,7 +1118,7 @@ const styles = StyleSheet.create({
     color: "#5A8F5A",
   },
   stockTextOut: {
-    color: "#A65D57",
+    color: colors.gold,
   },
 
   // Variants
@@ -1167,7 +1169,7 @@ const styles = StyleSheet.create({
   // Buttons
   primaryButton: {
     marginTop: spacing.lg,
-    backgroundColor: colors.charcoal,
+    backgroundColor: colors.gold,
     borderRadius: radius.md,
     paddingVertical: 14,
     alignItems: "center",
@@ -1396,7 +1398,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     fontFamily: typography.sans,
     fontSize: 12,
-    color: "#A65D57",
+    color: colors.gold,
   },
   mutedText: {
     fontFamily: typography.sans,

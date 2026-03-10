@@ -1,0 +1,12 @@
+module.exports = function (api) {
+  api.cache(true);
+
+  return {
+    presets: ["babel-preset-expo"],
+    plugins: [
+      "expo-router/babel",
+      ...(process.env.NODE_ENV === "production" ? ["transform-remove-console"] : []),
+      "react-native-reanimated/plugin",
+    ],
+  };
+};

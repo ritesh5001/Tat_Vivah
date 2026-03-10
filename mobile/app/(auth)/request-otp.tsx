@@ -1,13 +1,10 @@
 import * as React from "react";
 import {
   View,
-  Text,
-  TextInput,
   StyleSheet,
   ScrollView,
   Pressable,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import {
   colors,
@@ -19,6 +16,11 @@ import {
 import { requestOtp } from "../../src/services/auth";
 import { AppHeader } from "../../src/components/AppHeader";
 import { TatvivahLoader } from "../../src/components/TatvivahLoader";
+import {
+  AppInput as TextInput,
+  AppText as Text,
+  ScreenContainer as SafeAreaView,
+} from "../../src/components";
 
 export default function RequestOtpScreen() {
   const router = useRouter();
@@ -191,7 +193,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   primaryButton: {
-    backgroundColor: colors.charcoal,
+    backgroundColor: colors.gold,
     borderWidth: 1,
     borderColor: colors.gold,
     borderRadius: radius.md,
@@ -211,7 +213,7 @@ const styles = StyleSheet.create({
   errorText: {
     fontFamily: typography.sans,
     fontSize: 12,
-    color: "#A65D57",
+    color: colors.gold,
     marginBottom: spacing.sm,
   },
   footerRow: {

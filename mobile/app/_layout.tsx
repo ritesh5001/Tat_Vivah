@@ -16,6 +16,7 @@ import { WishlistProvider } from "../src/providers/WishlistProvider";
 import { OfflineBanner } from "../src/components/OfflineBanner";
 import { useNetworkStatus } from "../src/hooks/useNetworkStatus";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { colors } from "../src/theme/tokens";
 
 function AppShell() {
   const { isConnected } = useNetworkStatus();
@@ -27,7 +28,7 @@ function AppShell() {
         initialRouteName="(tabs)"
         screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: "#FAF7F2" },
+          contentStyle: { backgroundColor: colors.background },
           animation: "fade",
           gestureEnabled: true,
         }}

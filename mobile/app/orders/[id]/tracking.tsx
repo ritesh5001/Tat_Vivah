@@ -1,7 +1,6 @@
 import * as React from "react";
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   RefreshControl,
@@ -9,7 +8,6 @@ import {
   AppState,
   type AppStateStatus,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, usePathname, useRouter } from "expo-router";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import {
@@ -24,6 +22,7 @@ import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
 import { useToast } from "../../../src/providers/ToastProvider";
 import { useAuth } from "../../../src/hooks/useAuth";
 import { impactLight } from "../../../src/utils/haptics";
+import { AppText as Text, ScreenContainer as SafeAreaView } from "../../../src/components";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -387,7 +386,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   retryButton: {
-    backgroundColor: colors.charcoal,
+    backgroundColor: colors.gold,
     borderWidth: 1,
     borderColor: colors.gold,
     borderRadius: radius.md,

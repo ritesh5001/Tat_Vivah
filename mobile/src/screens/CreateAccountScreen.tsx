@@ -59,7 +59,7 @@ export function CreateAccountScreen() {
 
         <View style={styles.footerRow}>
           <Text style={styles.footerText}>Already have an account?</Text>
-          <Pressable onPress={() => navigation.navigate("SignIn")}
+          <Pressable onPress={() => navigation.navigate("Login")}
             style={styles.footerLinkButton}
           >
             <Text style={styles.footerLinkText}>Sign in</Text>
@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontFamily: typography.sans,
     color: colors.charcoal,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.background,
   },
   primaryButton: {
     marginTop: spacing.md,

@@ -1,14 +1,12 @@
 import * as React from "react";
 import {
   View,
-  Text,
   StyleSheet,
   FlatList,
   Alert,
   Modal,
   Pressable,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import {
   colors,
@@ -23,6 +21,7 @@ import { AnimatedPressable } from "../../../../src/components/AnimatedPressable"
 import { impactLight, notifySuccess, notifyError } from "../../../../src/utils/haptics";
 import type { Address } from "../../../../src/services/addresses";
 import { TatvivahLoader } from "../../../../src/components/TatvivahLoader";
+import { AppText as Text, ScreenContainer as SafeAreaView } from "../../../../src/components";
 
 // ---------------------------------------------------------------------------
 // Row component — memoized for FlatList performance
@@ -440,11 +439,11 @@ const styles = StyleSheet.create({
     color: colors.charcoal,
   },
   dangerButton: {
-    borderColor: "#E5BAB6",
-    backgroundColor: "#FFF5F4",
+    borderColor: colors.gold,
+    backgroundColor: "rgba(184, 149, 108, 0.12)",
   },
   dangerText: {
-    color: "#A65D57",
+    color: colors.gold,
   },
 
   // Empty / loading
@@ -498,7 +497,7 @@ const styles = StyleSheet.create({
     borderTopColor: colors.borderSoft,
   },
   primaryButton: {
-    backgroundColor: colors.charcoal,
+    backgroundColor: colors.gold,
     borderWidth: 1,
     borderColor: colors.gold,
     borderRadius: radius.md,
@@ -570,7 +569,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderRadius: radius.md,
-    backgroundColor: "#A65D57",
+    backgroundColor: colors.gold,
     minWidth: 90,
     alignItems: "center",
   },

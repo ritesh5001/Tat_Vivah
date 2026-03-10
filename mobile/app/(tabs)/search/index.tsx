@@ -1,15 +1,13 @@
 import * as React from "react";
 import {
+  InteractionManager,
   View,
-  Text,
   StyleSheet,
   FlatList,
-  TextInput,
   Pressable,
   Dimensions,
   Modal,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "../../../src/components/CompatImage";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
@@ -24,14 +22,19 @@ import { SkeletonProductCard } from "../../../src/components/Skeleton";
 import { getSuggestions, type SuggestionItem, type SortOption } from "../../../src/services/search";
 import { AppHeader } from "../../../src/components/AppHeader";
 import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
+import {
+  AppInput as TextInput,
+  AppText as Text,
+  ScreenContainer as SafeAreaView,
+} from "../../../src/components";
 
 const { width } = Dimensions.get("window");
 const cardWidth = (width - spacing.lg * 2 - spacing.md) / 2;
 const fallbackImage =
   "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80";
 
-const DEBOUNCE_MS = 400;
-const SUGGEST_DEBOUNCE_MS = 300;
+const DEBOUNCE_MS = 220;
+const SUGGEST_DEBOUNCE_MS = 160;
 
 const SORT_OPTIONS: { value: SortOption | ""; label: string }[] = [
   { value: "", label: "Default" },
@@ -320,7 +323,9 @@ export default function SearchScreen() {
 
   const handleProductPress = React.useCallback(
     (id: string) => {
-      router.push({ pathname: "/product/[id]", params: { id } });
+      InteractionManager.runAfterInteractions(() => {
+        router.push({ pathname: "/product/[id]", params: { id } });
+      });
     },
     [router]
   );
@@ -546,7 +551,7 @@ const styles = StyleSheet.create({
     color: colors.charcoal,
   },
   searchButton: {
-    backgroundColor: colors.charcoal,
+    backgroundColor: colors.gold,
     borderWidth: 1,
     borderColor: colors.gold,
     borderRadius: radius.md,
@@ -666,7 +671,7 @@ const styles = StyleSheet.create({
   },
   retryButton: {
     marginTop: spacing.md,
-    backgroundColor: colors.charcoal,
+    backgroundColor: colors.gold,
     borderWidth: 1,
     borderColor: colors.gold,
     borderRadius: radius.md,

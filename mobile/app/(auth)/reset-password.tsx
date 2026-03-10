@@ -1,17 +1,15 @@
 import * as React from "react";
 import {
   View,
-  Text,
-  TextInput,
   StyleSheet,
   ScrollView,
   Pressable,
   KeyboardAvoidingView,
   Platform,
   type NativeSyntheticEvent,
+  type TextInput as NativeTextInput,
   type TextInputKeyPressEventData,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   colors,
@@ -22,6 +20,11 @@ import {
 } from "../../src/theme/tokens";
 import { resetPassword, forgotPassword } from "../../src/services/auth";
 import { AppHeader } from "../../src/components/AppHeader";
+import {
+  AppInput as TextInput,
+  AppText as Text,
+  ScreenContainer as SafeAreaView,
+} from "../../src/components";
 
 const OTP_LENGTH = 6;
 const RESEND_COOLDOWN_SECONDS = 60;
@@ -42,8 +45,8 @@ export default function ResetPasswordScreen() {
   const [success, setSuccess] = React.useState<string | null>(null);
   const [countdown, setCountdown] = React.useState(RESEND_COOLDOWN_SECONDS);
 
-  const inputRefs = React.useRef<(TextInput | null)[]>([]);
-  const passwordRef = React.useRef<TextInput>(null);
+  const inputRefs = React.useRef<(NativeTextInput | null)[]>([]);
+  const passwordRef = React.useRef<NativeTextInput>(null);
 
   // ---------- Countdown timer ----------
   React.useEffect(() => {
@@ -433,7 +436,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   primaryButton: {
-    backgroundColor: colors.charcoal,
+    backgroundColor: colors.gold,
     borderWidth: 1,
     borderColor: colors.gold,
     borderRadius: radius.md,
@@ -453,7 +456,7 @@ const styles = StyleSheet.create({
   errorText: {
     fontFamily: typography.sans,
     fontSize: 12,
-    color: "#A65D57",
+    color: colors.gold,
     marginBottom: spacing.sm,
     textAlign: "center",
   },

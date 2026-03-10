@@ -131,7 +131,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.borderSoft,
     overflow: "hidden",
-    shadowColor: "#000000",
+    shadowColor: colors.brown,
     shadowOpacity: 0.4,
     shadowOffset: { width: 0, height: 8 },
     shadowRadius: 24,

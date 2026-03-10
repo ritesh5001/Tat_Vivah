@@ -1,15 +1,12 @@
 import * as React from "react";
 import {
   View,
-  Text,
-  TextInput,
   StyleSheet,
   ScrollView,
   Pressable,
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { Link } from "expo-router";
 import { useRouter } from "expo-router";
 import { colors, radius, spacing, typography, shadow } from "../../src/theme/tokens";
@@ -17,6 +14,11 @@ import { registerUser, requestOtp } from "../../src/services/auth";
 import { AppHeader } from "../../src/components/AppHeader";
 import { ApiError } from "../../src/services/api";
 import { TatvivahLoader } from "../../src/components/TatvivahLoader";
+import {
+  AppInput as TextInput,
+  AppText as Text,
+  ScreenContainer as SafeAreaView,
+} from "../../src/components";
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -290,7 +292,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   primaryButton: {
-    backgroundColor: colors.charcoal,
+    backgroundColor: colors.gold,
     borderWidth: 1,
     borderColor: colors.gold,
     borderRadius: radius.md,
@@ -311,7 +313,7 @@ const styles = StyleSheet.create({
   errorText: {
     fontFamily: typography.sans,
     fontSize: 12,
-    color: "#A65D57",
+    color: colors.gold,
     marginBottom: spacing.sm,
   },
   footerRow: {

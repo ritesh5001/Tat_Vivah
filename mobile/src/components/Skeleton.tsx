@@ -6,18 +6,18 @@ import { colors, radius, spacing } from "../theme/tokens";
 // Pulse animation hook (shared across all skeleton instances)
 // ---------------------------------------------------------------------------
 function usePulse(): Animated.Value {
-  const opacity = React.useRef(new Animated.Value(0.4)).current;
+  const opacity = React.useRef(new Animated.Value(0.18)).current;
 
   React.useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(opacity, {
-          toValue: 1,
+          toValue: 0.42,
           duration: 800,
           useNativeDriver: true,
         }),
         Animated.timing(opacity, {
-          toValue: 0.4,
+          toValue: 0.18,
           duration: 800,
           useNativeDriver: true,
         }),
@@ -54,7 +54,7 @@ export function SkeletonBlock({
           width: w,
           height: h,
           borderRadius: br,
-          backgroundColor: colors.cream,
+          backgroundColor: colors.brown,
           opacity,
         },
         style,
@@ -75,7 +75,7 @@ export const SkeletonProductCard = React.memo(function SkeletonProductCard({
   return (
     <View style={[styles.productCard, w != null && { width: w }]}>
       <Animated.View
-        style={[styles.productImage, { opacity, backgroundColor: colors.cream }]}
+        style={[styles.productImage, { opacity, backgroundColor: colors.brown }]}
       />
       <Animated.View
         style={[styles.line, { opacity, marginTop: spacing.sm }]}
@@ -162,18 +162,18 @@ const styles = StyleSheet.create({
   productImage: {
     height: 160,
     borderRadius: radius.md,
-    backgroundColor: colors.cream,
+    backgroundColor: colors.brown,
   },
   line: {
     height: 12,
     borderRadius: 6,
-    backgroundColor: colors.cream,
+    backgroundColor: colors.brown,
   },
   lineShort: {
     height: 12,
     width: "60%",
     borderRadius: 6,
-    backgroundColor: colors.cream,
+    backgroundColor: colors.brown,
   },
 
   // Order card skeleton
@@ -194,19 +194,19 @@ const styles = StyleSheet.create({
     height: 14,
     width: "50%",
     borderRadius: 6,
-    backgroundColor: colors.cream,
+    backgroundColor: colors.brown,
   },
   orderBadge: {
     height: 10,
     width: 70,
     borderRadius: 5,
-    backgroundColor: colors.cream,
+    backgroundColor: colors.gold,
   },
   orderPriceLine: {
     height: 12,
     width: "30%",
     borderRadius: 6,
-    backgroundColor: colors.cream,
+    backgroundColor: colors.brown,
   },
 
   // Notification card skeleton
@@ -222,13 +222,13 @@ const styles = StyleSheet.create({
     height: 12,
     width: "90%",
     borderRadius: 6,
-    backgroundColor: colors.cream,
+    backgroundColor: colors.brown,
   },
   notifDate: {
     height: 10,
     width: "25%",
     borderRadius: 5,
-    backgroundColor: colors.cream,
+    backgroundColor: colors.gold,
   },
 
   // Cart card skeleton

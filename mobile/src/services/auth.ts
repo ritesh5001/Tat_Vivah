@@ -18,6 +18,7 @@ export interface RegisterUserPayload {
 
 export interface AuthUser {
   id: string;
+  fullName?: string | null;
   email: string | null;
   phone: string | null;
   role: string;

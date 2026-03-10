@@ -54,6 +54,15 @@ export function BestsellerSection({
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.list}
+          removeClippedSubviews
+          maxToRenderPerBatch={5}
+          updateCellsBatchingPeriod={30}
+          initialNumToRender={4}
+          windowSize={5}
+          getItemLayout={(_data, index) => {
+            const itemWidth = cardWidth + spacing.md;
+            return { length: itemWidth, offset: itemWidth * index, index };
+          }}
           renderItem={({ item }) => (
             <View style={[styles.card, { width: cardWidth }]}>
               <Image

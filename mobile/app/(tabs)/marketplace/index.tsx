@@ -1,13 +1,11 @@
 import * as React from "react";
 import {
+  InteractionManager,
   View,
-  Text,
   StyleSheet,
-  TextInput,
   Pressable,
   ScrollView,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Image } from "../../../src/components/CompatImage";
 import { FlashList } from "@shopify/flash-list";
@@ -21,6 +19,11 @@ import {
 } from "../../../src/services/products";
 import { ApiError } from "../../../src/services/api";
 import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
+import {
+  AppInput as TextInput,
+  AppText as Text,
+  ScreenContainer as SafeAreaView,
+} from "../../../src/components";
 
 const LIMIT = 12;
 const fallbackImage =
@@ -93,7 +96,9 @@ export default function MarketplaceScreen() {
 
   const handleProductPress = React.useCallback(
     (product: ProductItem) => {
-      router.push(`/product/${product.id}`);
+      InteractionManager.runAfterInteractions(() => {
+        router.push(`/product/${product.id}`);
+      });
     },
     [router]
   );
@@ -202,7 +207,7 @@ export default function MarketplaceScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <AppHeader showMenu showBack showSearch showCart />
+      <AppHeader variant="main" />
       <FlashList
         data={products}
         keyExtractor={(item) => item.id}
@@ -294,13 +299,13 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    backgroundColor: "#1E1A17",
+    backgroundColor: colors.charcoal,
     ...shadow.card,
   },
   searchInput: {
     fontFamily: typography.sans,
     fontSize: 14,
-    color: "#F5F1E8",
+    color: colors.background,
     borderWidth: 1,
     borderBottomColor: colors.borderSoft,
     borderColor: colors.borderSoft,
@@ -310,7 +315,7 @@ const styles = StyleSheet.create({
   },
   searchButton: {
     marginTop: spacing.sm,
-    backgroundColor: "#E8DCC5",
+    backgroundColor: "rgba(184, 149, 108, 0.2)",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.16)",
     borderRadius: radius.md,
@@ -322,7 +327,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     letterSpacing: 1.4,
     textTransform: "uppercase",
-    color: "#1A1A1A",
+    color: colors.charcoal,
   },
   sortRow: {
     marginTop: spacing.md,
@@ -333,7 +338,7 @@ const styles = StyleSheet.create({
     flex: 1,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    backgroundColor: "#1E1A17",
+    backgroundColor: colors.charcoal,
     paddingVertical: 10,
     borderRadius: radius.md,
     alignItems: "center",
@@ -343,7 +348,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     letterSpacing: 1.2,
     textTransform: "uppercase",
-    color: "#F5F1E8",
+    color: colors.background,
   },
   filterRow: {
     marginTop: spacing.md,
@@ -355,21 +360,21 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    backgroundColor: "#1E1A17",
+    backgroundColor: colors.charcoal,
   },
   filterChipActive: {
     backgroundColor: "rgba(232,220,197,0.18)",
-    borderColor: "#E8DCC5",
+    borderColor: colors.gold,
   },
   filterText: {
     fontFamily: typography.sans,
     fontSize: 11,
     textTransform: "uppercase",
     letterSpacing: 1.2,
-    color: "rgba(245,241,232,0.7)",
+    color: "rgba(255,251,242,0.7)",
   },
   filterTextActive: {
-    color: "#F5F1E8",
+    color: colors.background,
   },
   luxuryCard: {
     width: "100%",
@@ -377,8 +382,8 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.06)",
-    backgroundColor: "#1E1A17",
-    shadowColor: "#000000",
+    backgroundColor: colors.charcoal,
+    shadowColor: colors.brown,
     shadowOpacity: 0.4,
     shadowOffset: { width: 0, height: 8 },
     shadowRadius: 24,
@@ -417,7 +422,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
     fontFamily: typography.serif,
     fontSize: 22,
-    color: "#F5F1E8",
+    color: colors.background,
     fontWeight: "600",
   },
   luxuryBottomRow: {
@@ -429,7 +434,7 @@ const styles = StyleSheet.create({
   luxuryPrice: {
     fontFamily: typography.serif,
     fontSize: 17,
-    color: "#F5F1E8",
+    color: colors.background,
   },
   luxuryCtaPill: {
     borderWidth: 1,
@@ -444,13 +449,13 @@ const styles = StyleSheet.create({
     fontSize: 10,
     letterSpacing: 1.2,
     textTransform: "uppercase",
-    color: "#1A1A1A",
+    color: colors.charcoal,
   },
   emptyCard: {
     marginTop: spacing.lg,
     padding: spacing.lg,
     borderRadius: radius.lg,
-    backgroundColor: "#1E1A17",
+    backgroundColor: colors.charcoal,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     alignItems: "center",
@@ -470,7 +475,7 @@ const styles = StyleSheet.create({
   loadMoreButton: {
     marginTop: spacing.lg,
     marginBottom: spacing.xl,
-    backgroundColor: "#E8DCC5",
+    backgroundColor: "rgba(184, 149, 108, 0.2)",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.16)",
     borderRadius: radius.md,
@@ -482,7 +487,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     letterSpacing: 1.4,
     textTransform: "uppercase",
-    color: "#1A1A1A",
+    color: colors.charcoal,
   },
   footerSpacer: {
     height: spacing.xl,

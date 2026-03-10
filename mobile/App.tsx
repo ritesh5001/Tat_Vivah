@@ -1,37 +1,37 @@
 import { useFonts } from "expo-font";
 import {
-  CormorantGaramond_300Light,
-  CormorantGaramond_400Regular,
-} from "@expo-google-fonts/cormorant-garamond";
+  PlayfairDisplay_700Bold,
+} from "@expo-google-fonts/playfair-display";
 import { Inter_400Regular, Inter_500Medium } from "@expo-google-fonts/inter";
 import { View, Text, StyleSheet } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
-import { SafeAreaProvider } from "react-native-safe-area-context";
 import { RootNavigator } from "./src/navigation/RootNavigator";
+import { AppProviders } from "./src/providers/AppProviders";
+import { colors, typography } from "./src/theme";
 
 export default function App() {
   const [fontsLoaded] = useFonts({
-    CormorantGaramond_300Light,
-    CormorantGaramond_400Regular,
+    PlayfairDisplay_700Bold,
     Inter_400Regular,
     Inter_500Medium,
   });
 
   if (!fontsLoaded) {
     return (
-      <SafeAreaProvider>
+      <AppProviders>
         <View style={styles.loadingContainer}>
           <Text style={styles.loadingText}>Loading TatVivah...</Text>
         </View>
-      </SafeAreaProvider>
+      </AppProviders>
     );
   }
+
   return (
-    <SafeAreaProvider>
+    <AppProviders>
       <NavigationContainer>
         <RootNavigator />
       </NavigationContainer>
-    </SafeAreaProvider>
+    </AppProviders>
   );
 }
 
@@ -40,11 +40,12 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#FFF9F2",
+    backgroundColor: colors.background,
   },
   loadingText: {
     fontSize: 14,
     letterSpacing: 1.2,
-    color: "#2C2825",
+    fontFamily: typography.body,
+    color: colors.textPrimary,
   },
 });

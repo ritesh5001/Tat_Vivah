@@ -1,13 +1,11 @@
 import * as React from "react";
 import {
   View,
-  Text,
   StyleSheet,
   FlatList,
   Pressable,
   type ListRenderItemInfo,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Image } from "../../../src/components/CompatImage";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
@@ -18,6 +16,7 @@ import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
 import { impactLight } from "../../../src/utils/haptics";
 import { AppHeader } from "../../../src/components/AppHeader";
 import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
+import { AppText as Text, ScreenContainer as SafeAreaView } from "../../../src/components";
 
 const currency = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -81,7 +80,7 @@ const WishlistRow = React.memo(function WishlistRow({
         hitSlop={8}
       >
         {removing ? (
-          <TatvivahLoader size="sm" color={colors.brownSoft} />
+          <TatvivahLoader size="sm" color={colors.brown} />
         ) : (
           <Text style={{ fontSize: 20 }}>❤️</Text>
         )}
@@ -192,7 +191,7 @@ export default function WishlistScreen() {
       ) : wishlistItems.length === 0 ? (
         <View style={styles.emptyWrap}>
           <Text style={{ fontSize: 48 }}>🤍</Text>
-          <Text style={styles.emptyTitle}>Your wishlist is empty</Text>
+          <Text style={styles.emptyTitle}>Your Wishlist is Empty</Text>
           <Text style={styles.emptySubtitle}>
             Browse our collections and tap the heart to save items you love.
           </Text>
@@ -328,7 +327,7 @@ const styles = StyleSheet.create({
   },
   ctaButton: {
     marginTop: 8,
-    backgroundColor: colors.charcoal,
+    backgroundColor: colors.gold,
     borderWidth: 1,
     borderColor: colors.gold,
     paddingHorizontal: 32,

@@ -1,16 +1,13 @@
 import * as React from "react";
 import {
   View,
-  Text,
   StyleSheet,
-  TextInput,
   Pressable,
   ScrollView,
   Alert,
   Modal,
   FlatList,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { usePathname, useRouter } from "expo-router";
 import { colors, radius, spacing, typography, shadow } from "../../src/theme/tokens";
 import { checkout, validateCoupon, type CouponPreview } from "../../src/services/cart";
@@ -27,6 +24,11 @@ import { notifySuccess, notifyError, impactLight } from "../../src/utils/haptics
 import { AppHeader } from "../../src/components/AppHeader";
 import type { Address } from "../../src/services/addresses";
 import { TatvivahLoader, TatvivahOverlayLoader } from "../../src/components/TatvivahLoader";
+import {
+  AppInput as TextInput,
+  AppText as Text,
+  ScreenContainer as SafeAreaView,
+} from "../../src/components";
 
 // ---------------------------------------------------------------------------
 // Address selector row — memoized for FlatList
@@ -672,8 +674,8 @@ export default function CheckoutScreen() {
           </View>
           {displayDiscount > 0 && (
             <View style={styles.summaryRow}>
-              <Text style={[styles.summaryLabel, { color: "#2E7D32" }]}>Discount</Text>
-              <Text style={[styles.summaryValue, { color: "#2E7D32" }]}>−₹{displayDiscount.toFixed(0)}</Text>
+              <Text style={[styles.summaryLabel, { color: colors.gold }]}>Discount</Text>
+              <Text style={[styles.summaryValue, { color: colors.gold }]}>−₹{displayDiscount.toFixed(0)}</Text>
             </View>
           )}
           <View style={styles.summaryRow}>
@@ -897,7 +899,7 @@ const styles = StyleSheet.create({
   // Primary button
   primaryButton: {
     marginTop: spacing.lg,
-    backgroundColor: colors.charcoal,
+    backgroundColor: colors.gold,
     borderWidth: 1,
     borderColor: colors.gold,
     borderRadius: radius.md,
@@ -918,7 +920,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     fontFamily: typography.sans,
     fontSize: 12,
-    color: "#A65D57",
+    color: colors.gold,
     textAlign: "center",
   },
 
@@ -1134,7 +1136,7 @@ const styles = StyleSheet.create({
   couponErrorText: {
     fontFamily: typography.sans,
     fontSize: 12,
-    color: "#A65D57",
+    color: colors.gold,
     marginTop: spacing.xs,
   },
 });

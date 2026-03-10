@@ -1,15 +1,12 @@
 import * as React from "react";
 import {
   View,
-  Text,
   StyleSheet,
   FlatList,
   Pressable,
   Modal,
-  TextInput,
   type ListRenderItemInfo,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import { listBuyerOrders, type BuyerOrder } from "../../../src/services/orders";
 import { listMyCancellations, requestCancellation } from "../../../src/services/cancellations";
@@ -26,6 +23,11 @@ import { notifySuccess, notifyError, impactMedium } from "../../../src/utils/hap
 import { AppHeader } from "../../../src/components/AppHeader";
 import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
 import { isRazorpayAvailable } from "../../../src/services/razorpay";
+import {
+  AppInput as TextInput,
+  AppText as Text,
+  ScreenContainer as SafeAreaView,
+} from "../../../src/components";
 
 const currency = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -36,17 +38,17 @@ const currency = new Intl.NumberFormat("en-IN", {
 function getStatusStyle(label: string): { color: string } {
   switch (label) {
     case "DELIVERED":
-      return { color: "#5A7352" };
+      return { color: "#7A6A4B" };
     case "CONFIRMED":
-      return { color: "#8A7054" };
+      return { color: colors.gold };
     case "SHIPPED":
-      return { color: "#5E6B82" };
-    case "PAYMENT PENDING":
       return { color: "#8A7054" };
+    case "PAYMENT PENDING":
+      return { color: colors.gold };
     case "PAYMENT FAILED":
-      return { color: "#7A5656" };
+      return { color: colors.gold };
     case "CANCELLED":
-      return { color: "#7A5656" };
+      return { color: colors.gold };
     default:
       return { color: colors.brownSoft };
   }
@@ -867,7 +869,7 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     marginTop: spacing.sm,
-    backgroundColor: colors.charcoal,
+    backgroundColor: colors.gold,
     borderWidth: 1,
     borderColor: colors.gold,
     borderRadius: radius.md,
@@ -900,7 +902,7 @@ const styles = StyleSheet.create({
     color: colors.foreground,
   },
   retryButton: {
-    backgroundColor: colors.charcoal,
+    backgroundColor: colors.gold,
     borderWidth: 1,
     borderColor: colors.gold,
     borderRadius: radius.md,
@@ -931,7 +933,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 1.2,
     textTransform: "uppercase" as const,
-    color: "#fff",
+    color: colors.background,
   },
   requestCancelButton: {
     marginTop: spacing.sm,
@@ -1023,7 +1025,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   modalConfirmButton: {
-    backgroundColor: colors.charcoal,
+    backgroundColor: colors.gold,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
