@@ -990,7 +990,7 @@ export default function AdminProductsPage() {
                         description: event.target.value,
                       }))
                     }
-                    className="min-h-[120px] rounded border border-border-soft bg-card px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/40"
+                    className="min-h-30 rounded border border-border-soft bg-card px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/40"
                   />
                 </label>
 

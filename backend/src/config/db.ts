@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../../node_modules/.prisma/client/index.js';
 import { env } from './env.js';
 
 // ---------------------------------------------------------------------------
@@ -41,7 +41,7 @@ function buildPrismaDatabaseUrl(rawUrl: string): string {
     }
 }
 
-function createPrismaClient(): PrismaClient {
+function createPrismaClient() {
     const client = new PrismaClient({
         datasources: {
             db: { url: buildPrismaDatabaseUrl(env.DATABASE_URL) },
@@ -58,7 +58,7 @@ function createPrismaClient(): PrismaClient {
  * In non-production environments it is pinned to globalThis so tsx
  * watch-mode restarts reuse the same connection pool.
  */
-export const prisma: PrismaClient =
+export const prisma =
     globalForPrisma.__prisma ?? createPrismaClient();
 
 if (env.NODE_ENV !== 'production') {

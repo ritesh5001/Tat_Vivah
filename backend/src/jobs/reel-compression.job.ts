@@ -16,10 +16,12 @@
 
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import type { PrismaClient } from '../../node_modules/.prisma/client/index.js';
 import { reelLogger } from '../config/logger.js';
 import { prisma } from '../config/db.js';
 
 const execFileAsync = promisify(execFile);
+const db = prisma as PrismaClient;
 
 interface CompressionResult {
     reelId: string;
@@ -67,7 +69,7 @@ export async function compressReelVideo(reelId: string, videoUrl: string): Promi
             // Reject videos over 30 seconds (backend enforcement)
             if (durationSeconds > 30) {
                 log.warn({ durationSeconds }, 'Video exceeds 30 second limit, marking as REJECTED');
-                await prisma.reel.update({
+                await db.reel.update({
                     where: { id: reelId },
                     data: { status: 'REJECTED' },
                 });
@@ -76,7 +78,7 @@ export async function compressReelVideo(reelId: string, videoUrl: string): Promi
         }
 
         // 2. Generate thumbnail if missing
-        const reel = await prisma.reel.findUnique({ where: { id: reelId }, select: { thumbnailUrl: true } });
+        const reel = await db.reel.findUnique({ where: { id: reelId }, select: { thumbnailUrl: true } });
         if (reel && !reel.thumbnailUrl) {
             log.info('Thumbnail not provided — generation would happen here via FFmpeg');
             // In production, you would:

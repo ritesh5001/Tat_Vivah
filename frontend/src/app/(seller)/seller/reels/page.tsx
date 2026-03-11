@@ -377,7 +377,7 @@ export default function SellerReelsPage() {
               <tbody>
                 {analytics.map((a) => (
                   <tr key={a.reelId} className="border-t border-border">
-                    <td className="px-4 py-2 truncate max-w-[200px]">
+                    <td className="px-4 py-2 truncate max-w-50">
                       {a.caption || a.product?.title || a.reelId.slice(0, 8)}
                     </td>
                     <td className="text-right px-4 py-2">{a.views.toLocaleString()}</td>

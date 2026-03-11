@@ -323,7 +323,7 @@ export default function AdminReelsPage() {
               </div>
               <video
                 src={previewReel.videoUrl}
-                className="w-full rounded-lg aspect-9/16 max-h-[60vh] object-cover bg-black"
+                className="w-full rounded-lg aspect-9/16 max-h-dvh object-cover bg-black"
                 controls
                 autoPlay
               />

@@ -1,4 +1,7 @@
+import type { PrismaClient } from '../../node_modules/.prisma/client/index.js';
 import { prisma } from '../config/db.js';
+
+const db = prisma as PrismaClient;
 
 export class ReelEngagementRepository {
 
@@ -7,27 +10,27 @@ export class ReelEngagementRepository {
     // =========================================================================
 
     async findLike(reelId: string, userId: string) {
-        return prisma.reelLike.findUnique({
+        return db.reelLike.findUnique({
             where: { reelId_userId: { reelId, userId } },
         });
     }
 
     async createLike(reelId: string, userId: string) {
-        return prisma.$transaction([
-            prisma.reelLike.create({ data: { reelId, userId } }),
-            prisma.reel.update({ where: { id: reelId }, data: { likes: { increment: 1 } } }),
+        return db.$transaction([
+            db.reelLike.create({ data: { reelId, userId } }),
+            db.reel.update({ where: { id: reelId }, data: { likes: { increment: 1 } } }),
         ]);
     }
 
     async deleteLike(reelId: string, userId: string) {
-        return prisma.$transaction([
-            prisma.reelLike.delete({ where: { reelId_userId: { reelId, userId } } }),
-            prisma.reel.update({ where: { id: reelId }, data: { likes: { decrement: 1 } } }),
+        return db.$transaction([
+            db.reelLike.delete({ where: { reelId_userId: { reelId, userId } } }),
+            db.reel.update({ where: { id: reelId }, data: { likes: { decrement: 1 } } }),
         ]);
     }
 
     async hasUserLiked(reelId: string, userId: string): Promise<boolean> {
-        const like = await prisma.reelLike.findUnique({
+        const like = await db.reelLike.findUnique({
             where: { reelId_userId: { reelId, userId } },
             select: { id: true },
         });
@@ -39,7 +42,7 @@ export class ReelEngagementRepository {
     // =========================================================================
 
     async findRecentView(reelId: string, userId: string, since: Date) {
-        return prisma.reelView.findFirst({
+        return db.reelView.findFirst({
             where: {
                 reelId,
                 userId,
@@ -50,9 +53,9 @@ export class ReelEngagementRepository {
     }
 
     async createView(reelId: string, userId: string | null) {
-        return prisma.$transaction([
-            prisma.reelView.create({ data: { reelId, userId } }),
-            prisma.reel.update({ where: { id: reelId }, data: { views: { increment: 1 } } }),
+        return db.$transaction([
+            db.reelView.create({ data: { reelId, userId } }),
+            db.reel.update({ where: { id: reelId }, data: { views: { increment: 1 } } }),
         ]);
     }
 
@@ -61,7 +64,7 @@ export class ReelEngagementRepository {
     // =========================================================================
 
     async createProductClick(reelId: string, productId: string, userId: string | null) {
-        return prisma.reelProductClick.create({
+        return db.reelProductClick.create({
             data: { reelId, productId, userId },
         });
     }
@@ -72,15 +75,15 @@ export class ReelEngagementRepository {
 
     async getReelAnalytics(reelId: string) {
         const [totalLikes, totalViews, totalProductClicks] = await Promise.all([
-            prisma.reelLike.count({ where: { reelId } }),
-            prisma.reelView.count({ where: { reelId } }),
-            prisma.reelProductClick.count({ where: { reelId } }),
+            db.reelLike.count({ where: { reelId } }),
+            db.reelView.count({ where: { reelId } }),
+            db.reelProductClick.count({ where: { reelId } }),
         ]);
         return { totalLikes, totalViews, totalProductClicks };
     }
 
     async getSellerReelAnalytics(sellerId: string) {
-        const reels = await prisma.reel.findMany({
+        const reels = await db.reel.findMany({
             where: { sellerId },
             select: {
                 id: true,
@@ -96,16 +99,16 @@ export class ReelEngagementRepository {
             orderBy: { createdAt: 'desc' },
         });
 
-        return reels.map((r) => ({
-            reelId: r.id,
-            videoUrl: r.videoUrl,
-            caption: r.caption,
-            status: r.status,
-            views: r.views,
-            likes: r.likes,
-            productClicks: r._count.reelProductClicks,
-            createdAt: r.createdAt,
-            product: r.product,
+        return reels.map((reel) => ({
+            reelId: reel.id,
+            videoUrl: reel.videoUrl,
+            caption: reel.caption,
+            status: reel.status,
+            views: reel.views,
+            likes: reel.likes,
+            productClicks: reel._count.reelProductClicks,
+            createdAt: reel.createdAt,
+            product: reel.product,
         }));
     }
 }
