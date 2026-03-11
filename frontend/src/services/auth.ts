@@ -68,8 +68,26 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 export function clearAuthSession(): void {
   if (typeof document === "undefined") return;
   document.cookie = "tatvivah_access=; path=/; max-age=0";
+  document.cookie = "tatvivah_refresh=; path=/; max-age=0";
   document.cookie = "tatvivah_role=; path=/; max-age=0";
   document.cookie = "tatvivah_user=; path=/; max-age=0";
+  window.dispatchEvent(new Event("tatvivah-auth"));
+}
+
+/**
+ * Store all auth cookies after a successful login / token refresh.
+ */
+export function persistAuthCookies(
+  accessToken: string,
+  refreshToken: string,
+  user: { role: string; [key: string]: unknown }
+): void {
+  document.cookie = `tatvivah_access=${accessToken}; path=/; max-age=86400`;
+  document.cookie = `tatvivah_refresh=${refreshToken}; path=/; max-age=604800`;
+  document.cookie = `tatvivah_role=${user.role}; path=/; max-age=86400`;
+  document.cookie = `tatvivah_user=${encodeURIComponent(
+    JSON.stringify(user)
+  )}; path=/; max-age=86400`;
   window.dispatchEvent(new Event("tatvivah-auth"));
 }
 

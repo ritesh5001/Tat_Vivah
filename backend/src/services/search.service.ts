@@ -29,7 +29,6 @@ export interface SearchResultItem {
     description: string | null;
     images: string[];
     categoryId: string;
-    sellerPrice: number;
     adminListingPrice: number | null;
     isPublished: boolean;
     createdAt: string;
@@ -59,7 +58,6 @@ export interface RelatedProductItem {
     description: string | null;
     images: string[];
     categoryId: string;
-    sellerPrice: number;
     adminListingPrice: number | null;
     category: { id: string; name: string } | null;
 }
@@ -94,6 +92,7 @@ export class SearchService {
             const conditions: string[] = [
                 `p."is_published" = true`,
                 `p."deleted_by_admin" = false`,
+                `p."admin_listing_price" IS NOT NULL`,
                 `p."search_vector" @@ plainto_tsquery('english', $1)`,
             ];
             const params: unknown[] = [q];
@@ -165,7 +164,6 @@ export class SearchService {
                     p."description",
                     p."images",
                     p."category_id" AS "categoryId",
-                    p."seller_price" AS "sellerPrice",
                     p."admin_listing_price" AS "adminListingPrice",
                     p."is_published" AS "isPublished",
                     p."created_at" AS "createdAt",
@@ -188,7 +186,6 @@ export class SearchService {
             // Convert Decimal values to numbers for JSON serialization
             const data = rows.map((row: any) => ({
                 ...row,
-                sellerPrice: Number(row.sellerPrice ?? 0),
                 adminListingPrice: row.adminListingPrice != null ? Number(row.adminListingPrice) : null,
                 rank: row.rank != null ? Number(row.rank) : undefined,
             }));
@@ -273,7 +270,6 @@ export class SearchService {
                 p."description",
                 p."images",
                 p."category_id" AS "categoryId",
-                p."seller_price" AS "sellerPrice",
                 p."admin_listing_price" AS "adminListingPrice",
                 json_build_object('id', c."id", 'name', c."name") AS category
             FROM "products" p
@@ -282,6 +278,7 @@ export class SearchService {
               AND p."id" != $2
               AND p."is_published" = true
               AND p."deleted_by_admin" = false
+                            AND p."admin_listing_price" IS NOT NULL
             ORDER BY RANDOM()
             LIMIT $3`,
             product.categoryId,
@@ -292,7 +289,6 @@ export class SearchService {
         // Convert decimals
         let data = rows.map((row: any) => ({
             ...row,
-            sellerPrice: Number(row.sellerPrice ?? 0),
             adminListingPrice: row.adminListingPrice != null ? Number(row.adminListingPrice) : null,
         }));
 
@@ -305,7 +301,6 @@ export class SearchService {
                     p."description",
                     p."images",
                     p."category_id" AS "categoryId",
-                    p."seller_price" AS "sellerPrice",
                     p."admin_listing_price" AS "adminListingPrice",
                     json_build_object('id', c."id", 'name', c."name") AS category
                 FROM "products" p
@@ -314,6 +309,7 @@ export class SearchService {
                 WHERE p."id" != $1
                   AND p."is_published" = true
                   AND p."deleted_by_admin" = false
+                                    AND p."admin_listing_price" IS NOT NULL
                 ORDER BY b."position" ASC
                 LIMIT $2`,
                 productId,
@@ -325,7 +321,6 @@ export class SearchService {
                 .filter((r: any) => !existingIds.has(r.id))
                 .map((row: any) => ({
                     ...row,
-                    sellerPrice: Number(row.sellerPrice ?? 0),
                     adminListingPrice: row.adminListingPrice != null ? Number(row.adminListingPrice) : null,
                 }));
 

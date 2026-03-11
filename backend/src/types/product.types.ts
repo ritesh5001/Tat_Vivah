@@ -116,7 +116,6 @@ export interface PublicProductWithCategory {
     updatedAt: Date;
     category: CategoryEntity;
     regularPrice: number;
-    sellerPrice: number;
     adminPrice: number;
     salePrice: number;
     price: number;
@@ -135,7 +134,6 @@ export interface PublicProductWithDetails {
     category: CategoryEntity;
     variants: PublicProductVariant[];
     regularPrice: number;
-    sellerPrice: number;
     adminPrice: number;
     salePrice: number;
     price: number;

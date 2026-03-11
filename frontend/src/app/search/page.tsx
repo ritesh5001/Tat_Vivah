@@ -19,7 +19,6 @@ function toMarketplaceCardProduct(item: SearchResultItem): MarketplaceCardProduc
     title: item.title,
     images: item.images,
     category: item.category,
-    sellerPrice: item.sellerPrice,
     adminListingPrice: item.adminListingPrice,
   };
 }

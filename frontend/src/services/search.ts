@@ -14,7 +14,6 @@ export interface SearchResultItem {
   description: string | null;
   images: string[];
   categoryId: string;
-  sellerPrice: number;
   adminListingPrice: number | null;
   isPublished: boolean;
   createdAt: string;
@@ -100,7 +99,6 @@ export interface RelatedProductItem {
   description: string | null;
   images: string[];
   categoryId: string;
-  sellerPrice: number;
   adminListingPrice: number | null;
   category: { id: string; name: string } | null;
 }

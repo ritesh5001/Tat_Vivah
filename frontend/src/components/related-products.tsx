@@ -90,9 +90,9 @@ export function RelatedProducts({ productId }: RelatedProductsProps) {
               <h3 className="font-serif text-sm font-normal text-foreground group-hover:text-gold transition-colors duration-300 line-clamp-2">
                 {product.title}
               </h3>
-              {typeof (product.adminListingPrice ?? product.sellerPrice) === "number" && (
+              {typeof product.adminListingPrice === "number" && (
                 <p className="mt-1 text-xs font-medium text-foreground">
-                  {currency.format(product.adminListingPrice ?? product.sellerPrice)}
+                  {currency.format(product.adminListingPrice)}
                 </p>
               )}
             </Link>

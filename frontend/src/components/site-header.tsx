@@ -32,7 +32,7 @@ const sellerLinks = [
   { href: "/seller/orders", label: "Orders" },
   { href: "/seller/products", label: "Products" },
   { href: "/seller/analytics", label: "Analytics" },
-  { href: "/seller/payouts", label: "Payouts" },
+  { href: "/seller/settlements", label: "Payouts" },
   { href: "/seller/profile", label: "Profile" },
 ];
 
@@ -124,7 +124,7 @@ export function SiteHeader() {
       .then((res) => {
         if (!cancelled) setWishlistCount(res.count);
       })
-      .catch(() => {});
+      .catch(() => { });
     // Refresh every 60s while mounted
     const interval = setInterval(() => {
       getUnreadCount().then((count) => {
@@ -134,7 +134,7 @@ export function SiteHeader() {
         .then((res) => {
           if (!cancelled) setWishlistCount(res.count);
         })
-        .catch(() => {});
+        .catch(() => { });
     }, 60_000);
     return () => {
       cancelled = true;
@@ -261,102 +261,102 @@ export function SiteHeader() {
           <div className="flex items-center gap-4">
             <ThemeToggle className="hidden sm:inline-flex" />
 
-          {/* Wishlist Heart (visible when logged in as USER) */}
-          {user && role !== "SELLER" && role !== "ADMIN" && role !== "SUPER_ADMIN" && (
-            <Link
-              href="/user/wishlist"
-              className="relative hidden h-9 w-9 items-center justify-center border border-border-soft bg-card text-foreground transition-colors duration-300 hover:bg-cream dark:hover:bg-brown/50 sm:inline-flex"
-              aria-label="Wishlist"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={1.5}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-4 w-4"
+            {/* Wishlist Heart (visible when logged in as USER) */}
+            {user && role !== "SELLER" && role !== "ADMIN" && role !== "SUPER_ADMIN" && (
+              <Link
+                href="/user/wishlist"
+                className="relative hidden h-9 w-9 items-center justify-center border border-border-soft bg-card text-foreground transition-colors duration-300 hover:bg-cream dark:hover:bg-brown/50 sm:inline-flex"
+                aria-label="Wishlist"
               >
-                <path d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
-              </svg>
-              {wishlistCount > 0 && (
-                <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-gold px-1 text-[10px] font-semibold text-charcoal leading-none">
-                  {wishlistCount > 99 ? "99+" : wishlistCount}
-                </span>
-              )}
-            </Link>
-          )}
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-4 w-4"
+                >
+                  <path d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+                </svg>
+                {wishlistCount > 0 && (
+                  <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-gold px-1 text-[10px] font-semibold text-charcoal leading-none">
+                    {wishlistCount > 99 ? "99+" : wishlistCount}
+                  </span>
+                )}
+              </Link>
+            )}
 
-          {/* Notification Bell (visible when logged in as USER) */}
-          {user && role !== "SELLER" && role !== "ADMIN" && role !== "SUPER_ADMIN" && (
-            <Link
-              href="/user/notifications"
-              className="relative hidden h-9 w-9 items-center justify-center border border-border-soft bg-card text-foreground transition-colors duration-300 hover:bg-cream dark:hover:bg-brown/50 sm:inline-flex"
-              aria-label="Notifications"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={1.5}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-4 w-4"
+            {/* Notification Bell (visible when logged in as USER) */}
+            {user && role !== "SELLER" && role !== "ADMIN" && role !== "SUPER_ADMIN" && (
+              <Link
+                href="/user/notifications"
+                className="relative hidden h-9 w-9 items-center justify-center border border-border-soft bg-card text-foreground transition-colors duration-300 hover:bg-cream dark:hover:bg-brown/50 sm:inline-flex"
+                aria-label="Notifications"
               >
-                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-              </svg>
-              {unreadCount > 0 && (
-                <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-gold px-1 text-[10px] font-semibold text-charcoal leading-none">
-                  {unreadCount > 99 ? "99+" : unreadCount}
-                </span>
-              )}
-            </Link>
-          )}
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-4 w-4"
+                >
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                </svg>
+                {unreadCount > 0 && (
+                  <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-gold px-1 text-[10px] font-semibold text-charcoal leading-none">
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </span>
+                )}
+              </Link>
+            )}
 
-          {/* User Menu */}
-          {user ? (
-            <div className="hidden items-center gap-3 sm:flex">
-              <span className="text-xs text-muted-foreground max-w-30 truncate">
-                {displayName}
-              </span>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    className="flex h-9 w-9 items-center justify-center border border-border-soft bg-cream text-charcoal transition-all duration-300 hover:bg-charcoal hover:text-ivory dark:bg-brown dark:text-ivory dark:hover:bg-gold"
-                    aria-label="Account menu"
-                  >
-                    <span className="font-serif text-sm">{initial}</span>
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="min-w-40">
-                  <DropdownMenuLabel className="text-xs uppercase tracking-wider text-muted-foreground">
-                    Account
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href={profileLink}>My Profile</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/login?force=1">Switch Account</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleLogout}>
-                    Sign Out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          ) : (
-            <Link href="/login" className="hidden sm:inline-flex">
-              <Button size="sm" variant="primary">
-                Sign In
-              </Button>
-            </Link>
-          )}
+            {/* User Menu */}
+            {user ? (
+              <div className="hidden items-center gap-3 sm:flex">
+                <span className="text-xs text-muted-foreground max-w-30 truncate">
+                  {displayName}
+                </span>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex h-9 w-9 items-center justify-center border border-border-soft bg-cream text-charcoal transition-all duration-300 hover:bg-charcoal hover:text-ivory dark:bg-brown dark:text-ivory dark:hover:bg-gold"
+                      aria-label="Account menu"
+                    >
+                      <span className="font-serif text-sm">{initial}</span>
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="min-w-40">
+                    <DropdownMenuLabel className="text-xs uppercase tracking-wider text-muted-foreground">
+                      Account
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link href={profileLink}>My Profile</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/login?force=1">Switch Account</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleLogout}>
+                      Sign Out
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            ) : (
+              <Link href="/login" className="hidden sm:inline-flex">
+                <Button size="sm" variant="primary">
+                  Sign In
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
       </div>

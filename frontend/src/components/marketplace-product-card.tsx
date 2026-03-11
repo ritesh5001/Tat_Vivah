@@ -28,24 +28,14 @@ function resolvePrimaryPrice(product: MarketplaceCardProduct): number | null {
     product.salePrice ??
     product.adminPrice ??
     product.price ??
-    product.adminListingPrice ??
-    product.sellerPrice;
+    product.adminListingPrice;
   return typeof value === "number" ? value : null;
 }
 
 export function MarketplaceProductCard({ product }: { product: MarketplaceCardProduct }) {
   const primaryPrice = resolvePrimaryPrice(product);
-  const regularPrice = typeof product.regularPrice === "number" ? product.regularPrice : null;
-
-  const displayPrice =
-    typeof primaryPrice === "number" && typeof regularPrice === "number"
-      ? Math.min(primaryPrice, regularPrice)
-      : primaryPrice ?? regularPrice;
-
-  const originalPrice =
-    typeof primaryPrice === "number" && typeof regularPrice === "number" && primaryPrice !== regularPrice
-      ? Math.max(primaryPrice, regularPrice)
-      : null;
+  const displayPrice = primaryPrice;
+  const originalPrice = null;
 
   const discountPercentage =
     typeof displayPrice === "number" && typeof originalPrice === "number" && originalPrice > 0
