@@ -1,24 +1,30 @@
 import * as React from "react";
 import {
   View,
-  Text,
   StyleSheet,
   Pressable,
   ScrollView,
   Modal,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import { useAuth } from "../../../src/hooks/useAuth";
 import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
 import { AppHeader } from "../../../src/components/AppHeader";
 import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
+import { AppText as Text, ScreenContainer as SafeAreaView } from "../../../src/components";
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { session, signOut, isLoading } = useAuth();
   const user = session?.user;
+  const displayName = React.useMemo(() => {
+    if (!user) return "TatVivah User";
+    if (user.fullName?.trim()) return user.fullName.trim();
+    if (user.email) return user.email.split("@")[0];
+    return "TatVivah User";
+  }, [user]);
 
   const [showLogoutModal, setShowLogoutModal] = React.useState(false);
   const [loggingOut, setLoggingOut] = React.useState(false);
@@ -54,7 +60,7 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <AppHeader title="Profile" subtitle="Account settings" showMenu showBack />
+      <AppHeader variant="main" />
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Profile</Text>
@@ -67,7 +73,9 @@ export default function ProfileScreen() {
           </View>
         ) : !user ? (
           <View style={styles.card}>
-            <Text style={styles.emptyIcon}>👤</Text>
+            <View style={styles.emptyIconWrap}>
+              <Ionicons name="person" size={30} color={colors.brown} />
+            </View>
             <Text style={styles.emptyTitle}>Sign in to view profile</Text>
             <Text style={styles.emptySubtitle}>
               Manage addresses, orders, and account settings after login.
@@ -96,6 +104,8 @@ export default function ProfileScreen() {
               </View>
 
               <View style={styles.infoSection}>
+                <Text style={styles.label}>Name</Text>
+                <Text style={styles.value}>{displayName}</Text>
                 {user.email && (
                   <>
                     <Text style={styles.label}>Email</Text>
@@ -228,6 +238,9 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderSoft,
   },
   headerTitle: {
     fontFamily: typography.serif,
@@ -239,6 +252,7 @@ const styles = StyleSheet.create({
     fontFamily: typography.sans,
     fontSize: 12,
     color: colors.brownSoft,
+    lineHeight: 18,
   },
 
   // Cards
@@ -247,7 +261,7 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.lg,
     padding: spacing.lg,
     borderRadius: radius.lg,
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     ...shadow.card,
@@ -258,7 +272,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: colors.cream,
+    backgroundColor: colors.surface,
     borderWidth: 2,
     borderColor: colors.gold,
     alignItems: "center",
@@ -270,6 +284,17 @@ const styles = StyleSheet.create({
     fontFamily: typography.serif,
     fontSize: 24,
     color: colors.gold,
+  },
+  emptyIconWrap: {
+    width: 74,
+    height: 74,
+    borderRadius: 37,
+    borderWidth: 1.5,
+    borderColor: colors.gold,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F9EFE2",
+    alignSelf: "center",
   },
 
   // Info
@@ -294,7 +319,7 @@ const styles = StyleSheet.create({
   // Section title
   sectionTitle: {
     fontFamily: typography.serif,
-    fontSize: 16,
+    fontSize: 18,
     color: colors.charcoal,
     marginBottom: spacing.sm,
   },
@@ -322,13 +347,15 @@ const styles = StyleSheet.create({
     color: colors.brownSoft,
   },
   dangerText: {
-    color: "#A65D57",
+    color: colors.gold,
   },
 
   // Buttons
   primaryButton: {
     marginTop: spacing.lg,
-    backgroundColor: colors.charcoal,
+    backgroundColor: colors.gold,
+    borderWidth: 1,
+    borderColor: colors.gold,
     borderRadius: radius.md,
     paddingVertical: 14,
     alignItems: "center",
@@ -353,7 +380,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     letterSpacing: 1.2,
     textTransform: "uppercase",
-    color: colors.charcoal,
+    color: colors.foreground,
   },
   buttonDisabled: {
     opacity: 0.5,
@@ -398,9 +425,11 @@ const styles = StyleSheet.create({
   modalCard: {
     width: "100%",
     maxWidth: 340,
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surfaceElevated,
     borderRadius: radius.lg,
     padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
     ...shadow.card,
   },
   modalTitle: {
@@ -433,13 +462,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     letterSpacing: 1,
     textTransform: "uppercase",
-    color: colors.charcoal,
+    color: colors.foreground,
   },
   modalConfirmButton: {
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderRadius: radius.md,
-    backgroundColor: "#A65D57",
+    backgroundColor: colors.gold,
     minWidth: 90,
     alignItems: "center",
   },

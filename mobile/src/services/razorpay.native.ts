@@ -36,6 +36,16 @@ interface RazorpayModule {
   open: (options: RazorpayCheckoutOptions) => Promise<RazorpaySuccessResponse>;
 }
 
+export function isRazorpayAvailable(): boolean {
+  try {
+    const mod = require("react-native-razorpay");
+    const resolved = (mod?.default ?? mod) as RazorpayModule | null | undefined;
+    return Boolean(resolved && typeof resolved.open === "function");
+  } catch {
+    return false;
+  }
+}
+
 function getRazorpayModule(): RazorpayModule {
   try {
     const mod = require("react-native-razorpay");

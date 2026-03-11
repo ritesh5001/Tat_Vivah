@@ -1,6 +1,6 @@
 import * as React from "react";
 import { View, Text, StyleSheet, FlatList, Pressable } from "react-native";
-import { Image } from "expo-image";
+import { Image } from "./CompatImage";
 import { colors, radius, spacing, typography, shadow } from "../theme/tokens";
 import { images } from "../data/images";
 import { type BestsellerProduct } from "../services/bestsellers";
@@ -54,6 +54,15 @@ export function BestsellerSection({
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.list}
+          removeClippedSubviews
+          maxToRenderPerBatch={5}
+          updateCellsBatchingPeriod={30}
+          initialNumToRender={4}
+          windowSize={5}
+          getItemLayout={(_data, index) => {
+            const itemWidth = cardWidth + spacing.md;
+            return { length: itemWidth, offset: itemWidth * index, index };
+          }}
           renderItem={({ item }) => (
             <View style={[styles.card, { width: cardWidth }]}>
               <Image

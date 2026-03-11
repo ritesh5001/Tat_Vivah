@@ -1,7 +1,6 @@
 import * as React from "react";
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   Pressable,
@@ -9,7 +8,6 @@ import {
   type ListRenderItemInfo,
   FlatList,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, usePathname, useRouter } from "expo-router";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import {
@@ -26,6 +24,7 @@ import { SkeletonBlock } from "../../../src/components/Skeleton";
 import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
 import { DeliveredShimmer } from "../../../src/components/DeliveredShimmer";
 import { impactLight } from "../../../src/utils/haptics";
+import { AppText as Text, ScreenContainer as SafeAreaView } from "../../../src/components";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -67,13 +66,13 @@ const OrderItemRow = React.memo(function OrderItemRow({
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   PLACED: { label: "PLACED", color: colors.brownSoft },
-  CONFIRMED: { label: "CONFIRMED", color: "#8A7054" },
-  PROCESSING: { label: "PROCESSING", color: "#8A7054" },
-  SHIPPED: { label: "SHIPPED", color: "#5E6B82" },
-  DELIVERED: { label: "DELIVERED", color: "#5A7352" },
-  CANCELLED: { label: "CANCELLED", color: "#7A5656" },
-  "PAYMENT PENDING": { label: "PAYMENT PENDING", color: "#8A7054" },
-  "PAYMENT FAILED": { label: "PAYMENT FAILED", color: "#7A5656" },
+  CONFIRMED: { label: "CONFIRMED", color: colors.gold },
+  PROCESSING: { label: "PROCESSING", color: colors.gold },
+  SHIPPED: { label: "SHIPPED", color: "#8A7054" },
+  DELIVERED: { label: "DELIVERED", color: "#7A6A4B" },
+  CANCELLED: { label: "CANCELLED", color: colors.gold },
+  "PAYMENT PENDING": { label: "PAYMENT PENDING", color: colors.gold },
+  "PAYMENT FAILED": { label: "PAYMENT FAILED", color: colors.gold },
 };
 
 const STATUS_FLOW = ["PLACED", "CONFIRMED", "SHIPPED", "DELIVERED"] as const;
@@ -403,7 +402,7 @@ export default function OrderDetailScreen() {
         {/* Download Invoice — for confirmed/shipped/delivered orders */}
         {order && (order.status === "CONFIRMED" || order.status === "SHIPPED" || order.status === "DELIVERED") && (
           <AnimatedPressable
-            style={[styles.primaryButton, { backgroundColor: colors.charcoal, marginBottom: spacing.sm }]}
+            style={[styles.primaryButton, { backgroundColor: colors.gold, marginBottom: spacing.sm }]}
             onPress={async () => {
               if (downloadingInvoice || !token || !orderId) return;
               setDownloadingInvoice(true);
@@ -453,6 +452,8 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderSoft,
   },
   backText: {
     fontFamily: typography.sans,
@@ -471,17 +472,17 @@ const styles = StyleSheet.create({
 
   // Warning
   warningBanner: {
-    backgroundColor: "#FFF3E0",
+    backgroundColor: "rgba(184, 149, 108, 0.14)",
     borderRadius: radius.md,
     padding: spacing.md,
     marginBottom: spacing.md,
     borderWidth: 1,
-    borderColor: "#FFE0B2",
+    borderColor: colors.gold,
   },
   warningText: {
     fontFamily: typography.sans,
     fontSize: 12,
-    color: "#E65100",
+    color: colors.gold,
     lineHeight: 18,
   },
 
@@ -489,9 +490,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     padding: spacing.md,
     borderRadius: radius.lg,
-    backgroundColor: "#FBEFEF",
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: "#E7C9C7",
+    borderColor: colors.borderSoft,
   },
   cancelledTitle: {
     fontFamily: typography.serif,
@@ -510,7 +511,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     padding: spacing.lg,
     borderRadius: radius.lg,
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     ...shadow.card,
@@ -549,7 +550,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     padding: spacing.lg,
     borderRadius: radius.lg,
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     ...shadow.card,
@@ -654,7 +655,9 @@ const styles = StyleSheet.create({
   primaryButton: {
     marginTop: spacing.sm,
     marginBottom: spacing.md,
-    backgroundColor: colors.charcoal,
+    backgroundColor: colors.gold,
+    borderWidth: 1,
+    borderColor: colors.gold,
     borderRadius: radius.md,
     paddingVertical: 14,
     alignItems: "center",
@@ -678,7 +681,7 @@ const styles = StyleSheet.create({
     margin: spacing.lg,
     padding: spacing.xl,
     borderRadius: radius.lg,
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     alignItems: "center",

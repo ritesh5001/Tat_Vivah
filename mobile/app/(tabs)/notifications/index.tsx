@@ -1,13 +1,11 @@
 import * as React from "react";
 import {
   View,
-  Text,
   StyleSheet,
   FlatList,
   Pressable,
   RefreshControl,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import {
@@ -24,6 +22,7 @@ import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
 import { AppHeader } from "../../../src/components/AppHeader";
 import { impactLight } from "../../../src/utils/haptics";
 import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
+import { AppText as Text, ScreenContainer as SafeAreaView } from "../../../src/components";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -61,7 +60,6 @@ export default function NotificationsScreen() {
   if (!authLoading && !token) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <AppHeader title="Notifications" subtitle="Updates & offers" showMenu showBack />
         <AppHeader title="Notifications" subtitle="Updates & offers" showMenu showBack />
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Notifications</Text>
@@ -227,6 +225,7 @@ export default function NotificationsScreen() {
   // ---- Main render ----
   return (
     <SafeAreaView style={styles.safeArea}>
+      <AppHeader title="Notifications" subtitle="Updates & offers" showMenu showBack />
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Notifications</Text>
         <Text style={styles.headerCopy}>Stay updated on your orders.</Text>
@@ -310,6 +309,9 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderSoft,
   },
   headerTitle: {
     fontFamily: typography.serif,
@@ -331,13 +333,13 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     padding: spacing.md,
     borderRadius: radius.lg,
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     ...shadow.card,
   },
   cardUnread: {
-    borderLeftWidth: 3,
+    borderLeftWidth: 2,
     borderLeftColor: colors.gold,
   },
   cardHeader: {
@@ -369,7 +371,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     fontFamily: typography.sans,
     fontSize: 10,
-    color: colors.brownSoft,
+    color: colors.gold,
   },
 
   // States
@@ -391,11 +393,35 @@ const styles = StyleSheet.create({
     color: colors.charcoal,
     marginBottom: spacing.xs,
   },
+  emptySubtitle: {
+    fontFamily: typography.sans,
+    fontSize: 12,
+    color: colors.brownSoft,
+    textAlign: "center",
+    lineHeight: 18,
+    marginBottom: spacing.md,
+  },
   emptyText: {
     fontFamily: typography.sans,
     fontSize: 12,
     color: colors.brownSoft,
     textAlign: "center",
+  },
+  ctaButton: {
+    backgroundColor: colors.gold,
+    borderWidth: 1,
+    borderColor: colors.gold,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    alignItems: "center",
+  },
+  ctaButtonText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 12,
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+    color: colors.background,
   },
   errorTitle: {
     fontFamily: typography.serif,
@@ -412,7 +438,9 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   retryButton: {
-    backgroundColor: colors.charcoal,
+    backgroundColor: colors.gold,
+    borderWidth: 1,
+    borderColor: colors.gold,
     borderRadius: radius.md,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,

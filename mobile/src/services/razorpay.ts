@@ -28,6 +28,10 @@ export interface RazorpaySuccessResponse {
   razorpay_signature: string;
 }
 
+export function isRazorpayAvailable(): boolean {
+  return false;
+}
+
 export async function openRazorpayCheckout(
   _options: RazorpayCheckoutOptions
 ): Promise<RazorpaySuccessResponse> {

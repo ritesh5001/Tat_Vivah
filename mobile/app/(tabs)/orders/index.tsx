@@ -1,15 +1,12 @@
 import * as React from "react";
 import {
   View,
-  Text,
   StyleSheet,
   FlatList,
   Pressable,
   Modal,
-  TextInput,
   type ListRenderItemInfo,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import { listBuyerOrders, type BuyerOrder } from "../../../src/services/orders";
 import { listMyCancellations, requestCancellation } from "../../../src/services/cancellations";
@@ -25,6 +22,12 @@ import { useToast } from "../../../src/providers/ToastProvider";
 import { notifySuccess, notifyError, impactMedium } from "../../../src/utils/haptics";
 import { AppHeader } from "../../../src/components/AppHeader";
 import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
+import { isRazorpayAvailable } from "../../../src/services/razorpay";
+import {
+  AppInput as TextInput,
+  AppText as Text,
+  ScreenContainer as SafeAreaView,
+} from "../../../src/components";
 
 const currency = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -35,17 +38,17 @@ const currency = new Intl.NumberFormat("en-IN", {
 function getStatusStyle(label: string): { color: string } {
   switch (label) {
     case "DELIVERED":
-      return { color: "#5A7352" };
+      return { color: "#7A6A4B" };
     case "CONFIRMED":
-      return { color: "#8A7054" };
+      return { color: colors.gold };
     case "SHIPPED":
-      return { color: "#5E6B82" };
-    case "PAYMENT PENDING":
       return { color: "#8A7054" };
+    case "PAYMENT PENDING":
+      return { color: colors.gold };
     case "PAYMENT FAILED":
-      return { color: "#7A5656" };
+      return { color: colors.gold };
     case "CANCELLED":
-      return { color: "#7A5656" };
+      return { color: colors.gold };
     default:
       return { color: colors.brownSoft };
   }
@@ -486,6 +489,13 @@ export default function OrdersScreen() {
   const handleRetryPayment = React.useCallback(async (orderId: string) => {
     if (retryingOrderId) return; // prevent double-tap
     if (!token) return;
+    if (!isRazorpayAvailable()) {
+      showToast(
+        "Razorpay is unavailable in Expo Go. Use a development build to test payments.",
+        "error"
+      );
+      return;
+    }
 
     setRetryingOrderId(orderId);
     try {
@@ -714,6 +724,9 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderSoft,
   },
   headerTitle: {
     fontFamily: typography.serif,
@@ -735,7 +748,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     padding: spacing.lg,
     borderRadius: radius.xl,
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     ...shadow.card,
@@ -765,7 +778,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 999,
     borderWidth: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
   },
   statusDot: {
     width: 6,
@@ -802,7 +815,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
   },
   trackLinkText: {
     fontFamily: typography.sansMedium,
@@ -815,7 +828,7 @@ const styles = StyleSheet.create({
     margin: spacing.lg,
     padding: spacing.lg,
     borderRadius: radius.lg,
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     alignItems: "center",
@@ -830,7 +843,7 @@ const styles = StyleSheet.create({
     margin: spacing.lg,
     padding: spacing.xl,
     borderRadius: radius.lg,
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     alignItems: "center",
@@ -856,7 +869,9 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     marginTop: spacing.sm,
-    backgroundColor: colors.charcoal,
+    backgroundColor: colors.gold,
+    borderWidth: 1,
+    borderColor: colors.gold,
     borderRadius: radius.md,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
@@ -877,17 +892,19 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
     alignItems: "center",
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surface,
   },
   secondaryButtonText: {
     fontFamily: typography.sansMedium,
     fontSize: 12,
     letterSpacing: 1.2,
     textTransform: "uppercase",
-    color: colors.charcoal,
+    color: colors.foreground,
   },
   retryButton: {
-    backgroundColor: colors.charcoal,
+    backgroundColor: colors.gold,
+    borderWidth: 1,
+    borderColor: colors.gold,
     borderRadius: radius.md,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
@@ -916,7 +933,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 1.2,
     textTransform: "uppercase" as const,
-    color: "#fff",
+    color: colors.background,
   },
   requestCancelButton: {
     marginTop: spacing.sm,
@@ -925,7 +942,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     paddingVertical: spacing.xs,
     alignItems: "center",
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surface,
   },
   requestCancelButtonText: {
     fontFamily: typography.sansMedium,
@@ -941,7 +958,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     paddingVertical: spacing.xs,
     alignItems: "center",
-    backgroundColor: colors.cream,
+    backgroundColor: "rgba(184, 149, 108, 0.14)",
   },
   cancellationBadgeText: {
     fontFamily: typography.sans,
@@ -957,7 +974,7 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   modalCard: {
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surfaceElevated,
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -985,7 +1002,7 @@ const styles = StyleSheet.create({
     textAlignVertical: "top",
     fontFamily: typography.sans,
     color: colors.charcoal,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
   },
   modalActions: {
     marginTop: spacing.md,
@@ -1004,11 +1021,11 @@ const styles = StyleSheet.create({
   },
   modalCancelText: {
     fontFamily: typography.sans,
-    color: colors.charcoal,
+    color: colors.foreground,
     fontSize: 12,
   },
   modalConfirmButton: {
-    backgroundColor: colors.charcoal,
+    backgroundColor: colors.gold,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,

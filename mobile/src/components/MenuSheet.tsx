@@ -15,7 +15,7 @@ interface MenuSheetProps {
 const baseItems: Array<{ label: string; route: string }> = [
   { label: "Home", route: "/home" },
   { label: "Marketplace", route: "/marketplace" },
-  { label: "Shop", route: "/search" },
+  { label: "Search", route: "/search" },
 ];
 
 export function MenuSheet({ visible, onClose, onNavigate, items }: MenuSheetProps) {
@@ -31,11 +31,10 @@ export function MenuSheet({ visible, onClose, onNavigate, items }: MenuSheetProp
       return [
         ...baseItems,
         { label: "Cart", route: "/cart" },
-        { label: "Wishlist", route: "/wishlist" },
         { label: "Orders", route: "/orders" },
-        { label: "Addresses", route: "/profile/addresses" },
-        { label: "Notifications", route: "/notifications" },
+        { label: "Wishlist", route: "/wishlist" },
         { label: "Profile", route: "/profile" },
+        { label: "Support", route: "/(tabs)/contact" },
         { label: "Logout", route: "__logout__" },
       ];
     }
@@ -103,25 +102,27 @@ export function MenuSheet({ visible, onClose, onNavigate, items }: MenuSheetProp
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(44, 40, 37, 0.35)",
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
     justifyContent: "flex-start",
   },
   sheet: {
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.cream,
     borderBottomLeftRadius: radius.xl,
     borderBottomRightRadius: radius.xl,
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.lg,
+    borderBottomWidth: 1,
+    borderColor: colors.borderSoft,
   },
   sheetHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   title: {
     fontFamily: typography.serif,
-    fontSize: 20,
+    fontSize: 18,
     color: colors.charcoal,
   },
   closeButton: {
@@ -129,7 +130,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    borderRadius: 16,
+    borderRadius: 20,
+    backgroundColor: colors.warmWhite,
   },
   closeText: {
     fontFamily: typography.sans,
@@ -139,16 +141,17 @@ const styles = StyleSheet.create({
     color: colors.charcoal,
   },
   menuItem: {
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.borderSoft,
+    backgroundColor: "transparent",
   },
   menuItemText: {
     fontFamily: typography.sansMedium,
-    fontSize: 12,
+    fontSize: 11,
     color: colors.charcoal,
     textTransform: "uppercase",
-    letterSpacing: 1.4,
+    letterSpacing: 2,
   },
   menuItemDisabled: {
     opacity: 0.5,

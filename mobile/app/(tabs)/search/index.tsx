@@ -1,16 +1,14 @@
 import * as React from "react";
 import {
+  InteractionManager,
   View,
-  Text,
   StyleSheet,
   FlatList,
-  TextInput,
   Pressable,
   Dimensions,
   Modal,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { Image } from "expo-image";
+import { Image } from "../../../src/components/CompatImage";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import { getCategories } from "../../../src/services/catalog";
@@ -24,14 +22,19 @@ import { SkeletonProductCard } from "../../../src/components/Skeleton";
 import { getSuggestions, type SuggestionItem, type SortOption } from "../../../src/services/search";
 import { AppHeader } from "../../../src/components/AppHeader";
 import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
+import {
+  AppInput as TextInput,
+  AppText as Text,
+  ScreenContainer as SafeAreaView,
+} from "../../../src/components";
 
 const { width } = Dimensions.get("window");
 const cardWidth = (width - spacing.lg * 2 - spacing.md) / 2;
 const fallbackImage =
   "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80";
 
-const DEBOUNCE_MS = 400;
-const SUGGEST_DEBOUNCE_MS = 300;
+const DEBOUNCE_MS = 220;
+const SUGGEST_DEBOUNCE_MS = 160;
 
 const SORT_OPTIONS: { value: SortOption | ""; label: string }[] = [
   { value: "", label: "Default" },
@@ -320,7 +323,9 @@ export default function SearchScreen() {
 
   const handleProductPress = React.useCallback(
     (id: string) => {
-      router.push({ pathname: "/product/[id]", params: { id } });
+      InteractionManager.runAfterInteractions(() => {
+        router.push({ pathname: "/product/[id]", params: { id } });
+      });
     },
     [router]
   );
@@ -536,7 +541,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surface,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -546,7 +551,9 @@ const styles = StyleSheet.create({
     color: colors.charcoal,
   },
   searchButton: {
-    backgroundColor: colors.charcoal,
+    backgroundColor: colors.gold,
+    borderWidth: 1,
+    borderColor: colors.gold,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     justifyContent: "center",
@@ -569,11 +576,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: 20,
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surface,
   },
   categoryChipActive: {
     borderColor: colors.gold,
-    backgroundColor: colors.cream,
+    backgroundColor: "rgba(184, 149, 108, 0.14)",
   },
   categoryChipText: {
     fontFamily: typography.sans,
@@ -593,9 +600,9 @@ const styles = StyleSheet.create({
   productCard: {
     width: cardWidth,
     marginBottom: spacing.md,
-    padding: spacing.sm,
+    padding: spacing.md,
     borderRadius: radius.lg,
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     ...shadow.card,
@@ -603,7 +610,7 @@ const styles = StyleSheet.create({
   productImage: {
     height: 160,
     borderRadius: radius.md,
-    backgroundColor: colors.cream,
+    backgroundColor: colors.surface,
   },
   productTitle: {
     marginTop: spacing.sm,
@@ -646,7 +653,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surfaceElevated,
     alignItems: "center",
     ...shadow.card,
   },
@@ -664,7 +671,9 @@ const styles = StyleSheet.create({
   },
   retryButton: {
     marginTop: spacing.md,
-    backgroundColor: colors.charcoal,
+    backgroundColor: colors.gold,
+    borderWidth: 1,
+    borderColor: colors.gold,
     borderRadius: radius.md,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
@@ -685,7 +694,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.borderSoft,
     borderRadius: radius.md,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surfaceElevated,
     ...shadow.card,
     maxHeight: 220,
   },
@@ -726,7 +735,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surface,
   },
   sortButtonText: {
     fontFamily: typography.sansMedium,
@@ -741,7 +750,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.35)",
   },
   sortSheet: {
-    backgroundColor: colors.background,
+    backgroundColor: colors.surfaceElevated,
     borderTopLeftRadius: radius.lg,
     borderTopRightRadius: radius.lg,
     paddingVertical: spacing.lg,
@@ -759,7 +768,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.borderSoft,
   },
   sortSheetOptionActive: {
-    backgroundColor: colors.cream,
+    backgroundColor: "rgba(184, 149, 108, 0.14)",
     borderRadius: radius.sm,
     marginHorizontal: -spacing.sm,
     paddingHorizontal: spacing.sm,

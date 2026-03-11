@@ -1,13 +1,10 @@
 import * as React from "react";
 import {
   View,
-  Text,
-  TextInput,
   StyleSheet,
   ScrollView,
   Pressable,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import {
   colors,
@@ -19,6 +16,11 @@ import {
 import { requestOtp } from "../../src/services/auth";
 import { AppHeader } from "../../src/components/AppHeader";
 import { TatvivahLoader } from "../../src/components/TatvivahLoader";
+import {
+  AppInput as TextInput,
+  AppText as Text,
+  ScreenContainer as SafeAreaView,
+} from "../../src/components";
 
 export default function RequestOtpScreen() {
   const router = useRouter();
@@ -129,7 +131,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    backgroundColor: colors.cream,
+    backgroundColor: colors.surface,
     alignItems: "center",
     justifyContent: "center",
     marginRight: spacing.sm,
@@ -148,7 +150,7 @@ const styles = StyleSheet.create({
     fontFamily: typography.sans,
     fontSize: 10,
     letterSpacing: 1.5,
-    color: colors.brownSoft,
+    color: colors.goldMuted,
     textTransform: "uppercase",
   },
   title: {
@@ -164,7 +166,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   card: {
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surfaceElevated,
     borderRadius: radius.lg,
     padding: spacing.lg,
     borderWidth: 1,
@@ -187,10 +189,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     fontFamily: typography.sans,
     color: colors.charcoal,
+    backgroundColor: colors.surface,
     marginBottom: spacing.md,
   },
   primaryButton: {
-    backgroundColor: colors.charcoal,
+    backgroundColor: colors.gold,
+    borderWidth: 1,
+    borderColor: colors.gold,
     borderRadius: radius.md,
     paddingVertical: spacing.sm,
     alignItems: "center",
@@ -208,7 +213,7 @@ const styles = StyleSheet.create({
   errorText: {
     fontFamily: typography.sans,
     fontSize: 12,
-    color: "#A65D57",
+    color: colors.gold,
     marginBottom: spacing.sm,
   },
   footerRow: {

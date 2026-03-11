@@ -1,13 +1,18 @@
+import { luxuryTheme } from "./theme";
+
 export const colors = {
-  background: "#FAF7F2",
-  cream: "#F4EFE7",
-  warmWhite: "#FFFCF8",
-  gold: "#B8956C",
-  goldMuted: "#C9AB82",
-  charcoal: "#2C2825",
-  brown: "#3D3329",
-  brownSoft: "#5C524A",
-  borderSoft: "#E8E2D9",
+  background: luxuryTheme.background,
+  surface: luxuryTheme.background,
+  surfaceElevated: luxuryTheme.background,
+  cream: luxuryTheme.background,
+  warmWhite: luxuryTheme.background,
+  foreground: luxuryTheme.textPrimary,
+  gold: luxuryTheme.accent,
+  goldMuted: luxuryTheme.accent,
+  charcoal: luxuryTheme.dark,
+  brown: luxuryTheme.dark,
+  brownSoft: luxuryTheme.textSecondary,
+  borderSoft: luxuryTheme.border,
 };
 
 export const typography = {
@@ -35,7 +40,7 @@ export const radius = {
 
 export const shadow = {
   card: {
-    shadowColor: "#2C2825",
+    shadowColor: luxuryTheme.shadow,
     shadowOpacity: 0.08,
     shadowOffset: { width: 0, height: 10 },
     shadowRadius: 16,

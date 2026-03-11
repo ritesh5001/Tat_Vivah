@@ -1,15 +1,15 @@
 import * as React from "react";
 import {
   View,
-  Text,
-  TextInput,
   StyleSheet,
   ScrollView,
   Pressable,
+  KeyboardAvoidingView,
+  Platform,
   type NativeSyntheticEvent,
+  type TextInput as NativeTextInput,
   type TextInputKeyPressEventData,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   colors,
@@ -20,6 +20,11 @@ import {
 } from "../../src/theme/tokens";
 import { resetPassword, forgotPassword } from "../../src/services/auth";
 import { AppHeader } from "../../src/components/AppHeader";
+import {
+  AppInput as TextInput,
+  AppText as Text,
+  ScreenContainer as SafeAreaView,
+} from "../../src/components";
 
 const OTP_LENGTH = 6;
 const RESEND_COOLDOWN_SECONDS = 60;
@@ -33,13 +38,15 @@ export default function ResetPasswordScreen() {
   );
   const [newPassword, setNewPassword] = React.useState("");
   const [confirmPassword, setConfirmPassword] = React.useState("");
+  const [showNewPassword, setShowNewPassword] = React.useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [success, setSuccess] = React.useState<string | null>(null);
   const [countdown, setCountdown] = React.useState(RESEND_COOLDOWN_SECONDS);
 
-  const inputRefs = React.useRef<(TextInput | null)[]>([]);
-  const passwordRef = React.useRef<TextInput>(null);
+  const inputRefs = React.useRef<(NativeTextInput | null)[]>([]);
+  const passwordRef = React.useRef<NativeTextInput>(null);
 
   // ---------- Countdown timer ----------
   React.useEffect(() => {
@@ -167,7 +174,11 @@ export default function ResetPasswordScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <AppHeader title="Reset password" subtitle="TatVivah" showMenu showBack />
-      <ScrollView contentContainerStyle={styles.container}>
+      <KeyboardAvoidingView
+        style={styles.keyboardWrap}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         {/* Logo row */}
         <View style={styles.logoRow}>
           <View style={styles.logoBadge}>
@@ -217,32 +228,42 @@ export default function ResetPasswordScreen() {
 
           {/* New password */}
           <Text style={styles.label}>New Password</Text>
-          <TextInput
-            ref={passwordRef}
-            placeholder="Min 8 characters"
-            placeholderTextColor={colors.brownSoft}
-            secureTextEntry
-            style={styles.input}
-            value={newPassword}
-            onChangeText={setNewPassword}
-            editable={!loading}
-            autoComplete="new-password"
-          />
+          <View style={styles.inputRow}>
+            <TextInput
+              ref={passwordRef}
+              placeholder="Min 8 characters"
+              placeholderTextColor={colors.brownSoft}
+              secureTextEntry={!showNewPassword}
+              style={[styles.input, styles.passwordInput]}
+              value={newPassword}
+              onChangeText={setNewPassword}
+              editable={!loading}
+              autoComplete="new-password"
+            />
+            <Pressable style={styles.eyeButton} onPress={() => setShowNewPassword((prev) => !prev)}>
+              <Text style={styles.eyeText}>{showNewPassword ? "🙈" : "👁️"}</Text>
+            </Pressable>
+          </View>
 
           {/* Confirm password */}
           <Text style={styles.label}>Confirm Password</Text>
-          <TextInput
-            placeholder="Re-enter password"
-            placeholderTextColor={colors.brownSoft}
-            secureTextEntry
-            style={styles.input}
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            editable={!loading}
-            autoComplete="new-password"
-            returnKeyType="done"
-            onSubmitEditing={handleSubmit}
-          />
+          <View style={styles.inputRow}>
+            <TextInput
+              placeholder="Re-enter password"
+              placeholderTextColor={colors.brownSoft}
+              secureTextEntry={!showConfirmPassword}
+              style={[styles.input, styles.passwordInput]}
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              editable={!loading}
+              autoComplete="new-password"
+              returnKeyType="done"
+              onSubmitEditing={handleSubmit}
+            />
+            <Pressable style={styles.eyeButton} onPress={() => setShowConfirmPassword((prev) => !prev)}>
+              <Text style={styles.eyeText}>{showConfirmPassword ? "🙈" : "👁️"}</Text>
+            </Pressable>
+          </View>
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
           {success ? <Text style={styles.successText}>{success}</Text> : null}
@@ -281,6 +302,7 @@ export default function ResetPasswordScreen() {
           </Pressable>
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -289,6 +311,9 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  keyboardWrap: {
+    flex: 1,
   },
   container: {
     padding: spacing.lg,
@@ -304,7 +329,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    backgroundColor: colors.cream,
+    backgroundColor: colors.surface,
     alignItems: "center",
     justifyContent: "center",
     marginRight: spacing.sm,
@@ -323,7 +348,7 @@ const styles = StyleSheet.create({
     fontFamily: typography.sans,
     fontSize: 10,
     letterSpacing: 1.5,
-    color: colors.brownSoft,
+    color: colors.goldMuted,
     textTransform: "uppercase",
   },
   title: {
@@ -344,7 +369,7 @@ const styles = StyleSheet.create({
     color: colors.charcoal,
   },
   card: {
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surfaceElevated,
     borderRadius: radius.lg,
     padding: spacing.lg,
     borderWidth: 1,
@@ -374,11 +399,11 @@ const styles = StyleSheet.create({
     fontFamily: typography.sansMedium,
     fontSize: 22,
     color: colors.charcoal,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
   },
   otpInputFilled: {
     borderColor: colors.gold,
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surfaceElevated,
   },
   input: {
     height: 48,
@@ -388,10 +413,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     fontFamily: typography.sans,
     color: colors.charcoal,
+    backgroundColor: colors.surface,
     marginBottom: spacing.md,
   },
+  inputRow: {
+    position: "relative",
+    justifyContent: "center",
+  },
+  passwordInput: {
+    paddingRight: 46,
+  },
+  eyeButton: {
+    position: "absolute",
+    right: spacing.sm,
+    top: 8,
+    width: 32,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  eyeText: {
+    fontSize: 16,
+  },
   primaryButton: {
-    backgroundColor: colors.charcoal,
+    backgroundColor: colors.gold,
+    borderWidth: 1,
+    borderColor: colors.gold,
     borderRadius: radius.md,
     paddingVertical: spacing.sm,
     alignItems: "center",
@@ -409,7 +456,7 @@ const styles = StyleSheet.create({
   errorText: {
     fontFamily: typography.sans,
     fontSize: 12,
-    color: "#A65D57",
+    color: colors.gold,
     marginBottom: spacing.sm,
     textAlign: "center",
   },
