@@ -241,6 +241,16 @@ export default function AdminOverviewPage() {
                   <span className="text-muted-foreground">→</span>
                 </motion.div>
               </Link>
+              <Link href="/admin/reels">
+                <motion.div
+                  whileHover={{ x: 4 }}
+                  transition={{ duration: 0.3, ease: "easeOut" }}
+                  className="flex items-center justify-between py-3 px-4 border border-border-soft text-sm text-foreground transition-all duration-300 hover:border-gold/50 hover:bg-cream/50 dark:hover:bg-brown/20"
+                >
+                  <span>Moderate Reels</span>
+                  <span className="text-muted-foreground">→</span>
+                </motion.div>
+              </Link>
             </div>
           </motion.div>
         </section>

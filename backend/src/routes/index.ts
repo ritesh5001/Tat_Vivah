@@ -52,3 +52,8 @@ export { personalizationRouter } from './personalization.routes.js';
 
 // Seller Analytics
 export { sellerAnalyticsRouter } from './sellerAnalytics.routes.js';
+
+// Reels
+export { reelRouter } from './reel.routes.js';
+export { sellerReelRouter } from './seller-reel.routes.js';
+export { adminReelRouter } from './admin-reel.routes.js';
