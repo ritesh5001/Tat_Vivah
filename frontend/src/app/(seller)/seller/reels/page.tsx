@@ -3,7 +3,7 @@
 import * as React from "react";
 import ImageKit from "imagekit-javascript";
 import { AnimatePresence, motion } from "framer-motion";
-import { Loader2, Plus, Trash2, Video, X } from "lucide-react";
+import { BarChart3, Loader2, Plus, Trash2, Video, X, Heart, Eye, MousePointerClick } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,7 +12,9 @@ import {
   listSellerReels,
   createSellerReel,
   deleteSellerReel,
+  getSellerReelAnalytics,
   type Reel,
+  type SellerReelAnalytics,
 } from "@/services/reels";
 import { listSellerProducts, type SellerProduct } from "@/services/seller-products";
 
@@ -51,6 +53,8 @@ export default function SellerReelsPage() {
   const [videoUrl, setVideoUrl] = React.useState("");
   const [thumbnailUrl, setThumbnailUrl] = React.useState("");
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
+  const [analytics, setAnalytics] = React.useState<SellerReelAnalytics[]>([]);
+  const [showAnalytics, setShowAnalytics] = React.useState(false);
 
   const imagekit = React.useMemo(() => {
     if (!IMAGEKIT_PUBLIC_KEY || !IMAGEKIT_URL_ENDPOINT || !API_BASE_URL) return null;
@@ -65,10 +69,12 @@ export default function SellerReelsPage() {
     const results = await Promise.allSettled([
       listSellerReels(),
       listSellerProducts(),
+      getSellerReelAnalytics(),
     ]);
     if (results[0].status === "fulfilled") setReels(results[0].value.reels ?? []);
     else toast.error("Unable to load reels");
     if (results[1].status === "fulfilled") setProducts(results[1].value.products ?? []);
+    if (results[2].status === "fulfilled") setAnalytics(results[2].value.analytics ?? []);
     setLoading(false);
   }, []);
 
@@ -89,6 +95,28 @@ export default function SellerReelsPage() {
       toast.error("Video must be under 100MB");
       return;
     }
+
+    // Duration validation: max 30 seconds
+    const durationOk = await new Promise<boolean>((resolve) => {
+      const video = document.createElement("video");
+      video.preload = "metadata";
+      video.onloadedmetadata = () => {
+        URL.revokeObjectURL(video.src);
+        if (video.duration > 30) {
+          toast.error("Reel must be 30 seconds or less");
+          resolve(false);
+        } else {
+          resolve(true);
+        }
+      };
+      video.onerror = () => {
+        URL.revokeObjectURL(video.src);
+        // Can't check duration — allow upload and let backend enforce
+        resolve(true);
+      };
+      video.src = URL.createObjectURL(file);
+    });
+    if (!durationOk) return;
 
     setUploading(true);
     try {
@@ -174,13 +202,23 @@ export default function SellerReelsPage() {
             Upload short videos to promote your products
           </p>
         </div>
-        <Button
-          onClick={() => setShowCreateModal(true)}
-          className="gap-2"
-        >
-          <Plus className="h-4 w-4" />
-          Create Reel
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant={showAnalytics ? "primary" : "outline"}
+            onClick={() => setShowAnalytics(!showAnalytics)}
+            className="gap-2"
+          >
+            <BarChart3 className="h-4 w-4" />
+            Analytics
+          </Button>
+          <Button
+            onClick={() => setShowCreateModal(true)}
+            className="gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            Create Reel
+          </Button>
+        </div>
       </div>
 
       {/* Create Modal */}
@@ -240,7 +278,7 @@ export default function SellerReelsPage() {
                             Click to upload video
                           </span>
                           <span className="text-xs text-muted-foreground/60 mt-1">
-                            Max 100MB
+                            Max 100MB · 30 seconds
                           </span>
                         </>
                       )}
@@ -297,6 +335,62 @@ export default function SellerReelsPage() {
         )}
       </AnimatePresence>
 
+      {/* Analytics Panel */}
+      {showAnalytics && analytics.length > 0 && (
+        <div className="mb-8">
+          {/* Summary Cards */}
+          <div className="grid grid-cols-3 gap-4 mb-6">
+            <div className="border border-border rounded-xl p-4 bg-card text-center">
+              <Eye className="h-5 w-5 mx-auto text-muted-foreground mb-1" />
+              <p className="text-2xl font-semibold">
+                {analytics.reduce((s, a) => s + a.views, 0).toLocaleString()}
+              </p>
+              <p className="text-xs text-muted-foreground">Total Views</p>
+            </div>
+            <div className="border border-border rounded-xl p-4 bg-card text-center">
+              <Heart className="h-5 w-5 mx-auto text-muted-foreground mb-1" />
+              <p className="text-2xl font-semibold">
+                {analytics.reduce((s, a) => s + a.likes, 0).toLocaleString()}
+              </p>
+              <p className="text-xs text-muted-foreground">Total Likes</p>
+            </div>
+            <div className="border border-border rounded-xl p-4 bg-card text-center">
+              <MousePointerClick className="h-5 w-5 mx-auto text-muted-foreground mb-1" />
+              <p className="text-2xl font-semibold">
+                {analytics.reduce((s, a) => s + a.productClicks, 0).toLocaleString()}
+              </p>
+              <p className="text-xs text-muted-foreground">Product Clicks</p>
+            </div>
+          </div>
+
+          {/* Per-Reel Table */}
+          <div className="border border-border rounded-xl overflow-hidden bg-card">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50">
+                <tr>
+                  <th className="text-left px-4 py-2 font-medium">Reel</th>
+                  <th className="text-right px-4 py-2 font-medium">Views</th>
+                  <th className="text-right px-4 py-2 font-medium">Likes</th>
+                  <th className="text-right px-4 py-2 font-medium">Clicks</th>
+                </tr>
+              </thead>
+              <tbody>
+                {analytics.map((a) => (
+                  <tr key={a.reelId} className="border-t border-border">
+                    <td className="px-4 py-2 truncate max-w-[200px]">
+                      {a.caption || a.product?.title || a.reelId.slice(0, 8)}
+                    </td>
+                    <td className="text-right px-4 py-2">{a.views.toLocaleString()}</td>
+                    <td className="text-right px-4 py-2">{a.likes.toLocaleString()}</td>
+                    <td className="text-right px-4 py-2">{a.productClicks.toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* Reel List */}
       {reels.length === 0 ? (
         <div className="text-center py-20">
@@ -349,7 +443,7 @@ export default function SellerReelsPage() {
                         {badge.label}
                       </span>
                       <span className="text-xs text-muted-foreground">
-                        {reel.views} views
+                        {reel.views} views · {reel.likes} likes
                       </span>
                     </div>
 

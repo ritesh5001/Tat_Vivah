@@ -3,8 +3,9 @@
 import * as React from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronDown, ChevronUp, Eye, Loader2, ShoppingBag, X } from "lucide-react";
-import { listPublicReels, type Reel } from "@/services/reels";
+import { ChevronDown, ChevronUp, Eye, Heart, Loader2, ShoppingBag, X } from "lucide-react";
+import { listPublicReels, likeReel, unlikeReel, checkReelLiked, recordReelView, recordProductClick, type Reel } from "@/services/reels";
+import { useAuth } from "@/hooks/use-auth";
 
 const currency = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -13,6 +14,7 @@ const currency = new Intl.NumberFormat("en-IN", {
 });
 
 export default function ReelFeedPage() {
+  const { token } = useAuth();
   const [reels, setReels] = React.useState<Reel[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [page, setPage] = React.useState(1);
@@ -20,6 +22,11 @@ export default function ReelFeedPage() {
   const [loadingMore, setLoadingMore] = React.useState(false);
   const [currentIndex, setCurrentIndex] = React.useState(0);
   const containerRef = React.useRef<HTMLDivElement>(null);
+
+  // Engagement state
+  const [likedMap, setLikedMap] = React.useState<Record<string, boolean>>({});
+  const [likeCounts, setLikeCounts] = React.useState<Record<string, number>>({});
+  const [viewedSet, setViewedSet] = React.useState<Set<string>>(new Set());
 
   const loadReels = React.useCallback(async (pageNum: number, append = false) => {
     if (append) setLoadingMore(true);
@@ -45,6 +52,59 @@ export default function ReelFeedPage() {
   React.useEffect(() => {
     loadReels(1);
   }, [loadReels]);
+
+  // Track view when current reel changes
+  React.useEffect(() => {
+    const reel = reels[currentIndex];
+    if (!reel || viewedSet.has(reel.id)) return;
+    setViewedSet((prev) => new Set(prev).add(reel.id));
+    recordReelView(reel.id, token).catch(() => {});
+  }, [currentIndex, reels, token, viewedSet]);
+
+  // Check if current reel is liked (authenticated users only)
+  React.useEffect(() => {
+    const reel = reels[currentIndex];
+    if (!reel || !token || likedMap[reel.id] !== undefined) return;
+    checkReelLiked(reel.id, token)
+      .then((res) => setLikedMap((prev) => ({ ...prev, [reel.id]: res.liked })))
+      .catch(() => {});
+  }, [currentIndex, reels, token, likedMap]);
+
+  // Initialize like counts from reel data
+  React.useEffect(() => {
+    const newCounts: Record<string, number> = {};
+    for (const reel of reels) {
+      if (likeCounts[reel.id] === undefined) {
+        newCounts[reel.id] = reel.likes;
+      }
+    }
+    if (Object.keys(newCounts).length > 0) {
+      setLikeCounts((prev) => ({ ...prev, ...newCounts }));
+    }
+  }, [reels, likeCounts]);
+
+  const handleLikeToggle = React.useCallback(async () => {
+    const reel = reels[currentIndex];
+    if (!reel || !token) return;
+    const isLiked = likedMap[reel.id] ?? false;
+    try {
+      if (isLiked) {
+        await unlikeReel(reel.id, token);
+        setLikedMap((prev) => ({ ...prev, [reel.id]: false }));
+        setLikeCounts((prev) => ({ ...prev, [reel.id]: Math.max(0, (prev[reel.id] ?? 0) - 1) }));
+      } else {
+        await likeReel(reel.id, token);
+        setLikedMap((prev) => ({ ...prev, [reel.id]: true }));
+        setLikeCounts((prev) => ({ ...prev, [reel.id]: (prev[reel.id] ?? 0) + 1 }));
+      }
+    } catch {
+      // silently fail
+    }
+  }, [reels, currentIndex, token, likedMap]);
+
+  const handleProductClick = React.useCallback((reelId: string) => {
+    recordProductClick(reelId, token).catch(() => {});
+  }, [token]);
 
   const goNext = React.useCallback(() => {
     setCurrentIndex((prev) => {
@@ -202,10 +262,28 @@ export default function ReelFeedPage() {
             </div>
           )}
 
-          {/* Views */}
-          <div className="absolute bottom-28 right-4 z-20 flex flex-col items-center gap-1">
-            <Eye className="h-5 w-5 text-white/80" />
-            <span className="text-white/80 text-xs">{currentReel.views}</span>
+          {/* Engagement Sidebar */}
+          <div className="absolute bottom-28 right-4 z-20 flex flex-col items-center gap-4">
+            {/* Like Button */}
+            {token && (
+              <button onClick={handleLikeToggle} className="flex flex-col items-center gap-1">
+                <Heart
+                  className={`h-6 w-6 transition-colors ${
+                    likedMap[currentReel.id]
+                      ? "fill-red-500 text-red-500"
+                      : "text-white/80"
+                  }`}
+                />
+                <span className="text-white/80 text-xs">
+                  {likeCounts[currentReel.id] ?? currentReel.likes}
+                </span>
+              </button>
+            )}
+            {/* View Count */}
+            <div className="flex flex-col items-center gap-1">
+              <Eye className="h-5 w-5 text-white/80" />
+              <span className="text-white/80 text-xs">{currentReel.views}</span>
+            </div>
           </div>
 
           {/* Product Card Overlay */}
@@ -213,6 +291,7 @@ export default function ReelFeedPage() {
             <div className="absolute bottom-4 left-4 right-4 z-20">
               <Link
                 href={`/product/${currentReel.product.id}`}
+                onClick={() => handleProductClick(currentReel.id)}
                 className="flex items-center gap-3 bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/10 hover:bg-white/15 transition-colors"
               >
                 {/* Product Image */}

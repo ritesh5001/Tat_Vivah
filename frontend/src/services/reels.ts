@@ -145,3 +145,65 @@ export async function getPublicReel(reelId: string) {
     method: "GET",
   });
 }
+
+// ============================================================================
+// ENGAGEMENT APIs
+// ============================================================================
+
+export async function likeReel(reelId: string, token?: string | null) {
+  return apiRequest<{ message: string; liked: boolean }>(
+    `/v1/reels/${reelId}/like`,
+    { method: "POST", token }
+  );
+}
+
+export async function unlikeReel(reelId: string, token?: string | null) {
+  return apiRequest<{ message: string; liked: boolean }>(
+    `/v1/reels/${reelId}/like`,
+    { method: "DELETE", token }
+  );
+}
+
+export async function checkReelLiked(reelId: string, token?: string | null) {
+  return apiRequest<{ liked: boolean }>(
+    `/v1/reels/${reelId}/like`,
+    { method: "GET", token }
+  );
+}
+
+export async function recordReelView(reelId: string, token?: string | null) {
+  return apiRequest<{ message: string; recorded: boolean }>(
+    `/v1/reels/${reelId}/view`,
+    { method: "POST", token }
+  );
+}
+
+export async function recordProductClick(reelId: string, token?: string | null) {
+  return apiRequest<{ message: string }>(
+    `/v1/reels/${reelId}/product-click`,
+    { method: "POST", token }
+  );
+}
+
+// ============================================================================
+// SELLER ANALYTICS APIs
+// ============================================================================
+
+export interface SellerReelAnalytics {
+  reelId: string;
+  videoUrl: string;
+  caption: string | null;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  views: number;
+  likes: number;
+  productClicks: number;
+  createdAt: string;
+  product: { id: string; title: string } | null;
+}
+
+export async function getSellerReelAnalytics(token?: string | null) {
+  return apiRequest<{ analytics: SellerReelAnalytics[] }>(
+    "/v1/seller/reels/analytics",
+    { method: "GET", token }
+  );
+}

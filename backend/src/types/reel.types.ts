@@ -56,6 +56,7 @@ export interface CreateReelRequest {
     thumbnailUrl?: string | undefined;
     caption?: string | undefined;
     productId?: string | undefined;
+    durationSeconds?: number | undefined;
 }
 
 export interface ReelQueryFilters {
@@ -100,4 +101,51 @@ export interface AdminReelListResponse {
         total: number;
         totalPages: number;
     };
+}
+
+// ============================================================================
+// REEL COMMERCE TYPES
+// ============================================================================
+
+export interface ReelLikeEntity {
+    id: string;
+    reelId: string;
+    userId: string;
+    createdAt: Date;
+}
+
+export interface ReelViewEntity {
+    id: string;
+    reelId: string;
+    userId: string | null;
+    createdAt: Date;
+}
+
+export interface ReelProductClickEntity {
+    id: string;
+    reelId: string;
+    userId: string | null;
+    productId: string;
+    createdAt: Date;
+}
+
+export interface ReelAnalytics {
+    totalViews: number;
+    totalLikes: number;
+    totalProductClicks: number;
+}
+
+export interface SellerReelAnalytics {
+    reelId: string;
+    videoUrl: string;
+    caption: string | null;
+    status: 'PENDING' | 'APPROVED' | 'REJECTED';
+    views: number;
+    likes: number;
+    productClicks: number;
+    createdAt: Date;
+    product: {
+        id: string;
+        title: string;
+    } | null;
 }

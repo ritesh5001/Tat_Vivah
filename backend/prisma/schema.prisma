@@ -49,6 +49,9 @@ model User {
   sellerCoupons        Coupon[]              @relation("SellerCoupons")
   couponRedemptions    CouponRedemption[]
   reels                Reel[]                @relation("SellerReels")
+  reelLikes            ReelLike[]
+  reelViews            ReelView[]
+  reelProductClicks    ReelProductClick[]
 
   @@index([role])
   @@index([status])
@@ -182,6 +185,7 @@ model Product {
   wishlistItems        WishlistItem[]
   media                ProductMedia[]
   reels                Reel[]                @relation("ProductReels")
+  reelProductClicks    ReelProductClick[]
 
   @@index([sellerId])
   @@index([categoryId])
@@ -1054,6 +1058,9 @@ model Reel {
 
   seller  User     @relation("SellerReels", fields: [sellerId], references: [id], onDelete: Cascade)
   product Product? @relation("ProductReels", fields: [productId], references: [id], onDelete: SetNull)
+  reelLikes      ReelLike[]
+  reelViews      ReelView[]
+  reelProductClicks ReelProductClick[]
 
   @@index([sellerId])
   @@index([productId])
@@ -1061,6 +1068,57 @@ model Reel {
   @@index([createdAt])
   @@index([status, createdAt])
   @@map("reels")
+}
+
+/// Tracks individual user likes on a reel
+model ReelLike {
+  id        String   @id @default(cuid())
+  reelId    String   @map("reel_id")
+  userId    String   @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  reel Reel @relation(fields: [reelId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([reelId, userId])
+  @@index([reelId])
+  @@index([userId])
+  @@map("reel_likes")
+}
+
+/// Tracks individual views on a reel for analytics + spam prevention
+model ReelView {
+  id        String   @id @default(cuid())
+  reelId    String   @map("reel_id")
+  userId    String?  @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  reel Reel  @relation(fields: [reelId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([reelId])
+  @@index([userId])
+  @@index([reelId, userId, createdAt])
+  @@map("reel_views")
+}
+
+/// Tracks product click-throughs from reels for conversion analytics
+model ReelProductClick {
+  id        String   @id @default(cuid())
+  reelId    String   @map("reel_id")
+  userId    String?  @map("user_id")
+  productId String   @map("product_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  reel    Reel    @relation(fields: [reelId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([reelId])
+  @@index([userId])
+  @@index([productId])
+  @@index([reelId, createdAt])
+  @@map("reel_product_clicks")
 }
 
 enum ReelStatus {

@@ -1,5 +1,6 @@
 import { ReelRepository, reelRepository } from '../repositories/reel.repository.js';
 import { ApiError } from '../errors/ApiError.js';
+import { compressReelVideo } from '../jobs/reel-compression.job.js';
 import type {
     CreateReelRequest,
     ReelQueryFilters,
@@ -32,6 +33,9 @@ export class ReelService {
             caption: data.caption,
             productId: data.productId,
         });
+
+        // Fire-and-forget: compress video + extract metadata
+        compressReelVideo(reel.id, reel.videoUrl).catch(() => {});
 
         return { message: 'Reel submitted for approval', reel };
     }
