@@ -29,6 +29,7 @@ export function SellerHeader() {
   const navItems = [
     { href: "/seller/dashboard", label: "Dashboard" },
     { href: "/seller/products", label: "Products" },
+    { href: "/seller/reels", label: "Reels" },
     { href: "/seller/orders", label: "Orders" },
     { href: "/seller/settlements", label: "Settlements" },
     { href: "/seller/analytics", label: "Analytics" },

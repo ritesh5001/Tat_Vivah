@@ -38,6 +38,9 @@ import {
     searchRouter,
     personalizationRouter,
     sellerAnalyticsRouter,
+    reelRouter,
+    sellerReelRouter,
+    adminReelRouter,
 } from './routes/index.js';
 import { searchController } from './controllers/search.controller.js';
 import { apiReference } from "@scalar/express-api-reference";
@@ -253,6 +256,11 @@ export function createApp(): Application {
 
     // Seller Analytics
     app.use('/v1/seller/analytics', sellerAnalyticsRouter);
+
+    // Reels
+    app.use('/v1/reels', reelRouter);
+    app.use('/v1/seller/reels', sellerReelRouter);
+    app.use('/v1/admin/reels', adminReelRouter);
 
     // Related products (mounted on products path)
     app.get('/v1/products/:id/related', searchController.relatedProducts);
