@@ -27,7 +27,7 @@ const cormorant = Cormorant_Garamond({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://tatvivah.com"),
+  metadataBase: new URL("https://tatvivahtrends.com"),
   title: {
     default: "TatVivah | Best Ethnic Wear for Men in India | Sherwani, Kurta, Indo Western",
     template: "%s | TatVivah",
@@ -49,7 +49,7 @@ export const metadata: Metadata = {
     description:
       "Shop the best ethnic wear for men in India. Explore premium sherwani, kurta sets, Indo-Western outfits, wedding wear, festive outfits and groom collections from top designers.",
     siteName: "TatVivah",
-    url: "https://tatvivah.com",
+    url: "https://tatvivahtrends.com",
     images: [
       {
         url: "/logo.png",
@@ -129,12 +129,12 @@ export default function RootLayout({
               "@context": "https://schema.org",
               "@type": "WebSite",
               name: "TatVivah",
-              url: "https://tatvivah.com",
+              url: "https://tatvivahtrends.com",
               potentialAction: {
                 "@type": "SearchAction",
                 target: {
                   "@type": "EntryPoint",
-                  urlTemplate: "https://tatvivah.com/marketplace?search={search_term_string}"
+                  urlTemplate: "https://tatvivahtrends.com/marketplace?search={search_term_string}"
                 },
                 "query-input": "required name=search_term_string"
               }

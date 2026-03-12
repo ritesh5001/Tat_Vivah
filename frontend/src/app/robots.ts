@@ -9,6 +9,6 @@ export default function robots(): MetadataRoute.Robots {
                 disallow: ["/admin", "/seller", "/api"],
             },
         ],
-        sitemap: "https://tatvivah.com/sitemap.xml",
+        sitemap: "https://tatvivahtrends.com/sitemap.xml",
     };
 }

@@ -7,13 +7,13 @@ export const metadata: Metadata = {
   description:
     "Discover the best ethnic wear for men in India at TatVivah. Shop premium sherwani, kurta sets, Indo-Western outfits and wedding collections perfect for mehendi, sangeet, reception and festive occasions.",
   alternates: {
-    canonical: "https://tatvivah.com",
+    canonical: "https://tatvivahtrends.com",
   },
   openGraph: {
     title: "Best Ethnic Wear for Men in India | Sherwani, Kurta & Wedding Outfits | TatVivah",
     description:
       "Discover the best ethnic wear for men in India at TatVivah. Shop premium sherwani, kurta sets, Indo-Western outfits and wedding collections.",
-    url: "https://tatvivah.com",
+    url: "https://tatvivahtrends.com",
     siteName: "TatVivah",
     type: "website",
     images: [
@@ -37,8 +37,8 @@ const organizationJsonLd = {
   "@context": "https://schema.org",
   "@type": "Organization",
   name: "TatVivah",
-  url: "https://tatvivah.com",
-  logo: "https://tatvivah.com/logo.png",
+  url: "https://tatvivahtrends.com",
+  logo: "https://tatvivahtrends.com/logo.png",
   sameAs: [
     "https://www.instagram.com/tatvivah",
     "https://www.facebook.com/tatvivah",

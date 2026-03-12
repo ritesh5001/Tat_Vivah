@@ -22,13 +22,13 @@ export const metadata: Metadata = {
     description:
         "Browse curated ethnic wear categories for men. Shop sherwani, kurta sets, Indo-Western outfits, wedding wear and festive collections from top designers in India.",
     alternates: {
-        canonical: "https://tatvivah.com/categories",
+        canonical: "https://tatvivahtrends.com/categories",
     },
     openGraph: {
         title: "All Categories | Ethnic Wear Collections for Men | TatVivah",
         description:
             "Browse curated ethnic wear categories for men. Shop sherwani, kurta sets, Indo-Western outfits, wedding wear and festive collections.",
-        url: "https://tatvivah.com/categories",
+        url: "https://tatvivahtrends.com/categories",
         siteName: "TatVivah",
         type: "website",
     },
@@ -51,13 +51,13 @@ export default async function CategoriesPage() {
                 "@type": "ListItem",
                 position: 1,
                 name: "Home",
-                item: "https://tatvivah.com",
+                item: "https://tatvivahtrends.com",
             },
             {
                 "@type": "ListItem",
                 position: 2,
                 name: "Categories",
-                item: "https://tatvivah.com/categories",
+                item: "https://tatvivahtrends.com/categories",
             },
         ],
     };
