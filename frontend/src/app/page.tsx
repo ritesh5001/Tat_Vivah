@@ -16,9 +16,7 @@ import { FeaturesMarquee } from "@/components/features-marquee";
 import { CategoryCarousel } from "@/components/home/CategoryCarousel";
 import { OccasionSection } from "@/components/home/OccasionSection";
 import { ProductShowcaseSection } from "@/components/home/ProductShowcaseSection";
-import { WishlistHeartButton } from "@/components/wishlist-heart-button";
-import { MotionCarousel } from "@/components/motion/MotionCarousel";
-import { MotionCard } from "@/components/motion/MotionCard";
+import { MarketplaceProductCard } from "@/components/marketplace-product-card";
 
 /* ── Below-fold components loaded on demand to reduce initial JS ── */
 const WeddingSectionBanner = dynamic(
@@ -68,15 +66,6 @@ export default function Home() {
     };
   }, []);
 
-  const formatPrice = (price?: number | null) => {
-    if (!price && price !== 0) return "Contact for price";
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-      maximumFractionDigits: 0,
-    }).format(price);
-  };
-
   return (
     <div className="min-h-[calc(100vh-160px)] bg-background">
       {/* =========================================================================
@@ -102,98 +91,10 @@ export default function Home() {
       {/* =========================================================================
           BESTSELLERS SECTION
           ========================================================================= */}
-      <section id="bestsellers" className="border-t border-border-soft">
-        <div className="mx-auto max-w-6xl px-6 py-10 sm:py-12 lg:py-16">
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={viewportSettings}
-            variants={fadeInVariants}
-            className="mb-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"
-          >
-            <div>
-              <p className="text-xs font-medium uppercase tracking-[0.3em] text-gold mb-4">
-                Most Loved
-              </p>
-              <h2 className="font-serif text-3xl font-light tracking-tight text-foreground sm:text-4xl">
-                Bestselling Pieces
-              </h2>
-            </div>
-            <Link
-              href="/marketplace"
-              className="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground transition-colors duration-300 hover:text-foreground border-b border-transparent hover:border-gold pb-1"
-            >
-              Shop All
-              <span className="text-gold">→</span>
-            </Link>
-          </motion.div>
-
-          {loadingBestsellers ? (
-            <div className="rounded-none border border-border-soft bg-card p-10 text-center text-sm text-muted-foreground">
-              Loading bestsellers...
-            </div>
-          ) : bestsellers.length === 0 ? (
-            <div className="rounded-none border border-border-soft bg-card p-10 text-center text-sm text-muted-foreground">
-              No bestsellers available yet.
-            </div>
-          ) : (
-            <MotionCarousel>
-              {bestsellers.map((item) => (
-                <Link key={item.id} href="/marketplace" className="contents">
-                  <MotionCard
-                    imageSrc={item.image || "/images/product-placeholder.svg"}
-                    imageAlt={item.title}
-                    aspectClass="aspect-3/4"
-                    sizes="(max-width: 768px) 50vw, (max-width: 1280px) 33vw, 20vw"
-                    overlay={
-                      <WishlistHeartButton
-                        productId={item.productId}
-                        size={18}
-                        className="absolute left-4 top-4 z-10 h-10 w-10 rounded-none bg-card text-destructive shadow-sm opacity-0 transition-opacity duration-300 group-hover:opacity-100 focus-visible:opacity-100"
-                      />
-                    }
-                  >
-                    <div className="px-4 pt-4 pb-5 text-center">
-                      <h3 className="line-clamp-2 font-serif text-[1.05rem] font-normal tracking-[0.01em] text-foreground transition-colors duration-300 group-hover:text-gold">
-                        {item.title}
-                      </h3>
-                      <p className="mt-3 text-xs uppercase tracking-[0.35em] text-muted-foreground/90">
-                        {item.categoryName ?? "Tatvivah Curated"}
-                      </p>
-                      {typeof (item.salePrice ?? item.adminPrice ?? item.minPrice) === "number" ? (
-                        <div className="mt-2 flex items-baseline justify-center gap-2">
-                          <span className="text-2xl font-normal tracking-[0.01em] text-foreground">
-                            {formatPrice(item.salePrice ?? item.adminPrice ?? item.minPrice)}
-                          </span>
-                          {typeof item.regularPrice === "number" &&
-                          item.regularPrice > (item.salePrice ?? item.adminPrice ?? item.minPrice)! ? (
-                            <span className="text-sm font-normal text-muted-foreground/70 line-through">
-                              {formatPrice(item.regularPrice)}
-                            </span>
-                          ) : null}
-                          {typeof item.regularPrice === "number" &&
-                          item.regularPrice > (item.salePrice ?? item.adminPrice ?? item.minPrice)! ? (
-                            <span className="text-sm font-medium text-destructive">
-                              {Math.round(
-                                ((item.regularPrice - (item.salePrice ?? item.adminPrice ?? item.minPrice)!) /
-                                  item.regularPrice) *
-                                  100
-                              )}
-                              % OFF
-                            </span>
-                          ) : null}
-                        </div>
-                      ) : (
-                        <p className="mt-2 text-sm text-muted-foreground">Contact for price</p>
-                      )}
-                    </div>
-                  </MotionCard>
-                </Link>
-              ))}
-            </MotionCarousel>
-          )}
-        </div>
-      </section>
+      <BestsellersCarousel
+        bestsellers={bestsellers}
+        loading={loadingBestsellers}
+      />
 
       <ProductShowcaseSection />
 
@@ -416,5 +317,173 @@ export default function Home() {
         </div>
       </section>
     </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   BESTSELLERS CAROUSEL — Manyavar-style horizontal scroll with arrows
+   ───────────────────────────────────────────────────────────────────────────── */
+
+function ChevronIcon({ direction }: { direction: "left" | "right" }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-4 w-4"
+    >
+      {direction === "left" ? (
+        <polyline points="15 18 9 12 15 6" />
+      ) : (
+        <polyline points="9 6 15 12 9 18" />
+      )}
+    </svg>
+  );
+}
+
+function BestsellersCarousel({
+  bestsellers,
+  loading,
+}: {
+  bestsellers: BestsellerProduct[];
+  loading: boolean;
+}) {
+  const trackRef = React.useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = React.useState(false);
+  const [canScrollRight, setCanScrollRight] = React.useState(false);
+
+  const updateArrows = React.useCallback(() => {
+    const el = trackRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 2);
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 2);
+  }, []);
+
+  React.useEffect(() => {
+    const el = trackRef.current;
+    if (!el) return;
+    updateArrows();
+    el.addEventListener("scroll", updateArrows, { passive: true });
+    window.addEventListener("resize", updateArrows);
+    return () => {
+      el.removeEventListener("scroll", updateArrows);
+      window.removeEventListener("resize", updateArrows);
+    };
+  }, [updateArrows, bestsellers]);
+
+  const scroll = (direction: "left" | "right") => {
+    const el = trackRef.current;
+    if (!el) return;
+    const card = el.querySelector<HTMLElement>(":scope > div");
+    const cardWidth = card?.offsetWidth ?? 260;
+    const gap = 24;
+    el.scrollBy({
+      left: direction === "left" ? -(cardWidth + gap) : cardWidth + gap,
+      behavior: "smooth",
+    });
+  };
+
+  return (
+    <section id="bestsellers" className="border-t border-border-soft">
+      <div className="mx-auto max-w-460 px-3 py-16 sm:px-6 sm:py-20 lg:px-10">
+        {/* Heading */}
+        <div className="mb-12 text-center">
+          <p className="mb-4 text-xs font-medium uppercase tracking-[0.3em] text-gold">
+            Most Loved
+          </p>
+          <h2 className="font-serif text-3xl font-light tracking-tight text-foreground sm:text-4xl">
+            Bestselling Pieces
+          </h2>
+        </div>
+
+        {loading ? (
+          <div className="flex gap-6 overflow-hidden">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div
+                key={i}
+                className="shrink-0 w-[calc(50%-12px)] md:w-[calc(33.333%-16px)] lg:w-[calc(25%-18px)]"
+              >
+                <div className="animate-pulse space-y-3">
+                  <div className="aspect-[3/4] bg-cream dark:bg-brown/20" />
+                  <div className="h-4 w-3/4 bg-cream dark:bg-brown/20 rounded" />
+                  <div className="h-3 w-1/2 bg-cream dark:bg-brown/20 rounded" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : bestsellers.length === 0 ? (
+          <div className="border border-border-soft bg-card p-10 text-center text-sm text-muted-foreground">
+            No bestsellers available yet.
+          </div>
+        ) : (
+          <div className="relative px-0 sm:px-14 lg:px-16">
+            {/* Scrollable track */}
+            <div
+              ref={trackRef}
+              className="flex gap-6 overflow-x-auto snap-x snap-mandatory py-2 scrollbar-hide"
+              style={{ WebkitOverflowScrolling: "touch" }}
+            >
+              {bestsellers.map((item) => (
+                <div
+                  key={item.id}
+                  className="shrink-0 snap-start w-[calc(50%-12px)] md:w-[calc(33.333%-16px)] lg:w-[calc(25%-18px)]"
+                >
+                  <MarketplaceProductCard
+                    product={{
+                      id: item.productId,
+                      productId: item.productId,
+                      title: item.title,
+                      image: item.image,
+                      categoryName: item.categoryName,
+                      salePrice: item.salePrice,
+                      adminPrice: item.adminPrice,
+                      regularPrice: item.regularPrice,
+                      minPrice: item.minPrice,
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+
+            {/* Arrow buttons */}
+            {canScrollLeft && (
+              <button
+                type="button"
+                onClick={() => scroll("left")}
+                aria-label="Scroll bestsellers left"
+                className="absolute left-0 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center border border-border-soft bg-card/95 text-foreground shadow-sm transition-all duration-200 hover:scale-105 hover:shadow-md sm:h-12 sm:w-12"
+              >
+                <ChevronIcon direction="left" />
+              </button>
+            )}
+            {canScrollRight && (
+              <button
+                type="button"
+                onClick={() => scroll("right")}
+                aria-label="Scroll bestsellers right"
+                className="absolute right-0 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center border border-border-soft bg-card/95 text-foreground shadow-sm transition-all duration-200 hover:scale-105 hover:shadow-md sm:h-12 sm:w-12"
+              >
+                <ChevronIcon direction="right" />
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Bottom CTA */}
+        <div className="mt-12 text-center">
+          <Link
+            href="/marketplace"
+            className="inline-flex items-center gap-2 border-b border-transparent pb-1 text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground transition-colors duration-300 hover:border-gold hover:text-foreground"
+          >
+            Browse All Bestsellers
+            <span className="text-gold">→</span>
+          </Link>
+        </div>
+      </div>
+    </section>
   );
 }

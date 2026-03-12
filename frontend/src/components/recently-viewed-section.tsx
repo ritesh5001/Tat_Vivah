@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { motion } from "framer-motion";
 import {
   staggerContainerVariants,
@@ -11,7 +10,7 @@ import {
   viewportSettings,
 } from "@/lib/motion.config";
 import { apiRequest } from "@/services/api";
-import { WishlistHeartButton } from "@/components/wishlist-heart-button";
+import { MarketplaceProductCard } from "@/components/marketplace-product-card";
 
 interface RecentlyViewedProduct {
   id: string;
@@ -24,12 +23,6 @@ interface RecentlyViewedProduct {
   category: { id: string; name: string } | null;
   viewedAt: number;
 }
-
-const currency = new Intl.NumberFormat("en-IN", {
-  style: "currency",
-  currency: "INR",
-  maximumFractionDigits: 0,
-});
 
 /**
  * Recently Viewed section for the homepage.
@@ -112,38 +105,7 @@ export function RecentlyViewedSection() {
         >
           {products.slice(0, 8).map((product) => (
             <motion.div key={product.id} variants={staggerItemVariants}>
-              <Link
-                href={`/product/${product.id}`}
-                className="group block"
-              >
-                <div className="relative mb-4 overflow-hidden bg-cream dark:bg-brown/20 aspect-3/4 border border-border-soft transition-all duration-400 group-hover:border-gold/30">
-                  <Image
-                    src={product.images?.[0] ?? "/images/product-placeholder.svg"}
-                    alt={product.title}
-                    fill
-                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                    className="object-contain p-4 transition-transform duration-500 group-hover:scale-[1.02]"
-                    loading="lazy"
-                    quality={75}
-                  />
-                  <span className="absolute top-3 left-3 bg-card/90 backdrop-blur-sm px-2.5 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground border border-border-soft">
-                    {product.category?.name ?? "Featured"}
-                  </span>
-                  <WishlistHeartButton
-                    productId={product.id}
-                    size={16}
-                    className="absolute bottom-3 right-3 h-7 w-7 bg-card/90 backdrop-blur-sm border border-border-soft text-muted-foreground hover:text-foreground hover:border-gold/50"
-                  />
-                </div>
-                <h3 className="font-serif text-sm font-normal text-foreground group-hover:text-gold transition-colors duration-300 line-clamp-2">
-                  {product.title}
-                </h3>
-                {typeof product.adminListingPrice === "number" && (
-                  <p className="mt-1 text-xs font-medium text-foreground">
-                    {currency.format(product.adminListingPrice)}
-                  </p>
-                )}
-              </Link>
+              <MarketplaceProductCard product={product} />
             </motion.div>
           ))}
         </motion.div>
