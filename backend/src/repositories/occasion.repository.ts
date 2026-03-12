@@ -83,7 +83,7 @@ export class OccasionRepository {
         return count > 0;
     }
 
-    async findActiveByIds(ids: string[]) {
+    async findActiveByIds(ids: string[]): Promise<OccasionEntity[]> {
         return db.occasion.findMany({
             where: {
                 id: { in: ids },

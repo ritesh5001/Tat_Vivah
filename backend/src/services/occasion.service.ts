@@ -149,7 +149,7 @@ export class OccasionService {
 
         const occasions = await this.repository.findActiveByIds(ids);
         if (occasions.length !== ids.length) {
-            const foundIds = new Set(occasions.map((o: any) => o.id));
+            const foundIds = new Set(occasions.map((o: OccasionEntity) => o.id));
             const missing = ids.filter(id => !foundIds.has(id));
             throw ApiError.badRequest(`Invalid occasion selection: ${missing.join(', ')}`);
         }
