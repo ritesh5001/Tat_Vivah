@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Card, CardContent } from "@/components/ui/card";
 import ProductDetailClient from "@/components/product-detail-client";
 import ProductImageCarousel from "@/components/product-image-carousel";
@@ -6,6 +7,7 @@ import { RelatedProducts } from "@/components/related-products";
 import { RecentlyViewedTracker } from "@/components/recently-viewed-tracker";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+const SITE_URL = "https://tatvivah.com";
 
 async function fetchProduct(id: string) {
   if (!API_BASE_URL) {
@@ -20,6 +22,55 @@ async function fetchProduct(id: string) {
   return response.json();
 }
 
+/* ── Dynamic SEO metadata ── */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const resolvedParams = await params;
+  const data = await fetchProduct(resolvedParams.id);
+  const product = data?.product;
+
+  if (!product) {
+    return {
+      title: "Product Not Found",
+      description: "The product you are looking for is not available.",
+    };
+  }
+
+  const title = `${product.title} | Buy Ethnic Wear Online`;
+  const description = `Buy ${product.title} online in India. Premium ethnic wear for men perfect for weddings, receptions, mehendi and festive occasions.`;
+  const image = product.images?.[0] ?? "/logo.png";
+
+  return {
+    title,
+    description,
+    alternates: {
+      canonical: `${SITE_URL}/product/${resolvedParams.id}`,
+    },
+    openGraph: {
+      title,
+      description,
+      url: `${SITE_URL}/product/${resolvedParams.id}`,
+      siteName: "TatVivah",
+      type: "website",
+      images: [
+        {
+          url: image,
+          alt: product.title,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [image],
+    },
+  };
+}
+
 export default async function ProductDetailPage({
   params,
 }: {
@@ -32,8 +83,40 @@ export default async function ProductDetailPage({
     ? product.images
     : ["/images/product-placeholder.svg"];
 
+  /* ── Product JSON-LD structured data ── */
+  const productJsonLd = product
+    ? {
+      "@context": "https://schema.org",
+      "@type": "Product",
+      name: product.title,
+      image: product.images?.[0] ?? `${SITE_URL}/logo.png`,
+      description:
+        product.description ??
+        `Buy ${product.title} online in India. Premium ethnic wear for men.`,
+      brand: {
+        "@type": "Brand",
+        name: product.seller?.shopName ?? "TatVivah",
+      },
+      offers: {
+        "@type": "Offer",
+        price: product.salePrice ?? product.adminPrice ?? product.price ?? 0,
+        priceCurrency: "INR",
+        availability: "https://schema.org/InStock",
+        url: `${SITE_URL}/product/${resolvedParams.id}`,
+      },
+    }
+    : null;
+
   return (
     <div className="min-h-[calc(100vh-160px)] bg-background">
+      {/* Product JSON-LD */}
+      {productJsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
+        />
+      )}
+
       {/* Track recently viewed (fire-and-forget, client component) */}
       <RecentlyViewedTracker productId={resolvedParams.id} />
 

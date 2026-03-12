@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { getCategories, type Category } from "@/services/catalog";
 import { MotionCard } from "@/components/motion/MotionCard";
@@ -16,9 +17,21 @@ function resolveCategoryImage(category: CategoryItem): string {
     return "/images/product-placeholder.svg";
 }
 
-export const metadata = {
-    title: "All Categories | TatVivah",
-    description: "Browse curated ethnic wear and handcrafted wedding fashion collections.",
+export const metadata: Metadata = {
+    title: "All Categories | Ethnic Wear Collections for Men",
+    description:
+        "Browse curated ethnic wear categories for men. Shop sherwani, kurta sets, Indo-Western outfits, wedding wear and festive collections from top designers in India.",
+    alternates: {
+        canonical: "https://tatvivah.com/categories",
+    },
+    openGraph: {
+        title: "All Categories | Ethnic Wear Collections for Men | TatVivah",
+        description:
+            "Browse curated ethnic wear categories for men. Shop sherwani, kurta sets, Indo-Western outfits, wedding wear and festive collections.",
+        url: "https://tatvivah.com/categories",
+        siteName: "TatVivah",
+        type: "website",
+    },
 };
 
 export default async function CategoriesPage() {

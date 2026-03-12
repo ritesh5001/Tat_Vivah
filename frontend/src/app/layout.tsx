@@ -27,9 +27,63 @@ const cormorant = Cormorant_Garamond({
 });
 
 export const metadata: Metadata = {
-  title: "TatVivah | Premium Indian Fashion",
-  description: "Discover curated men's ethnic wear and wedding fashion from verified sellers. A trusted multi-vendor marketplace for premium Indian clothing.",
-  keywords: ["Indian fashion", "ethnic wear", "wedding fashion", "men's clothing", "kurta", "sherwani"],
+  metadataBase: new URL("https://tatvivah.com"),
+  title: {
+    default: "TatVivah | Best Ethnic Wear for Men in India | Sherwani, Kurta, Indo Western",
+    template: "%s | TatVivah",
+  },
+  description:
+    "Shop the best ethnic wear for men in India. Explore premium sherwani, kurta sets, Indo-Western outfits, wedding wear, festive outfits and groom collections from top designers.",
+  keywords: [
+    "ethnic wear for men india",
+    "sherwani for wedding",
+    "kurta set for men",
+    "indo western for men",
+    "groom wedding outfits",
+    "mehendi kurta set",
+    "sangeet outfit men",
+    "wedding sherwani india",
+  ],
+  openGraph: {
+    title: "TatVivah | Best Ethnic Wear for Men in India | Sherwani, Kurta, Indo Western",
+    description:
+      "Shop the best ethnic wear for men in India. Explore premium sherwani, kurta sets, Indo-Western outfits, wedding wear, festive outfits and groom collections from top designers.",
+    siteName: "TatVivah",
+    url: "https://tatvivah.com",
+    images: [
+      {
+        url: "/logo.png",
+        width: 800,
+        height: 600,
+        alt: "TatVivah - Best Ethnic Wear for Men in India",
+      },
+    ],
+    locale: "en_IN",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "TatVivah | Best Ethnic Wear for Men in India",
+    description:
+      "Shop premium sherwani, kurta sets, Indo-Western outfits and wedding collections for men from top designers in India.",
+    images: ["/logo.png"],
+  },
+  icons: {
+    icon: "/logo.png",
+    shortcut: "/logo.png",
+    apple: "/logo.png",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
 };
 
 export default function RootLayout({

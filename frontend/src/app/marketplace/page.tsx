@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -6,6 +7,7 @@ import { SortDropdown } from "@/components/sort-dropdown";
 import { MarketplaceProductCard } from "@/components/marketplace-product-card";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+const SITE_URL = "https://tatvivah.com";
 
 type SearchParams = {
   page?: string;
@@ -92,6 +94,56 @@ async function fetchProducts(params: {
     return { data: [], pagination: { page: params.page, limit: params.limit, total: 0, totalPages: 1 } };
   }
   return response.json();
+}
+
+/* ── Dynamic SEO metadata ── */
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams?: Promise<SearchParams>;
+}): Promise<Metadata> {
+  const resolvedParams = searchParams ? await searchParams : undefined;
+  const categorySlug = resolvedParams?.category?.trim().toLowerCase();
+  const occasionSlug = resolvedParams?.occasion?.trim();
+
+  let title = "Shop Ethnic Wear for Men Online | Sherwani, Kurta & Indo Western";
+  let description =
+    "Browse premium ethnic wear for men including sherwani, kurta sets, Indo-Western outfits and wedding collections. Find the perfect outfit for mehendi, sangeet, reception and festive occasions.";
+
+  if (occasionSlug) {
+    const label = occasionSlug.charAt(0).toUpperCase() + occasionSlug.slice(1).replace(/-/g, " ");
+    title = `${label} Outfits for Men | Wedding ${label} Wear`;
+    description = `Shop premium ${label.toLowerCase()} outfits for men online in India. Discover stylish ethnic wear, sherwani and kurta sets perfect for ${label.toLowerCase()} occasions.`;
+  } else if (categorySlug) {
+    const label = categorySlug.charAt(0).toUpperCase() + categorySlug.slice(1).replace(/-/g, " ");
+    title = `${label} for Men | Buy ${label} Online`;
+    description = `Shop premium ${label.toLowerCase()} for men online in India. Discover stylish ${label.toLowerCase()}, wedding outfits and festive ethnic wear.`;
+  }
+
+  const params = new URLSearchParams();
+  if (categorySlug) params.set("category", categorySlug);
+  if (occasionSlug) params.set("occasion", occasionSlug);
+  const canonicalPath = params.toString()
+    ? `/marketplace?${params.toString()}`
+    : "/marketplace";
+
+  return {
+    title,
+    description,
+    alternates: { canonical: `${SITE_URL}${canonicalPath}` },
+    openGraph: {
+      title,
+      description,
+      url: `${SITE_URL}${canonicalPath}`,
+      siteName: "TatVivah",
+      type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+    },
+  };
 }
 
 export default async function MarketplacePage({
@@ -185,8 +237,30 @@ export default async function MarketplacePage({
     return `/marketplace?${params.toString()}`;
   };
 
+  /* ── ItemList JSON-LD for product listings ── */
+  const itemListJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: selectedOccasion?.name
+      ? `${selectedOccasion.name} Collection`
+      : selectedCategory
+        ? `${selectedCategory.name} Collection`
+        : "All Ethnic Wear Collections",
+    numberOfItems: products.length,
+    itemListElement: products.map((product: any, index: number) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      url: `${SITE_URL}/product/${product.id}`,
+      name: product.title,
+    })),
+  };
+
   return (
     <div className="min-h-[calc(100vh-160px)] bg-background">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListJsonLd) }}
+      />
       <section className="border-b border-border-soft bg-background">
         <div className="mx-auto max-w-6xl px-4 py-4 sm:px-6">
           <div className="flex gap-4 overflow-x-auto pb-1">
@@ -194,11 +268,10 @@ export default async function MarketplacePage({
               href={buildUrl({ nextPage: 1, nextOccasion: null })}
               className="group shrink-0 text-center"
             >
-              <div className={`mx-auto h-20 w-20 overflow-hidden rounded-full border-2 transition-colors ${
-                !occasionSlug
-                  ? "border-gold"
-                  : "border-border-soft group-hover:border-gold/60"
-              }`}>
+              <div className={`mx-auto h-20 w-20 overflow-hidden rounded-full border-2 transition-colors ${!occasionSlug
+                ? "border-gold"
+                : "border-border-soft group-hover:border-gold/60"
+                }`}>
                 <div className="flex h-full w-full items-center justify-center bg-cream text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
                   All
                 </div>
@@ -214,11 +287,10 @@ export default async function MarketplacePage({
                   href={buildUrl({ nextPage: 1, nextOccasion: occasion.slug })}
                   className="group shrink-0 text-center"
                 >
-                  <div className={`mx-auto h-20 w-20 overflow-hidden rounded-full border-2 transition-colors ${
-                    selected
-                      ? "border-gold"
-                      : "border-border-soft group-hover:border-gold/60"
-                  }`}>
+                  <div className={`mx-auto h-20 w-20 overflow-hidden rounded-full border-2 transition-colors ${selected
+                    ? "border-gold"
+                    : "border-border-soft group-hover:border-gold/60"
+                    }`}>
                     {occasion.image ? (
                       <img
                         src={occasion.image}
