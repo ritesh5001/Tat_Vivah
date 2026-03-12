@@ -45,12 +45,56 @@ const organizationJsonLd = {
   ],
 };
 
+/* ── FAQ JSON-LD ── */
+const faqJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: [
+    {
+      "@type": "Question",
+      name: "What is the best ethnic wear for men in India?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "The best ethnic wear for men in India includes Sherwanis, Kurta Sets, and Indo-Western outfits. TatVivah offers a premium collection designed for weddings and festive occasions."
+      }
+    },
+    {
+      "@type": "Question",
+      name: "Where to buy sherwani online?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "You can buy high-quality designer sherwanis online at TatVivah. We offer a wide range of colors, fabrics, and embroideries perfect for grooms and wedding guests."
+      }
+    },
+    {
+      "@type": "Question",
+      name: "What to wear for mehendi?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "For mehendi ceremonies, lightweight and colorful Kurta Sets, printed Nehru jackets over kurtas, or contemporary asymmetrical Indo-Western outfits are highly recommended."
+      }
+    },
+    {
+      "@type": "Question",
+      name: "What is Indo Western dress?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Indo Western for men is a fusion style combining traditional Indian elements with Western tailoring. Common styles include asymmetrical hemlines, draped kurtas, and Jodhpuri suits."
+      }
+    }
+  ]
+};
+
 export default function Home() {
   return (
     <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
       />
       <HomeClient />
     </>

@@ -84,6 +84,10 @@ export const metadata: Metadata = {
       "max-snippet": -1,
     },
   },
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#faf9f6" },
+    { media: "(prefers-color-scheme: dark)", color: "#1a1818" }
+  ],
 };
 
 export default function RootLayout({
@@ -115,6 +119,25 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${cormorant.variable} min-h-screen bg-background text-foreground antialiased`}
       >
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebSite",
+              name: "TatVivah",
+              url: "https://tatvivah.com",
+              potentialAction: {
+                "@type": "SearchAction",
+                target: {
+                  "@type": "EntryPoint",
+                  urlTemplate: "https://tatvivah.com/marketplace?search={search_term_string}"
+                },
+                "query-input": "required name=search_term_string"
+              }
+            })
+          }}
+        />
         <GlobalLoader />
         <Toaster />
         <PublicLayoutShell>{children}</PublicLayoutShell>

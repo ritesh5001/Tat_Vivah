@@ -43,8 +43,31 @@ export default async function CategoriesPage() {
         console.error("Failed to load categories", err);
     }
 
+    const breadcrumbJsonLd = {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        itemListElement: [
+            {
+                "@type": "ListItem",
+                position: 1,
+                name: "Home",
+                item: "https://tatvivah.com",
+            },
+            {
+                "@type": "ListItem",
+                position: 2,
+                name: "Categories",
+                item: "https://tatvivah.com/categories",
+            },
+        ],
+    };
+
     return (
         <div className="min-h-[calc(100vh-160px)] bg-cream border-t border-border-soft">
+            <script
+                type="application/ld+json"
+                dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+            />
             <div className="mx-auto max-w-6xl px-6 py-20">
                 <div className="mb-12 text-center md:mb-16">
                     <p className="mb-4 text-xs font-medium uppercase tracking-[0.3em] text-gold">

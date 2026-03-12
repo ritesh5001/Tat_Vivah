@@ -41,7 +41,7 @@ export async function generateMetadata({
 
   const title = `${product.title} | Buy Ethnic Wear Online`;
   const description = `Buy ${product.title} online in India. Premium ethnic wear for men perfect for weddings, receptions, mehendi and festive occasions.`;
-  const image = product.images?.[0] ?? "/logo.png";
+  const image = product.images?.[0] ?? "/og.png";
 
   return {
     title,
@@ -89,7 +89,7 @@ export default async function ProductDetailPage({
       "@context": "https://schema.org",
       "@type": "Product",
       name: product.title,
-      image: product.images?.[0] ?? `${SITE_URL}/logo.png`,
+      image: product.images?.[0] ?? `${SITE_URL}/og.png`,
       description:
         product.description ??
         `Buy ${product.title} online in India. Premium ethnic wear for men.`,
@@ -107,8 +107,40 @@ export default async function ProductDetailPage({
     }
     : null;
 
+  /* ── Breadcrumb JSON-LD ── */
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Home",
+        item: SITE_URL,
+      },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: "Marketplace",
+        item: `${SITE_URL}/marketplace`,
+      },
+      ...(product ? [{
+        "@type": "ListItem",
+        position: 3,
+        name: product.title,
+        item: `${SITE_URL}/product/${resolvedParams.id}`,
+      }] : [])
+    ],
+  };
+
   return (
     <div className="min-h-[calc(100vh-160px)] bg-background">
+      {/* Breadcrumb JSON-LD */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
+
       {/* Product JSON-LD */}
       {productJsonLd && (
         <script

@@ -108,16 +108,16 @@ export async function generateMetadata({
 
   let title = "Shop Ethnic Wear for Men Online | Sherwani, Kurta & Indo Western";
   let description =
-    "Browse premium ethnic wear for men including sherwani, kurta sets, Indo-Western outfits and wedding collections. Find the perfect outfit for mehendi, sangeet, reception and festive occasions.";
+    "Browse premium ethnic wear for men including sherwani, kurta sets, Indo-Western outfits, and wedding collections. Find the perfect outfit for mehendi, sangeet, reception, and festive occasions.";
 
   if (occasionSlug) {
     const label = occasionSlug.charAt(0).toUpperCase() + occasionSlug.slice(1).replace(/-/g, " ");
-    title = `${label} Outfits for Men | Wedding ${label} Wear`;
-    description = `Shop premium ${label.toLowerCase()} outfits for men online in India. Discover stylish ethnic wear, sherwani and kurta sets perfect for ${label.toLowerCase()} occasions.`;
+    title = `${label} Outfits for Men | Wedding ${label} Kurta`;
+    description = `Shop premium ${label.toLowerCase()} outfits for men online. Discover stylish ethnic wear, exclusively curated sherwani and kurta sets perfect for ${label.toLowerCase()} ceremonies and festive events.`;
   } else if (categorySlug) {
     const label = categorySlug.charAt(0).toUpperCase() + categorySlug.slice(1).replace(/-/g, " ");
-    title = `${label} for Men | Buy ${label} Online`;
-    description = `Shop premium ${label.toLowerCase()} for men online in India. Discover stylish ${label.toLowerCase()}, wedding outfits and festive ethnic wear.`;
+    title = `${label} for Men | Wedding ${label} Online`;
+    description = `Shop premium ${label.toLowerCase()} for men online in India. Discover stylish traditional ${label.toLowerCase()}, modern wedding outfits, and festive ethnic wear.`;
   }
 
   const params = new URLSearchParams();
@@ -137,11 +137,18 @@ export async function generateMetadata({
       url: `${SITE_URL}${canonicalPath}`,
       siteName: "TatVivah",
       type: "website",
+      images: [
+        {
+          url: "/og.png",
+          alt: title,
+        },
+      ],
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
+      images: ["/og.png"],
     },
   };
 }
@@ -255,11 +262,53 @@ export default async function MarketplacePage({
     })),
   };
 
+  /* ── Breadcrumb JSON-LD ── */
+  const breadcrumbItems = [
+    {
+      "@type": "ListItem",
+      position: 1,
+      name: "Home",
+      item: SITE_URL,
+    },
+    {
+      "@type": "ListItem",
+      position: 2,
+      name: "Marketplace",
+      item: `${SITE_URL}/marketplace`,
+    },
+  ];
+
+  if (selectedCategory) {
+    breadcrumbItems.push({
+      "@type": "ListItem",
+      position: 3,
+      name: selectedCategory.name,
+      item: `${SITE_URL}/marketplace?category=${getCategorySlug(selectedCategory)}`,
+    });
+  } else if (selectedOccasion) {
+    breadcrumbItems.push({
+      "@type": "ListItem",
+      position: 3,
+      name: selectedOccasion.name,
+      item: `${SITE_URL}/marketplace?occasion=${selectedOccasion.slug}`,
+    });
+  }
+
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: breadcrumbItems,
+  };
+
   return (
     <div className="min-h-[calc(100vh-160px)] bg-background">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
       <section className="border-b border-border-soft bg-background">
         <div className="mx-auto max-w-6xl px-4 py-4 sm:px-6">
