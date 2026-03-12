@@ -29,6 +29,51 @@ const emptyForm: CreateOccasionPayload = {
   image: "",
 };
 
+const OccasionFormFields = ({
+  values,
+  onChange,
+  onUpload,
+  uploading,
+}: {
+  values: Record<string, any>;
+  onChange: (field: string, value: any) => void;
+  onUpload: (file: File) => void;
+  uploading: boolean;
+}) => (
+  <div className="space-y-4">
+    <div>
+      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Name *</Label>
+      <Input value={values.name ?? ""} onChange={(e) => onChange("name", e.target.value)} className="mt-1 h-11" placeholder="e.g. Wedding, Diwali, Haldi..." />
+    </div>
+    <div>
+      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Occasion Image</Label>
+      <div className="mt-1 space-y-2">
+        <Input
+          type="file"
+          accept="image/*"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) onUpload(file);
+            event.currentTarget.value = "";
+          }}
+          className="h-11"
+        />
+        {uploading && (
+          <p className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Uploading...
+          </p>
+        )}
+        {values.image ? (
+          <div className="space-y-2">
+            <img src={values.image} alt="Occasion" className="h-24 w-full border border-border-soft object-cover" />
+            <Button type="button" variant="outline" size="sm" onClick={() => onChange("image", "")}>Remove Image</Button>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  </div>
+);
+
 export default function AdminOccasionsPage() {
   const [loading, setLoading] = React.useState(true);
   const [occasions, setOccasions] = React.useState<AdminOccasion[]>([]);
@@ -185,51 +230,6 @@ export default function AdminOccasionsPage() {
       toast.error(error instanceof Error ? error.message : "Unable to delete occasion");
     }
   };
-
-  const OccasionFormFields = ({
-    values,
-    onChange,
-    onUpload,
-    uploading,
-  }: {
-    values: Record<string, any>;
-    onChange: (field: string, value: any) => void;
-    onUpload: (file: File) => void;
-    uploading: boolean;
-  }) => (
-    <div className="space-y-4">
-      <div>
-        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Name *</Label>
-        <Input value={values.name ?? ""} onChange={(e) => onChange("name", e.target.value)} className="mt-1 h-11" placeholder="e.g. Wedding, Diwali, Haldi..." />
-      </div>
-      <div>
-        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Occasion Image</Label>
-        <div className="mt-1 space-y-2">
-          <Input
-            type="file"
-            accept="image/*"
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              if (file) onUpload(file);
-              event.currentTarget.value = "";
-            }}
-            className="h-11"
-          />
-          {uploading && (
-            <p className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Uploading...
-            </p>
-          )}
-          {values.image ? (
-            <div className="space-y-2">
-              <img src={values.image} alt="Occasion" className="h-24 w-full border border-border-soft object-cover" />
-              <Button type="button" variant="outline" size="sm" onClick={() => onChange("image", "")}>Remove Image</Button>
-            </div>
-          ) : null}
-        </div>
-      </div>
-    </div>
-  );
 
   return (
     <div className="min-h-[calc(100vh-160px)] bg-background">

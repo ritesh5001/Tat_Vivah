@@ -44,6 +44,121 @@ const emptyForm: CreateCategoryPayload = {
   seoDescription: "",
 };
 
+// Shared form fields component
+const CategoryFormFields = ({
+  values,
+  onChange,
+  parentOptions,
+  excludeId,
+  onUpload,
+  uploadingImage,
+  uploadingBannerImage,
+}: {
+  values: Record<string, any>;
+  onChange: (field: string, value: any) => void;
+  parentOptions: AdminCategory[];
+  excludeId?: string;
+  onUpload: (field: "image" | "bannerImage", file: File) => void;
+  uploadingImage: boolean;
+  uploadingBannerImage: boolean;
+}) => (
+  <div className="space-y-4">
+    <div>
+      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Name *</Label>
+      <Input value={values.name ?? ""} onChange={(e) => onChange("name", e.target.value)} className="mt-1 h-11" placeholder="Category name" />
+    </div>
+    <div>
+      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Description</Label>
+      <Textarea value={values.description ?? ""} onChange={(e) => onChange("description", e.target.value)} className="mt-1" rows={3} placeholder="Brief description..." />
+    </div>
+    <div className="grid grid-cols-2 gap-4">
+      <div>
+        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Category Image</Label>
+        <div className="mt-1 space-y-2">
+          <Input
+            type="file"
+            accept="image/*"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) onUpload("image", file);
+              event.currentTarget.value = "";
+            }}
+            className="h-11"
+          />
+          {uploadingImage && (
+            <p className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Uploading...
+            </p>
+          )}
+          {values.image ? (
+            <div className="space-y-2">
+              <img src={values.image} alt="Category" className="h-24 w-full border border-border-soft object-cover" />
+              <Button type="button" variant="outline" size="sm" onClick={() => onChange("image", "")}>Remove Image</Button>
+            </div>
+          ) : null}
+        </div>
+      </div>
+      <div>
+        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Banner Image</Label>
+        <div className="mt-1 space-y-2">
+          <Input
+            type="file"
+            accept="image/*"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) onUpload("bannerImage", file);
+              event.currentTarget.value = "";
+            }}
+            className="h-11"
+          />
+          {uploadingBannerImage && (
+            <p className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Uploading...
+            </p>
+          )}
+          {values.bannerImage ? (
+            <div className="space-y-2">
+              <img src={values.bannerImage} alt="Category banner" className="h-24 w-full border border-border-soft object-cover" />
+              <Button type="button" variant="outline" size="sm" onClick={() => onChange("bannerImage", "")}>Remove Banner</Button>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+    <div className="grid grid-cols-2 gap-4">
+      <div>
+        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Parent Category</Label>
+        <select
+          value={values.parentId ?? ""}
+          onChange={(e) => onChange("parentId", e.target.value || undefined)}
+          className="mt-1 flex h-11 w-full items-center rounded-md border border-input bg-background px-3 py-2 text-sm"
+        >
+          <option value="">None (Top Level)</option>
+          {parentOptions
+            .filter((c) => c.id !== excludeId)
+            .map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+        </select>
+      </div>
+      <div>
+        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Sort Order</Label>
+        <Input type="number" value={values.sortOrder ?? 0} onChange={(e) => onChange("sortOrder", Number(e.target.value))} className="mt-1 h-11" />
+      </div>
+    </div>
+    <div className="grid grid-cols-2 gap-4">
+      <div>
+        <Label className="text-xs uppercase tracking-wider text-muted-foreground">SEO Title</Label>
+        <Input value={values.seoTitle ?? ""} onChange={(e) => onChange("seoTitle", e.target.value)} className="mt-1 h-11" placeholder="SEO page title" />
+      </div>
+      <div>
+        <Label className="text-xs uppercase tracking-wider text-muted-foreground">SEO Description</Label>
+        <Input value={values.seoDescription ?? ""} onChange={(e) => onChange("seoDescription", e.target.value)} className="mt-1 h-11" placeholder="Meta description" />
+      </div>
+    </div>
+  </div>
+);
+
 export default function AdminCategoriesPage() {
   const [loading, setLoading] = React.useState(true);
   const [categories, setCategories] = React.useState<AdminCategory[]>([]);
@@ -241,121 +356,6 @@ export default function AdminCategoriesPage() {
       toast.error(error instanceof Error ? error.message : "Unable to delete category");
     }
   };
-
-  // Shared form fields component
-  const CategoryFormFields = ({
-    values,
-    onChange,
-    parentOptions,
-    excludeId,
-    onUpload,
-    uploadingImage,
-    uploadingBannerImage,
-  }: {
-    values: Record<string, any>;
-    onChange: (field: string, value: any) => void;
-    parentOptions: AdminCategory[];
-    excludeId?: string;
-    onUpload: (field: "image" | "bannerImage", file: File) => void;
-    uploadingImage: boolean;
-    uploadingBannerImage: boolean;
-  }) => (
-    <div className="space-y-4">
-      <div>
-        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Name *</Label>
-        <Input value={values.name ?? ""} onChange={(e) => onChange("name", e.target.value)} className="mt-1 h-11" placeholder="Category name" />
-      </div>
-      <div>
-        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Description</Label>
-        <Textarea value={values.description ?? ""} onChange={(e) => onChange("description", e.target.value)} className="mt-1" rows={3} placeholder="Brief description..." />
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Category Image</Label>
-          <div className="mt-1 space-y-2">
-            <Input
-              type="file"
-              accept="image/*"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) onUpload("image", file);
-                event.currentTarget.value = "";
-              }}
-              className="h-11"
-            />
-            {uploadingImage && (
-              <p className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Uploading...
-              </p>
-            )}
-            {values.image ? (
-              <div className="space-y-2">
-                <img src={values.image} alt="Category" className="h-24 w-full border border-border-soft object-cover" />
-                <Button type="button" variant="outline" size="sm" onClick={() => onChange("image", "")}>Remove Image</Button>
-              </div>
-            ) : null}
-          </div>
-        </div>
-        <div>
-          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Banner Image</Label>
-          <div className="mt-1 space-y-2">
-            <Input
-              type="file"
-              accept="image/*"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) onUpload("bannerImage", file);
-                event.currentTarget.value = "";
-              }}
-              className="h-11"
-            />
-            {uploadingBannerImage && (
-              <p className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Uploading...
-              </p>
-            )}
-            {values.bannerImage ? (
-              <div className="space-y-2">
-                <img src={values.bannerImage} alt="Category banner" className="h-24 w-full border border-border-soft object-cover" />
-                <Button type="button" variant="outline" size="sm" onClick={() => onChange("bannerImage", "")}>Remove Banner</Button>
-              </div>
-            ) : null}
-          </div>
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Parent Category</Label>
-          <select
-            value={values.parentId ?? ""}
-            onChange={(e) => onChange("parentId", e.target.value || undefined)}
-            className="mt-1 flex h-11 w-full items-center rounded-md border border-input bg-background px-3 py-2 text-sm"
-          >
-            <option value="">None (Top Level)</option>
-            {parentOptions
-              .filter((c) => c.id !== excludeId)
-              .map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-          </select>
-        </div>
-        <div>
-          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Sort Order</Label>
-          <Input type="number" value={values.sortOrder ?? 0} onChange={(e) => onChange("sortOrder", Number(e.target.value))} className="mt-1 h-11" />
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label className="text-xs uppercase tracking-wider text-muted-foreground">SEO Title</Label>
-          <Input value={values.seoTitle ?? ""} onChange={(e) => onChange("seoTitle", e.target.value)} className="mt-1 h-11" placeholder="SEO page title" />
-        </div>
-        <div>
-          <Label className="text-xs uppercase tracking-wider text-muted-foreground">SEO Description</Label>
-          <Input value={values.seoDescription ?? ""} onChange={(e) => onChange("seoDescription", e.target.value)} className="mt-1 h-11" placeholder="Meta description" />
-        </div>
-      </div>
-    </div>
-  );
 
   return (
     <div className="min-h-[calc(100vh-160px)] bg-background">
