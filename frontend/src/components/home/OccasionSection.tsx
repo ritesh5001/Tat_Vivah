@@ -57,8 +57,8 @@ export function OccasionSection() {
         {loading ? (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
             {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="animate-pulse">
-                <div className="aspect-[3/4] bg-muted/30 rounded-sm" />
+                <div key={i} className="animate-pulse">
+                <div className="aspect-3/4 bg-muted/30 rounded-sm" />
                 <div className="mt-3 h-4 w-2/3 rounded bg-muted/30" />
               </div>
             ))}
@@ -77,7 +77,7 @@ export function OccasionSection() {
                   href={`/marketplace?occasion=${occasion.slug}`}
                   className="group block"
                 >
-                  <div className="relative aspect-[3/4] overflow-hidden rounded-sm border border-border-soft bg-muted/10">
+                  <div className="relative aspect-3/4 overflow-hidden rounded-sm border border-border-soft bg-muted/10">
                     {occasion.image ? (
                       <img
                         src={occasion.image}
@@ -91,7 +91,7 @@ export function OccasionSection() {
                         </span>
                       </div>
                     )}
-                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent p-4">
+                    <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/60 via-black/20 to-transparent p-4">
                       <p className="text-sm font-medium text-white">{occasion.name}</p>
                     </div>
                   </div>

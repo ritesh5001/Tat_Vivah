@@ -1,4 +1,5 @@
 import { prisma } from '../config/db.js';
+const db = prisma as any;
 
 export interface OccasionEntity {
     id: string;
@@ -16,24 +17,24 @@ export interface OccasionEntity {
  */
 export class OccasionRepository {
     async findAll(): Promise<OccasionEntity[]> {
-        return prisma.occasion.findMany({
+        return db.occasion.findMany({
             orderBy: { name: 'asc' },
         });
     }
 
     async findAllActive(): Promise<OccasionEntity[]> {
-        return prisma.occasion.findMany({
+        return db.occasion.findMany({
             where: { isActive: true },
             orderBy: { name: 'asc' },
         });
     }
 
     async findById(id: string): Promise<OccasionEntity | null> {
-        return prisma.occasion.findUnique({ where: { id } });
+        return db.occasion.findUnique({ where: { id } });
     }
 
     async findBySlug(slug: string): Promise<OccasionEntity | null> {
-        return prisma.occasion.findUnique({ where: { slug } });
+        return db.occasion.findUnique({ where: { slug } });
     }
 
     async create(data: {
@@ -41,7 +42,7 @@ export class OccasionRepository {
         slug: string;
         image?: string | undefined;
     }): Promise<OccasionEntity> {
-        return prisma.occasion.create({
+        return db.occasion.create({
             data: {
                 name: data.name,
                 slug: data.slug,
@@ -60,7 +61,7 @@ export class OccasionRepository {
             isActive?: boolean | undefined;
         }
     ): Promise<OccasionEntity> {
-        return prisma.occasion.update({
+        return db.occasion.update({
             where: { id },
             data: {
                 ...(data.name !== undefined && { name: data.name }),
@@ -72,42 +73,34 @@ export class OccasionRepository {
     }
 
     async delete(id: string): Promise<void> {
-        await prisma.occasion.delete({ where: { id } });
+        await db.occasion.delete({ where: { id } });
     }
 
     async hasProducts(id: string): Promise<boolean> {
-        const count = await prisma.productOccasion.count({
+        const count = await db.productOccasion.count({
             where: { occasionId: id },
         });
         return count > 0;
     }
 
-    /**
-     * Find product IDs linked to a given occasion slug.
-     */
-    async findProductIdsBySlug(slug: string): Promise<string[]> {
-        const occasion = await prisma.occasion.findUnique({
-            where: { slug },
-            select: { id: true, isActive: true },
+    async findActiveByIds(ids: string[]) {
+        return db.occasion.findMany({
+            where: {
+                id: { in: ids },
+                isActive: true,
+            },
         });
-        if (!occasion || !occasion.isActive) return [];
-
-        const links = await prisma.productOccasion.findMany({
-            where: { occasionId: occasion.id },
-            select: { productId: true },
-        });
-        return links.map((link) => link.productId);
     }
 
     /**
      * Sync occasions for a product (replace all).
      */
     async syncProductOccasions(productId: string, occasionIds: string[]): Promise<void> {
-        await prisma.$transaction([
-            prisma.productOccasion.deleteMany({ where: { productId } }),
+        await db.$transaction([
+            db.productOccasion.deleteMany({ where: { productId } }),
             ...(occasionIds.length > 0
                 ? [
-                    prisma.productOccasion.createMany({
+                    db.productOccasion.createMany({
                         data: occasionIds.map((occasionId) => ({
                             productId,
                             occasionId,
@@ -123,11 +116,11 @@ export class OccasionRepository {
      * Get occasion IDs for a product.
      */
     async getProductOccasionIds(productId: string): Promise<string[]> {
-        const links = await prisma.productOccasion.findMany({
+        const links = await db.productOccasion.findMany({
             where: { productId },
             select: { occasionId: true },
         });
-        return links.map((link) => link.occasionId);
+        return links.map((link: { occasionId: string }) => link.occasionId);
     }
 }
 

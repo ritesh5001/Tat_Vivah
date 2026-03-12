@@ -142,16 +142,16 @@ export class OccasionService {
 
     /**
      * Validate that all occasion IDs exist and are active.
+     * Uses batch query instead of N+1 individual lookups.
      */
     async validateOccasionIds(ids: string[]): Promise<void> {
-        for (const id of ids) {
-            const occasion = await this.repository.findById(id);
-            if (!occasion) {
-                throw ApiError.badRequest(`Occasion not found: ${id}`);
-            }
-            if (!occasion.isActive) {
-                throw ApiError.badRequest(`Occasion is not active: ${occasion.name}`);
-            }
+        if (ids.length === 0) return;
+
+        const occasions = await this.repository.findActiveByIds(ids);
+        if (occasions.length !== ids.length) {
+            const foundIds = new Set(occasions.map((o: any) => o.id));
+            const missing = ids.filter(id => !foundIds.has(id));
+            throw ApiError.badRequest(`Invalid occasion selection: ${missing.join(', ')}`);
         }
     }
 
