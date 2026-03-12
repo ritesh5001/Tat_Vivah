@@ -10,23 +10,60 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 type SearchParams = {
   page?: string;
   categoryId?: string;
+  category?: string;
   occasion?: string;
   search?: string;
   sort?: string;
 };
 
+type CategoryItem = {
+  id: string;
+  name: string;
+  slug?: string;
+};
+
+type OccasionItem = {
+  id: string;
+  name: string;
+  slug: string;
+  image?: string | null;
+  isActive: boolean;
+};
+
+function slugify(value: string): string {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
 async function fetchCategories() {
   if (!API_BASE_URL) {
-    return [] as Array<{ id: string; name: string }>;
+    return [] as CategoryItem[];
   }
   const response = await fetch(`${API_BASE_URL}/v1/categories`, {
     next: { revalidate: 120 },
   });
   if (!response.ok) {
-    return [] as Array<{ id: string; name: string }>;
+    return [] as CategoryItem[];
   }
   const data = await response.json();
-  return (data?.categories ?? []) as Array<{ id: string; name: string }>;
+  return (data?.categories ?? []) as CategoryItem[];
+}
+
+async function fetchOccasions() {
+  if (!API_BASE_URL) {
+    return [] as OccasionItem[];
+  }
+  const response = await fetch(`${API_BASE_URL}/v1/occasions`, {
+    next: { revalidate: 120 },
+  });
+  if (!response.ok) {
+    return [] as OccasionItem[];
+  }
+  const data = await response.json();
+  return (data?.occasions ?? []) as OccasionItem[];
 }
 
 async function fetchProducts(params: {
@@ -64,15 +101,38 @@ export default async function MarketplacePage({
 }) {
   const resolvedParams = searchParams ? await searchParams : undefined;
   const page = Number(resolvedParams?.page ?? "1") || 1;
-  const categoryId = resolvedParams?.categoryId;
-  const occasion = resolvedParams?.occasion?.trim();
+  const categoryIdParam = resolvedParams?.categoryId?.trim();
+  const categorySlugParam = resolvedParams?.category?.trim().toLowerCase();
+  const occasionSlug = resolvedParams?.occasion?.trim();
   const search = resolvedParams?.search?.trim();
   const sort = resolvedParams?.sort?.trim();
 
-  const [categories, productsResponse] = await Promise.all([
+  const [categories, occasions] = await Promise.all([
     fetchCategories(),
-    fetchProducts({ page, limit: 9, categoryId, occasion, search, sort }),
+    fetchOccasions(),
   ]);
+
+  const selectedCategoryById = categoryIdParam
+    ? categories.find((category) => category.id === categoryIdParam)
+    : undefined;
+  const selectedCategoryBySlug = categorySlugParam
+    ? categories.find(
+      (category) =>
+        (category.slug ?? slugify(category.name)) === categorySlugParam
+    )
+    : undefined;
+
+  const selectedCategoryId =
+    selectedCategoryById?.id ?? selectedCategoryBySlug?.id;
+
+  const productsResponse = await fetchProducts({
+    page,
+    limit: 9,
+    categoryId: selectedCategoryId,
+    occasion: occasionSlug,
+    search,
+    sort,
+  });
 
   const products = productsResponse?.data ?? [];
   const pagination = productsResponse?.pagination ?? {
@@ -82,48 +142,149 @@ export default async function MarketplacePage({
     totalPages: 1,
   };
 
-  const buildUrl = (nextPage: number, nextCategoryId?: string) => {
+  const activeOccasions = occasions.filter((occasion) => occasion.isActive);
+  const selectedOccasion = activeOccasions.find(
+    (occasion) => occasion.slug === occasionSlug
+  );
+
+  const selectedCategory =
+    categories.find((category) => category.id === selectedCategoryId) ?? null;
+
+  const getCategorySlug = (category: CategoryItem) =>
+    category.slug ?? slugify(category.name);
+
+  const buildUrl = (options: {
+    nextPage?: number;
+    nextOccasion?: string;
+    nextCategoryId?: string;
+    nextSearch?: string;
+    nextSort?: string;
+  }) => {
     const params = new URLSearchParams();
-    params.set("page", String(nextPage));
-    const categoryParam = typeof nextCategoryId === "string" ? nextCategoryId : categoryId;
-    if (categoryParam) params.set("categoryId", categoryParam);
-    if (occasion) params.set("occasion", occasion);
-    if (search) params.set("search", search);
-    if (sort) params.set("sort", sort);
+    params.set("page", String(options.nextPage ?? page));
+
+    const occasionParam = options.nextOccasion;
+    if (occasionParam) params.set("occasion", occasionParam);
+
+    const categoryParam = options.nextCategoryId;
+    if (categoryParam) {
+      const category = categories.find((item) => item.id === categoryParam);
+      if (category) {
+        params.set("category", getCategorySlug(category));
+      } else {
+        params.set("categoryId", categoryParam);
+      }
+    }
+
+    const searchParam = options.nextSearch;
+    const sortParam = options.nextSort;
+    if (searchParam) params.set("search", searchParam);
+    if (sortParam) params.set("sort", sortParam);
+
     return `/marketplace?${params.toString()}`;
   };
 
   return (
     <div className="min-h-[calc(100vh-160px)] bg-background">
-      <div className="mx-auto flex max-w-6xl flex-col gap-16 px-6 py-20">
-        {/* Hero Section */}
-        <section className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-4 max-w-2xl">
-            <p className="text-xs font-medium uppercase tracking-[0.3em] text-gold">
-              TatVivah Marketplace
-            </p>
-            <h1 className="font-serif text-4xl font-light tracking-tight text-foreground sm:text-5xl">
-              Discover Premium
-              <br />
-              <span className="italic">Curated</span> Collections
-            </h1>
-            <p className="text-base leading-relaxed text-muted-foreground">
-              Verified sellers, authentic craftsmanship, and trusted checkout.
-              Every piece tells a story of heritage.
-            </p>
-          </div>
+      <section className="sticky top-0 z-30 border-b border-border-soft bg-background/95 backdrop-blur">
+        <div className="mx-auto max-w-6xl px-4 py-4 sm:px-6">
+          <div className="flex gap-4 overflow-x-auto pb-1">
+            <Link
+              href={buildUrl({
+                nextPage: 1,
+                nextOccasion: undefined,
+                nextCategoryId: selectedCategoryId,
+                nextSearch: search,
+                nextSort: sort,
+              })}
+              className="group shrink-0 text-center"
+            >
+              <div className={`mx-auto h-20 w-20 overflow-hidden rounded-full border-2 transition-colors ${
+                !occasionSlug
+                  ? "border-gold"
+                  : "border-border-soft group-hover:border-gold/60"
+              }`}>
+                <div className="flex h-full w-full items-center justify-center bg-cream text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                  All
+                </div>
+              </div>
+              <p className="mt-2 text-xs font-medium text-foreground">All</p>
+            </Link>
 
-          {/* Search Form with Autocomplete */}
-          <div className="flex w-full max-w-sm flex-col gap-4 border border-border-soft bg-card p-6">
+            {activeOccasions.map((occasion) => {
+              const selected = occasion.slug === occasionSlug;
+              return (
+                <Link
+                  key={occasion.id}
+                  href={buildUrl({
+                    nextPage: 1,
+                    nextOccasion: occasion.slug,
+                    nextCategoryId: selectedCategoryId,
+                    nextSearch: search,
+                    nextSort: sort,
+                  })}
+                  className="group shrink-0 text-center"
+                >
+                  <div className={`mx-auto h-20 w-20 overflow-hidden rounded-full border-2 transition-colors ${
+                    selected
+                      ? "border-gold"
+                      : "border-border-soft group-hover:border-gold/60"
+                  }`}>
+                    {occasion.image ? (
+                      <img
+                        src={occasion.image}
+                        alt={occasion.name}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-cream text-lg font-serif text-muted-foreground">
+                        {occasion.name.charAt(0)}
+                      </div>
+                    )}
+                  </div>
+                  <p className={`mt-2 text-xs font-medium ${selected ? "text-foreground" : "text-muted-foreground"}`}>
+                    {occasion.name}
+                  </p>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      <div className="mx-auto flex max-w-6xl flex-col gap-16 px-6 py-20">
+        <section className="space-y-4">
+          <p className="text-xs font-medium uppercase tracking-[0.3em] text-gold">
+            Occasion Collections
+          </p>
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <h1 className="font-serif text-4xl font-light tracking-tight text-foreground sm:text-5xl">
+                {selectedOccasion?.name ?? "All Occasions"}
+              </h1>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {pagination.total} Results
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section className="flex flex-col gap-4 border border-border-soft bg-card p-4 md:flex-row md:items-center md:justify-between">
+          <div className="w-full md:max-w-md">
             <SearchAutocomplete
               defaultValue={search ?? ""}
               placeholder="Search collections, styles..."
             />
           </div>
+          <div className="flex items-center gap-3">
+            <Button asChild variant="outline" size="sm">
+              <Link href="#marketplace-categories">Filter</Link>
+            </Button>
+            <SortDropdown />
+          </div>
         </section>
 
-        {/* Category Filters */}
-        <section className="flex flex-wrap gap-3">
+        <section id="marketplace-categories" className="flex flex-wrap gap-3">
           {categories.length === 0 ? (
             <span className="text-sm text-muted-foreground">
               Categories loading...
@@ -132,8 +293,14 @@ export default async function MarketplacePage({
             categories.map((category) => (
               <Link
                 key={category.id}
-                href={buildUrl(1, category.id)}
-                className={`px-5 py-2.5 text-xs uppercase tracking-wider transition-all duration-300 border ${categoryId === category.id
+                href={buildUrl({
+                  nextPage: 1,
+                  nextOccasion: occasionSlug,
+                  nextCategoryId: category.id,
+                  nextSearch: search,
+                  nextSort: sort,
+                })}
+                className={`px-5 py-2.5 text-xs uppercase tracking-wider transition-all duration-300 border ${selectedCategory?.id === category.id
                   ? "border-gold bg-cream text-charcoal dark:bg-brown/30 dark:text-ivory"
                   : "border-border-soft bg-card text-muted-foreground hover:border-gold/50 hover:text-foreground"
                   }`}
@@ -144,12 +311,25 @@ export default async function MarketplacePage({
           )}
         </section>
 
-        {/* Sort Controls */}
         <section className="flex items-center justify-between">
           <p className="text-xs text-muted-foreground uppercase tracking-wider">
             {pagination.total} {pagination.total === 1 ? "product" : "products"} found
           </p>
-          <SortDropdown />
+          {selectedCategory ? (
+            <Button asChild variant="ghost" size="sm" className="text-xs uppercase tracking-wider">
+              <Link
+                href={buildUrl({
+                  nextPage: 1,
+                  nextOccasion: occasionSlug,
+                  nextCategoryId: undefined,
+                  nextSearch: search,
+                  nextSort: sort,
+                })}
+              >
+                Clear Category
+              </Link>
+            </Button>
+          ) : null}
         </section>
 
         {/* Products Grid */}
@@ -175,7 +355,15 @@ export default async function MarketplacePage({
             size="sm"
             disabled={pagination.page <= 1}
           >
-            <Link href={buildUrl(Math.max(pagination.page - 1, 1))}>
+            <Link
+              href={buildUrl({
+                nextPage: Math.max(pagination.page - 1, 1),
+                nextOccasion: occasionSlug,
+                nextCategoryId: selectedCategoryId,
+                nextSearch: search,
+                nextSort: sort,
+              })}
+            >
               ← Previous
             </Link>
           </Button>
@@ -188,7 +376,15 @@ export default async function MarketplacePage({
             size="sm"
             disabled={pagination.page >= pagination.totalPages}
           >
-            <Link href={buildUrl(Math.min(pagination.page + 1, pagination.totalPages))}>
+            <Link
+              href={buildUrl({
+                nextPage: Math.min(pagination.page + 1, pagination.totalPages),
+                nextOccasion: occasionSlug,
+                nextCategoryId: selectedCategoryId,
+                nextSearch: search,
+                nextSort: sort,
+              })}
+            >
               Next →
             </Link>
           </Button>
