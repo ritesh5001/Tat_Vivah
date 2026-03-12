@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { getCategories } from "@/services/catalog";
+import { getOccasions, type Occasion } from "@/services/occasions";
 import {
   addVariantToProduct,
   createSellerProduct,
@@ -78,6 +79,7 @@ export default function SellerProductsPage() {
   const [categories, setCategories] = React.useState<
     Array<{ id: string; name: string }>
   >([]);
+  const [occasions, setOccasions] = React.useState<Occasion[]>([]);
   const [products, setProducts] = React.useState<Array<any>>([]);
   const [loading, setLoading] = React.useState(true);
   const [form, setForm] = React.useState({
@@ -87,6 +89,7 @@ export default function SellerProductsPage() {
     compareAtPrice: "",
     description: "",
     isPublished: false,
+    occasionIds: [] as string[],
   });
   const [showCreateModal, setShowCreateModal] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
@@ -111,6 +114,7 @@ export default function SellerProductsPage() {
     title: "",
     description: "",
     isPublished: false,
+    occasionIds: [] as string[],
   });
   const [stockEdits, setStockEdits] = React.useState<Record<string, string>>(
     {}
@@ -131,10 +135,12 @@ export default function SellerProductsPage() {
     const results = await Promise.allSettled([
       getCategories(),
       listSellerProducts(),
+      getOccasions(),
     ]);
 
     const categoryResult = results[0];
     const productResult = results[1];
+    const occasionResult = results[2];
 
     if (categoryResult.status === "fulfilled") {
       setCategories(categoryResult.value.categories ?? []);
@@ -156,6 +162,12 @@ export default function SellerProductsPage() {
           : "Unable to load products"
       );
       setProducts([]);
+    }
+
+    if (occasionResult.status === "fulfilled") {
+      setOccasions(occasionResult.value.occasions ?? []);
+    } else {
+      setOccasions([]);
     }
 
     setLoading(false);
@@ -214,6 +226,7 @@ export default function SellerProductsPage() {
         sellerPrice: sellerPriceValue,
         description: form.description || undefined,
         images: images.map((image) => image.url),
+        occasionIds: form.occasionIds.length > 0 ? form.occasionIds : undefined,
       });
 
       let createdVariant: {
@@ -248,6 +261,7 @@ export default function SellerProductsPage() {
         compareAtPrice: "",
         description: "",
         isPublished: false,
+        occasionIds: [],
       });
       setImages([]);
       setShowCreateModal(false);
@@ -318,6 +332,7 @@ export default function SellerProductsPage() {
       title: product.title ?? "",
       description: product.description ?? "",
       isPublished: Boolean(product.isPublished),
+      occasionIds: product.occasionIds ?? [],
     });
   };
 
@@ -328,6 +343,7 @@ export default function SellerProductsPage() {
         categoryId: editForm.categoryId || undefined,
         title: editForm.title || undefined,
         description: editForm.description || undefined,
+        occasionIds: editForm.occasionIds,
       });
       toast.success("Product updated.");
       setEditingProductId(null);
@@ -791,6 +807,38 @@ export default function SellerProductsPage() {
                             disabled={product.deletedByAdmin}
                           />
                         </div>
+                        {occasions.length > 0 && (
+                          <div className="space-y-2">
+                            <Label>Occasions</Label>
+                            <div className="flex flex-wrap gap-2">
+                              {occasions.map((occ) => {
+                                const selected = editForm.occasionIds.includes(occ.id);
+                                return (
+                                  <button
+                                    key={occ.id}
+                                    type="button"
+                                    disabled={product.deletedByAdmin}
+                                    onClick={() =>
+                                      setEditForm((prev) => ({
+                                        ...prev,
+                                        occasionIds: selected
+                                          ? prev.occasionIds.filter((id) => id !== occ.id)
+                                          : [...prev.occasionIds, occ.id],
+                                      }))
+                                    }
+                                    className={`px-3 py-1.5 text-xs border transition-colors ${
+                                      selected
+                                        ? "border-gold bg-gold/10 text-gold"
+                                        : "border-border-soft text-muted-foreground hover:border-foreground/30"
+                                    }`}
+                                  >
+                                    {occ.name}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
                         <p className="text-xs text-muted-foreground">
                           Product visibility is controlled by admin approval.
                         </p>
@@ -1160,6 +1208,37 @@ export default function SellerProductsPage() {
                     placeholder="Fabric details, fit, and highlights"
                   />
                 </div>
+                {occasions.length > 0 && (
+                  <div className="space-y-2">
+                    <Label>Occasions (optional)</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {occasions.map((occ) => {
+                        const selected = form.occasionIds.includes(occ.id);
+                        return (
+                          <button
+                            key={occ.id}
+                            type="button"
+                            onClick={() =>
+                              setForm((prev) => ({
+                                ...prev,
+                                occasionIds: selected
+                                  ? prev.occasionIds.filter((id) => id !== occ.id)
+                                  : [...prev.occasionIds, occ.id],
+                              }))
+                            }
+                            className={`px-3 py-1.5 text-xs border transition-colors ${
+                              selected
+                                ? "border-gold bg-gold/10 text-gold"
+                                : "border-border-soft text-muted-foreground hover:border-foreground/30"
+                            }`}
+                          >
+                            {occ.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
                 <p className="text-sm text-muted-foreground">
                   New products are submitted for admin approval before going live.
                 </p>

@@ -186,6 +186,7 @@ model Product {
   media                ProductMedia[]
   reels                Reel[]                @relation("ProductReels")
   reelProductClicks    ReelProductClick[]
+  occasions            ProductOccasion[]
 
   @@index([sellerId])
   @@index([categoryId])
@@ -1125,4 +1126,36 @@ enum ReelStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+/// Shop by Occasion — curated occasion categories (Wedding, Haldi, etc.)
+model Occasion {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  image     String?
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  products ProductOccasion[]
+
+  @@index([slug])
+  @@index([isActive])
+  @@map("occasions")
+}
+
+/// Many-to-many join table: Product ↔ Occasion
+model ProductOccasion {
+  id         String @id @default(cuid())
+  productId  String @map("product_id")
+  occasionId String @map("occasion_id")
+
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  occasion Occasion @relation(fields: [occasionId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, occasionId])
+  @@index([productId])
+  @@index([occasionId])
+  @@map("product_occasions")
 }

@@ -10,6 +10,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 type SearchParams = {
   page?: string;
   categoryId?: string;
+  occasion?: string;
   search?: string;
   sort?: string;
 };
@@ -32,6 +33,7 @@ async function fetchProducts(params: {
   page: number;
   limit: number;
   categoryId?: string;
+  occasion?: string;
   search?: string;
   sort?: string;
 }) {
@@ -42,6 +44,7 @@ async function fetchProducts(params: {
   query.set("page", String(params.page));
   query.set("limit", String(params.limit));
   if (params.categoryId) query.set("categoryId", params.categoryId);
+  if (params.occasion) query.set("occasion", params.occasion);
   if (params.search) query.set("search", params.search);
   if (params.sort) query.set("sort", params.sort);
 
@@ -62,12 +65,13 @@ export default async function MarketplacePage({
   const resolvedParams = searchParams ? await searchParams : undefined;
   const page = Number(resolvedParams?.page ?? "1") || 1;
   const categoryId = resolvedParams?.categoryId;
+  const occasion = resolvedParams?.occasion?.trim();
   const search = resolvedParams?.search?.trim();
   const sort = resolvedParams?.sort?.trim();
 
   const [categories, productsResponse] = await Promise.all([
     fetchCategories(),
-    fetchProducts({ page, limit: 9, categoryId, search, sort }),
+    fetchProducts({ page, limit: 9, categoryId, occasion, search, sort }),
   ]);
 
   const products = productsResponse?.data ?? [];
@@ -83,6 +87,7 @@ export default async function MarketplacePage({
     params.set("page", String(nextPage));
     const categoryParam = typeof nextCategoryId === "string" ? nextCategoryId : categoryId;
     if (categoryParam) params.set("categoryId", categoryParam);
+    if (occasion) params.set("occasion", occasion);
     if (search) params.set("search", search);
     if (sort) params.set("sort", sort);
     return `/marketplace?${params.toString()}`;

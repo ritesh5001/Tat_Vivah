@@ -57,3 +57,6 @@ export { sellerAnalyticsRouter } from './sellerAnalytics.routes.js';
 export { reelRouter } from './reel.routes.js';
 export { sellerReelRouter } from './seller-reel.routes.js';
 export { adminReelRouter } from './admin-reel.routes.js';
+
+// Occasions
+export { occasionRouter } from './occasion.routes.js';

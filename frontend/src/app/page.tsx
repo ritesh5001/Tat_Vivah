@@ -9,11 +9,12 @@ import {
   staggerItemVariants,
   fadeInVariants,
   viewportSettings
-} from "@/lib/motion.config";
+       } from "@/lib/motion.config";
 import { getBestsellers, type BestsellerProduct } from "@/services/bestsellers";
 import { LuxuryHero } from "@/components/home/LuxuryHero";
 import { FeaturesMarquee } from "@/components/features-marquee";
 import { CategoryCarousel } from "@/components/home/CategoryCarousel";
+import { OccasionSection } from "@/components/home/OccasionSection";
 import { ProductShowcaseSection } from "@/components/home/ProductShowcaseSection";
 import { WishlistHeartButton } from "@/components/wishlist-heart-button";
 import { MotionCarousel } from "@/components/motion/MotionCarousel";
@@ -92,6 +93,11 @@ export default function Home() {
           CATEGORIES SECTION
           ========================================================================= */}
       <CategoryCarousel />
+
+      {/* =========================================================================
+          SHOP BY OCCASION SECTION
+          ========================================================================= */}
+      <OccasionSection />
 
       {/* =========================================================================
           BESTSELLERS SECTION

@@ -33,6 +33,10 @@ export const createProductSchema = z.object({
         .boolean()
         .optional()
         .default(false),
+
+    occasionIds: z
+        .array(z.string().min(1))
+        .optional(),
 });
 
 export type CreateProductInput = z.infer<typeof createProductSchema>;
@@ -67,6 +71,10 @@ export const updateProductSchema = z.object({
     isPublished: z
         .boolean()
         .optional(),
+
+    occasionIds: z
+        .array(z.string().min(1))
+        .optional(),
 });
 
 export type UpdateProductInput = z.infer<typeof updateProductSchema>;
@@ -95,6 +103,11 @@ export const productQuerySchema = z.object({
         .optional(),
 
     search: z
+        .string()
+        .max(100)
+        .optional(),
+
+    occasion: z
         .string()
         .max(100)
         .optional(),

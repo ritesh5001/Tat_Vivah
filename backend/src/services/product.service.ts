@@ -9,6 +9,7 @@ import {
     CACHE_KEYS,
 } from '../utils/cache.util.js';
 import { ApiError } from '../errors/ApiError.js';
+import { OccasionService, occasionService } from './occasion.service.js';
 import type {
     ProductQueryFilters,
     ProductListResponse,
@@ -37,7 +38,8 @@ export class ProductService {
         private readonly productRepo: ProductRepository,
         private readonly variantRepo: VariantRepository,
         private readonly inventoryRepo: InventoryRepository,
-        private readonly categoryRepo: CategoryRepository
+        private readonly categoryRepo: CategoryRepository,
+        private readonly occasionSvc: OccasionService
     ) { }
 
     private toNumber(value: unknown): number {
@@ -113,7 +115,7 @@ export class ProductService {
      */
     async listProducts(filters: ProductQueryFilters): Promise<ProductListResponse> {
         // Only cache if no filters (default listing)
-        const useCache = !filters.categoryId && !filters.search && filters.page === 1;
+        const useCache = !filters.categoryId && !filters.search && !filters.occasion && filters.page === 1;
 
         if (useCache) {
             const cached = await getFromCache<ProductListResponse>(CACHE_KEYS.PRODUCTS_LIST);
@@ -187,6 +189,11 @@ export class ProductService {
 
         const product = await this.productRepo.create(sellerId, data);
 
+        // Sync occasion associations if provided
+        if (data.occasionIds && data.occasionIds.length > 0) {
+            await this.occasionSvc.syncProductOccasions(product.id, data.occasionIds);
+        }
+
         // Invalidate product list cache
         await invalidateProductCaches();
 
@@ -228,6 +235,11 @@ export class ProductService {
         }
 
         const product = await this.productRepo.update(productId, data);
+
+        // Sync occasion associations if provided
+        if (data.occasionIds !== undefined) {
+            await this.occasionSvc.syncProductOccasions(productId, data.occasionIds ?? []);
+        }
 
         // Invalidate caches
         await invalidateProductCaches(productId);
@@ -356,5 +368,6 @@ export const productService = new ProductService(
     productRepository,
     variantRepository,
     inventoryRepository,
-    categoryRepository
+    categoryRepository,
+    occasionService
 );

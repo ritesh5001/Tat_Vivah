@@ -849,3 +849,83 @@ export async function overrideShipmentStatus(
     { method: "PUT", body: data, token }
   );
 }
+
+// =====================================================================
+// OCCASIONS (ADMIN)
+// =====================================================================
+
+export interface AdminOccasion {
+  id: string;
+  name: string;
+  slug: string;
+  image?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateOccasionPayload {
+  name: string;
+  image?: string;
+}
+
+export interface UpdateOccasionPayload {
+  name?: string;
+  image?: string | null;
+}
+
+export async function getAdminOccasions(token?: string | null) {
+  return apiRequest<{ occasions: AdminOccasion[] }>("/v1/admin/occasions", {
+    method: "GET",
+    token,
+  });
+}
+
+export async function createAdminOccasion(
+  data: CreateOccasionPayload,
+  token?: string | null
+) {
+  return apiRequest<{ message: string; occasion: AdminOccasion }>(
+    "/v1/admin/occasions",
+    {
+      method: "POST",
+      body: data,
+      token,
+    }
+  );
+}
+
+export async function updateAdminOccasion(
+  id: string,
+  data: UpdateOccasionPayload,
+  token?: string | null
+) {
+  return apiRequest<{ message: string; occasion: AdminOccasion }>(
+    `/v1/admin/occasions/${id}`,
+    {
+      method: "PUT",
+      body: data,
+      token,
+    }
+  );
+}
+
+export async function deleteAdminOccasion(id: string, token?: string | null) {
+  return apiRequest<{ message: string }>(
+    `/v1/admin/occasions/${id}`,
+    {
+      method: "DELETE",
+      token,
+    }
+  );
+}
+
+export async function toggleAdminOccasion(id: string, token?: string | null) {
+  return apiRequest<{ message: string; occasion: AdminOccasion }>(
+    `/v1/admin/occasions/${id}/toggle`,
+    {
+      method: "PATCH",
+      token,
+    }
+  );
+}

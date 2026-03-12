@@ -31,14 +31,35 @@ export class ProductRepository {
         products: ProductWithCategory[];
         total: number;
     }> {
-        const { page = 1, limit = 20, categoryId, search } = filters;
+        const { page = 1, limit = 20, categoryId, search, occasion } = filters;
         const skip = (page - 1) * limit;
+
+        // Build occasion filter: look up product IDs linked to the occasion slug
+        let occasionProductIds: string[] | undefined;
+        if (occasion) {
+            const occasionRecord = await prisma.occasion.findUnique({
+                where: { slug: occasion },
+                select: { id: true, isActive: true },
+            });
+            if (!occasionRecord || !occasionRecord.isActive) {
+                return { products: [], total: 0 };
+            }
+            const links = await prisma.productOccasion.findMany({
+                where: { occasionId: occasionRecord.id },
+                select: { productId: true },
+            });
+            occasionProductIds = links.map((link) => link.productId);
+            if (occasionProductIds.length === 0) {
+                return { products: [], total: 0 };
+            }
+        }
 
         const where = {
             status: 'APPROVED' as const,
             deletedByAdmin: false,
             adminListingPrice: { not: null },
             ...(categoryId && { categoryId }),
+            ...(occasionProductIds && { id: { in: occasionProductIds } }),
             ...(search && {
                 OR: [
                     { title: { contains: search, mode: 'insensitive' as const } },

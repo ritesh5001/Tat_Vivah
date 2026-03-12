@@ -8,6 +8,7 @@ import { authenticate, authorize } from '../middlewares/auth.middleware.js';
 import { adminController } from '../controllers/admin.controller.js';
 import { commissionRuleController } from '../controllers/commissionRule.controller.js';
 import { couponAdminController } from '../controllers/couponAdmin.controller.js';
+import { occasionController } from '../controllers/occasion.controller.js';
 
 export const adminRouter = Router();
 
@@ -478,4 +479,58 @@ adminRouter.patch(
     '/coupons/:id/toggle',
     authorize('ADMIN', 'SUPER_ADMIN'),
     couponAdminController.toggleCoupon
+);
+
+// ============================================================================
+// OCCASION MANAGEMENT (ADMIN + SUPER_ADMIN)
+// ============================================================================
+
+/**
+ * GET /v1/admin/occasions
+ * List all occasions (active + inactive)
+ */
+adminRouter.get(
+    '/occasions',
+    authorize('ADMIN', 'SUPER_ADMIN'),
+    occasionController.listAllOccasions
+);
+
+/**
+ * POST /v1/admin/occasions
+ * Create occasion
+ */
+adminRouter.post(
+    '/occasions',
+    authorize('ADMIN', 'SUPER_ADMIN'),
+    occasionController.createOccasion
+);
+
+/**
+ * PUT /v1/admin/occasions/:id
+ * Update occasion
+ */
+adminRouter.put(
+    '/occasions/:id',
+    authorize('ADMIN', 'SUPER_ADMIN'),
+    occasionController.updateOccasion
+);
+
+/**
+ * DELETE /v1/admin/occasions/:id
+ * Delete occasion (fails if products linked)
+ */
+adminRouter.delete(
+    '/occasions/:id',
+    authorize('ADMIN', 'SUPER_ADMIN'),
+    occasionController.deleteOccasion
+);
+
+/**
+ * PATCH /v1/admin/occasions/:id/toggle
+ * Toggle occasion active state
+ */
+adminRouter.patch(
+    '/occasions/:id/toggle',
+    authorize('ADMIN', 'SUPER_ADMIN'),
+    occasionController.toggleOccasion
 );

@@ -42,6 +42,7 @@ export interface CreateProductPayload {
   description?: string;
   isPublished?: boolean;
   images?: string[];
+  occasionIds?: string[];
 }
 
 export interface CreateVariantPayload {

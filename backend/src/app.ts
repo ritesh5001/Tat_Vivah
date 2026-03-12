@@ -41,6 +41,7 @@ import {
     reelRouter,
     sellerReelRouter,
     adminReelRouter,
+    occasionRouter,
 } from './routes/index.js';
 import { searchController } from './controllers/search.controller.js';
 import { apiReference } from "@scalar/express-api-reference";
@@ -179,6 +180,7 @@ export function createApp(): Application {
     app.use('/v1/seller', sellerRouter);
     app.use('/v1/categories', categoryRouter);
     app.use('/v1/products', productRouter);
+    app.use('/v1/occasions', occasionRouter);
     app.use('/v1/seller/products', sellerProductRouter);
     app.use('/v1/seller/products', productMediaRouter);
     app.use('/v1/imagekit', imagekitRouter);

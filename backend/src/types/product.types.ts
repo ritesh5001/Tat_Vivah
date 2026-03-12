@@ -153,6 +153,7 @@ export interface CreateProductRequest {
     description?: string | undefined;
     isPublished?: boolean | undefined;
     images?: string[] | undefined;
+    occasionIds?: string[] | undefined;
 }
 
 /**
@@ -165,6 +166,7 @@ export interface UpdateProductRequest {
     images?: string[] | undefined;
     sellerPrice?: number | undefined;
     isPublished?: boolean | undefined;
+    occasionIds?: string[] | undefined;
 }
 
 /**
@@ -200,6 +202,7 @@ export interface ProductQueryFilters {
     limit?: number | undefined;
     categoryId?: string | undefined;
     search?: string | undefined;
+    occasion?: string | undefined;
 }
 
 // ============================================================================
