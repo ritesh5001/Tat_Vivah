@@ -37,6 +37,7 @@ export interface AdminProduct {
     reviewedBy?: string | null;
     reviewedAt?: string | null;
   } | null;
+  occasionIds?: string[];
 }
 
 export interface AdminProductVariantUpdatePayload {
@@ -52,6 +53,7 @@ export interface AdminProductUpdatePayload {
   description?: string;
   images?: string[];
   isPublished?: boolean;
+  occasionIds?: string[];
   sellerPrice?: number;
   variants?: AdminProductVariantUpdatePayload[];
 }

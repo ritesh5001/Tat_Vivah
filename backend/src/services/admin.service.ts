@@ -29,6 +29,7 @@ import {
 } from '../utils/cache.util.js';
 import { notificationService } from '../notifications/notification.service.js';
 import { bestsellerService } from './bestseller.service.js';
+import { occasionService } from './occasion.service.js';
 import { calculateMargin } from '../utils/pricing.util.js';
 import type {
     UpdateProductRequest,
@@ -393,6 +394,11 @@ export class AdminService {
         if (payload.isPublished !== undefined) {
             updatePayload.isPublished = payload.isPublished;
             updatedFields.push('isPublished');
+        }
+
+        if (payload.occasionIds !== undefined) {
+            await occasionService.syncProductOccasions(productId, payload.occasionIds ?? []);
+            updatedFields.push('occasionIds');
         }
 
         if (Object.keys(updatePayload).length > 0) {

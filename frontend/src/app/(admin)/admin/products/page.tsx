@@ -12,6 +12,7 @@ import type {
   AdminProductVariantUpdatePayload,
 } from "@/services/admin";
 import { getCategories } from "@/services/catalog";
+import { getOccasions, type Occasion } from "@/services/occasions";
 import { toast } from "sonner";
 import { compressImageForUpload } from "@/lib/image-compression";
 
@@ -64,6 +65,7 @@ export default function AdminProductsPage() {
   const [loading, setLoading] = React.useState(true);
   const [products, setProducts] = React.useState<Array<any>>([]);
   const [categories, setCategories] = React.useState<Array<{ id: string; name: string }>>([]);
+  const [occasions, setOccasions] = React.useState<Occasion[]>([]);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [categoryFilter, setCategoryFilter] = React.useState("all");
   const [selectedProduct, setSelectedProduct] = React.useState<any | null>(null);
@@ -76,6 +78,7 @@ export default function AdminProductsPage() {
   const [editingProduct, setEditingProduct] = React.useState<any | null>(null);
   const [editForm, setEditForm] = React.useState({
     categoryId: "",
+    occasionIds: [] as string[],
     title: "",
     description: "",
     sellerPrice: "",
@@ -101,12 +104,14 @@ export default function AdminProductsPage() {
   const load = React.useCallback(async () => {
     setLoading(true);
     try {
-      const [result, categoryResult] = await Promise.all([
+      const [result, categoryResult, occasionResult] = await Promise.all([
         getAllProducts(),
         getCategories(),
+        getOccasions(),
       ]);
       setProducts(result.products ?? []);
       setCategories(categoryResult.categories ?? []);
+      setOccasions(occasionResult.occasions ?? []);
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Unable to load products"
@@ -189,6 +194,7 @@ export default function AdminProductsPage() {
     setEditingProduct(null);
     setEditForm({
       categoryId: "",
+      occasionIds: [],
       title: "",
       description: "",
       sellerPrice: "",
@@ -200,9 +206,13 @@ export default function AdminProductsPage() {
 
   const openEditModal = (product: any) => {
     const categoryId = product.categoryId ?? product.category?.id ?? "";
+    const existingOccasionIds = Array.isArray(product.occasionIds)
+      ? product.occasionIds.filter((id: unknown): id is string => typeof id === "string" && id.length > 0)
+      : [];
     setEditingProduct(product);
     setEditForm({
       categoryId,
+      occasionIds: existingOccasionIds,
       title: product.title ?? "",
       description: product.description ?? "",
       sellerPrice:
@@ -362,6 +372,7 @@ export default function AdminProductsPage() {
       description: editForm.description || undefined,
       images: sanitizedImages,
       isPublished: editForm.isPublished,
+      occasionIds: editForm.occasionIds,
     };
 
     if (editForm.sellerPrice.trim()) {
@@ -965,6 +976,43 @@ export default function AdminProductsPage() {
                       }
                     />
                   </label>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                    Occasions
+                  </p>
+                  <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+                    {occasions.map((occasion) => {
+                      const checked = editForm.occasionIds.includes(occasion.id);
+                      return (
+                        <label
+                          key={occasion.id}
+                          className="flex items-center gap-2 rounded border border-border-soft px-3 py-2 text-xs text-foreground"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(event) => {
+                              setEditForm((prev) => {
+                                if (event.target.checked) {
+                                  return {
+                                    ...prev,
+                                    occasionIds: [...prev.occasionIds, occasion.id],
+                                  };
+                                }
+                                return {
+                                  ...prev,
+                                  occasionIds: prev.occasionIds.filter((id) => id !== occasion.id),
+                                };
+                              });
+                            }}
+                          />
+                          <span>{occasion.name}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 <label className="flex flex-col gap-2 text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">

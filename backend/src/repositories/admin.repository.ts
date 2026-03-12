@@ -86,6 +86,7 @@ export interface AdminProduct {
         reviewedBy: string | null;
         reviewedAt: Date | null;
     } | null;
+    occasionIds?: string[];
 }
 
 export interface AdminOrder {
@@ -226,6 +227,11 @@ export class AdminRepository {
                     },
                 },
                 category: { select: { name: true } },
+                occasions: {
+                    select: {
+                        occasionId: true,
+                    },
+                },
             },
             orderBy: { createdAt: 'desc' },
             take: limit,
@@ -260,6 +266,7 @@ export class AdminRepository {
                 reviewedBy: product.approvedById,
                 reviewedAt: product.approvedAt,
             },
+            occasionIds: (product.occasions ?? []).map((item: { occasionId: string }) => item.occasionId),
         }));
     }
 
@@ -345,6 +352,11 @@ export class AdminRepository {
                     },
                 },
                 category: { select: { name: true } },
+                occasions: {
+                    select: {
+                        occasionId: true,
+                    },
+                },
                 variants: {
                     include: { inventory: true },
                     orderBy: { createdAt: 'asc' },
@@ -412,6 +424,11 @@ export class AdminRepository {
                     },
                 },
                 category: { select: { name: true } },
+                occasions: {
+                    select: {
+                        occasionId: true,
+                    },
+                },
                 variants: {
                     include: { inventory: true },
                     orderBy: { createdAt: 'asc' },
@@ -458,6 +475,7 @@ export class AdminRepository {
                 reviewedBy: product.approvedById,
                 reviewedAt: product.approvedAt,
             },
+            occasionIds: (product.occasions ?? []).map((item: { occasionId: string }) => item.occasionId),
         };
     }
 
@@ -479,6 +497,11 @@ export class AdminRepository {
                     },
                 },
                 category: { select: { name: true } },
+                occasions: {
+                    select: {
+                        occasionId: true,
+                    },
+                },
             },
             orderBy: { createdAt: 'desc' },
             take: 2000,
@@ -514,6 +537,7 @@ export class AdminRepository {
                 reviewedBy: product.approvedById,
                 reviewedAt: product.approvedAt,
             },
+            occasionIds: (product.occasions ?? []).map((item: { occasionId: string }) => item.occasionId),
         }));
     }
 
