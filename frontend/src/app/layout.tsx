@@ -69,7 +69,10 @@ export const metadata: Metadata = {
     images: ["/logo.png"],
   },
   icons: {
-    icon: "/logo.png",
+    icon: [
+      { url: "/logo.png" },
+      { url: "/tatvivah-logo.svg", type: "image/svg+xml" }
+    ],
     shortcut: "/logo.png",
     apple: "/logo.png",
   },
