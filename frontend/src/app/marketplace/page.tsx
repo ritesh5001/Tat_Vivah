@@ -153,50 +153,45 @@ export default async function MarketplacePage({
   const getCategorySlug = (category: CategoryItem) =>
     category.slug ?? slugify(category.name);
 
+  // null → clear param, undefined → keep current value, string → set
   const buildUrl = (options: {
     nextPage?: number;
-    nextOccasion?: string;
-    nextCategoryId?: string;
-    nextSearch?: string;
-    nextSort?: string;
+    nextOccasion?: string | null;
+    nextCategoryId?: string | null;
+    nextSearch?: string | null;
+    nextSort?: string | null;
   }) => {
     const params = new URLSearchParams();
-    params.set("page", String(options.nextPage ?? page));
 
-    const occasionParam = options.nextOccasion;
-    if (occasionParam) params.set("occasion", occasionParam);
+    const occ = options.nextOccasion === null ? undefined : (options.nextOccasion ?? occasionSlug);
+    if (occ) params.set("occasion", occ);
 
-    const categoryParam = options.nextCategoryId;
-    if (categoryParam) {
-      const category = categories.find((item) => item.id === categoryParam);
-      if (category) {
-        params.set("category", getCategorySlug(category));
-      } else {
-        params.set("categoryId", categoryParam);
-      }
+    const catId = options.nextCategoryId === null ? undefined : (options.nextCategoryId ?? selectedCategoryId);
+    if (catId) {
+      const cat = categories.find((item) => item.id === catId);
+      if (cat) params.set("category", getCategorySlug(cat));
+      else params.set("categoryId", catId);
     }
 
-    const searchParam = options.nextSearch;
-    const sortParam = options.nextSort;
-    if (searchParam) params.set("search", searchParam);
-    if (sortParam) params.set("sort", sortParam);
+    const s = options.nextSearch === null ? undefined : (options.nextSearch ?? search);
+    if (s) params.set("search", s);
+
+    const so = options.nextSort === null ? undefined : (options.nextSort ?? sort);
+    if (so) params.set("sort", so);
+
+    const p = options.nextPage ?? page;
+    if (p > 1) params.set("page", String(p));
 
     return `/marketplace?${params.toString()}`;
   };
 
   return (
     <div className="min-h-[calc(100vh-160px)] bg-background">
-      <section className="sticky top-0 z-30 border-b border-border-soft bg-background/95 backdrop-blur">
+      <section className="border-b border-border-soft bg-background">
         <div className="mx-auto max-w-6xl px-4 py-4 sm:px-6">
           <div className="flex gap-4 overflow-x-auto pb-1">
             <Link
-              href={buildUrl({
-                nextPage: 1,
-                nextOccasion: undefined,
-                nextCategoryId: selectedCategoryId,
-                nextSearch: search,
-                nextSort: sort,
-              })}
+              href={buildUrl({ nextPage: 1, nextOccasion: null })}
               className="group shrink-0 text-center"
             >
               <div className={`mx-auto h-20 w-20 overflow-hidden rounded-full border-2 transition-colors ${
@@ -216,13 +211,7 @@ export default async function MarketplacePage({
               return (
                 <Link
                   key={occasion.id}
-                  href={buildUrl({
-                    nextPage: 1,
-                    nextOccasion: occasion.slug,
-                    nextCategoryId: selectedCategoryId,
-                    nextSearch: search,
-                    nextSort: sort,
-                  })}
+                  href={buildUrl({ nextPage: 1, nextOccasion: occasion.slug })}
                   className="group shrink-0 text-center"
                 >
                   <div className={`mx-auto h-20 w-20 overflow-hidden rounded-full border-2 transition-colors ${
@@ -293,13 +282,7 @@ export default async function MarketplacePage({
             categories.map((category) => (
               <Link
                 key={category.id}
-                href={buildUrl({
-                  nextPage: 1,
-                  nextOccasion: occasionSlug,
-                  nextCategoryId: category.id,
-                  nextSearch: search,
-                  nextSort: sort,
-                })}
+                href={buildUrl({ nextPage: 1, nextCategoryId: category.id })}
                 className={`px-5 py-2.5 text-xs uppercase tracking-wider transition-all duration-300 border ${selectedCategory?.id === category.id
                   ? "border-gold bg-cream text-charcoal dark:bg-brown/30 dark:text-ivory"
                   : "border-border-soft bg-card text-muted-foreground hover:border-gold/50 hover:text-foreground"
@@ -318,13 +301,7 @@ export default async function MarketplacePage({
           {selectedCategory ? (
             <Button asChild variant="ghost" size="sm" className="text-xs uppercase tracking-wider">
               <Link
-                href={buildUrl({
-                  nextPage: 1,
-                  nextOccasion: occasionSlug,
-                  nextCategoryId: undefined,
-                  nextSearch: search,
-                  nextSort: sort,
-                })}
+                href={buildUrl({ nextPage: 1, nextCategoryId: null })}
               >
                 Clear Category
               </Link>
@@ -356,13 +333,7 @@ export default async function MarketplacePage({
             disabled={pagination.page <= 1}
           >
             <Link
-              href={buildUrl({
-                nextPage: Math.max(pagination.page - 1, 1),
-                nextOccasion: occasionSlug,
-                nextCategoryId: selectedCategoryId,
-                nextSearch: search,
-                nextSort: sort,
-              })}
+              href={buildUrl({ nextPage: Math.max(pagination.page - 1, 1) })}
             >
               ← Previous
             </Link>
@@ -377,13 +348,7 @@ export default async function MarketplacePage({
             disabled={pagination.page >= pagination.totalPages}
           >
             <Link
-              href={buildUrl({
-                nextPage: Math.min(pagination.page + 1, pagination.totalPages),
-                nextOccasion: occasionSlug,
-                nextCategoryId: selectedCategoryId,
-                nextSearch: search,
-                nextSort: sort,
-              })}
+              href={buildUrl({ nextPage: Math.min(pagination.page + 1, pagination.totalPages) })}
             >
               Next →
             </Link>
