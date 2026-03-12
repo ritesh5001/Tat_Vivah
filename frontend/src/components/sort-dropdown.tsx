@@ -25,7 +25,7 @@ export function SortDropdown() {
       } else {
         params.delete("sort");
       }
-      params.set("page", "1"); // reset page on sort change
+      params.delete("page"); // reset page on sort change
       router.push(`/marketplace?${params.toString()}`);
     },
     [router, searchParams]
