@@ -2,15 +2,18 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 /* ──────────────────────────────────────────────────────────────────────────── */
-/*  SELLER SUBDOMAIN ROUTING                                                  */
-/*  Rewrites paths on seller.* hostname to /seller/* so Next.js resolves the  */
-/*  existing (seller) route group. Auth pages are excluded from rewriting.    */
+/*  SUBDOMAIN ROUTING                                                         */
+/*  Rewrites paths on <sub>.* hostnames to /<base>/* so Next.js resolves the  */
+/*  existing route groups. Auth pages are excluded from rewriting.             */
 /* ──────────────────────────────────────────────────────────────────────────── */
 
-/** The detected seller base path in the app router */
-const SELLER_BASE = "/seller";
+/** Subdomain → app-router base path mapping (detected from project structure) */
+const SUBDOMAIN_MAP: Record<string, string> = {
+  seller: "/seller",
+  admin: "/admin",
+};
 
-/** Pages that live at the root level and should NOT be prefixed on subdomain */
+/** Pages that live at the root level and should NOT be prefixed on subdomains */
 const ROOT_LEVEL_PAGES = [
   "/login",
   "/register",
@@ -20,19 +23,21 @@ const ROOT_LEVEL_PAGES = [
 ];
 
 /**
- * Check whether the request is coming from the seller subdomain.
- * Works with both `seller.tatvivahtrends.com` and `seller.localhost:3000`.
+ * Extract the subdomain prefix from the Host header (e.g. "seller" or "admin").
+ * Returns null when the request comes from the main domain or www.
  */
-function isSellerSubdomain(host: string | null): boolean {
-  if (!host) return false;
-  // Strip port for comparison
-  const hostname = host.split(":")[0];
-  return hostname.startsWith("seller.");
+function getSubdomainPrefix(host: string | null): string | null {
+  if (!host) return null;
+  const hostname = host.split(":")[0]; // strip port
+  for (const sub of Object.keys(SUBDOMAIN_MAP)) {
+    if (hostname.startsWith(`${sub}.`)) return sub;
+  }
+  return null;
 }
 
 /**
- * Check whether the path is a root-level page that should NOT get the
- * /seller prefix even on the seller subdomain.
+ * Check whether the path is a root-level page that should NOT get a
+ * base-path prefix even on a subdomain.
  */
 function isRootLevelPage(pathname: string): boolean {
   return ROOT_LEVEL_PAGES.some(
@@ -62,20 +67,24 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const host = request.headers.get("host");
 
-  /* ── STEP 1: Seller subdomain rewrite ──────────────────────────────────── */
-  if (isSellerSubdomain(host)) {
-    // Root of seller subdomain → redirect to seller dashboard
+  /* ── STEP 1: Subdomain rewrite (seller / admin) ────────────────────────── */
+  const subPrefix = getSubdomainPrefix(host);
+
+  if (subPrefix) {
+    const basePath = SUBDOMAIN_MAP[subPrefix];
+
+    // Root of subdomain → redirect to dashboard
     if (pathname === "/") {
       const dashboardUrl = request.nextUrl.clone();
-      dashboardUrl.pathname = `${SELLER_BASE}/dashboard`;
+      dashboardUrl.pathname = `${basePath}/dashboard`;
       return NextResponse.redirect(dashboardUrl);
     }
 
-    // If path does NOT already start with /seller and is NOT a root-level page,
-    // rewrite to /seller/<path> so Next.js resolves the (seller) route group.
-    if (!pathname.startsWith(SELLER_BASE) && !isRootLevelPage(pathname)) {
+    // If path does NOT already start with the base and is NOT a root-level page,
+    // rewrite to /<base>/<path> so Next.js resolves the correct route group.
+    if (!pathname.startsWith(basePath) && !isRootLevelPage(pathname)) {
       const rewriteUrl = request.nextUrl.clone();
-      rewriteUrl.pathname = `${SELLER_BASE}${pathname}`;
+      rewriteUrl.pathname = `${basePath}${pathname}`;
       return NextResponse.rewrite(rewriteUrl);
     }
   }
