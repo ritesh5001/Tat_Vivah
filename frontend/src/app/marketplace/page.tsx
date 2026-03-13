@@ -475,6 +475,20 @@ export default async function MarketplacePage({
             </Link>
           </Button>
         </section>
+        {/* SEO Quick Links */}
+        <section className="border-t border-border-soft pt-12 pb-4">
+          <div className="flex flex-col items-center justify-center gap-4 text-center">
+            <p className="text-xs font-medium uppercase tracking-[0.2em] text-gold">Explore Collections</p>
+            <div className="flex flex-wrap justify-center gap-4">
+              <Link href="/collections/kurta" className="text-sm font-medium text-muted-foreground hover:text-foreground underline underline-offset-4">Kurtas</Link>
+              <Link href="/collections/sherwani" className="text-sm font-medium text-muted-foreground hover:text-foreground underline underline-offset-4">Sherwanis</Link>
+              <Link href="/collections/indo-western" className="text-sm font-medium text-muted-foreground hover:text-foreground underline underline-offset-4">Indo-Western</Link>
+              <Link href="/occasion/wedding" className="text-sm font-medium text-muted-foreground hover:text-foreground underline underline-offset-4">Wedding</Link>
+              <Link href="/occasion/haldi" className="text-sm font-medium text-muted-foreground hover:text-foreground underline underline-offset-4">Haldi</Link>
+              <Link href="/occasion/sangeet" className="text-sm font-medium text-muted-foreground hover:text-foreground underline underline-offset-4">Sangeet</Link>
+            </div>
+          </div>
+        </section>
       </div>
     </div>
   );

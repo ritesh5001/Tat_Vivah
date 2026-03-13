@@ -71,6 +71,8 @@ export function OccasionSection() {
     startScrollLeft: 0,
     moved: false,
   });
+  const rafRef = React.useRef<number>(0);
+  const velocityRef = React.useRef({ lastX: 0, lastTime: 0, velocity: 0 });
 
   const loopingOccasions = React.useMemo(() => {
     if (occasions.length <= 1) {
@@ -161,7 +163,9 @@ export function OccasionSection() {
 
     updateScrollButtons();
     const handleScroll = () => {
-      normalizeLoopPosition();
+      if (!dragStateRef.current.isDragging && !rafRef.current) {
+        normalizeLoopPosition();
+      }
       updateScrollButtons();
     };
 
@@ -175,6 +179,10 @@ export function OccasionSection() {
     return () => {
       el.removeEventListener("scroll", handleScroll);
       window.removeEventListener("resize", updateScrollButtons);
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = 0;
+      }
     };
   }, [occasions, normalizeLoopPosition, setLoopStartPosition, updateScrollButtons]);
 
@@ -210,12 +218,19 @@ export function OccasionSection() {
 
     event.preventDefault();
 
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = 0;
+    }
+
     dragStateRef.current = {
       isDragging: true,
       startX: event.clientX,
       startScrollLeft: el.scrollLeft,
       moved: false,
     };
+
+    velocityRef.current = { lastX: event.clientX, lastTime: performance.now(), velocity: 0 };
 
     snapTypeRef.current = el.style.scrollSnapType;
     el.style.scrollSnapType = "none";
@@ -233,22 +248,57 @@ export function OccasionSection() {
       dragState.moved = true;
     }
 
+    const now = performance.now();
+    const vRef = velocityRef.current;
+    const dt = now - vRef.lastTime;
+    if (dt > 0) {
+      vRef.velocity = (event.clientX - vRef.lastX) / dt;
+    }
+    vRef.lastX = event.clientX;
+    vRef.lastTime = now;
+
     el.scrollLeft = dragState.startScrollLeft - deltaX;
   };
 
   const endMouseDrag = () => {
     const el = trackRef.current;
-    if (!el) return;
-
-    if (snapTypeRef.current !== null) {
-      el.style.scrollSnapType = snapTypeRef.current;
-      snapTypeRef.current = null;
-    } else {
-      el.style.scrollSnapType = "";
-    }
+    if (!el || !dragStateRef.current.isDragging) return;
 
     dragStateRef.current.isDragging = false;
-    normalizeLoopPosition();
+
+    const velocity = velocityRef.current.velocity;
+    const restoreSnap = () => {
+      if (snapTypeRef.current !== null) {
+        el.style.scrollSnapType = snapTypeRef.current;
+        snapTypeRef.current = null;
+      } else {
+        el.style.scrollSnapType = "";
+      }
+    };
+
+    // Apply momentum deceleration for a smooth glide effect
+    if (Math.abs(velocity) > 0.3) {
+      let v = velocity * 16;
+      const friction = 0.95;
+
+      const step = () => {
+        v *= friction;
+        if (Math.abs(v) < 0.5) {
+          rafRef.current = 0;
+          restoreSnap();
+          normalizeLoopPosition();
+          return;
+        }
+        el.scrollLeft -= v;
+        normalizeLoopPosition();
+        rafRef.current = requestAnimationFrame(step);
+      };
+
+      rafRef.current = requestAnimationFrame(step);
+    } else {
+      restoreSnap();
+      normalizeLoopPosition();
+    }
   };
 
   const handleTrackClickCapture = (event: React.MouseEvent<HTMLDivElement>) => {

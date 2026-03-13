@@ -23,6 +23,24 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
             changeFrequency: "weekly",
             priority: 0.8,
         },
+        {
+            url: `${SITE_URL}/blog`,
+            lastModified: new Date(),
+            changeFrequency: "weekly",
+            priority: 0.8,
+        },
+        {
+            url: `${SITE_URL}/blog/trending-wedding-outfits-for-men-2026`,
+            lastModified: new Date(),
+            changeFrequency: "monthly",
+            priority: 0.7,
+        },
+        {
+            url: `${SITE_URL}/blog/how-to-style-kurta-pajama-for-haldi`,
+            lastModified: new Date(),
+            changeFrequency: "monthly",
+            priority: 0.7,
+        },
     ];
 
     /* ── Fetch all products ── */
@@ -61,7 +79,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
                 const categories = data?.categories ?? [];
                 categoryRoutes = categories
                     .filter((cat: any) => cat.isActive)
-                    .map((cat: any) => {
+                    .flatMap((cat: any) => {
                         const slug =
                             cat.slug ??
                             cat.name
@@ -69,12 +87,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
                                 .trim()
                                 .replace(/[^a-z0-9]+/g, "-")
                                 .replace(/(^-|-$)/g, "");
-                        return {
-                            url: `${SITE_URL}/marketplace?category=${slug}`,
-                            lastModified: new Date(),
-                            changeFrequency: "weekly" as const,
-                            priority: 0.8,
-                        };
+                        return [
+                            {
+                                url: `${SITE_URL}/marketplace?category=${slug}`,
+                                lastModified: new Date(),
+                                changeFrequency: "weekly" as const,
+                                priority: 0.8,
+                            },
+                            {
+                                url: `${SITE_URL}/collections/${slug}`,
+                                lastModified: new Date(),
+                                changeFrequency: "weekly" as const,
+                                priority: 0.9,
+                            }
+                        ];
                     });
             }
         }
@@ -94,12 +120,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
                 const occasions = data?.occasions ?? [];
                 occasionRoutes = occasions
                     .filter((occ: any) => occ.isActive)
-                    .map((occ: any) => ({
-                        url: `${SITE_URL}/marketplace?occasion=${occ.slug}`,
-                        lastModified: new Date(),
-                        changeFrequency: "weekly" as const,
-                        priority: 0.8,
-                    }));
+                    .flatMap((occ: any) => [
+                        {
+                            url: `${SITE_URL}/marketplace?occasion=${occ.slug}`,
+                            lastModified: new Date(),
+                            changeFrequency: "weekly" as const,
+                            priority: 0.8,
+                        },
+                        {
+                            url: `${SITE_URL}/occasion/${occ.slug}`,
+                            lastModified: new Date(),
+                            changeFrequency: "weekly" as const,
+                            priority: 0.9,
+                        }
+                    ]);
             }
         }
     } catch {

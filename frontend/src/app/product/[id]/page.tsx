@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import ProductDetailClient from "@/components/product-detail-client";
 import ProductImageCarousel from "@/components/product-image-carousel";
@@ -182,6 +183,23 @@ export default async function ProductDetailPage({
 
         {/* Related Products */}
         <RelatedProducts productId={resolvedParams.id} />
+
+        {/* Collections & Occasions Links */}
+        <section className="border-t border-border-soft pt-12 pb-4">
+          <div className="flex flex-col items-center justify-center gap-4 text-center">
+            <p className="text-xs font-medium uppercase tracking-[0.2em] text-gold">Explore More</p>
+            <div className="flex flex-wrap justify-center gap-4">
+              {product?.categoryId && (
+                <Link href={`/collections/${product.categoryId}`} className="text-sm font-medium text-muted-foreground hover:text-foreground underline underline-offset-4">
+                  Shop more {product.categoryName || 'in this Category'}
+                </Link>
+              )}
+              <Link href="/collections/kurta" className="text-sm font-medium text-muted-foreground hover:text-foreground underline underline-offset-4">Kurtas</Link>
+              <Link href="/collections/sherwani" className="text-sm font-medium text-muted-foreground hover:text-foreground underline underline-offset-4">Sherwanis</Link>
+              <Link href="/occasion/wedding" className="text-sm font-medium text-muted-foreground hover:text-foreground underline underline-offset-4">Wedding Outfits</Link>
+            </div>
+          </div>
+        </section>
 
         {/* Trust Section */}
         <section className="border-t border-border-soft pt-12">

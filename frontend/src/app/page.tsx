@@ -6,6 +6,14 @@ export const metadata: Metadata = {
     "Best Ethnic Wear for Men in India | Sherwani, Kurta & Wedding Outfits",
   description:
     "Discover the best ethnic wear for men in India at TatVivah. Shop premium sherwani, kurta sets, Indo-Western outfits and wedding collections perfect for mehendi, sangeet, reception and festive occasions.",
+  keywords: [
+    "best ethnic wear india",
+    "wedding kurta india",
+    "sherwani india",
+    "indo western india",
+    "kurta set for men india",
+    "wedding outfits india"
+  ],
   alternates: {
     canonical: "https://tatvivahtrends.com",
   },
@@ -52,10 +60,10 @@ const faqJsonLd = {
   mainEntity: [
     {
       "@type": "Question",
-      name: "What is the best ethnic wear for men in India?",
+      name: "What is best ethnic wear in India?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "The best ethnic wear for men in India includes Sherwanis, Kurta Sets, and Indo-Western outfits. TatVivah offers a premium collection designed for weddings and festive occasions."
+        text: "The best ethnic wear for men in India includes designer Sherwanis, intricate Kurta Sets, and modern Indo-Western outfits. TatVivah curates premium traditional menswear crafted by master artisans for unparalleled quality."
       }
     },
     {
@@ -63,23 +71,23 @@ const faqJsonLd = {
       name: "Where to buy sherwani online?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "You can buy high-quality designer sherwanis online at TatVivah. We offer a wide range of colors, fabrics, and embroideries perfect for grooms and wedding guests."
+        text: "You can buy high-quality, authentic sherwanis online at TatVivah. We offer a curated marketplace featuring exclusive designs, luxury fabrics, and secure shipping across India."
       }
     },
     {
       "@type": "Question",
-      name: "What to wear for mehendi?",
+      name: "Best wedding kurta for men?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "For mehendi ceremonies, lightweight and colorful Kurta Sets, printed Nehru jackets over kurtas, or contemporary asymmetrical Indo-Western outfits are highly recommended."
+        text: "The best wedding kurta for men depends on the ceremony. For Haldi, a lightweight yellow cotton kurta is ideal, while a heavier silk or Chanderi kurta with mirror work or Zari embroidery suits a Sangeet or evening function."
       }
     },
     {
       "@type": "Question",
-      name: "What is Indo Western dress?",
+      name: "Affordable wedding outfits India?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "Indo Western for men is a fusion style combining traditional Indian elements with Western tailoring. Common styles include asymmetrical hemlines, draped kurtas, and Jodhpuri suits."
+        text: "TatVivah provides a range of luxury wedding outfits that balance authentic craftsmanship with accessible pricing. Explore our collections for both grand sherwanis and affordable yet elegant Indo-Western fusion wear."
       }
     }
   ]
