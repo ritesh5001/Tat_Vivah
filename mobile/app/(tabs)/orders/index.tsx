@@ -35,6 +35,18 @@ const currency = new Intl.NumberFormat("en-IN", {
   maximumFractionDigits: 0,
 });
 
+type OrdersScreenCache = {
+  token: string;
+  cachedAt: number;
+  orders: BuyerOrder[];
+  paymentStatus: Record<string, string>;
+  cancellationByOrder: Record<string, { id: string; status: string }>;
+  returnByOrder: Record<string, { id: string; status: string }>;
+};
+
+let ordersScreenCache: OrdersScreenCache | null = null;
+const ORDERS_CACHE_TTL_MS = 30 * 1000;
+
 function getStatusStyle(label: string): { color: string } {
   switch (label) {
     case "DELIVERED":
@@ -229,36 +241,6 @@ export default function OrdersScreen() {
   const [requestingReturnIds, setRequestingReturnIds] = React.useState<Set<string>>(new Set());
   const returnLockRef = React.useRef<Set<string>>(new Set());
 
-  if (!authLoading && !token) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <AppHeader title="Orders" subtitle="Track purchases" showMenu showBack />
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Orders</Text>
-          <Text style={styles.headerCopy}>Track every purchase in one place.</Text>
-        </View>
-        <View style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>Sign in to view orders</Text>
-          <Text style={styles.emptySubtitle}>
-            Access order history, invoices, and delivery tracking after login.
-          </Text>
-          <Pressable
-            style={styles.primaryButton}
-            onPress={() => router.push("/login?returnTo=%2Forders")}
-          >
-            <Text style={styles.primaryButtonText}>Sign in</Text>
-          </Pressable>
-          <Pressable
-            style={styles.secondaryButton}
-            onPress={() => router.push("/search")}
-          >
-            <Text style={styles.secondaryButtonText}>Continue browsing</Text>
-          </Pressable>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   const mountedRef = React.useRef(true);
   React.useEffect(() => {
     return () => { mountedRef.current = false; };
@@ -266,7 +248,22 @@ export default function OrdersScreen() {
 
   const loadOrders = React.useCallback(async () => {
     if (!token) return;
-    setLoading(true);
+
+    const isCacheValid =
+      ordersScreenCache &&
+      ordersScreenCache.token === token &&
+      Date.now() - ordersScreenCache.cachedAt < ORDERS_CACHE_TTL_MS;
+
+    if (isCacheValid) {
+      setOrders(ordersScreenCache.orders);
+      setPaymentStatus(ordersScreenCache.paymentStatus);
+      setCancellationByOrder(ordersScreenCache.cancellationByOrder);
+      setReturnByOrder(ordersScreenCache.returnByOrder);
+      setLoading(false);
+      setFetchError(null);
+    }
+
+    setLoading(!isCacheValid);
     setFetchError(null);
     try {
       const result = await listBuyerOrders(token);
@@ -274,10 +271,13 @@ export default function OrdersScreen() {
       const nextOrders = result.orders ?? [];
       setOrders(nextOrders);
 
+      let cancellationMap: Record<string, { id: string; status: string }> = {};
+      let returnMap: Record<string, { id: string; status: string }> = {};
+
       try {
         const cancellationResult = await listMyCancellations(token);
         if (!mountedRef.current) return;
-        const cancellationMap = (cancellationResult.cancellations ?? []).reduce((acc, item) => {
+        cancellationMap = (cancellationResult.cancellations ?? []).reduce((acc, item) => {
           acc[item.orderId] = { id: item.id, status: item.status };
           return acc;
         }, {} as Record<string, { id: string; status: string }>);
@@ -289,7 +289,7 @@ export default function OrdersScreen() {
       try {
         const returnResult = await listMyReturns(token);
         if (!mountedRef.current) return;
-        const returnMap = (returnResult.returns ?? []).reduce((acc, item) => {
+        returnMap = (returnResult.returns ?? []).reduce((acc, item) => {
           acc[item.orderId] = { id: item.id, status: item.status };
           return acc;
         }, {} as Record<string, { id: string; status: string }>);
@@ -315,6 +315,15 @@ export default function OrdersScreen() {
         return acc;
       }, {} as Record<string, string>);
       setPaymentStatus(map);
+
+      ordersScreenCache = {
+        token,
+        cachedAt: Date.now(),
+        orders: nextOrders,
+        paymentStatus: map,
+        cancellationByOrder: cancellationMap,
+        returnByOrder: returnMap,
+      };
     } catch (err) {
       if (!isAbortError(err) && mountedRef.current) {
         setOrders([]);
@@ -577,6 +586,36 @@ export default function OrdersScreen() {
     (item: BuyerOrder) => item.id,
     []
   );
+
+  if (!authLoading && !token) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <AppHeader title="Orders" subtitle="Track purchases" showMenu showBack />
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Orders</Text>
+          <Text style={styles.headerCopy}>Track every purchase in one place.</Text>
+        </View>
+        <View style={styles.emptyCard}>
+          <Text style={styles.emptyTitle}>Sign in to view orders</Text>
+          <Text style={styles.emptySubtitle}>
+            Access order history, invoices, and delivery tracking after login.
+          </Text>
+          <Pressable
+            style={styles.primaryButton}
+            onPress={() => router.push("/login?returnTo=%2Forders")}
+          >
+            <Text style={styles.primaryButtonText}>Sign in</Text>
+          </Pressable>
+          <Pressable
+            style={styles.secondaryButton}
+            onPress={() => router.push("/search")}
+          >
+            <Text style={styles.secondaryButtonText}>Continue browsing</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>

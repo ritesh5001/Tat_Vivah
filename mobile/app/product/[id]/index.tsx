@@ -7,6 +7,7 @@ import {
   FlatList,
   Dimensions,
   Alert,
+  Modal,
   type ListRenderItemInfo,
   type NativeSyntheticEvent,
   type NativeScrollEvent,
@@ -45,6 +46,13 @@ import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
 import { impactMedium, impactLight, notifySuccess } from "../../../src/utils/haptics";
 import { AppHeader } from "../../../src/components/AppHeader";
 import { useQuery } from "@tanstack/react-query";
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import {
   buildReviewImageName,
   uploadReviewImage,
@@ -98,6 +106,114 @@ const galleryStyles = StyleSheet.create({
     height: IMAGE_HEIGHT,
     borderRadius: radius.lg,
     backgroundColor: colors.cream,
+  },
+});
+
+const ZoomableModalImage = React.memo(function ZoomableModalImage({
+  uri,
+  onRequestClose,
+}: {
+  uri: string;
+  onRequestClose: () => void;
+}) {
+  const scale = useSharedValue(1);
+  const savedScale = useSharedValue(1);
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
+  const savedTranslateX = useSharedValue(0);
+  const savedTranslateY = useSharedValue(0);
+
+  const pinch = Gesture.Pinch()
+    .onUpdate((event) => {
+      const next = savedScale.value * event.scale;
+      scale.value = Math.max(1, Math.min(4, next));
+    })
+    .onEnd(() => {
+      savedScale.value = scale.value;
+      if (savedScale.value < 1.02) {
+        savedScale.value = 1;
+        scale.value = withSpring(1);
+        savedTranslateX.value = 0;
+        savedTranslateY.value = 0;
+        translateX.value = withSpring(0);
+        translateY.value = withSpring(0);
+      }
+    });
+
+  const doubleTap = Gesture.Tap()
+    .numberOfTaps(2)
+    .onEnd(() => {
+      const nextScale = savedScale.value > 1.4 ? 1 : 2.5;
+      savedScale.value = nextScale;
+      scale.value = withSpring(nextScale);
+
+      if (nextScale === 1) {
+        savedTranslateX.value = 0;
+        savedTranslateY.value = 0;
+        translateX.value = withSpring(0);
+        translateY.value = withSpring(0);
+      }
+    });
+
+  const pan = Gesture.Pan()
+    .onUpdate((event) => {
+      if (savedScale.value > 1.02) {
+        translateX.value = savedTranslateX.value + event.translationX;
+        translateY.value = savedTranslateY.value + event.translationY;
+      } else {
+        translateY.value = event.translationY;
+      }
+    })
+    .onEnd(() => {
+      if (savedScale.value <= 1.02 && Math.abs(translateY.value) > 120) {
+        runOnJS(onRequestClose)();
+        return;
+      }
+
+      if (savedScale.value > 1.02) {
+        savedTranslateX.value = translateX.value;
+        savedTranslateY.value = translateY.value;
+      } else {
+        savedTranslateX.value = 0;
+        savedTranslateY.value = 0;
+        translateX.value = withSpring(0);
+        translateY.value = withSpring(0);
+      }
+    });
+
+  const composedGesture = Gesture.Simultaneous(pinch, pan, doubleTap);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+      { scale: scale.value },
+    ],
+  }));
+
+  return (
+    <GestureDetector gesture={composedGesture}>
+      <View style={viewerStyles.itemWrap}>
+        <Animated.Image
+          source={{ uri }}
+          style={[viewerStyles.image, animatedStyle]}
+          resizeMode="contain"
+        />
+      </View>
+    </GestureDetector>
+  );
+});
+
+const viewerStyles = StyleSheet.create({
+  itemWrap: {
+    width: SCREEN_WIDTH,
+    height: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  image: {
+    width: SCREEN_WIDTH,
+    height: "100%",
   },
 });
 
@@ -251,6 +367,8 @@ export default function ProductDetailScreen() {
   const [loadingRelated, setLoadingRelated] = React.useState(false);
 
   const [galleryIndex, setGalleryIndex] = React.useState(0);
+  const [isViewerVisible, setIsViewerVisible] = React.useState(false);
+  const [viewerIndex, setViewerIndex] = React.useState(0);
 
   const mountedRef = React.useRef(true);
   React.useEffect(() => {
@@ -539,6 +657,15 @@ export default function ProductDetailScreen() {
     []
   );
 
+  const openImageViewer = React.useCallback((index: number) => {
+    setViewerIndex(index);
+    setIsViewerVisible(true);
+  }, []);
+
+  const closeImageViewer = React.useCallback(() => {
+    setIsViewerVisible(false);
+  }, []);
+
   // ---- Key extractors & render callbacks (stable refs) ----
   const galleryKeyExtractor = React.useCallback(
     (_item: string, index: number) => `img-${index}`,
@@ -546,8 +673,19 @@ export default function ProductDetailScreen() {
   );
 
   const renderGalleryItem = React.useCallback(
-    ({ item }: ListRenderItemInfo<string>) => <GalleryImage uri={item} />,
-    []
+    ({ item, index }: ListRenderItemInfo<string>) => (
+      <Pressable onPress={() => openImageViewer(index)}>
+        <GalleryImage uri={item} />
+      </Pressable>
+    ),
+    [openImageViewer]
+  );
+
+  const renderViewerItem = React.useCallback(
+    ({ item }: ListRenderItemInfo<string>) => (
+      <ZoomableModalImage uri={item} onRequestClose={closeImageViewer} />
+    ),
+    [closeImageViewer]
   );
 
   const reviewKeyExtractor = React.useCallback(
@@ -954,6 +1092,44 @@ export default function ProductDetailScreen() {
           )}
         </View>
       </ScrollView>
+
+      <Modal
+        visible={isViewerVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeImageViewer}
+      >
+        <View style={styles.viewerOverlay}>
+          <Pressable style={styles.viewerCloseButton} onPress={closeImageViewer}>
+            <Text style={styles.viewerCloseText}>Close</Text>
+          </Pressable>
+
+          <FlatList
+            data={images}
+            horizontal
+            pagingEnabled
+            initialScrollIndex={viewerIndex}
+            keyExtractor={galleryKeyExtractor}
+            renderItem={renderViewerItem}
+            showsHorizontalScrollIndicator={false}
+            getItemLayout={(_data, index) => ({
+              length: SCREEN_WIDTH,
+              offset: SCREEN_WIDTH * index,
+              index,
+            })}
+            onMomentumScrollEnd={(e) => {
+              const next = Math.round(
+                e.nativeEvent.contentOffset.x / SCREEN_WIDTH
+              );
+              setViewerIndex(next);
+            }}
+          />
+
+          <Text style={styles.viewerHintText}>
+            {viewerIndex + 1}/{images.length} • Pinch/Double tap • Drag down to close
+          </Text>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1471,5 +1647,37 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: colors.charcoal,
     marginBottom: spacing.md,
+  },
+  viewerOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.95)",
+  },
+  viewerCloseButton: {
+    position: "absolute",
+    top: spacing.xl,
+    right: spacing.lg,
+    zIndex: 2,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.35)",
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    backgroundColor: "rgba(0,0,0,0.45)",
+  },
+  viewerCloseText: {
+    color: "#FFFFFF",
+    fontFamily: typography.sansMedium,
+    fontSize: 12,
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+  },
+  viewerHintText: {
+    position: "absolute",
+    bottom: spacing.xl,
+    alignSelf: "center",
+    color: "rgba(255,255,255,0.92)",
+    fontFamily: typography.sans,
+    fontSize: 12,
+    letterSpacing: 0.4,
   },
 });

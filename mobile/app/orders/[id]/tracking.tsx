@@ -28,6 +28,16 @@ import { AppText as Text, ScreenContainer as SafeAreaView } from "../../../src/c
 // Constants
 // ---------------------------------------------------------------------------
 const POLL_INTERVAL_MS = 30_000;
+const TRACKING_CACHE_TTL_MS = 20 * 1000;
+
+type TrackingCacheEntry = {
+  token: string;
+  cachedAt: number;
+  tracking: TrackingResponse;
+  lastFetchedAt: string | null;
+};
+
+const trackingCache = new Map<string, TrackingCacheEntry>();
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -88,7 +98,19 @@ export default function TrackingScreen() {
   const fetchTracking = React.useCallback(
     async (opts?: { silent?: boolean }) => {
       if (!orderId || !token) return;
-      if (!opts?.silent) setLoading(true);
+
+      const cacheKey = `${token}:${orderId}`;
+      const cached = trackingCache.get(cacheKey);
+      const isCacheValid =
+        !!cached && Date.now() - cached.cachedAt < TRACKING_CACHE_TTL_MS;
+
+      if (isCacheValid) {
+        setTracking(cached.tracking);
+        setLastFetchedAt(cached.lastFetchedAt);
+        setError(null);
+      }
+
+      if (!opts?.silent) setLoading(!isCacheValid);
       setError(null);
 
       requestAbortRef.current?.abort();
@@ -99,7 +121,15 @@ export default function TrackingScreen() {
         const data = await getOrderTracking(orderId, token, controller.signal);
         if (mountedRef.current) {
           setTracking(data);
-          setLastFetchedAt(new Date().toISOString());
+          const nextFetchedAt = new Date().toISOString();
+          setLastFetchedAt(nextFetchedAt);
+
+          trackingCache.set(cacheKey, {
+            token,
+            cachedAt: Date.now(),
+            tracking: data,
+            lastFetchedAt: nextFetchedAt,
+          });
         }
       } catch (err) {
         if (!mountedRef.current || isAbortError(err)) return;

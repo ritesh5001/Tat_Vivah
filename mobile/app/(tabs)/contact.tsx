@@ -1,24 +1,25 @@
 import * as React from "react";
 import { LegalScreen } from "../../src/components/LegalScreen";
+import { companyInfo } from "../../src/data/company";
 
 export default function ContactScreen() {
   return (
     <LegalScreen
-      title="Contact"
-      intro="Our Tatvivah Trends support and concierge team is available to help with orders, styling assistance, and policy requests."
-      updatedAt="February 27, 2026"
+      title="Support & Contact"
+      intro="Our support and concierge desk helps with order updates, sizing guidance, return requests, and payment assistance."
+      updatedAt="March 14, 2026"
       sections={[
         {
           title: "Customer Support",
-          body: "For order and account support, please reach out via the official contact channels listed on tatvivahtrends.com.",
+          body: `Phone: ${companyInfo.supportPhoneDisplay}\nEmail: ${companyInfo.supportEmail}\nHours: ${companyInfo.supportHours}`,
         },
         {
           title: "Styling Concierge",
-          body: "Need help selecting wedding looks? Our concierge can guide sizing, styling combinations, and event-ready edits.",
+          body: "Need help selecting a wedding look? Share event details and fit preferences, and our team will suggest curated options by occasion.",
         },
         {
-          title: "Business Queries",
-          body: "Partnership, seller, and enterprise queries can be submitted through our official website contact form.",
+          title: "Office",
+          body: `${companyInfo.supportAddress}\nWebsite: ${companyInfo.website}`,
         },
       ]}
     />

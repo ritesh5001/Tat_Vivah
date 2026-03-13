@@ -1,8 +1,8 @@
 import * as React from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, Linking } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { AppHeader } from "./AppHeader";
 import { colors, radius, spacing, typography, shadow } from "../theme/tokens";
+import { ScreenContainer as SafeAreaView } from "./ScreenContainer";
 
 export interface LegalSection {
   title: string;
@@ -31,36 +31,34 @@ export function LegalScreen({
   }, []);
 
   return (
-    <>
+    <SafeAreaView style={styles.safeArea}>
       <AppHeader title={title} subtitle={subtitle} showBack />
-      <SafeAreaView style={styles.safeArea}>
-        <ScrollView contentContainerStyle={styles.content}>
-          <View style={styles.card}>
-            <Text style={styles.title}>{title}</Text>
-            <Text style={styles.copy}>{intro}</Text>
+      <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.card}>
+          <Text style={styles.title}>{title}</Text>
+          <Text style={styles.copy}>{intro}</Text>
 
-            {sections.map((section) => (
-              <View key={section.title} style={styles.section}>
-                <Text style={styles.sectionTitle}>{section.title}</Text>
-                <Text style={styles.copy}>{section.body}</Text>
-              </View>
-            ))}
-
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Learn more</Text>
-              <Pressable
-                style={styles.linkButton}
-                onPress={() => handleExternalLink(websiteUrl)}
-              >
-                <Text style={styles.linkText}>tatvivahtrends.com</Text>
-              </Pressable>
+          {sections.map((section) => (
+            <View key={section.title} style={styles.section}>
+              <Text style={styles.sectionTitle}>{section.title}</Text>
+              <Text style={styles.copy}>{section.body}</Text>
             </View>
+          ))}
 
-            <Text style={styles.updated}>Last updated: {updatedAt}</Text>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Learn more</Text>
+            <Pressable
+              style={styles.linkButton}
+              onPress={() => handleExternalLink(websiteUrl)}
+            >
+              <Text style={styles.linkText}>tatvivahtrends.com</Text>
+            </Pressable>
           </View>
-        </ScrollView>
-      </SafeAreaView>
-    </>
+
+          <Text style={styles.updated}>Last updated: {updatedAt}</Text>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 

@@ -36,6 +36,16 @@ const currency = new Intl.NumberFormat("en-IN", {
   maximumFractionDigits: 0,
 });
 
+type OrderDetailCacheEntry = {
+  token: string;
+  cachedAt: number;
+  order: BuyerOrderDetail;
+  paymentStatus: string | null;
+};
+
+const ORDER_DETAIL_CACHE_TTL_MS = 30 * 1000;
+const orderDetailCache = new Map<string, OrderDetailCacheEntry>();
+
 // ---------------------------------------------------------------------------
 // Memoised sub-components
 // ---------------------------------------------------------------------------
@@ -125,7 +135,19 @@ export default function OrderDetailScreen() {
   const fetchOrder = React.useCallback(
     async (opts?: { silent?: boolean }) => {
       if (!orderId || !token) return;
-      if (!opts?.silent) setLoading(true);
+
+      const cacheKey = `${token}:${orderId}`;
+      const cached = orderDetailCache.get(cacheKey);
+      const isCacheValid =
+        !!cached && Date.now() - cached.cachedAt < ORDER_DETAIL_CACHE_TTL_MS;
+
+      if (isCacheValid) {
+        setOrder(cached.order);
+        setPaymentStatus(cached.paymentStatus);
+        setError(null);
+      }
+
+      if (!opts?.silent) setLoading(!isCacheValid);
       setError(null);
 
       requestAbortRef.current?.abort();
@@ -139,6 +161,13 @@ export default function OrderDetailScreen() {
         if (!mountedRef.current) return;
         setOrder(orderRes.order);
         setPaymentStatus(paymentRes?.data?.status ?? null);
+
+        orderDetailCache.set(cacheKey, {
+          token,
+          cachedAt: Date.now(),
+          order: orderRes.order,
+          paymentStatus: paymentRes?.data?.status ?? null,
+        });
       } catch (err) {
         if (isAbortError(err) || !mountedRef.current) return;
         const msg =
