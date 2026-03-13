@@ -1,5 +1,13 @@
+import { Metadata } from "next";
 import { SellerHeader } from "@/components/seller/SellerHeader";
 import { SellerFooter } from "@/components/seller/SellerFooter";
+
+export const metadata: Metadata = {
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 export default function SellerLayout({ children }: { children: React.ReactNode }) {
   return (

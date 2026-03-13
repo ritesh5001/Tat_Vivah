@@ -98,6 +98,8 @@ export function middleware(request: NextRequest) {
 
   const forceLogin = request.nextUrl.searchParams.get("force") === "1";
 
+  let response = NextResponse.next();
+
   if (isAuthPage && accessToken && role && !forceLogin) {
     const roleRedirects: Record<string, string> = {
       ADMIN: "/admin/dashboard",
@@ -105,32 +107,27 @@ export function middleware(request: NextRequest) {
       SELLER: "/seller/dashboard",
       USER: "/user/dashboard",
     };
-    return NextResponse.redirect(new URL(roleRedirects[role] ?? "/", request.url));
-  }
-
-  if (!isProtected) {
-    return NextResponse.next();
-  }
-
-  if (!accessToken || !role) {
+    response = NextResponse.redirect(new URL(roleRedirects[role] ?? "/", request.url));
+  } else if (!isProtected) {
+    // response is already NextResponse.next()
+  } else if (!accessToken || !role) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("returnTo", pathname);
-    return NextResponse.redirect(loginUrl);
+    response = NextResponse.redirect(loginUrl);
+  } else if (pathname.startsWith("/seller") && role !== "SELLER") {
+    response = NextResponse.redirect(new URL("/marketplace", request.url));
+  } else if (pathname.startsWith("/admin") && role !== "ADMIN" && role !== "SUPER_ADMIN") {
+    response = NextResponse.redirect(new URL("/marketplace", request.url));
+  } else if (pathname.startsWith("/user") && role !== "USER") {
+    response = NextResponse.redirect(new URL("/marketplace", request.url));
   }
 
-  if (pathname.startsWith("/seller") && role !== "SELLER") {
-    return NextResponse.redirect(new URL("/marketplace", request.url));
+  /* ── STEP 3: SEO Blocking for Subdomains ───────────────────────────────── */
+  if (subPrefix) {
+    response.headers.set("x-robots-tag", "noindex, nofollow");
   }
 
-  if (pathname.startsWith("/admin") && role !== "ADMIN" && role !== "SUPER_ADMIN") {
-    return NextResponse.redirect(new URL("/marketplace", request.url));
-  }
-
-  if (pathname.startsWith("/user") && role !== "USER") {
-    return NextResponse.redirect(new URL("/marketplace", request.url));
-  }
-
-  return NextResponse.next();
+  return response;
 }
 
 /* ──────────────────────────────────────────────────────────────────────────── */
