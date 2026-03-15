@@ -46,7 +46,90 @@ function isRootLevelPage(pathname: string): boolean {
 }
 
 /* ──────────────────────────────────────────────────────────────────────────── */
-/*  AUTH CONFIGURATION (unchanged)                                            */
+/*  ROLE–SUBDOMAIN ENFORCEMENT                                                */
+/* ──────────────────────────────────────────────────────────────────────────── */
+
+/** Which roles are permitted on each subdomain */
+const SUBDOMAIN_ALLOWED_ROLES: Record<string, string[]> = {
+  admin: ["ADMIN", "SUPER_ADMIN"],
+  seller: ["SELLER"],
+};
+
+/** Map a role to the subdomain it belongs to (null = main domain) */
+const ROLE_TO_SUBDOMAIN: Record<string, string | null> = {
+  ADMIN: "admin",
+  SUPER_ADMIN: "admin",
+  SELLER: "seller",
+  USER: null,
+};
+
+/** Dashboard path for each role */
+const ROLE_DASHBOARD: Record<string, string> = {
+  ADMIN: "/admin/dashboard",
+  SUPER_ADMIN: "/admin/dashboard",
+  SELLER: "/seller/dashboard",
+  USER: "/user/dashboard",
+};
+
+/** Which subdomain each register page is restricted to (null = main domain) */
+const REGISTER_ALLOWED_SUBDOMAIN: Record<string, string | null> = {
+  "/register/user": null,
+  "/register/seller": "seller",
+  "/register/admin": "admin",
+};
+
+/** Extract the base domain (without subdomain prefix) from a host string. */
+function getBaseDomain(host: string): string {
+  const hostname = host.split(":")[0];
+  for (const sub of Object.keys(SUBDOMAIN_MAP)) {
+    if (hostname.startsWith(`${sub}.`)) {
+      return hostname.slice(sub.length + 1);
+    }
+  }
+  if (hostname.startsWith("www.")) return hostname.slice(4);
+  return hostname;
+}
+
+/** Build a URL pointing to a specific subdomain (or main domain if sub is null). */
+function buildSubdomainUrl(
+  targetSub: string | null,
+  path: string,
+  request: NextRequest
+): URL {
+  const host = request.headers.get("host") || "localhost:3000";
+  const baseDomain = getBaseDomain(host);
+  const portMatch = host.match(/:(\d+)$/);
+  const port = portMatch ? `:${portMatch[1]}` : "";
+  const proto = request.nextUrl.protocol;
+
+  const targetHost = targetSub
+    ? `${targetSub}.${baseDomain}${port}`
+    : `${baseDomain}${port}`;
+
+  return new URL(`${proto}//${targetHost}${path}`);
+}
+
+/** Check if a role is allowed on a given subdomain (null = main domain). */
+function isRoleAllowedOnSubdomain(
+  role: string,
+  subPrefix: string | null
+): boolean {
+  if (!subPrefix) return role === "USER";
+  return SUBDOMAIN_ALLOWED_ROLES[subPrefix]?.includes(role) ?? false;
+}
+
+/**
+ * Whether the host supports cross-domain redirects.
+ * Bare localhost / 127.0.0.1 cannot route subdomains, so skip.
+ */
+function canRedirectCrossDomain(host: string | null): boolean {
+  if (!host) return false;
+  const hostname = host.split(":")[0];
+  return hostname !== "localhost" && hostname !== "127.0.0.1";
+}
+
+/* ──────────────────────────────────────────────────────────────────────────── */
+/*  AUTH CONFIGURATION                                                        */
 /* ──────────────────────────────────────────────────────────────────────────── */
 
 const protectedRoutes = [
@@ -89,7 +172,23 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  /* ── STEP 2: Auth guards (existing logic, unchanged) ───────────────────── */
+  /* ── STEP 2: Register page subdomain enforcement ───────────────────────── */
+  const crossDomain = canRedirectCrossDomain(host);
+
+  if (crossDomain) {
+    for (const [regPath, allowedSub] of Object.entries(REGISTER_ALLOWED_SUBDOMAIN)) {
+      if (pathname === regPath || pathname.startsWith(regPath + "/")) {
+        if (subPrefix !== allowedSub) {
+          return NextResponse.redirect(
+            buildSubdomainUrl(allowedSub, regPath, request)
+          );
+        }
+        break;
+      }
+    }
+  }
+
+  /* ── STEP 3: Auth guards (enhanced with role–subdomain checks) ─────────── */
   const isProtected = protectedRoutes.some((route) => pathname.startsWith(route));
   const isAuthPage = authPages.some((route) => pathname.startsWith(route));
 
@@ -101,28 +200,52 @@ export function middleware(request: NextRequest) {
   let response = NextResponse.next();
 
   if (isAuthPage && accessToken && role && !forceLogin) {
-    const roleRedirects: Record<string, string> = {
-      ADMIN: "/admin/dashboard",
-      SUPER_ADMIN: "/admin/dashboard",
-      SELLER: "/seller/dashboard",
-      USER: "/user/dashboard",
-    };
-    response = NextResponse.redirect(new URL(roleRedirects[role] ?? "/", request.url));
+    /* Authenticated user on an auth page → send to their dashboard. */
+    const correctSub = ROLE_TO_SUBDOMAIN[role] ?? null;
+    const dashboard = ROLE_DASHBOARD[role] ?? "/";
+
+    if (crossDomain && subPrefix !== correctSub) {
+      // Wrong subdomain → redirect to correct subdomain's dashboard
+      response = NextResponse.redirect(
+        buildSubdomainUrl(correctSub, dashboard, request)
+      );
+    } else {
+      // Correct subdomain (or localhost) → same-origin redirect
+      response = NextResponse.redirect(new URL(dashboard, request.url));
+    }
   } else if (!isProtected) {
-    // response is already NextResponse.next()
+    // Public / non-protected page → allow through
+    response = NextResponse.next();
   } else if (!accessToken || !role) {
+    // Protected route with no token → redirect to login
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("returnTo", pathname);
     response = NextResponse.redirect(loginUrl);
-  } else if (pathname.startsWith("/seller") && role !== "SELLER") {
-    response = NextResponse.redirect(new URL("/marketplace", request.url));
-  } else if (pathname.startsWith("/admin") && role !== "ADMIN" && role !== "SUPER_ADMIN") {
-    response = NextResponse.redirect(new URL("/marketplace", request.url));
-  } else if (pathname.startsWith("/user") && role !== "USER") {
-    response = NextResponse.redirect(new URL("/marketplace", request.url));
+  } else if (crossDomain && subPrefix && !isRoleAllowedOnSubdomain(role, subPrefix)) {
+    // Authenticated on a subdomain but wrong role → correct subdomain dashboard
+    const correctSub = ROLE_TO_SUBDOMAIN[role] ?? null;
+    const dashboard = ROLE_DASHBOARD[role] ?? "/";
+    response = NextResponse.redirect(
+      buildSubdomainUrl(correctSub, dashboard, request)
+    );
+  } else if (
+    (pathname.startsWith("/seller") && role !== "SELLER") ||
+    (pathname.startsWith("/admin") && role !== "ADMIN" && role !== "SUPER_ADMIN") ||
+    (pathname.startsWith("/user") && role !== "USER")
+  ) {
+    // Wrong role for the route → redirect to correct place
+    if (crossDomain) {
+      const correctSub = ROLE_TO_SUBDOMAIN[role] ?? null;
+      const dashboard = ROLE_DASHBOARD[role] ?? "/";
+      response = NextResponse.redirect(
+        buildSubdomainUrl(correctSub, dashboard, request)
+      );
+    } else {
+      response = NextResponse.redirect(new URL("/marketplace", request.url));
+    }
   }
 
-  /* ── STEP 3: SEO Blocking for Subdomains ───────────────────────────────── */
+  /* ── STEP 4: SEO Blocking for Subdomains ───────────────────────────────── */
   if (subPrefix) {
     response.headers.set("x-robots-tag", "noindex, nofollow");
   }

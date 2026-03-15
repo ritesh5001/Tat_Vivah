@@ -19,14 +19,92 @@ import { Separator } from "@/components/ui/separator";
 import { loginUser, persistAuthCookies } from "@/services/auth";
 import { toast } from "sonner";
 import { heroContainerVariants, heroItemVariants } from "@/lib/motion.config";
+import {
+  getSubdomain,
+  SUBDOMAIN_ALLOWED_ROLES,
+  getCorrectLoginUrl,
+  type SubdomainType,
+} from "@/lib/subdomain";
+
+/* ── Subdomain-specific content ── */
+
+interface LoginContent {
+  eyebrow: string;
+  headingLine1: string;
+  headingLine2: string;
+  description: string;
+  features: string[];
+  cardTitle: string;
+  cardDescription: string;
+  showSocial: boolean;
+  registerText: string | null;
+  registerLabel: string | null;
+  registerHref: string | null;
+  successToast: string;
+}
+
+const LOGIN_CONTENT: Record<SubdomainType, LoginContent> = {
+  main: {
+    eyebrow: "Welcome Back",
+    headingLine1: "Continue Your",
+    headingLine2: "Journey",
+    description:
+      "Access your curated collections, track orders, and discover new pieces crafted for the modern gentleman.",
+    features: ["Secure Login", "Verified Profiles"],
+    cardTitle: "Sign In",
+    cardDescription: "Use your TatVivah credentials to access your account.",
+    showSocial: true,
+    registerText: "New here?",
+    registerLabel: "Create an account",
+    registerHref: "/register/user",
+    successToast: "Welcome back to TatVivah.",
+  },
+  seller: {
+    eyebrow: "Welcome Back, Seller",
+    headingLine1: "Your Seller",
+    headingLine2: "Dashboard",
+    description:
+      "Manage your catalog, track orders, and grow your business with TatVivah's dedicated seller tools.",
+    features: ["Seller Portal", "Secure Access"],
+    cardTitle: "Seller Sign In",
+    cardDescription: "Login to your seller dashboard.",
+    showSocial: false,
+    registerText: "New seller?",
+    registerLabel: "Register your business",
+    registerHref: "/register/seller",
+    successToast: "Welcome back to your seller dashboard.",
+  },
+  admin: {
+    eyebrow: "Welcome Back, Admin",
+    headingLine1: "Admin",
+    headingLine2: "Panel",
+    description:
+      "Access the platform administration panel to manage users, orders, and system configuration.",
+    features: ["Admin Access", "Restricted Portal"],
+    cardTitle: "Admin Sign In",
+    cardDescription: "Login with your admin credentials.",
+    showSocial: false,
+    registerText: null,
+    registerLabel: null,
+    registerHref: null,
+    successToast: "Welcome back to the admin panel.",
+  },
+};
 
 export default function LoginPage() {
   const router = useRouter();
+  const [subdomain, setSubdomain] = React.useState<SubdomainType>("main");
 
   const [identifier, setIdentifier] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [showPassword, setShowPassword] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
+
+  React.useEffect(() => {
+    setSubdomain(getSubdomain());
+  }, []);
+
+  const content = LOGIN_CONTENT[subdomain];
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -40,11 +118,27 @@ export default function LoginPage() {
     try {
       const result = await loginUser({ identifier, password });
 
+      const role = result.user.role?.toUpperCase();
+      const allowedRoles = SUBDOMAIN_ALLOWED_ROLES[subdomain];
+
+      // Validate role matches current subdomain
+      if (!allowedRoles.includes(role)) {
+        const portalLabel =
+          subdomain === "main" ? "customer" : subdomain;
+        const correctUrl = getCorrectLoginUrl(role);
+        toast.error(
+          `This portal is for ${portalLabel} accounts only. Redirecting you to the correct login page.`
+        );
+        setTimeout(() => {
+          window.location.assign(correctUrl);
+        }, 2000);
+        return;
+      }
+
       persistAuthCookies(result.accessToken, result.refreshToken, result.user);
 
-      toast.success("Welcome back to TatVivah.");
+      toast.success(content.successToast);
 
-      const role = result.user.role?.toUpperCase();
       const redirectMap: Record<string, string> = {
         ADMIN: "/admin/dashboard",
         SUPER_ADMIN: "/admin/dashboard",
@@ -85,38 +179,35 @@ export default function LoginPage() {
             variants={heroItemVariants}
             className="text-xs font-medium uppercase tracking-[0.3em] text-gold mb-6"
           >
-            Welcome Back
+            {content.eyebrow}
           </motion.p>
 
           <motion.h1
             variants={heroItemVariants}
             className="font-serif text-4xl font-light tracking-tight text-foreground sm:text-5xl lg:text-6xl mb-6"
           >
-            Continue Your
+            {content.headingLine1}
             <br />
-            <span className="italic">Journey</span>
+            <span className="italic">{content.headingLine2}</span>
           </motion.h1>
 
           <motion.p
             variants={heroItemVariants}
             className="text-base leading-relaxed text-muted-foreground mb-8"
           >
-            Access your curated collections, track orders, and discover new
-            pieces crafted for the modern gentleman.
+            {content.description}
           </motion.p>
 
           <motion.div
             variants={heroItemVariants}
             className="flex items-center gap-4 text-xs text-muted-foreground"
           >
-            <span className="flex items-center gap-2">
-              <span className="h-1 w-1 rounded-full bg-gold" />
-              Secure Login
-            </span>
-            <span className="flex items-center gap-2">
-              <span className="h-1 w-1 rounded-full bg-gold" />
-              Verified Profiles
-            </span>
+            {content.features.map((feature) => (
+              <span key={feature} className="flex items-center gap-2">
+                <span className="h-1 w-1 rounded-full bg-gold" />
+                {feature}
+              </span>
+            ))}
           </motion.div>
         </motion.div>
 
@@ -130,10 +221,10 @@ export default function LoginPage() {
           <Card className="border-border-soft">
             <CardHeader className="space-y-3 pb-6">
               <CardTitle className="font-serif text-2xl font-normal">
-                Sign In
+                {content.cardTitle}
               </CardTitle>
               <CardDescription>
-                Use your TatVivah credentials to access your account.
+                {content.cardDescription}
               </CardDescription>
             </CardHeader>
 
@@ -194,26 +285,32 @@ export default function LoginPage() {
                 </Button>
               </form>
 
-              <Separator />
+              {content.showSocial && (
+                <>
+                  <Separator />
 
-              <div className="grid gap-3">
-                <Button variant="outline" size="lg" className="w-full">
-                  Continue with Google
-                </Button>
-                <Button variant="outline" size="lg" className="w-full">
-                  Continue with Apple
-                </Button>
-              </div>
+                  <div className="grid gap-3">
+                    <Button variant="outline" size="lg" className="w-full">
+                      Continue with Google
+                    </Button>
+                    <Button variant="outline" size="lg" className="w-full">
+                      Continue with Apple
+                    </Button>
+                  </div>
+                </>
+              )}
 
-              <p className="text-center text-sm text-muted-foreground">
-                New here?{" "}
-                <Link
-                  className="text-foreground hover:text-gold transition-colors duration-300"
-                  href="/register/user"
-                >
-                  Create an account
-                </Link>
-              </p>
+              {content.registerText && content.registerHref && (
+                <p className="text-center text-sm text-muted-foreground">
+                  {content.registerText}{" "}
+                  <Link
+                    className="text-foreground hover:text-gold transition-colors duration-300"
+                    href={content.registerHref}
+                  >
+                    {content.registerLabel}
+                  </Link>
+                </p>
+              )}
             </CardContent>
           </Card>
         </motion.div>
