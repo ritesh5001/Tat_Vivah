@@ -129,6 +129,35 @@ function canRedirectCrossDomain(host: string | null): boolean {
 }
 
 /* ──────────────────────────────────────────────────────────────────────────── */
+/*  PORTAL ISOLATION                                                          */
+/*  Public/shop pages are only available on the main domain.                  */
+/*  Seller/admin subdomains may only access their own portal + auth pages.    */
+/* ──────────────────────────────────────────────────────────────────────────── */
+
+/** Paths that belong to the public storefront — blocked on seller/admin subdomains */
+const PUBLIC_SHOP_PREFIXES = [
+  "/marketplace",
+  "/product",
+  "/collections",
+  "/blog",
+  "/cart",
+  "/checkout",
+  "/search",
+  "/vendors",
+  "/occasion",
+  "/reels",
+  "/categories",
+  "/user",
+];
+
+/** Check if a path is a public storefront page (including exact "/" root). */
+function isPublicShopPage(pathname: string): boolean {
+  return PUBLIC_SHOP_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(prefix + "/")
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────────────── */
 /*  AUTH CONFIGURATION                                                        */
 /* ──────────────────────────────────────────────────────────────────────────── */
 
@@ -152,6 +181,7 @@ export function middleware(request: NextRequest) {
 
   /* ── STEP 1: Subdomain rewrite (seller / admin) ────────────────────────── */
   const subPrefix = getSubdomainPrefix(host);
+  const crossDomain = canRedirectCrossDomain(host);
 
   if (subPrefix) {
     const basePath = SUBDOMAIN_MAP[subPrefix];
@@ -163,6 +193,35 @@ export function middleware(request: NextRequest) {
       return NextResponse.redirect(dashboardUrl);
     }
 
+    // PORTAL ISOLATION: Block public storefront pages on seller/admin subdomains.
+    // These pages only belong on the main domain.
+    if (crossDomain && !isRootLevelPage(pathname) && isPublicShopPage(pathname)) {
+      const dashboardUrl = request.nextUrl.clone();
+      dashboardUrl.pathname = `${basePath}/dashboard`;
+      const response = NextResponse.redirect(dashboardUrl);
+      response.headers.set("x-robots-tag", "noindex, nofollow");
+      return response;
+    }
+
+    // PORTAL ISOLATION: On admin subdomain, block /seller/* paths.
+    // On seller subdomain, block /admin/* paths.
+    if (crossDomain) {
+      if (subPrefix === "admin" && pathname.startsWith("/seller")) {
+        const dashboardUrl = request.nextUrl.clone();
+        dashboardUrl.pathname = "/admin/dashboard";
+        const response = NextResponse.redirect(dashboardUrl);
+        response.headers.set("x-robots-tag", "noindex, nofollow");
+        return response;
+      }
+      if (subPrefix === "seller" && pathname.startsWith("/admin")) {
+        const dashboardUrl = request.nextUrl.clone();
+        dashboardUrl.pathname = "/seller/dashboard";
+        const response = NextResponse.redirect(dashboardUrl);
+        response.headers.set("x-robots-tag", "noindex, nofollow");
+        return response;
+      }
+    }
+
     // If path does NOT already start with the base and is NOT a root-level page,
     // rewrite to /<base>/<path> so Next.js resolves the correct route group.
     if (!pathname.startsWith(basePath) && !isRootLevelPage(pathname)) {
@@ -172,8 +231,15 @@ export function middleware(request: NextRequest) {
     }
   }
 
+  // PORTAL ISOLATION: On main domain, block /admin/* and /seller/* paths.
+  if (!subPrefix && crossDomain) {
+    if (pathname.startsWith("/admin") || pathname.startsWith("/seller")) {
+      const response = NextResponse.redirect(new URL("/", request.url));
+      return response;
+    }
+  }
+
   /* ── STEP 2: Register page subdomain enforcement ───────────────────────── */
-  const crossDomain = canRedirectCrossDomain(host);
 
   if (crossDomain) {
     for (const [regPath, allowedSub] of Object.entries(REGISTER_ALLOWED_SUBDOMAIN)) {
@@ -188,7 +254,7 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  /* ── STEP 3: Auth guards (enhanced with role–subdomain checks) ─────────── */
+  /* ── STEP 3: SESSION LOCK — role must match subdomain ────────────────────── */
   const isProtected = protectedRoutes.some((route) => pathname.startsWith(route));
   const isAuthPage = authPages.some((route) => pathname.startsWith(route));
 
@@ -196,6 +262,38 @@ export function middleware(request: NextRequest) {
   const role = request.cookies.get("tatvivah_role")?.value?.toUpperCase();
 
   const forceLogin = request.nextUrl.searchParams.get("force") === "1";
+
+  /**
+   * Hard lock: if an authenticated user is on the WRONG subdomain,
+   * clear all auth cookies and redirect to the correct login page.
+   * Skip on auth pages with ?force=1 to avoid redirect loops after logout.
+   */
+  if (crossDomain && accessToken && role && !forceLogin) {
+    const roleAllowed = isRoleAllowedOnSubdomain(role, subPrefix);
+
+    if (!roleAllowed) {
+      // Build redirect to the correct portal's login
+      const correctSub = ROLE_TO_SUBDOMAIN[role] ?? null;
+      const loginUrl = buildSubdomainUrl(correctSub, "/login?force=1", request);
+      const response = NextResponse.redirect(loginUrl);
+
+      // Clear all auth cookies via Set-Cookie headers
+      const cookieExpiry = "Thu, 01 Jan 1970 00:00:00 GMT";
+      const cookieDomain = getBaseDomain(host || "");
+      const clearOpts = `Path=/; Expires=${cookieExpiry}; Domain=.${cookieDomain}`;
+      response.headers.append("Set-Cookie", `tatvivah_access=; ${clearOpts}`);
+      response.headers.append("Set-Cookie", `tatvivah_refresh=; ${clearOpts}`);
+      response.headers.append("Set-Cookie", `tatvivah_role=; ${clearOpts}`);
+      response.headers.append("Set-Cookie", `tatvivah_user=; ${clearOpts}`);
+
+      if (subPrefix) {
+        response.headers.set("x-robots-tag", "noindex, nofollow");
+      }
+      return response;
+    }
+  }
+
+  /* ── STEP 4: Auth guards ───────────────────────────────────────────────── */
 
   let response = NextResponse.next();
 
@@ -245,7 +343,7 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  /* ── STEP 4: SEO Blocking for Subdomains ───────────────────────────────── */
+  /* ── STEP 5: SEO Blocking for Subdomains ───────────────────────────────── */
   if (subPrefix) {
     response.headers.set("x-robots-tag", "noindex, nofollow");
   }

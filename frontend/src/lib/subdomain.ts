@@ -19,13 +19,33 @@ export const SUBDOMAIN_ALLOWED_ROLES: Record<SubdomainType, string[]> = {
   main: ["USER"],
 };
 
-/** Map a role to its correct subdomain (null = main domain) */
+/** Map a role to its correct subdomain */
 export const ROLE_TO_SUBDOMAIN: Record<string, SubdomainType> = {
   ADMIN: "admin",
   SUPER_ADMIN: "admin",
   SELLER: "seller",
   USER: "main",
 };
+
+/**
+ * Check whether a role is allowed on the given subdomain.
+ */
+export function isRoleAllowedOnSubdomain(
+  role: string,
+  subdomain: SubdomainType
+): boolean {
+  return SUBDOMAIN_ALLOWED_ROLES[subdomain]?.includes(role.toUpperCase()) ?? false;
+}
+
+/**
+ * Whether the current host is localhost / 127.0.0.1.
+ * Subdomain lock is skipped on localhost since subdomains cannot route.
+ */
+export function isLocalhost(): boolean {
+  if (typeof window === "undefined") return false;
+  const h = window.location.hostname;
+  return h === "localhost" || h === "127.0.0.1";
+}
 
 /**
  * Build the correct login URL for a given role based on the current hostname.
@@ -36,6 +56,11 @@ export function getCorrectLoginUrl(role: string): string {
 
   const { hostname, protocol, port } = window.location;
   const portSuffix = port ? `:${port}` : "";
+
+  // On localhost, always return same-origin login
+  if (hostname === "localhost" || hostname === "127.0.0.1") {
+    return "/login";
+  }
 
   // Derive the base domain (strip existing subdomain prefix)
   let baseDomain = hostname;

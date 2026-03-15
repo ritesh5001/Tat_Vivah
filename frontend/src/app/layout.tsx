@@ -4,6 +4,7 @@ import "./globals.css";
 import { PublicLayoutShell } from "@/components/layout/PublicLayoutShell";
 import { Toaster } from "@/components/ui/sonner";
 import { GlobalLoader } from "@/components/global-loader";
+import { SessionGuard } from "@/components/SessionGuard";
 
 /**
  * Inter - Body text, UI elements
@@ -143,6 +144,7 @@ export default function RootLayout({
         />
         <GlobalLoader />
         <Toaster />
+        <SessionGuard />
         <PublicLayoutShell>{children}</PublicLayoutShell>
       </body>
     </html>
