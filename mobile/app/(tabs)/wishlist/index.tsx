@@ -8,7 +8,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Image } from "../../../src/components/CompatImage";
-import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
+import { colors, radius, spacing, typography } from "../../../src/theme/tokens";
 import { useWishlist } from "../../../src/providers/WishlistProvider";
 import { useAuth } from "../../../src/hooks/useAuth";
 import { type WishlistItemDetail } from "../../../src/services/wishlist";

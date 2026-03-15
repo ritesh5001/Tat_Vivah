@@ -1,5 +1,6 @@
 import axios, {
   AxiosError,
+  isAxiosError,
   type AxiosInstance,
   type AxiosRequestConfig,
   type InternalAxiosRequestConfig,
@@ -59,7 +60,7 @@ function extractApiMessage(data: unknown): string | null {
 
 export function toApiError(err: unknown): ApiError {
   if (err instanceof ApiError) return err;
-  if (axios.isAxiosError(err)) {
+  if (isAxiosError(err)) {
     const status = err.response?.status ?? 0;
     const msg =
       extractApiMessage(err.response?.data) ??

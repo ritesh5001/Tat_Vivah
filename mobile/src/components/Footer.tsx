@@ -9,7 +9,7 @@ const accordionSections = ["CATEGORIES", "SUPPORT", "QUICK LINKS", "OUR POLICIES
 
 type FooterSection = (typeof accordionSections)[number];
 
-const sectionLinks: Record<FooterSection, Array<{ label: string; route?: string; onPress?: () => void }>> = {
+const sectionLinks: Record<FooterSection, { label: string; route?: string; onPress?: () => void }[]> = {
   CATEGORIES: [
     { label: "All Categories", route: "/categories" },
     { label: "Wedding Sherwani", route: "/search?q=wedding%20sherwani" },

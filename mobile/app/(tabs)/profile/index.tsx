@@ -194,7 +194,7 @@ export default function ProfileScreen() {
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Sign Out</Text>
             <Text style={styles.modalMessage}>
-              Are you sure you want to sign out? You'll need to sign in again to
+              Are you sure you want to sign out? You&apos;ll need to sign in again to
               access your account.
             </Text>
             <View style={styles.modalActions}>

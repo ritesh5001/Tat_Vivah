@@ -43,7 +43,7 @@ type OrderDetailCacheEntry = {
   paymentStatus: string | null;
 };
 
-const ORDER_DETAIL_CACHE_TTL_MS = 30 * 1000;
+const ORDER_DETAIL_CACHE_TTL_MS = 2 * 60 * 1000;
 const orderDetailCache = new Map<string, OrderDetailCacheEntry>();
 
 // ---------------------------------------------------------------------------

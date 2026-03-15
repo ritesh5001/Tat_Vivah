@@ -110,7 +110,7 @@ export default function SearchScreen() {
     typeof params.categoryId === "string" ? params.categoryId : undefined;
 
   const [categories, setCategories] = React.useState<
-    Array<{ id: string; name: string }>
+    { id: string; name: string }[]
   >([]);
   const [selectedCategory, setSelectedCategory] = React.useState<
     string | undefined
@@ -235,7 +235,7 @@ export default function SearchScreen() {
     controllerRef.current = controller;
     loadProducts(1, true, undefined, controller.signal);
     return () => controller.abort();
-  }, [selectedCategory, sortBy]);
+  }, [selectedCategory, sortBy, loadProducts]);
 
   // Debounced search as user types
   const handleSearchChange = React.useCallback(
@@ -508,9 +508,9 @@ export default function SearchScreen() {
 
       <FlatList
         data={
-          (loading ? skeletons : products) as Array<
+          (loading ? skeletons : products) as (
             ProductSummary | { id: string; skeleton: true }
-          >
+          )[]
         }
         keyExtractor={keyExtractor}
         numColumns={2}

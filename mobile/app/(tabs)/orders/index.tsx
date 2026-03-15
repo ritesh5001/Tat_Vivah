@@ -12,7 +12,7 @@ import { listBuyerOrders, type BuyerOrder } from "../../../src/services/orders";
 import { listMyCancellations, requestCancellation } from "../../../src/services/cancellations";
 import { listMyReturns, requestReturn } from "../../../src/services/returns";
 import { getPaymentDetails, retryPayment, verifyPayment } from "../../../src/services/payments";
-import { openRazorpayCheckout } from "../../../src/services/razorpay";
+import { isRazorpayAvailable, openRazorpayCheckout } from "../../../src/services/razorpay";
 import { useAuth } from "../../../src/hooks/useAuth";
 import { usePathname, useRouter } from "expo-router";
 import { isAbortError } from "../../../src/services/api";
@@ -22,7 +22,6 @@ import { useToast } from "../../../src/providers/ToastProvider";
 import { notifySuccess, notifyError, impactMedium } from "../../../src/utils/haptics";
 import { AppHeader } from "../../../src/components/AppHeader";
 import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
-import { isRazorpayAvailable } from "../../../src/services/razorpay";
 import {
   AppInput as TextInput,
   AppText as Text,
@@ -46,6 +45,20 @@ type OrdersScreenCache = {
 
 let ordersScreenCache: OrdersScreenCache | null = null;
 const ORDERS_CACHE_TTL_MS = 30 * 1000;
+const PAYMENT_STATUS_CACHE_TTL_MS = 2 * 60 * 1000;
+const PAYMENT_STATUS_BATCH_SIZE = 4;
+
+type PaymentStatusCacheEntry = {
+  token: string;
+  cachedAt: number;
+  status: string;
+};
+
+const paymentStatusCache = new Map<string, PaymentStatusCacheEntry>();
+
+function getPaymentStatusCacheKey(token: string, orderId: string): string {
+  return `${token}:${orderId}`;
+}
 
 function getStatusStyle(label: string): { color: string } {
   switch (label) {
@@ -261,6 +274,7 @@ export default function OrdersScreen() {
       setReturnByOrder(ordersScreenCache.returnByOrder);
       setLoading(false);
       setFetchError(null);
+      return;
     }
 
     setLoading(!isCacheValid);
@@ -270,57 +284,85 @@ export default function OrdersScreen() {
       if (!mountedRef.current) return;
       const nextOrders = result.orders ?? [];
       setOrders(nextOrders);
+      setLoading(false);
+
+      const now = Date.now();
+      const cachedPaymentStatuses = nextOrders.reduce((acc, order) => {
+        const key = getPaymentStatusCacheKey(token, order.id);
+        const cached = paymentStatusCache.get(key);
+        if (cached && now - cached.cachedAt < PAYMENT_STATUS_CACHE_TTL_MS) {
+          acc[order.id] = cached.status;
+        }
+        return acc;
+      }, {} as Record<string, string>);
+
+      if (Object.keys(cachedPaymentStatuses).length > 0) {
+        setPaymentStatus((prev) => ({ ...prev, ...cachedPaymentStatuses }));
+      }
 
       let cancellationMap: Record<string, { id: string; status: string }> = {};
       let returnMap: Record<string, { id: string; status: string }> = {};
 
-      try {
-        const cancellationResult = await listMyCancellations(token);
-        if (!mountedRef.current) return;
-        cancellationMap = (cancellationResult.cancellations ?? []).reduce((acc, item) => {
+      const statusMap = { ...cachedPaymentStatuses };
+      const pendingPaymentOrders = nextOrders.filter((order) => {
+        if (order.status !== "PLACED") return false;
+        const key = getPaymentStatusCacheKey(token, order.id);
+        const cached = paymentStatusCache.get(key);
+        return !cached || now - cached.cachedAt >= PAYMENT_STATUS_CACHE_TTL_MS;
+      });
+
+      const [cancellationsRes, returnsRes] = await Promise.allSettled([
+        listMyCancellations(token),
+        listMyReturns(token),
+      ]);
+
+      if (cancellationsRes.status === "fulfilled") {
+        cancellationMap = (cancellationsRes.value.cancellations ?? []).reduce((acc, item) => {
           acc[item.orderId] = { id: item.id, status: item.status };
           return acc;
         }, {} as Record<string, { id: string; status: string }>);
-        setCancellationByOrder(cancellationMap);
-      } catch {
-        // no-op
       }
 
-      try {
-        const returnResult = await listMyReturns(token);
-        if (!mountedRef.current) return;
-        returnMap = (returnResult.returns ?? []).reduce((acc, item) => {
+      if (returnsRes.status === "fulfilled") {
+        returnMap = (returnsRes.value.returns ?? []).reduce((acc, item) => {
           acc[item.orderId] = { id: item.id, status: item.status };
           return acc;
         }, {} as Record<string, { id: string; status: string }>);
-        setReturnByOrder(returnMap);
-      } catch {
-        // no-op
       }
 
-      const statuses = await Promise.all(
-        nextOrders.map(async (order) => {
-          try {
-            const payment = await getPaymentDetails(order.id, token);
-            return [order.id, payment.data?.status ?? ""] as const;
-          } catch {
-            return [order.id, ""] as const;
-          }
-        })
-      );
+      for (let i = 0; i < pendingPaymentOrders.length; i += PAYMENT_STATUS_BATCH_SIZE) {
+        const batch = pendingPaymentOrders.slice(i, i + PAYMENT_STATUS_BATCH_SIZE);
+        const batchStatuses = await Promise.all(
+          batch.map(async (order) => {
+            try {
+              const payment = await getPaymentDetails(order.id, token);
+              return [order.id, payment.data?.status ?? ""] as const;
+            } catch {
+              return [order.id, ""] as const;
+            }
+          })
+        );
+
+        batchStatuses.forEach(([orderId, status]) => {
+          statusMap[orderId] = status;
+          paymentStatusCache.set(getPaymentStatusCacheKey(token, orderId), {
+            token,
+            cachedAt: Date.now(),
+            status,
+          });
+        });
+      }
 
       if (!mountedRef.current) return;
-      const map = statuses.reduce((acc, [orderId, status]) => {
-        acc[orderId] = status;
-        return acc;
-      }, {} as Record<string, string>);
-      setPaymentStatus(map);
+      setCancellationByOrder(cancellationMap);
+      setReturnByOrder(returnMap);
+      setPaymentStatus((prev) => ({ ...prev, ...statusMap }));
 
       ordersScreenCache = {
         token,
         cachedAt: Date.now(),
         orders: nextOrders,
-        paymentStatus: map,
+        paymentStatus: statusMap,
         cancellationByOrder: cancellationMap,
         returnByOrder: returnMap,
       };

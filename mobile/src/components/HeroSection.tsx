@@ -5,10 +5,10 @@ import { colors, radius, spacing, typography, shadow } from "../theme/tokens";
 export function HeroSection() {
   return (
     <View style={styles.heroCard}>
-      <Text style={styles.heroEyebrow}>Curated men's fashion</Text>
+      <Text style={styles.heroEyebrow}>Curated men&apos;s fashion</Text>
       <Text style={styles.heroTitle}>The art of timeless elegance</Text>
       <Text style={styles.heroSubtitle}>
-        Discover India's finest ethnic wear, handcrafted by artisans.
+        Discover India&apos;s finest ethnic wear, handcrafted by artisans.
       </Text>
       <View style={styles.heroActions}>
         <Pressable style={styles.primaryButton}>

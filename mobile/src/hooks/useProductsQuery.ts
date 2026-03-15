@@ -27,9 +27,9 @@ export function useProductsQuery({
         sort,
         signal,
       }),
-    staleTime: 30 * 1000,
+    staleTime: 5 * 60 * 1000,
     gcTime: 24 * 60 * 60 * 1000,
-    refetchOnMount: true,
+    refetchOnMount: false,
     refetchOnReconnect: true,
     networkMode: "offlineFirst",
   });

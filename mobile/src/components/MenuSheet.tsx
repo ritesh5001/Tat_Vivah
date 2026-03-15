@@ -9,10 +9,10 @@ interface MenuSheetProps {
   visible: boolean;
   onClose: () => void;
   onNavigate?: (route: string) => void;
-  items?: Array<{ label: string; route: string }>;
+  items?: { label: string; route: string }[];
 }
 
-const baseItems: Array<{ label: string; route: string }> = [
+const baseItems: { label: string; route: string }[] = [
   { label: "Home", route: "/home" },
   { label: "Marketplace", route: "/marketplace" },
   { label: "Search", route: "/search" },

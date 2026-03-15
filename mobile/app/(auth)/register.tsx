@@ -7,8 +7,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import { Link } from "expo-router";
-import { useRouter } from "expo-router";
+import { Link, useRouter } from "expo-router";
 import { colors, radius, spacing, typography, shadow } from "../../src/theme/tokens";
 import { registerUser, requestOtp } from "../../src/services/auth";
 import { AppHeader } from "../../src/components/AppHeader";

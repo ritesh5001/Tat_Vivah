@@ -1,6 +1,6 @@
 import * as React from "react";
 import { View, Text, StyleSheet } from "react-native";
-import { colors, spacing, typography, radius } from "../theme/tokens";
+import { colors, spacing, typography } from "../theme/tokens";
 import type { ShipmentStatus } from "../services/shipping";
 
 // ---------------------------------------------------------------------------

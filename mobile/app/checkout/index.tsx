@@ -83,7 +83,7 @@ export default function CheckoutScreen() {
   const token = session?.accessToken ?? null;
   const { isConnected } = useNetworkStatus();
   const { clearCart, refreshCart, cartItems } = useCart();
-  const { addresses, defaultAddress, isLoading: addressesLoading } = useAddresses();
+  const { addresses, defaultAddress } = useAddresses();
   const { showToast } = useToast();
 
   // ---------- Payment guard — prevents double-submit ----------
@@ -370,9 +370,11 @@ export default function CheckoutScreen() {
       if (mountedRef.current) {
         notifySuccess();
         clearCart();
-        // Refresh to sync server state (cart should now be empty)
-        refreshCart();
         router.replace(`/orders/${orderId}`);
+        // Keep transition smooth: refresh cart on next tick instead of during navigation.
+        setTimeout(() => {
+          void refreshCart();
+        }, 0);
       }
     } catch (err) {
       if (!mountedRef.current) return; // Component unmounted during payment

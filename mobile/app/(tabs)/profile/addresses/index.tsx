@@ -3,7 +3,6 @@ import {
   View,
   StyleSheet,
   FlatList,
-  Alert,
   Modal,
   Pressable,
 } from "react-native";
@@ -100,6 +99,7 @@ export default function AddressesScreen() {
   const router = useRouter();
   const { session, isLoading: authLoading } = useAuth();
   const token = session?.accessToken ?? null;
+  const showGuestState = !authLoading && !token;
   const {
     addresses,
     isLoading,
@@ -116,37 +116,6 @@ export default function AddressesScreen() {
   const handleGoBack = React.useCallback(() => {
     router.back();
   }, [router]);
-
-  if (!authLoading && !token) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.header}>
-          <AnimatedPressable onPress={handleGoBack} style={styles.backButton}>
-            <Text style={styles.backArrow}>←</Text>
-          </AnimatedPressable>
-          <View>
-            <Text style={styles.headerTitle}>Manage Addresses</Text>
-            <Text style={styles.headerCopy}>
-              Add, edit, or remove delivery addresses.
-            </Text>
-          </View>
-        </View>
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyIcon}>📍</Text>
-          <Text style={styles.emptyTitle}>No saved addresses</Text>
-          <Text style={styles.emptySubtitle}>
-            Add a delivery address when you're ready to check out.
-          </Text>
-          <AnimatedPressable
-            onPress={handleGoBack}
-            style={styles.primaryButton}
-          >
-            <Text style={styles.primaryButtonText}>Back to profile</Text>
-          </AnimatedPressable>
-        </View>
-      </SafeAreaView>
-    );
-  }
 
   // ---- Handlers (stable references) ----
 
@@ -222,6 +191,37 @@ export default function AddressesScreen() {
       ) : null,
     [isLoading],
   );
+
+  if (showGuestState) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          <AnimatedPressable onPress={handleGoBack} style={styles.backButton}>
+            <Text style={styles.backArrow}>←</Text>
+          </AnimatedPressable>
+          <View>
+            <Text style={styles.headerTitle}>Manage Addresses</Text>
+            <Text style={styles.headerCopy}>
+              Add, edit, or remove delivery addresses.
+            </Text>
+          </View>
+        </View>
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyIcon}>📍</Text>
+          <Text style={styles.emptyTitle}>No saved addresses</Text>
+          <Text style={styles.emptySubtitle}>
+            Add a delivery address when you&apos;re ready to check out.
+          </Text>
+          <AnimatedPressable
+            onPress={handleGoBack}
+            style={styles.primaryButton}
+          >
+            <Text style={styles.primaryButtonText}>Back to profile</Text>
+          </AnimatedPressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>

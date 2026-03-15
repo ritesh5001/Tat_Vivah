@@ -2,7 +2,7 @@ import * as React from "react";
 import { View, Text, StyleSheet, Pressable, Animated, Easing } from "react-native";
 import { usePathname, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, radius, spacing, typography, shadow } from "../theme/tokens";
+import { colors, spacing, typography, shadow } from "../theme/tokens";
 import { images } from "../data/images";
 import { MenuSheet } from "./MenuSheet";
 import { Image } from "./CompatImage";
@@ -20,10 +20,9 @@ interface AppHeaderProps {
 }
 
 const MARQUEE_MESSAGES = [
-  "Premium Men's Ethnic Wear",
-  "The Royal Wedding Edit",
-  "Crafted for Celebrations",
-  "Handpicked Ceremony Looks",
+  "TatVivah delivers premium groomwear that looks rich in photos and feels easy all day.",
+  "From haldi to reception, find complete curated looks in one seamless shopping flow.",
+  "Trusted by wedding shoppers for reliable delivery, sharp fits, and elegant finishing.",
 ];
 
 export function AppHeader({
@@ -52,7 +51,10 @@ export function AppHeader({
   const shouldShowProfile = showProfile ?? isMainHeader;
   const shouldShowWishlist = showWishlist ?? isMainHeader;
   const shouldShowCart = showCart ?? isMainHeader;
-  const marqueeContent = React.useMemo(() => `${MARQUEE_MESSAGES.join("   •   ")}   •   `, []);
+  const marqueeItems = React.useMemo(
+    () => [...MARQUEE_MESSAGES, ...MARQUEE_MESSAGES],
+    []
+  );
 
   const handleBack = React.useCallback(() => {
     if (pathname === "/home") {
@@ -65,13 +67,14 @@ export function AppHeader({
   React.useEffect(() => {
     if (!isMainHeader || marqueeStripWidth <= 0 || marqueeContentWidth <= 0) return;
 
-    const distance = marqueeStripWidth + marqueeContentWidth;
-    const duration = Math.max(4200, Math.round((distance / 180) * 1000));
+    const singleSetWidth = marqueeContentWidth / 2;
+    const distance = marqueeStripWidth + singleSetWidth;
+    const duration = Math.max(3600, Math.round((distance / 220) * 1000));
 
     marqueeTranslateX.setValue(marqueeStripWidth);
     const loop = Animated.loop(
       Animated.timing(marqueeTranslateX, {
-        toValue: -marqueeContentWidth,
+        toValue: -singleSetWidth,
         duration,
         easing: Easing.linear,
         useNativeDriver: true,
@@ -93,9 +96,12 @@ export function AppHeader({
             style={[styles.marqueeTrack, { transform: [{ translateX: marqueeTranslateX }] }]}
             onLayout={(event) => setMarqueeContentWidth(event.nativeEvent.layout.width)}
           >
-            <Text style={styles.marqueeText} numberOfLines={1}>
-              {marqueeContent}
-            </Text>
+            {marqueeItems.map((message, index) => (
+              <Text key={`mq-${index}`} style={styles.marqueeText} numberOfLines={1}>
+                {message}
+                {"   •   "}
+              </Text>
+            ))}
           </Animated.View>
         </View>
       ) : null}

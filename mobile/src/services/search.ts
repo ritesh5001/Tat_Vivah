@@ -1,4 +1,5 @@
 import { apiRequest } from "./api";
+import type { ProductSummary } from "./products";
 
 export type SortOption = "relevance" | "price_asc" | "price_desc" | "newest" | "popularity";
 
@@ -47,8 +48,6 @@ export async function getTrending(
 // ---------------------------------------------------------------------------
 // Related products (dedicated endpoint)
 // ---------------------------------------------------------------------------
-
-import type { ProductSummary } from "./products";
 
 export async function getRelatedProductsFromApi(
   productId: string,

@@ -5,12 +5,12 @@ import { images } from "../data/images";
 import { CachedImage } from "./CachedImage";
 
 type OccasionGridProps = {
-  items?: Array<{
+  items?: {
     id: string;
     title: string;
     image: string;
     query: string;
-  }>;
+  }[];
   onSelectOccasion?: (query: string) => void;
 };
 
