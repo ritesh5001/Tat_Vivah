@@ -3,7 +3,6 @@ import { Inter, Cormorant_Garamond } from "next/font/google";
 import "./globals.css";
 import { PublicLayoutShell } from "@/components/layout/PublicLayoutShell";
 import { Toaster } from "@/components/ui/sonner";
-import { GlobalLoader } from "@/components/global-loader";
 import { SessionGuard } from "@/components/SessionGuard";
 
 /**
@@ -142,7 +141,6 @@ export default function RootLayout({
             })
           }}
         />
-        <GlobalLoader />
         <Toaster />
         <SessionGuard />
         <PublicLayoutShell>{children}</PublicLayoutShell>

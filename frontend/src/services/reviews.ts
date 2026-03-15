@@ -52,7 +52,7 @@ export async function fetchProductReviews(
 
     return apiRequest<ReviewListResponse>(
         `/v1/products/${productId}/reviews${qs ? `?${qs}` : ""}`,
-        { method: "GET", showLoader: false }
+        { method: "GET" }
     );
 }
 

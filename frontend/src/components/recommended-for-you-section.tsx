@@ -39,7 +39,6 @@ export function RecommendedForYouSection() {
 
     apiRequest<RecommendationsResponse>("/v1/personalization/recommendations", {
       method: "GET",
-      showLoader: false,
     })
       .then((data) => {
         if (active) setProducts(data.products ?? []);

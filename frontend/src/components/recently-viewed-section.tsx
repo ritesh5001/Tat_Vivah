@@ -44,8 +44,7 @@ export function RecentlyViewedSection() {
     }
 
     apiRequest<{ products: RecentlyViewedProduct[] }>(
-      "/v1/personalization/recently-viewed",
-      { showLoader: false }
+      "/v1/personalization/recently-viewed"
     )
       .then((data) => {
         if (active) setProducts(data.products ?? []);

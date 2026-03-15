@@ -23,7 +23,7 @@ function toMarketplaceCardProduct(item: SearchResultItem): MarketplaceCardProduc
   };
 }
 
-export default function SearchPage() {
+function SearchContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -136,5 +136,13 @@ export default function SearchPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function SearchPage() {
+  return (
+    <React.Suspense fallback={null}>
+      <SearchContent />
+    </React.Suspense>
   );
 }

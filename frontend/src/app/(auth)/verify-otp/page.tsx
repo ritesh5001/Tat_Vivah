@@ -17,7 +17,7 @@ import { requestEmailOtp, verifyEmailOtp, persistAuthCookies } from "@/services/
 import { toast } from "sonner";
 import { heroContainerVariants, heroItemVariants } from "@/lib/motion.config";
 
-export default function VerifyOtpPage() {
+function VerifyOtpContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const prefill = searchParams.get("email") ?? "";
@@ -165,5 +165,13 @@ export default function VerifyOtpPage() {
         </motion.div>
       </div>
     </div>
+  );
+}
+
+export default function VerifyOtpPage() {
+  return (
+    <React.Suspense fallback={null}>
+      <VerifyOtpContent />
+    </React.Suspense>
   );
 }

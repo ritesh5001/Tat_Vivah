@@ -1,7 +1,6 @@
 type ApiRequestOptions = Omit<RequestInit, "body"> & {
   body?: unknown;
   token?: string | null;
-  showLoader?: boolean;
   /** Internal flag to prevent infinite refresh loops */
   _isRetry?: boolean;
 };
@@ -92,10 +91,8 @@ export async function apiRequest<T>(
     throw new Error("API base URL is not configured");
   }
 
-  const { body, token, headers, showLoader, _isRetry, ...rest } = options;
+  const { body, token, headers, _isRetry, ...rest } = options;
   const authToken = token ?? getAuthToken();
-  const method = rest.method ?? "GET";
-  const shouldShowLoader = typeof showLoader === "boolean" ? showLoader : method !== "GET";
 
   const finalHeaders: HeadersInit = {
     ...(body ? { "Content-Type": "application/json" } : {}),
@@ -103,39 +100,29 @@ export async function apiRequest<T>(
     ...(headers ?? {}),
   };
 
-  if (shouldShowLoader && typeof window !== "undefined") {
-    window.dispatchEvent(new Event("tv-global-loading-start"));
-  }
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...rest,
+    headers: finalHeaders,
+    body: body ? JSON.stringify(body) : undefined,
+  });
 
-  try {
-    const response = await fetch(`${API_BASE_URL}${path}`, {
-      ...rest,
-      headers: finalHeaders,
-      body: body ? JSON.stringify(body) : undefined,
-    });
+  const data = await response.json().catch(() => null);
 
-    const data = await response.json().catch(() => null);
-
-    if (!response.ok) {
-      // On 401, attempt a silent token refresh before giving up
-      if (response.status === 401 && !_isRetry && !token) {
-        const newToken = await silentRefresh();
-        if (newToken) {
-          // Retry the original request with the fresh token
-          return apiRequest<T>(path, { ...options, token: newToken, _isRetry: true });
-        }
-        // Refresh failed — clear session
-        clearAuthCookies();
-      } else if (response.status === 401 || response.status === 403) {
-        clearAuthCookies();
+  if (!response.ok) {
+    // On 401, attempt a silent token refresh before giving up
+    if (response.status === 401 && !_isRetry && !token) {
+      const newToken = await silentRefresh();
+      if (newToken) {
+        // Retry the original request with the fresh token
+        return apiRequest<T>(path, { ...options, token: newToken, _isRetry: true });
       }
-      throw new Error(getErrorMessage(data, "Request failed"));
+      // Refresh failed — clear session
+      clearAuthCookies();
+    } else if (response.status === 401 || response.status === 403) {
+      clearAuthCookies();
     }
-
-    return data as T;
-  } finally {
-    if (shouldShowLoader && typeof window !== "undefined") {
-      window.dispatchEvent(new Event("tv-global-loading-end"));
-    }
+    throw new Error(getErrorMessage(data, "Request failed"));
   }
+
+  return data as T;
 }
