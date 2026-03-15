@@ -246,6 +246,7 @@ export function SiteHeader() {
               <Link
                 key={link.href}
                 href={link.href}
+                prefetch={link.href.startsWith("/admin") || link.href.startsWith("/seller") ? false : undefined}
                 className="relative py-1 transition-colors duration-300 hover:text-foreground after:absolute after:bottom-0 after:left-0 after:h-px after:w-0 after:bg-gold after:transition-all after:duration-300 hover:after:w-full"
               >
                 {link.label}
@@ -338,7 +339,7 @@ export function SiteHeader() {
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem asChild>
-                      <Link href={profileLink}>My Profile</Link>
+                      <Link href={profileLink} prefetch={false}>My Profile</Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link href="/login?force=1">Switch Account</Link>
@@ -369,6 +370,7 @@ export function SiteHeader() {
               <Link
                 key={link.href}
                 href={link.href}
+                prefetch={link.href.startsWith("/admin") || link.href.startsWith("/seller") ? false : undefined}
                 className="py-3 text-sm font-medium text-foreground border-b border-border-soft transition-colors hover:text-gold"
                 onClick={() => setMenuOpen(false)}
               >
