@@ -78,6 +78,7 @@ export function CategoryCarousel() {
   });
   const rafRef = React.useRef<number>(0);
   const velocityRef = React.useRef({ lastX: 0, lastTime: 0, velocity: 0 });
+  const scrollEndTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loopingCategories = React.useMemo(() => {
     if (categories.length <= 1) {
@@ -174,15 +175,25 @@ export function CategoryCarousel() {
     if (!el) return;
 
     updateScrollButtons();
-    const handleScroll = () => {
+
+    const settleCarousel = () => {
       if (!dragStateRef.current.isDragging && !rafRef.current) {
         normalizeLoopPosition();
+        el.style.scrollSnapType = "x mandatory";
       }
-      updateScrollButtons();
+    };
+
+    const handleScroll = () => {
+      // Disable snap while actively scrolling to prevent jitter
+      el.style.scrollSnapType = "none";
+
+      if (scrollEndTimerRef.current) clearTimeout(scrollEndTimerRef.current);
+      scrollEndTimerRef.current = setTimeout(settleCarousel, 150);
     };
 
     if (categories.length > 1) {
       setLoopStartPosition();
+      el.style.scrollSnapType = "x mandatory";
     }
 
     el.addEventListener("scroll", handleScroll, { passive: true });
@@ -195,6 +206,7 @@ export function CategoryCarousel() {
         cancelAnimationFrame(rafRef.current);
         rafRef.current = 0;
       }
+      if (scrollEndTimerRef.current) clearTimeout(scrollEndTimerRef.current);
     };
   }, [categories, normalizeLoopPosition, setLoopStartPosition, updateScrollButtons]);
 
@@ -233,6 +245,10 @@ export function CategoryCarousel() {
     if (rafRef.current) {
       cancelAnimationFrame(rafRef.current);
       rafRef.current = 0;
+    }
+    if (scrollEndTimerRef.current) {
+      clearTimeout(scrollEndTimerRef.current);
+      scrollEndTimerRef.current = null;
     }
 
     dragStateRef.current = {
@@ -279,14 +295,6 @@ export function CategoryCarousel() {
     dragStateRef.current.isDragging = false;
 
     const velocity = velocityRef.current.velocity;
-    const restoreSnap = () => {
-      if (snapTypeRef.current !== null) {
-        el.style.scrollSnapType = snapTypeRef.current;
-        snapTypeRef.current = null;
-      } else {
-        el.style.scrollSnapType = "";
-      }
-    };
 
     // Apply momentum deceleration for a smooth glide effect
     if (Math.abs(velocity) > 0.3) {
@@ -297,19 +305,18 @@ export function CategoryCarousel() {
         v *= friction;
         if (Math.abs(v) < 0.5) {
           rafRef.current = 0;
-          restoreSnap();
           normalizeLoopPosition();
+          el.style.scrollSnapType = "x mandatory";
           return;
         }
         el.scrollLeft -= v;
-        normalizeLoopPosition();
         rafRef.current = requestAnimationFrame(step);
       };
 
       rafRef.current = requestAnimationFrame(step);
     } else {
-      restoreSnap();
       normalizeLoopPosition();
+      el.style.scrollSnapType = "x mandatory";
     }
   };
 
@@ -355,13 +362,13 @@ export function CategoryCarousel() {
           <div className="relative px-0 sm:px-14 lg:px-16">
             <div
               ref={trackRef}
-              className="flex gap-3 overflow-x-auto snap-x snap-mandatory px-0 py-2 scrollbar-hide select-none md:gap-4 lg:gap-6"
+              className="flex gap-3 overflow-x-auto px-0 py-2 scrollbar-hide select-none md:gap-4 lg:gap-6"
               onMouseDown={handleMouseDown}
               onMouseMove={handleMouseMove}
               onMouseUp={endMouseDrag}
               onMouseLeave={endMouseDrag}
               onClickCapture={handleTrackClickCapture}
-              style={{ WebkitOverflowScrolling: "touch" }}
+              style={{ WebkitOverflowScrolling: "touch", overscrollBehaviorX: "contain", willChange: "scroll-position" }}
             >
               {loopingCategories.map(({ category, key }) => (
                 <Link key={key} href="/marketplace" className="contents">
