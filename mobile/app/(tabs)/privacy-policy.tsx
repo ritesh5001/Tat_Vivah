@@ -1,24 +1,29 @@
 import * as React from "react";
 import { LegalScreen } from "../../src/components/LegalScreen";
+import { companyInfo } from "../../src/data/company";
 
 export default function PrivacyPolicyScreen() {
   return (
     <LegalScreen
       title="Privacy Policy"
-      intro="Tatvivah Trends is committed to protecting your personal data and honoring your preferences across every interaction."
-      updatedAt="February 27, 2026"
+      intro="Tatvivah Trends handles your personal data responsibly to deliver orders, improve recommendations, and provide responsive support."
+      updatedAt="March 14, 2026"
       sections={[
         {
           title: "Information we collect",
-          body: "Account details, order history, saved addresses, and support interactions that help us fulfill your orders and personalize recommendations.",
+          body: "We collect account details, saved addresses, order history, payment status metadata, and support conversations needed for commerce operations.",
         },
         {
           title: "How we use it",
-          body: "To process transactions, improve styling recommendations, and keep you informed with order and service updates.",
+          body: "Data is used to fulfill orders, process refunds, personalize discovery, detect fraud, and send service-critical notifications.",
         },
         {
-          title: "Your choices",
-          body: "You can review, update, or request deletion of your details from your profile and support channels as permitted.",
+          title: "Retention & Control",
+          body: "You can request profile updates or data deletion as allowed by law. Some billing and transaction records may be retained for compliance and audit requirements.",
+        },
+        {
+          title: "Privacy Requests",
+          body: `Email privacy requests to ${companyInfo.supportEmail} and include your registered phone number for faster verification.`,
         },
       ]}
     />

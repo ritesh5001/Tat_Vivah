@@ -144,10 +144,11 @@ export default function CheckoutScreen() {
     [cartItems]
   );
   const shippingFee = cartItems.length ? 180 : 0;
+  const gstFee = cartItems.length ? 180 : 0;
   const displaySubtotal = taxSummary?.subTotalAmount ?? cartSubtotal;
   const displayDiscount = taxSummary?.discountAmount ?? 0;
-  const displayGst = taxSummary?.totalTaxAmount ?? 0;
-  const computedGrandTotal = displaySubtotal - displayDiscount + shippingFee + displayGst;
+  const displayGst = gstFee;
+  const computedGrandTotal = displaySubtotal - displayDiscount + shippingFee + gstFee;
   const displayGrandTotal =
     typeof taxSummary?.grandTotal === "number"
       ? Math.max(taxSummary.grandTotal, computedGrandTotal)

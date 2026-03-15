@@ -127,7 +127,7 @@ export function AppHeader({
           ) : title ? (
             <Text style={styles.titleText} numberOfLines={1}>{title}</Text>
           ) : (
-            <View style={styles.centerSpacer} />
+            <Image source={images.logo} style={styles.subLogo} contentFit="contain" />
           )}
         </View>
 
@@ -269,6 +269,10 @@ const styles = StyleSheet.create({
     height: 34,
     width: 136,
     marginLeft: -100,
+  },
+  subLogo: {
+    height: 28,
+    width: 112,
   },
   titleText: {
     fontFamily: typography.serif,

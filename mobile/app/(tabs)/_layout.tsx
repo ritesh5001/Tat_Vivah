@@ -18,6 +18,7 @@ export default function TabsLayout() {
       <Stack.Screen name="wishlist/index" />
       <Stack.Screen name="orders/index" />
       <Stack.Screen name="notifications/index" />
+      <Stack.Screen name="categories" />
       <Stack.Screen name="privacy-policy" />
       <Stack.Screen name="return-policy" />
       <Stack.Screen name="refund-policy" />

@@ -17,6 +17,7 @@ import { OfflineBanner } from "../src/components/OfflineBanner";
 import { useNetworkStatus } from "../src/hooks/useNetworkStatus";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { colors } from "../src/theme/tokens";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 function AppShell() {
   const { isConnected } = useNetworkStatus();
@@ -79,22 +80,24 @@ export default function RootLayout() {
   }
 
   return (
-    <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <ToastProvider>
-          <AuthProvider>
-            <NotificationProvider>
-              <CartProvider>
-                <WishlistProvider>
-                  <AddressProvider>
-                    <AppShell />
-                  </AddressProvider>
-                </WishlistProvider>
-              </CartProvider>
-            </NotificationProvider>
-          </AuthProvider>
-        </ToastProvider>
-      </QueryClientProvider>
-    </ErrorBoundary>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ErrorBoundary>
+        <QueryClientProvider client={queryClient}>
+          <ToastProvider>
+            <AuthProvider>
+              <NotificationProvider>
+                <CartProvider>
+                  <WishlistProvider>
+                    <AddressProvider>
+                      <AppShell />
+                    </AddressProvider>
+                  </WishlistProvider>
+                </CartProvider>
+              </NotificationProvider>
+            </AuthProvider>
+          </ToastProvider>
+        </QueryClientProvider>
+      </ErrorBoundary>
+    </GestureHandlerRootView>
   );
 }

@@ -47,17 +47,18 @@
         "expo-build-properties",
         {
           "android": {
-            "enableProguardInReleaseBuilds": false,
-            "enableShrinkResourcesInReleaseBuilds": false
+            "enableProguardInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "enableMinifyInReleaseBuilds": true
           }
         }
       ]
     ],
     "extra": {
       "eas": {
-        "projectId": "bac4ca06-1208-4381-b8e1-c3737cd91fc3"
+        "projectId": "13fff0d2-6600-4b3e-9817-6a17f872adc6"
       }
     },
-    "owner": "moiqbalbbdniits-organization"
+    "owner": "zaheen.iqbal"
   }
 }

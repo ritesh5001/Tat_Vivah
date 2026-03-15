@@ -82,7 +82,8 @@ export default function CartScreen() {
     0
   );
   const shipping = cartItems.length ? 180 : 0;
-  const total = subtotal + shipping;
+  const gst = cartItems.length ? 180 : 0;
+  const total = subtotal + shipping + gst;
 
   const renderItem = React.useCallback(
     ({ item }: { item: CartItemDetails }) => {
@@ -233,9 +234,7 @@ export default function CartScreen() {
             </View>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>GST</Text>
-              <Text style={styles.summaryValue}>
-                Calculated at checkout
-              </Text>
+              <Text style={styles.summaryValue}>{currency.format(gst)}</Text>
             </View>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryTotal}>Total</Text>
