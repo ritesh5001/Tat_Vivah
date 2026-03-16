@@ -46,6 +46,7 @@ export default function NotificationsScreen() {
   const [refreshing, setRefreshing] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [loadingMore, setLoadingMore] = React.useState(false);
+  const showGuestState = !authLoading && !token;
 
   const mountedRef = React.useRef(true);
   React.useEffect(() => {
@@ -53,33 +54,6 @@ export default function NotificationsScreen() {
       mountedRef.current = false;
     };
   }, []);
-
-  React.useEffect(() => {
-    if (!authLoading && !token) return;
-  }, [authLoading, token, router]);
-  if (!authLoading && !token) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <AppHeader title="Notifications" subtitle="Updates & offers" showMenu showBack />
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Notifications</Text>
-          <Text style={styles.headerCopy}>Stay updated on orders and offers.</Text>
-        </View>
-        <View style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>No notifications yet</Text>
-          <Text style={styles.emptySubtitle}>
-            Check back here for order updates and offers.
-          </Text>
-          <AnimatedPressable
-            onPress={() => router.push("/home")}
-            style={styles.ctaButton}
-          >
-            <Text style={styles.ctaButtonText}>Explore home</Text>
-          </AnimatedPressable>
-        </View>
-      </SafeAreaView>
-    );
-  }
 
   // ---- Fetch page ----
   const fetchPage = React.useCallback(
@@ -221,6 +195,30 @@ export default function NotificationsScreen() {
       </View>
     );
   }, [loadingMore]);
+
+  if (showGuestState) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <AppHeader title="Notifications" subtitle="Updates & offers" showMenu showBack />
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Notifications</Text>
+          <Text style={styles.headerCopy}>Stay updated on orders and offers.</Text>
+        </View>
+        <View style={styles.emptyCard}>
+          <Text style={styles.emptyTitle}>No notifications yet</Text>
+          <Text style={styles.emptySubtitle}>
+            Check back here for order updates and offers.
+          </Text>
+          <AnimatedPressable
+            onPress={() => router.push("/home")}
+            style={styles.ctaButton}
+          >
+            <Text style={styles.ctaButtonText}>Explore home</Text>
+          </AnimatedPressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   // ---- Main render ----
   return (

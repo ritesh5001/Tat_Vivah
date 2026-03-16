@@ -41,7 +41,7 @@ import {
   AppText as Text,
   ScreenContainer as SafeAreaView,
 } from "../../../src/components";
-import { TatvivahLoader, TatvivahOverlayLoader } from "../../../src/components/TatvivahLoader";
+import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
 import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
 import { impactMedium, impactLight, notifySuccess } from "../../../src/utils/haptics";
 import { AppHeader } from "../../../src/components/AppHeader";

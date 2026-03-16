@@ -38,6 +38,7 @@ interface RazorpayModule {
 
 export function isRazorpayAvailable(): boolean {
   try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const mod = require("react-native-razorpay");
     const resolved = (mod?.default ?? mod) as RazorpayModule | null | undefined;
     return Boolean(resolved && typeof resolved.open === "function");
@@ -48,6 +49,7 @@ export function isRazorpayAvailable(): boolean {
 
 function getRazorpayModule(): RazorpayModule {
   try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const mod = require("react-native-razorpay");
     const resolved = (mod?.default ?? mod) as RazorpayModule | null | undefined;
     if (!resolved || typeof resolved.open !== "function") {

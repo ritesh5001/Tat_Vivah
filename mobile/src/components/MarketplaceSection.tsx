@@ -55,7 +55,7 @@ export function MarketplaceSection({
         <Text style={styles.title}>The Heritage Collection</Text>
         <Text style={styles.copy}>
           Limited edition pieces crafted by third-generation artisans from
-          Varanasi and Lucknow. Each release celebrates India's textile legacy.
+          Varanasi and Lucknow. Each release celebrates India&apos;s textile legacy.
         </Text>
         <Pressable style={styles.ghostButton} onPress={onNewArrivalsPress}>
           <Text style={styles.ghostButtonText}>Discover new arrivals</Text>

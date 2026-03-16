@@ -1,11 +1,6 @@
 import * as React from "react";
 import { Stack } from "expo-router";
 import { useFonts } from "expo-font";
-import {
-  CormorantGaramond_300Light,
-  CormorantGaramond_400Regular,
-} from "@expo-google-fonts/cormorant-garamond";
-import { Inter_400Regular, Inter_500Medium } from "@expo-google-fonts/inter";
 import { AuthProvider } from "../src/providers/AuthProvider";
 import { ErrorBoundary } from "../src/components/ErrorBoundary";
 import { ToastProvider } from "../src/providers/ToastProvider";
@@ -15,7 +10,8 @@ import { AddressProvider } from "../src/providers/AddressProvider";
 import { WishlistProvider } from "../src/providers/WishlistProvider";
 import { OfflineBanner } from "../src/components/OfflineBanner";
 import { useNetworkStatus } from "../src/hooks/useNetworkStatus";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
+import { queryClient, queryPersister } from "../src/providers/queryClient";
 import { colors } from "../src/theme/tokens";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
@@ -53,27 +49,11 @@ function AppShell() {
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
-    CormorantGaramond_300Light,
-    CormorantGaramond_400Regular,
-    Inter_400Regular,
-    Inter_500Medium,
+    CormorantGaramond_300Light: require("../assets/fonts/CormorantGaramond_300Light.ttf"),
+    CormorantGaramond_400Regular: require("../assets/fonts/CormorantGaramond_400Regular.ttf"),
+    Inter_400Regular: require("../assets/fonts/Inter_400Regular.ttf"),
+    Inter_500Medium: require("../assets/fonts/Inter_500Medium.ttf"),
   });
-
-  const queryClient = React.useMemo(
-    () =>
-      new QueryClient({
-        defaultOptions: {
-          queries: {
-            retry: 1,
-            refetchOnWindowFocus: false,
-          },
-          mutations: {
-            retry: 0,
-          },
-        },
-      }),
-    []
-  );
 
   if (!fontsLoaded) {
     return null;
@@ -82,7 +62,10 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ErrorBoundary>
-        <QueryClientProvider client={queryClient}>
+        <PersistQueryClientProvider
+          client={queryClient}
+          persistOptions={{ persister: queryPersister }}
+        >
           <ToastProvider>
             <AuthProvider>
               <NotificationProvider>
@@ -96,7 +79,7 @@ export default function RootLayout() {
               </NotificationProvider>
             </AuthProvider>
           </ToastProvider>
-        </QueryClientProvider>
+        </PersistQueryClientProvider>
       </ErrorBoundary>
     </GestureHandlerRootView>
   );

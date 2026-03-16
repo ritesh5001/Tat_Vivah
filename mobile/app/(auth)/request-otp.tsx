@@ -66,7 +66,7 @@ export default function RequestOtpScreen() {
 
         <Text style={styles.title}>Sign in with OTP</Text>
         <Text style={styles.subtitle}>
-          We'll send a one-time code to your email.
+          We&apos;ll send a one-time code to your email.
         </Text>
 
         <View style={styles.card}>

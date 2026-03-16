@@ -291,7 +291,6 @@ export function AddressProvider({ children }: { children: React.ReactNode }) {
         if (mountedRef.current) unlockItem(id);
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [token, addresses, lockItem, unlockItem, refreshAddresses, showToast],
   );
 
@@ -328,7 +327,6 @@ export function AddressProvider({ children }: { children: React.ReactNode }) {
         if (mountedRef.current) unlockItem(id);
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [token, addresses, lockItem, unlockItem, refreshAddresses, showToast],
   );
 

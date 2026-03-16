@@ -4,6 +4,7 @@ ios/
 
 # Local artifacts
 node_modules/
+**/node_modules/
 .expo/
 .expo-shared/
 .turbo/
@@ -14,6 +15,11 @@ temp/
 # Build outputs
 build/
 dist/
+dist-android/
+dist-android-final/
+dist-android-optimized/
+dist-android*/
+**/dist-android*/
 coverage/
 android/.gradle/
 android/build/
@@ -26,8 +32,10 @@ ios/build/
 
 # VCS and editor noise
 .git/
+**/.git/
 .gitignore
 .vscode/
+**/.vscode/
 .DS_Store
 Thumbs.db
 
@@ -36,6 +44,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+perf-pass-*.txt
 
 # Non-runtime project files
 README.md
@@ -44,3 +53,10 @@ docs/
 **/__tests__/
 **/*.test.*
 **/*.spec.*
+# Local Android export snapshots (not needed for EAS cloud build)
+dist-android/
+dist-android-final/
+dist-android-optimized/
+
+# Local perf logs
+perf-pass-*.txt

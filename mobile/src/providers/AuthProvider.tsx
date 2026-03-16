@@ -1,5 +1,4 @@
 import * as React from "react";
-import { Alert } from "react-native";
 import {
   loadSession,
   saveSession,

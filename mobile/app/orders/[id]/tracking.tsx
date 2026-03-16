@@ -28,7 +28,7 @@ import { AppText as Text, ScreenContainer as SafeAreaView } from "../../../src/c
 // Constants
 // ---------------------------------------------------------------------------
 const POLL_INTERVAL_MS = 30_000;
-const TRACKING_CACHE_TTL_MS = 20 * 1000;
+const TRACKING_CACHE_TTL_MS = 60 * 1000;
 
 type TrackingCacheEntry = {
   token: string;
