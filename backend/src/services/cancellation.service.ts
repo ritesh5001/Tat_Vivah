@@ -143,7 +143,7 @@ export class CancellationService {
                 ...(filters.orderId ? { orderId: filters.orderId } : {}),
             },
             orderBy: { createdAt: 'desc' },
-            take: 1000,
+            take: 100,
             include: {
                 user: {
                     select: {

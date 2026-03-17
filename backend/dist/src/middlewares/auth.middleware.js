@@ -27,6 +27,25 @@ export function authenticate(req, _res, next) {
     }
 }
 /**
+ * Optional authenticate middleware
+ * Attempts to verify JWT but does not fail if token is missing.
+ * Attaches user to request if token is valid, otherwise continues without user.
+ */
+export function optionalAuthenticate(req, _res, next) {
+    try {
+        const token = extractBearerToken(req.headers.authorization);
+        if (token) {
+            const decoded = verifyAccessToken(token);
+            req.user = decoded;
+        }
+        next();
+    }
+    catch {
+        // Invalid token — continue without user
+        next();
+    }
+}
+/**
  * Authorize by role middleware factory
  * Creates middleware that checks if user has required role
  */

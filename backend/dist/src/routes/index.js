@@ -19,6 +19,7 @@ export { checkoutRouter } from './checkout.routes.js';
 export { couponRouter } from './coupon.routes.js';
 export { orderRouter } from './order.routes.js';
 export { sellerOrderRouter } from './seller-order.routes.js';
+export { appointmentRouter } from './appointment.routes.js';
 export { cancellationRouter } from './cancellation.routes.js';
 export { returnRouter } from './return.routes.js';
 // Payment & Settlement domain
@@ -41,4 +42,10 @@ export { searchRouter } from './search.routes.js';
 export { personalizationRouter } from './personalization.routes.js';
 // Seller Analytics
 export { sellerAnalyticsRouter } from './sellerAnalytics.routes.js';
+// Reels
+export { reelRouter } from './reel.routes.js';
+export { sellerReelRouter } from './seller-reel.routes.js';
+export { adminReelRouter } from './admin-reel.routes.js';
+// Occasions
+export { occasionRouter } from './occasion.routes.js';
 //# sourceMappingURL=index.js.map

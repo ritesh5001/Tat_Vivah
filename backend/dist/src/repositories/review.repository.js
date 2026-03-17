@@ -3,6 +3,7 @@ export class ReviewRepository {
     async findAll() {
         return prisma.review.findMany({
             orderBy: { createdAt: 'desc' },
+            take: 100,
             include: {
                 product: { select: { id: true, title: true } },
                 user: {
@@ -16,7 +17,10 @@ export class ReviewRepository {
         });
     }
     async deleteById(id) {
-        return prisma.review.delete({ where: { id } });
+        return prisma.review.update({
+            where: { id },
+            data: { isHidden: true },
+        });
     }
 }
 export const reviewRepository = new ReviewRepository();

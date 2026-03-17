@@ -67,6 +67,7 @@ export interface RelatedProductItem {
 // ---------------------------------------------------------------------------
 
 const TRENDING_KEY = 'search:trending';
+const MAX_SEARCH_LIMIT = 20;
 
 // ---------------------------------------------------------------------------
 // Service
@@ -79,8 +80,9 @@ export class SearchService {
 
     async searchProducts(filters: SearchFilters): Promise<SearchResponse> {
         const timer = searchDurationSeconds.startTimer();
-        const { q, page, limit, categoryId, sort = 'relevance' } = filters;
-        const offset = (page - 1) * limit;
+        const { q, page, categoryId, sort = 'relevance' } = filters;
+        const safeLimit = Math.min(MAX_SEARCH_LIMIT, Math.max(1, Math.trunc(filters.limit || 20)));
+        const offset = (page - 1) * safeLimit;
 
         searchQueryTotal.inc();
 
@@ -152,7 +154,7 @@ export class SearchService {
                 timer();
                 return {
                     data: [],
-                    pagination: { page, limit, total: 0, totalPages: 0 },
+                    pagination: { page, limit: safeLimit, total: 0, totalPages: 0 },
                 };
             }
 
@@ -176,7 +178,7 @@ export class SearchService {
                 LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
             `;
 
-            params.push(limit, offset);
+            params.push(safeLimit, offset);
 
             const rows = await prisma.$queryRawUnsafe<SearchResultItem[]>(
                 dataQuery,
@@ -190,12 +192,12 @@ export class SearchService {
                 rank: row.rank != null ? Number(row.rank) : undefined,
             }));
 
-            const totalPages = Math.ceil(total / limit);
+            const totalPages = Math.ceil(total / safeLimit);
 
             searchLogger.info({ q, categoryId, sort, total, page }, 'search executed');
             timer();
 
-            return { data, pagination: { page, limit, total, totalPages } };
+            return { data, pagination: { page, limit: safeLimit, total, totalPages } };
         } catch (error) {
             timer();
             searchLogger.error({ q, error }, 'search query failed');
@@ -209,6 +211,7 @@ export class SearchService {
 
     async getSuggestions(q: string, limit: number = 8): Promise<SuggestionItem[]> {
         autocompleteTotal.inc();
+        const safeLimit = Math.min(MAX_SEARCH_LIMIT, Math.max(1, Math.trunc(limit || 8)));
 
         const rows = await prisma.$queryRawUnsafe<Array<{ id: string; title: string; categoryName: string | null }>>(
             `SELECT p."id", p."title", c."name" AS "categoryName"
@@ -220,7 +223,7 @@ export class SearchService {
              ORDER BY p."title" ASC
              LIMIT $2`,
             `${q}%`,
-            limit,
+            safeLimit,
         );
 
         searchLogger.debug({ q, count: rows.length }, 'autocomplete suggestions');
@@ -252,6 +255,8 @@ export class SearchService {
     // -----------------------------------------------------------------------
 
     async getRelatedProducts(productId: string, limit: number = 8): Promise<RelatedProductItem[]> {
+        const safeLimit = Math.min(MAX_SEARCH_LIMIT, Math.max(1, Math.trunc(limit || 8)));
+
         // Find the product's category
         const product = await prisma.product.findUnique({
             where: { id: productId },
@@ -262,7 +267,7 @@ export class SearchService {
             throw ApiError.notFound('Product not found');
         }
 
-        // Same category, exclude self, random order
+        // Same category, exclude self, deterministic latest-first ordering.
         const rows = await prisma.$queryRawUnsafe<RelatedProductItem[]>(
             `SELECT
                 p."id",
@@ -279,11 +284,11 @@ export class SearchService {
               AND p."is_published" = true
               AND p."deleted_by_admin" = false
                             AND p."admin_listing_price" IS NOT NULL
-            ORDER BY RANDOM()
+            ORDER BY p."created_at" DESC
             LIMIT $3`,
             product.categoryId,
             productId,
-            limit,
+            safeLimit,
         );
 
         // Convert decimals
@@ -313,7 +318,7 @@ export class SearchService {
                 ORDER BY b."position" ASC
                 LIMIT $2`,
                 productId,
-                limit - data.length,
+                safeLimit - data.length,
             );
 
             const existingIds = new Set(data.map((d) => d.id));
@@ -324,7 +329,7 @@ export class SearchService {
                     adminListingPrice: row.adminListingPrice != null ? Number(row.adminListingPrice) : null,
                 }));
 
-            data = [...data, ...extra].slice(0, limit);
+            data = [...data, ...extra].slice(0, safeLimit);
         }
 
         searchLogger.debug({ productId, count: data.length }, 'related products');

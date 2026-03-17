@@ -1,4 +1,13 @@
 import { prisma } from '../config/db.js';
+const DEFAULT_LIMIT = 20;
+const MAX_LIMIT = 100;
+function resolvePagination(page, limit) {
+    const pRaw = Number(page ?? 1);
+    const lRaw = Number(limit ?? DEFAULT_LIMIT);
+    const p = Number.isFinite(pRaw) && pRaw > 0 ? Math.trunc(pRaw) : 1;
+    const l = Math.min(MAX_LIMIT, Math.max(1, Number.isFinite(lRaw) ? Math.trunc(lRaw) : DEFAULT_LIMIT));
+    return { skip: (p - 1) * l, take: l };
+}
 /**
  * Order Repository
  * Handles database operations for orders
@@ -62,9 +71,19 @@ export class OrderRepository {
     /**
      * Find all orders for a user (buyer)
      */
-    async findByUserId(userId) {
+    async findByUserId(userId, params) {
+        const { skip, take } = resolvePagination(params?.page, params?.limit);
+        const createdAtFilter = params?.startDate || params?.endDate
+            ? {
+                ...(params.startDate ? { gte: params.startDate } : {}),
+                ...(params.endDate ? { lte: params.endDate } : {}),
+            }
+            : undefined;
         const orders = await prisma.order.findMany({
-            where: { userId },
+            where: {
+                userId,
+                ...(createdAtFilter ? { createdAt: createdAtFilter } : {}),
+            },
             include: {
                 items: true,
                 cancellationRequest: {
@@ -82,6 +101,8 @@ export class OrderRepository {
                 },
             },
             orderBy: { createdAt: 'desc' },
+            skip,
+            take,
         });
         return orders.map((order) => {
             const hasShipped = order.shipments.some((shipment) => shipment.status === 'SHIPPED');
@@ -96,9 +117,19 @@ export class OrderRepository {
      * Find order items for a seller
      * Uses batch lookups instead of N+1 queries
      */
-    async findBySellerId(sellerId) {
+    async findBySellerId(sellerId, params) {
+        const { skip, take } = resolvePagination(params?.page, params?.limit);
+        const createdAtFilter = params?.startDate || params?.endDate
+            ? {
+                ...(params.startDate ? { gte: params.startDate } : {}),
+                ...(params.endDate ? { lte: params.endDate } : {}),
+            }
+            : undefined;
         const orderItems = await prisma.orderItem.findMany({
-            where: { sellerId },
+            where: {
+                sellerId,
+                ...(createdAtFilter ? { order: { createdAt: createdAtFilter } } : {}),
+            },
             include: {
                 order: {
                     select: {
@@ -119,11 +150,14 @@ export class OrderRepository {
                         shippingAddressLine1: true,
                         shippingAddressLine2: true,
                         shippingCity: true,
+                        shippingPincode: true,
                         shippingNotes: true,
                     },
                 },
             },
             orderBy: { order: { createdAt: 'desc' } },
+            skip,
+            take,
         });
         // Batch lookup instead of N+1
         const productIds = [...new Set(orderItems.map((i) => i.productId))];
@@ -166,6 +200,7 @@ export class OrderRepository {
                 shippingAddressLine1: true,
                 shippingAddressLine2: true,
                 shippingCity: true,
+                shippingPincode: true,
                 shippingNotes: true,
             },
         });

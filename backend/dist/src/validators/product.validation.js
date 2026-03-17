@@ -27,6 +27,9 @@ export const createProductSchema = z.object({
         .boolean()
         .optional()
         .default(false),
+    occasionIds: z
+        .array(z.string().min(1))
+        .optional(),
 });
 /**
  * Update Product Validation Schema
@@ -54,6 +57,9 @@ export const updateProductSchema = z.object({
     isPublished: z
         .boolean()
         .optional(),
+    occasionIds: z
+        .array(z.string().min(1))
+        .optional(),
 });
 /**
  * Product Query Validation Schema
@@ -76,6 +82,10 @@ export const productQuerySchema = z.object({
         .string()
         .optional(),
     search: z
+        .string()
+        .max(100)
+        .optional(),
+    occasion: z
         .string()
         .max(100)
         .optional(),

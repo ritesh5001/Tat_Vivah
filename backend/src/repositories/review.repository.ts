@@ -4,7 +4,7 @@ export class ReviewRepository {
     async findAll() {
         return prisma.review.findMany({
             orderBy: { createdAt: 'desc' },
-            take: 1000,
+            take: 100,
             include: {
                 product: { select: { id: true, title: true } },
                 user: {

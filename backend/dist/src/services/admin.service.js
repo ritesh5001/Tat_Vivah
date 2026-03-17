@@ -3,11 +3,16 @@
  * Business logic for admin panel operations
  */
 import { adminRepository, } from '../repositories/admin.repository.js';
+import { productRepository } from '../repositories/product.repository.js';
+import { variantRepository } from '../repositories/variant.repository.js';
+import { inventoryRepository } from '../repositories/inventory.repository.js';
+import { categoryRepository } from '../repositories/category.repository.js';
 import { auditService } from './audit.service.js';
 import { ApiError } from '../errors/ApiError.js';
 import { getFromCache, setCache, CACHE_KEYS, invalidateCache, invalidateProductCaches, } from '../utils/cache.util.js';
 import { notificationService } from '../notifications/notification.service.js';
 import { bestsellerService } from './bestseller.service.js';
+import { occasionService } from './occasion.service.js';
 import { calculateMargin } from '../utils/pricing.util.js';
 /**
  * Admin Service Class
@@ -41,8 +46,8 @@ export class AdminService {
     /**
      * List all sellers
      */
-    async listSellers() {
-        const sellers = await this.adminRepo.findAllSellers();
+    async listSellers(params) {
+        const sellers = await this.adminRepo.findAllSellers(params);
         return { sellers };
     }
     /**
@@ -104,15 +109,15 @@ export class AdminService {
     /**
      * List products pending moderation
      */
-    async listPendingProducts() {
-        const products = await this.adminRepo.findPendingProducts();
+    async listPendingProducts(params) {
+        const products = await this.adminRepo.findPendingProducts(params);
         return { products };
     }
     /**
      * List all products (admin table view)
      */
-    async listAllProducts() {
-        const products = await this.adminRepo.findAllProducts();
+    async listAllProducts(params) {
+        const products = await this.adminRepo.findAllProducts(params);
         return { products };
     }
     /**
@@ -237,12 +242,97 @@ export class AdminService {
             marginPercentage: percentage,
         };
     }
-    async pricingOverview() {
-        const products = await this.adminRepo.findProductPricingOverview();
+    async updateProductDetails(productId, actorId, payload) {
+        const product = await this.adminRepo.findProductById(productId);
+        if (!product) {
+            throw ApiError.notFound('Product not found');
+        }
+        if (product.deletedByAdmin) {
+            throw ApiError.badRequest('Deleted products cannot be updated');
+        }
+        if (payload.categoryId) {
+            const categoryExists = await categoryRepository.existsAndActive(payload.categoryId);
+            if (!categoryExists) {
+                throw ApiError.badRequest('Invalid category ID');
+            }
+        }
+        const updatePayload = {};
+        const updatedFields = [];
+        if (payload.categoryId !== undefined) {
+            updatePayload.categoryId = payload.categoryId;
+            updatedFields.push('categoryId');
+        }
+        if (payload.title !== undefined) {
+            updatePayload.title = payload.title;
+            updatedFields.push('title');
+        }
+        if (payload.description !== undefined) {
+            updatePayload.description = payload.description;
+            updatedFields.push('description');
+        }
+        if (payload.images !== undefined) {
+            updatePayload.images = payload.images;
+            updatedFields.push('images');
+        }
+        if (payload.sellerPrice !== undefined) {
+            updatePayload.sellerPrice = payload.sellerPrice;
+            updatedFields.push('sellerPrice');
+        }
+        if (payload.isPublished !== undefined) {
+            updatePayload.isPublished = payload.isPublished;
+            updatedFields.push('isPublished');
+        }
+        if (payload.occasionIds !== undefined) {
+            await occasionService.syncProductOccasions(productId, payload.occasionIds ?? []);
+            updatedFields.push('occasionIds');
+        }
+        if (Object.keys(updatePayload).length > 0) {
+            await productRepository.update(productId, updatePayload);
+        }
+        const variantUpdates = [];
+        if (payload.variants && payload.variants.length > 0) {
+            for (const variantInput of payload.variants) {
+                const variant = await variantRepository.findById(variantInput.id);
+                if (!variant || variant.productId !== productId) {
+                    throw ApiError.badRequest('One or more variant updates are invalid');
+                }
+                const variantPayload = {};
+                if (variantInput.price !== undefined) {
+                    variantPayload.price = variantInput.price;
+                }
+                if (variantInput.compareAtPrice !== undefined) {
+                    variantPayload.compareAtPrice = variantInput.compareAtPrice;
+                }
+                if (Object.keys(variantPayload).length > 0) {
+                    await variantRepository.update(variantInput.id, variantPayload);
+                }
+                if (variantInput.stock !== undefined) {
+                    await inventoryRepository.updateStock(variantInput.id, variantInput.stock);
+                }
+                variantUpdates.push(variantInput.id);
+            }
+        }
+        await invalidateProductCaches(productId);
+        const refreshed = await this.adminRepo.findProductById(productId);
+        if (!refreshed) {
+            throw ApiError.internal('Unable to reload product after updates');
+        }
+        await this.auditSvc.logAction(actorId, 'PRODUCT_UPDATED', 'PRODUCT', productId, {
+            productTitle: product.title,
+            updatedFields,
+            variantUpdates,
+        });
+        return {
+            message: 'Product updated successfully',
+            product: refreshed,
+        };
+    }
+    async pricingOverview(params) {
+        const products = await this.adminRepo.findProductPricingOverview(params);
         return { products };
     }
-    async profitAnalytics() {
-        return this.adminRepo.getProfitAnalytics();
+    async profitAnalytics(params) {
+        return this.adminRepo.getProfitAnalytics(params);
     }
     // =========================================================================
     // ORDER MANAGEMENT
@@ -250,16 +340,23 @@ export class AdminService {
     /**
      * List all orders (with caching)
      */
-    async listOrders() {
+    async listOrders(params) {
+        const page = params?.page ?? 1;
+        const limit = params?.limit ?? 20;
+        const shouldUseCache = page === 1 && limit === 20 && !params?.startDate && !params?.endDate;
         // Try cache first
-        const cached = await getFromCache(CACHE_KEYS.ADMIN_ORDERS);
-        if (cached) {
+        const cached = shouldUseCache
+            ? await getFromCache(CACHE_KEYS.ADMIN_ORDERS)
+            : null;
+        if (cached && shouldUseCache) {
             return cached;
         }
-        const orders = await this.adminRepo.findAllOrders();
+        const orders = await this.adminRepo.findAllOrders(params);
         const response = { orders };
         // Cache the result
-        await setCache(CACHE_KEYS.ADMIN_ORDERS, response);
+        if (shouldUseCache) {
+            await setCache(CACHE_KEYS.ADMIN_ORDERS, response);
+        }
         return response;
     }
     /**
@@ -334,23 +431,30 @@ export class AdminService {
     /**
      * List all payments (with caching)
      */
-    async listPayments() {
+    async listPayments(params) {
+        const page = params?.page ?? 1;
+        const limit = params?.limit ?? 20;
+        const shouldUseCache = page === 1 && limit === 20;
         // Try cache first
-        const cached = await getFromCache(CACHE_KEYS.ADMIN_PAYMENTS);
-        if (cached) {
+        const cached = shouldUseCache
+            ? await getFromCache(CACHE_KEYS.ADMIN_PAYMENTS)
+            : null;
+        if (cached && shouldUseCache) {
             return cached;
         }
-        const payments = await this.adminRepo.findAllPayments();
+        const payments = await this.adminRepo.findAllPayments(params);
         const response = { payments };
         // Cache the result
-        await setCache(CACHE_KEYS.ADMIN_PAYMENTS, response);
+        if (shouldUseCache) {
+            await setCache(CACHE_KEYS.ADMIN_PAYMENTS, response);
+        }
         return response;
     }
     /**
      * List all settlements
      */
-    async listSettlements() {
-        const settlements = await this.adminRepo.findAllSettlements();
+    async listSettlements(params) {
+        const settlements = await this.adminRepo.findAllSettlements(params);
         return { settlements };
     }
 }

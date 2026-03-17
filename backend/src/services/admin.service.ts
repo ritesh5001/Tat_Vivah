@@ -75,8 +75,8 @@ export class AdminService {
     /**
      * List all sellers
      */
-    async listSellers(): Promise<{ sellers: AdminSeller[] }> {
-        const sellers = await this.adminRepo.findAllSellers();
+    async listSellers(params?: { page?: number; limit?: number }): Promise<{ sellers: AdminSeller[] }> {
+        const sellers = await this.adminRepo.findAllSellers(params);
         return { sellers };
     }
 
@@ -150,16 +150,16 @@ export class AdminService {
     /**
      * List products pending moderation
      */
-    async listPendingProducts(): Promise<{ products: AdminProduct[] }> {
-        const products = await this.adminRepo.findPendingProducts();
+    async listPendingProducts(params?: { page?: number; limit?: number }): Promise<{ products: AdminProduct[] }> {
+        const products = await this.adminRepo.findPendingProducts(params);
         return { products };
     }
 
     /**
      * List all products (admin table view)
      */
-    async listAllProducts(): Promise<{ products: AdminProduct[] }> {
-        const products = await this.adminRepo.findAllProducts();
+    async listAllProducts(params?: { page?: number; limit?: number }): Promise<{ products: AdminProduct[] }> {
+        const products = await this.adminRepo.findAllProducts(params);
         return { products };
     }
 
@@ -452,13 +452,13 @@ export class AdminService {
         };
     }
 
-    async pricingOverview(): Promise<{ products: AdminPricingOverviewItem[] }> {
-        const products = await this.adminRepo.findProductPricingOverview();
+    async pricingOverview(params?: { page?: number; limit?: number }): Promise<{ products: AdminPricingOverviewItem[] }> {
+        const products = await this.adminRepo.findProductPricingOverview(params);
         return { products };
     }
 
-    async profitAnalytics(): Promise<AdminProfitAnalytics> {
-        return this.adminRepo.getProfitAnalytics();
+    async profitAnalytics(params?: { startDate?: Date; endDate?: Date; limit?: number }): Promise<AdminProfitAnalytics> {
+        return this.adminRepo.getProfitAnalytics(params);
     }
 
     // =========================================================================
@@ -468,18 +468,26 @@ export class AdminService {
     /**
      * List all orders (with caching)
      */
-    async listOrders(): Promise<{ orders: AdminOrder[] }> {
+    async listOrders(params?: { page?: number; limit?: number; startDate?: Date; endDate?: Date }): Promise<{ orders: AdminOrder[] }> {
+        const page = params?.page ?? 1;
+        const limit = params?.limit ?? 20;
+        const shouldUseCache = page === 1 && limit === 20 && !params?.startDate && !params?.endDate;
+
         // Try cache first
-        const cached = await getFromCache<{ orders: AdminOrder[] }>(CACHE_KEYS.ADMIN_ORDERS);
-        if (cached) {
+        const cached = shouldUseCache
+            ? await getFromCache<{ orders: AdminOrder[] }>(CACHE_KEYS.ADMIN_ORDERS)
+            : null;
+        if (cached && shouldUseCache) {
             return cached;
         }
 
-        const orders = await this.adminRepo.findAllOrders();
+        const orders = await this.adminRepo.findAllOrders(params);
         const response = { orders };
 
         // Cache the result
-        await setCache(CACHE_KEYS.ADMIN_ORDERS, response);
+        if (shouldUseCache) {
+            await setCache(CACHE_KEYS.ADMIN_ORDERS, response);
+        }
 
         return response;
     }
@@ -570,18 +578,26 @@ export class AdminService {
     /**
      * List all payments (with caching)
      */
-    async listPayments(): Promise<{ payments: AdminPayment[] }> {
+    async listPayments(params?: { page?: number; limit?: number }): Promise<{ payments: AdminPayment[] }> {
+        const page = params?.page ?? 1;
+        const limit = params?.limit ?? 20;
+        const shouldUseCache = page === 1 && limit === 20;
+
         // Try cache first
-        const cached = await getFromCache<{ payments: AdminPayment[] }>(CACHE_KEYS.ADMIN_PAYMENTS);
-        if (cached) {
+        const cached = shouldUseCache
+            ? await getFromCache<{ payments: AdminPayment[] }>(CACHE_KEYS.ADMIN_PAYMENTS)
+            : null;
+        if (cached && shouldUseCache) {
             return cached;
         }
 
-        const payments = await this.adminRepo.findAllPayments();
+        const payments = await this.adminRepo.findAllPayments(params);
         const response = { payments };
 
         // Cache the result
-        await setCache(CACHE_KEYS.ADMIN_PAYMENTS, response);
+        if (shouldUseCache) {
+            await setCache(CACHE_KEYS.ADMIN_PAYMENTS, response);
+        }
 
         return response;
     }
@@ -589,8 +605,8 @@ export class AdminService {
     /**
      * List all settlements
      */
-    async listSettlements(): Promise<{ settlements: AdminSettlement[] }> {
-        const settlements = await this.adminRepo.findAllSettlements();
+    async listSettlements(params?: { page?: number; limit?: number }): Promise<{ settlements: AdminSettlement[] }> {
+        const settlements = await this.adminRepo.findAllSettlements(params);
         return { settlements };
     }
 }

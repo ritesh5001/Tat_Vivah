@@ -84,7 +84,7 @@ export class RecommendationService {
                 },
             },
             select: { productId: true },
-            take: 1000,
+            take: 100,
         });
 
         const recentlyViewedIdsPromise = redis.zrange<string[]>(

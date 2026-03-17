@@ -13,6 +13,14 @@ import type {
  * Handles database operations for products
  */
 export class ProductRepository {
+    private resolvePagination(page?: number, limit?: number): { skip: number; take: number } {
+        const pRaw = Number(page ?? 1);
+        const lRaw = Number(limit ?? 20);
+        const p = Number.isFinite(pRaw) && pRaw > 0 ? Math.trunc(pRaw) : 1;
+        const l = Math.min(100, Math.max(1, Number.isFinite(lRaw) ? Math.trunc(lRaw) : 20));
+        return { skip: (p - 1) * l, take: l };
+    }
+
     private mapProductDecimals<T extends { sellerPrice: unknown; adminListingPrice: unknown }>(product: T): Omit<T, 'sellerPrice' | 'adminListingPrice'> & { sellerPrice: number; adminListingPrice: number | null } {
         return {
             ...product,
@@ -100,7 +108,8 @@ export class ProductRepository {
     /**
      * Find all products for a seller
      */
-    async findBySellerId(sellerId: string): Promise<ProductWithDetails[]> {
+    async findBySellerId(sellerId: string, params?: { page?: number; limit?: number }): Promise<ProductWithDetails[]> {
+        const { skip, take } = this.resolvePagination(params?.page, params?.limit);
         const products = await prisma.product.findMany({
             where: { sellerId },
             include: {
@@ -112,7 +121,8 @@ export class ProductRepository {
                 },
             },
             orderBy: { createdAt: 'desc' },
-            take: 500,
+            skip,
+            take,
         });
 
         return products.map((product) => this.mapProductDecimals(product)) as ProductWithDetails[];

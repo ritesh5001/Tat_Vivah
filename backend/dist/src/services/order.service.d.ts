@@ -11,7 +11,12 @@ export declare class OrderService {
      * List buyer's orders
      * Uses Redis caching
      */
-    listBuyerOrders(userId: string): Promise<BuyerOrderListResponse>;
+    listBuyerOrders(userId: string, params?: {
+        page?: number;
+        limit?: number;
+        startDate?: Date;
+        endDate?: Date;
+    }): Promise<BuyerOrderListResponse>;
     /**
      * Get buyer's order detail
      * Uses Redis caching
@@ -21,7 +26,12 @@ export declare class OrderService {
      * List seller's order items
      * No caching (frequently changing data)
      */
-    listSellerOrders(sellerId: string): Promise<SellerOrderListResponse>;
+    listSellerOrders(sellerId: string, params?: {
+        page?: number;
+        limit?: number;
+        startDate?: Date;
+        endDate?: Date;
+    }): Promise<SellerOrderListResponse>;
     /**
      * Get seller's view of an order (only their items)
      */

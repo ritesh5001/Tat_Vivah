@@ -24,6 +24,7 @@ export interface OrderEntity {
     shippingAddressLine1?: string | null;
     shippingAddressLine2?: string | null;
     shippingCity?: string | null;
+    shippingPincode?: string | null;
     shippingNotes?: string | null;
     createdAt: Date;
 }
@@ -104,6 +105,7 @@ export interface SellerOrderItem extends OrderItemEntity {
         shippingAddressLine1?: string | null;
         shippingAddressLine2?: string | null;
         shippingCity?: string | null;
+        shippingPincode?: string | null;
         shippingNotes?: string | null;
     };
     productTitle: string | undefined;
@@ -121,6 +123,7 @@ export interface CreateOrderRequest {
     shippingAddressLine1?: string | null;
     shippingAddressLine2?: string | null;
     shippingCity?: string | null;
+    shippingPincode?: string | null;
     shippingNotes?: string | null;
     items: CreateOrderItemRequest[];
 }

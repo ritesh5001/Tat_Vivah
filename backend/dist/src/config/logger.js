@@ -44,4 +44,5 @@ export const shippingLogger = logger.child({ module: 'shipping' });
 export const notificationLogger = logger.child({ module: 'notifications' });
 export const authLogger = logger.child({ module: 'auth' });
 export const ordersLogger = logger.child({ module: 'orders' });
+export const reelLogger = logger.child({ module: 'reels' });
 //# sourceMappingURL=logger.js.map

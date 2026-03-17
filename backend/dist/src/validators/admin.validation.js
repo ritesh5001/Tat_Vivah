@@ -3,6 +3,7 @@
  * Zod schemas for admin API request validation
  */
 import { z } from 'zod';
+import { updateProductSchema } from './product.validation.js';
 // ============================================================================
 // SELLER MANAGEMENT
 // ============================================================================
@@ -22,6 +23,33 @@ export const productSetPriceSchema = z.object({
     adminListingPrice: z
         .number({ invalid_type_error: 'Admin listing price must be a number' })
         .positive('Admin listing price must be positive'),
+});
+const adminVariantUpdateSchema = z.object({
+    id: z.string().min(1, 'Variant ID is required'),
+    price: z
+        .number({ invalid_type_error: 'Variant price must be a number' })
+        .positive('Variant price must be positive')
+        .optional(),
+    compareAtPrice: z
+        .number({ invalid_type_error: 'Compare-at price must be a number' })
+        .nullable()
+        .optional(),
+    stock: z
+        .number({ invalid_type_error: 'Stock must be a number' })
+        .int('Stock must be an integer')
+        .nonnegative('Stock must be zero or more')
+        .optional(),
+}).refine((value) => value.price !== undefined ||
+    value.compareAtPrice !== undefined ||
+    value.stock !== undefined, {
+    message: 'Provide at least one field to update per variant',
+});
+export const adminProductUpdateSchema = updateProductSchema.extend({
+    sellerPrice: z
+        .number({ invalid_type_error: 'Seller price must be a number' })
+        .positive('Seller price must be positive')
+        .optional(),
+    variants: z.array(adminVariantUpdateSchema).optional(),
 });
 // ============================================================================
 // ORDER MANAGEMENT

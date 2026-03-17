@@ -30,6 +30,7 @@ export class RecommendationService {
                 productId: true,
                 product: { select: { categoryId: true } },
             },
+            take: 500,
         });
         const purchasedOrderItemsPromise = prisma.orderItem.findMany({
             where: {
@@ -39,6 +40,7 @@ export class RecommendationService {
                 },
             },
             select: { productId: true },
+            take: 100,
         });
         const recentlyViewedIdsPromise = redis.zrange(recentlyViewedKey(userId), 0, 49, { rev: true });
         const affinityRawPromise = redis.zrange(categoryAffinityKey(userId), 0, 50, { rev: true, withScores: true });

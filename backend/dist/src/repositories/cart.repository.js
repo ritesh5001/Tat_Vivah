@@ -100,6 +100,7 @@ export class CartRepository {
     }
     /**
      * Get cart items with product and variant details
+     * Uses batch lookups (2 queries) instead of 2N individual queries.
      */
     async getCartWithDetails(userId) {
         const cart = await prisma.cart.findUnique({
@@ -110,26 +111,32 @@ export class CartRepository {
                 },
             },
         });
-        if (!cart) {
-            return null;
+        if (!cart || cart.items.length === 0) {
+            return cart ? { ...cart, items: [] } : null;
         }
-        // Fetch product and variant details for each item
-        const itemsWithDetails = await Promise.all(cart.items.map(async (item) => {
-            const [product, variant] = await Promise.all([
-                prisma.product.findUnique({
-                    where: { id: item.productId },
-                    select: { id: true, title: true, sellerId: true, adminListingPrice: true, sellerPrice: true },
-                }),
-                prisma.productVariant.findUnique({
-                    where: { id: item.variantId },
-                    select: {
-                        id: true,
-                        sku: true,
-                        price: true,
-                        inventory: { select: { stock: true } },
-                    },
-                }),
-            ]);
+        // Batch lookup — 2 queries total instead of 2N
+        const productIds = [...new Set(cart.items.map((item) => item.productId))];
+        const variantIds = [...new Set(cart.items.map((item) => item.variantId))];
+        const [products, variants] = await Promise.all([
+            prisma.product.findMany({
+                where: { id: { in: productIds } },
+                select: { id: true, title: true, sellerId: true, adminListingPrice: true, sellerPrice: true },
+            }),
+            prisma.productVariant.findMany({
+                where: { id: { in: variantIds } },
+                select: {
+                    id: true,
+                    sku: true,
+                    price: true,
+                    inventory: { select: { stock: true } },
+                },
+            }),
+        ]);
+        const productMap = new Map(products.map((p) => [p.id, p]));
+        const variantMap = new Map(variants.map((v) => [v.id, v]));
+        const itemsWithDetails = cart.items.map((item) => {
+            const product = productMap.get(item.productId);
+            const variant = variantMap.get(item.variantId);
             return {
                 ...item,
                 product: product
@@ -150,7 +157,7 @@ export class CartRepository {
                     }
                     : undefined,
             };
-        }));
+        });
         return {
             ...cart,
             items: itemsWithDetails,

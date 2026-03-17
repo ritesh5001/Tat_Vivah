@@ -4,6 +4,13 @@ import { prisma } from '../config/db.js';
  * Handles database operations for products
  */
 export class ProductRepository {
+    resolvePagination(page, limit) {
+        const pRaw = Number(page ?? 1);
+        const lRaw = Number(limit ?? 20);
+        const p = Number.isFinite(pRaw) && pRaw > 0 ? Math.trunc(pRaw) : 1;
+        const l = Math.min(100, Math.max(1, Number.isFinite(lRaw) ? Math.trunc(lRaw) : 20));
+        return { skip: (p - 1) * l, take: l };
+    }
     mapProductDecimals(product) {
         return {
             ...product,
@@ -17,7 +24,7 @@ export class ProductRepository {
      * Find published products with pagination and filters
      */
     async findPublished(filters) {
-        const { page = 1, limit = 20, categoryId, search } = filters;
+        const { page = 1, limit = 20, categoryId, search, occasion } = filters;
         const skip = (page - 1) * limit;
         const where = {
             status: 'APPROVED',
@@ -31,6 +38,17 @@ export class ProductRepository {
                 ],
             }),
         };
+        // Use Prisma relational filtering for occasion slug
+        if (occasion) {
+            where.occasions = {
+                some: {
+                    occasion: {
+                        slug: occasion,
+                        isActive: true,
+                    },
+                },
+            };
+        }
         const [products, total] = await Promise.all([
             prisma.product.findMany({
                 where,
@@ -68,7 +86,8 @@ export class ProductRepository {
     /**
      * Find all products for a seller
      */
-    async findBySellerId(sellerId) {
+    async findBySellerId(sellerId, params) {
+        const { skip, take } = this.resolvePagination(params?.page, params?.limit);
         const products = await prisma.product.findMany({
             where: { sellerId },
             include: {
@@ -80,6 +99,8 @@ export class ProductRepository {
                 },
             },
             orderBy: { createdAt: 'desc' },
+            skip,
+            take,
         });
         return products.map((product) => this.mapProductDecimals(product));
     }
@@ -144,6 +165,8 @@ export class ProductRepository {
                 ...(data.title !== undefined && { title: data.title }),
                 ...(data.description !== undefined && { description: data.description }),
                 ...(data.images !== undefined && { images: data.images }),
+                ...(data.sellerPrice !== undefined && { sellerPrice: data.sellerPrice }),
+                ...(data.isPublished !== undefined && { isPublished: data.isPublished }),
             },
         });
         return this.mapProductDecimals(product);

@@ -41,6 +41,7 @@ export class WishlistService {
         const items = await prisma.wishlistItem.findMany({
             where: { wishlistId: wishlist.id },
             orderBy: { createdAt: 'desc' },
+            take: 500,
             include: {
                 product: {
                     select: {

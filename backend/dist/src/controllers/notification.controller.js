@@ -14,7 +14,7 @@ export class NotificationController {
      */
     async listNotifications(req, res, next) {
         try {
-            const userId = req.user?.id;
+            const userId = req.user?.userId;
             if (!userId) {
                 res.status(401).json({ success: false, message: 'Unauthorized' });
                 return;
@@ -58,7 +58,7 @@ export class NotificationController {
      */
     async getUnreadCount(req, res, next) {
         try {
-            const userId = req.user?.id;
+            const userId = req.user?.userId;
             if (!userId) {
                 res.status(401).json({ success: false, message: 'Unauthorized' });
                 return;
@@ -79,7 +79,7 @@ export class NotificationController {
      */
     async markAsRead(req, res, next) {
         try {
-            const userId = req.user?.id;
+            const userId = req.user?.userId;
             if (!userId) {
                 res.status(401).json({ success: false, message: 'Unauthorized' });
                 return;

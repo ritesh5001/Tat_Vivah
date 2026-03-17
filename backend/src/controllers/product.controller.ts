@@ -33,6 +33,12 @@ export class ProductController {
         next(ApiError.badRequest('Validation failed', details));
     }
 
+    private parsePositiveInt(value: unknown, fallback: number): number {
+        const n = Number(value);
+        if (!Number.isFinite(n) || n < 1) return fallback;
+        return Math.trunc(n);
+    }
+
     // =========================================================================
     // PUBLIC ENDPOINTS (Buyer)
     // =========================================================================
@@ -126,7 +132,9 @@ export class ProductController {
                 throw ApiError.unauthorized('Authentication required');
             }
 
-            const result = await this.service.listSellerProducts(req.user.userId);
+            const page = this.parsePositiveInt(req.query['page'], 1);
+            const limit = this.parsePositiveInt(req.query['limit'], 20);
+            const result = await this.service.listSellerProducts(req.user.userId, { page, limit });
             res.status(200).json(result);
         } catch (error) {
             next(error);

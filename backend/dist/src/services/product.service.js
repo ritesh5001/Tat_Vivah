@@ -4,6 +4,7 @@ import { inventoryRepository } from '../repositories/inventory.repository.js';
 import { categoryRepository } from '../repositories/category.repository.js';
 import { getFromCache, setCache, invalidateProductCaches, CACHE_KEYS, } from '../utils/cache.util.js';
 import { ApiError } from '../errors/ApiError.js';
+import { occasionService } from './occasion.service.js';
 /**
  * Product Service
  * Business logic for product, variant, and inventory operations
@@ -13,11 +14,13 @@ export class ProductService {
     variantRepo;
     inventoryRepo;
     categoryRepo;
-    constructor(productRepo, variantRepo, inventoryRepo, categoryRepo) {
+    occasionSvc;
+    constructor(productRepo, variantRepo, inventoryRepo, categoryRepo, occasionSvc) {
         this.productRepo = productRepo;
         this.variantRepo = variantRepo;
         this.inventoryRepo = inventoryRepo;
         this.categoryRepo = categoryRepo;
+        this.occasionSvc = occasionSvc;
     }
     toNumber(value) {
         if (typeof value === 'number')
@@ -25,7 +28,6 @@ export class ProductService {
         return Number(value ?? 0);
     }
     toPublicProduct(product) {
-        const sellerPrice = this.toNumber(product.sellerPrice);
         const adminPrice = this.toNumber(product.adminListingPrice);
         return {
             id: product.id,
@@ -38,18 +40,17 @@ export class ProductService {
             createdAt: product.createdAt,
             updatedAt: product.updatedAt,
             category: product.category,
-            regularPrice: sellerPrice,
-            sellerPrice,
+            regularPrice: adminPrice,
             adminPrice,
             salePrice: adminPrice,
             price: adminPrice,
         };
     }
     toPublicProductDetail(product) {
-        const sellerPrice = this.toNumber(product.sellerPrice);
         const listingPrice = this.toNumber(product.adminListingPrice);
         return {
             id: product.id,
+            sellerId: product.sellerId,
             categoryId: product.categoryId,
             title: product.title,
             description: product.description ?? null,
@@ -59,8 +60,7 @@ export class ProductService {
             createdAt: product.createdAt,
             updatedAt: product.updatedAt,
             category: product.category,
-            regularPrice: sellerPrice,
-            sellerPrice,
+            regularPrice: listingPrice,
             adminPrice: listingPrice,
             salePrice: listingPrice,
             price: listingPrice,
@@ -91,7 +91,7 @@ export class ProductService {
      */
     async listProducts(filters) {
         // Only cache if no filters (default listing)
-        const useCache = !filters.categoryId && !filters.search && filters.page === 1;
+        const useCache = !filters.categoryId && !filters.search && !filters.occasion && filters.page === 1;
         if (useCache) {
             const cached = await getFromCache(CACHE_KEYS.PRODUCTS_LIST);
             if (cached) {
@@ -123,7 +123,7 @@ export class ProductService {
     async getProductById(id) {
         // Try cache first
         const cached = await getFromCache(CACHE_KEYS.PRODUCT_DETAIL(id));
-        if (cached) {
+        if (cached?.product?.sellerId) {
             return cached;
         }
         const product = await this.productRepo.findPublishedById(id);
@@ -148,6 +148,10 @@ export class ProductService {
             throw ApiError.badRequest('Invalid category ID');
         }
         const product = await this.productRepo.create(sellerId, data);
+        // Sync occasion associations if provided
+        if (data.occasionIds && data.occasionIds.length > 0) {
+            await this.occasionSvc.syncProductOccasions(product.id, data.occasionIds);
+        }
         // Invalidate product list cache
         await invalidateProductCaches();
         return {
@@ -159,8 +163,8 @@ export class ProductService {
      * List seller's own products
      * No caching (private data)
      */
-    async listSellerProducts(sellerId) {
-        const products = await this.productRepo.findBySellerId(sellerId);
+    async listSellerProducts(sellerId, params) {
+        const products = await this.productRepo.findBySellerId(sellerId, params);
         return { products: products.map((product) => this.toSellerProduct(product)) };
     }
     /**
@@ -180,6 +184,10 @@ export class ProductService {
             }
         }
         const product = await this.productRepo.update(productId, data);
+        // Sync occasion associations if provided
+        if (data.occasionIds !== undefined) {
+            await this.occasionSvc.syncProductOccasions(productId, data.occasionIds ?? []);
+        }
         // Invalidate caches
         await invalidateProductCaches(productId);
         return {
@@ -267,5 +275,5 @@ export class ProductService {
     }
 }
 // Export singleton instance with default repositories
-export const productService = new ProductService(productRepository, variantRepository, inventoryRepository, categoryRepository);
+export const productService = new ProductService(productRepository, variantRepository, inventoryRepository, categoryRepository, occasionService);
 //# sourceMappingURL=product.service.js.map

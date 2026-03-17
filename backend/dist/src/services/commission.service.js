@@ -156,6 +156,7 @@ class CommissionService {
                 order: { select: { id: true, totalAmount: true, status: true, invoiceNumber: true } },
             },
             orderBy: { createdAt: 'desc' },
+            take: 100,
         });
         return { settlements };
     }

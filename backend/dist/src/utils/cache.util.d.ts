@@ -6,6 +6,7 @@ export declare const CACHE_KEYS: {
     readonly PRODUCTS_LIST: "products:list";
     readonly PRODUCT_DETAIL: (id: string) => string;
     readonly BESTSELLERS_LIST: "products:bestsellers";
+    readonly OCCASIONS_LIST: "occasions:list";
     readonly CART: (userId: string) => string;
     readonly BUYER_ORDERS: (userId: string) => string;
     readonly ORDER_DETAIL: (orderId: string) => string;

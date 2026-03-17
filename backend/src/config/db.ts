@@ -10,29 +10,34 @@ const globalForPrisma = globalThis as unknown as {
     __prisma: PrismaClient | undefined;
 };
 
+function getIntEnv(name: string, fallback: number, min: number, max: number): number {
+    const raw = process.env[name];
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed)) return fallback;
+    const n = Math.trunc(parsed);
+    if (n < min) return min;
+    if (n > max) return max;
+    return n;
+}
+
 function buildPrismaDatabaseUrl(rawUrl: string): string {
     try {
         const parsed = new URL(rawUrl);
         const isPooledHost = parsed.hostname.includes('-pooler.');
 
+        const pooledConnectionLimit = getIntEnv('DB_POOL_CONNECTION_LIMIT', 10, 1, 100);
+        const pooledPoolTimeout = getIntEnv('DB_POOL_TIMEOUT', 20, 1, 120);
+        const directConnectionLimit = getIntEnv('DB_DIRECT_CONNECTION_LIMIT', 5, 1, 100);
+
         if (isPooledHost) {
-            if (!parsed.searchParams.has('pgbouncer')) {
-                parsed.searchParams.set('pgbouncer', 'true');
-            }
-
-            if (!parsed.searchParams.has('connection_limit')) {
-                parsed.searchParams.set('connection_limit', '1');
-            }
-
-            // Prevent Prisma from waiting indefinitely for a pooled connection
-            if (!parsed.searchParams.has('pool_timeout')) {
-                parsed.searchParams.set('pool_timeout', '15');
-            }
+            parsed.searchParams.set('pgbouncer', 'true');
+            parsed.searchParams.set('connection_limit', String(pooledConnectionLimit));
+            parsed.searchParams.set('pool_timeout', String(pooledPoolTimeout));
         }
 
-        // For non-pooled (direct) connections, set a reasonable pool size
+        // For non-pooled (direct) connections, keep a smaller default pool size.
         if (!isPooledHost && !parsed.searchParams.has('connection_limit')) {
-            parsed.searchParams.set('connection_limit', '5');
+            parsed.searchParams.set('connection_limit', String(directConnectionLimit));
         }
 
         return parsed.toString();

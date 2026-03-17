@@ -58,6 +58,10 @@ export declare class CategoryRepository {
      */
     hasProducts(id: string): Promise<boolean>;
     /**
+     * Remove soft-deleted products that still reference the category
+     */
+    purgeSoftDeletedProducts(categoryId: string): Promise<void>;
+    /**
      * Hard delete a category
      */
     delete(id: string): Promise<void>;

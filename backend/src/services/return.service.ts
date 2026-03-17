@@ -258,7 +258,7 @@ export class ReturnService {
                 ...(filters.orderId ? { orderId: filters.orderId } : {}),
             },
             orderBy: { createdAt: 'desc' },
-            take: 1000,
+            take: 100,
             include: {
                 items: true,
                 user: {

@@ -119,6 +119,7 @@ export class CategoryService {
         if (hasProducts) {
             throw ApiError.badRequest('Cannot delete category that has products. Reassign products first.');
         }
+        await this.repository.purgeSoftDeletedProducts(id);
         await this.repository.delete(id);
         await invalidateCache(CACHE_KEYS.CATEGORIES_LIST);
     }

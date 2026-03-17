@@ -98,13 +98,13 @@ export interface PublicProductWithCategory {
     updatedAt: Date;
     category: CategoryEntity;
     regularPrice: number;
-    sellerPrice: number;
     adminPrice: number;
     salePrice: number;
     price: number;
 }
 export interface PublicProductWithDetails {
     id: string;
+    sellerId: string;
     categoryId: string;
     title: string;
     description: string | null;
@@ -116,7 +116,6 @@ export interface PublicProductWithDetails {
     category: CategoryEntity;
     variants: PublicProductVariant[];
     regularPrice: number;
-    sellerPrice: number;
     adminPrice: number;
     salePrice: number;
     price: number;
@@ -131,6 +130,7 @@ export interface CreateProductRequest {
     description?: string | undefined;
     isPublished?: boolean | undefined;
     images?: string[] | undefined;
+    occasionIds?: string[] | undefined;
 }
 /**
  * Update product request
@@ -140,6 +140,9 @@ export interface UpdateProductRequest {
     title?: string | undefined;
     description?: string | undefined;
     images?: string[] | undefined;
+    sellerPrice?: number | undefined;
+    isPublished?: boolean | undefined;
+    occasionIds?: string[] | undefined;
 }
 /**
  * Create variant request
@@ -171,6 +174,7 @@ export interface ProductQueryFilters {
     limit?: number | undefined;
     categoryId?: string | undefined;
     search?: string | undefined;
+    occasion?: string | undefined;
 }
 /**
  * Paginated response

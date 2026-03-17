@@ -208,8 +208,11 @@ export class ProductService {
      * List seller's own products
      * No caching (private data)
      */
-    async listSellerProducts(sellerId: string): Promise<SellerProductListResponse> {
-        const products = await this.productRepo.findBySellerId(sellerId);
+    async listSellerProducts(
+        sellerId: string,
+        params?: { page?: number; limit?: number }
+    ): Promise<SellerProductListResponse> {
+        const products = await this.productRepo.findBySellerId(sellerId, params);
         return { products: products.map((product) => this.toSellerProduct(product)) };
     }
 

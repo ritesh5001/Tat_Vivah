@@ -27,4 +27,5 @@ export declare const shippingLogger: pino.Logger<never, boolean>;
 export declare const notificationLogger: pino.Logger<never, boolean>;
 export declare const authLogger: pino.Logger<never, boolean>;
 export declare const ordersLogger: pino.Logger<never, boolean>;
+export declare const reelLogger: pino.Logger<never, boolean>;
 //# sourceMappingURL=logger.d.ts.map

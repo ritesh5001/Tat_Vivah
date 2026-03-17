@@ -8,6 +8,8 @@ export const CACHE_KEYS = {
     PRODUCTS_LIST: 'products:list',
     PRODUCT_DETAIL: (id) => `products:detail:${id}`,
     BESTSELLERS_LIST: 'products:bestsellers',
+    // Occasions domain
+    OCCASIONS_LIST: 'occasions:list',
     // Cart & Orders domain
     CART: (userId) => `cart:${userId}`,
     BUYER_ORDERS: (userId) => `orders:buyer:${userId}`,

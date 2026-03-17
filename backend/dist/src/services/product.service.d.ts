@@ -2,6 +2,7 @@ import { ProductRepository } from '../repositories/product.repository.js';
 import { VariantRepository } from '../repositories/variant.repository.js';
 import { InventoryRepository } from '../repositories/inventory.repository.js';
 import { CategoryRepository } from '../repositories/category.repository.js';
+import { OccasionService } from './occasion.service.js';
 import type { ProductQueryFilters, ProductListResponse, ProductDetailResponse, SellerProductListResponse, ProductCreateResponse, ProductUpdateResponse, ProductDeleteResponse, VariantCreateResponse, VariantUpdateResponse, StockUpdateResponse, CreateProductRequest, UpdateProductRequest, CreateVariantRequest, UpdateVariantRequest } from '../types/product.types.js';
 /**
  * Product Service
@@ -12,7 +13,8 @@ export declare class ProductService {
     private readonly variantRepo;
     private readonly inventoryRepo;
     private readonly categoryRepo;
-    constructor(productRepo: ProductRepository, variantRepo: VariantRepository, inventoryRepo: InventoryRepository, categoryRepo: CategoryRepository);
+    private readonly occasionSvc;
+    constructor(productRepo: ProductRepository, variantRepo: VariantRepository, inventoryRepo: InventoryRepository, categoryRepo: CategoryRepository, occasionSvc: OccasionService);
     private toNumber;
     private toPublicProduct;
     private toPublicProductDetail;
@@ -35,7 +37,10 @@ export declare class ProductService {
      * List seller's own products
      * No caching (private data)
      */
-    listSellerProducts(sellerId: string): Promise<SellerProductListResponse>;
+    listSellerProducts(sellerId: string, params?: {
+        page?: number;
+        limit?: number;
+    }): Promise<SellerProductListResponse>;
     /**
      * Update a product (seller only, ownership enforced)
      */
