@@ -154,6 +154,7 @@ export class AuthService {
         const payload: SignupOtpPayload = {
             email: data.email,
             phone: data.phone,
+            whatsappNumber: data.whatsappNumber,
             passwordHash,
             role: 'SELLER',
         };
@@ -326,6 +327,7 @@ export class AuthService {
         const created = await this.repository.createUser({
             email: payload.email,
             phone: payload.phone,
+            whatsappNumber: payload.role === 'SELLER' ? (payload.whatsappNumber ?? null) : null,
             passwordHash: payload.passwordHash,
             role: payload.role,
             status,

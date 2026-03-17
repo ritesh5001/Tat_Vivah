@@ -13,6 +13,7 @@ export interface RegisterUserPayload {
 export interface RegisterSellerPayload {
   email: string;
   phone: string;
+  whatsappNumber: string;
   password: string;
 }
 

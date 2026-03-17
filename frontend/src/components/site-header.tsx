@@ -28,6 +28,7 @@ const buyerLinks = [
 const sellerLinks = [
   { href: "/seller/dashboard", label: "Overview" },
   { href: "/seller/orders", label: "Orders" },
+  { href: "/seller/appointments", label: "Appointments" },
   { href: "/seller/products", label: "Products" },
   { href: "/seller/analytics", label: "Analytics" },
   { href: "/seller/settlements", label: "Payouts" },
@@ -37,6 +38,7 @@ const sellerLinks = [
 const adminLinks = [
   { href: "/admin/dashboard", label: "Overview" },
   { href: "/admin/sellers", label: "Sellers" },
+  { href: "/admin/appointments", label: "Appointments" },
   { href: "/admin/categories", label: "Categories" },
   { href: "/admin/products", label: "Products" },
   { href: "/admin/bestsellers", label: "Bestsellers" },
@@ -165,6 +167,7 @@ export function SiteHeader() {
       ...buyerLinks,
       { href: "/user/dashboard", label: "Dashboard" },
       { href: "/user/orders", label: "Orders" },
+      { href: "/user/appointments", label: "Appointments" },
     ];
   }, [role, user]);
 

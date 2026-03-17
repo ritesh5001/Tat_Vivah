@@ -7,6 +7,7 @@ export interface UserEntity {
     id: string;
     email: string | null;
     phone: string | null;
+    whatsappNumber: string | null;
     passwordHash: string;
     role: Role;
     status: UserStatus;
@@ -23,6 +24,7 @@ export interface SafeUser {
     id: string;
     email: string | null;
     phone: string | null;
+    whatsappNumber: string | null;
     role: Role;
     status: UserStatus;
     isEmailVerified: boolean;
@@ -66,6 +68,7 @@ export interface RegisterUserRequest {
 export interface RegisterSellerRequest {
     email: string;
     phone: string;
+    whatsappNumber: string;
     password: string;
 }
 
@@ -192,6 +195,7 @@ export interface CreateSessionData {
 export interface CreateUserData {
     email: string;
     phone: string;
+    whatsappNumber?: string | null;
     passwordHash: string;
     role: Role;
     status: UserStatus;

@@ -23,6 +23,7 @@ export { checkoutRouter } from './checkout.routes.js';
 export { couponRouter } from './coupon.routes.js';
 export { orderRouter } from './order.routes.js';
 export { sellerOrderRouter } from './seller-order.routes.js';
+export { appointmentRouter } from './appointment.routes.js';
 export { cancellationRouter } from './cancellation.routes.js';
 export { returnRouter } from './return.routes.js';
 

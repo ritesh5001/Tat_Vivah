@@ -20,6 +20,7 @@ import {
     couponRouter,
     orderRouter,
     sellerOrderRouter,
+    appointmentRouter,
     cancellationRouter,
     returnRouter,
     paymentRouter,
@@ -198,6 +199,7 @@ export function createApp(): Application {
     app.use('/v1/coupons', couponRouter);
     app.use('/v1/orders', orderRouter);
     app.use('/v1/seller/orders', sellerOrderRouter);
+    app.use('/v1/appointments', appointmentRouter);
     app.use('/v1/cancellations', cancellationRouter);
     app.use('/v1/returns', returnRouter);
 

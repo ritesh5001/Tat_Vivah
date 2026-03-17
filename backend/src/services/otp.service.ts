@@ -10,6 +10,7 @@ const OTP_EXPIRY_MINUTES = 10;
 export type SignupOtpPayload = {
     email: string;
     phone: string;
+    whatsappNumber?: string;
     passwordHash: string;
     role: 'USER' | 'SELLER';
     fullName?: string;
