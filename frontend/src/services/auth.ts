@@ -66,7 +66,7 @@ export interface VerifyOtpResponse {
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
 const isProd = process.env.NODE_ENV === "production";
-const cookieDomain = isProd ? "; domain=.tatvivahtrends.com" : "";
+const cookieDomain = isProd ? "; domain=.tatvivahtrends.com; SameSite=Lax; Secure" : "";
 
 export function clearAuthSession(): void {
   if (typeof document === "undefined") return;

@@ -28,7 +28,7 @@ function getErrorMessage(data: any, fallback: string) {
 }
 
 const isProd = process.env.NODE_ENV === "production";
-const cookieDomain = isProd ? "; domain=.tatvivahtrends.com" : "";
+const cookieDomain = isProd ? "; domain=.tatvivahtrends.com; SameSite=Lax; Secure" : "";
 
 function clearAuthCookies() {
   if (typeof document === "undefined") return;
