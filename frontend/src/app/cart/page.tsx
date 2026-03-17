@@ -192,7 +192,7 @@ export default function CartPage() {
                   >
                     <div className="flex gap-6">
                       {/* Product Image - Gallery Frame */}
-                      <div className="w-24 h-28 sm:w-32 sm:h-36 flex-shrink-0 bg-cream dark:bg-brown/20 p-2 border border-border-soft">
+                      <div className="w-24 h-28 sm:w-32 sm:h-36 shrink-0 bg-cream dark:bg-brown/20 p-2 border border-border-soft">
                         <div className="w-full h-full bg-card flex items-center justify-center">
                           <span className="text-[10px] text-muted-foreground/50 uppercase tracking-wider">
                             Image

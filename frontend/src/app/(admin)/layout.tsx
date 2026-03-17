@@ -14,7 +14,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <div className="min-h-screen bg-background text-foreground">
       <AdminHeader />
-      <div className="mx-auto flex w-full max-w-[1600px]">
+      <div className="mx-auto flex w-full max-w-400">
         <AdminSidebar />
         <main className="min-h-[calc(100vh-112px)] flex-1">{children}</main>
       </div>
