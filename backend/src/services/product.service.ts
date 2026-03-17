@@ -71,6 +71,7 @@ export class ProductService {
         const listingPrice = this.toNumber(product.adminListingPrice);
         return {
             id: product.id,
+            sellerId: product.sellerId,
             categoryId: product.categoryId,
             title: product.title,
             description: product.description ?? null,
@@ -153,7 +154,7 @@ export class ProductService {
     async getProductById(id: string): Promise<ProductDetailResponse> {
         // Try cache first
         const cached = await getFromCache<ProductDetailResponse>(CACHE_KEYS.PRODUCT_DETAIL(id));
-        if (cached) {
+        if (cached?.product?.sellerId) {
             return cached;
         }
 
