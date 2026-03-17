@@ -166,6 +166,7 @@ export default function CartPage() {
                 </div>
                 <Link
                   href="/marketplace"
+                  prefetch={false}
                   className="inline-flex h-12 items-center justify-center bg-charcoal px-8 text-xs font-medium uppercase tracking-[0.15em] text-ivory transition-all duration-400 hover:bg-brown dark:bg-gold dark:text-charcoal dark:hover:bg-gold-muted"
                 >
                   Explore Collection
@@ -334,6 +335,7 @@ export default function CartPage() {
 
                 <Link
                   href="/marketplace"
+                  prefetch={false}
                   className="block text-center text-xs font-medium uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors duration-300"
                 >
                   Continue Exploring
