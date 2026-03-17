@@ -90,17 +90,16 @@ export class ProductService {
      * Uses Redis caching
      */
     async listProducts(filters) {
-        // Only cache if no filters (default listing)
-        const useCache = !filters.categoryId && !filters.search && !filters.occasion && filters.page === 1;
-        if (useCache) {
-            const cached = await getFromCache(CACHE_KEYS.PRODUCTS_LIST);
-            if (cached) {
-                return cached;
-            }
-        }
-        const { products, total } = await this.productRepo.findPublished(filters);
         const page = filters.page ?? 1;
         const limit = filters.limit ?? 20;
+        const cacheKey = !filters.categoryId && !filters.search && !filters.occasion && page === 1 && limit === 20
+            ? CACHE_KEYS.PRODUCTS_LIST
+            : CACHE_KEYS.PRODUCTS_LIST_FILTERED(page, limit, filters.categoryId, filters.search, filters.occasion);
+        const cached = await getFromCache(cacheKey);
+        if (cached) {
+            return cached;
+        }
+        const { products, total } = await this.productRepo.findPublished(filters);
         const response = {
             data: products.map((product) => this.toPublicProduct(product)),
             pagination: {
@@ -110,10 +109,7 @@ export class ProductService {
                 totalPages: Math.ceil(total / limit),
             },
         };
-        // Cache only default listing
-        if (useCache) {
-            await setCache(CACHE_KEYS.PRODUCTS_LIST, response);
-        }
+        await setCache(cacheKey, response, 60);
         return response;
     }
     /**
@@ -122,7 +118,8 @@ export class ProductService {
      */
     async getProductById(id) {
         // Try cache first
-        const cached = await getFromCache(CACHE_KEYS.PRODUCT_DETAIL(id));
+        const cacheKey = CACHE_KEYS.PRODUCT_DETAIL(id);
+        const cached = await getFromCache(cacheKey);
         if (cached?.product?.sellerId) {
             return cached;
         }
@@ -132,7 +129,7 @@ export class ProductService {
         }
         const response = { product: this.toPublicProductDetail(product) };
         // Cache the result
-        await setCache(CACHE_KEYS.PRODUCT_DETAIL(id), response);
+        await setCache(cacheKey, response, 60);
         return response;
     }
     // =========================================================================
@@ -164,8 +161,17 @@ export class ProductService {
      * No caching (private data)
      */
     async listSellerProducts(sellerId, params) {
+        const page = params?.page ?? 1;
+        const limit = params?.limit ?? 20;
+        const cacheKey = CACHE_KEYS.SELLER_PRODUCTS(sellerId, page, limit);
+        const cached = await getFromCache(cacheKey);
+        if (cached) {
+            return cached;
+        }
         const products = await this.productRepo.findBySellerId(sellerId, params);
-        return { products: products.map((product) => this.toSellerProduct(product)) };
+        const response = { products: products.map((product) => this.toSellerProduct(product)) };
+        await setCache(cacheKey, response, 60);
+        return response;
     }
     /**
      * Update a product (seller only, ownership enforced)

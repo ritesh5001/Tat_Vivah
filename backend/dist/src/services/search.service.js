@@ -2,6 +2,7 @@ import { prisma } from '../config/db.js';
 import { redis } from '../config/redis.js';
 import { ApiError } from '../errors/ApiError.js';
 import { searchLogger } from '../config/logger.js';
+import { CACHE_KEYS, getFromCache, setCache } from '../utils/cache.util.js';
 import { searchQueryTotal, searchNoResultTotal, autocompleteTotal, searchDurationSeconds, } from '../config/metrics.js';
 // ---------------------------------------------------------------------------
 // Redis key
@@ -19,6 +20,12 @@ export class SearchService {
         const timer = searchDurationSeconds.startTimer();
         const { q, page, categoryId, sort = 'relevance' } = filters;
         const safeLimit = Math.min(MAX_SEARCH_LIMIT, Math.max(1, Math.trunc(filters.limit || 20)));
+        const cacheKey = CACHE_KEYS.SEARCH_RESULTS(q.trim().toLowerCase(), page, safeLimit, categoryId, sort);
+        const cached = await getFromCache(cacheKey);
+        if (cached) {
+            timer();
+            return cached;
+        }
         const offset = (page - 1) * safeLimit;
         searchQueryTotal.inc();
         try {
@@ -77,10 +84,12 @@ export class SearchService {
                 searchNoResultTotal.inc();
                 searchLogger.info({ q, categoryId, total: 0 }, 'search returned zero results');
                 timer();
-                return {
+                const emptyResponse = {
                     data: [],
                     pagination: { page, limit: safeLimit, total: 0, totalPages: 0 },
                 };
+                await setCache(cacheKey, emptyResponse, 15);
+                return emptyResponse;
             }
             // Data query
             const dataQuery = `
@@ -112,7 +121,9 @@ export class SearchService {
             const totalPages = Math.ceil(total / safeLimit);
             searchLogger.info({ q, categoryId, sort, total, page }, 'search executed');
             timer();
-            return { data, pagination: { page, limit: safeLimit, total, totalPages } };
+            const response = { data, pagination: { page, limit: safeLimit, total, totalPages } };
+            await setCache(cacheKey, response, 60);
+            return response;
         }
         catch (error) {
             timer();
@@ -126,6 +137,11 @@ export class SearchService {
     async getSuggestions(q, limit = 8) {
         autocompleteTotal.inc();
         const safeLimit = Math.min(MAX_SEARCH_LIMIT, Math.max(1, Math.trunc(limit || 8)));
+        const cacheKey = CACHE_KEYS.SEARCH_SUGGESTIONS(q.trim().toLowerCase(), safeLimit);
+        const cached = await getFromCache(cacheKey);
+        if (cached) {
+            return cached;
+        }
         const rows = await prisma.$queryRawUnsafe(`SELECT p."id", p."title", c."name" AS "categoryName"
              FROM "products" p
              LEFT JOIN "categories" c ON c."id" = p."category_id"
@@ -135,11 +151,13 @@ export class SearchService {
              ORDER BY p."title" ASC
              LIMIT $2`, `${q}%`, safeLimit);
         searchLogger.debug({ q, count: rows.length }, 'autocomplete suggestions');
-        return rows.map((r) => ({
+        const suggestions = rows.map((r) => ({
             id: r.id,
             title: r.title,
             category: r.categoryName ?? null,
         }));
+        await setCache(cacheKey, suggestions, 60);
+        return suggestions;
     }
     // -----------------------------------------------------------------------
     // Trending searches (Redis sorted set)
@@ -159,6 +177,11 @@ export class SearchService {
     // -----------------------------------------------------------------------
     async getRelatedProducts(productId, limit = 8) {
         const safeLimit = Math.min(MAX_SEARCH_LIMIT, Math.max(1, Math.trunc(limit || 8)));
+        const cacheKey = CACHE_KEYS.SEARCH_RELATED(productId, safeLimit);
+        const cached = await getFromCache(cacheKey);
+        if (cached) {
+            return cached;
+        }
         // Find the product's category
         const product = await prisma.product.findUnique({
             where: { id: productId },
@@ -219,6 +242,7 @@ export class SearchService {
             data = [...data, ...extra].slice(0, safeLimit);
         }
         searchLogger.debug({ productId, count: data.length }, 'related products');
+        await setCache(cacheKey, data, data.length === 0 ? 15 : 60);
         return data;
     }
 }

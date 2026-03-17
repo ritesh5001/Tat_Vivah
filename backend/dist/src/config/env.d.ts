@@ -10,9 +10,9 @@ declare const envSchema: z.ZodObject<{
     JWT_REFRESH_SECRET: z.ZodString;
     ACCESS_TOKEN_EXPIRY: z.ZodDefault<z.ZodString>;
     REFRESH_TOKEN_EXPIRY: z.ZodDefault<z.ZodString>;
-    UPSTASH_REDIS_REST_URL: z.ZodString;
-    UPSTASH_REDIS_REST_TOKEN: z.ZodString;
     REDIS_URL: z.ZodOptional<z.ZodString>;
+    UPSTASH_REDIS_REST_URL: z.ZodOptional<z.ZodString>;
+    UPSTASH_REDIS_REST_TOKEN: z.ZodOptional<z.ZodString>;
     RESEND_API_KEY: z.ZodString;
     EMAIL_FROM: z.ZodString;
     IMAGEKIT_PUBLIC_KEY: z.ZodOptional<z.ZodString>;
@@ -29,11 +29,11 @@ declare const envSchema: z.ZodObject<{
     JWT_REFRESH_SECRET: string;
     ACCESS_TOKEN_EXPIRY: string;
     REFRESH_TOKEN_EXPIRY: string;
-    UPSTASH_REDIS_REST_URL: string;
-    UPSTASH_REDIS_REST_TOKEN: string;
     RESEND_API_KEY: string;
     EMAIL_FROM: string;
     REDIS_URL?: string | undefined;
+    UPSTASH_REDIS_REST_URL?: string | undefined;
+    UPSTASH_REDIS_REST_TOKEN?: string | undefined;
     IMAGEKIT_PUBLIC_KEY?: string | undefined;
     IMAGEKIT_PRIVATE_KEY?: string | undefined;
     IMAGEKIT_URL_ENDPOINT?: string | undefined;
@@ -44,8 +44,6 @@ declare const envSchema: z.ZodObject<{
     DATABASE_URL: string;
     JWT_ACCESS_SECRET: string;
     JWT_REFRESH_SECRET: string;
-    UPSTASH_REDIS_REST_URL: string;
-    UPSTASH_REDIS_REST_TOKEN: string;
     RESEND_API_KEY: string;
     EMAIL_FROM: string;
     NODE_ENV?: "production" | "development" | "test" | undefined;
@@ -53,6 +51,8 @@ declare const envSchema: z.ZodObject<{
     ACCESS_TOKEN_EXPIRY?: string | undefined;
     REFRESH_TOKEN_EXPIRY?: string | undefined;
     REDIS_URL?: string | undefined;
+    UPSTASH_REDIS_REST_URL?: string | undefined;
+    UPSTASH_REDIS_REST_TOKEN?: string | undefined;
     IMAGEKIT_PUBLIC_KEY?: string | undefined;
     IMAGEKIT_PRIVATE_KEY?: string | undefined;
     IMAGEKIT_URL_ENDPOINT?: string | undefined;

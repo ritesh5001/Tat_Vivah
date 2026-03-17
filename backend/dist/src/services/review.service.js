@@ -1,6 +1,7 @@
 import { prisma } from '../config/db.js';
 import { ApiError } from '../errors/ApiError.js';
 import { reviewRepository } from '../repositories/review.repository.js';
+import { CACHE_KEYS, getFromCache, setCache, invalidateCacheByPattern, } from '../utils/cache.util.js';
 export class ReviewService {
     /**
      * Create a review (one per user per product)
@@ -16,7 +17,7 @@ export class ReviewService {
         });
         if (existing)
             throw ApiError.conflict('You have already reviewed this product');
-        return prisma.review.create({
+        const created = await prisma.review.create({
             data: {
                 productId,
                 userId,
@@ -25,11 +26,19 @@ export class ReviewService {
                 text: input.comment,
             },
         });
+        await invalidateCacheByPattern(`reviews:${productId}:*`);
+        await invalidateCacheByPattern(`products:detail:${productId}`);
+        return created;
     }
     /**
      * Get reviews for a product with pagination, sorting, and rating summary
      */
     async getProductReviews(productId, query) {
+        const cacheKey = CACHE_KEYS.PRODUCT_REVIEWS(productId, query.page, query.limit, query.sort);
+        const cached = await getFromCache(cacheKey);
+        if (cached) {
+            return cached;
+        }
         const skip = (query.page - 1) * query.limit;
         const orderBy = (() => {
             switch (query.sort) {
@@ -74,7 +83,7 @@ export class ReviewService {
             totalRatings += r._count.rating;
             ratingSum += r.rating * r._count.rating;
         }
-        return {
+        const response = {
             reviews: reviews.map((r) => ({
                 id: r.id,
                 rating: r.rating,
@@ -102,6 +111,8 @@ export class ReviewService {
                 totalPages: Math.ceil(total / query.limit),
             },
         };
+        await setCache(cacheKey, response, 60);
+        return response;
     }
     /**
      * Mark a review as helpful (increment counter)
@@ -110,11 +121,13 @@ export class ReviewService {
         const review = await prisma.review.findUnique({ where: { id: reviewId } });
         if (!review)
             throw ApiError.notFound('Review not found');
-        return prisma.review.update({
+        const updated = await prisma.review.update({
             where: { id: reviewId },
             data: { helpfulCount: { increment: 1 } },
             select: { id: true, helpfulCount: true },
         });
+        await invalidateCacheByPattern(`reviews:${review.productId}:*`);
+        return updated;
     }
     /**
      * Set hidden state on a review (admin)
@@ -123,10 +136,12 @@ export class ReviewService {
         const review = await prisma.review.findUnique({ where: { id: reviewId } });
         if (!review)
             throw ApiError.notFound('Review not found');
-        return prisma.review.update({
+        const updated = await prisma.review.update({
             where: { id: reviewId },
             data: { isHidden },
         });
+        await invalidateCacheByPattern(`reviews:${review.productId}:*`);
+        return updated;
     }
     /**
      * List all reviews for admin (includes hidden)
@@ -158,7 +173,11 @@ export class ReviewService {
     }
     async deleteReview(id) {
         try {
+            const review = await prisma.review.findUnique({ where: { id }, select: { productId: true } });
             await reviewRepository.deleteById(id);
+            if (review?.productId) {
+                await invalidateCacheByPattern(`reviews:${review.productId}:*`);
+            }
         }
         catch (error) {
             if (error?.code === 'P2025') {

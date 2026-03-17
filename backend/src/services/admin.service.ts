@@ -25,6 +25,7 @@ import {
     setCache,
     CACHE_KEYS,
     invalidateCache,
+    invalidateCacheByPattern,
     invalidateProductCaches,
 } from '../utils/cache.util.js';
 import { notificationService } from '../notifications/notification.service.js';
@@ -60,12 +61,23 @@ export class AdminService {
         recentSellers: AdminSeller[];
         recentProducts: AdminProduct[];
     }> {
+        const cached = await getFromCache<{
+            stats: { sellers: number; products: number; orders: number; payments: number };
+            recentSellers: AdminSeller[];
+            recentProducts: AdminProduct[];
+        }>(CACHE_KEYS.ADMIN_STATS);
+        if (cached) {
+            return cached;
+        }
+
         const [stats, recentSellers, recentProducts] = await Promise.all([
             this.adminRepo.getStats(),
             this.adminRepo.findRecentSellers(5),
             this.adminRepo.findRecentProducts(5),
         ]);
-        return { stats, recentSellers, recentProducts };
+        const response = { stats, recentSellers, recentProducts };
+        await setCache(CACHE_KEYS.ADMIN_STATS, response, 30);
+        return response;
     }
 
     // =========================================================================
@@ -101,6 +113,7 @@ export class AdminService {
         // Fire side-effects in parallel (no data dependency)
         await Promise.all([
             notificationService.notifySellerApproved(updatedSeller.id, updatedSeller.email),
+            invalidateCache(CACHE_KEYS.ADMIN_STATS),
             this.auditSvc.logAction(actorId, 'SELLER_APPROVED', 'USER', sellerId, {
                 previousStatus: seller.status,
                 newStatus: 'ACTIVE',
@@ -136,6 +149,8 @@ export class AdminService {
             previousStatus: seller.status,
             newStatus: 'SUSPENDED',
         });
+
+        await invalidateCache(CACHE_KEYS.ADMIN_STATS);
 
         return {
             message: 'Seller suspended successfully',
@@ -197,6 +212,8 @@ export class AdminService {
                 product.sellerEmail
             ),
             invalidateProductCaches(productId),
+            invalidateCache(CACHE_KEYS.ADMIN_STATS),
+            invalidateCacheByPattern('admin:profit:*'),
             this.auditSvc.logAction(actorId, 'PRODUCT_APPROVED', 'PRODUCT', productId, {
                 productTitle: product.title,
             }),
@@ -248,6 +265,8 @@ export class AdminService {
                 product.sellerEmail
             ),
             invalidateProductCaches(productId),
+            invalidateCache(CACHE_KEYS.ADMIN_STATS),
+            invalidateCacheByPattern('admin:profit:*'),
             this.auditSvc.logAction(actorId, 'PRODUCT_REJECTED', 'PRODUCT', productId, {
                 productTitle: product.title,
                 reason,
@@ -282,6 +301,8 @@ export class AdminService {
         await Promise.all([
             invalidateProductCaches(productId),
             bestsellerService.removeByProductId(productId),
+            invalidateCache(CACHE_KEYS.ADMIN_STATS),
+            invalidateCacheByPattern('admin:profit:*'),
             this.auditSvc.logAction(actorId, 'PRODUCT_DELETED', 'PRODUCT', productId, {
                 productTitle: product.title,
                 reason: reason ?? 'Deleted by admin',
@@ -330,6 +351,8 @@ export class AdminService {
         // Fire side-effects in parallel
         await Promise.all([
             invalidateProductCaches(productId),
+            invalidateCache(CACHE_KEYS.ADMIN_STATS),
+            invalidateCacheByPattern('admin:profit:*'),
             this.auditSvc.logAction(actorId, 'PRODUCT_PRICE_SET', 'PRODUCT', productId, {
                 productTitle: product.title,
                 sellerPrice,
@@ -434,6 +457,8 @@ export class AdminService {
         }
 
         await invalidateProductCaches(productId);
+        await invalidateCache(CACHE_KEYS.ADMIN_STATS);
+        await invalidateCacheByPattern('admin:profit:*');
 
         const refreshed = await this.adminRepo.findProductById(productId);
         if (!refreshed) {
@@ -458,7 +483,19 @@ export class AdminService {
     }
 
     async profitAnalytics(params?: { startDate?: Date; endDate?: Date; limit?: number }): Promise<AdminProfitAnalytics> {
-        return this.adminRepo.getProfitAnalytics(params);
+        const cacheKey = CACHE_KEYS.ADMIN_PROFIT_SUMMARY(
+            params?.startDate?.toISOString(),
+            params?.endDate?.toISOString(),
+            params?.limit ?? 20,
+        );
+        const cached = await getFromCache<AdminProfitAnalytics>(cacheKey);
+        if (cached) {
+            return cached;
+        }
+
+        const response = await this.adminRepo.getProfitAnalytics(params);
+        await setCache(cacheKey, response, 30);
+        return response;
     }
 
     // =========================================================================
@@ -517,6 +554,11 @@ export class AdminService {
         // Fire side-effects in parallel
         await Promise.all([
             invalidateCache(CACHE_KEYS.ADMIN_ORDERS),
+            invalidateCacheByPattern('orders:buyer:*'),
+            invalidateCacheByPattern('orders:detail:*'),
+            invalidateCache(CACHE_KEYS.RECOMMENDATIONS(order.userId)),
+            invalidateCache(CACHE_KEYS.ADMIN_STATS),
+            invalidateCacheByPattern('admin:profit:*'),
             this.auditSvc.logAction(actorId, 'ORDER_CANCELLED', 'ORDER', orderId, {
                 previousStatus: order.status,
                 newStatus: 'CANCELLED',
@@ -558,6 +600,11 @@ export class AdminService {
         // Fire side-effects in parallel
         await Promise.all([
             invalidateCache(CACHE_KEYS.ADMIN_ORDERS),
+            invalidateCacheByPattern('orders:buyer:*'),
+            invalidateCacheByPattern('orders:detail:*'),
+            invalidateCache(CACHE_KEYS.RECOMMENDATIONS(order.userId)),
+            invalidateCache(CACHE_KEYS.ADMIN_STATS),
+            invalidateCacheByPattern('admin:profit:*'),
             this.auditSvc.logAction(actorId, 'ORDER_FORCE_CONFIRMED', 'ORDER', orderId, {
                 previousStatus: order.status,
                 newStatus: 'CONFIRMED',

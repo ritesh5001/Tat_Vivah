@@ -1,6 +1,7 @@
 import { reelRepository } from '../repositories/reel.repository.js';
 import { ApiError } from '../errors/ApiError.js';
 import { compressReelVideo } from '../jobs/reel-compression.job.js';
+import { CACHE_KEYS, getFromCache, setCache, invalidateCacheByPattern, } from '../utils/cache.util.js';
 export class ReelService {
     reelRepo;
     constructor(reelRepo) {
@@ -24,6 +25,7 @@ export class ReelService {
             caption: data.caption,
             productId: data.productId,
         });
+        await invalidateCacheByPattern('reels:public:*');
         // Fire-and-forget: compress video + extract metadata
         compressReelVideo(reel.id, reel.videoUrl).catch(() => { });
         return { message: 'Reel submitted for approval', reel };
@@ -52,6 +54,7 @@ export class ReelService {
             throw ApiError.notFound('Reel not found or you do not have permission');
         }
         await this.reelRepo.delete(reelId);
+        await invalidateCacheByPattern('reels:public:*');
         return { message: 'Reel deleted successfully' };
     }
     // =========================================================================
@@ -88,6 +91,7 @@ export class ReelService {
             throw ApiError.notFound('Reel not found');
         }
         const updated = await this.reelRepo.updateStatus(reelId, 'APPROVED');
+        await invalidateCacheByPattern('reels:public:*');
         return { message: 'Reel approved successfully', reel: updated };
     }
     async rejectReel(reelId) {
@@ -96,6 +100,7 @@ export class ReelService {
             throw ApiError.notFound('Reel not found');
         }
         const updated = await this.reelRepo.updateStatus(reelId, 'REJECTED');
+        await invalidateCacheByPattern('reels:public:*');
         return { message: 'Reel rejected successfully', reel: updated };
     }
     async deleteReelAdmin(reelId) {
@@ -104,16 +109,22 @@ export class ReelService {
             throw ApiError.notFound('Reel not found');
         }
         await this.reelRepo.delete(reelId);
+        await invalidateCacheByPattern('reels:public:*');
         return { message: 'Reel deleted by admin' };
     }
     // =========================================================================
     // PUBLIC ENDPOINTS
     // =========================================================================
     async listPublicReels(filters) {
-        const { reels, total } = await this.reelRepo.findPublished(filters);
         const page = filters.page ?? 1;
         const limit = filters.limit ?? 20;
-        return {
+        const cacheKey = CACHE_KEYS.REELS_PUBLIC(page, limit);
+        const cached = await getFromCache(cacheKey);
+        if (cached) {
+            return cached;
+        }
+        const { reels, total } = await this.reelRepo.findPublished(filters);
+        const response = {
             reels: reels.map((r) => ({
                 ...r,
                 product: r.product
@@ -133,6 +144,8 @@ export class ReelService {
                 totalPages: Math.ceil(total / limit),
             },
         };
+        await setCache(cacheKey, response, 120);
+        return response;
     }
     async getPublicReel(reelId) {
         const reel = await this.reelRepo.findPublishedById(reelId);

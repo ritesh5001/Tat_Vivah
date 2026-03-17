@@ -39,7 +39,7 @@ export class OccasionService {
             return cached;
         const occasions = await this.repository.findAllActive();
         const response = { occasions };
-        await setCache(CACHE_KEYS.OCCASIONS_LIST, response);
+        await setCache(CACHE_KEYS.OCCASIONS_LIST, response, 120);
         return response;
     }
     /**

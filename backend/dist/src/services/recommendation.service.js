@@ -2,6 +2,7 @@ import { prisma } from '../config/db.js';
 import { redis } from '../config/redis.js';
 import { recommendationLogger } from '../config/logger.js';
 import { recommendationCandidateCount, recommendationGenerationTimeMs, recommendationRequestTotal, } from '../config/metrics.js';
+import { CACHE_KEYS, getFromCache, setCache } from '../utils/cache.util.js';
 const RECENTLY_VIEWED_KEY_PREFIX = 'recently_viewed:';
 const CATEGORY_AFFINITY_KEY_PREFIX = 'user_category_affinity:';
 const MAX_RESULTS = 20;
@@ -22,6 +23,11 @@ export function scoreRecommendationCandidate(params) {
 }
 export class RecommendationService {
     async getRecommendations(userId) {
+        const cacheKey = CACHE_KEYS.RECOMMENDATIONS(userId);
+        const cached = await getFromCache(cacheKey);
+        if (cached) {
+            return cached;
+        }
         const startedAt = performance.now();
         recommendationRequestTotal.inc();
         const wishlistItemsPromise = prisma.wishlistItem.findMany({
@@ -184,6 +190,7 @@ export class RecommendationService {
             resultCount: results.length,
             executionTime: Math.round(executionTime),
         }, 'recommendations_generated');
+        await setCache(cacheKey, results, 60);
         return results;
     }
 }

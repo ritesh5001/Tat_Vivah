@@ -2,6 +2,7 @@ import { prisma } from '../config/db.js';
 import { CartRepository, cartRepository } from '../repositories/cart.repository.js';
 import {
     invalidateCache,
+    invalidateCacheByPattern,
     CACHE_KEYS,
 } from '../utils/cache.util.js';
 import { emitOrderPlaced } from '../events/order.events.js';
@@ -391,11 +392,15 @@ export class CheckoutService {
         // Invalidate caches
         await Promise.all([
             invalidateCache(CACHE_KEYS.CART(userId)),
-            invalidateCache(CACHE_KEYS.BUYER_ORDERS(userId)),
+            invalidateCacheByPattern(`${CACHE_KEYS.BUYER_ORDERS(userId)}:*`),
+            invalidateCacheByPattern(`orders:detail:*`),
+            invalidateCacheByPattern(`recommendations:${userId}`),
             ...itemsWithStock.map((item) =>
                 invalidateCache(CACHE_KEYS.PRODUCT_DETAIL(item.productId))
             ),
             invalidateCache(CACHE_KEYS.PRODUCTS_LIST),
+            invalidateCacheByPattern('products:list:*'),
+            invalidateCacheByPattern('search:*'),
         ]);
 
         // Trigger Notifications (event-driven, idempotent, best-effort)
