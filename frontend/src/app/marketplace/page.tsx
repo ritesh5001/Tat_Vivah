@@ -434,9 +434,9 @@ export default async function MarketplacePage({
         </section>
 
         {/* Products Grid */}
-        <section className="grid gap-5 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
+        <section className="grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-5">
           {products.length === 0 ? (
-            <Card className="sm:col-span-2 lg:col-span-3 border-border-soft">
+            <Card className="col-span-2 md:col-span-3 lg:col-span-5 border-border-soft">
               <CardContent className="p-8 text-center text-muted-foreground">
                 No products found. Try adjusting your search or filters.
               </CardContent>
