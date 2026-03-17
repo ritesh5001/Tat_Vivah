@@ -168,6 +168,7 @@ export function SiteFooter() {
                         <li key={item.label}>
                           <Link
                             href={item.href}
+                            prefetch={item.href !== "/register/seller"}
                             className="group flex items-center gap-2 transition-all duration-300 hover:translate-x-1 hover:text-gold"
                           >
                             <span className="-ml-1 inline-block text-gold opacity-70 transition-opacity duration-300 group-hover:opacity-100">
@@ -190,6 +191,7 @@ export function SiteFooter() {
                       <li key={item.label}>
                         <Link
                           href={item.href}
+                          prefetch={item.href !== "/register/seller"}
                           className="group inline-flex items-center gap-2 text-sm font-medium tracking-[0.03em] text-foreground transition-all duration-300 hover:translate-x-1 hover:text-gold"
                         >
                           <span className="-ml-1 inline-block text-gold opacity-70 transition-opacity duration-300 group-hover:opacity-100">✿</span>

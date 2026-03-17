@@ -40,7 +40,8 @@ export default function ReelFeedPage() {
       } else {
         setReels(newReels);
       }
-      setHasMore(pageNum < result.pagination.totalPages);
+      const totalPages = Math.max(1, result.pagination?.totalPages ?? 1);
+      setHasMore(pageNum < totalPages);
     } catch {
       // silently fail
     } finally {

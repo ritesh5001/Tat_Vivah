@@ -306,6 +306,7 @@ export default function LoginPage() {
                   <Link
                     className="text-foreground hover:text-gold transition-colors duration-300"
                     href={content.registerHref}
+                    prefetch={content.registerHref !== "/register/seller"}
                   >
                     {content.registerLabel}
                   </Link>

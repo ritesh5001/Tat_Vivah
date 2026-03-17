@@ -51,9 +51,9 @@ export default function ProductReviews({ productId }: ProductReviewsProps) {
         setIsLoading(true);
         try {
             const data = await fetchProductReviews(productId, { page, limit: 10, sort });
-            setReviews(data.reviews);
-            setSummary(data.summary);
-            setTotalPages(data.pagination.totalPages);
+            setReviews(data.reviews ?? []);
+            setSummary(data.summary ?? null);
+            setTotalPages(Math.max(1, data.pagination?.totalPages ?? 1));
         } catch (error) {
             console.error("Failed to load reviews", error);
         } finally {
