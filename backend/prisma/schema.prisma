@@ -289,6 +289,7 @@ model Order {
   shippingAddressLine1 String?             @map("shipping_address_line_1")
   shippingAddressLine2 String?             @map("shipping_address_line_2")
   shippingCity         String?             @map("shipping_city")
+  shippingPincode      String?             @map("shipping_pincode")
   shippingNotes        String?             @map("shipping_notes")
   createdAt            DateTime            @default(now()) @map("created_at")
   movements            InventoryMovement[]

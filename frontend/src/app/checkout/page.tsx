@@ -38,6 +38,7 @@ export default function CheckoutPage() {
     addressLine1: "",
     addressLine2: "",
     city: "",
+    pincode: "",
     notes: "",
   });
   const [savedAddresses, setSavedAddresses] = React.useState<Address[]>([]);
@@ -98,6 +99,7 @@ export default function CheckoutPage() {
             addressLine1: defaultAddr.addressLine1,
             addressLine2: defaultAddr.addressLine2 ?? "",
             city: defaultAddr.city,
+            pincode: defaultAddr.pincode,
           }));
         }
       } catch (error) {
@@ -115,6 +117,10 @@ export default function CheckoutPage() {
 
   const handleCheckout = async () => {
     if (isPaying) return; // Prevent double-submit
+    if (shipping.pincode && !/^\d{6}$/.test(shipping.pincode.trim())) {
+      toast.error("Please enter a valid 6-digit pincode");
+      return;
+    }
     setLoading(true);
     setIsPaying(true);
     try {
@@ -125,6 +131,7 @@ export default function CheckoutPage() {
         shippingAddressLine1: shipping.addressLine1 || undefined,
         shippingAddressLine2: shipping.addressLine2 || undefined,
         shippingCity: shipping.city || undefined,
+        shippingPincode: shipping.pincode || undefined,
         shippingNotes: shipping.notes || undefined,
         couponCode: appliedCoupon?.code || undefined,
       });
@@ -280,6 +287,7 @@ export default function CheckoutPage() {
                             addressLine1: addr.addressLine1,
                             addressLine2: addr.addressLine2 ?? "",
                             city: addr.city,
+                            pincode: addr.pincode,
                           }));
                         }}
                         className={`text-left p-4 border transition-all duration-300 ${
@@ -317,6 +325,7 @@ export default function CheckoutPage() {
                         addressLine1: "",
                         addressLine2: "",
                         city: "",
+                        pincode: "",
                       }));
                     }}
                     className={`text-left p-4 border transition-all duration-300 flex items-center justify-center ${
@@ -405,6 +414,22 @@ export default function CheckoutPage() {
                         setShipping((prev) => ({
                           ...prev,
                           addressLine1: event.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="pincode">Pincode</Label>
+                    <Input
+                      id="pincode"
+                      placeholder="380001"
+                      value={shipping.pincode}
+                      inputMode="numeric"
+                      maxLength={6}
+                      onChange={(event) =>
+                        setShipping((prev) => ({
+                          ...prev,
+                          pincode: event.target.value.replace(/\D/g, "").slice(0, 6),
                         }))
                       }
                     />

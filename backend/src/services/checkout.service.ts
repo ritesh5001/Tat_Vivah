@@ -56,6 +56,7 @@ export class CheckoutService {
             shippingAddressLine1?: string;
             shippingAddressLine2?: string;
             shippingCity?: string;
+            shippingPincode?: string;
             shippingNotes?: string;
         },
         couponCode?: string,
@@ -324,6 +325,7 @@ export class CheckoutService {
                     shippingAddressLine1: shipping?.shippingAddressLine1 ?? null,
                     shippingAddressLine2: shipping?.shippingAddressLine2 ?? null,
                     shippingCity: shipping?.shippingCity ?? null,
+                    shippingPincode: shipping?.shippingPincode ?? null,
                     shippingNotes: shipping?.shippingNotes ?? null,
                     status: 'PLACED',
                     items: {

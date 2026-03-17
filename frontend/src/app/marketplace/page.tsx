@@ -394,7 +394,10 @@ export default async function MarketplacePage({
           </div>
         </section>
 
-        <section id="marketplace-categories" className="flex flex-wrap gap-3">
+        <section
+          id="marketplace-categories"
+          className="flex gap-3 overflow-x-auto pb-1 whitespace-nowrap md:flex-wrap md:overflow-visible md:whitespace-normal"
+        >
           {categories.length === 0 ? (
             <span className="text-sm text-muted-foreground">
               Categories loading...
@@ -404,7 +407,7 @@ export default async function MarketplacePage({
               <Link
                 key={category.id}
                 href={buildUrl({ nextPage: 1, nextCategoryId: category.id })}
-                className={`px-5 py-2.5 text-xs uppercase tracking-wider transition-all duration-300 border ${selectedCategory?.id === category.id
+                className={`shrink-0 px-5 py-2.5 text-xs uppercase tracking-wider transition-all duration-300 border ${selectedCategory?.id === category.id
                   ? "border-gold bg-cream text-charcoal dark:bg-brown/30 dark:text-ivory"
                   : "border-border-soft bg-card text-muted-foreground hover:border-gold/50 hover:text-foreground"
                   }`}

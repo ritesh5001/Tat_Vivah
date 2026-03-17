@@ -137,6 +137,7 @@ export class OrderRepository {
                         shippingAddressLine1: true,
                         shippingAddressLine2: true,
                         shippingCity: true,
+                        shippingPincode: true,
                         shippingNotes: true,
                     },
                 },
@@ -193,6 +194,7 @@ export class OrderRepository {
                 shippingAddressLine1: true,
                 shippingAddressLine2: true,
                 shippingCity: true,
+                shippingPincode: true,
                 shippingNotes: true,
             },
         });

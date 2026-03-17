@@ -46,6 +46,7 @@ export interface SellerOrderItem {
     shippingAddressLine1?: string;
     shippingAddressLine2?: string;
     shippingCity?: string;
+    shippingPincode?: string;
     shippingNotes?: string;
     cancellationRequest?: {
       id: string;
