@@ -59,6 +59,16 @@ export default function ProductDetailClient({
   const [appointmentTime, setAppointmentTime] = React.useState("");
   const [booking, setBooking] = React.useState(false);
 
+  const getLocalDateString = React.useCallback(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }, []);
+
+  const minAppointmentDate = getLocalDateString();
+
   const handlePincodeCheck = () => {
     if (pincode.length === 6) {
       const days1 = Math.floor(Math.random() * 3) + 4; // 4 to 6
@@ -169,6 +179,22 @@ export default function ProductDetailClient({
   const handleConfirmBooking = async () => {
     if (!appointmentDate || !appointmentTime) {
       toast.error("Please select both date and time.");
+      return;
+    }
+
+    const selectedDateTime = new Date(`${appointmentDate}T${appointmentTime}:00`);
+    if (Number.isNaN(selectedDateTime.getTime())) {
+      toast.error("Please choose a valid date and time.");
+      return;
+    }
+
+    if (appointmentDate < minAppointmentDate) {
+      toast.error("Please choose today or a future date.");
+      return;
+    }
+
+    if (selectedDateTime.getTime() <= Date.now()) {
+      toast.error("Please choose a future time slot.");
       return;
     }
 
@@ -454,7 +480,7 @@ export default function ProductDetailClient({
                 </label>
                 <input
                   type="date"
-                  min={new Date().toISOString().slice(0, 10)}
+                  min={minAppointmentDate}
                   value={appointmentDate}
                   onChange={(event) => setAppointmentDate(event.target.value)}
                   className="h-11 w-full border border-border-soft bg-background px-3 text-sm text-foreground outline-none focus:border-gold/50"

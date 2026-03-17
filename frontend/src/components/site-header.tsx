@@ -150,6 +150,15 @@ export function SiteHeader() {
     }
     return "/user/profile";
   }, [role]);
+  const dashboardLink = React.useMemo(() => {
+    if (role === "SELLER") {
+      return "/seller/dashboard";
+    }
+    if (role === "ADMIN" || role === "SUPER_ADMIN") {
+      return "/admin/dashboard";
+    }
+    return "/user/dashboard";
+  }, [role]);
   const navLinks = React.useMemo(() => {
     if (!user) {
       return buyerLinks;
@@ -165,9 +174,7 @@ export function SiteHeader() {
 
     return [
       ...buyerLinks,
-      { href: "/user/dashboard", label: "Dashboard" },
       { href: "/user/orders", label: "Orders" },
-      { href: "/user/appointments", label: "Appointments" },
     ];
   }, [role, user]);
 
@@ -375,6 +382,17 @@ export function SiteHeader() {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
+                    <Link href={dashboardLink} prefetch={false} className="gap-2">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                        <rect x="3" y="3" width="7" height="9" />
+                        <rect x="14" y="3" width="7" height="5" />
+                        <rect x="14" y="12" width="7" height="9" />
+                        <rect x="3" y="16" width="7" height="5" />
+                      </svg>
+                      Dashboard
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
                     <Link href="/login?force=1" className="gap-2">
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
                         <path d="M16 3h5v5" /><path d="M4 20 21 3" /><path d="M21 16v5h-5" /><path d="M15 15 3 3" />
@@ -446,6 +464,19 @@ export function SiteHeader() {
                     <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
                   </svg>
                   My Profile
+                </Link>
+                <Link
+                  href={dashboardLink}
+                  className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-cream hover:text-foreground dark:hover:bg-brown/30"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                    <rect x="3" y="3" width="7" height="9" />
+                    <rect x="14" y="3" width="7" height="5" />
+                    <rect x="14" y="12" width="7" height="9" />
+                    <rect x="3" y="16" width="7" height="5" />
+                  </svg>
+                  Dashboard
                 </Link>
                 <Link
                   href="/login?force=1"
