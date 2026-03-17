@@ -92,14 +92,28 @@ export interface AdminProduct {
 export interface AdminOrder {
     id: string;
     userId: string;
+    buyerEmail?: string | null;
+    buyerPhone?: string | null;
     status: string;
     totalAmount: number;
+    shippingName?: string | null;
+    shippingPhone?: string | null;
+    shippingEmail?: string | null;
+    shippingAddressLine1?: string | null;
+    shippingAddressLine2?: string | null;
+    shippingCity?: string | null;
+    shippingPincode?: string | null;
+    shippingNotes?: string | null;
     createdAt: Date;
     items: {
         id: string;
         sellerId: string;
+        sellerEmail?: string | null;
+        sellerName?: string | null;
         productId: string;
+        productTitle?: string | null;
         variantId: string;
+        variantSku?: string | null;
         quantity: number;
         priceSnapshot: number;
         sellerPriceSnapshot?: number;
@@ -921,24 +935,7 @@ export class AdminRepository {
             take: 2000,
         });
 
-        return orders.map((order) => ({
-            id: order.id,
-            userId: order.userId,
-            status: order.status,
-            totalAmount: order.totalAmount,
-            createdAt: order.createdAt,
-            items: order.items.map((item) => ({
-                id: item.id,
-                sellerId: item.sellerId,
-                productId: item.productId,
-                variantId: item.variantId,
-                quantity: item.quantity,
-                priceSnapshot: item.priceSnapshot,
-                sellerPriceSnapshot: item.sellerPriceSnapshot,
-                adminPriceSnapshot: item.adminPriceSnapshot,
-                platformMargin: item.platformMargin,
-            })),
-        }));
+        return this.enrichOrders(orders);
     }
 
     /**
@@ -954,24 +951,8 @@ export class AdminRepository {
 
         if (!order) return null;
 
-        return {
-            id: order.id,
-            userId: order.userId,
-            status: order.status,
-            totalAmount: order.totalAmount,
-            createdAt: order.createdAt,
-            items: order.items.map((item) => ({
-                id: item.id,
-                sellerId: item.sellerId,
-                productId: item.productId,
-                variantId: item.variantId,
-                quantity: item.quantity,
-                priceSnapshot: item.priceSnapshot,
-                sellerPriceSnapshot: item.sellerPriceSnapshot,
-                adminPriceSnapshot: item.adminPriceSnapshot,
-                platformMargin: item.platformMargin,
-            })),
-        };
+        const enriched = await this.enrichOrders([order]);
+        return enriched[0] ?? null;
     }
 
     /**
@@ -986,24 +967,116 @@ export class AdminRepository {
             },
         });
 
-        return {
+        const enriched = await this.enrichOrders([order]);
+        return enriched[0] as AdminOrder;
+    }
+
+    private async enrichOrders(
+        orders: Array<{
+            id: string;
+            userId: string;
+            status: string;
+            totalAmount: number;
+            shippingName: string | null;
+            shippingPhone: string | null;
+            shippingEmail: string | null;
+            shippingAddressLine1: string | null;
+            shippingAddressLine2: string | null;
+            shippingCity: string | null;
+            shippingPincode: string | null;
+            shippingNotes: string | null;
+            createdAt: Date;
+            items: Array<{
+                id: string;
+                sellerId: string;
+                productId: string;
+                variantId: string;
+                quantity: number;
+                priceSnapshot: number;
+                sellerPriceSnapshot: number;
+                adminPriceSnapshot: number;
+                platformMargin: number;
+            }>;
+        }>
+    ): Promise<AdminOrder[]> {
+        if (orders.length === 0) return [];
+
+        const userIds = [...new Set(orders.map((order) => order.userId))];
+        const allItems = orders.flatMap((order) => order.items);
+        const sellerIds = [...new Set(allItems.map((item) => item.sellerId))];
+        const productIds = [...new Set(allItems.map((item) => item.productId))];
+        const variantIds = [...new Set(allItems.map((item) => item.variantId))];
+
+        const [buyers, sellers, products, variants] = await Promise.all([
+            userIds.length
+                ? prisma.user.findMany({
+                    where: { id: { in: userIds } },
+                    select: { id: true, email: true, phone: true },
+                })
+                : [],
+            sellerIds.length
+                ? prisma.user.findMany({
+                    where: { id: { in: sellerIds } },
+                    select: {
+                        id: true,
+                        email: true,
+                        seller_profiles: {
+                            select: { store_name: true },
+                        },
+                    },
+                })
+                : [],
+            productIds.length
+                ? prisma.product.findMany({
+                    where: { id: { in: productIds } },
+                    select: { id: true, title: true },
+                })
+                : [],
+            variantIds.length
+                ? prisma.productVariant.findMany({
+                    where: { id: { in: variantIds } },
+                    select: { id: true, sku: true },
+                })
+                : [],
+        ]);
+
+        const buyerMap = new Map(buyers.map((user) => [user.id, user]));
+        const sellerMap = new Map(sellers.map((seller) => [seller.id, seller]));
+        const productMap = new Map(products.map((product) => [product.id, product]));
+        const variantMap = new Map(variants.map((variant) => [variant.id, variant]));
+
+        return orders.map((order) => ({
             id: order.id,
             userId: order.userId,
+            buyerEmail: buyerMap.get(order.userId)?.email ?? null,
+            buyerPhone: buyerMap.get(order.userId)?.phone ?? null,
             status: order.status,
             totalAmount: order.totalAmount,
+            shippingName: order.shippingName,
+            shippingPhone: order.shippingPhone,
+            shippingEmail: order.shippingEmail,
+            shippingAddressLine1: order.shippingAddressLine1,
+            shippingAddressLine2: order.shippingAddressLine2,
+            shippingCity: order.shippingCity,
+            shippingPincode: order.shippingPincode,
+            shippingNotes: order.shippingNotes,
             createdAt: order.createdAt,
             items: order.items.map((item) => ({
                 id: item.id,
                 sellerId: item.sellerId,
+                sellerEmail: sellerMap.get(item.sellerId)?.email ?? null,
+                sellerName: sellerMap.get(item.sellerId)?.seller_profiles?.store_name ?? null,
                 productId: item.productId,
+                productTitle: productMap.get(item.productId)?.title ?? null,
                 variantId: item.variantId,
+                variantSku: variantMap.get(item.variantId)?.sku ?? null,
                 quantity: item.quantity,
                 priceSnapshot: item.priceSnapshot,
                 sellerPriceSnapshot: item.sellerPriceSnapshot,
                 adminPriceSnapshot: item.adminPriceSnapshot,
                 platformMargin: item.platformMargin,
             })),
-        };
+        }));
     }
 
     // =========================================================================
