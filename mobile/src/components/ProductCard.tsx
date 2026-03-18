@@ -75,7 +75,7 @@ const styles = StyleSheet.create({
     width: 180,
   },
   imageWrap: {
-    borderRadius: 16,
+    borderRadius: 0,
     overflow: "hidden",
     borderWidth: 1,
     borderColor: colors.border,
@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
     right: spacing.sm,
     width: 30,
     height: 30,
-    borderRadius: 15,
+    borderRadius: 0,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.white,

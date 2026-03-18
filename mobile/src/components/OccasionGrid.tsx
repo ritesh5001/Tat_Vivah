@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
   card: {
     width: "48%",
     height: 190,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     overflow: "hidden",
     borderWidth: 1,
     borderColor: colors.border,
@@ -109,7 +109,7 @@ const styles = StyleSheet.create({
   },
   labelWrap: {
     margin: spacing.sm,
-    borderRadius: 12,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.22)",
     backgroundColor: "rgba(34, 20, 14, 0.45)",

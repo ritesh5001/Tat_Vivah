@@ -126,16 +126,16 @@ export const ProductGridCard = React.memo(ProductGridCardComponent);
 const styles = StyleSheet.create({
   card: {
     flex: 1,
-    borderRadius: 16,
-    backgroundColor: "#1E1A17",
+    borderRadius: 0,
+    backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     overflow: "hidden",
-    shadowColor: colors.brown,
-    shadowOpacity: 0.4,
-    shadowOffset: { width: 0, height: 8 },
-    shadowRadius: 24,
-    elevation: 5,
+    shadowColor: colors.charcoal,
+    shadowOpacity: 0.04,
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 3,
+    elevation: 1,
     marginBottom: spacing.lg,
     aspectRatio: 0.68,
   },
@@ -161,8 +161,8 @@ const styles = StyleSheet.create({
     right: 10,
     width: 32,
     height: 32,
-    borderRadius: 8,
-    backgroundColor: "rgba(32, 26, 21, 0.9)",
+    borderRadius: 0,
+    backgroundColor: colors.warmWhite,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     justifyContent: "center",
@@ -171,8 +171,8 @@ const styles = StyleSheet.create({
   badgePill: {
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 14,
-    backgroundColor: "rgba(32, 26, 21, 0.92)",
+    borderRadius: 0,
+    backgroundColor: colors.warmWhite,
     borderWidth: 1,
     borderColor: colors.borderSoft,
   },
@@ -185,7 +185,7 @@ const styles = StyleSheet.create({
     fontSize: 9,
     letterSpacing: 1,
     textTransform: "uppercase",
-    color: colors.brown,
+    color: colors.charcoal,
   },
   badgeTextAccent: {
     color: colors.gold,
@@ -205,13 +205,13 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: typography.serif,
     fontSize: 14,
-    color: "#F5F1E8",
+    color: colors.charcoal,
     fontWeight: "600",
   },
   description: {
     fontFamily: typography.sans,
     fontSize: 11,
-    color: "rgba(245,241,232,0.7)",
+    color: colors.brownSoft,
     lineHeight: 16,
   },
   ratingRow: {
@@ -222,7 +222,7 @@ const styles = StyleSheet.create({
   ratingText: {
     fontFamily: typography.sansMedium,
     fontSize: 11,
-    color: "#F5F1E8",
+    color: colors.charcoal,
   },
   ratingMeta: {
     fontFamily: typography.sans,
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
   price: {
     fontFamily: typography.serif,
     fontSize: 14,
-    color: "#F5F1E8",
+    color: colors.charcoal,
   },
   priceStrike: {
     fontFamily: typography.serif,
@@ -255,7 +255,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 10,
+    borderRadius: 0,
     backgroundColor: "rgba(184, 149, 108, 0.14)",
   },
   tagText: {

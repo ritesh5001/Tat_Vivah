@@ -8,12 +8,12 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
+import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from "react-native-svg";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing, textStyles } from "../../../src/theme";
 import { useProductsQuery } from "../../../src/hooks/useProductsQuery";
 import { AppHeader } from "../../../src/components/AppHeader";
-import { ReelsSection } from "../../../src/components/ReelsSection";
 import { Footer } from "../../../src/components/Footer";
 import { ScrollToTopFab } from "../../../src/components/ScrollToTopFab";
 import { CachedImage } from "../../../src/components/CachedImage";
@@ -52,6 +52,100 @@ type HomeProductCard = {
   priceText: string;
   query: string;
 };
+
+function BottomWineFade() {
+  return (
+    <View style={styles.bottomWineFade}>
+      <Svg width="100%" height="100%" preserveAspectRatio="none">
+        <Defs>
+          <SvgLinearGradient id="tv-wine-fade" x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0%" stopColor="#4A2515" stopOpacity="0" />
+            <Stop offset="52%" stopColor="#4A2515" stopOpacity="0.06" />
+            <Stop offset="76%" stopColor="#4A2515" stopOpacity="0.28" />
+            <Stop offset="100%" stopColor="#4A2515" stopOpacity="0.72" />
+          </SvgLinearGradient>
+        </Defs>
+        <Rect x="0" y="0" width="100%" height="100%" fill="url(#tv-wine-fade)" />
+      </Svg>
+    </View>
+  );
+}
+
+function ArchGradientBorder({
+  width,
+  height,
+  topRadius,
+  strokeWidth = 3.1,
+}: {
+  width: number;
+  height: number;
+  topRadius: number;
+  strokeWidth?: number;
+}) {
+  const inset = strokeWidth / 2;
+  const radius = Math.max(1, Math.min(topRadius, (width - strokeWidth) / 2));
+  const leftX = inset;
+  const rightX = width - inset;
+  const bottomY = height - inset;
+  const arcY = inset + radius;
+  const gradientId = `tv-arch-border-${Math.round(width)}-${Math.round(height)}-${Math.round(radius)}`;
+
+  return (
+    <View style={styles.archGradientBorderWrap}>
+      <Svg width={width} height={height}>
+        <Defs>
+          <SvgLinearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0%" stopColor="#E4CFC4" stopOpacity="1" />
+            <Stop offset="40%" stopColor="#B89078" stopOpacity="1" />
+            <Stop offset="100%" stopColor="#4A2515" stopOpacity="1" />
+          </SvgLinearGradient>
+        </Defs>
+        <Path
+          d={`M ${leftX} ${bottomY} L ${leftX} ${arcY} A ${radius} ${radius} 0 0 1 ${rightX} ${arcY} L ${rightX} ${bottomY} L ${leftX} ${bottomY}`}
+          fill="none"
+          stroke={`url(#${gradientId})`}
+          strokeWidth={strokeWidth}
+        />
+      </Svg>
+    </View>
+  );
+}
+
+function RectGradientBorder({
+  width,
+  height,
+  strokeWidth = 3.1,
+}: {
+  width: number;
+  height: number;
+  strokeWidth?: number;
+}) {
+  const inset = strokeWidth / 2;
+  const gradientId = `tv-rect-border-${Math.round(width)}-${Math.round(height)}-${Math.round(strokeWidth * 10)}`;
+
+  return (
+    <View style={styles.archGradientBorderWrap}>
+      <Svg width={width} height={height}>
+        <Defs>
+          <SvgLinearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0%" stopColor="#E4CFC4" stopOpacity="1" />
+            <Stop offset="40%" stopColor="#B89078" stopOpacity="1" />
+            <Stop offset="100%" stopColor="#4A2515" stopOpacity="1" />
+          </SvgLinearGradient>
+        </Defs>
+        <Rect
+          x={inset}
+          y={inset}
+          width={Math.max(0, width - strokeWidth)}
+          height={Math.max(0, height - strokeWidth)}
+          fill="none"
+          stroke={`url(#${gradientId})`}
+          strokeWidth={strokeWidth}
+        />
+      </Svg>
+    </View>
+  );
+}
 
 function chunkCards(cards: HomeGridCard[], size: number): HomeGridPage[] {
   const pages: HomeGridPage[] = [];
@@ -127,30 +221,10 @@ export default function HomeScreen() {
   const [bestsellerPageIndex, setBestsellerPageIndex] = React.useState(0);
   const [testimonialPageIndex, setTestimonialPageIndex] = React.useState(0);
   const testimonialIndexRef = React.useRef(0);
-  const [isReelsReady, setIsReelsReady] = React.useState(false);
 
   React.useEffect(() => {
     testimonialIndexRef.current = testimonialPageIndex;
   }, [testimonialPageIndex]);
-
-  React.useEffect(() => {
-    let isCancelled = false;
-    let timer: ReturnType<typeof setTimeout> | null = null;
-
-    const task = InteractionManager.runAfterInteractions(() => {
-      timer = setTimeout(() => {
-        if (!isCancelled) {
-          setIsReelsReady(true);
-        }
-      }, 700);
-    });
-
-    return () => {
-      isCancelled = true;
-      task.cancel();
-      if (timer) clearTimeout(timer);
-    };
-  }, []);
 
   const deferNavigate = React.useCallback((to: string) => {
     InteractionManager.runAfterInteractions(() => {
@@ -178,14 +252,28 @@ export default function HomeScreen() {
   }, [spotlightQuery.data]);
 
   const spotlightCardHeight = Math.round(Math.min(Math.max(width * 1.05, 420), 560));
-  const vibeCardWidth = Math.min(Math.max(width * 0.54, 194), 228);
-  const vibeCardHeight = Math.round(vibeCardWidth * 1.32);
   const gridPageWidth = Math.max(width - spacing.pageHorizontal * 2, 280);
+  const isPhone = width < 768;
   const gridPageGap = spacing.md;
   const gridCardWidth = (gridPageWidth - gridPageGap) / 2;
+  const occasionCardHeight = Math.round(gridCardWidth / 0.76);
+  const vibeCardWidth = Math.min(Math.max((gridPageWidth - spacing.md) / 2, 140), 228);
+  const vibeCardHeight = Math.round(vibeCardWidth * 1.32);
+  const categoryCardGap = spacing.md;
+  const categoryCardWidth = isPhone
+    ? (gridPageWidth - categoryCardGap) / 1.5
+    : gridPageWidth;
+  const categoryCardHeight = Math.round(categoryCardWidth * 1.34);
   const productCardGap = spacing.md;
   const productCardWidth = gridPageWidth;
   const productCardHeight = Math.round(productCardWidth * 1.25);
+  const bestsellerCardWidth = isPhone
+    ? (gridPageWidth - productCardGap) / 2
+    : productCardWidth;
+  const bestsellerCardHeight = Math.round(bestsellerCardWidth * 1.25);
+  const testimonialCardGap = spacing.md;
+  const testimonialCardWidth = Math.min(Math.max(gridPageWidth * 0.82, 260), 320);
+  const testimonialCardStep = testimonialCardWidth + testimonialCardGap;
 
   const fallbackGridImages = React.useMemo(
     () => [
@@ -285,13 +373,8 @@ export default function HomeScreen() {
     [repeatedOccasionCards]
   );
 
-  const visibleCategoryPages = React.useMemo(
-    () => chunkCards(repeatedCategoryCards, 4),
-    [repeatedCategoryCards]
-  );
-
   const baseOccasionPagesCount = Math.max(1, Math.ceil(occasionCards.length / 4));
-  const baseCategoryPagesCount = Math.max(1, Math.ceil(categoryCards.length / 4));
+  const baseCategoryPagesCount = Math.max(1, categoryCards.length);
   const baseVibePagesCount = Math.max(1, vibeCards.length);
   const baseMostLovedPagesCount = Math.max(1, mostLovedCards.length);
   const baseBestsellerPagesCount = Math.max(1, bestsellerCards.length);
@@ -361,12 +444,18 @@ export default function HomeScreen() {
               contentFit="cover"
             />
             <View style={styles.occasionCardOverlay} />
+            <BottomWineFade />
+            <RectGradientBorder
+              width={gridCardWidth}
+              height={occasionCardHeight}
+              strokeWidth={3.1}
+            />
             <Text style={styles.occasionCardTitle}>{card.title}</Text>
           </Pressable>
         ))}
       </View>
     ),
-    [deferNavigate, gridCardWidth, gridPageWidth]
+    [deferNavigate, gridCardWidth, gridPageWidth, occasionCardHeight]
   );
 
   const renderVibeCard = React.useCallback(
@@ -384,10 +473,45 @@ export default function HomeScreen() {
           contentFit="cover"
         />
         <View style={styles.vibeCardOverlay} />
+        <BottomWineFade />
+        <ArchGradientBorder
+          width={vibeCardWidth}
+          height={vibeCardHeight}
+          topRadius={110}
+          strokeWidth={3.1}
+        />
         <Text style={styles.vibeCardTitle}>{item.title}</Text>
       </Pressable>
     ),
     [deferNavigate, vibeCardHeight, vibeCardWidth]
+  );
+
+  const renderCategoryCard = React.useCallback(
+    ({ item }: ListRenderItemInfo<HomeGridCard>) => (
+      <Pressable
+        style={[
+          styles.categoryCard,
+          { width: categoryCardWidth, height: categoryCardHeight },
+        ]}
+        onPress={() => deferNavigate(`/search?q=${encodeURIComponent(item.query)}`)}
+      >
+        <CachedImage
+          source={item.image}
+          style={{ width: categoryCardWidth, height: categoryCardHeight }}
+          contentFit="cover"
+        />
+        <View style={styles.categoryCardOverlay} />
+        <BottomWineFade />
+        <ArchGradientBorder
+          width={categoryCardWidth}
+          height={categoryCardHeight}
+          topRadius={categoryCardWidth / 2}
+          strokeWidth={3.1}
+        />
+        <Text style={styles.categoryCardTitle}>{item.title}</Text>
+      </Pressable>
+    ),
+    [categoryCardHeight, categoryCardWidth, deferNavigate]
   );
 
   const renderLargeProductCard = React.useCallback(
@@ -411,25 +535,60 @@ export default function HomeScreen() {
     [deferNavigate, productCardHeight, productCardWidth]
   );
 
+  const renderBestsellerCard = React.useCallback(
+    ({ item }: ListRenderItemInfo<HomeProductCard>) => (
+      <Pressable
+        style={[styles.largeProductCard, { width: bestsellerCardWidth }]}
+        onPress={() => deferNavigate(`/search?q=${encodeURIComponent(item.query)}`)}
+      >
+        <CachedImage
+          source={item.image}
+          style={[styles.largeProductImage, { height: bestsellerCardHeight }]}
+          contentFit="cover"
+        />
+        <View style={styles.largeProductOverlay} />
+        <View style={styles.largeProductMeta}>
+          <Text numberOfLines={1} style={styles.largeProductTitle}>{item.title}</Text>
+          <Text style={styles.largeProductPrice}>{item.priceText}</Text>
+        </View>
+      </Pressable>
+    ),
+    [bestsellerCardHeight, bestsellerCardWidth, deferNavigate]
+  );
+
   const testimonials = React.useMemo(
     () => [
       {
         id: "t1",
-        name: "Aditya Verma",
+        name: "Rohit S.",
+        initials: "RS",
+        meta: "Mumbai | Reception Sherwani",
         quote:
-          "Perfect fit and premium fabric quality. Delivery was smooth and right on time.",
+          "Fabric quality and finishing were premium. My reception sherwani fit perfectly and looked exactly like the photos.",
       },
       {
         id: "t2",
-        name: "Rohan Singh",
+        name: "Karan M.",
+        initials: "KM",
+        meta: "Delhi | Indo Western Set",
         quote:
-          "The wedding collection looked even better in person. Great styling support too.",
+          "The stylist suggestions were spot on. I ordered an Indo-Western set and got compliments through the entire sangeet night.",
       },
       {
         id: "t3",
-        name: "Karan Malhotra",
+        name: "Aman P.",
+        initials: "AP",
+        meta: "Bengaluru | Mehendi Kurta",
         quote:
-          "Elegant designs with comfortable wear for long events. Highly recommended.",
+          "Comfortable for long ceremonies and the embroidery details looked rich in person. Definitely ordering again.",
+      },
+      {
+        id: "t4",
+        name: "Nikhil R.",
+        initials: "NR",
+        meta: "Pune | Wedding Kurta Set",
+        quote:
+          "Delivery was quick and the kurta set was true to size. Packaging and quality both felt very premium.",
       },
     ],
     []
@@ -442,14 +601,14 @@ export default function HomeScreen() {
     const interval = setInterval(() => {
       const next = (testimonialIndexRef.current + 1) % testimonials.length;
       testimonialRef.current?.scrollToOffset({
-        offset: next * gridPageWidth,
-        animated: true,
+        offset: next * testimonialCardStep,
+        animated: next !== 0,
       });
       testimonialIndexRef.current = next;
       setTestimonialPageIndex(next);
     }, 5000);
     return () => clearInterval(interval);
-  }, [gridPageWidth, testimonials.length]);
+  }, [testimonialCardStep, testimonials.length]);
 
   const handleScroll = React.useCallback((offsetY: number) => {
     const shouldShow = offsetY > 260;
@@ -487,11 +646,18 @@ export default function HomeScreen() {
           decelerationRate="fast"
           disableIntervalMomentum
           snapToAlignment="start"
+          onScroll={(event) => {
+            const page = Math.round(
+              event.nativeEvent.contentOffset.x / (vibeCardWidth + spacing.md)
+            );
+            setVibePageIndex((prev) => (prev === page ? prev : page));
+          }}
+          scrollEventThrottle={16}
           onMomentumScrollEnd={(event) => {
             const page = Math.round(
               event.nativeEvent.contentOffset.x / (vibeCardWidth + spacing.md)
             );
-            setVibePageIndex(page);
+            setVibePageIndex((prev) => (prev === page ? prev : page));
           }}
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.vibeCarouselContent}
@@ -545,11 +711,18 @@ export default function HomeScreen() {
             onEndReached={loadMoreOccasions}
             onEndReachedThreshold={0.4}
             showsHorizontalScrollIndicator={false}
+            onScroll={(event) => {
+              const page = Math.round(
+                event.nativeEvent.contentOffset.x / (gridPageWidth + gridPageGap)
+              );
+              setOccasionPageIndex((prev) => (prev === page ? prev : page));
+            }}
+            scrollEventThrottle={16}
             onMomentumScrollEnd={(event) => {
               const page = Math.round(
                 event.nativeEvent.contentOffset.x / (gridPageWidth + gridPageGap)
               );
-              setOccasionPageIndex(page);
+              setOccasionPageIndex((prev) => (prev === page ? prev : page));
             }}
           />
         )}
@@ -609,39 +782,41 @@ export default function HomeScreen() {
             <SkeletonBlock width="47%" height={170} />
             <SkeletonBlock width="47%" height={170} />
           </View>
-        ) : visibleCategoryPages.length === 0 ? (
+        ) : repeatedCategoryCards.length === 0 ? (
           <View style={styles.gridEmptyState}>
             <Text style={styles.gridEmptyText}>No categories available right now.</Text>
           </View>
         ) : (
           <FlatList
-            data={visibleCategoryPages}
+            data={repeatedCategoryCards}
             keyExtractor={(item) => item.id}
-            renderItem={renderGridPage}
+            renderItem={renderCategoryCard}
             horizontal
-            initialNumToRender={2}
-            maxToRenderPerBatch={2}
-            windowSize={3}
+            initialNumToRender={1}
+            maxToRenderPerBatch={4}
+            windowSize={5}
             removeClippedSubviews
             decelerationRate="fast"
             disableIntervalMomentum
             snapToAlignment="start"
-            snapToInterval={gridPageWidth + gridPageGap}
+            snapToInterval={categoryCardWidth + categoryCardGap}
             style={styles.gridViewport}
-            contentContainerStyle={styles.occasionGrid}
-            ItemSeparatorComponent={() => <View style={{ width: gridPageGap }} />}
+            contentContainerStyle={styles.categoryCarouselContent}
             onEndReached={loadMoreCategories}
             onEndReachedThreshold={0.4}
             showsHorizontalScrollIndicator={false}
+            onScroll={(event) => {
+              const page = Math.round(event.nativeEvent.contentOffset.x / (categoryCardWidth + categoryCardGap));
+              setCategoryPageIndex((prev) => (prev === page ? prev : page));
+            }}
+            scrollEventThrottle={16}
             onMomentumScrollEnd={(event) => {
-              const page = Math.round(
-                event.nativeEvent.contentOffset.x / (gridPageWidth + gridPageGap)
-              );
-              setCategoryPageIndex(page);
+              const page = Math.round(event.nativeEvent.contentOffset.x / (categoryCardWidth + categoryCardGap));
+              setCategoryPageIndex((prev) => (prev === page ? prev : page));
             }}
           />
         )}
-        {visibleCategoryPages.length > 0 ? (
+        {repeatedCategoryCards.length > 0 ? (
           <View style={styles.paginationWrap}>
             {Array.from({ length: baseCategoryPagesCount }).map((_, idx) => {
               const isActive = idx === (categoryPageIndex % baseCategoryPagesCount);
@@ -683,11 +858,18 @@ export default function HomeScreen() {
             decelerationRate="fast"
             disableIntervalMomentum
             snapToAlignment="start"
+            onScroll={(event) => {
+              const page = Math.round(
+                event.nativeEvent.contentOffset.x / (productCardWidth + productCardGap)
+              );
+              setMostLovedPageIndex((prev) => (prev === page ? prev : page));
+            }}
+            scrollEventThrottle={16}
             onMomentumScrollEnd={(event) => {
               const page = Math.round(
                 event.nativeEvent.contentOffset.x / (productCardWidth + productCardGap)
               );
-              setMostLovedPageIndex(page);
+              setMostLovedPageIndex((prev) => (prev === page ? prev : page));
             }}
           />
         )}
@@ -707,7 +889,8 @@ export default function HomeScreen() {
         </View>
         {bestsellersQuery.isLoading ? (
           <View style={styles.gridLoadingWrap}>
-            <SkeletonBlock width="74%" height={320} />
+            <SkeletonBlock width="47%" height={220} />
+            <SkeletonBlock width="47%" height={220} />
           </View>
         ) : repeatedBestsellerCards.length === 0 ? (
           <View style={styles.gridEmptyState}>
@@ -718,7 +901,7 @@ export default function HomeScreen() {
             horizontal
             data={repeatedBestsellerCards}
             keyExtractor={(item) => item.id}
-            renderItem={renderLargeProductCard}
+            renderItem={renderBestsellerCard}
             initialNumToRender={2}
             maxToRenderPerBatch={2}
             windowSize={3}
@@ -727,15 +910,22 @@ export default function HomeScreen() {
             showsHorizontalScrollIndicator={false}
             onEndReached={loadMoreBestsellers}
             onEndReachedThreshold={0.4}
-            snapToInterval={productCardWidth + productCardGap}
+            snapToInterval={bestsellerCardWidth + productCardGap}
             decelerationRate="fast"
             disableIntervalMomentum
             snapToAlignment="start"
+            onScroll={(event) => {
+              const page = Math.round(
+                event.nativeEvent.contentOffset.x / (bestsellerCardWidth + productCardGap)
+              );
+              setBestsellerPageIndex((prev) => (prev === page ? prev : page));
+            }}
+            scrollEventThrottle={16}
             onMomentumScrollEnd={(event) => {
               const page = Math.round(
-                event.nativeEvent.contentOffset.x / (productCardWidth + productCardGap)
+                event.nativeEvent.contentOffset.x / (bestsellerCardWidth + productCardGap)
               );
-              setBestsellerPageIndex(page);
+              setBestsellerPageIndex((prev) => (prev === page ? prev : page));
             }}
           />
         )}
@@ -748,19 +938,18 @@ export default function HomeScreen() {
       </View>
 
       <View style={styles.testimonialSection}>
-        <View style={styles.sectionHeadRow}>
-          <Ionicons name="sparkles-outline" size={28} color="#511d00" />
+        <View style={styles.testimonialHeadingBox}>
+          <Text style={styles.testimonialEyebrow}>Real Stories</Text>
           <Text style={styles.testimonialHeading}>TESTIMONIALS</Text>
         </View>
         <FlatList
           ref={testimonialRef}
           horizontal
-          pagingEnabled
           decelerationRate="fast"
           data={testimonials}
           keyExtractor={(item) => item.id}
-          initialNumToRender={1}
-          maxToRenderPerBatch={1}
+          initialNumToRender={2}
+          maxToRenderPerBatch={2}
           windowSize={3}
           removeClippedSubviews
           showsHorizontalScrollIndicator={false}
@@ -768,18 +957,36 @@ export default function HomeScreen() {
           renderItem={({ item }) => {
             const quoteText = item.quote?.trim() || "TatVivah delivered premium quality, true-to-photo finish, and a smooth wedding-day experience.";
             const nameText = item.name?.trim() || "TatVivah Customer";
+            const initialsText = item.initials?.trim() || "TV";
+            const metaText = item.meta?.trim() || "Verified TatVivah Buyer";
 
             return (
-              <View style={[styles.testimonialCardLarge, { width: gridPageWidth }]}> 
+              <View style={[styles.testimonialCardLarge, { width: testimonialCardWidth }]}>
+                <Text style={styles.testimonialStars}>★★★★★</Text>
                 <Text style={styles.testimonialQuoteLarge}>{`"${quoteText}"`}</Text>
-                <Text style={styles.testimonialName}>{nameText}</Text>
-                <Text style={styles.testimonialMeta}>Verified Purchase</Text>
+                <View style={styles.testimonialAuthorRow}>
+                  <View style={styles.testimonialAvatar}>
+                    <Text style={styles.testimonialAvatarText}>{initialsText}</Text>
+                  </View>
+                  <View style={styles.testimonialMetaWrap}>
+                    <Text style={styles.testimonialName}>{nameText}</Text>
+                    <Text style={styles.testimonialMeta}>{metaText}</Text>
+                  </View>
+                </View>
               </View>
             );
           }}
+          snapToInterval={testimonialCardStep}
+          snapToAlignment="start"
+          disableIntervalMomentum
+          onScroll={(event) => {
+            const page = Math.round(event.nativeEvent.contentOffset.x / testimonialCardStep);
+            setTestimonialPageIndex((prev) => (prev === page ? prev : page));
+          }}
+          scrollEventThrottle={16}
           onMomentumScrollEnd={(event) => {
-            const page = Math.round(event.nativeEvent.contentOffset.x / gridPageWidth);
-            setTestimonialPageIndex(page);
+            const page = Math.round(event.nativeEvent.contentOffset.x / testimonialCardStep);
+            setTestimonialPageIndex((prev) => (prev === page ? prev : page));
           }}
         />
         <View style={styles.paginationWrap}>
@@ -792,18 +999,6 @@ export default function HomeScreen() {
         </View>
       </View>
 
-
-      <View style={styles.section}>
-        <Text style={[textStyles.sectionTitle, styles.sectionTitleCenter]}>
-          TRENDING REELS
-        </Text>
-        <ReelsSection
-          enableFetch={isReelsReady}
-          onPressReel={(query) =>
-            deferNavigate(`/search?q=${encodeURIComponent(query)}`)
-          }
-        />
-      </View>
 
       <View style={styles.fullBleed}>
         <Footer />
@@ -831,10 +1026,16 @@ export default function HomeScreen() {
     occasionPageIndex,
     occasionsQuery.isLoading,
     renderLargeProductCard,
+    renderBestsellerCard,
     renderGridPage,
+    renderCategoryCard,
     renderVibeCard,
+    bestsellerCardWidth,
+    categoryCardGap,
+    categoryCardWidth,
     productCardGap,
     productCardWidth,
+    repeatedCategoryCards,
     repeatedBestsellerCards,
     repeatedMostLovedCards,
     spotlightCardHeight,
@@ -842,13 +1043,13 @@ export default function HomeScreen() {
     spotlightQuery.isLoading,
     testimonials,
     testimonialPageIndex,
+    testimonialCardStep,
+    testimonialCardWidth,
     bestsellerPageIndex,
-    visibleCategoryPages,
     visibleOccasionPages,
     repeatedVibeCards,
     vibePageIndex,
     vibeCardWidth,
-    isReelsReady,
   ]);
 
   return (
@@ -919,23 +1120,69 @@ const styles = StyleSheet.create({
   },
   vibeCarouselContent: {
     gap: spacing.md,
-    paddingLeft: spacing.xs,
-    paddingRight: spacing.md,
+    paddingLeft: 0,
+    paddingRight: 0,
   },
-  vibeCard: {
-    borderTopLeftRadius: 96,
-    borderTopRightRadius: 96,
+  categoryCarouselContent: {
+    gap: spacing.md,
+    paddingBottom: spacing.md,
+  },
+  archGradientBorderWrap: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  bottomWineFade: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  categoryCard: {
+    borderTopLeftRadius: 999,
+    borderTopRightRadius: 999,
     borderBottomLeftRadius: 0,
     borderBottomRightRadius: 0,
     overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "#7B4C2C",
+    borderWidth: 0,
+    backgroundColor: "#E6DDD6",
+    justifyContent: "flex-end",
+    shadowColor: "#351A14",
+    shadowOpacity: 0.14,
+    shadowOffset: { width: 0, height: 10 },
+    shadowRadius: 16,
+    elevation: 2,
+  },
+  categoryCardOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0, 0, 0, 0.03)",
+  },
+  categoryCardTitle: {
+    ...textStyles.sectionTitle,
+    position: "absolute",
+    bottom: spacing.md,
+    width: "100%",
+    textAlign: "center",
+    color: "#FFF8F3",
+    letterSpacing: 1.35,
+    fontSize: 22,
+    textShadowColor: "rgba(0, 0, 0, 0.48)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 10,
+  },
+  vibeCard: {
+    borderTopLeftRadius: 110,
+    borderTopRightRadius: 110,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    overflow: "hidden",
+    borderWidth: 0,
     backgroundColor: "#D9CEC2",
     justifyContent: "flex-end",
+    shadowColor: "#2C1E15",
+    shadowOpacity: 0.12,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 14,
+    elevation: 3,
   },
   vibeCardOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(36, 22, 12, 0.22)",
+    backgroundColor: "rgba(32, 20, 12, 0.05)",
   },
   vibeCardTitle: {
     ...textStyles.sectionTitle,
@@ -946,6 +1193,9 @@ const styles = StyleSheet.create({
     color: "#FFF8EE",
     letterSpacing: 1,
     fontSize: 26,
+    textShadowColor: "rgba(18, 11, 7, 0.85)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 8,
   },
   occasionSection: {
     backgroundColor: "transparent",
@@ -981,7 +1231,7 @@ const styles = StyleSheet.create({
   menTabUnderline: {
     width: 86,
     height: 4,
-    borderRadius: 999,
+    borderRadius: 0,
     backgroundColor: colors.primaryAccent,
   },
   occasionGrid: {
@@ -1017,10 +1267,13 @@ const styles = StyleSheet.create({
     aspectRatio: 0.76,
     borderRadius: 0,
     overflow: "hidden",
-    // backgroundColor: "#D7CCBC",
     justifyContent: "flex-end",
-    borderWidth: 1.5,
-    borderColor: "#7B4C2C",
+    borderWidth: 0,
+    shadowColor: "#2C1E15",
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 7 },
+    shadowRadius: 12,
+    elevation: 2,
   },
   occasionCardImage: {
     width: "100%",
@@ -1028,7 +1281,33 @@ const styles = StyleSheet.create({
   },
   occasionCardOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.14)",
+    backgroundColor: "rgba(0, 0, 0, 0.2)",
+  },
+  occasionCardLabelBackdrop: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: "36%",
+    backgroundColor: "rgba(20, 12, 8, 0.24)",
+    borderTopWidth: 1,
+    borderTopColor: "rgba(232, 198, 161, 0.36)",
+  },
+  occasionCardTextShadeSoft: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: "44%",
+    backgroundColor: "rgba(18, 11, 7, 0.18)",
+  },
+  occasionCardTextShade: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: "30%",
+    backgroundColor: "rgba(18, 11, 7, 0.38)",
   },
   occasionCardTitle: {
     ...textStyles.sectionTitle,
@@ -1039,6 +1318,9 @@ const styles = StyleSheet.create({
     color: "#FFF9F1",
     letterSpacing: 1.1,
     fontSize: 17,
+    textShadowColor: "rgba(18, 11, 7, 0.85)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 8,
   },
   spotlightSection: {
     backgroundColor: "transparent",
@@ -1128,7 +1410,7 @@ const styles = StyleSheet.create({
   paginationDot: {
     width: 7,
     height: 7,
-    borderRadius: 999,
+    borderRadius: 0,
     backgroundColor: "rgba(123, 76, 44, 0.28)",
   },
   paginationDotActive: {
@@ -1207,6 +1489,18 @@ const styles = StyleSheet.create({
     marginTop: 35,
     gap: spacing.md,
   },
+  testimonialHeadingBox: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.xs,
+  },
+  testimonialEyebrow: {
+    fontSize: 12,
+    letterSpacing: 1.8,
+    textTransform: "uppercase",
+    color: "#7D6656",
+    fontFamily: "Inter_600SemiBold",
+  },
   testimonialHeading: {
     ...textStyles.sectionTitle,
     color: colors.textPrimary,
@@ -1215,33 +1509,73 @@ const styles = StyleSheet.create({
   },
   testimonialViewport: {
     paddingHorizontal: 0,
+    paddingRight: spacing.md,
+    gap: spacing.md,
   },
   testimonialCardLarge: {
-    minHeight: 220,
+    minHeight: 228,
     borderWidth: 1,
     borderColor: "#7B4C2C",
     borderRadius: 0,
-    backgroundColor: "#F8F1E5",
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.xl,
+    backgroundColor: "#F6EFE7",
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    shadowColor: "#2C1E15",
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 12,
+    elevation: 1,
+  },
+  testimonialStars: {
+    color: "#B89078",
+    fontSize: 17,
+    marginBottom: spacing.xs,
+    letterSpacing: 0.5,
   },
   testimonialQuoteLarge: {
     fontSize: 16,
     lineHeight: 24,
     color: "#2B2119",
+    fontStyle: "italic",
+    flexGrow: 1,
+  },
+  testimonialAuthorRow: {
+    marginTop: spacing.md,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: "#E8DDD1",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  testimonialAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#4A2515",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  testimonialAvatarText: {
+    color: "#FFF8F1",
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
+    letterSpacing: 0.3,
+  },
+  testimonialMetaWrap: {
+    flex: 1,
   },
   testimonialName: {
-    marginTop: spacing.xs,
-    fontSize: 12,
+    marginTop: 0,
+    fontSize: 13,
     letterSpacing: 0.4,
-    fontFamily: "Inter_500Medium",
-    color: "#5B4030",
+    fontFamily: "Inter_600SemiBold",
+    color: "#3B271C",
   },
   testimonialMeta: {
     marginTop: 2,
     fontSize: 11,
-    letterSpacing: 0.6,
-    textTransform: "uppercase",
+    letterSpacing: 0.4,
     color: "#7B5C47",
   },
 });

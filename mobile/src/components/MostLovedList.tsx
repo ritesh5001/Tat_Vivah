@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
   placeholderWrap: {
     minHeight: 80,
     justifyContent: "center",
-    borderRadius: 12,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.border,
     paddingHorizontal: spacing.md,
@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   imageWrap: {
-    borderRadius: 14,
+    borderRadius: 0,
     overflow: "hidden",
     borderWidth: 1,
     borderColor: colors.border,
@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
     right: 14,
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: 0,
     backgroundColor: "rgba(0,0,0,0.35)",
     alignItems: "center",
     justifyContent: "center",

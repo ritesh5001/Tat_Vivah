@@ -96,7 +96,7 @@ const styles = StyleSheet.create({
   card: {
     marginTop: spacing.lg,
     padding: spacing.lg,
-    borderRadius: radius.xl,
+    borderRadius: 0,
     backgroundColor: colors.warmWhite,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
   input: {
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    borderRadius: radius.md,
+    borderRadius: 0,
     paddingHorizontal: spacing.md,
     paddingVertical: 12,
     fontFamily: typography.sans,
@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     backgroundColor: colors.charcoal,
     paddingVertical: 12,
-    borderRadius: radius.md,
+    borderRadius: 0,
     alignItems: "center",
   },
   primaryButtonText: {
@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.borderSoft,
     paddingVertical: 12,
-    borderRadius: radius.md,
+    borderRadius: 0,
     alignItems: "center",
   },
   secondaryButtonText: {

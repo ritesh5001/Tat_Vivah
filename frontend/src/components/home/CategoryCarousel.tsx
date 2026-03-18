@@ -9,6 +9,7 @@ const LOOP_COPIES = 3;
 
 /** Arch border-radius: semicircular top, flat bottom */
 const ARCH_RADIUS = "50% 50% 0 0 / 40% 40% 0 0";
+const ARC_BORDER_WIDTH = 3.1;
 
 type CategoryItem = Category & {
   image?: string | null;
@@ -27,8 +28,13 @@ function CategorySkeletonCard() {
   return (
     <div className="shrink-0 w-[calc(50%-6px)] md:w-[calc(33.333%-11px)] lg:w-[calc(25%-18px)]">
       <div
-        className="relative w-full p-0.5"
-        style={{ aspectRatio: "3 / 4", borderRadius: ARCH_RADIUS, background: "linear-gradient(to bottom, #e4cfc4, #b89078, #4a2515)" }}
+        className="relative w-full"
+        style={{
+          aspectRatio: "3 / 4",
+          borderRadius: ARCH_RADIUS,
+          padding: `${ARC_BORDER_WIDTH}px`,
+          background: "linear-gradient(to bottom, #e4cfc4, #b89078, #4a2515)",
+        }}
       >
         <div
           className="h-full w-full animate-pulse overflow-hidden bg-[#e5ddd5]"
@@ -375,10 +381,11 @@ export function CategoryCarousel() {
                   <div className="group shrink-0 snap-start w-[calc(50%-6px)] md:w-[calc(33.333%-11px)] lg:w-[calc(25%-18px)]">
                     {/* Outer div acts as the gradient border */}
                     <div
-                      className="relative w-full p-0.5"
+                      className="relative w-full"
                       style={{
                         aspectRatio: "3 / 4",
                         borderRadius: ARCH_RADIUS,
+                        padding: `${ARC_BORDER_WIDTH}px`,
                         background: "linear-gradient(to bottom, #e4cfc4, #b89078 40%, #4a2515)",
                       }}
                     >

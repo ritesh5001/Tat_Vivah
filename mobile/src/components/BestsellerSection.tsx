@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
   },
   card: {
     padding: spacing.md,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     backgroundColor: colors.warmWhite,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
   },
   image: {
     height: 240,
-    borderRadius: radius.md,
+    borderRadius: 0,
     backgroundColor: colors.cream,
   },
   title: {
@@ -170,7 +170,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     marginHorizontal: spacing.lg,
     padding: spacing.lg,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     backgroundColor: colors.warmWhite,
     borderWidth: 1,
     borderColor: colors.borderSoft,

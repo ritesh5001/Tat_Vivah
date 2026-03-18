@@ -104,7 +104,7 @@ const galleryStyles = StyleSheet.create({
   image: {
     width: IMAGE_WIDTH,
     height: IMAGE_HEIGHT,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     backgroundColor: colors.cream,
   },
 });
@@ -292,14 +292,14 @@ const relatedCardStyles = StyleSheet.create({
     width: 150,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    borderRadius: radius.md,
+    borderRadius: 0,
     padding: spacing.sm,
     backgroundColor: colors.background,
   },
   image: {
     width: "100%",
     height: 110,
-    borderRadius: radius.sm,
+    borderRadius: 0,
     backgroundColor: colors.cream,
   },
   title: {
@@ -1164,7 +1164,7 @@ const styles = StyleSheet.create({
     right: spacing.lg,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 0,
     backgroundColor: "rgba(44, 40, 37, 0.65)",
   },
   galleryIndexText: {
@@ -1183,14 +1183,14 @@ const styles = StyleSheet.create({
   dot: {
     width: 6,
     height: 6,
-    borderRadius: 3,
+    borderRadius: 0,
     backgroundColor: colors.borderSoft,
   },
   dotActive: {
     backgroundColor: colors.gold,
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: 0,
   },
 
   // Details
@@ -1198,7 +1198,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     marginHorizontal: spacing.lg,
     padding: spacing.lg,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -1220,7 +1220,7 @@ const styles = StyleSheet.create({
   detailsBadge: {
     paddingHorizontal: spacing.sm,
     paddingVertical: 4,
-    borderRadius: 999,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.gold,
     backgroundColor: "rgba(196, 167, 108, 0.12)",
@@ -1319,7 +1319,7 @@ const styles = StyleSheet.create({
     borderColor: colors.borderSoft,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderRadius: 20,
+    borderRadius: 0,
     backgroundColor: colors.warmWhite,
   },
   variantChipActive: {
@@ -1346,7 +1346,7 @@ const styles = StyleSheet.create({
   primaryButton: {
     marginTop: spacing.lg,
     backgroundColor: colors.gold,
-    borderRadius: radius.md,
+    borderRadius: 0,
     paddingVertical: 14,
     alignItems: "center",
   },
@@ -1372,7 +1372,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.borderSoft,
     paddingVertical: 12,
-    borderRadius: radius.md,
+    borderRadius: 0,
     alignItems: "center",
   },
   secondaryButtonText: {
@@ -1388,7 +1388,7 @@ const styles = StyleSheet.create({
   wishlistButton: {
     width: 52,
     height: 52,
-    borderRadius: radius.md,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: colors.surface,
@@ -1422,7 +1422,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xl,
     marginHorizontal: spacing.lg,
     padding: spacing.lg,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -1467,7 +1467,7 @@ const styles = StyleSheet.create({
     minHeight: 80,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    borderRadius: radius.md,
+    borderRadius: 0,
     padding: spacing.sm,
     fontFamily: typography.sans,
     fontSize: 12,
@@ -1485,7 +1485,7 @@ const styles = StyleSheet.create({
   reviewImagePreviewWrap: {
     width: 56,
     height: 56,
-    borderRadius: radius.sm,
+    borderRadius: 0,
     overflow: "hidden",
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -1513,7 +1513,7 @@ const styles = StyleSheet.create({
   reviewImageAddBtn: {
     width: 56,
     height: 56,
-    borderRadius: radius.sm,
+    borderRadius: 0,
     borderWidth: 1,
     borderStyle: "dashed",
     borderColor: colors.borderSoft,
@@ -1561,7 +1561,7 @@ const styles = StyleSheet.create({
   reviewImageThumb: {
     width: 48,
     height: 48,
-    borderRadius: radius.sm,
+    borderRadius: 0,
     backgroundColor: colors.cream,
   },
   reviewDate: {
@@ -1589,7 +1589,7 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.lg,
     marginBottom: spacing.xl,
     padding: spacing.lg,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -1604,14 +1604,14 @@ const styles = StyleSheet.create({
     width: 150,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    borderRadius: radius.md,
+    borderRadius: 0,
     padding: spacing.sm,
     backgroundColor: colors.background,
   },
   relatedImage: {
     width: "100%",
     height: 110,
-    borderRadius: radius.sm,
+    borderRadius: 0,
     backgroundColor: colors.cream,
   },
   relatedTitle: {
@@ -1635,7 +1635,7 @@ const styles = StyleSheet.create({
   centerCard: {
     margin: spacing.lg,
     padding: spacing.xl,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     backgroundColor: colors.warmWhite,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -1659,7 +1659,7 @@ const styles = StyleSheet.create({
     zIndex: 2,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.35)",
-    borderRadius: radius.pill,
+    borderRadius: 0,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     backgroundColor: "rgba(0,0,0,0.45)",

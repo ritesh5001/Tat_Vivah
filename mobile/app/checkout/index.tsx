@@ -792,7 +792,7 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: colors.surfaceElevated,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     padding: spacing.lg,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -814,7 +814,7 @@ const styles = StyleSheet.create({
   },
   input: {
     height: 48,
-    borderRadius: radius.md,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     paddingHorizontal: spacing.md,
@@ -827,7 +827,7 @@ const styles = StyleSheet.create({
   // Selected address display
   selectedAddressBox: {
     backgroundColor: colors.surface,
-    borderRadius: radius.md,
+    borderRadius: 0,
     padding: spacing.md,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -854,7 +854,7 @@ const styles = StyleSheet.create({
   changeButton: {
     marginTop: spacing.md,
     paddingVertical: spacing.sm,
-    borderRadius: radius.md,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.gold,
     alignItems: "center",
@@ -887,7 +887,7 @@ const styles = StyleSheet.create({
   addAddressButton: {
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.md,
-    borderRadius: radius.md,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.gold,
   },
@@ -905,7 +905,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gold,
     borderWidth: 1,
     borderColor: colors.gold,
-    borderRadius: radius.md,
+    borderRadius: 0,
     paddingVertical: spacing.sm,
     alignItems: "center",
   },
@@ -935,8 +935,8 @@ const styles = StyleSheet.create({
   },
   modalSheet: {
     backgroundColor: colors.surfaceElevated,
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xl,
     maxHeight: "80%",
@@ -944,7 +944,7 @@ const styles = StyleSheet.create({
   modalHandle: {
     width: 36,
     height: 4,
-    borderRadius: 2,
+    borderRadius: 0,
     backgroundColor: colors.borderSoft,
     alignSelf: "center",
     marginTop: spacing.md,
@@ -982,7 +982,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.sm,
-    borderRadius: radius.md,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: colors.surface,
@@ -996,7 +996,7 @@ const styles = StyleSheet.create({
   selectorRadio: {
     width: 20,
     height: 20,
-    borderRadius: 10,
+    borderRadius: 0,
     borderWidth: 2,
     borderColor: colors.borderSoft,
     alignItems: "center",
@@ -1006,7 +1006,7 @@ const styles = StyleSheet.create({
   selectorRadioInner: {
     width: 10,
     height: 10,
-    borderRadius: 5,
+    borderRadius: 0,
     backgroundColor: colors.gold,
   },
   selectorContent: {
@@ -1028,7 +1028,7 @@ const styles = StyleSheet.create({
     borderColor: colors.borderSoft,
     paddingHorizontal: spacing.xs,
     paddingVertical: 2,
-    borderRadius: radius.sm,
+    borderRadius: 0,
     overflow: "hidden",
   },
   selectorDefault: {
@@ -1042,7 +1042,7 @@ const styles = StyleSheet.create({
     borderColor: colors.gold,
     paddingHorizontal: spacing.xs,
     paddingVertical: 2,
-    borderRadius: radius.sm,
+    borderRadius: 0,
     overflow: "hidden",
   },
   selectorLine: {
@@ -1077,7 +1077,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     backgroundColor: colors.surface,
-    borderRadius: radius.md,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.gold,
     padding: spacing.md,
@@ -1123,7 +1123,7 @@ const styles = StyleSheet.create({
   },
   couponApplyButton: {
     height: 48,
-    borderRadius: radius.md,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.gold,
     paddingHorizontal: spacing.lg,

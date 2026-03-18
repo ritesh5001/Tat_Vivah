@@ -1,6 +1,6 @@
 import * as React from "react";
 import { View, StyleSheet, Animated, type ViewStyle } from "react-native";
-import { colors, radius, spacing } from "../theme/tokens";
+import { colors, spacing } from "../theme/tokens";
 
 // ---------------------------------------------------------------------------
 // Pulse animation hook (shared across all skeleton instances)
@@ -34,18 +34,17 @@ function usePulse(): Animated.Value {
 // Base skeleton block
 // ---------------------------------------------------------------------------
 interface SkeletonBlockProps {
-  width?: number | `${number}%`;
+  width?: number | string;
   height?: number;
   borderRadius?: number;
   style?: ViewStyle;
 }
 
-export function SkeletonBlock({
-  width: w = "100%",
-  height: h = 12,
-  borderRadius: br = 6,
-  style,
-}: SkeletonBlockProps) {
+export function SkeletonBlock(props: SkeletonBlockProps) {
+  const w = props.width ?? "100%";
+  const h = props.height ?? 12;
+  const borderRadius = props.borderRadius ?? 0;
+  const style = props.style;
   const opacity = usePulse();
   return (
     <Animated.View
@@ -53,7 +52,7 @@ export function SkeletonBlock({
         {
           width: w,
           height: h,
-          borderRadius: br,
+          borderRadius,
           backgroundColor: colors.brown,
           opacity,
         },
@@ -154,25 +153,25 @@ const styles = StyleSheet.create({
   productCard: {
     marginBottom: spacing.md,
     padding: spacing.sm,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     backgroundColor: colors.warmWhite,
     borderWidth: 1,
     borderColor: colors.borderSoft,
   },
   productImage: {
     height: 160,
-    borderRadius: radius.md,
+    borderRadius: 0,
     backgroundColor: colors.brown,
   },
   line: {
     height: 12,
-    borderRadius: 6,
+    borderRadius: 0,
     backgroundColor: colors.brown,
   },
   lineShort: {
     height: 12,
     width: "60%",
-    borderRadius: 6,
+    borderRadius: 0,
     backgroundColor: colors.brown,
   },
 
@@ -180,7 +179,7 @@ const styles = StyleSheet.create({
   orderCard: {
     marginBottom: spacing.md,
     padding: spacing.md,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     backgroundColor: colors.warmWhite,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -193,19 +192,19 @@ const styles = StyleSheet.create({
   orderTitleLine: {
     height: 14,
     width: "50%",
-    borderRadius: 6,
+    borderRadius: 0,
     backgroundColor: colors.brown,
   },
   orderBadge: {
     height: 10,
     width: 70,
-    borderRadius: 5,
+    borderRadius: 0,
     backgroundColor: colors.gold,
   },
   orderPriceLine: {
     height: 12,
     width: "30%",
-    borderRadius: 6,
+    borderRadius: 0,
     backgroundColor: colors.brown,
   },
 
@@ -213,7 +212,7 @@ const styles = StyleSheet.create({
   notifCard: {
     marginBottom: spacing.md,
     padding: spacing.md,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     backgroundColor: colors.warmWhite,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -221,13 +220,13 @@ const styles = StyleSheet.create({
   notifMessage: {
     height: 12,
     width: "90%",
-    borderRadius: 6,
+    borderRadius: 0,
     backgroundColor: colors.brown,
   },
   notifDate: {
     height: 10,
     width: "25%",
-    borderRadius: 5,
+    borderRadius: 0,
     backgroundColor: colors.gold,
   },
 
@@ -235,7 +234,7 @@ const styles = StyleSheet.create({
   cartCard: {
     marginBottom: spacing.md,
     padding: spacing.md,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     backgroundColor: colors.warmWhite,
     borderWidth: 1,
     borderColor: colors.borderSoft,

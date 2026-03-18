@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Modal, Pressable, View, Text, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { colors, radius, spacing, typography } from "../theme/tokens";
+import { colors, spacing, typography } from "../theme/tokens";
 import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../providers/ToastProvider";
 
@@ -15,6 +15,7 @@ interface MenuSheetProps {
 const baseItems: { label: string; route: string }[] = [
   { label: "Home", route: "/home" },
   { label: "Marketplace", route: "/marketplace" },
+  { label: "Reels", route: "/reels" },
   { label: "Search", route: "/search" },
 ];
 
@@ -107,8 +108,8 @@ const styles = StyleSheet.create({
   },
   sheet: {
     backgroundColor: colors.cream,
-    borderBottomLeftRadius: radius.xl,
-    borderBottomRightRadius: radius.xl,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.lg,
     borderBottomWidth: 1,
@@ -130,7 +131,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    borderRadius: 20,
+    borderRadius: 0,
     backgroundColor: colors.warmWhite,
   },
   closeText: {

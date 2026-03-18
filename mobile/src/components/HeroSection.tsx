@@ -28,7 +28,7 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.lg,
     padding: spacing.lg,
     backgroundColor: "#F8F2EA",
-    borderRadius: radius.xl,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     ...shadow.card,
@@ -61,7 +61,7 @@ const styles = StyleSheet.create({
   primaryButton: {
     backgroundColor: colors.charcoal,
     paddingVertical: spacing.sm,
-    borderRadius: radius.md,
+    borderRadius: 0,
     alignItems: "center",
   },
   primaryButtonText: {
@@ -75,7 +75,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.borderSoft,
     paddingVertical: spacing.sm,
-    borderRadius: radius.md,
+    borderRadius: 0,
     alignItems: "center",
   },
   ghostButtonText: {

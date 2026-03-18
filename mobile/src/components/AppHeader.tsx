@@ -19,10 +19,13 @@ interface AppHeaderProps {
   showCart?: boolean;
 }
 
-const MARQUEE_MESSAGES = [
-  "TatVivah delivers premium groomwear that looks rich in photos and feels easy all day.",
-  "From haldi to reception, find complete curated looks in one seamless shopping flow.",
-  "Trusted by wedding shoppers for reliable delivery, sharp fits, and elegant finishing.",
+const ANNOUNCEMENTS = [
+  "Verified Sellers",
+  "Secure Payments",
+  "Premium Ethnic Wear",
+  "Pan-India Shipping",
+  "Easy Returns",
+  "Authentic Designs",
 ];
 
 export function AppHeader({
@@ -40,21 +43,17 @@ export function AppHeader({
   const router = useRouter();
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = React.useState(false);
-  const [marqueeStripWidth, setMarqueeStripWidth] = React.useState(0);
-  const [marqueeContentWidth, setMarqueeContentWidth] = React.useState(0);
+  const [marqueeTrackWidth, setMarqueeTrackWidth] = React.useState(0);
   const marqueeTranslateX = React.useRef(new Animated.Value(0)).current;
 
   const isMainHeader = variant === "main";
   const shouldShowBack = isMainHeader ? false : (showBack ?? pathname !== "/home");
   const shouldShowMenu = showMenu ?? true;
   const shouldShowSearch = showSearch ?? isMainHeader;
-  const shouldShowProfile = showProfile ?? isMainHeader;
-  const shouldShowWishlist = showWishlist ?? isMainHeader;
+  const shouldShowProfile = showProfile ?? false;
+  const shouldShowWishlist = showWishlist ?? false;
   const shouldShowCart = showCart ?? isMainHeader;
-  const marqueeItems = React.useMemo(
-    () => [...MARQUEE_MESSAGES, ...MARQUEE_MESSAGES],
-    []
-  );
+  const marqueeItems = React.useMemo(() => [...ANNOUNCEMENTS, ...ANNOUNCEMENTS], []);
 
   const handleBack = React.useCallback(() => {
     if (pathname === "/home") {
@@ -65,16 +64,15 @@ export function AppHeader({
   }, [pathname, router]);
 
   React.useEffect(() => {
-    if (!isMainHeader || marqueeStripWidth <= 0 || marqueeContentWidth <= 0) return;
+    if (!isMainHeader || marqueeTrackWidth <= 0) return;
 
-    const singleSetWidth = marqueeContentWidth / 2;
-    const distance = marqueeStripWidth + singleSetWidth;
-    const duration = Math.max(3600, Math.round((distance / 220) * 1000));
+    // Keep speed stable across devices (~32 px/sec).
+    const duration = Math.max(12000, Math.round((marqueeTrackWidth / 32) * 1000));
 
-    marqueeTranslateX.setValue(marqueeStripWidth);
+    marqueeTranslateX.setValue(0);
     const loop = Animated.loop(
       Animated.timing(marqueeTranslateX, {
-        toValue: -singleSetWidth,
+        toValue: -marqueeTrackWidth,
         duration,
         easing: Easing.linear,
         useNativeDriver: true,
@@ -83,25 +81,39 @@ export function AppHeader({
     loop.start();
 
     return () => loop.stop();
-  }, [isMainHeader, marqueeContentWidth, marqueeStripWidth, marqueeTranslateX]);
+  }, [isMainHeader, marqueeTrackWidth, marqueeTranslateX]);
 
   return (
     <View style={styles.container}>
       {isMainHeader ? (
-        <View
-          style={styles.marqueeStrip}
-          onLayout={(event) => setMarqueeStripWidth(event.nativeEvent.layout.width)}
-        >
+        <View style={styles.marqueeStrip}>
           <Animated.View
-            style={[styles.marqueeTrack, { transform: [{ translateX: marqueeTranslateX }] }]}
-            onLayout={(event) => setMarqueeContentWidth(event.nativeEvent.layout.width)}
+            style={[styles.marqueeLoop, { transform: [{ translateX: marqueeTranslateX }] }]}
           >
-            {marqueeItems.map((message, index) => (
-              <Text key={`mq-${index}`} style={styles.marqueeText} numberOfLines={1}>
-                {message}
-                {"   •   "}
-              </Text>
-            ))}
+            <View
+              style={styles.marqueeTrack}
+              onLayout={(event) => setMarqueeTrackWidth(event.nativeEvent.layout.width)}
+            >
+              {marqueeItems.map((message, index) => (
+                <View key={`mq-a-${index}`} style={styles.announcementItem}>
+                  <View style={styles.announcementDot} />
+                  <Text style={styles.marqueeText} numberOfLines={1}>
+                    {message}
+                  </Text>
+                </View>
+              ))}
+            </View>
+
+            <View style={styles.marqueeTrack}>
+              {marqueeItems.map((message, index) => (
+                <View key={`mq-b-${index}`} style={styles.announcementItem}>
+                  <View style={styles.announcementDot} />
+                  <Text style={styles.marqueeText} numberOfLines={1}>
+                    {message}
+                  </Text>
+                </View>
+              ))}
+            </View>
           </Animated.View>
         </View>
       ) : null}
@@ -195,37 +207,60 @@ export function AppHeader({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: "#f8ecd7",
+    backgroundColor: colors.background,
     borderBottomWidth: 1,
     borderBottomColor: colors.borderSoft,
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: spacing.md,
     paddingBottom: spacing.xs,
-    ...shadow.card,
+    shadowColor: colors.charcoal,
+    shadowOpacity: 0.02,
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 2,
+    elevation: 1,
   },
   marqueeStrip: {
-    height: 36,
-    backgroundColor: "#511d00",
+    height: 28,
+    backgroundColor: colors.cream,
     overflow: "hidden",
     justifyContent: "center",
     marginBottom: spacing.xs,
     marginHorizontal: -spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderSoft,
+  },
+  marqueeLoop: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   marqueeTrack: {
     flexDirection: "row",
     alignItems: "center",
   },
+  announcementItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginRight: 22,
+  },
+  announcementDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 0,
+    backgroundColor: colors.gold,
+    marginRight: 7,
+  },
   marqueeText: {
-    color: "#FFFFFF",
+    color: colors.brownSoft,
     fontFamily: typography.sansMedium,
-    fontSize: 13,
-    letterSpacing: 0.1,
+    fontSize: 10,
+    letterSpacing: 1.1,
+    textTransform: "uppercase",
     textAlign: "left",
   },
   row: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    minHeight: 20,
+    minHeight: 52,
   },
   leftSlot: {
     flex: 1,
@@ -233,7 +268,7 @@ const styles = StyleSheet.create({
   },
   mainEdgeSlot: {
     flex: 0,
-    width: 146,
+    width: 112,
   },
   centerSlot: {
     flex: 1,
@@ -262,19 +297,19 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: "row",
     justifyContent: "flex-end",
-    gap: spacing.md,
+    gap: spacing.sm,
     marginLeft: spacing.xs,
   },
   iconButton: {
-    height: 28,
-    width: 28,
+    height: 34,
+    width: 34,
     alignItems: "center",
     justifyContent: "center",
   },
   logo: {
-    height: 34,
-    width: 136,
-    marginLeft: -100,
+    height: 32,
+    width: 120,
+    marginLeft: 0,
   },
   subLogo: {
     height: 28,
@@ -283,7 +318,7 @@ const styles = StyleSheet.create({
   titleText: {
     fontFamily: typography.serif,
     fontSize: 18,
-    color: colors.charcoal,
+    color: colors.foreground,
     letterSpacing: 0.3,
   },
 });

@@ -73,7 +73,7 @@ const styles = StyleSheet.create({
   marketplaceCard: {
     padding: spacing.lg,
     backgroundColor: "#F8F2E8",
-    borderRadius: radius.xl,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     ...shadow.card,
@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
   heritageCard: {
     marginTop: spacing.lg,
     padding: spacing.lg,
-    borderRadius: radius.xl,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: colors.warmWhite,
@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     backgroundColor: colors.charcoal,
     paddingVertical: spacing.sm,
-    borderRadius: radius.md,
+    borderRadius: 0,
     alignItems: "center",
   },
   primaryButtonText: {
@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.borderSoft,
     paddingVertical: spacing.sm,
-    borderRadius: radius.md,
+    borderRadius: 0,
     alignItems: "center",
   },
   ghostButtonText: {
@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
   },
   featureCard: {
     padding: spacing.md,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: colors.warmWhite,

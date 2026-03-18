@@ -257,13 +257,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     marginHorizontal: spacing.lg,
   },
   rowImage: {
     width: 80,
     height: 100,
-    borderRadius: radius.md,
+    borderRadius: 0,
     backgroundColor: colors.surface,
   },
   rowInfo: {
@@ -295,7 +295,7 @@ const styles = StyleSheet.create({
   removeButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: colors.surface,
@@ -332,7 +332,7 @@ const styles = StyleSheet.create({
     borderColor: colors.gold,
     paddingHorizontal: 32,
     paddingVertical: 14,
-    borderRadius: radius.md,
+    borderRadius: 0,
   },
   ctaButtonText: {
     fontFamily: typography.sans,
@@ -346,7 +346,7 @@ const styles = StyleSheet.create({
     borderColor: colors.borderSoft,
     paddingHorizontal: 32,
     paddingVertical: 12,
-    borderRadius: radius.md,
+    borderRadius: 0,
   },
   secondaryButtonText: {
     fontFamily: typography.sans,
