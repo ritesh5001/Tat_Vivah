@@ -26,7 +26,7 @@ export declare class AuthRepository {
      */
     findUserById(id: string): Promise<UserEntity | null>;
     /**
-     * Create a new user with transaction
+     * Create a new user (no transaction needed for single create)
      */
     createUser(data: CreateUserData): Promise<UserEntity>;
     /**
@@ -94,6 +94,7 @@ export declare class AuthRepository {
     findSessionByIdAndUser(sessionId: string, userId: string): Promise<{
         id: string;
         refreshToken: string;
+        expiresAt: Date;
     } | null>;
 }
 export declare const authRepository: AuthRepository;

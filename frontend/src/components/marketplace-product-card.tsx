@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { WishlistHeartButton } from "@/components/wishlist-heart-button";
 
 const currency = new Intl.NumberFormat("en-IN", {
@@ -11,15 +12,22 @@ const currency = new Intl.NumberFormat("en-IN", {
 
 export interface MarketplaceCardProduct {
   id: string;
+  /** Bestsellers use `productId` instead of `id` for wishlist */
+  productId?: string;
   title: string;
   images?: string[];
+  /** Bestsellers use `image` (single) instead of `images` */
+  image?: string | null;
   category?: { id?: string; name: string } | null;
+  /** Bestsellers use `categoryName` string */
+  categoryName?: string | null;
   salePrice?: number | null;
   adminPrice?: number | null;
   price?: number | null;
   regularPrice?: number | null;
   sellerPrice?: number | null;
   adminListingPrice?: number | null;
+  minPrice?: number | null;
 }
 
 function resolvePrimaryPrice(product: MarketplaceCardProduct): number | null {
@@ -28,53 +36,78 @@ function resolvePrimaryPrice(product: MarketplaceCardProduct): number | null {
     product.adminPrice ??
     product.price ??
     product.adminListingPrice ??
+    product.minPrice ??
     product.sellerPrice;
   return typeof value === "number" ? value : null;
 }
 
+function resolveOriginalPrice(product: MarketplaceCardProduct, displayPrice: number | null): number | null {
+  if (typeof product.regularPrice !== "number") return null;
+  if (displayPrice === null) return null;
+  return product.regularPrice > displayPrice ? product.regularPrice : null;
+}
+
 export function MarketplaceProductCard({ product }: { product: MarketplaceCardProduct }) {
-  const primaryPrice = resolvePrimaryPrice(product);
+  const displayPrice = resolvePrimaryPrice(product);
+  const originalPrice = resolveOriginalPrice(product, displayPrice);
+
+  const discountPercentage =
+    typeof displayPrice === "number" && typeof originalPrice === "number" && originalPrice > 0
+      ? Math.round(((originalPrice - displayPrice) / originalPrice) * 100)
+      : null;
+
+  const imageSrc = product.images?.[0] ?? product.image ?? "/images/product-placeholder.svg";
+  const categoryLabel = product.category?.name ?? product.categoryName ?? "Collection";
+  const wishlistId = product.productId ?? product.id;
 
   return (
     <Link href={`/product/${product.id}`} className="group block">
-      <div className="relative mb-5 overflow-hidden bg-cream dark:bg-brown/20 aspect-3/4 border border-border-soft transition-all duration-400 group-hover:border-gold/30">
-        <img
-          src={product.images?.[0] ?? "/images/product-placeholder.svg"}
+      {/* Image */}
+      <div className="relative overflow-hidden bg-cream dark:bg-brown/20 aspect-3/4">
+        <Image
+          src={imageSrc}
           alt={product.title}
-          className="h-full w-full object-contain p-6 transition-transform duration-500 group-hover:scale-[1.02]"
+          fill
+          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+          className="object-cover transition-transform duration-500 group-hover:scale-105"
           loading="lazy"
+          quality={75}
         />
-        <span className="absolute top-4 left-4 bg-card/90 backdrop-blur-sm px-3 py-1 text-[10px] uppercase tracking-wider text-muted-foreground border border-border-soft">
-          {product.category?.name ?? "Featured"}
-        </span>
-        <span className="absolute top-4 right-4 bg-card/90 backdrop-blur-sm px-3 py-1 text-[10px] uppercase tracking-wider text-gold border border-gold/20">
-          Verified
-        </span>
+
+        {/* Heart — top right */}
         <WishlistHeartButton
-          productId={product.id}
+          productId={wishlistId}
           size={18}
-          className="absolute bottom-4 right-4 h-8 w-8 bg-card/90 backdrop-blur-sm border border-border-soft text-muted-foreground hover:text-foreground hover:border-gold/50"
+          className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center bg-white/80 dark:bg-card/80 backdrop-blur-sm text-muted-foreground shadow-sm transition-all duration-300 hover:text-destructive"
         />
       </div>
 
-      <div className="space-y-2">
-        <h3 className="font-serif text-lg font-normal text-foreground group-hover:text-gold transition-colors duration-300">
+      {/* Info */}
+      <div className="mt-3 space-y-1">
+        <h3 className="line-clamp-1 text-sm font-medium tracking-tight text-foreground transition-colors duration-300 group-hover:text-gold">
           {product.title}
         </h3>
-        <p className="text-xs text-muted-foreground uppercase tracking-wider">
-          {product.category?.name ?? "Collection"}
+        <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+          {categoryLabel}
         </p>
-        {typeof primaryPrice === "number" ? (
-          <div className="flex items-center gap-2 text-sm">
-            <span className="font-medium text-foreground">{currency.format(primaryPrice)}</span>
-            {typeof product.regularPrice === "number" && product.regularPrice !== primaryPrice ? (
-              <span className="text-muted-foreground line-through">
-                {currency.format(product.regularPrice)}
+        {typeof displayPrice === "number" ? (
+          <div className="flex items-baseline gap-2">
+            <span className="text-sm font-medium tracking-tight text-foreground">
+              {currency.format(displayPrice)}
+            </span>
+            {typeof originalPrice === "number" && (
+              <span className="text-xs text-muted-foreground/70 line-through">
+                {currency.format(originalPrice)}
               </span>
-            ) : null}
+            )}
+            {typeof discountPercentage === "number" && discountPercentage > 0 && (
+              <span className="text-[11px] font-semibold text-destructive">
+                {discountPercentage}% OFF
+              </span>
+            )}
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">Price on request</p>
+          <p className="text-xs text-muted-foreground">Price on request</p>
         )}
       </div>
     </Link>

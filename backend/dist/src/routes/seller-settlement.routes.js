@@ -3,7 +3,7 @@ import { authenticate, authorize } from '../middlewares/auth.middleware.js';
 import { settlementRepository } from '../repositories/settlement.repository.js'; // Using repo directly for simple read, or create controller if needed. Plan said generic route but let's stick to simple implementation.
 const router = Router();
 router.use(authenticate);
-router.use(authorize(['SELLER', 'ADMIN', 'SUPER_ADMIN']));
+router.use(authorize('SELLER', 'ADMIN', 'SUPER_ADMIN'));
 router.get('/', async (req, res, next) => {
     try {
         const sellerId = req.user.id;

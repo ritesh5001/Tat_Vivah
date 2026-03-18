@@ -3,6 +3,7 @@ import { Platform } from "react-native";
 
 export type AuthUser = {
   id: string;
+  fullName?: string | null;
   email: string | null;
   phone: string | null;
   role: string;

@@ -9,10 +9,10 @@ export declare class CartRepository {
      */
     findByUserId(userId: string): Promise<({
         items: {
+            variantId: string;
             id: string;
             createdAt: Date;
             productId: string;
-            variantId: string;
             cartId: string;
             quantity: number;
             priceSnapshot: number;
@@ -56,6 +56,7 @@ export declare class CartRepository {
     clearCart(cartId: string): Promise<void>;
     /**
      * Get cart items with product and variant details
+     * Uses batch lookups (2 queries) instead of 2N individual queries.
      */
     getCartWithDetails(userId: string): Promise<CartWithItems | null>;
 }

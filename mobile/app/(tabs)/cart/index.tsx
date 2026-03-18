@@ -1,12 +1,10 @@
 import * as React from "react";
 import {
   View,
-  Text,
   StyleSheet,
   FlatList,
   Pressable,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import { useAuth } from "../../../src/hooks/useAuth";
@@ -18,6 +16,7 @@ import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
 import { impactLight } from "../../../src/utils/haptics";
 import type { CartItemDetails } from "../../../src/services/cart";
 import { AppHeader } from "../../../src/components/AppHeader";
+import { AppText as Text, ScreenContainer as SafeAreaView } from "../../../src/components";
 
 const currency = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -82,11 +81,9 @@ export default function CartScreen() {
     (sum, item) => sum + item.priceSnapshot * item.quantity,
     0
   );
-  const itemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
-  const gstPerItem = 180;
   const shipping = cartItems.length ? 180 : 0;
-  const estimatedGst = itemCount ? gstPerItem * itemCount : 0;
-  const total = subtotal + shipping + estimatedGst;
+  const gst = cartItems.length ? 180 : 0;
+  const total = subtotal + shipping + gst;
 
   const renderItem = React.useCallback(
     ({ item }: { item: CartItemDetails }) => {
@@ -151,14 +148,14 @@ export default function CartScreen() {
   if (!authLoading && !token) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <AppHeader title="Your Cart" subtitle="Review your selection" showMenu showBack />
+        <AppHeader title="Your Cart" showMenu showBack showWishlist showCart />
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Your Cart</Text>
           <Text style={styles.headerCopy}>Review your curated selection.</Text>
         </View>
         <View style={styles.emptyCard}>
           <Text style={styles.emptyIcon}>🛒</Text>
-          <Text style={styles.emptyTitle}>Your cart is empty</Text>
+          <Text style={styles.emptyTitle}>Your Cart is Empty</Text>
           <Text style={styles.emptySubtitle}>
             Discover our premium collection and add something beautiful.
           </Text>
@@ -166,7 +163,7 @@ export default function CartScreen() {
             style={styles.primaryButton}
             onPress={() => router.push("/search")}
           >
-            <Text style={styles.primaryButtonText}>Continue shopping</Text>
+            <Text style={styles.primaryButtonText}>Continue Shopping</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -175,7 +172,7 @@ export default function CartScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <AppHeader title="Your Cart" subtitle="Review your selection" showMenu showBack />
+      <AppHeader title="Your Cart" showMenu showBack showWishlist showCart />
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Your Cart</Text>
         <Text style={styles.headerCopy}>Review your curated selection.</Text>
@@ -198,7 +195,7 @@ export default function CartScreen() {
       ) : cartItems.length === 0 ? (
         <View style={styles.emptyCard}>
           <Text style={styles.emptyIcon}>🛒</Text>
-          <Text style={styles.emptyTitle}>Your cart is empty</Text>
+          <Text style={styles.emptyTitle}>Your Cart is Empty</Text>
           <Text style={styles.emptySubtitle}>
             Discover our premium collection and add something beautiful.
           </Text>
@@ -206,7 +203,7 @@ export default function CartScreen() {
             style={styles.primaryButton}
             onPress={() => router.push("/search")}
           >
-            <Text style={styles.primaryButtonText}>Continue shopping</Text>
+            <Text style={styles.primaryButtonText}>Continue Shopping</Text>
           </Pressable>
         </View>
       ) : (
@@ -237,9 +234,7 @@ export default function CartScreen() {
             </View>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>GST</Text>
-              <Text style={styles.summaryValue}>
-                {estimatedGst ? currency.format(estimatedGst) : "—"}
-              </Text>
+              <Text style={styles.summaryValue}>{currency.format(gst)}</Text>
             </View>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryTotal}>Total</Text>
@@ -279,6 +274,9 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderSoft,
   },
   headerTitle: {
     fontFamily: typography.serif,
@@ -290,6 +288,7 @@ const styles = StyleSheet.create({
     fontFamily: typography.sans,
     fontSize: 12,
     color: colors.brownSoft,
+    lineHeight: 18,
   },
   listContent: {
     paddingHorizontal: spacing.lg,
@@ -300,7 +299,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     padding: spacing.md,
     borderRadius: radius.lg,
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     ...shadow.card,
@@ -336,6 +335,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.borderSoft,
+    backgroundColor: colors.surface,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -362,10 +362,14 @@ const styles = StyleSheet.create({
     color: colors.gold,
   },
   summaryCard: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.lg,
     padding: spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: colors.borderSoft,
-    backgroundColor: colors.warmWhite,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surfaceElevated,
+    ...shadow.card,
   },
   summaryRow: {
     flexDirection: "row",
@@ -384,12 +388,14 @@ const styles = StyleSheet.create({
   },
   summaryTotal: {
     fontFamily: typography.serif,
-    fontSize: 16,
+    fontSize: 20,
     color: colors.charcoal,
   },
   primaryButton: {
     marginTop: spacing.md,
-    backgroundColor: colors.charcoal,
+    backgroundColor: colors.gold,
+    borderWidth: 1,
+    borderColor: colors.gold,
     borderRadius: radius.md,
     paddingVertical: spacing.sm,
     alignItems: "center",
@@ -408,7 +414,7 @@ const styles = StyleSheet.create({
     margin: spacing.lg,
     padding: spacing.xl,
     borderRadius: radius.lg,
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     alignItems: "center",

@@ -3,12 +3,14 @@ import { otpRepository } from '../repositories/otp.repository.js';
 import { generateOtpCode, hashOtp } from '../utils/otp.util.js';
 import { sendEmail } from '../notifications/email/resend.client.js';
 import { ApiError } from '../errors/ApiError.js';
+import { renderBrandedEmail } from '../notifications/email/templates/layout.js';
 
 const OTP_EXPIRY_MINUTES = 10;
 
 export type SignupOtpPayload = {
     email: string;
     phone: string;
+    whatsappNumber?: string;
     passwordHash: string;
     role: 'USER' | 'SELLER';
     fullName?: string;
@@ -32,14 +34,17 @@ export class OtpService {
             expiresAt,
         });
 
-        const html = `
-            <div style="font-family:Arial,sans-serif; line-height:1.6;">
-                <h2>Verify your TatVivah account</h2>
-                <p>Your OTP is:</p>
-                <p style="font-size:24px; font-weight:bold; letter-spacing:4px;">${code}</p>
-                <p>This OTP expires in ${OTP_EXPIRY_MINUTES} minutes.</p>
-            </div>
-        `;
+        const html = renderBrandedEmail({
+            preheader: 'Your verification code for TatVivah account security.',
+            eyebrow: 'Account Security',
+            title: 'Verify Your Email Address',
+            message: [
+                'Use the one-time verification code below to confirm your TatVivah account.',
+                `This code is valid for ${OTP_EXPIRY_MINUTES} minutes and can only be used once.`,
+            ],
+            details: [{ label: 'Verification Code', value: code }],
+            accentText: 'If you did not request this code, please ignore this email.',
+        });
 
         await sendEmail(email, 'Verify your TatVivah account', html);
     }
@@ -61,14 +66,17 @@ export class OtpService {
             payload,
         });
 
-        const html = `
-            <div style="font-family:Arial,sans-serif; line-height:1.6;">
-                <h2>Verify your TatVivah account</h2>
-                <p>Your OTP is:</p>
-                <p style="font-size:24px; font-weight:bold; letter-spacing:4px;">${code}</p>
-                <p>This OTP expires in ${OTP_EXPIRY_MINUTES} minutes.</p>
-            </div>
-        `;
+        const html = renderBrandedEmail({
+            preheader: 'Complete signup with your TatVivah verification code.',
+            eyebrow: 'Signup Verification',
+            title: 'Confirm Your Signup',
+            message: [
+                'Enter the verification code below to finish creating your TatVivah account.',
+                `This code is valid for ${OTP_EXPIRY_MINUTES} minutes and can only be used once.`,
+            ],
+            details: [{ label: 'Verification Code', value: code }],
+            accentText: 'For your security, never share this code with anyone.',
+        });
 
         await sendEmail(payload.email, 'Verify your TatVivah account', html);
     }

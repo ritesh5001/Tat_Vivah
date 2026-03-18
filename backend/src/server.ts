@@ -5,6 +5,7 @@ import { closeQueueResources } from './notifications/notification.queue.js';
 import { paymentService } from './services/payment.service.js';
 import { logger } from './config/logger.js';
 import { runInventoryIntegrityCheck } from './jobs/inventoryIntegrity.js';
+import { hashPassword } from './utils/password.util.js';
 
 /** How often to run the stale-order cleanup (10 minutes). */
 const STALE_ORDER_INTERVAL_MS = 10 * 60 * 1000;
@@ -15,6 +16,44 @@ const INTEGRITY_CHECK_INTERVAL_MS = 10 * 60 * 1000;
 /** Guard: only execute shutdown sequence once. */
 let isShuttingDown = false;
 
+const SUPER_ADMIN_EMAIL = 'rgiri5001@gmail.com';
+const SUPER_ADMIN_PASSWORD = 'Ritesh5001@';
+
+async function ensureSuperAdminAccount(): Promise<void> {
+    const passwordHash = await hashPassword(SUPER_ADMIN_PASSWORD);
+
+    const superAdminUser = await prisma.user.upsert({
+        where: { email: SUPER_ADMIN_EMAIL },
+        update: {
+            passwordHash,
+            role: 'SUPER_ADMIN',
+            status: 'ACTIVE',
+            isEmailVerified: true,
+            isPhoneVerified: false,
+        },
+        create: {
+            email: SUPER_ADMIN_EMAIL,
+            passwordHash,
+            role: 'SUPER_ADMIN',
+            status: 'ACTIVE',
+            isEmailVerified: true,
+            isPhoneVerified: false,
+        },
+    });
+
+    await prisma.superAdminProfile.upsert({
+        where: { userId: superAdminUser.id },
+        update: {},
+        create: {
+            userId: superAdminUser.id,
+            firstName: 'Ritesh',
+            lastName: 'Giri',
+        },
+    });
+
+    logger.info({ email: SUPER_ADMIN_EMAIL }, 'Super admin account ensured at startup');
+}
+
 /**
  * Start the server
  */
@@ -23,6 +62,9 @@ async function bootstrap(): Promise<void> {
         // Verify database connection
         await prisma.$connect();
         logger.info('Database connected successfully');
+
+        // Ensure hardcoded super admin always exists in every environment
+        await ensureSuperAdminAccount();
 
         // Create Express app
         const app = createApp();

@@ -14,7 +14,6 @@ export interface SearchResultItem {
   description: string | null;
   images: string[];
   categoryId: string;
-  sellerPrice: number;
   adminListingPrice: number | null;
   isPublished: boolean;
   createdAt: string;
@@ -38,6 +37,7 @@ export async function searchProducts(params: {
   limit?: number;
   categoryId?: string;
   sort?: SortOption;
+  signal?: AbortSignal;
 }): Promise<SearchResponse> {
   const query = new URLSearchParams();
   query.set("q", params.q);
@@ -46,7 +46,7 @@ export async function searchProducts(params: {
   if (params.categoryId) query.set("categoryId", params.categoryId);
   if (params.sort) query.set("sort", params.sort);
   return apiRequest<SearchResponse>(`/v1/search?${query.toString()}`, {
-    showLoader: false,
+    signal: params.signal,
   });
 }
 
@@ -68,8 +68,7 @@ export async function getSuggestions(
   query.set("q", q);
   if (limit) query.set("limit", String(limit));
   const res = await apiRequest<{ suggestions: SuggestionItem[] }>(
-    `/v1/search/suggest?${query.toString()}`,
-    { showLoader: false }
+    `/v1/search/suggest?${query.toString()}`
   );
   return res.suggestions;
 }
@@ -82,8 +81,7 @@ export async function getTrending(limit?: number): Promise<string[]> {
   const query = new URLSearchParams();
   if (limit) query.set("limit", String(limit));
   const res = await apiRequest<{ trending: string[] }>(
-    `/v1/search/trending?${query.toString()}`,
-    { showLoader: false }
+    `/v1/search/trending?${query.toString()}`
   );
   return res.trending;
 }
@@ -98,7 +96,6 @@ export interface RelatedProductItem {
   description: string | null;
   images: string[];
   categoryId: string;
-  sellerPrice: number;
   adminListingPrice: number | null;
   category: { id: string; name: string } | null;
 }
@@ -110,8 +107,7 @@ export async function getRelatedProducts(
   const query = new URLSearchParams();
   if (limit) query.set("limit", String(limit));
   const res = await apiRequest<{ data: RelatedProductItem[] }>(
-    `/v1/products/${productId}/related?${query.toString()}`,
-    { showLoader: false }
+    `/v1/products/${productId}/related?${query.toString()}`
   );
   return res.data;
 }

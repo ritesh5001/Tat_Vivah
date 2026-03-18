@@ -67,7 +67,7 @@ export async function getUnreadCount(): Promise<number> {
   try {
     const response = await apiRequest<UnreadCountResponse>(
       "/v1/notifications/unread-count",
-      { method: "GET", showLoader: false }
+      { method: "GET" }
     );
     return response.data?.count ?? 0;
   } catch {

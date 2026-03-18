@@ -2,20 +2,28 @@ import { CartRepository } from '../repositories/cart.repository.js';
 import type { CheckoutResponse } from '../types/order.types.js';
 /**
  * Checkout Service
- * Handles the checkout process with inventory management
+ * Handles the checkout process with atomic inventory reservation.
  *
- * Note: Uses sequential operations instead of interactive transactions
- * due to Neon connection pooler limitations with Prisma transactions.
+ * Concurrency strategy:
+ *   1. Validate cart items and pricing outside the transaction (read-only).
+ *   2. Inside a serialised $transaction:
+ *      a. Atomically decrement stock using `updateMany WHERE stock >= qty`.
+ *         If ANY row returns count=0 → rollback entire transaction (no partial reservation).
+ *      b. Create order + items in the same tx.
+ *      c. Create RESERVE movements for audit trail.
+ *      d. Clear cart.
+ *   3. Cache invalidation + notifications happen outside the tx (best-effort).
+ *
+ * This guarantees:
+ *   - Two users cannot buy the last unit simultaneously.
+ *   - Stock can never go negative at the database level.
+ *   - No partial reservations — all-or-nothing.
  */
 export declare class CheckoutService {
     private readonly cartRepo;
     constructor(cartRepo: CartRepository);
     /**
-     * Process checkout
-     * 1. Validate inventory for all items
-     * 2. Create order with items
-     * 3. Deduct stock and create movements
-     * 4. Clear cart
+     * Process checkout — atomic, concurrency-safe
      */
     checkout(userId: string, shipping?: {
         shippingName?: string;
@@ -24,8 +32,9 @@ export declare class CheckoutService {
         shippingAddressLine1?: string;
         shippingAddressLine2?: string;
         shippingCity?: string;
+        shippingPincode?: string;
         shippingNotes?: string;
-    }): Promise<CheckoutResponse>;
+    }, couponCode?: string): Promise<CheckoutResponse>;
 }
 export declare const checkoutService: CheckoutService;
 //# sourceMappingURL=checkout.service.d.ts.map

@@ -1,0 +1,45 @@
+# Monorepo: build only what mobile app needs
+
+# Never upload sibling apps/services
+backend/
+frontend/
+
+# Common heavy local artifacts
+**/node_modules/
+**/.expo/
+**/.expo-shared/
+**/.turbo/
+**/.next/
+**/coverage/
+
+# Mobile local build/export artifacts
+mobile/dist/
+mobile/dist-android/
+mobile/dist-android-final/
+mobile/dist-android-optimized/
+mobile/dist-android*/
+mobile/perf-pass-*.txt
+
+# Native folders are generated on EAS when needed
+mobile/android/
+mobile/ios/
+
+# VCS/editor/system files
+.git/
+**/.git/
+.vscode/
+**/.vscode/
+.DS_Store
+Thumbs.db
+
+# Build outputs and binaries
+**/build/
+**/*.apk
+**/*.aab
+**/*.hprof
+**/*.keystore
+
+# Test/docs noise not needed by mobile cloud build
+**/__tests__/
+**/*.test.*
+**/*.spec.*

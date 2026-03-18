@@ -44,7 +44,7 @@ export class CategoryService {
         const categories = await this.repository.findAllActive();
         const response = { categories };
         // Cache the result
-        await setCache(CACHE_KEYS.CATEGORIES_LIST, response);
+        await setCache(CACHE_KEYS.CATEGORIES_LIST, response, 120);
         return response;
     }
     /**
@@ -57,13 +57,20 @@ export class CategoryService {
     /**
      * Create category (admin)
      */
-    async createCategory(name) {
-        const baseSlug = this.slugify(name);
+    async createCategory(input) {
+        const baseSlug = this.slugify(input.name);
         if (!baseSlug) {
             throw ApiError.badRequest('Invalid category name');
         }
+        // Validate parentId if provided
+        if (input.parentId) {
+            const parent = await this.repository.findById(input.parentId);
+            if (!parent) {
+                throw ApiError.badRequest('Parent category not found');
+            }
+        }
         const slug = await this.getUniqueSlug(baseSlug);
-        const created = await this.repository.create({ name, slug });
+        const created = await this.repository.create({ ...input, slug });
         await invalidateCache(CACHE_KEYS.CATEGORIES_LIST);
         return created;
     }
@@ -75,6 +82,16 @@ export class CategoryService {
         if (!category) {
             throw ApiError.notFound('Category not found');
         }
+        // Validate parentId if provided and not null
+        if (data.parentId) {
+            if (data.parentId === id) {
+                throw ApiError.badRequest('Category cannot be its own parent');
+            }
+            const parent = await this.repository.findById(data.parentId);
+            if (!parent) {
+                throw ApiError.badRequest('Parent category not found');
+            }
+        }
         let slug;
         if (data.name) {
             const baseSlug = this.slugify(data.name);
@@ -84,10 +101,37 @@ export class CategoryService {
             slug = await this.getUniqueSlug(baseSlug, id);
         }
         const updated = await this.repository.update(id, {
-            ...(data.name ? { name: data.name } : {}),
+            ...data,
             ...(slug ? { slug } : {}),
-            ...(data.isActive !== undefined ? { isActive: data.isActive } : {}),
         });
+        await invalidateCache(CACHE_KEYS.CATEGORIES_LIST);
+        return updated;
+    }
+    /**
+     * Delete category (admin) — fails if products exist
+     */
+    async deleteCategory(id) {
+        const category = await this.repository.findById(id);
+        if (!category) {
+            throw ApiError.notFound('Category not found');
+        }
+        const hasProducts = await this.repository.hasProducts(id);
+        if (hasProducts) {
+            throw ApiError.badRequest('Cannot delete category that has products. Reassign products first.');
+        }
+        await this.repository.purgeSoftDeletedProducts(id);
+        await this.repository.delete(id);
+        await invalidateCache(CACHE_KEYS.CATEGORIES_LIST);
+    }
+    /**
+     * Toggle category active state
+     */
+    async toggleCategory(id) {
+        const category = await this.repository.findById(id);
+        if (!category) {
+            throw ApiError.notFound('Category not found');
+        }
+        const updated = await this.repository.update(id, { isActive: !category.isActive });
         await invalidateCache(CACHE_KEYS.CATEGORIES_LIST);
         return updated;
     }

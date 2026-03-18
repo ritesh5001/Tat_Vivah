@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 import { Inter, Cormorant_Garamond } from "next/font/google";
 import "./globals.css";
-import { SiteHeader } from "@/components/site-header";
-import { SiteFooter } from "@/components/site-footer";
+import { PublicLayoutShell } from "@/components/layout/PublicLayoutShell";
 import { Toaster } from "@/components/ui/sonner";
-import { GlobalLoader } from "@/components/global-loader";
+import { SessionGuard } from "@/components/SessionGuard";
 
 /**
  * Inter - Body text, UI elements
@@ -27,10 +26,81 @@ const cormorant = Cormorant_Garamond({
   display: "swap",
 });
 
+const API_ORIGIN = (() => {
+  const base = process.env.NEXT_PUBLIC_API_BASE_URL;
+  if (!base) return null;
+  try {
+    return new URL(base).origin;
+  } catch {
+    return null;
+  }
+})();
+
 export const metadata: Metadata = {
-  title: "TatVivah | Premium Indian Fashion",
-  description: "Discover curated men's ethnic wear and wedding fashion from verified sellers. A trusted multi-vendor marketplace for premium Indian clothing.",
-  keywords: ["Indian fashion", "ethnic wear", "wedding fashion", "men's clothing", "kurta", "sherwani"],
+  metadataBase: new URL("https://tatvivahtrends.com"),
+  title: {
+    default: "TatVivah | Best Ethnic Wear for Men in India | Sherwani, Kurta, Indo Western",
+    template: "%s | TatVivah",
+  },
+  description:
+    "Shop the best ethnic wear for men in India. Explore premium sherwani, kurta sets, Indo-Western outfits, wedding wear, festive outfits and groom collections from top designers.",
+  keywords: [
+    "ethnic wear for men india",
+    "sherwani for wedding",
+    "kurta set for men",
+    "indo western for men",
+    "groom wedding outfits",
+    "mehendi kurta set",
+    "sangeet outfit men",
+    "wedding sherwani india",
+  ],
+  openGraph: {
+    title: "TatVivah | Best Ethnic Wear for Men in India | Sherwani, Kurta, Indo Western",
+    description:
+      "Shop the best ethnic wear for men in India. Explore premium sherwani, kurta sets, Indo-Western outfits, wedding wear, festive outfits and groom collections from top designers.",
+    siteName: "TatVivah",
+    url: "https://tatvivahtrends.com",
+    images: [
+      {
+        url: "/logo.png",
+        width: 800,
+        height: 600,
+        alt: "TatVivah - Best Ethnic Wear for Men in India",
+      },
+    ],
+    locale: "en_IN",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "TatVivah | Best Ethnic Wear for Men in India",
+    description:
+      "Shop premium sherwani, kurta sets, Indo-Western outfits and wedding collections for men from top designers in India.",
+    images: ["/logo.png"],
+  },
+  icons: {
+    icon: [
+      { url: "/logo.png" },
+      { url: "/tatvivah-logo.svg", type: "image/svg+xml" }
+    ],
+    shortcut: "/logo.png",
+    apple: "/logo.png",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#faf9f6" },
+    { media: "(prefers-color-scheme: dark)", color: "#1a1818" }
+  ],
 };
 
 export default function RootLayout({
@@ -41,6 +111,9 @@ export default function RootLayout({
   return (
     <html lang="en" className="scroll-smooth" suppressHydrationWarning>
       <head>
+        {/* Preconnect to critical external origins to cut DNS/TLS latency */}
+        <link rel="preconnect" href="https://ik.imagekit.io" />
+        {API_ORIGIN && <link rel="preconnect" href={API_ORIGIN} />}
         <script
           dangerouslySetInnerHTML={{
             __html: `(() => {
@@ -58,11 +131,28 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${cormorant.variable} min-h-screen bg-background text-foreground antialiased`}
       >
-        <SiteHeader />
-        <GlobalLoader />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebSite",
+              name: "TatVivah",
+              url: "https://tatvivahtrends.com",
+              potentialAction: {
+                "@type": "SearchAction",
+                target: {
+                  "@type": "EntryPoint",
+                  urlTemplate: "https://tatvivahtrends.com/marketplace?search={search_term_string}"
+                },
+                "query-input": "required name=search_term_string"
+              }
+            })
+          }}
+        />
         <Toaster />
-        <main className="min-h-[calc(100vh-160px)]">{children}</main>
-        <SiteFooter />
+        <SessionGuard />
+        <PublicLayoutShell>{children}</PublicLayoutShell>
       </body>
     </html>
   );

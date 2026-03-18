@@ -47,17 +47,17 @@ export function ReviewSection() {
 
             <div className="relative w-full overflow-hidden">
                 {/* Gradient Masks */}
-                <div className="absolute left-0 top-0 z-10 h-full w-20 bg-gradient-to-r from-background to-transparent" />
-                <div className="absolute right-0 top-0 z-10 h-full w-20 bg-gradient-to-l from-background to-transparent" />
+                <div className="absolute left-0 top-0 z-10 h-full w-20 bg-linear-to-r from-background to-transparent" />
+                <div className="absolute right-0 top-0 z-10 h-full w-20 bg-linear-to-l from-background to-transparent" />
 
                 {/* Marquee Track */}
                 <div
-                    className="flex w-max animate-scroll gap-6 py-4 hover:[animation-play-state:paused]"
+                    className="flex w-max animate-scroll gap-6 py-4 hover:paused"
                 >
                     {allReviews.map((review, index) => (
                         <div
                             key={index}
-                            className="flex w-[300px] flex-col justify-between rounded-xl border border-border-soft bg-card p-6 shadow-sm transition-transform duration-300 hover:-translate-y-1 hover:shadow-md sm:w-[350px]"
+                            className="flex w-75 flex-col justify-between rounded-xl border border-border-soft bg-card p-6 shadow-sm transition-transform duration-300 hover:-translate-y-1 hover:shadow-md sm:w-87.5"
                         >
                             <div>
                                 <div className="mb-4 text-lg text-gold">★★★★★</div>

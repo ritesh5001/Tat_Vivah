@@ -18,7 +18,7 @@ const DropdownMenuSubTrigger = React.forwardRef<
   <DropdownMenuPrimitive.SubTrigger
     ref={ref}
     className={cn(
-      "flex cursor-default select-none items-center rounded-lg px-2 py-1.5 text-sm outline-none focus:bg-rose-50 data-[state=open]:bg-rose-50 dark:focus:bg-rose-500/10 dark:data-[state=open]:bg-rose-500/10",
+      "flex cursor-default select-none items-center rounded-none px-2 py-1.5 text-sm outline-none focus:bg-rose-50 data-[state=open]:bg-rose-50 dark:focus:bg-rose-500/10 dark:data-[state=open]:bg-rose-500/10",
       className
     )}
     {...props}
@@ -33,7 +33,7 @@ const DropdownMenuSubContent = React.forwardRef<
   <DropdownMenuPrimitive.SubContent
     ref={ref}
     className={cn(
-      "z-50 min-w-[8rem] rounded-xl border border-slate-200 bg-white p-1 text-slate-700 shadow-lg dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200",
+      "z-50 min-w-32 rounded-none border border-slate-200 bg-white p-1 text-slate-700 shadow-lg dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200",
       className
     )}
     {...props}
@@ -50,7 +50,7 @@ const DropdownMenuContent = React.forwardRef<
       ref={ref}
       sideOffset={sideOffset}
       className={cn(
-        "z-50 min-w-[12rem] rounded-2xl border border-slate-200 bg-white p-2 text-slate-700 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200",
+        "z-50 min-w-48 rounded-none border border-slate-200 bg-white p-2 text-slate-700 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200",
         className
       )}
       {...props}
@@ -65,10 +65,10 @@ const DropdownMenuItem = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DropdownMenuPrimitive.Item
     ref={ref}
-    className={cn(
-      "relative flex cursor-default select-none items-center rounded-xl px-3 py-2 text-sm outline-none transition focus:bg-rose-50 focus:text-rose-600 data-[disabled]:pointer-events-none data-[disabled]:opacity-50 dark:focus:bg-rose-500/10 dark:focus:text-rose-300",
-      className
-    )}
+      className={cn(
+        "relative flex cursor-default select-none items-center rounded-none px-3 py-2 text-sm outline-none transition focus:bg-rose-50 focus:text-rose-600 data-disabled:pointer-events-none data-disabled:opacity-50 dark:focus:bg-rose-500/10 dark:focus:text-rose-300",
+        className
+      )}
     {...props}
   />
 ));

@@ -10,7 +10,6 @@ import {
   configureForegroundPresentation,
 } from "../services/push";
 import { getUnreadCount } from "../services/notifications";
-import { isAbortError } from "../services/api";
 
 // ---------------------------------------------------------------------------
 // Context
@@ -134,7 +133,7 @@ export function NotificationProvider({
     return () => {
       cancelled = true;
     };
-  }, [token, refreshUnreadCount]);
+  }, [token, refreshUnreadCount, isExpoGo]);
 
   // ---- Foreground listener: toast + increment badge ----
   React.useEffect(() => {
@@ -148,7 +147,6 @@ export function NotificationProvider({
       if (!active) return;
       subscription = Notifications.addNotificationReceivedListener(
         (notification) => {
-          const data = (notification.request.content.data ?? {}) as NotificationData;
           const title =
             notification.request.content.title ?? "New notification";
           showToast(title, "info");

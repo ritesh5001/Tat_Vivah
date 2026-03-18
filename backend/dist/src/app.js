@@ -1,9 +1,14 @@
 import express from 'express';
 import cors from 'cors';
+import compression from 'compression';
 import { errorMiddleware } from './middlewares/error.middleware.js';
-import { authRouter, sellerRouter, categoryRouter, productRouter, sellerProductRouter, imagekitRouter, bestsellerRouter, cartRouter, checkoutRouter, orderRouter, sellerOrderRouter, paymentRouter, webhookRouter, sellerSettlementRouter, adminRouter, 
+import { register, httpRequestDuration } from './config/metrics.js';
+import { prisma } from './config/db.js';
+import { checkRedisConnection } from './config/redis.js';
+import { authRouter, sellerRouter, categoryRouter, productRouter, sellerProductRouter, productMediaRouter, imagekitRouter, bestsellerRouter, cartRouter, checkoutRouter, couponRouter, orderRouter, sellerOrderRouter, appointmentRouter, cancellationRouter, returnRouter, paymentRouter, webhookRouter, sellerSettlementRouter, adminRouter, 
 // Shipping imports
-shipmentRouter, sellerShipmentRouter, adminShipmentRouter, adminNotificationRouter, reviewRouter, } from './routes/index.js';
+shipmentRouter, sellerShipmentRouter, adminShipmentRouter, adminNotificationRouter, reviewRouter, addressRouter, notificationRouter, wishlistRouter, searchRouter, personalizationRouter, sellerAnalyticsRouter, reelRouter, sellerReelRouter, adminReelRouter, occasionRouter, } from './routes/index.js';
+import { searchController } from './controllers/search.controller.js';
 import { apiReference } from "@scalar/express-api-reference";
 import { openApiSpec } from "./docs/openapi.js";
 /**
@@ -17,13 +22,18 @@ export function createApp() {
     // =========================================================================
     // GLOBAL MIDDLEWARE
     // =========================================================================
+    // Gzip / Brotli compression for all responses (reduces payload ~70%)
+    app.use(compression());
     // Parse JSON bodies
     app.use(express.json());
     // Parse URL-encoded bodies
     app.use(express.urlencoded({ extended: true }));
-    // Enable CORS
+    // Enable CORS — support comma-separated origins for multi-subdomain setup
+    const corsOrigin = process.env['CORS_ORIGIN'];
     app.use(cors({
-        origin: process.env['CORS_ORIGIN'] ?? '*',
+        origin: corsOrigin
+            ? corsOrigin.split(',').map(o => o.trim())
+            : true, // `true` reflects the request origin (safer than '*' with credentials)
         credentials: true,
     }));
     // =========================================================================
@@ -35,12 +45,75 @@ export function createApp() {
         }
     }));
     // =========================================================================
-    // HEALTH CHECK
+    // OBSERVABILITY
     // =========================================================================
-    app.get('/health', (_req, res) => {
-        res.json({
-            status: 'ok',
-            timestamp: new Date().toISOString()
+    // Request duration tracking middleware
+    app.use((req, res, next) => {
+        const end = httpRequestDuration.startTimer();
+        res.on('finish', () => {
+            // Use route pattern if available, otherwise path
+            const route = req.route?.path ?? req.path;
+            end({ method: req.method, route, status: String(res.statusCode) });
+        });
+        next();
+    });
+    // Prometheus metrics endpoint
+    app.get('/metrics', async (_req, res) => {
+        try {
+            res.set('Content-Type', register.contentType);
+            res.end(await register.metrics());
+        }
+        catch (err) {
+            res.status(500).end(String(err));
+        }
+    });
+    // ── Shared integrity state (refreshed by the server interval) ────
+    let lastIntegrityReport = null;
+    let lastStaleCleanupAt = null;
+    /** Called by server.ts after each stale-order cleanup run. */
+    app.__setLastStaleCleanup = (date) => { lastStaleCleanupAt = date; };
+    /** Called by server.ts after each integrity check run. */
+    app.__setIntegrityReport = (report) => { lastIntegrityReport = report; };
+    // Enhanced health endpoint
+    app.get('/health', async (_req, res) => {
+        const checks = {};
+        // DB connectivity
+        try {
+            await prisma.$queryRaw `SELECT 1`;
+            checks.db = { status: 'ok' };
+        }
+        catch (err) {
+            checks.db = { status: 'error', message: String(err) };
+        }
+        // Redis connectivity
+        try {
+            const ok = await checkRedisConnection();
+            checks.redis = { status: ok ? 'ok' : 'error' };
+        }
+        catch (err) {
+            checks.redis = { status: 'error', message: String(err) };
+        }
+        // Integrity drift status
+        if (lastIntegrityReport) {
+            checks.inventoryIntegrity = {
+                healthy: lastIntegrityReport.healthy,
+                mismatches: lastIntegrityReport.mismatches.length,
+                checkedAt: lastIntegrityReport.checkedAt.toISOString(),
+            };
+        }
+        else {
+            checks.inventoryIntegrity = { healthy: 'unknown', checkedAt: null };
+        }
+        // Last stale cleanup
+        checks.lastStaleCleanup = lastStaleCleanupAt
+            ? lastStaleCleanupAt.toISOString()
+            : null;
+        const overallOk = checks.db?.status === 'ok'
+            && checks.redis?.status === 'ok';
+        res.status(overallOk ? 200 : 503).json({
+            status: overallOk ? 'ok' : 'degraded',
+            timestamp: new Date().toISOString(),
+            checks,
         });
     });
     app.get('/', (_req, res) => {
@@ -56,14 +129,22 @@ export function createApp() {
     app.use('/v1/seller', sellerRouter);
     app.use('/v1/categories', categoryRouter);
     app.use('/v1/products', productRouter);
+    app.use('/v1/occasions', occasionRouter);
     app.use('/v1/seller/products', sellerProductRouter);
+    app.use('/v1/seller/products', productMediaRouter);
     app.use('/v1/imagekit', imagekitRouter);
     app.use('/v1/bestsellers', bestsellerRouter);
+    // Address management
+    app.use('/v1/addresses', addressRouter);
     // Cart & Orders domain
     app.use('/v1/cart', cartRouter);
     app.use('/v1/checkout', checkoutRouter);
+    app.use('/v1/coupons', couponRouter);
     app.use('/v1/orders', orderRouter);
     app.use('/v1/seller/orders', sellerOrderRouter);
+    app.use('/v1/appointments', appointmentRouter);
+    app.use('/v1/cancellations', cancellationRouter);
+    app.use('/v1/returns', returnRouter);
     // Payments & Settlement domain
     app.use('/v1/payments/webhook', webhookRouter); // Must be before /v1/payments to avoid auth middleware capture
     app.use('/v1/payments', paymentRouter);
@@ -107,6 +188,21 @@ export function createApp() {
     // Admin domain
     app.use('/v1/admin', adminRouter);
     app.use('/v1/admin/notifications', adminNotificationRouter);
+    // User notifications
+    app.use('/v1/notifications', notificationRouter);
+    // Wishlist
+    app.use('/v1/wishlist', wishlistRouter);
+    // Search & Personalization
+    app.use('/v1/search', searchRouter);
+    app.use('/v1/personalization', personalizationRouter);
+    // Seller Analytics
+    app.use('/v1/seller/analytics', sellerAnalyticsRouter);
+    // Reels
+    app.use('/v1/reels', reelRouter);
+    app.use('/v1/seller/reels', sellerReelRouter);
+    app.use('/v1/admin/reels', adminReelRouter);
+    // Related products (mounted on products path)
+    app.get('/v1/products/:id/related', searchController.relatedProducts);
     // Notification Worker initialization removed to keep API process HTTP-only
     // =========================================================================
     // ERROR HANDLING

@@ -4,6 +4,8 @@ import type { ProductEntity, ProductWithCategory, ProductWithDetails, CreateProd
  * Handles database operations for products
  */
 export declare class ProductRepository {
+    private resolvePagination;
+    private mapProductDecimals;
     /**
      * Find published products with pagination and filters
      */
@@ -18,7 +20,10 @@ export declare class ProductRepository {
     /**
      * Find all products for a seller
      */
-    findBySellerId(sellerId: string): Promise<ProductWithDetails[]>;
+    findBySellerId(sellerId: string, params?: {
+        page?: number;
+        limit?: number;
+    }): Promise<ProductWithDetails[]>;
     /**
      * Find product by ID and seller (ownership check)
      */

@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -119,16 +120,17 @@ export default function UserWishlistPage() {
                 {/* Image */}
                 <Link
                   href={`/product/${item.productId}`}
-                  className="block aspect-3/4 overflow-hidden bg-cream dark:bg-brown/20"
+                  className="relative block aspect-3/4 overflow-hidden bg-cream dark:bg-brown/20"
                 >
-                  <img
+                  <Image
                     src={
                       item.product.images?.[0] ??
                       "/images/product-placeholder.svg"
                     }
                     alt={item.product.title}
-                    className="h-full w-full object-contain p-4 transition-transform duration-500 group-hover:scale-[1.02]"
-                    loading="lazy"
+                    fill
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                    className="object-contain p-4 transition-transform duration-500 group-hover:scale-[1.02]"
                   />
                 </Link>
 

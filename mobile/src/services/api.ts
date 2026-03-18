@@ -9,12 +9,10 @@ import {
 // ---------------------------------------------------------------------------
 // Environment
 // ---------------------------------------------------------------------------
-const RAW_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
-if (!RAW_BASE_URL) {
-  throw new Error(
-    "EXPO_PUBLIC_API_BASE_URL is not defined. Check your .env file."
-  );
-}
+const RAW_BASE_URL =
+  process.env.BACKEND_URL?.trim() ||
+  process.env.EXPO_PUBLIC_API_BASE_URL?.trim() ||
+  "https://tat-vivah-multi-vendor-ecom.onrender.com";
 
 /** Base URL with any trailing slashes stripped. */
 export const API_BASE_URL = RAW_BASE_URL.replace(/\/+$/, "");

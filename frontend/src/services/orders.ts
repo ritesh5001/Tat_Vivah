@@ -40,7 +40,36 @@ export interface SellerOrderItem {
     id: string;
     status: string;
     createdAt: string;
+    shippingName?: string;
+    shippingPhone?: string;
+    shippingEmail?: string;
+    shippingAddressLine1?: string;
+    shippingAddressLine2?: string;
+    shippingCity?: string;
+    shippingPincode?: string;
+    shippingNotes?: string;
+    cancellationRequest?: {
+      id: string;
+      status: "REQUESTED" | "APPROVED" | "REJECTED";
+      reason: string;
+      createdAt: string;
+    } | null;
   };
+}
+
+export interface SellerOrderDetail {
+  orderId: string;
+  status: string;
+  createdAt: string;
+  items: Array<{
+    id: string;
+    productId: string;
+    variantId: string;
+    quantity: number;
+    priceSnapshot: number;
+    productTitle?: string;
+    variantSku?: string;
+  }>;
 }
 
 export interface SellerOrderListResponse {
@@ -59,6 +88,29 @@ export async function listSellerOrders(token?: string | null) {
     method: "GET",
     token,
   });
+}
+
+export async function getSellerOrder(
+  orderId: string,
+  token?: string | null
+) {
+  return apiRequest<SellerOrderDetail>(`/v1/seller/orders/${orderId}`, {
+    method: "GET",
+    token,
+  });
+}
+
+export async function approveCancellationAsSeller(
+  cancellationId: string,
+  token?: string | null
+) {
+  return apiRequest<{ success: boolean; refundTriggered?: boolean }>(
+    `/v1/cancellations/${cancellationId}/seller-approve`,
+    {
+      method: "PATCH",
+      token,
+    }
+  );
 }
 
 /**

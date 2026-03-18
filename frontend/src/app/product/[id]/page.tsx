@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import ProductDetailClient from "@/components/product-detail-client";
 import ProductImageCarousel from "@/components/product-image-carousel";
@@ -6,6 +8,7 @@ import { RelatedProducts } from "@/components/related-products";
 import { RecentlyViewedTracker } from "@/components/recently-viewed-tracker";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+const SITE_URL = "https://tatvivahtrends.com";
 
 async function fetchProduct(id: string) {
   if (!API_BASE_URL) {
@@ -20,6 +23,55 @@ async function fetchProduct(id: string) {
   return response.json();
 }
 
+/* ── Dynamic SEO metadata ── */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const resolvedParams = await params;
+  const data = await fetchProduct(resolvedParams.id);
+  const product = data?.product;
+
+  if (!product) {
+    return {
+      title: "Product Not Found",
+      description: "The product you are looking for is not available.",
+    };
+  }
+
+  const title = `${product.title} | Buy Ethnic Wear Online`;
+  const description = `Buy ${product.title} online in India. Premium ethnic wear for men perfect for weddings, receptions, mehendi and festive occasions.`;
+  const image = product.images?.[0] ?? "/og.png";
+
+  return {
+    title,
+    description,
+    alternates: {
+      canonical: `${SITE_URL}/product/${resolvedParams.id}`,
+    },
+    openGraph: {
+      title,
+      description,
+      url: `${SITE_URL}/product/${resolvedParams.id}`,
+      siteName: "TatVivah",
+      type: "website",
+      images: [
+        {
+          url: image,
+          alt: product.title,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [image],
+    },
+  };
+}
+
 export default async function ProductDetailPage({
   params,
 }: {
@@ -32,8 +84,72 @@ export default async function ProductDetailPage({
     ? product.images
     : ["/images/product-placeholder.svg"];
 
+  /* ── Product JSON-LD structured data ── */
+  const productJsonLd = product
+    ? {
+      "@context": "https://schema.org",
+      "@type": "Product",
+      name: product.title,
+      image: product.images?.[0] ?? `${SITE_URL}/og.png`,
+      description:
+        product.description ??
+        `Buy ${product.title} online in India. Premium ethnic wear for men.`,
+      brand: {
+        "@type": "Brand",
+        name: product.seller?.shopName ?? "TatVivah",
+      },
+      offers: {
+        "@type": "Offer",
+        price: product.salePrice ?? product.adminPrice ?? product.price ?? 0,
+        priceCurrency: "INR",
+        availability: "https://schema.org/InStock",
+        url: `${SITE_URL}/product/${resolvedParams.id}`,
+      },
+    }
+    : null;
+
+  /* ── Breadcrumb JSON-LD ── */
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Home",
+        item: SITE_URL,
+      },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: "Marketplace",
+        item: `${SITE_URL}/marketplace`,
+      },
+      ...(product ? [{
+        "@type": "ListItem",
+        position: 3,
+        name: product.title,
+        item: `${SITE_URL}/product/${resolvedParams.id}`,
+      }] : [])
+    ],
+  };
+
   return (
     <div className="min-h-[calc(100vh-160px)] bg-background">
+      {/* Breadcrumb JSON-LD */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
+
+      {/* Product JSON-LD */}
+      {productJsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
+        />
+      )}
+
       {/* Track recently viewed (fire-and-forget, client component) */}
       <RecentlyViewedTracker productId={resolvedParams.id} />
 
@@ -58,46 +174,7 @@ export default async function ProductDetailPage({
           )}
         </section>
 
-        {/* Editorial Details Section */}
-        <section className="border-t border-border-soft pt-16">
-          <div className="mb-10">
-            <p className="text-[11px] font-medium uppercase tracking-[0.25em] text-gold mb-4">
-              Product Details
-            </p>
-            <h2 className="font-serif text-2xl font-light text-foreground">
-              Craftsmanship & Care
-            </h2>
-          </div>
 
-          <div className="grid gap-px bg-border-soft lg:grid-cols-3">
-            {[
-              {
-                title: "Highlights",
-                copy: "Handwoven silk, rich zari border, artisan-crafted finish.",
-              },
-              {
-                title: "Fabric & Care",
-                copy: "Dry clean only. Store folded with muslin cloth.",
-              },
-              {
-                title: "Delivery",
-                copy: "Ships within 48 hours with insured delivery.",
-              },
-            ].map((item) => (
-              <div
-                key={item.title}
-                className="bg-card p-8 lg:p-10 space-y-4"
-              >
-                <p className="text-xs font-medium uppercase tracking-[0.15em] text-foreground">
-                  {item.title}
-                </p>
-                <p className="text-sm leading-relaxed text-muted-foreground">
-                  {item.copy}
-                </p>
-              </div>
-            ))}
-          </div>
-        </section>
 
         {/* Reviews Section */}
         <section className="border-t border-border-soft pt-16">
@@ -106,6 +183,23 @@ export default async function ProductDetailPage({
 
         {/* Related Products */}
         <RelatedProducts productId={resolvedParams.id} />
+
+        {/* Collections & Occasions Links */}
+        <section className="border-t border-border-soft pt-12 pb-4">
+          <div className="flex flex-col items-center justify-center gap-4 text-center">
+            <p className="text-xs font-medium uppercase tracking-[0.2em] text-gold">Explore More</p>
+            <div className="flex flex-wrap justify-center gap-4">
+              {product?.categoryId && (
+                <Link href={`/collections/${product.categoryId}`} className="text-sm font-medium text-muted-foreground hover:text-foreground underline underline-offset-4">
+                  Shop more {product.categoryName || 'in this Category'}
+                </Link>
+              )}
+              <Link href="/collections/kurta" className="text-sm font-medium text-muted-foreground hover:text-foreground underline underline-offset-4">Kurtas</Link>
+              <Link href="/collections/sherwani" className="text-sm font-medium text-muted-foreground hover:text-foreground underline underline-offset-4">Sherwanis</Link>
+              <Link href="/occasion/wedding" className="text-sm font-medium text-muted-foreground hover:text-foreground underline underline-offset-4">Wedding Outfits</Link>
+            </div>
+          </div>
+        </section>
 
         {/* Trust Section */}
         <section className="border-t border-border-soft pt-12">

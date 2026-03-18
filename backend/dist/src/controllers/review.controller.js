@@ -50,7 +50,11 @@ export const reviewController = {
     },
     getProductReviews: async (req, res) => {
         try {
-            const { productId } = req.params;
+            const productId = req.params.productId ?? req.params.id;
+            if (!productId) {
+                res.status(400).json({ message: 'Product ID is required' });
+                return;
+            }
             const reviews = await prisma.review.findMany({
                 where: { productId: productId },
                 orderBy: { createdAt: 'desc' },
@@ -82,6 +86,34 @@ export const reviewController = {
         }
         catch (error) {
             console.error('Error fetching reviews:', error);
+            res.status(500).json({ message: 'Internal server error' });
+        }
+    },
+    markHelpful: async (req, res) => {
+        try {
+            const rawId = req.params.id;
+            const id = Array.isArray(rawId) ? rawId[0] : rawId;
+            if (!id) {
+                res.status(400).json({ message: 'Review ID is required' });
+                return;
+            }
+            const review = await prisma.review.findUnique({
+                where: { id },
+                select: { id: true },
+            });
+            if (!review) {
+                res.status(404).json({ message: 'Review not found' });
+                return;
+            }
+            const updated = await prisma.review.update({
+                where: { id },
+                data: { helpfulCount: { increment: 1 } },
+                select: { id: true, helpfulCount: true },
+            });
+            res.status(200).json({ message: 'Marked as helpful', review: updated });
+        }
+        catch (error) {
+            console.error('Error marking helpful review:', error);
             res.status(500).json({ message: 'Internal server error' });
         }
     }

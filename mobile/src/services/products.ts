@@ -36,12 +36,14 @@ export interface ProductDetail extends ProductSummary {
 
 export interface ProductListResponse {
   data: ProductSummary[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
+  pagination: PaginationMeta;
+}
+
+export interface PaginationMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
 }
 
 type ProductsCacheParams = {

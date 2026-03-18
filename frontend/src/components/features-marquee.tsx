@@ -47,19 +47,19 @@ const allFeatures = [...features, ...features, ...features, ...features];
 
 export function FeaturesMarquee() {
     return (
-        <section className="w-full overflow-hidden border-b border-border-soft bg-background py-6">
+        <section className="w-full overflow-hidden border-b border-border-soft bg-background py-5 sm:py-6">
             <div className="flex w-max animate-features-scroll">
                 {allFeatures.map((item, index) => {
                     const Icon = item.icon;
                     return (
                         <div
                             key={index}
-                            className="mx-8 flex min-w-[120px] flex-col items-center justify-center text-center sm:mx-12"
+                            className="mx-6 flex min-w-27.5 flex-col items-center justify-center text-center sm:mx-12 sm:min-w-30"
                         >
-                            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-cream text-charcoal shadow-sm transition-transform duration-300 hover:scale-110 dark:bg-brown/20 dark:text-gold">
-                                <Icon size={24} strokeWidth={1.5} />
+                            <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-cream text-charcoal shadow-sm transition-transform duration-300 hover:scale-110 dark:bg-brown/20 dark:text-gold sm:mb-3 sm:h-12 sm:w-12">
+                                <Icon className="h-5 w-5 sm:h-6 sm:w-6" strokeWidth={1.5} />
                             </div>
-                            <p className="text-sm font-semibold text-foreground whitespace-nowrap">
+                            <p className="whitespace-nowrap text-[13px] font-semibold text-foreground sm:text-sm">
                                 {item.text}
                             </p>
                         </div>

@@ -1,21 +1,18 @@
 import * as React from "react";
 import {
   View,
-  Text,
   StyleSheet,
-  TextInput,
   Pressable,
   ScrollView,
   Alert,
   Modal,
   FlatList,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { usePathname, useRouter } from "expo-router";
 import { colors, radius, spacing, typography, shadow } from "../../src/theme/tokens";
 import { checkout, validateCoupon, type CouponPreview } from "../../src/services/cart";
 import { initiatePayment, verifyPayment } from "../../src/services/payments";
-import { openRazorpayCheckout } from "../../src/services/razorpay";
+import { isRazorpayAvailable, openRazorpayCheckout } from "../../src/services/razorpay";
 import { ApiError } from "../../src/services/api";
 import { useAuth } from "../../src/hooks/useAuth";
 import { useNetworkStatus } from "../../src/hooks/useNetworkStatus";
@@ -27,6 +24,11 @@ import { notifySuccess, notifyError, impactLight } from "../../src/utils/haptics
 import { AppHeader } from "../../src/components/AppHeader";
 import type { Address } from "../../src/services/addresses";
 import { TatvivahLoader, TatvivahOverlayLoader } from "../../src/components/TatvivahLoader";
+import {
+  AppInput as TextInput,
+  AppText as Text,
+  ScreenContainer as SafeAreaView,
+} from "../../src/components";
 
 // ---------------------------------------------------------------------------
 // Address selector row — memoized for FlatList
@@ -81,7 +83,7 @@ export default function CheckoutScreen() {
   const token = session?.accessToken ?? null;
   const { isConnected } = useNetworkStatus();
   const { clearCart, refreshCart, cartItems } = useCart();
-  const { addresses, defaultAddress, isLoading: addressesLoading } = useAddresses();
+  const { addresses, defaultAddress } = useAddresses();
   const { showToast } = useToast();
 
   // ---------- Payment guard — prevents double-submit ----------
@@ -142,11 +144,15 @@ export default function CheckoutScreen() {
     [cartItems]
   );
   const shippingFee = cartItems.length ? 180 : 0;
+  const gstFee = cartItems.length ? 180 : 0;
   const displaySubtotal = taxSummary?.subTotalAmount ?? cartSubtotal;
   const displayDiscount = taxSummary?.discountAmount ?? 0;
-  const displayGst = taxSummary?.totalTaxAmount ?? 0;
+  const displayGst = gstFee;
+  const computedGrandTotal = displaySubtotal - displayDiscount + shippingFee + gstFee;
   const displayGrandTotal =
-    taxSummary?.grandTotal ?? (displaySubtotal - displayDiscount + shippingFee + displayGst);
+    typeof taxSummary?.grandTotal === "number"
+      ? Math.max(taxSummary.grandTotal, computedGrandTotal)
+      : computedGrandTotal;
 
   // ---------- Clear coupon when cart items change ----------
   React.useEffect(() => {
@@ -269,6 +275,14 @@ export default function CheckoutScreen() {
       showToast("Your cart is empty.", "info");
       return;
     }
+    if (!isRazorpayAvailable()) {
+      showToast(
+        "Razorpay is unavailable in Expo Go. Use a development build to test payments.",
+        "error"
+      );
+      setError("Razorpay SDK is not available in Expo Go. Please use a development build.");
+      return;
+    }
 
     // Build shipping payload from selected address or manual fields
     const shippingPayload = selectedAddress
@@ -356,9 +370,11 @@ export default function CheckoutScreen() {
       if (mountedRef.current) {
         notifySuccess();
         clearCart();
-        // Refresh to sync server state (cart should now be empty)
-        refreshCart();
         router.replace(`/orders/${orderId}`);
+        // Keep transition smooth: refresh cart on next tick instead of during navigation.
+        setTimeout(() => {
+          void refreshCart();
+        }, 0);
       }
     } catch (err) {
       if (!mountedRef.current) return; // Component unmounted during payment
@@ -661,8 +677,8 @@ export default function CheckoutScreen() {
           </View>
           {displayDiscount > 0 && (
             <View style={styles.summaryRow}>
-              <Text style={[styles.summaryLabel, { color: "#2E7D32" }]}>Discount</Text>
-              <Text style={[styles.summaryValue, { color: "#2E7D32" }]}>−₹{displayDiscount.toFixed(0)}</Text>
+              <Text style={[styles.summaryLabel, { color: colors.gold }]}>Discount</Text>
+              <Text style={[styles.summaryValue, { color: colors.gold }]}>−₹{displayDiscount.toFixed(0)}</Text>
             </View>
           )}
           <View style={styles.summaryRow}>
@@ -775,7 +791,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   card: {
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surfaceElevated,
     borderRadius: radius.lg,
     padding: spacing.lg,
     borderWidth: 1,
@@ -804,12 +820,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     fontFamily: typography.sans,
     color: colors.charcoal,
+    backgroundColor: colors.surface,
     marginBottom: spacing.md,
   },
 
   // Selected address display
   selectedAddressBox: {
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
     borderRadius: radius.md,
     padding: spacing.md,
     borderWidth: 1,
@@ -885,7 +902,9 @@ const styles = StyleSheet.create({
   // Primary button
   primaryButton: {
     marginTop: spacing.lg,
-    backgroundColor: colors.charcoal,
+    backgroundColor: colors.gold,
+    borderWidth: 1,
+    borderColor: colors.gold,
     borderRadius: radius.md,
     paddingVertical: spacing.sm,
     alignItems: "center",
@@ -904,7 +923,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     fontFamily: typography.sans,
     fontSize: 12,
-    color: "#A65D57",
+    color: colors.gold,
     textAlign: "center",
   },
 
@@ -915,7 +934,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   modalSheet: {
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surfaceElevated,
     borderTopLeftRadius: radius.xl,
     borderTopRightRadius: radius.xl,
     paddingHorizontal: spacing.lg,
@@ -966,13 +985,13 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
     marginBottom: spacing.sm,
     gap: spacing.sm,
   },
   selectorRowSelected: {
     borderColor: colors.gold,
-    backgroundColor: "#FDFAF5",
+    backgroundColor: "rgba(184, 149, 108, 0.14)",
   },
   selectorRadio: {
     width: 20,
@@ -1003,8 +1022,10 @@ const styles = StyleSheet.create({
     fontSize: 10,
     letterSpacing: 1.2,
     textTransform: "uppercase",
-    color: colors.brownSoft,
-    backgroundColor: colors.cream,
+    color: colors.gold,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
     paddingHorizontal: spacing.xs,
     paddingVertical: 2,
     borderRadius: radius.sm,
@@ -1016,7 +1037,9 @@ const styles = StyleSheet.create({
     letterSpacing: 1.2,
     textTransform: "uppercase",
     color: colors.gold,
-    backgroundColor: "#F5EFE4",
+    backgroundColor: "rgba(184, 149, 108, 0.14)",
+    borderWidth: 1,
+    borderColor: colors.gold,
     paddingHorizontal: spacing.xs,
     paddingVertical: 2,
     borderRadius: radius.sm,
@@ -1053,10 +1076,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#F0FFF4",
+    backgroundColor: colors.surface,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: "#C6F6D5",
+    borderColor: colors.gold,
     padding: spacing.md,
   },
   couponAppliedLeft: {
@@ -1067,19 +1090,19 @@ const styles = StyleSheet.create({
   },
   couponCheckmark: {
     fontSize: 14,
-    color: "#2E7D32",
+    color: colors.gold,
     fontFamily: typography.sansMedium,
   },
   couponAppliedCode: {
     fontFamily: typography.sansMedium,
     fontSize: 13,
-    color: "#2E7D32",
+    color: colors.gold,
     letterSpacing: 0.5,
   },
   couponAppliedDesc: {
     fontFamily: typography.sans,
     fontSize: 11,
-    color: "#4CAF50",
+    color: colors.goldMuted,
     marginTop: 1,
   },
   couponRemoveText: {
@@ -1116,7 +1139,7 @@ const styles = StyleSheet.create({
   couponErrorText: {
     fontFamily: typography.sans,
     fontSize: 12,
-    color: "#A65D57",
+    color: colors.gold,
     marginTop: spacing.xs,
   },
 });

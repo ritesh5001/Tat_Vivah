@@ -1,15 +1,10 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { getRelatedProducts, type RelatedProductItem } from "@/services/search";
-import { WishlistHeartButton } from "@/components/wishlist-heart-button";
-
-const currency = new Intl.NumberFormat("en-IN", {
-  style: "currency",
-  currency: "INR",
-  maximumFractionDigits: 0,
-});
+import {
+  MarketplaceProductCard,
+} from "@/components/marketplace-product-card";
 
 interface RelatedProductsProps {
   productId: string;
@@ -51,7 +46,7 @@ export function RelatedProducts({ productId }: RelatedProductsProps) {
       </div>
 
       {loading ? (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <div
               key={i}
@@ -64,38 +59,9 @@ export function RelatedProducts({ productId }: RelatedProductsProps) {
           ))}
         </div>
       ) : (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-4">
           {products.map((product) => (
-            <Link
-              key={product.id}
-              href={`/product/${product.id}`}
-              className="group block"
-            >
-              <div className="relative mb-4 overflow-hidden bg-cream dark:bg-brown/20 aspect-3/4 border border-border-soft transition-all duration-400 group-hover:border-gold/30">
-                <img
-                  src={product.images?.[0] ?? "/images/product-placeholder.svg"}
-                  alt={product.title}
-                  className="h-full w-full object-contain p-4 transition-transform duration-500 group-hover:scale-[1.02]"
-                  loading="lazy"
-                />
-                <span className="absolute top-3 left-3 bg-card/90 backdrop-blur-sm px-2.5 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground border border-border-soft">
-                  {product.category?.name ?? "Featured"}
-                </span>
-                <WishlistHeartButton
-                  productId={product.id}
-                  size={16}
-                  className="absolute bottom-3 right-3 h-7 w-7 bg-card/90 backdrop-blur-sm border border-border-soft text-muted-foreground hover:text-foreground hover:border-gold/50"
-                />
-              </div>
-              <h3 className="font-serif text-sm font-normal text-foreground group-hover:text-gold transition-colors duration-300 line-clamp-2">
-                {product.title}
-              </h3>
-              {typeof (product.adminListingPrice ?? product.sellerPrice) === "number" && (
-                <p className="mt-1 text-xs font-medium text-foreground">
-                  {currency.format(product.adminListingPrice ?? product.sellerPrice)}
-                </p>
-              )}
-            </Link>
+            <MarketplaceProductCard key={product.id} product={product} />
           ))}
         </div>
       )}

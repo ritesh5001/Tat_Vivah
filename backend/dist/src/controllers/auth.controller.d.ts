@@ -58,6 +58,16 @@ export declare class AuthController {
      * Revoke a specific session (requires auth)
      */
     revokeSession: (req: Request, res: Response, next: NextFunction) => Promise<void>;
+    /**
+     * POST /v1/auth/forgot-password
+     * Request a password-reset OTP
+     */
+    forgotPassword: (req: Request, res: Response, next: NextFunction) => Promise<void>;
+    /**
+     * POST /v1/auth/reset-password
+     * Verify OTP and set a new password
+     */
+    resetPassword: (req: Request, res: Response, next: NextFunction) => Promise<void>;
 }
 export declare const authController: AuthController;
 //# sourceMappingURL=auth.controller.d.ts.map

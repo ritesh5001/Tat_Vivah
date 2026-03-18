@@ -128,6 +128,7 @@ export class AuditRepository {
         const results = await prisma.auditLog.findMany({
             where: { entityType, entityId },
             orderBy: { createdAt: 'desc' },
+            take: 200,
         });
 
         return results.map((r) => ({

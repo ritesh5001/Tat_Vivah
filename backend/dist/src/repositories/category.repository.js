@@ -9,7 +9,7 @@ export class CategoryRepository {
      */
     async findAll() {
         return prisma.category.findMany({
-            orderBy: { name: 'asc' },
+            orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
         });
     }
     /**
@@ -18,7 +18,7 @@ export class CategoryRepository {
     async findAllActive() {
         return prisma.category.findMany({
             where: { isActive: true },
-            orderBy: { name: 'asc' },
+            orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
         });
     }
     /**
@@ -56,6 +56,13 @@ export class CategoryRepository {
                 name: data.name,
                 slug: data.slug,
                 isActive: true,
+                ...(data.description !== undefined && { description: data.description }),
+                ...(data.image !== undefined && { image: data.image }),
+                ...(data.bannerImage !== undefined && { bannerImage: data.bannerImage }),
+                ...(data.parentId !== undefined && { parentId: data.parentId }),
+                ...(data.sortOrder !== undefined && { sortOrder: data.sortOrder }),
+                ...(data.seoTitle !== undefined && { seoTitle: data.seoTitle }),
+                ...(data.seoDescription !== undefined && { seoDescription: data.seoDescription }),
             },
         });
     }
@@ -68,9 +75,45 @@ export class CategoryRepository {
             data: {
                 ...(data.name !== undefined && { name: data.name }),
                 ...(data.slug !== undefined && { slug: data.slug }),
+                ...(data.description !== undefined && { description: data.description }),
+                ...(data.image !== undefined && { image: data.image }),
+                ...(data.bannerImage !== undefined && { bannerImage: data.bannerImage }),
+                ...(data.parentId !== undefined && { parentId: data.parentId }),
+                ...(data.sortOrder !== undefined && { sortOrder: data.sortOrder }),
                 ...(data.isActive !== undefined && { isActive: data.isActive }),
+                ...(data.seoTitle !== undefined && { seoTitle: data.seoTitle }),
+                ...(data.seoDescription !== undefined && { seoDescription: data.seoDescription }),
             },
         });
+    }
+    /**
+     * Check if category has products assigned
+     */
+    async hasProducts(id) {
+        const count = await prisma.product.count({
+            where: {
+                categoryId: id,
+                deletedByAdmin: false,
+            },
+        });
+        return count > 0;
+    }
+    /**
+     * Remove soft-deleted products that still reference the category
+     */
+    async purgeSoftDeletedProducts(categoryId) {
+        await prisma.product.deleteMany({
+            where: {
+                categoryId,
+                deletedByAdmin: true,
+            },
+        });
+    }
+    /**
+     * Hard delete a category
+     */
+    async delete(id) {
+        await prisma.category.delete({ where: { id } });
     }
 }
 // Export singleton instance

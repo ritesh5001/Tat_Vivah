@@ -30,15 +30,41 @@ export declare class CategoryRepository {
     create(data: {
         name: string;
         slug: string;
+        description?: string | undefined;
+        image?: string | undefined;
+        bannerImage?: string | undefined;
+        parentId?: string | undefined;
+        sortOrder?: number | undefined;
+        seoTitle?: string | undefined;
+        seoDescription?: string | undefined;
     }): Promise<CategoryEntity>;
     /**
      * Update category
      */
     update(id: string, data: {
-        name?: string;
-        slug?: string;
-        isActive?: boolean;
+        name?: string | undefined;
+        slug?: string | undefined;
+        description?: string | null | undefined;
+        image?: string | null | undefined;
+        bannerImage?: string | null | undefined;
+        parentId?: string | null | undefined;
+        sortOrder?: number | undefined;
+        isActive?: boolean | undefined;
+        seoTitle?: string | null | undefined;
+        seoDescription?: string | null | undefined;
     }): Promise<CategoryEntity>;
+    /**
+     * Check if category has products assigned
+     */
+    hasProducts(id: string): Promise<boolean>;
+    /**
+     * Remove soft-deleted products that still reference the category
+     */
+    purgeSoftDeletedProducts(categoryId: string): Promise<void>;
+    /**
+     * Hard delete a category
+     */
+    delete(id: string): Promise<void>;
 }
 export declare const categoryRepository: CategoryRepository;
 //# sourceMappingURL=category.repository.d.ts.map

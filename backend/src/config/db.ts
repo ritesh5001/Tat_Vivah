@@ -10,19 +10,34 @@ const globalForPrisma = globalThis as unknown as {
     __prisma: PrismaClient | undefined;
 };
 
+function getIntEnv(name: string, fallback: number, min: number, max: number): number {
+    const raw = process.env[name];
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed)) return fallback;
+    const n = Math.trunc(parsed);
+    if (n < min) return min;
+    if (n > max) return max;
+    return n;
+}
+
 function buildPrismaDatabaseUrl(rawUrl: string): string {
     try {
         const parsed = new URL(rawUrl);
         const isPooledHost = parsed.hostname.includes('-pooler.');
 
-        if (isPooledHost) {
-            if (!parsed.searchParams.has('pgbouncer')) {
-                parsed.searchParams.set('pgbouncer', 'true');
-            }
+        const pooledConnectionLimit = getIntEnv('DB_POOL_CONNECTION_LIMIT', 10, 1, 100);
+        const pooledPoolTimeout = getIntEnv('DB_POOL_TIMEOUT', 20, 1, 120);
+        const directConnectionLimit = getIntEnv('DB_DIRECT_CONNECTION_LIMIT', 5, 1, 100);
 
-            if (!parsed.searchParams.has('connection_limit')) {
-                parsed.searchParams.set('connection_limit', '1');
-            }
+        if (isPooledHost) {
+            parsed.searchParams.set('pgbouncer', 'true');
+            parsed.searchParams.set('connection_limit', String(pooledConnectionLimit));
+            parsed.searchParams.set('pool_timeout', String(pooledPoolTimeout));
+        }
+
+        // For non-pooled (direct) connections, keep a smaller default pool size.
+        if (!isPooledHost && !parsed.searchParams.has('connection_limit')) {
+            parsed.searchParams.set('connection_limit', String(directConnectionLimit));
         }
 
         return parsed.toString();
@@ -31,7 +46,7 @@ function buildPrismaDatabaseUrl(rawUrl: string): string {
     }
 }
 
-function createPrismaClient(): PrismaClient {
+function createPrismaClient() {
     const client = new PrismaClient({
         datasources: {
             db: { url: buildPrismaDatabaseUrl(env.DATABASE_URL) },
@@ -48,7 +63,7 @@ function createPrismaClient(): PrismaClient {
  * In non-production environments it is pinned to globalThis so tsx
  * watch-mode restarts reuse the same connection pool.
  */
-export const prisma: PrismaClient =
+export const prisma =
     globalForPrisma.__prisma ?? createPrismaClient();
 
 if (env.NODE_ENV !== 'production') {

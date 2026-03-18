@@ -1,788 +1,881 @@
-import * as React from "react";
+import React from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
   FlatList,
-  TextInput,
+  ListRenderItemInfo,
+  InteractionManager,
   Pressable,
-  Dimensions,
-  Linking,
+  StyleSheet,
+  View,
+  useWindowDimensions,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { Image } from "expo-image";
-import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
-import { getBestsellers, BestsellerProduct } from "../../../src/services/bestsellers";
-import { getCategories, type Category } from "../../../src/services/catalog";
-import {
-  getProducts,
-  getProductsAndCache,
-  getProductsCached,
-  type ProductItem,
-  type ProductSummary,
-} from "../../../src/services/products";
-import { getRecentlyViewed, type RecentlyViewedProduct } from "../../../src/services/personalization";
-import { getRecommendations, type RecommendationProduct } from "../../../src/services/recommendation";
-import { isAbortError } from "../../../src/services/api";
-import { ProductGridCard } from "../../../src/components/ProductGridCard";
-import { images } from "../../../src/data/images";
+import { Ionicons } from "@expo/vector-icons";
+import { colors, spacing, textStyles } from "../../../src/theme";
+import { useProductsQuery } from "../../../src/hooks/useProductsQuery";
 import { AppHeader } from "../../../src/components/AppHeader";
+import { ReelsSection } from "../../../src/components/ReelsSection";
+import { Footer } from "../../../src/components/Footer";
+import { ScrollToTopFab } from "../../../src/components/ScrollToTopFab";
+import { CachedImage } from "../../../src/components/CachedImage";
+import { HomeHeroBanner } from "../../../src/components/HomeHeroBanner";
+import { SkeletonBlock } from "../../../src/components/Skeleton";
+import { images } from "../../../src/data/images";
+import { AppText as Text, ScreenContainer as SafeAreaView } from "../../../src/components";
+import { useQuery } from "@tanstack/react-query";
+import {
+  getCategories,
+  getOccasions,
+  type Category,
+  type Occasion,
+} from "../../../src/services/catalog";
+import {
+  getBestsellers,
+  type BestsellerProduct,
+} from "../../../src/services/bestsellers";
 
-const { width } = Dimensions.get("window");
-const fallbackCategories = [
-  "Sherwanis",
-  "Kurtas",
-  "Wedding Wear",
-  "Accessories",
-  "Gifting",
-];
+type HomeGridCard = {
+  id: string;
+  title: string;
+  image: string;
+  query: string;
+};
 
-const categoryCards = [
-  {
-    label: "Sherwani",
-    image: images.categories.wedding,
-    matches: ["sherwani", "wedding"],
-  },
-  {
-    label: "Kurta",
-    image: images.categories.kurta,
-    matches: ["kurta"],
-  },
-  {
-    label: "Indo-Western",
-    image: images.categories.indoWestern,
-    matches: ["indo", "western"],
-  },
-  {
-    label: "Accessories",
-    image: images.categories.accessories,
-    matches: ["accessor"],
-  },
-];
+type HomeGridPage = {
+  id: string;
+  items: HomeGridCard[];
+};
 
-const fallbackImage =
-  "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80";
+type HomeProductCard = {
+  id: string;
+  title: string;
+  image: string;
+  priceText: string;
+  query: string;
+};
 
-const fallbackArrivals = [
-  {
-    id: "4",
-    title: "Handloom Kurta",
-    image:
-      "https://images.unsplash.com/photo-1445205170230-053b83016050?auto=format&fit=crop&w=900&q=80",
-  },
-  {
-    id: "5",
-    title: "Classic Bandhgala",
-    image:
-      "https://images.unsplash.com/photo-1503341455253-b2e723bb3dbb?auto=format&fit=crop&w=900&q=80",
-  },
-];
+function chunkCards(cards: HomeGridCard[], size: number): HomeGridPage[] {
+  const pages: HomeGridPage[] = [];
+  for (let i = 0; i < cards.length; i += size) {
+    const slice = cards.slice(i, i + size);
+    pages.push({ id: `page-${i / size + 1}`, items: slice });
+  }
+  return pages;
+}
 
-const guestPicks = [
-  {
-    id: "g1",
-    title: "Royal Sherwani Set",
-    image:
-      "https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?auto=format&fit=crop&w=900&q=80",
-  },
-  {
-    id: "g2",
-    title: "Signature Kurta Edit",
-    image:
-      "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80",
-  },
-  {
-    id: "g3",
-    title: "Wedding Guest Essentials",
-    image:
-      "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=900&q=80",
-  },
-];
+function repeatCards(cards: HomeGridCard[], times: number): HomeGridCard[] {
+  if (cards.length === 0) return [];
+  const repeated: HomeGridCard[] = [];
+  for (let i = 0; i < times; i += 1) {
+    cards.forEach((card) => {
+      repeated.push({
+        ...card,
+        id: `${card.id}-r${i + 1}`,
+      });
+    });
+  }
+  return repeated;
+}
+
+function repeatProductCards(cards: HomeProductCard[], times: number): HomeProductCard[] {
+  if (cards.length === 0) return [];
+  const repeated: HomeProductCard[] = [];
+  for (let i = 0; i < times; i += 1) {
+    cards.forEach((card) => {
+      repeated.push({
+        ...card,
+        id: `${card.id}-r${i + 1}`,
+      });
+    });
+  }
+  return repeated;
+}
 
 export default function HomeScreen() {
   const router = useRouter();
-  const [bestsellers, setBestsellers] = React.useState<BestsellerProduct[]>([]);
-  const [loadingBestsellers, setLoadingBestsellers] = React.useState(true);
-  const [categories, setCategories] = React.useState<Category[]>([]);
-  const [arrivals, setArrivals] = React.useState<ProductSummary[]>([]);
-  const [recentlyViewed, setRecentlyViewed] = React.useState<RecentlyViewedProduct[]>([]);
-  const [recommendedProducts, setRecommendedProducts] = React.useState<ProductItem[]>([]);
-  const [marketplaceProducts, setMarketplaceProducts] = React.useState<ProductItem[]>([]);
-  const [loadingMarketplace, setLoadingMarketplace] = React.useState(true);
+  const { width } = useWindowDimensions();
 
-  const latestArrivals = React.useMemo(
-    () => (arrivals.length ? arrivals : fallbackArrivals).slice(0, 3),
-    [arrivals]
-  );
+  const spotlightQuery = useProductsQuery({ page: 1, limit: 8, sort: "newest" });
+  const categoriesQuery = useQuery({
+    queryKey: ["home-categories"],
+    queryFn: getCategories,
+    staleTime: 60 * 1000,
+  });
+  const occasionsQuery = useQuery({
+    queryKey: ["home-occasions"],
+    queryFn: getOccasions,
+    staleTime: 60 * 1000,
+  });
+  const bestsellersQuery = useQuery({
+    queryKey: ["home-bestsellers"],
+    queryFn: () => getBestsellers(4),
+    staleTime: 60 * 1000,
+  });
+  const mostLovedQuery = useProductsQuery({ page: 1, limit: 4, sort: "popularity" });
+
+  const [showScrollTop, setShowScrollTop] = React.useState(false);
+  const listRef = React.useRef<FlatList<never> | null>(null);
+  const testimonialRef = React.useRef<FlatList<typeof testimonials[number]> | null>(null);
+  const [occasionRepeatCount, setOccasionRepeatCount] = React.useState(1);
+  const [categoryRepeatCount, setCategoryRepeatCount] = React.useState(1);
+  const [vibeRepeatCount, setVibeRepeatCount] = React.useState(1);
+  const [mostLovedRepeatCount, setMostLovedRepeatCount] = React.useState(1);
+  const [bestsellerRepeatCount, setBestsellerRepeatCount] = React.useState(1);
+  const [occasionPageIndex, setOccasionPageIndex] = React.useState(0);
+  const [categoryPageIndex, setCategoryPageIndex] = React.useState(0);
+  const [vibePageIndex, setVibePageIndex] = React.useState(0);
+  const [mostLovedPageIndex, setMostLovedPageIndex] = React.useState(0);
+  const [bestsellerPageIndex, setBestsellerPageIndex] = React.useState(0);
+  const [testimonialPageIndex, setTestimonialPageIndex] = React.useState(0);
+  const testimonialIndexRef = React.useRef(0);
+  const [isReelsReady, setIsReelsReady] = React.useState(false);
 
   React.useEffect(() => {
-    const recommendationsController = new AbortController();
-    let cancelled = false;
+    testimonialIndexRef.current = testimonialPageIndex;
+  }, [testimonialPageIndex]);
 
-    const load = async () => {
-      try {
-        const response = await getBestsellers(8);
-        if (!cancelled) {
-          setBestsellers(response.products ?? []);
-        }
-      } catch (err) {
-        if (!cancelled && !isAbortError(err)) {
-          setBestsellers([]);
-        }
-      } finally {
-        if (!cancelled) {
-          setLoadingBestsellers(false);
-        }
-      }
-    };
+  React.useEffect(() => {
+    let isCancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
 
-    const loadCategories = async () => {
-      try {
-        const response = await getCategories();
-        if (!cancelled) {
-          setCategories(response.categories ?? []);
+    const task = InteractionManager.runAfterInteractions(() => {
+      timer = setTimeout(() => {
+        if (!isCancelled) {
+          setIsReelsReady(true);
         }
-      } catch (err) {
-        if (!cancelled && !isAbortError(err)) {
-          setCategories([]);
-        }
-      }
-    };
-
-    const loadArrivals = async () => {
-      try {
-        const response = await getProducts({ page: 1, limit: 5 });
-        if (!cancelled) {
-          setArrivals(response.data ?? []);
-        }
-      } catch (err) {
-        if (!cancelled && !isAbortError(err)) {
-          setArrivals([]);
-        }
-      }
-    };
-
-    const loadMarketplacePreview = async () => {
-      const params = { page: 1, limit: 6 };
-      try {
-        const cached = await getProductsCached(params);
-        if (cached?.data?.length && !cancelled) {
-          setMarketplaceProducts(cached.data as ProductItem[]);
-          setLoadingMarketplace(false);
-        }
-      } catch {
-        // ignore cache errors
-      }
-
-      try {
-        const response = await getProductsAndCache(params);
-        if (!cancelled) {
-          setMarketplaceProducts(response.data as ProductItem[]);
-        }
-      } catch (err) {
-        if (!cancelled && !isAbortError(err)) {
-          setMarketplaceProducts([]);
-        }
-      } finally {
-        if (!cancelled) {
-          setLoadingMarketplace(false);
-        }
-      }
-    };
-
-    const loadRecentlyViewed = async () => {
-      try {
-        const products = await getRecentlyViewed();
-        if (!cancelled) setRecentlyViewed(products);
-      } catch {
-        // Not logged in or no data — silently ignore
-      }
-    };
-
-    const loadRecommendations = async () => {
-      try {
-        const products = await getRecommendations(recommendationsController.signal);
-        if (cancelled) return;
-        const normalized = products.map((product: RecommendationProduct) => ({
-          id: product.id,
-          title: product.title,
-          images: product.images,
-          category: product.category,
-          price: product.adminListingPrice ?? product.sellerPrice,
-          sellerPrice: product.sellerPrice,
-          adminPrice: product.adminListingPrice,
-        }));
-        setRecommendedProducts(normalized);
-      } catch (err) {
-        if (!cancelled && !isAbortError(err)) {
-          setRecommendedProducts([]);
-        }
-      }
-    };
-
-    load();
-    loadCategories();
-    loadArrivals();
-    loadRecentlyViewed();
-    loadRecommendations();
-    loadMarketplacePreview();
+      }, 700);
+    });
 
     return () => {
-      cancelled = true;
-      recommendationsController.abort();
+      isCancelled = true;
+      task.cancel();
+      if (timer) clearTimeout(timer);
     };
   }, []);
 
-  const formatPrice = React.useCallback((price?: number | null) => {
-    if (!price && price !== 0) return "Contact for price";
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-      maximumFractionDigits: 0,
-    }).format(price);
-  }, []);
-
-  const handleProductPress = React.useCallback(
-    (productId: string) => {
-      router.push({ pathname: "/product/[id]", params: { id: productId } });
-    },
-    [router]
-  );
-
-  const handleCategoryPress = React.useCallback(
-    (matches: string[]) => {
-      const found = categories.find((category) =>
-        matches.some((match) =>
-          category.name.toLowerCase().includes(match)
-        )
-      );
-      router.push({
-        pathname: "/marketplace",
-        params: found?.id ? { categoryId: found.id } : {},
-      });
-    },
-    [categories, router]
-  );
-
-  const handlePrivacyPolicyPress = React.useCallback(() => {
-    router.push({ pathname: "/(tabs)/privacy-policy" as any });
+  const deferNavigate = React.useCallback((to: string) => {
+    InteractionManager.runAfterInteractions(() => {
+      router.push(to as any);
+    });
   }, [router]);
 
-  const handleExternalLink = React.useCallback((url: string) => {
-    Linking.openURL(url);
-  }, []);
+  const spotlightCards = React.useMemo(() => {
+    const products = spotlightQuery.data?.data ?? [];
+    if (products.length === 0) {
+      return [
+        { id: "s1", image: images.hero.mobile[0], title: "ROYAL WEDDING", productId: null, description: "" },
+        { id: "s2", image: images.hero.mobile[2], title: "RECEPTION EDIT", productId: null, description: "" },
+        { id: "s3", image: images.hero.mobile[4], title: "GROOM SPECIAL", productId: null, description: "" },
+      ];
+    }
 
-  const renderProduct = React.useCallback(
-    ({ item }: { item: BestsellerProduct }) => {
-      const imageUri = item.image ?? fallbackImage;
-      return (
-        <Pressable
-          style={styles.productCard}
-          onPress={() => handleProductPress(item.productId)}
-        >
-          <Image
-            source={{ uri: imageUri }}
-            style={styles.productImage}
-            contentFit="contain"
-            transition={200}
-            cachePolicy="memory-disk"
-          />
-          <Text style={styles.productTitle}>{item.title}</Text>
-          <Text style={styles.productDescription} numberOfLines={2}>
-            Crafted edit for wedding celebrations.
-          </Text>
-          <Text style={styles.productCategory}>
-            {item.categoryName ?? "Curated edit"}
-          </Text>
-          <Text style={styles.productPrice}>{formatPrice(item.minPrice)}</Text>
-        </Pressable>
-      );
-    },
-    [handleProductPress, formatPrice]
+    return products.slice(0, 3).map((product, index) => ({
+      id: product.id,
+      image: product.images?.[0] ?? images.hero.mobile[index % images.hero.mobile.length],
+      title: product.title,
+      productId: product.id,
+      description: product.description,
+    }));
+  }, [spotlightQuery.data]);
+
+  const spotlightCardHeight = Math.round(Math.min(Math.max(width * 1.05, 420), 560));
+  const vibeCardWidth = Math.min(Math.max(width * 0.54, 194), 228);
+  const vibeCardHeight = Math.round(vibeCardWidth * 1.32);
+  const gridPageWidth = Math.max(width - spacing.pageHorizontal * 2, 280);
+  const gridPageGap = spacing.md;
+  const gridCardWidth = (gridPageWidth - gridPageGap) / 2;
+  const productCardGap = spacing.md;
+  const productCardWidth = gridPageWidth;
+  const productCardHeight = Math.round(productCardWidth * 1.25);
+
+  const fallbackGridImages = React.useMemo(
+    () => [
+      images.categories.wedding,
+      images.categories.indoWestern,
+      images.categories.kurta,
+      images.categories.accessories,
+      ...images.hero.mobile,
+    ],
+    []
   );
 
-  const renderRecommendationItem = React.useCallback(
-    ({ item }: { item: ProductItem }) => (
-      <View style={styles.recommendationCardWrap}>
-        <ProductGridCard
-          product={item}
-          onExplore={() => handleProductPress(item.id)}
-          onBuyNow={() => handleProductPress(item.id)}
-        />
+  const categoryCards = React.useMemo<HomeGridCard[]>(() => {
+    const categories: Category[] = categoriesQuery.data?.categories ?? [];
+    return categories.map((category, index) => ({
+      id: category.id,
+      title: (category.name || "Category").toUpperCase(),
+      image:
+        category.image?.trim() ||
+        fallbackGridImages[index % fallbackGridImages.length],
+      query: category.slug || category.name,
+    }));
+  }, [categoriesQuery.data, fallbackGridImages]);
+
+  const occasionCards = React.useMemo<HomeGridCard[]>(() => {
+    const occasions: Occasion[] = occasionsQuery.data?.occasions ?? [];
+    return occasions.map((occasion, index) => ({
+      id: occasion.id,
+      title: (occasion.name || "Occasion").toUpperCase(),
+      image:
+        occasion.image?.trim() ||
+        fallbackGridImages[index % fallbackGridImages.length],
+      query: occasion.slug || occasion.name,
+    }));
+  }, [fallbackGridImages, occasionsQuery.data]);
+
+  const vibeCards = React.useMemo(
+    () => categoryCards.slice(0, 6),
+    [categoryCards]
+  );
+
+  const repeatedOccasionCards = React.useMemo(
+    () => repeatCards(occasionCards, occasionRepeatCount),
+    [occasionCards, occasionRepeatCount]
+  );
+
+  const repeatedCategoryCards = React.useMemo(
+    () => repeatCards(categoryCards, categoryRepeatCount),
+    [categoryCards, categoryRepeatCount]
+  );
+
+  const repeatedVibeCards = React.useMemo(
+    () => repeatCards(vibeCards, vibeRepeatCount),
+    [vibeCards, vibeRepeatCount]
+  );
+
+  const mostLovedCards = React.useMemo<HomeProductCard[]>(() => {
+    const products = mostLovedQuery.data?.data ?? [];
+    return products.slice(0, 4).map((item, index) => ({
+      id: item.id,
+      title: item.title,
+      image: item.images?.[0] ?? fallbackGridImages[index % fallbackGridImages.length],
+      priceText:
+        typeof item.price === "number"
+          ? `₹${item.price.toLocaleString("en-IN")}`
+          : "₹0",
+      query: item.title,
+    }));
+  }, [fallbackGridImages, mostLovedQuery.data]);
+
+  const bestsellerCards = React.useMemo<HomeProductCard[]>(() => {
+    const products: BestsellerProduct[] = bestsellersQuery.data?.products ?? [];
+    return products.map((item, index) => ({
+      id: item.id,
+      title: item.title,
+      image: item.image?.trim() ?? fallbackGridImages[index % fallbackGridImages.length],
+      priceText:
+        typeof (item.salePrice ?? item.adminPrice ?? item.minPrice ?? item.regularPrice) === "number"
+          ? `₹${Number(item.salePrice ?? item.adminPrice ?? item.minPrice ?? item.regularPrice).toLocaleString("en-IN")}`
+          : "₹0",
+      query: item.title,
+    }));
+  }, [bestsellersQuery.data, fallbackGridImages]);
+
+  const repeatedMostLovedCards = React.useMemo(
+    () => repeatProductCards(mostLovedCards, mostLovedRepeatCount),
+    [mostLovedCards, mostLovedRepeatCount]
+  );
+
+  const repeatedBestsellerCards = React.useMemo(
+    () => repeatProductCards(bestsellerCards, bestsellerRepeatCount),
+    [bestsellerCards, bestsellerRepeatCount]
+  );
+
+  const visibleOccasionPages = React.useMemo(
+    () => chunkCards(repeatedOccasionCards, 4),
+    [repeatedOccasionCards]
+  );
+
+  const visibleCategoryPages = React.useMemo(
+    () => chunkCards(repeatedCategoryCards, 4),
+    [repeatedCategoryCards]
+  );
+
+  const baseOccasionPagesCount = Math.max(1, Math.ceil(occasionCards.length / 4));
+  const baseCategoryPagesCount = Math.max(1, Math.ceil(categoryCards.length / 4));
+  const baseVibePagesCount = Math.max(1, vibeCards.length);
+  const baseMostLovedPagesCount = Math.max(1, mostLovedCards.length);
+  const baseBestsellerPagesCount = Math.max(1, bestsellerCards.length);
+
+  const loadMoreOccasions = React.useCallback(() => {
+    if (occasionCards.length === 0) return;
+    setOccasionRepeatCount((prev) => prev + 1);
+  }, [occasionCards.length]);
+
+  const loadMoreCategories = React.useCallback(() => {
+    if (categoryCards.length === 0) return;
+    setCategoryRepeatCount((prev) => prev + 1);
+  }, [categoryCards.length]);
+
+  const loadMoreVibe = React.useCallback(() => {
+    if (vibeCards.length === 0) return;
+    setVibeRepeatCount((prev) => prev + 1);
+  }, [vibeCards.length]);
+
+  const loadMoreMostLoved = React.useCallback(() => {
+    if (mostLovedCards.length === 0) return;
+    setMostLovedRepeatCount((prev) => prev + 1);
+  }, [mostLovedCards.length]);
+
+  const loadMoreBestsellers = React.useCallback(() => {
+    if (bestsellerCards.length === 0) return;
+    setBestsellerRepeatCount((prev) => prev + 1);
+  }, [bestsellerCards.length]);
+
+  React.useEffect(() => {
+    setOccasionRepeatCount(1);
+    setOccasionPageIndex(0);
+  }, [occasionCards.length]);
+
+  React.useEffect(() => {
+    setCategoryRepeatCount(1);
+    setCategoryPageIndex(0);
+  }, [categoryCards.length]);
+
+  React.useEffect(() => {
+    setVibeRepeatCount(1);
+    setVibePageIndex(0);
+  }, [vibeCards.length]);
+
+  React.useEffect(() => {
+    setMostLovedRepeatCount(1);
+    setMostLovedPageIndex(0);
+  }, [mostLovedCards.length]);
+
+  React.useEffect(() => {
+    setBestsellerRepeatCount(1);
+    setBestsellerPageIndex(0);
+  }, [bestsellerCards.length]);
+
+  const renderGridPage = React.useCallback(
+    ({ item }: ListRenderItemInfo<HomeGridPage>) => (
+      <View style={[styles.gridPage, { width: gridPageWidth }]}> 
+        {item.items.map((card) => (
+          <Pressable
+            key={card.id}
+            style={[styles.occasionCard, { width: gridCardWidth }]}
+            onPress={() => deferNavigate(`/search?q=${encodeURIComponent(card.query)}`)}
+          >
+            <CachedImage
+              source={card.image}
+              style={styles.occasionCardImage}
+              contentFit="cover"
+            />
+            <View style={styles.occasionCardOverlay} />
+            <Text style={styles.occasionCardTitle}>{card.title}</Text>
+          </Pressable>
+        ))}
       </View>
     ),
-    [handleProductPress],
+    [deferNavigate, gridCardWidth, gridPageWidth]
   );
 
-  return (
+  const renderVibeCard = React.useCallback(
+    ({ item }: ListRenderItemInfo<HomeGridCard>) => (
+      <Pressable
+        style={[
+          styles.vibeCard,
+          { width: vibeCardWidth, height: vibeCardHeight },
+        ]}
+        onPress={() => deferNavigate(`/search?q=${encodeURIComponent(item.query)}`)}
+      >
+        <CachedImage
+          source={item.image}
+          style={{ width: vibeCardWidth, height: vibeCardHeight }}
+          contentFit="cover"
+        />
+        <View style={styles.vibeCardOverlay} />
+        <Text style={styles.vibeCardTitle}>{item.title}</Text>
+      </Pressable>
+    ),
+    [deferNavigate, vibeCardHeight, vibeCardWidth]
+  );
+
+  const renderLargeProductCard = React.useCallback(
+    ({ item }: ListRenderItemInfo<HomeProductCard>) => (
+      <Pressable
+        style={[styles.largeProductCard, { width: productCardWidth }]}
+        onPress={() => deferNavigate(`/search?q=${encodeURIComponent(item.query)}`)}
+      >
+        <CachedImage
+          source={item.image}
+          style={[styles.largeProductImage, { height: productCardHeight }]}
+          contentFit="cover"
+        />
+        <View style={styles.largeProductOverlay} />
+        <View style={styles.largeProductMeta}>
+          <Text numberOfLines={1} style={styles.largeProductTitle}>{item.title}</Text>
+          <Text style={styles.largeProductPrice}>{item.priceText}</Text>
+        </View>
+      </Pressable>
+    ),
+    [deferNavigate, productCardHeight, productCardWidth]
+  );
+
+  const testimonials = React.useMemo(
+    () => [
+      {
+        id: "t1",
+        name: "Aditya Verma",
+        quote:
+          "Perfect fit and premium fabric quality. Delivery was smooth and right on time.",
+      },
+      {
+        id: "t2",
+        name: "Rohan Singh",
+        quote:
+          "The wedding collection looked even better in person. Great styling support too.",
+      },
+      {
+        id: "t3",
+        name: "Karan Malhotra",
+        quote:
+          "Elegant designs with comfortable wear for long events. Highly recommended.",
+      },
+    ],
+    []
+  );
+
+  const spotlightFeature = spotlightCards[0];
+
+  React.useEffect(() => {
+    if (!testimonials.length) return;
+    const interval = setInterval(() => {
+      const next = (testimonialIndexRef.current + 1) % testimonials.length;
+      testimonialRef.current?.scrollToOffset({
+        offset: next * gridPageWidth,
+        animated: true,
+      });
+      testimonialIndexRef.current = next;
+      setTestimonialPageIndex(next);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [gridPageWidth, testimonials.length]);
+
+  const handleScroll = React.useCallback((offsetY: number) => {
+    const shouldShow = offsetY > 260;
+    setShowScrollTop((prev) => (prev === shouldShow ? prev : shouldShow));
+  }, []);
+
+  const handleScrollToTop = React.useCallback(() => {
+    listRef.current?.scrollToOffset({ offset: 0, animated: true });
+  }, []);
+
+  const listHeader = React.useMemo(() => (
     <>
-      <AppHeader showSearch showCart showMenu showBack={false} />
-      <SafeAreaView style={styles.safeArea}>
+      <View style={styles.fullBleed}>
+        <HomeHeroBanner onPress={() => deferNavigate("/marketplace")} />
+      </View>
+
+      <View style={styles.vibeSection}>
+        <View style={styles.vibeHeadingWrap}>
+          <Ionicons name="sparkles-outline" size={30} color="#511d00" />
+          <Text style={styles.vibeTitle}>WHAT&apos;S YOUR VIBE?</Text>
+          <Text style={styles.scrollDirectionText}>Swipe left or right</Text>
+        </View>
         <FlatList
-          data={loadingBestsellers ? Array.from({ length: 3 }) : bestsellers}
-          keyExtractor={(item, index) =>
-            typeof item === "object" && item !== null
-              ? (item as BestsellerProduct).id
-              : `skeleton-${index}`
-          }
-          numColumns={2}
-          columnWrapperStyle={styles.productGridRow}
-          renderItem={({ item }) =>
-            typeof item === "object" && item !== null ? (
-              renderProduct({ item: item as BestsellerProduct })
-            ) : (
-              <View style={styles.productCard}>
-                <View style={styles.productImage} />
-                <View style={styles.skeletonLine} />
-                <View style={styles.skeletonLineShort} />
-              </View>
-            )
-          }
-          ListHeaderComponent={
-            <View>
-            <View style={styles.heroCard}>
-              <View style={styles.heroGlowOne} />
-              <View style={styles.heroGlowTwo} />
-              <View style={styles.heroMetaRow}>
-                <Text style={styles.heroEyebrow}>Tatvivah atelier</Text>
-                <View style={styles.heroMetaPill}>
-                  <Text style={styles.heroMetaPillText}>Premium edit</Text>
-                </View>
-              </View>
-              <Text style={styles.heroTitle}>Sherwani stories for grand moments</Text>
-              <Text style={styles.heroSubtitle}>
-                Discover heirloom-ready craftsmanship, styled for weddings and celebrations.
-              </Text>
-              <View style={styles.heroDivider} />
-              <View style={styles.heroActions}>
-                <Pressable
-                  style={[styles.primaryButton, styles.heroPrimaryButton]}
-                  onPress={() => router.push("/search")}
-                >
-                  <Text style={styles.primaryButtonText}>Explore collection</Text>
-                </Pressable>
-                <Pressable
-                  style={[styles.ghostButton, styles.heroGhostButton]}
-                  onPress={() => router.push("/marketplace")}
-                >
-                  <Text style={styles.ghostButtonText}>Partner with us</Text>
-                </Pressable>
-              </View>
-            </View>
-
-            <View style={styles.searchBlock}>
-              <Text style={styles.searchTitle}>Find your look</Text>
-              <Text style={styles.searchSubtitle}>
-                Browse wedding fits, premium fabrics, and celebration-ready accessories.
-              </Text>
-              <Pressable style={styles.searchInputShell} onPress={() => router.push("/search")}>
-                <TextInput
-                  placeholder="Search sherwani, kurta, accessories"
-                  placeholderTextColor={colors.brownSoft}
-                  style={styles.searchInput}
-                  onFocus={() => router.push("/search")}
-                />
-              </Pressable>
-              <View style={styles.searchQuickRow}>
-                <Pressable style={styles.searchQuickChip} onPress={() => router.push("/search?q=sherwani") }>
-                  <Text style={styles.searchQuickChipText}>Sherwani</Text>
-                </Pressable>
-                <Pressable style={styles.searchQuickChip} onPress={() => router.push("/search?q=kurta") }>
-                  <Text style={styles.searchQuickChipText}>Kurta</Text>
-                </Pressable>
-                <Pressable style={styles.searchQuickChip} onPress={() => router.push("/search?q=accessories") }>
-                  <Text style={styles.searchQuickChipText}>Accessories</Text>
-                </Pressable>
-              </View>
-            </View>
-
-            <View style={styles.sectionTransition} />
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionEyebrow}>Latest drops</Text>
-              <Text style={styles.sectionTitle}>New season arrivals</Text>
-            </View>
-            <View style={styles.latestStack}>
-              {latestArrivals.map((item) => {
-                const image = "image" in item ? item.image : item.images?.[0];
-                const canNavigate = "images" in item;
-                const rawPrice = "price" in item ? item.price : undefined;
-                const price =
-                  typeof rawPrice === "number" ? formatPrice(rawPrice) : undefined;
-
-                return (
-                  <Pressable
-                    key={item.id}
-                    style={styles.latestCard}
-                    onPress={() =>
-                      canNavigate
-                        ? router.push({
-                            pathname: "/product/[id]",
-                            params: { id: item.id },
-                          })
-                        : undefined
-                    }
-                  >
-                    <Image
-                      source={{ uri: image ?? fallbackImage }}
-                      style={styles.latestImage}
-                      contentFit="cover"
-                      transition={200}
-                      cachePolicy="memory-disk"
-                    />
-                    <View style={styles.latestInfo}>
-                      <Text style={styles.latestLabel}>Latest</Text>
-                      <Text style={styles.latestTitle} numberOfLines={2}>
-                        {item.title}
-                      </Text>
-                      <Text style={styles.latestMeta}>
-                        Premium tailoring for modern ceremonies
-                      </Text>
-                      {price ? (
-                        <Text style={styles.latestPrice}>{price}</Text>
-                      ) : null}
-                      <View style={styles.latestCta}>
-                        <Text style={styles.latestCtaText}>View details</Text>
-                      </View>
-                    </View>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            <View style={styles.promiseWrap}>
-              <Text style={styles.sectionEyebrow}>Tatvivah promise</Text>
-              <View style={styles.promiseRow}>
-                <View style={styles.promiseCard}>
-                  <Text style={styles.promiseTitle}>Verified ateliers</Text>
-                  <Text style={styles.promiseCopy}>
-                    Certified artisans and premium fabric sourcing.
-                  </Text>
-                </View>
-                <View style={styles.promiseCard}>
-                  <Text style={styles.promiseTitle}>Secure checkout</Text>
-                  <Text style={styles.promiseCopy}>
-                    Protected payments with order tracking.
-                  </Text>
-                </View>
-                <View style={styles.promiseCard}>
-                  <Text style={styles.promiseTitle}>Concierge care</Text>
-                  <Text style={styles.promiseCopy}>
-                    Styling support for every celebration.
-                  </Text>
-                </View>
-              </View>
-            </View>
-
-            <View style={styles.sectionTransition} />
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionEyebrow}>Shop by category</Text>
-              <Text style={styles.sectionTitle}>Style edits</Text>
-            </View>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.categoryRow}
-              contentContainerStyle={styles.categoryRowContent}
-            >
-              {categoryCards.map((card) => (
-                <Pressable
-                  key={card.label}
-                  style={styles.categoryCard}
-                  onPress={() => handleCategoryPress(card.matches)}
-                >
-                  <Image
-                    source={card.image}
-                    style={styles.categoryImage}
-                    contentFit="cover"
-                  />
-                  <View style={styles.categoryOverlay} />
-                  <Text style={styles.categoryLabel}>{card.label}</Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-
-            <View style={styles.sectionTransition} />
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionEyebrow}>Shop by category</Text>
-              <Text style={styles.sectionTitle}>Curated collections</Text>
-            </View>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.chipRow}
-            >
-              {(categories.length ? categories.map((item) => item.name) : fallbackCategories).map(
-                (item) => (
-                  <View key={item} style={styles.chip}>
-                    <Text style={styles.chipText}>{item}</Text>
-                  </View>
-                )
-              )}
-            </ScrollView>
-
-            <View style={styles.sectionTransition} />
-            <View style={styles.sectionHeaderRow}>
-              <View>
-                <Text style={styles.sectionEyebrow}>Curated collections</Text>
-                <Text style={styles.sectionTitle}>Handpicked for you</Text>
-                <Text style={styles.sectionSupportText}>
-                  Signature picks selected by our in-house stylists.
-                </Text>
-              </View>
-              <Pressable
-                style={styles.sectionAction}
-                onPress={() => router.push("/marketplace")}
-              >
-                <Text style={styles.sectionActionText}>View all</Text>
-              </Pressable>
-            </View>
-            {loadingMarketplace ? (
-              <View style={styles.marketplaceFeatureLoading}>
-                <View style={styles.marketplaceFeatureSkeleton} />
-                <View style={styles.marketplaceFeatureSkeleton} />
-                <View style={styles.marketplaceFeatureSkeleton} />
-              </View>
-            ) : (
-              <View style={styles.marketplaceFeatureList}>
-                {marketplaceProducts.slice(0, 3).map((item) => (
-                  <View key={item.id} style={styles.marketplaceFeatureCard}>
-                    <ProductGridCard
-                      product={item}
-                      onExplore={() => handleProductPress(item.id)}
-                      onBuyNow={() => handleProductPress(item.id)}
-                    />
-                  </View>
-                ))}
-              </View>
-            )}
-
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionEyebrow}>Bestsellers</Text>
-              <Text style={styles.sectionTitle}>Crafted favorites</Text>
-            </View>
-            </View>
-          }
-          ListFooterComponent={
-            <View>
-            {recommendedProducts.length > 0 && (
-              <>
-                <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionEyebrow}>Personalized picks</Text>
-                  <Text style={styles.sectionTitle}>Recommended For You</Text>
-                </View>
-                <FlatList
-                  data={recommendedProducts}
-                  keyExtractor={(item) => item.id}
-                  renderItem={renderRecommendationItem}
-                  numColumns={2}
-                  columnWrapperStyle={styles.recommendationGridRow}
-                  scrollEnabled={false}
-                  contentContainerStyle={styles.recommendationGridContent}
-                />
-              </>
-            )}
-
-            {recentlyViewed.length > 0 && (
-              <>
-                <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionEyebrow}>Continue exploring</Text>
-                  <Text style={styles.sectionTitle}>Recently viewed</Text>
-                </View>
-                <FlatList
-                  horizontal
-                  data={recentlyViewed}
-                  keyExtractor={(item) => item.id}
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.horizontalContent}
-                  renderItem={({ item }) => {
-                    const image = item.images?.[0] ?? fallbackImage;
-                    return (
-                      <Pressable
-                        style={styles.arrivalCard}
-                        onPress={() =>
-                          router.push({
-                            pathname: "/product/[id]",
-                            params: { id: item.id },
-                          })
-                        }
-                      >
-                        <Image
-                          source={{ uri: image }}
-                          style={styles.arrivalImage}
-                          contentFit="contain"
-                          transition={200}
-                          cachePolicy="memory-disk"
-                        />
-                        <Text style={styles.arrivalTitle} numberOfLines={2}>
-                          {item.title}
-                        </Text>
-                        <Text style={styles.arrivalPrice}>
-                          {item.adminListingPrice
-                            ? formatPrice(item.adminListingPrice)
-                            : formatPrice(item.sellerPrice)}
-                        </Text>
-                      </Pressable>
-                    );
-                  }}
-                />
-              </>
-            )}
-            {recommendedProducts.length === 0 && recentlyViewed.length === 0 && (
-              <>
-                <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionEyebrow}>Guest picks</Text>
-                  <Text style={styles.sectionTitle}>Wedding-ready gifting</Text>
-                </View>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.horizontalContent}
-                >
-                  {guestPicks.map((item) => (
-                    <Pressable key={item.id} style={styles.arrivalCard}>
-                      <Image
-                        source={{ uri: item.image }}
-                        style={styles.arrivalImage}
-                        contentFit="contain"
-                        transition={200}
-                        cachePolicy="memory-disk"
-                      />
-                      <Text style={styles.arrivalTitle}>{item.title}</Text>
-                      <Text style={styles.arrivalPrice}>Premium edit</Text>
-                    </Pressable>
-                  ))}
-                </ScrollView>
-              </>
-            )}
-
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionEyebrow}>New arrivals</Text>
-              <Text style={styles.sectionTitle}>Freshly tailored</Text>
-            </View>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.horizontalContent}
-            >
-              {(arrivals.length ? arrivals : fallbackArrivals).map((item) => {
-                const image = "image" in item ? item.image : item.images?.[0];
-                const canNavigate = "images" in item;
-                const rawPrice = "price" in item ? item.price : undefined;
-                const price =
-                  typeof rawPrice === "number" ? formatPrice(rawPrice) : undefined;
-                return (
-                  <Pressable
-                    key={item.id}
-                    style={styles.arrivalCard}
-                    onPress={() =>
-                      canNavigate
-                        ? router.push({
-                            pathname: "/product/[id]",
-                            params: { id: item.id },
-                          })
-                        : undefined
-                    }
-                  >
-                    <Image
-                      source={{ uri: image ?? fallbackImage }}
-                      style={styles.arrivalImage}
-                      contentFit="contain"
-                      transition={200}
-                      cachePolicy="memory-disk"
-                    />
-                    <Text style={styles.arrivalTitle}>{item.title}</Text>
-                    {price ? <Text style={styles.arrivalPrice}>{price}</Text> : null}
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionEyebrow}>Style journal</Text>
-              <Text style={styles.sectionTitle}>Crafting celebrations</Text>
-            </View>
-            <View style={styles.editorialStack}>
-              <View style={styles.editorialCard}>
-                <Text style={styles.editorialTitle}>Signature edit</Text>
-                <Text style={styles.editorialCopy}>
-                  Curated looks for pre-wedding, main ceremony, and reception.
-                </Text>
-                <Pressable
-                  style={styles.editorialCta}
-                  onPress={() => router.push("/marketplace")}
-                >
-                  <Text style={styles.editorialCtaText}>Explore edits</Text>
-                </Pressable>
-              </View>
-              <View style={styles.editorialCard}>
-                <Text style={styles.editorialTitle}>Style concierge</Text>
-                <Text style={styles.editorialCopy}>
-                  Personalized fit guidance, fabric advice, and sizing support.
-                </Text>
-                <Pressable style={styles.editorialCta}>
-                  <Text style={styles.editorialCtaText}>Talk to us</Text>
-                </Pressable>
-              </View>
-            </View>
-
-            <View style={styles.footerCard}>
-              <Text style={styles.footerTitle}>Crafted with care</Text>
-              <Text style={styles.footerCopy}>
-                Verified artisans, secure checkout, and pan-India delivery.
-              </Text>
-            </View>
-
-            <View style={styles.footerBanner}>
-              <View style={styles.footerBannerGlow} />
-              <Text style={styles.footerBannerEyebrow}>TatVivah atelier</Text>
-              <Text style={styles.footerBannerTitle}>
-                Wedding-ready looks, styled to perfection
-              </Text>
-              <Text style={styles.footerBannerCopy}>
-                Explore handcrafted silhouettes, premium fabrics, and bespoke
-                details curated for celebrations across India.
-              </Text>
-              <Pressable
-                style={styles.footerBannerButton}
-                onPress={() => router.push("/marketplace")}
-              >
-                <Text style={styles.footerBannerButtonText}>Shop the edit</Text>
-              </Pressable>
-            </View>
-
-            <View style={styles.footerLinks}>
-              <Text style={styles.footerLinksTitle}>Tatvivah Trends</Text>
-              <View style={styles.footerLinkRow}>
-                <Pressable
-                  style={styles.footerLinkButton}
-                  onPress={handlePrivacyPolicyPress}
-                >
-                  <Text style={styles.footerLinkText}>Privacy policy</Text>
-                </Pressable>
-                <Pressable
-                  style={styles.footerLinkButton}
-                  onPress={() => handleExternalLink("https://tatvivahtrends.com")}
-                >
-                  <Text style={styles.footerLinkText}>tatvivahtrends.com</Text>
-                </Pressable>
-              </View>
-              <Text style={styles.footerSignature}>
-                Made with ❤️ by Nextgenfusion team
-              </Text>
-            </View>
-            </View>
-          }
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
+          horizontal
+          data={repeatedVibeCards}
+          keyExtractor={(item) => item.id}
+          renderItem={renderVibeCard}
           initialNumToRender={4}
           maxToRenderPerBatch={4}
-          windowSize={7}
+          windowSize={5}
           removeClippedSubviews
+          onEndReached={loadMoreVibe}
+          onEndReachedThreshold={0.5}
+          snapToInterval={vibeCardWidth + spacing.md}
+          decelerationRate="fast"
+          disableIntervalMomentum
+          snapToAlignment="start"
+          onMomentumScrollEnd={(event) => {
+            const page = Math.round(
+              event.nativeEvent.contentOffset.x / (vibeCardWidth + spacing.md)
+            );
+            setVibePageIndex(page);
+          }}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.vibeCarouselContent}
         />
-      </SafeAreaView>
+        <View style={styles.paginationWrap}>
+          {Array.from({ length: baseVibePagesCount }).map((_, idx) => {
+            const isActive = idx === (vibePageIndex % baseVibePagesCount);
+            return <View key={`vibe-dot-${idx}`} style={[styles.paginationDot, isActive && styles.paginationDotActive]} />;
+          })}
+        </View>
+      </View>
+
+      <View style={styles.occasionSection}>
+        <View style={styles.occasionHeadingWrap}>
+          <Ionicons name="sparkles-outline" size={30} color="#511d00" />
+          <Text style={styles.occasionTitle}>SHOP THE OCCASION</Text>
+          <View style={styles.menTabWrap}>
+            <Text style={styles.menTabText}>Men</Text>
+            <View style={styles.menTabUnderline} />
+          </View>
+          <Text style={styles.scrollDirectionText}>Swipe left or right</Text>
+        </View>
+        {occasionsQuery.isLoading ? (
+          <View style={styles.gridLoadingWrap}>
+            <SkeletonBlock width="47%" height={170} />
+            <SkeletonBlock width="47%" height={170} />
+            <SkeletonBlock width="47%" height={170} />
+            <SkeletonBlock width="47%" height={170} />
+          </View>
+        ) : visibleOccasionPages.length === 0 ? (
+          <View style={styles.gridEmptyState}>
+            <Text style={styles.gridEmptyText}>No occasions available right now.</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={visibleOccasionPages}
+            keyExtractor={(item) => item.id}
+            renderItem={renderGridPage}
+            horizontal
+            initialNumToRender={2}
+            maxToRenderPerBatch={2}
+            windowSize={3}
+            removeClippedSubviews
+            decelerationRate="fast"
+            disableIntervalMomentum
+            snapToAlignment="start"
+            snapToInterval={gridPageWidth + gridPageGap}
+            style={styles.gridViewport}
+            contentContainerStyle={styles.occasionGrid}
+            ItemSeparatorComponent={() => <View style={{ width: gridPageGap }} />}
+            onEndReached={loadMoreOccasions}
+            onEndReachedThreshold={0.4}
+            showsHorizontalScrollIndicator={false}
+            onMomentumScrollEnd={(event) => {
+              const page = Math.round(
+                event.nativeEvent.contentOffset.x / (gridPageWidth + gridPageGap)
+              );
+              setOccasionPageIndex(page);
+            }}
+          />
+        )}
+        {visibleOccasionPages.length > 0 ? (
+          <View style={styles.paginationWrap}>
+            {Array.from({ length: baseOccasionPagesCount }).map((_, idx) => {
+              const isActive = idx === (occasionPageIndex % baseOccasionPagesCount);
+              return <View key={`occasion-dot-${idx}`} style={[styles.paginationDot, isActive && styles.paginationDotActive]} />;
+            })}
+          </View>
+        ) : null}
+      </View>
+
+      <View style={styles.spotlightSection}>
+        <View style={styles.spotlightHeadingWrap}>
+          <Ionicons name="sparkles-outline" size={30} color="#511d00" />
+          <Text style={styles.spotlightHeading}>IN THE SPOTLIGHT</Text>
+        </View>
+        <Pressable
+          style={[styles.spotlightFeatureCard, { height: spotlightCardHeight }]}
+          onPress={() =>
+            spotlightFeature?.productId
+              ? deferNavigate(`/product/${spotlightFeature.productId}`)
+              : deferNavigate("/marketplace")
+          }
+        >
+          {spotlightQuery.isLoading ? (
+            <View style={styles.spotlightSkeletonWrap}>
+              <SkeletonBlock width="100%" height={spotlightCardHeight} borderRadius={12} />
+            </View>
+          ) : (
+            <>
+              <CachedImage
+                source={spotlightFeature?.image ?? images.hero.mobile[2]}
+                style={styles.spotlightImage}
+                contentFit="cover"
+              />
+              <View style={styles.spotlightOverlay} />
+              <View style={styles.spotlightActionWrapBottom}>
+                <Text style={styles.spotlightActionText}>EXPLORE NOW</Text>
+              </View>
+            </>
+          )}
+        </Pressable>
+      </View>
+
+      <View style={styles.collectionSection}>
+        <View style={styles.sectionHeadRow}>
+          <Ionicons name="sparkles-outline" size={28} color="#511d00" />
+          <Text style={styles.collectionHeading}>SHOP BY CATEGORY</Text>
+        </View>
+        <Text style={[styles.scrollDirectionText, styles.centerDirection]}>Swipe left or right</Text>
+        {categoriesQuery.isLoading ? (
+          <View style={styles.gridLoadingWrap}>
+            <SkeletonBlock width="47%" height={170} />
+            <SkeletonBlock width="47%" height={170} />
+            <SkeletonBlock width="47%" height={170} />
+            <SkeletonBlock width="47%" height={170} />
+          </View>
+        ) : visibleCategoryPages.length === 0 ? (
+          <View style={styles.gridEmptyState}>
+            <Text style={styles.gridEmptyText}>No categories available right now.</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={visibleCategoryPages}
+            keyExtractor={(item) => item.id}
+            renderItem={renderGridPage}
+            horizontal
+            initialNumToRender={2}
+            maxToRenderPerBatch={2}
+            windowSize={3}
+            removeClippedSubviews
+            decelerationRate="fast"
+            disableIntervalMomentum
+            snapToAlignment="start"
+            snapToInterval={gridPageWidth + gridPageGap}
+            style={styles.gridViewport}
+            contentContainerStyle={styles.occasionGrid}
+            ItemSeparatorComponent={() => <View style={{ width: gridPageGap }} />}
+            onEndReached={loadMoreCategories}
+            onEndReachedThreshold={0.4}
+            showsHorizontalScrollIndicator={false}
+            onMomentumScrollEnd={(event) => {
+              const page = Math.round(
+                event.nativeEvent.contentOffset.x / (gridPageWidth + gridPageGap)
+              );
+              setCategoryPageIndex(page);
+            }}
+          />
+        )}
+        {visibleCategoryPages.length > 0 ? (
+          <View style={styles.paginationWrap}>
+            {Array.from({ length: baseCategoryPagesCount }).map((_, idx) => {
+              const isActive = idx === (categoryPageIndex % baseCategoryPagesCount);
+              return <View key={`category-dot-${idx}`} style={[styles.paginationDot, isActive && styles.paginationDotActive]} />;
+            })}
+          </View>
+        ) : null}
+      </View>
+
+      <View style={styles.mostLovedSection}>
+        <View style={styles.mostLovedHeaderRow}>
+          <Ionicons name="sparkles-outline" size={28} color="#511d00" />
+          <Text style={styles.mostLovedHeading}>MOST LOVED</Text>
+          <Text style={styles.scrollDirectionText}>Swipe left or right</Text>
+        </View>
+        {mostLovedQuery.isLoading ? (
+          <View style={styles.gridLoadingWrap}>
+            <SkeletonBlock width="74%" height={320} />
+          </View>
+        ) : repeatedMostLovedCards.length === 0 ? (
+          <View style={styles.gridEmptyState}>
+            <Text style={styles.gridEmptyText}>No loved products available right now.</Text>
+          </View>
+        ) : (
+          <FlatList
+            horizontal
+            data={repeatedMostLovedCards}
+            keyExtractor={(item) => item.id}
+            renderItem={renderLargeProductCard}
+            initialNumToRender={2}
+            maxToRenderPerBatch={2}
+            windowSize={3}
+            removeClippedSubviews
+            contentContainerStyle={styles.largeProductList}
+            showsHorizontalScrollIndicator={false}
+            onEndReached={loadMoreMostLoved}
+            onEndReachedThreshold={0.4}
+            snapToInterval={productCardWidth + productCardGap}
+            decelerationRate="fast"
+            disableIntervalMomentum
+            snapToAlignment="start"
+            onMomentumScrollEnd={(event) => {
+              const page = Math.round(
+                event.nativeEvent.contentOffset.x / (productCardWidth + productCardGap)
+              );
+              setMostLovedPageIndex(page);
+            }}
+          />
+        )}
+        <View style={styles.paginationWrap}>
+          {Array.from({ length: baseMostLovedPagesCount }).map((_, idx) => {
+            const isActive = idx === (mostLovedPageIndex % baseMostLovedPagesCount);
+            return <View key={`most-loved-dot-${idx}`} style={[styles.paginationDot, isActive && styles.paginationDotActive]} />;
+          })}
+        </View>
+      </View>
+
+      <View style={styles.mostLovedSection}>
+        <View style={styles.mostLovedHeaderRow}>
+          <Ionicons name="sparkles-outline" size={28} color="#511d00" />
+          <Text style={styles.mostLovedHeading}>BEST SELLERS</Text>
+          <Text style={styles.scrollDirectionText}>Swipe left or right</Text>
+        </View>
+        {bestsellersQuery.isLoading ? (
+          <View style={styles.gridLoadingWrap}>
+            <SkeletonBlock width="74%" height={320} />
+          </View>
+        ) : repeatedBestsellerCards.length === 0 ? (
+          <View style={styles.gridEmptyState}>
+            <Text style={styles.gridEmptyText}>No bestsellers available right now.</Text>
+          </View>
+        ) : (
+          <FlatList
+            horizontal
+            data={repeatedBestsellerCards}
+            keyExtractor={(item) => item.id}
+            renderItem={renderLargeProductCard}
+            initialNumToRender={2}
+            maxToRenderPerBatch={2}
+            windowSize={3}
+            removeClippedSubviews
+            contentContainerStyle={styles.largeProductList}
+            showsHorizontalScrollIndicator={false}
+            onEndReached={loadMoreBestsellers}
+            onEndReachedThreshold={0.4}
+            snapToInterval={productCardWidth + productCardGap}
+            decelerationRate="fast"
+            disableIntervalMomentum
+            snapToAlignment="start"
+            onMomentumScrollEnd={(event) => {
+              const page = Math.round(
+                event.nativeEvent.contentOffset.x / (productCardWidth + productCardGap)
+              );
+              setBestsellerPageIndex(page);
+            }}
+          />
+        )}
+        <View style={styles.paginationWrap}>
+          {Array.from({ length: baseBestsellerPagesCount }).map((_, idx) => {
+            const isActive = idx === (bestsellerPageIndex % baseBestsellerPagesCount);
+            return <View key={`bestseller-dot-${idx}`} style={[styles.paginationDot, isActive && styles.paginationDotActive]} />;
+          })}
+        </View>
+      </View>
+
+      <View style={styles.testimonialSection}>
+        <View style={styles.sectionHeadRow}>
+          <Ionicons name="sparkles-outline" size={28} color="#511d00" />
+          <Text style={styles.testimonialHeading}>TESTIMONIALS</Text>
+        </View>
+        <FlatList
+          ref={testimonialRef}
+          horizontal
+          pagingEnabled
+          decelerationRate="fast"
+          data={testimonials}
+          keyExtractor={(item) => item.id}
+          initialNumToRender={1}
+          maxToRenderPerBatch={1}
+          windowSize={3}
+          removeClippedSubviews
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.testimonialViewport}
+          renderItem={({ item }) => {
+            const quoteText = item.quote?.trim() || "TatVivah delivered premium quality, true-to-photo finish, and a smooth wedding-day experience.";
+            const nameText = item.name?.trim() || "TatVivah Customer";
+
+            return (
+              <View style={[styles.testimonialCardLarge, { width: gridPageWidth }]}> 
+                <Text style={styles.testimonialQuoteLarge}>{`"${quoteText}"`}</Text>
+                <Text style={styles.testimonialName}>{nameText}</Text>
+                <Text style={styles.testimonialMeta}>Verified Purchase</Text>
+              </View>
+            );
+          }}
+          onMomentumScrollEnd={(event) => {
+            const page = Math.round(event.nativeEvent.contentOffset.x / gridPageWidth);
+            setTestimonialPageIndex(page);
+          }}
+        />
+        <View style={styles.paginationWrap}>
+          {testimonials.map((item, idx) => (
+            <View
+              key={item.id}
+              style={[styles.paginationDot, idx === testimonialPageIndex && styles.paginationDotActive]}
+            />
+          ))}
+        </View>
+      </View>
+
+
+      <View style={styles.section}>
+        <Text style={[textStyles.sectionTitle, styles.sectionTitleCenter]}>
+          TRENDING REELS
+        </Text>
+        <ReelsSection
+          enableFetch={isReelsReady}
+          onPressReel={(query) =>
+            deferNavigate(`/search?q=${encodeURIComponent(query)}`)
+          }
+        />
+      </View>
+
+      <View style={styles.fullBleed}>
+        <Footer />
+      </View>
     </>
+  ), [
+    categoriesQuery.isLoading,
+    deferNavigate,
+    baseCategoryPagesCount,
+    baseOccasionPagesCount,
+    baseVibePagesCount,
+    baseMostLovedPagesCount,
+    baseBestsellerPagesCount,
+    bestsellersQuery.isLoading,
+    categoryPageIndex,
+    gridPageGap,
+    gridPageWidth,
+    loadMoreBestsellers,
+    loadMoreCategories,
+    loadMoreMostLoved,
+    loadMoreOccasions,
+    loadMoreVibe,
+    mostLovedPageIndex,
+    mostLovedQuery.isLoading,
+    occasionPageIndex,
+    occasionsQuery.isLoading,
+    renderLargeProductCard,
+    renderGridPage,
+    renderVibeCard,
+    productCardGap,
+    productCardWidth,
+    repeatedBestsellerCards,
+    repeatedMostLovedCards,
+    spotlightCardHeight,
+    spotlightFeature,
+    spotlightQuery.isLoading,
+    testimonials,
+    testimonialPageIndex,
+    bestsellerPageIndex,
+    visibleCategoryPages,
+    visibleOccasionPages,
+    repeatedVibeCards,
+    vibePageIndex,
+    vibeCardWidth,
+    isReelsReady,
+  ]);
+
+  return (
+    <SafeAreaView style={styles.safeArea} edges={["top"]}>
+      <AppHeader variant="main" />
+      <FlatList
+        ref={listRef}
+        data={[]}
+        keyExtractor={(_item, index) => String(index)}
+        renderItem={() => null}
+        ListHeaderComponent={listHeader}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.contentContainer}
+        removeClippedSubviews
+        maxToRenderPerBatch={5}
+        updateCellsBatchingPeriod={30}
+        initialNumToRender={4}
+        windowSize={5}
+        onScroll={(event) => handleScroll(event.nativeEvent.contentOffset.y)}
+        scrollEventThrottle={16}
+      />
+
+      <ScrollToTopFab
+        visible={showScrollTop}
+        onPress={handleScrollToTop}
+      />
+    </SafeAreaView>
   );
 }
 
@@ -791,662 +884,364 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  listContent: {
-    paddingBottom: spacing.xl,
+  contentContainer: {
+    paddingHorizontal: spacing.pageHorizontal,
+    paddingTop: 0,
+    paddingBottom: 0,
+    gap: spacing.xxl,
   },
-  heroCard: {
-    marginTop: spacing.lg,
-    marginHorizontal: spacing.lg,
-    padding: spacing.lg,
-    borderRadius: radius.xl,
-    backgroundColor: colors.warmWhite,
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
+  section: {
+    gap: spacing.md,
+    marginBottom: spacing.md,
+    marginTop: 35,
+  },
+  sectionTitleCenter: {
+    color: colors.textPrimary,
+    textAlign: "center",
+  },
+  fullBleed: {
+    marginHorizontal: -spacing.pageHorizontal,
+  },
+  vibeSection: {
+    marginTop: 35,
+    gap: spacing.md,
+  },
+  vibeHeadingWrap: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.xs,
+  },
+  vibeTitle: {
+    ...textStyles.sectionTitle,
+    color: colors.headerBrown,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  vibeCarouselContent: {
+    gap: spacing.md,
+    paddingLeft: spacing.xs,
+    paddingRight: spacing.md,
+  },
+  vibeCard: {
+    borderTopLeftRadius: 96,
+    borderTopRightRadius: 96,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
     overflow: "hidden",
-    ...shadow.card,
+    borderWidth: 1,
+    borderColor: "#7B4C2C",
+    backgroundColor: "#D9CEC2",
+    justifyContent: "flex-end",
   },
-  heroGlowOne: {
+  vibeCardOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(36, 22, 12, 0.22)",
+  },
+  vibeCardTitle: {
+    ...textStyles.sectionTitle,
     position: "absolute",
-    top: -60,
-    left: -40,
-    height: 160,
-    width: 160,
-    borderRadius: 100,
-    backgroundColor: colors.goldMuted,
-    opacity: 0.08,
-  },
-  heroGlowTwo: {
-    position: "absolute",
-    bottom: -80,
-    right: -30,
-    height: 160,
-    width: 160,
-    borderRadius: 100,
-    backgroundColor: colors.goldMuted,
-    opacity: 0.08,
-  },
-  heroEyebrow: {
-    fontFamily: typography.sans,
-    fontSize: 10,
-    letterSpacing: 2,
-    textTransform: "uppercase",
-    color: colors.gold,
-  },
-  heroMetaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: spacing.sm,
-  },
-  heroMetaPill: {
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    borderRadius: 14,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    backgroundColor: colors.warmWhite,
-  },
-  heroMetaPillText: {
-    fontFamily: typography.sansMedium,
-    fontSize: 10,
-    letterSpacing: 1.2,
-    textTransform: "uppercase",
-    color: colors.brown,
-  },
-  heroTitle: {
-    marginTop: spacing.sm,
-    fontFamily: typography.serif,
-    fontSize: 32,
-    color: colors.charcoal,
-    lineHeight: 38,
-  },
-  heroSubtitle: {
-    marginTop: spacing.sm,
-    fontFamily: typography.sans,
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.brownSoft,
-  },
-  heroDivider: {
-    marginTop: spacing.md,
-    height: 1,
-    backgroundColor: colors.borderSoft,
-  },
-  heroActions: {
-    marginTop: spacing.md,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: spacing.sm,
-  },
-  heroPrimaryButton: {
-    flex: 1,
-  },
-  heroGhostButton: {
-    flex: 1,
-  },
-  primaryButton: {
-    backgroundColor: colors.charcoal,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.md,
-    alignItems: "center",
-  },
-  primaryButtonText: {
-    color: colors.background,
-    fontFamily: typography.sansMedium,
-    fontSize: 12,
-    letterSpacing: 1.5,
-    textTransform: "uppercase",
-  },
-  ghostButton: {
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.md,
-    alignItems: "center",
-  },
-  ghostButtonText: {
-    color: colors.charcoal,
-    fontFamily: typography.sansMedium,
-    fontSize: 12,
-    letterSpacing: 1.5,
-    textTransform: "uppercase",
-  },
-  searchBlock: {
-    marginTop: spacing.xl,
-    paddingHorizontal: spacing.lg,
-  },
-  searchTitle: {
-    fontFamily: typography.serif,
-    fontSize: 24,
-    color: colors.charcoal,
-  },
-  searchSubtitle: {
-    marginTop: spacing.xs,
-    fontFamily: typography.sans,
-    fontSize: 12,
-    lineHeight: 18,
-    color: colors.brownSoft,
-  },
-  searchInputShell: {
-    marginTop: spacing.sm,
-    borderRadius: radius.md,
-    backgroundColor: colors.warmWhite,
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    ...shadow.card,
-  },
-  searchInput: {
-    backgroundColor: colors.warmWhite,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 12,
-    fontFamily: typography.sans,
-    color: colors.charcoal,
-  },
-  searchQuickRow: {
-    marginTop: spacing.sm,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-  },
-  searchQuickChip: {
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    borderRadius: 14,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 6,
-    backgroundColor: colors.warmWhite,
-  },
-  searchQuickChipText: {
-    fontFamily: typography.sansMedium,
-    fontSize: 10,
-    letterSpacing: 1.1,
-    textTransform: "uppercase",
-    color: colors.charcoal,
-  },
-  latestStack: {
-    marginTop: spacing.md,
-    paddingHorizontal: spacing.lg,
-    gap: spacing.md,
-  },
-  latestCard: {
-    flexDirection: "row",
-    borderRadius: radius.lg,
-    backgroundColor: colors.warmWhite,
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    overflow: "hidden",
-    ...shadow.card,
-  },
-  latestImage: {
-    width: 140,
-    height: 160,
-    backgroundColor: colors.cream,
-  },
-  latestInfo: {
-    flex: 1,
-    padding: spacing.md,
-    gap: 6,
-  },
-  latestLabel: {
-    fontFamily: typography.sans,
-    fontSize: 10,
-    letterSpacing: 1.6,
-    textTransform: "uppercase",
-    color: colors.gold,
-  },
-  latestTitle: {
-    fontFamily: typography.serif,
-    fontSize: 18,
-    color: colors.charcoal,
-  },
-  latestMeta: {
-    fontFamily: typography.sans,
-    fontSize: 12,
-    lineHeight: 18,
-    color: colors.brownSoft,
-  },
-  latestPrice: {
-    fontFamily: typography.serif,
-    fontSize: 16,
-    color: colors.charcoal,
-  },
-  latestCta: {
-    marginTop: spacing.xs,
-    alignSelf: "flex-start",
-    backgroundColor: colors.charcoal,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
-    borderRadius: 14,
-  },
-  latestCtaText: {
-    fontFamily: typography.sansMedium,
-    fontSize: 10,
-    letterSpacing: 1.4,
-    textTransform: "uppercase",
-    color: colors.background,
-  },
-  sectionHeader: {
-    marginTop: spacing.xl,
-    paddingHorizontal: spacing.lg,
-  },
-  sectionTransition: {
-    marginTop: spacing.xl,
-    marginHorizontal: spacing.lg,
-    height: 1,
-    backgroundColor: colors.borderSoft,
-  },
-  sectionEyebrow: {
-    fontFamily: typography.sans,
-    fontSize: 10,
-    letterSpacing: 2,
-    textTransform: "uppercase",
-    color: colors.gold,
-  },
-  sectionTitle: {
-    marginTop: spacing.xs,
-    fontFamily: typography.serif,
-    fontSize: 24,
-    color: colors.charcoal,
-  },
-  sectionSupportText: {
-    marginTop: spacing.xs,
-    fontFamily: typography.sans,
-    fontSize: 12,
-    lineHeight: 18,
-    color: colors.brownSoft,
-  },
-  promiseWrap: {
-    marginTop: spacing.xl,
-    paddingHorizontal: spacing.lg,
-  },
-  promiseRow: {
-    marginTop: spacing.md,
-    gap: spacing.sm,
-  },
-  promiseCard: {
-    borderRadius: radius.md,
-    padding: spacing.md,
-    backgroundColor: colors.warmWhite,
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    ...shadow.card,
-  },
-  promiseTitle: {
-    fontFamily: typography.serif,
-    fontSize: 16,
-    color: colors.charcoal,
-  },
-  promiseCopy: {
-    marginTop: spacing.xs,
-    fontFamily: typography.sans,
-    fontSize: 12,
-    lineHeight: 18,
-    color: colors.brownSoft,
-  },
-  chipRow: {
-    marginTop: spacing.md,
-    paddingLeft: spacing.lg,
-  },
-  chip: {
-    marginRight: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    backgroundColor: colors.warmWhite,
-  },
-  chipText: {
-    fontFamily: typography.sans,
-    fontSize: 12,
-    color: colors.brown,
-  },
-  productCard: {
-    flex: 1,
-    marginTop: spacing.md,
-    padding: spacing.md,
-    borderRadius: radius.lg,
-    backgroundColor: colors.warmWhite,
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    ...shadow.card,
-  },
-  productGridRow: {
-    paddingHorizontal: spacing.lg,
-    gap: spacing.md,
-  },
-  productImage: {
-    height: 180,
-    borderRadius: radius.md,
-    backgroundColor: colors.cream,
-  },
-  productTitle: {
-    marginTop: spacing.sm,
-    fontFamily: typography.serif,
-    fontSize: 18,
-    borderRadius: radius.sm,
-  },
-  productDescription: {
-    marginTop: spacing.xs,
-    fontFamily: typography.sans,
-    fontSize: 12,
-    lineHeight: 18,
-    color: colors.brownSoft,
-    borderRadius: radius.sm,
-  },
-  productCategory: {
-    marginTop: spacing.xs,
-    fontFamily: typography.sans,
-    fontSize: 10,
-    letterSpacing: 1.4,
-    textTransform: "uppercase",
-    color: colors.brownSoft,
-  },
-  productPrice: {
-    marginTop: spacing.xs,
-    fontFamily: typography.sans,
-    fontSize: 12,
-    color: colors.brownSoft,
-  },
-  skeletonLine: {
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: colors.cream,
-    marginTop: spacing.sm,
-  },
-  skeletonLineShort: {
-    height: 12,
-    width: "60%",
-    borderRadius: 6,
-    backgroundColor: colors.cream,
-    marginTop: spacing.xs,
-  },
-  arrivalCard: {
-    width: 200,
-    marginTop: spacing.md,
-    marginRight: spacing.md,
-    padding: spacing.md,
-    borderRadius: radius.lg,
-    backgroundColor: colors.warmWhite,
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    ...shadow.card,
-  },
-  arrivalImage: {
-    height: 140,
-    borderRadius: radius.sm,
-    backgroundColor: colors.cream,
-  },
-  arrivalTitle: {
-    marginTop: spacing.sm,
-    fontFamily: typography.serif,
-    fontSize: 16,
-    color: colors.charcoal,
-  },
-  arrivalPrice: {
-    marginTop: spacing.xs,
-    fontFamily: typography.sans,
-    fontSize: 12,
-    color: colors.brownSoft,
-  },
-  editorialStack: {
-    marginTop: spacing.md,
-    paddingHorizontal: spacing.lg,
-    gap: spacing.md,
-  },
-  editorialCard: {
-    borderRadius: radius.lg,
-    backgroundColor: colors.warmWhite,
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    padding: spacing.lg,
-    ...shadow.card,
-  },
-  editorialTitle: {
-    fontFamily: typography.serif,
-    fontSize: 18,
-    color: colors.charcoal,
-  },
-  editorialCopy: {
-    marginTop: spacing.xs,
-    fontFamily: typography.sans,
-    fontSize: 12,
-    lineHeight: 18,
-    color: colors.brownSoft,
-  },
-  editorialCta: {
-    marginTop: spacing.sm,
-    alignSelf: "flex-start",
-    backgroundColor: colors.charcoal,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
-    borderRadius: 14,
-  },
-  editorialCtaText: {
-    fontFamily: typography.sansMedium,
-    fontSize: 10,
-    letterSpacing: 1.4,
-    textTransform: "uppercase",
-    color: colors.background,
-  },
-  recommendationListContent: {
-    paddingHorizontal: spacing.lg,
-  },
-  recommendationCardWrap: {
-    flex: 1,
-    marginTop: spacing.md,
-  },
-  recommendationGridContent: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.lg,
-    gap: spacing.md,
-  },
-  recommendationGridRow: {
-    gap: spacing.md,
-  },
-  sectionHeaderRow: {
-    marginTop: spacing.xl,
-    paddingHorizontal: spacing.lg,
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: spacing.md,
-  },
-  sectionAction: {
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 6,
-    borderRadius: 14,
-    backgroundColor: colors.warmWhite,
-  },
-  sectionActionText: {
-    fontFamily: typography.sansMedium,
-    fontSize: 10,
-    letterSpacing: 1.2,
-    textTransform: "uppercase",
-    color: colors.charcoal,
-  },
-  marketplaceFeatureList: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.lg,
-    gap: spacing.md,
-  },
-  marketplaceFeatureCard: {
+    bottom: spacing.sm,
     width: "100%",
+    textAlign: "center",
+    color: "#FFF8EE",
+    letterSpacing: 1,
+    fontSize: 26,
   },
-  marketplaceFeatureLoading: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+  occasionSection: {
+    backgroundColor: "transparent",
+    marginHorizontal: 0,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
     gap: spacing.md,
+    marginTop: 35,
   },
-  marketplaceFeatureSkeleton: {
-    height: 320,
-    borderRadius: radius.lg,
-    backgroundColor: colors.cream,
+  occasionHeadingWrap: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
   },
-  categoryRow: {
-    marginTop: spacing.md,
+  occasionTitle: {
+    ...textStyles.sectionTitle,
+    color: "#17120E",
+    textTransform: "uppercase",
+    letterSpacing: 2.2,
+    fontSize: 22,
   },
-  categoryRowContent: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xs,
-  },
-  categoryCard: {
-    height: 172,
-    width: 152,
-    borderRadius: radius.xl,
-    marginRight: spacing.md,
-    overflow: "hidden",
-    backgroundColor: colors.cream,
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    ...shadow.card,
-  },
-  categoryImage: {
-    height: "100%",
-    width: "100%",
-  },
-  categoryOverlay: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 74,
-    backgroundColor: "rgba(44, 40, 37, 0.55)",
-  },
-  categoryLabel: {
-    position: "absolute",
-    bottom: 16,
-    left: 16,
-    fontFamily: typography.serif,
-    fontSize: 16,
-    color: colors.warmWhite,
-  },
-  horizontalContent: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xs,
-  },
-  footerCard: {
-    marginTop: spacing.xl,
-    marginHorizontal: spacing.lg,
-    padding: spacing.lg,
-    borderRadius: radius.lg,
-    backgroundColor: colors.warmWhite,
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    ...shadow.card,
-  },
-  footerTitle: {
-    fontFamily: typography.serif,
-    fontSize: 18,
-    color: colors.charcoal,
-  },
-  footerCopy: {
+  menTabWrap: {
+    alignItems: "center",
+    gap: spacing.xs,
     marginTop: spacing.xs,
-    fontFamily: typography.sans,
-    fontSize: 12,
-    color: colors.brownSoft,
   },
-  footerBanner: {
-    marginTop: spacing.xl,
-    marginHorizontal: spacing.lg,
-    padding: spacing.xl,
-    borderRadius: radius.xl,
-    backgroundColor: "#1F1A17",
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "#3C2E24",
+  menTabText: {
+    ...textStyles.sectionTitle,
+    color: "#111111",
+    textTransform: "none",
+    fontSize: 18,
   },
-  footerBannerGlow: {
-    position: "absolute",
-    top: -80,
-    right: -60,
-    height: 180,
-    width: 180,
-    borderRadius: 90,
-    backgroundColor: "#B7956C",
-    opacity: 0.25,
+  menTabUnderline: {
+    width: 86,
+    height: 4,
+    borderRadius: 999,
+    backgroundColor: colors.primaryAccent,
   },
-  footerBannerEyebrow: {
-    fontFamily: typography.sans,
-    fontSize: 10,
-    letterSpacing: 2.4,
-    textTransform: "uppercase",
-    color: "#D7C4B4",
-  },
-  footerBannerTitle: {
+  occasionGrid: {
     marginTop: spacing.sm,
-    fontFamily: typography.serif,
-    fontSize: 24,
-    color: "#F7F1EA",
+    paddingBottom: spacing.md,
   },
-  footerBannerCopy: {
-    marginTop: spacing.sm,
-    fontFamily: typography.sans,
-    fontSize: 13,
-    lineHeight: 20,
-    color: "#C9B6A6",
+  gridPage: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    rowGap: spacing.md,
   },
-  footerBannerButton: {
-    marginTop: spacing.md,
-    alignSelf: "flex-start",
-    backgroundColor: "#B7956C",
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    borderRadius: radius.md,
+  gridViewport: {
+    minHeight: 470,
   },
-  footerBannerButtonText: {
-    fontFamily: typography.sansMedium,
-    fontSize: 12,
-    letterSpacing: 1.4,
-    textTransform: "uppercase",
-    color: "#1F1A17",
-  },
-  footerLinks: {
-    marginTop: spacing.xl,
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.xl,
-    padding: spacing.lg,
-    borderRadius: radius.lg,
-    backgroundColor: colors.warmWhite,
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    ...shadow.card,
-  },
-  footerLinksTitle: {
-    fontFamily: typography.serif,
-    fontSize: 16,
-    color: colors.charcoal,
-  },
-  footerLinkRow: {
+  gridLoadingWrap: {
     marginTop: spacing.sm,
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: spacing.sm,
+    justifyContent: "space-between",
+    rowGap: spacing.md,
   },
-  footerLinkButton: {
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    borderRadius: 16,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
-    backgroundColor: colors.warmWhite,
+  gridEmptyState: {
+    marginTop: spacing.sm,
+    paddingVertical: spacing.lg,
+    alignItems: "center",
   },
-  footerLinkText: {
-    fontFamily: typography.sansMedium,
-    fontSize: 11,
+  gridEmptyText: {
+    color: colors.textSecondary,
+    fontSize: 13,
+  },
+  occasionCard: {
+    aspectRatio: 0.76,
+    borderRadius: 0,
+    overflow: "hidden",
+    // backgroundColor: "#D7CCBC",
+    justifyContent: "flex-end",
+    borderWidth: 1.5,
+    borderColor: "#7B4C2C",
+  },
+  occasionCardImage: {
+    width: "100%",
+    height: "100%",
+  },
+  occasionCardOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0, 0, 0, 0.14)",
+  },
+  occasionCardTitle: {
+    ...textStyles.sectionTitle,
+    position: "absolute",
+    bottom: spacing.sm,
+    width: "100%",
+    textAlign: "center",
+    color: "#FFF9F1",
     letterSpacing: 1.1,
-    textTransform: "uppercase",
-    color: colors.charcoal,
+    fontSize: 17,
   },
-  footerSignature: {
-    marginTop: spacing.md,
-    fontFamily: typography.sans,
+  spotlightSection: {
+    backgroundColor: "transparent",
+    marginHorizontal: 0,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    gap: spacing.md,
+    marginTop: 35,
+  },
+  spotlightHeadingWrap: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.xs,
+  },
+  spotlightHeading: {
+    ...textStyles.sectionTitle,
+    color: "#17120E",
+    textTransform: "uppercase",
+    letterSpacing: 3.2,
+    fontSize: 24,
+  },
+  spotlightFeatureCard: {
+    width: "100%",
+    borderRadius: 0,
+    overflow: "hidden",
+    justifyContent: "flex-end",
+    backgroundColor: "#E8E3DA",
+    borderWidth: 1.5,
+    borderColor: "#7B4C2C",
+  },
+  spotlightImage: {
+    width: "100%",
+    height: "100%",
+  },
+  spotlightSkeletonWrap: {
+    width: "100%",
+    height: "100%",
+    overflow: "hidden",
+  },
+  spotlightOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0, 0, 0, 0.06)",
+  },
+  spotlightActionWrapBottom: {
+    position: "absolute",
+    bottom: spacing.lg,
+    alignSelf: "center",
+    borderRadius: 0,
+    backgroundColor: "#b7956c",
+    paddingHorizontal: spacing.xl,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: "#8C6A2B",
+  },
+  spotlightActionText: {
+    color: "#FFF8EA",
+    fontSize: 14,
+    letterSpacing: 1.6,
+    fontWeight: "700",
+  },
+  sectionHeadRow: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.xs,
+  },
+  collectionSection: {
+    marginTop: 35,
+    gap: spacing.md,
+  },
+  scrollDirectionText: {
+    marginTop: spacing.xs,
     fontSize: 11,
-    color: colors.brownSoft,
+    color: colors.textSecondary,
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+  },
+  centerDirection: {
+    textAlign: "center",
+  },
+  paginationWrap: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 8,
+    marginTop: spacing.sm,
+  },
+  paginationDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 999,
+    backgroundColor: "rgba(123, 76, 44, 0.28)",
+  },
+  paginationDotActive: {
+    backgroundColor: "#7B4C2C",
+    width: 8,
+    height: 8,
+  },
+  collectionHeading: {
+    ...textStyles.sectionTitle,
+    color: colors.textPrimary,
+    letterSpacing: 1.8,
+    fontSize: 22,
+  },
+  mostLovedSection: {
+    marginTop: 35,
+    gap: spacing.md,
+  },
+  mostLovedHeaderRow: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.xs,
+  },
+  mostLovedTitleWrap: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.xs,
+  },
+  mostLovedHeading: {
+    ...textStyles.sectionTitle,
+    color: colors.textPrimary,
+    letterSpacing: 1.8,
+    fontSize: 22,
+    textAlign: "center",
+  },
+  largeProductList: {
+    paddingRight: spacing.md,
+    gap: spacing.md,
+  },
+  largeProductCard: {
+    borderWidth: 1.5,
+    borderColor: "#7B4C2C",
+    backgroundColor: "#D7CCBC",
+    overflow: "hidden",
+  },
+  largeProductImage: {
+    width: "100%",
+    height: 360,
+  },
+  largeProductOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0, 0, 0, 0.10)",
+  },
+  largeProductMeta: {
+    position: "absolute",
+    bottom: spacing.md,
+    left: spacing.md,
+    right: spacing.md,
+    alignItems: "center",
+  },
+  largeProductTitle: {
+    ...textStyles.sectionTitle,
+    color: "#FFF9F1",
+    letterSpacing: 1.0,
+    fontSize: 22,
+    textAlign: "center",
+  },
+  largeProductPrice: {
+    marginTop: spacing.xs,
+    color: "#FBE8BE",
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: 0.6,
+    textAlign: "center",
+  },
+  testimonialSection: {
+    marginTop: 35,
+    gap: spacing.md,
+  },
+  testimonialHeading: {
+    ...textStyles.sectionTitle,
+    color: colors.textPrimary,
+    letterSpacing: 1.8,
+    fontSize: 22,
+  },
+  testimonialViewport: {
+    paddingHorizontal: 0,
+  },
+  testimonialCardLarge: {
+    minHeight: 220,
+    borderWidth: 1,
+    borderColor: "#7B4C2C",
+    borderRadius: 0,
+    backgroundColor: "#F8F1E5",
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.xl,
+  },
+  testimonialQuoteLarge: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: "#2B2119",
+  },
+  testimonialName: {
+    marginTop: spacing.xs,
+    fontSize: 12,
+    letterSpacing: 0.4,
+    fontFamily: "Inter_500Medium",
+    color: "#5B4030",
+  },
+  testimonialMeta: {
+    marginTop: 2,
+    fontSize: 11,
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+    color: "#7B5C47",
   },
 });

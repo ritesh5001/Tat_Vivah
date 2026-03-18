@@ -4,6 +4,7 @@
  */
 import { AdminRepository, AdminSeller, AdminProduct, AdminOrder, AdminPayment, AdminSettlement, AdminPricingOverviewItem, AdminProfitAnalytics } from '../repositories/admin.repository.js';
 import { AuditService } from './audit.service.js';
+import type { AdminProductUpdateInput } from '../validators/admin.validation.js';
 /**
  * Admin Service Class
  * Handles all admin panel business logic with audit logging
@@ -13,9 +14,26 @@ export declare class AdminService {
     private readonly auditSvc;
     constructor(adminRepo: AdminRepository, auditSvc: AuditService);
     /**
+     * Lightweight counts for the admin dashboard.
+     * Uses COUNT queries instead of fetching entire collections.
+     */
+    getStats(): Promise<{
+        stats: {
+            sellers: number;
+            products: number;
+            orders: number;
+            payments: number;
+        };
+        recentSellers: AdminSeller[];
+        recentProducts: AdminProduct[];
+    }>;
+    /**
      * List all sellers
      */
-    listSellers(): Promise<{
+    listSellers(params?: {
+        page?: number;
+        limit?: number;
+    }): Promise<{
         sellers: AdminSeller[];
     }>;
     /**
@@ -35,13 +53,19 @@ export declare class AdminService {
     /**
      * List products pending moderation
      */
-    listPendingProducts(): Promise<{
+    listPendingProducts(params?: {
+        page?: number;
+        limit?: number;
+    }): Promise<{
         products: AdminProduct[];
     }>;
     /**
      * List all products (admin table view)
      */
-    listAllProducts(): Promise<{
+    listAllProducts(params?: {
+        page?: number;
+        limit?: number;
+    }): Promise<{
         products: AdminProduct[];
     }>;
     /**
@@ -71,14 +95,30 @@ export declare class AdminService {
         margin: number;
         marginPercentage: number;
     }>;
-    pricingOverview(): Promise<{
+    updateProductDetails(productId: string, actorId: string, payload: AdminProductUpdateInput): Promise<{
+        message: string;
+        product: AdminProduct;
+    }>;
+    pricingOverview(params?: {
+        page?: number;
+        limit?: number;
+    }): Promise<{
         products: AdminPricingOverviewItem[];
     }>;
-    profitAnalytics(): Promise<AdminProfitAnalytics>;
+    profitAnalytics(params?: {
+        startDate?: Date;
+        endDate?: Date;
+        limit?: number;
+    }): Promise<AdminProfitAnalytics>;
     /**
      * List all orders (with caching)
      */
-    listOrders(): Promise<{
+    listOrders(params?: {
+        page?: number;
+        limit?: number;
+        startDate?: Date;
+        endDate?: Date;
+    }): Promise<{
         orders: AdminOrder[];
     }>;
     /**
@@ -98,13 +138,19 @@ export declare class AdminService {
     /**
      * List all payments (with caching)
      */
-    listPayments(): Promise<{
+    listPayments(params?: {
+        page?: number;
+        limit?: number;
+    }): Promise<{
         payments: AdminPayment[];
     }>;
     /**
      * List all settlements
      */
-    listSettlements(): Promise<{
+    listSettlements(params?: {
+        page?: number;
+        limit?: number;
+    }): Promise<{
         settlements: AdminSettlement[];
     }>;
 }

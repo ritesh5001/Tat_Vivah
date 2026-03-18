@@ -1,21 +1,19 @@
 import * as React from "react";
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   Pressable,
   FlatList,
-  TextInput,
   Dimensions,
   Alert,
+  Modal,
   type ListRenderItemInfo,
   type NativeSyntheticEvent,
   type NativeScrollEvent,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Image } from "expo-image";
+import { Image } from "../../../src/components/CompatImage";
 import * as ImagePicker from "expo-image-picker";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import {
@@ -38,11 +36,23 @@ import { useNetworkStatus } from "../../../src/hooks/useNetworkStatus";
 import { useToast } from "../../../src/providers/ToastProvider";
 import { ApiError, isAbortError } from "../../../src/services/api";
 import { SkeletonBlock } from "../../../src/components/Skeleton";
-import { TatvivahLoader, TatvivahOverlayLoader } from "../../../src/components/TatvivahLoader";
+import {
+  AppInput as TextInput,
+  AppText as Text,
+  ScreenContainer as SafeAreaView,
+} from "../../../src/components";
+import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
 import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
 import { impactMedium, impactLight, notifySuccess } from "../../../src/utils/haptics";
 import { AppHeader } from "../../../src/components/AppHeader";
 import { useQuery } from "@tanstack/react-query";
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import {
   buildReviewImageName,
   uploadReviewImage,
@@ -96,6 +106,114 @@ const galleryStyles = StyleSheet.create({
     height: IMAGE_HEIGHT,
     borderRadius: radius.lg,
     backgroundColor: colors.cream,
+  },
+});
+
+const ZoomableModalImage = React.memo(function ZoomableModalImage({
+  uri,
+  onRequestClose,
+}: {
+  uri: string;
+  onRequestClose: () => void;
+}) {
+  const scale = useSharedValue(1);
+  const savedScale = useSharedValue(1);
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
+  const savedTranslateX = useSharedValue(0);
+  const savedTranslateY = useSharedValue(0);
+
+  const pinch = Gesture.Pinch()
+    .onUpdate((event) => {
+      const next = savedScale.value * event.scale;
+      scale.value = Math.max(1, Math.min(4, next));
+    })
+    .onEnd(() => {
+      savedScale.value = scale.value;
+      if (savedScale.value < 1.02) {
+        savedScale.value = 1;
+        scale.value = withSpring(1);
+        savedTranslateX.value = 0;
+        savedTranslateY.value = 0;
+        translateX.value = withSpring(0);
+        translateY.value = withSpring(0);
+      }
+    });
+
+  const doubleTap = Gesture.Tap()
+    .numberOfTaps(2)
+    .onEnd(() => {
+      const nextScale = savedScale.value > 1.4 ? 1 : 2.5;
+      savedScale.value = nextScale;
+      scale.value = withSpring(nextScale);
+
+      if (nextScale === 1) {
+        savedTranslateX.value = 0;
+        savedTranslateY.value = 0;
+        translateX.value = withSpring(0);
+        translateY.value = withSpring(0);
+      }
+    });
+
+  const pan = Gesture.Pan()
+    .onUpdate((event) => {
+      if (savedScale.value > 1.02) {
+        translateX.value = savedTranslateX.value + event.translationX;
+        translateY.value = savedTranslateY.value + event.translationY;
+      } else {
+        translateY.value = event.translationY;
+      }
+    })
+    .onEnd(() => {
+      if (savedScale.value <= 1.02 && Math.abs(translateY.value) > 120) {
+        runOnJS(onRequestClose)();
+        return;
+      }
+
+      if (savedScale.value > 1.02) {
+        savedTranslateX.value = translateX.value;
+        savedTranslateY.value = translateY.value;
+      } else {
+        savedTranslateX.value = 0;
+        savedTranslateY.value = 0;
+        translateX.value = withSpring(0);
+        translateY.value = withSpring(0);
+      }
+    });
+
+  const composedGesture = Gesture.Simultaneous(pinch, pan, doubleTap);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+      { scale: scale.value },
+    ],
+  }));
+
+  return (
+    <GestureDetector gesture={composedGesture}>
+      <View style={viewerStyles.itemWrap}>
+        <Animated.Image
+          source={{ uri }}
+          style={[viewerStyles.image, animatedStyle]}
+          resizeMode="contain"
+        />
+      </View>
+    </GestureDetector>
+  );
+});
+
+const viewerStyles = StyleSheet.create({
+  itemWrap: {
+    width: SCREEN_WIDTH,
+    height: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  image: {
+    width: SCREEN_WIDTH,
+    height: "100%",
   },
 });
 
@@ -249,6 +367,8 @@ export default function ProductDetailScreen() {
   const [loadingRelated, setLoadingRelated] = React.useState(false);
 
   const [galleryIndex, setGalleryIndex] = React.useState(0);
+  const [isViewerVisible, setIsViewerVisible] = React.useState(false);
+  const [viewerIndex, setViewerIndex] = React.useState(0);
 
   const mountedRef = React.useRef(true);
   React.useEffect(() => {
@@ -537,6 +657,15 @@ export default function ProductDetailScreen() {
     []
   );
 
+  const openImageViewer = React.useCallback((index: number) => {
+    setViewerIndex(index);
+    setIsViewerVisible(true);
+  }, []);
+
+  const closeImageViewer = React.useCallback(() => {
+    setIsViewerVisible(false);
+  }, []);
+
   // ---- Key extractors & render callbacks (stable refs) ----
   const galleryKeyExtractor = React.useCallback(
     (_item: string, index: number) => `img-${index}`,
@@ -544,8 +673,19 @@ export default function ProductDetailScreen() {
   );
 
   const renderGalleryItem = React.useCallback(
-    ({ item }: ListRenderItemInfo<string>) => <GalleryImage uri={item} />,
-    []
+    ({ item, index }: ListRenderItemInfo<string>) => (
+      <Pressable onPress={() => openImageViewer(index)}>
+        <GalleryImage uri={item} />
+      </Pressable>
+    ),
+    [openImageViewer]
+  );
+
+  const renderViewerItem = React.useCallback(
+    ({ item }: ListRenderItemInfo<string>) => (
+      <ZoomableModalImage uri={item} onRequestClose={closeImageViewer} />
+    ),
+    [closeImageViewer]
   );
 
   const reviewKeyExtractor = React.useCallback(
@@ -584,7 +724,7 @@ export default function ProductDetailScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <AppHeader showMenu showBack showCart />
+        <AppHeader showMenu showBack showWishlist showCart />
         <ScrollView contentContainerStyle={styles.container}>
           <SkeletonBlock
             width={IMAGE_WIDTH}
@@ -606,7 +746,7 @@ export default function ProductDetailScreen() {
   if (!product) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <AppHeader showMenu showBack showCart />
+        <AppHeader showMenu showBack showWishlist showCart />
         <View style={styles.centerCard}>
           <Text style={styles.emptyTitle}>Product unavailable</Text>
           <Pressable style={styles.primaryButton} onPress={() => router.back()}>
@@ -619,8 +759,7 @@ export default function ProductDetailScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <AppHeader showMenu showBack showCart />
-      {adding && <TatvivahOverlayLoader label="Adding to cart" />}
+      <AppHeader showMenu showBack showWishlist showCart />
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         {/* ---- Image gallery with paging dots ---- */}
         <View style={styles.galleryFrame}>
@@ -665,9 +804,14 @@ export default function ProductDetailScreen() {
 
         {/* ---- Details card ---- */}
         <View style={styles.detailsCard}>
-          <Text style={styles.categoryLabel}>
-            {product.category?.name ?? "Curated Collection"}
-          </Text>
+          <View style={styles.detailsTopRow}>
+            <Text style={styles.categoryLabel}>
+              {product.category?.name ?? "Curated Collection"}
+            </Text>
+            <View style={styles.detailsBadge}>
+              <Text style={styles.detailsBadgeText}>Luxury Edit</Text>
+            </View>
+          </View>
           <Text style={styles.productTitle}>{product.title}</Text>
 
           {/* Average rating */}
@@ -757,11 +901,11 @@ export default function ProductDetailScreen() {
           </View>
 
           {/* Add to cart + Wishlist row */}
-          <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+          <View style={styles.actionRow}>
             <AnimatedPressable
               style={[
                 styles.primaryButton,
-                { flex: 1 },
+                styles.primaryAction,
                 (outOfStock || adding) && styles.buttonDisabled,
               ]}
               onPress={handleAddToCart}
@@ -794,20 +938,10 @@ export default function ProductDetailScreen() {
                 }
               }}
               disabled={!product || wishlistMutatingIds.has(product?.id ?? "")}
-              style={{
-                width: 52,
-                height: 52,
-                borderRadius: radius.md,
-                borderWidth: 1,
-                borderColor: product && isWishlisted(product.id)
-                  ? "#E8453C"
-                  : colors.borderSoft,
-                backgroundColor: product && isWishlisted(product.id)
-                  ? "#FEF2F2"
-                  : colors.warmWhite,
-                justifyContent: "center",
-                alignItems: "center",
-              }}
+              style={[
+                styles.wishlistButton,
+                product && isWishlisted(product.id) && styles.wishlistButtonActive,
+              ]}
               hitSlop={8}
             >
               <Text style={{ fontSize: 22 }}>
@@ -958,6 +1092,44 @@ export default function ProductDetailScreen() {
           )}
         </View>
       </ScrollView>
+
+      <Modal
+        visible={isViewerVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeImageViewer}
+      >
+        <View style={styles.viewerOverlay}>
+          <Pressable style={styles.viewerCloseButton} onPress={closeImageViewer}>
+            <Text style={styles.viewerCloseText}>Close</Text>
+          </Pressable>
+
+          <FlatList
+            data={images}
+            horizontal
+            pagingEnabled
+            initialScrollIndex={viewerIndex}
+            keyExtractor={galleryKeyExtractor}
+            renderItem={renderViewerItem}
+            showsHorizontalScrollIndicator={false}
+            getItemLayout={(_data, index) => ({
+              length: SCREEN_WIDTH,
+              offset: SCREEN_WIDTH * index,
+              index,
+            })}
+            onMomentumScrollEnd={(e) => {
+              const next = Math.round(
+                e.nativeEvent.contentOffset.x / SCREEN_WIDTH
+              );
+              setViewerIndex(next);
+            }}
+          />
+
+          <Text style={styles.viewerHintText}>
+            {viewerIndex + 1}/{images.length} • Pinch/Double tap • Drag down to close
+          </Text>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -978,6 +1150,10 @@ const styles = StyleSheet.create({
   // Gallery
   galleryFrame: {
     marginTop: spacing.md,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: colors.borderSoft,
+    paddingVertical: spacing.sm,
   },
   galleryContainer: {
     paddingHorizontal: spacing.lg,
@@ -1023,10 +1199,16 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.lg,
     padding: spacing.lg,
     borderRadius: radius.lg,
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     ...shadow.card,
+  },
+  detailsTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.sm,
   },
   categoryLabel: {
     fontFamily: typography.sans,
@@ -1034,6 +1216,21 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
     textTransform: "uppercase",
     color: colors.gold,
+  },
+  detailsBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.gold,
+    backgroundColor: "rgba(196, 167, 108, 0.12)",
+  },
+  detailsBadgeText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 9,
+    color: colors.gold,
+    textTransform: "uppercase",
+    letterSpacing: 1.1,
   },
   productTitle: {
     marginTop: spacing.xs,
@@ -1097,7 +1294,7 @@ const styles = StyleSheet.create({
     color: "#5A8F5A",
   },
   stockTextOut: {
-    color: "#A65D57",
+    color: colors.gold,
   },
 
   // Variants
@@ -1148,10 +1345,20 @@ const styles = StyleSheet.create({
   // Buttons
   primaryButton: {
     marginTop: spacing.lg,
-    backgroundColor: colors.charcoal,
+    backgroundColor: colors.gold,
     borderRadius: radius.md,
     paddingVertical: 14,
     alignItems: "center",
+  },
+  actionRow: {
+    marginTop: spacing.sm,
+    flexDirection: "row",
+    gap: 12,
+    alignItems: "center",
+  },
+  primaryAction: {
+    flex: 1,
+    marginTop: 0,
   },
   primaryButtonText: {
     fontFamily: typography.sansMedium,
@@ -1178,6 +1385,20 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     opacity: 0.5,
   },
+  wishlistButton: {
+    width: 52,
+    height: 52,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.surface,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  wishlistButtonActive: {
+    borderColor: "#E8453C",
+    backgroundColor: "#3B1E22",
+  },
   loaderOverlay: {
     position: "absolute",
     top: 0,
@@ -1202,7 +1423,7 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.lg,
     padding: spacing.lg,
     borderRadius: radius.lg,
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     ...shadow.card,
@@ -1353,7 +1574,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     fontFamily: typography.sans,
     fontSize: 12,
-    color: "#A65D57",
+    color: colors.gold,
   },
   mutedText: {
     fontFamily: typography.sans,
@@ -1369,7 +1590,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
     padding: spacing.lg,
     borderRadius: radius.lg,
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     ...shadow.card,
@@ -1426,5 +1647,37 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: colors.charcoal,
     marginBottom: spacing.md,
+  },
+  viewerOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.95)",
+  },
+  viewerCloseButton: {
+    position: "absolute",
+    top: spacing.xl,
+    right: spacing.lg,
+    zIndex: 2,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.35)",
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    backgroundColor: "rgba(0,0,0,0.45)",
+  },
+  viewerCloseText: {
+    color: "#FFFFFF",
+    fontFamily: typography.sansMedium,
+    fontSize: 12,
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+  },
+  viewerHintText: {
+    position: "absolute",
+    bottom: spacing.xl,
+    alignSelf: "center",
+    color: "rgba(255,255,255,0.92)",
+    fontFamily: typography.sans,
+    fontSize: 12,
+    letterSpacing: 0.4,
   },
 });

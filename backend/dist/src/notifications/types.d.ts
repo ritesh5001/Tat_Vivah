@@ -7,6 +7,7 @@ export interface CreateNotificationInput {
     subject?: string;
     content: string;
     metadata?: any;
+    eventKey?: string | null;
 }
 export interface NotificationJobPayload {
     notificationId: string;

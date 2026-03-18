@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { authController } from '../controllers/auth.controller.js';
-import { authenticate } from '../middlewares/auth.middleware.js';
+import { authenticate, authorize } from '../middlewares/auth.middleware.js';
 
 /**
  * Auth Routes
@@ -22,7 +22,7 @@ authRouter.post('/register', authController.registerUser);
  * POST /v1/auth/admin/register
  * Register a new ADMIN
  */
-authRouter.post('/admin/register', authController.registerAdmin);
+authRouter.post('/admin/register', authenticate, authorize('ADMIN', 'SUPER_ADMIN'), authController.registerAdmin);
 
 /**
  * POST /v1/auth/login

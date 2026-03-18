@@ -7,8 +7,10 @@ import {
   type BestsellerProduct,
 } from "../services/bestsellers";
 import { ProductGridCard } from "../components/ProductGridCard";
+import { SkeletonProductCard } from "../components/Skeleton";
 
 const gridSpacing = spacing.md;
+const CARD_HEIGHT_ESTIMATE = 290;
 
 export function BestsellersScreen() {
   const [loading, setLoading] = React.useState(true);
@@ -51,7 +53,7 @@ export function BestsellersScreen() {
         product={{
           id: item.id,
           title: item.title,
-          images: item.image ? [item.image] : null,
+          images: item.image ? [item.image] : undefined,
           category: { name: item.categoryName ?? "Featured" },
           regularPrice: item.regularPrice ?? null,
           salePrice: item.salePrice ?? item.adminPrice ?? item.minPrice ?? null,
@@ -68,10 +70,20 @@ export function BestsellersScreen() {
       numColumns={2}
       columnWrapperStyle={styles.column}
       contentContainerStyle={styles.container}
-      initialNumToRender={6}
-      maxToRenderPerBatch={6}
-      windowSize={7}
+      initialNumToRender={4}
+      maxToRenderPerBatch={5}
+      updateCellsBatchingPeriod={30}
+      windowSize={5}
       removeClippedSubviews
+      getItemLayout={(_data, index) => {
+        const rowIndex = Math.floor(index / 2);
+        const rowHeight = CARD_HEIGHT_ESTIMATE + gridSpacing;
+        return {
+          length: rowHeight,
+          offset: rowHeight * rowIndex,
+          index,
+        };
+      }}
       ListHeaderComponent={
         <View style={styles.header}>
           <Text style={styles.eyebrow}>Most loved</Text>
@@ -84,8 +96,11 @@ export function BestsellersScreen() {
       }
       ListEmptyComponent={
         loading ? (
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyText}>Loading bestsellers...</Text>
+          <View style={styles.skeletonGrid}>
+            <SkeletonProductCard />
+            <SkeletonProductCard />
+            <SkeletonProductCard />
+            <SkeletonProductCard />
           </View>
         ) : (
           <View style={styles.emptyCard}>
@@ -141,5 +156,11 @@ const styles = StyleSheet.create({
     fontFamily: typography.sans,
     fontSize: 12,
     color: colors.brownSoft,
+  },
+  skeletonGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.md,
+    marginTop: spacing.sm,
   },
 });

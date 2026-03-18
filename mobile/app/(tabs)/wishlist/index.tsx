@@ -1,16 +1,14 @@
 import * as React from "react";
 import {
   View,
-  Text,
   StyleSheet,
   FlatList,
   Pressable,
   type ListRenderItemInfo,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { Image } from "expo-image";
-import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
+import { Image } from "../../../src/components/CompatImage";
+import { colors, radius, spacing, typography } from "../../../src/theme/tokens";
 import { useWishlist } from "../../../src/providers/WishlistProvider";
 import { useAuth } from "../../../src/hooks/useAuth";
 import { type WishlistItemDetail } from "../../../src/services/wishlist";
@@ -18,6 +16,7 @@ import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
 import { impactLight } from "../../../src/utils/haptics";
 import { AppHeader } from "../../../src/components/AppHeader";
 import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
+import { AppText as Text, ScreenContainer as SafeAreaView } from "../../../src/components";
 
 const currency = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -81,7 +80,7 @@ const WishlistRow = React.memo(function WishlistRow({
         hitSlop={8}
       >
         {removing ? (
-          <TatvivahLoader size="sm" color={colors.brownSoft} />
+          <TatvivahLoader size="sm" color={colors.brown} />
         ) : (
           <Text style={{ fontSize: 20 }}>❤️</Text>
         )}
@@ -192,7 +191,7 @@ export default function WishlistScreen() {
       ) : wishlistItems.length === 0 ? (
         <View style={styles.emptyWrap}>
           <Text style={{ fontSize: 48 }}>🤍</Text>
-          <Text style={styles.emptyTitle}>Your wishlist is empty</Text>
+          <Text style={styles.emptyTitle}>Your Wishlist is Empty</Text>
           <Text style={styles.emptySubtitle}>
             Browse our collections and tap the heart to save items you love.
           </Text>
@@ -253,14 +252,19 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.md,
     gap: 14,
+    backgroundColor: colors.surfaceElevated,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    borderRadius: radius.lg,
+    marginHorizontal: spacing.lg,
   },
   rowImage: {
     width: 80,
     height: 100,
     borderRadius: radius.md,
-    backgroundColor: colors.cream,
+    backgroundColor: colors.surface,
   },
   rowInfo: {
     flex: 1,
@@ -271,7 +275,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     letterSpacing: 1.2,
     textTransform: "uppercase",
-    color: colors.brownSoft,
+    color: colors.gold,
   },
   rowTitle: {
     fontFamily: typography.serif,
@@ -292,13 +296,14 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.surface,
     justifyContent: "center",
     alignItems: "center",
   },
   separator: {
-    height: 1,
-    backgroundColor: colors.borderSoft,
-    marginHorizontal: spacing.lg,
+    height: spacing.md,
   },
   emptyWrap: {
     flex: 1,
@@ -322,7 +327,9 @@ const styles = StyleSheet.create({
   },
   ctaButton: {
     marginTop: 8,
-    backgroundColor: colors.charcoal,
+    backgroundColor: colors.gold,
+    borderWidth: 1,
+    borderColor: colors.gold,
     paddingHorizontal: 32,
     paddingVertical: 14,
     borderRadius: radius.md,
@@ -346,6 +353,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     letterSpacing: 1.2,
     textTransform: "uppercase",
-    color: colors.charcoal,
+    color: colors.foreground,
   },
 });

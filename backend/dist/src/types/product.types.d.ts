@@ -5,7 +5,14 @@ export interface CategoryEntity {
     id: string;
     name: string;
     slug: string;
+    description: string | null;
+    image: string | null;
+    bannerImage: string | null;
+    parentId: string | null;
+    sortOrder: number;
     isActive: boolean;
+    seoTitle: string | null;
+    seoDescription: string | null;
     createdAt: Date;
 }
 /**
@@ -90,10 +97,14 @@ export interface PublicProductWithCategory {
     createdAt: Date;
     updatedAt: Date;
     category: CategoryEntity;
+    regularPrice: number;
+    adminPrice: number;
+    salePrice: number;
     price: number;
 }
 export interface PublicProductWithDetails {
     id: string;
+    sellerId: string;
     categoryId: string;
     title: string;
     description: string | null;
@@ -104,6 +115,9 @@ export interface PublicProductWithDetails {
     updatedAt: Date;
     category: CategoryEntity;
     variants: PublicProductVariant[];
+    regularPrice: number;
+    adminPrice: number;
+    salePrice: number;
     price: number;
 }
 /**
@@ -116,6 +130,7 @@ export interface CreateProductRequest {
     description?: string | undefined;
     isPublished?: boolean | undefined;
     images?: string[] | undefined;
+    occasionIds?: string[] | undefined;
 }
 /**
  * Update product request
@@ -125,6 +140,9 @@ export interface UpdateProductRequest {
     title?: string | undefined;
     description?: string | undefined;
     images?: string[] | undefined;
+    sellerPrice?: number | undefined;
+    isPublished?: boolean | undefined;
+    occasionIds?: string[] | undefined;
 }
 /**
  * Create variant request
@@ -156,6 +174,7 @@ export interface ProductQueryFilters {
     limit?: number | undefined;
     categoryId?: string | undefined;
     search?: string | undefined;
+    occasion?: string | undefined;
 }
 /**
  * Paginated response

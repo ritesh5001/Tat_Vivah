@@ -53,7 +53,7 @@ export function SignInScreen() {
 
         <View style={styles.footerRow}>
           <Text style={styles.footerText}>New to TatVivah?</Text>
-          <Pressable onPress={() => navigation.navigate("CreateAccount")}
+          <Pressable onPress={() => navigation.navigate("Login")}
             style={styles.footerLinkButton}
           >
             <Text style={styles.footerLinkText}>Create account</Text>
@@ -121,7 +121,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontFamily: typography.sans,
     color: colors.charcoal,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.background,
   },
   primaryButton: {
     marginTop: spacing.md,

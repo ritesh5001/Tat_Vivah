@@ -15,6 +15,11 @@ export declare class OrderController {
      */
     getBuyerOrder(req: Request, res: Response, next: NextFunction): Promise<void>;
     /**
+     * Download GST-compliant invoice PDF
+     * GET /v1/orders/:id/invoice
+     */
+    downloadInvoice(req: Request, res: Response, next: NextFunction): Promise<void>;
+    /**
      * List seller's order items
      * GET /v1/seller/orders
      */

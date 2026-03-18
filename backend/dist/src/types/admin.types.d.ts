@@ -45,16 +45,33 @@ export interface ProductModerationInput {
 export interface AdminOrderEntity {
     id: string;
     userId: string;
+    buyerEmail?: string | null;
+    buyerPhone?: string | null;
     status: OrderStatus;
     totalAmount: number;
+    shippingName?: string | null;
+    shippingPhone?: string | null;
+    shippingEmail?: string | null;
+    shippingAddressLine1?: string | null;
+    shippingAddressLine2?: string | null;
+    shippingCity?: string | null;
+    shippingPincode?: string | null;
+    shippingNotes?: string | null;
     createdAt: Date;
     items: {
         id: string;
         sellerId: string;
+        sellerEmail?: string | null;
+        sellerName?: string | null;
         productId: string;
+        productTitle?: string | null;
         variantId: string;
+        variantSku?: string | null;
         quantity: number;
         priceSnapshot: number;
+        sellerPriceSnapshot?: number;
+        adminPriceSnapshot?: number;
+        platformMargin?: number;
     }[];
 }
 export interface AdminOrderListResponse {
@@ -80,10 +97,14 @@ export interface AdminPaymentListResponse {
 }
 export interface AdminSettlementEntity {
     id: string;
+    orderId: string;
     sellerId: string;
-    orderItemId: string;
-    amount: number;
+    grossAmount: number;
+    commissionAmount: number;
+    platformFee: number;
+    netAmount: number;
     status: SettlementStatus;
+    settledAt: Date | null;
     createdAt: Date;
 }
 export interface AdminSettlementListResponse {

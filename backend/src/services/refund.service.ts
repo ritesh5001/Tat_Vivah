@@ -239,6 +239,7 @@ export class RefundService {
                 ...(filters?.status ? { status: filters.status } : {}),
             },
             orderBy: { createdAt: 'desc' },
+            take: 100,
             include: {
                 order: {
                     select: {

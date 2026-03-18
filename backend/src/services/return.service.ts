@@ -186,6 +186,7 @@ export class ReturnService {
         const returns = await prisma.returnRequest.findMany({
             where: { userId },
             orderBy: { createdAt: 'desc' },
+            take: 200,
             include: {
                 items: true,
                 order: {
@@ -257,6 +258,7 @@ export class ReturnService {
                 ...(filters.orderId ? { orderId: filters.orderId } : {}),
             },
             orderBy: { createdAt: 'desc' },
+            take: 100,
             include: {
                 items: true,
                 user: {
@@ -364,17 +366,21 @@ export class ReturnService {
                 if (orderItem) {
                     sellerIds.add(orderItem.sellerId);
 
-                    const inventoryUpdate = await tx.inventory.updateMany({
-                        where: { variantId: returnItem.variantId },
-                        data: { stock: { increment: returnItem.quantity } },
-                    });
-
-                    if (inventoryUpdate.count === 0) {
+                    try {
+                        await tx.inventory.upsert({
+                            where: { variantId: returnItem.variantId },
+                            update: { stock: { increment: returnItem.quantity } },
+                            create: {
+                                variantId: returnItem.variantId,
+                                stock: returnItem.quantity,
+                            },
+                        });
+                    } catch (error) {
                         recordReturnFatal({
                             returnId,
                             orderId: returnReq.order.id,
                             adminId,
-                            reason: `Inventory increment failed for variant ${returnItem.variantId}`,
+                            reason: `Inventory restore failed for variant ${returnItem.variantId}`,
                         });
                         throw ApiError.internal(`Failed to restore inventory for variant ${returnItem.variantId}`);
                     }
@@ -571,6 +577,31 @@ export class ReturnService {
                 where: { id: returnId },
                 data: { status: ReturnStatus.REFUNDED },
             });
+
+            // Reduce seller settlement amounts to reflect the return refund
+            // For full-order returns this effectively zeros the settlements
+            if (locked.refundAmount && locked.refundAmount > 0) {
+                const settlements = await tx.sellerSettlement.findMany({
+                    where: { orderId: locked.orderId },
+                    select: { id: true, grossAmount: true, netAmount: true, commissionAmount: true, platformFee: true },
+                });
+
+                let remainingRefund = locked.refundAmount;
+                for (const s of settlements) {
+                    if (remainingRefund <= 0) break;
+                    const deduction = Math.min(remainingRefund, s.grossAmount);
+                    const ratio = s.grossAmount > 0 ? (s.grossAmount - deduction) / s.grossAmount : 0;
+                    await tx.sellerSettlement.update({
+                        where: { id: s.id },
+                        data: {
+                            grossAmount: Math.round((s.grossAmount - deduction) * 100) / 100,
+                            commissionAmount: Math.round(s.commissionAmount * ratio * 100) / 100,
+                            netAmount: Math.round(s.netAmount * ratio * 100) / 100,
+                        },
+                    });
+                    remainingRefund -= deduction;
+                }
+            }
 
             return {
                 alreadyRefunded: false,

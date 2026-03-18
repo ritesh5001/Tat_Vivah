@@ -62,13 +62,13 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
-  --radius-3xl: calc(var(--radius) + 12px);
-  --radius-4xl: calc(var(--radius) + 16px);
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-2xl: 0px;
+  --radius-3xl: 0px;
+  --radius-4xl: 0px;
 }
 
 /* =========================================================================
@@ -76,7 +76,7 @@
    ========================================================================= */
 
 :root {
-  --radius: 0.625rem;
+  --radius: 0px;
   
   /* Premium Warm Background */
   --background: #FAF7F2;
@@ -306,4 +306,17 @@ h1, h2, h3, h4, h5, h6 {
   outline: none;
   box-shadow: 0 0 0 2px var(--background),
               0 0 0 4px var(--ring);
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+* {
+  border-radius: 0 !important;
 }

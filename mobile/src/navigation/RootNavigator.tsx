@@ -1,12 +1,11 @@
 import * as React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { HomeScreen } from "../screens/HomeScreen";
-import { BestsellersScreen } from "../screens/BestsellersScreen";
-import { MarketplaceScreen } from "../screens/MarketplaceScreen";
-import { NewArrivalsScreen } from "../screens/NewArrivalsScreen";
-import { SignInScreen } from "../screens/SignInScreen";
-import { CreateAccountScreen } from "../screens/CreateAccountScreen";
-import { colors, typography } from "../theme/tokens";
+import { LoginScreen } from "../screens/LoginScreen";
+import { CartScreen } from "../screens/CartScreen";
+import { WishlistScreen } from "../screens/WishlistScreen";
+import { ProfileScreen } from "../screens/ProfileScreen";
+import { colors, typography } from "../theme";
 import { type RootStackParamList } from "./types";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -17,39 +16,34 @@ export function RootNavigator() {
       screenOptions={{
         headerStyle: { backgroundColor: colors.background },
         headerTitleStyle: {
-          fontFamily: typography.serif,
+          fontFamily: typography.heading,
           fontSize: 18,
-          color: colors.charcoal,
+          color: colors.textPrimary,
         },
-        headerTintColor: colors.charcoal,
+        headerTintColor: colors.textPrimary,
         contentStyle: { backgroundColor: colors.background },
       }}
     >
-      <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="Main" component={HomeScreen} options={{ headerShown: false }} />
       <Stack.Screen
-        name="Bestsellers"
-        component={BestsellersScreen}
-        options={{ title: "Bestsellers" }}
+        name="Login"
+        component={LoginScreen}
+        options={{ title: "Sign In / Sign Up" }}
       />
       <Stack.Screen
-        name="Marketplace"
-        component={MarketplaceScreen}
-        options={{ title: "Marketplace" }}
+        name="Cart"
+        component={CartScreen}
+        options={{ title: "My Cart" }}
       />
       <Stack.Screen
-        name="NewArrivals"
-        component={NewArrivalsScreen}
-        options={{ title: "New Arrivals" }}
+        name="Wishlist"
+        component={WishlistScreen}
+        options={{ title: "My Wishlist" }}
       />
       <Stack.Screen
-        name="SignIn"
-        component={SignInScreen}
-        options={{ title: "Sign in" }}
-      />
-      <Stack.Screen
-        name="CreateAccount"
-        component={CreateAccountScreen}
-        options={{ title: "Create account" }}
+        name="Profile"
+        component={ProfileScreen}
+        options={{ title: "My Profile" }}
       />
     </Stack.Navigator>
   );

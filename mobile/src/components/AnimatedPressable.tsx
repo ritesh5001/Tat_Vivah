@@ -49,6 +49,10 @@ export const AnimatedPressable = React.memo(function AnimatedPressable({
   ...rest
 }: AnimatedPressableProps) {
   const scaleAnim = React.useRef(new Animated.Value(1)).current;
+  const AnimatedPressableBase = React.useMemo(
+    () => Animated.createAnimatedComponent(Pressable),
+    []
+  );
 
   const handlePressIn = React.useCallback(
     (e: any) => {
@@ -78,14 +82,13 @@ export const AnimatedPressable = React.memo(function AnimatedPressable({
   );
 
   return (
-    <Animated.View style={[style, { transform: [{ scale: scaleAnim }] }]}>
-      <Pressable
-        {...rest}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-      >
-        {children}
-      </Pressable>
-    </Animated.View>
+    <AnimatedPressableBase
+      {...rest}
+      style={[style, { transform: [{ scale: scaleAnim }] }]}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+    >
+      {children}
+    </AnimatedPressableBase>
   );
 });

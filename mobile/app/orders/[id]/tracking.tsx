@@ -1,7 +1,6 @@
 import * as React from "react";
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   RefreshControl,
@@ -9,7 +8,6 @@ import {
   AppState,
   type AppStateStatus,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, usePathname, useRouter } from "expo-router";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import {
@@ -24,11 +22,22 @@ import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
 import { useToast } from "../../../src/providers/ToastProvider";
 import { useAuth } from "../../../src/hooks/useAuth";
 import { impactLight } from "../../../src/utils/haptics";
+import { AppText as Text, ScreenContainer as SafeAreaView } from "../../../src/components";
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 const POLL_INTERVAL_MS = 30_000;
+const TRACKING_CACHE_TTL_MS = 60 * 1000;
+
+type TrackingCacheEntry = {
+  token: string;
+  cachedAt: number;
+  tracking: TrackingResponse;
+  lastFetchedAt: string | null;
+};
+
+const trackingCache = new Map<string, TrackingCacheEntry>();
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -89,7 +98,19 @@ export default function TrackingScreen() {
   const fetchTracking = React.useCallback(
     async (opts?: { silent?: boolean }) => {
       if (!orderId || !token) return;
-      if (!opts?.silent) setLoading(true);
+
+      const cacheKey = `${token}:${orderId}`;
+      const cached = trackingCache.get(cacheKey);
+      const isCacheValid =
+        !!cached && Date.now() - cached.cachedAt < TRACKING_CACHE_TTL_MS;
+
+      if (isCacheValid) {
+        setTracking(cached.tracking);
+        setLastFetchedAt(cached.lastFetchedAt);
+        setError(null);
+      }
+
+      if (!opts?.silent) setLoading(!isCacheValid);
       setError(null);
 
       requestAbortRef.current?.abort();
@@ -100,7 +121,15 @@ export default function TrackingScreen() {
         const data = await getOrderTracking(orderId, token, controller.signal);
         if (mountedRef.current) {
           setTracking(data);
-          setLastFetchedAt(new Date().toISOString());
+          const nextFetchedAt = new Date().toISOString();
+          setLastFetchedAt(nextFetchedAt);
+
+          trackingCache.set(cacheKey, {
+            token,
+            cachedAt: Date.now(),
+            tracking: data,
+            lastFetchedAt: nextFetchedAt,
+          });
         }
       } catch (err) {
         if (!mountedRef.current || isAbortError(err)) return;
@@ -345,6 +374,8 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderSoft,
   },
   backText: {
     fontFamily: typography.sans,
@@ -385,7 +416,9 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   retryButton: {
-    backgroundColor: colors.charcoal,
+    backgroundColor: colors.gold,
+    borderWidth: 1,
+    borderColor: colors.gold,
     borderRadius: radius.md,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
@@ -407,7 +440,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     padding: spacing.lg,
     borderRadius: radius.lg,
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     ...shadow.card,
@@ -445,10 +478,10 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   deliveredBanner: {
-    backgroundColor: "#FAF5EE",
+    backgroundColor: "rgba(184, 149, 108, 0.14)",
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: "#B7956C",
+    borderColor: colors.gold,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
     marginBottom: spacing.md,
@@ -457,7 +490,7 @@ const styles = StyleSheet.create({
   deliveredText: {
     fontFamily: typography.serif,
     fontSize: 15,
-    color: "#B7956C",
+    color: colors.gold,
     textAlign: "center",
   },
   noShipment: {

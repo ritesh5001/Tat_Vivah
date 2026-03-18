@@ -1,16 +1,14 @@
 import * as React from "react";
 import {
+  InteractionManager,
   View,
-  Text,
   StyleSheet,
   FlatList,
-  TextInput,
   Pressable,
   Dimensions,
   Modal,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { Image } from "expo-image";
+import { Image } from "../../../src/components/CompatImage";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import { getCategories } from "../../../src/services/catalog";
@@ -24,14 +22,19 @@ import { SkeletonProductCard } from "../../../src/components/Skeleton";
 import { getSuggestions, type SuggestionItem, type SortOption } from "../../../src/services/search";
 import { AppHeader } from "../../../src/components/AppHeader";
 import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
+import {
+  AppInput as TextInput,
+  AppText as Text,
+  ScreenContainer as SafeAreaView,
+} from "../../../src/components";
 
 const { width } = Dimensions.get("window");
 const cardWidth = (width - spacing.lg * 2 - spacing.md) / 2;
 const fallbackImage =
   "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80";
 
-const DEBOUNCE_MS = 400;
-const SUGGEST_DEBOUNCE_MS = 300;
+const DEBOUNCE_MS = 220;
+const SUGGEST_DEBOUNCE_MS = 160;
 
 const SORT_OPTIONS: { value: SortOption | ""; label: string }[] = [
   { value: "", label: "Default" },
@@ -107,7 +110,7 @@ export default function SearchScreen() {
     typeof params.categoryId === "string" ? params.categoryId : undefined;
 
   const [categories, setCategories] = React.useState<
-    Array<{ id: string; name: string }>
+    { id: string; name: string }[]
   >([]);
   const [selectedCategory, setSelectedCategory] = React.useState<
     string | undefined
@@ -232,7 +235,7 @@ export default function SearchScreen() {
     controllerRef.current = controller;
     loadProducts(1, true, undefined, controller.signal);
     return () => controller.abort();
-  }, [selectedCategory, sortBy]);
+  }, [selectedCategory, sortBy, loadProducts]);
 
   // Debounced search as user types
   const handleSearchChange = React.useCallback(
@@ -320,7 +323,9 @@ export default function SearchScreen() {
 
   const handleProductPress = React.useCallback(
     (id: string) => {
-      router.push({ pathname: "/product/[id]", params: { id } });
+      InteractionManager.runAfterInteractions(() => {
+        router.push({ pathname: "/product/[id]", params: { id } });
+      });
     },
     [router]
   );
@@ -347,13 +352,20 @@ export default function SearchScreen() {
 
   const categoryKeyExtractor = React.useCallback((item: CategoryChipItem) => item.id, []);
 
+  const categoryChips = React.useMemo<CategoryChipItem[]>(
+    () => [{ id: "all", name: "All" }, ...categories],
+    [categories]
+  );
+
   const renderCategoryItem = React.useCallback(
     ({ item }: { item: CategoryChipItem }) => (
       <CategoryChip
         item={item}
-        active={selectedCategory === item.id}
+        active={item.id === "all" ? !selectedCategory : selectedCategory === item.id}
         onPress={(pressedItem, active) =>
-          handleSelectCategory(active ? undefined : pressedItem.id)
+          handleSelectCategory(
+            pressedItem.id === "all" ? undefined : active ? undefined : pressedItem.id
+          )
         }
       />
     ),
@@ -362,28 +374,33 @@ export default function SearchScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <AppHeader
-        title="Marketplace"
-        subtitle="Discover verified sellers"
-        showMenu
-        showBack
-      />
+      <AppHeader variant="main" />
 
-      <View style={styles.searchRow}>
-        <TextInput
-          placeholder="Search collections, styles..."
-          placeholderTextColor={colors.brownSoft}
-          value={search}
-          onChangeText={handleSearchChange}
-          onSubmitEditing={() => {
-            setShowSuggestions(false);
-            handleSearch();
-          }}
-          style={styles.searchInput}
-        />
-        <Pressable style={styles.searchButton} onPress={handleSearch}>
-          <Text style={styles.searchButtonText}>Search</Text>
-        </Pressable>
+      <View style={styles.headerBlock}>
+        <Text style={styles.title}>Marketplace</Text>
+        <Text style={styles.subtitle}>Premium curated catalog</Text>
+        <Text style={styles.subtitleCopy}>
+          Discover wedding-ready edits crafted with heritage silhouettes and modern luxury detailing.
+        </Text>
+      </View>
+
+      <View style={styles.searchCard}>
+        <View style={styles.searchRow}>
+          <TextInput
+            placeholder="Search collections, styles..."
+            placeholderTextColor={colors.brownSoft}
+            value={search}
+            onChangeText={handleSearchChange}
+            onSubmitEditing={() => {
+              setShowSuggestions(false);
+              handleSearch();
+            }}
+            style={styles.searchInput}
+          />
+          <Pressable style={styles.searchButton} onPress={handleSearch}>
+            <Text style={styles.searchButtonText}>Search</Text>
+          </Pressable>
+        </View>
       </View>
 
       {/* Autocomplete suggestions */}
@@ -417,24 +434,27 @@ export default function SearchScreen() {
       )}
 
       {/* Sort + Category Row */}
-      <View style={styles.sortCategoryRow}>
+      <View style={styles.sortCategoryWrap}>
+        <View style={styles.sortRow}>
+          <Pressable
+            style={styles.sortButtonWide}
+            onPress={() => setShowSortSheet(true)}
+          >
+            <Text style={styles.sortButtonText}>Sort</Text>
+          </Pressable>
+          <Pressable style={styles.sortButtonWide} onPress={() => setShowSortSheet(true)}>
+            <Text style={styles.sortButtonText}>Filter</Text>
+          </Pressable>
+        </View>
+
         <FlatList
-          data={categories}
+          data={categoryChips}
           horizontal
           showsHorizontalScrollIndicator={false}
           keyExtractor={categoryKeyExtractor}
           contentContainerStyle={styles.categoryRow}
           renderItem={renderCategoryItem}
-          style={styles.categoryList}
         />
-        <Pressable
-          style={styles.sortButton}
-          onPress={() => setShowSortSheet(true)}
-        >
-          <Text style={styles.sortButtonText}>
-            {SORT_OPTIONS.find((o) => o.value === sortBy)?.label ?? "Sort"}
-          </Text>
-        </Pressable>
       </View>
 
       {/* Sort bottom sheet */}
@@ -488,9 +508,9 @@ export default function SearchScreen() {
 
       <FlatList
         data={
-          (loading ? skeletons : products) as Array<
+          (loading ? skeletons : products) as (
             ProductSummary | { id: string; skeleton: true }
-          >
+          )[]
         }
         keyExtractor={keyExtractor}
         numColumns={2}
@@ -528,15 +548,47 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  searchRow: {
+  headerBlock: {
     marginTop: spacing.lg,
     paddingHorizontal: spacing.lg,
+  },
+  title: {
+    fontFamily: typography.serif,
+    fontSize: 24,
+    color: colors.charcoal,
+  },
+  subtitle: {
+    marginTop: 2,
+    fontFamily: typography.sans,
+    fontSize: 12,
+    textTransform: "uppercase",
+    letterSpacing: 1.4,
+    color: colors.brownSoft,
+  },
+  subtitleCopy: {
+    marginTop: spacing.xs,
+    fontFamily: typography.sans,
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.brownSoft,
+  },
+  searchCard: {
+    marginTop: spacing.md,
+    marginHorizontal: spacing.lg,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.surfaceElevated,
+    ...shadow.card,
+  },
+  searchRow: {
     flexDirection: "row",
     gap: spacing.sm,
   },
   searchInput: {
     flex: 1,
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.background,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -546,9 +598,11 @@ const styles = StyleSheet.create({
     color: colors.charcoal,
   },
   searchButton: {
-    backgroundColor: colors.charcoal,
+    backgroundColor: colors.gold,
+    borderWidth: 1,
+    borderColor: colors.gold,
     borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.lg,
     justifyContent: "center",
   },
   searchButtonText: {
@@ -560,7 +614,8 @@ const styles = StyleSheet.create({
   },
   categoryRow: {
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
     gap: spacing.sm,
   },
   categoryChip: {
@@ -569,11 +624,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: 20,
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surface,
   },
   categoryChipActive: {
     borderColor: colors.gold,
-    backgroundColor: colors.cream,
+    backgroundColor: "rgba(184, 149, 108, 0.14)",
   },
   categoryChipText: {
     fontFamily: typography.sans,
@@ -593,9 +648,9 @@ const styles = StyleSheet.create({
   productCard: {
     width: cardWidth,
     marginBottom: spacing.md,
-    padding: spacing.sm,
+    padding: spacing.md,
     borderRadius: radius.lg,
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     ...shadow.card,
@@ -603,7 +658,7 @@ const styles = StyleSheet.create({
   productImage: {
     height: 160,
     borderRadius: radius.md,
-    backgroundColor: colors.cream,
+    backgroundColor: colors.surface,
   },
   productTitle: {
     marginTop: spacing.sm,
@@ -646,7 +701,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surfaceElevated,
     alignItems: "center",
     ...shadow.card,
   },
@@ -664,7 +719,9 @@ const styles = StyleSheet.create({
   },
   retryButton: {
     marginTop: spacing.md,
-    backgroundColor: colors.charcoal,
+    backgroundColor: colors.gold,
+    borderWidth: 1,
+    borderColor: colors.gold,
     borderRadius: radius.md,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
@@ -685,7 +742,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.borderSoft,
     borderRadius: radius.md,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surfaceElevated,
     ...shadow.card,
     maxHeight: 220,
   },
@@ -712,28 +769,30 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     marginLeft: spacing.sm,
   },
-  sortCategoryRow: {
+  sortCategoryWrap: {
+    marginTop: spacing.md,
+  },
+  sortRow: {
     flexDirection: "row",
     alignItems: "center",
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
   },
-  categoryList: {
+  sortButtonWide: {
     flex: 1,
-  },
-  sortButton: {
-    marginRight: spacing.lg,
     borderWidth: 1,
-    borderColor: colors.borderSoft,
+    borderColor: colors.gold,
     borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    backgroundColor: colors.warmWhite,
+    alignItems: "center",
+    backgroundColor: colors.gold,
   },
   sortButtonText: {
     fontFamily: typography.sansMedium,
-    fontSize: 10,
-    letterSpacing: 0.8,
+    fontSize: 11,
+    letterSpacing: 1.2,
     textTransform: "uppercase",
-    color: colors.charcoal,
+    color: colors.background,
   },
   sortOverlay: {
     flex: 1,
@@ -741,7 +800,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.35)",
   },
   sortSheet: {
-    backgroundColor: colors.background,
+    backgroundColor: colors.surfaceElevated,
     borderTopLeftRadius: radius.lg,
     borderTopRightRadius: radius.lg,
     paddingVertical: spacing.lg,
@@ -759,7 +818,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.borderSoft,
   },
   sortSheetOptionActive: {
-    backgroundColor: colors.cream,
+    backgroundColor: "rgba(184, 149, 108, 0.14)",
     borderRadius: radius.sm,
     marginHorizontal: -spacing.sm,
     paddingHorizontal: spacing.sm,

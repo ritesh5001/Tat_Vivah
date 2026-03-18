@@ -1,14 +1,11 @@
 import * as React from "react";
 import {
   View,
-  Text,
   StyleSheet,
-  TextInput,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   colors,
@@ -27,6 +24,11 @@ import type {
   CreateAddressPayload,
   UpdateAddressPayload,
 } from "../../../../src/services/addresses";
+import {
+  AppInput as TextInput,
+  AppText as Text,
+  ScreenContainer as SafeAreaView,
+} from "../../../../src/components";
 
 // ---------------------------------------------------------------------------
 // Label options
@@ -45,6 +47,7 @@ export default function AddressFormScreen() {
 
   const { session, isLoading: authLoading } = useAuth();
   const token = session?.accessToken ?? null;
+  const showGuestState = !authLoading && !token;
   const { addresses, addAddress, editAddress } = useAddresses();
 
   // Find existing address for edit mode
@@ -94,35 +97,6 @@ export default function AddressFormScreen() {
   const handleGoBack = React.useCallback(() => {
     router.back();
   }, [router]);
-
-  if (!authLoading && !token) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.header}>
-          <AnimatedPressable onPress={handleGoBack} style={styles.backButton}>
-            <Text style={styles.backArrow}>←</Text>
-          </AnimatedPressable>
-          <View>
-            <Text style={styles.headerTitle}>
-              {isEdit ? "Edit Address" : "New Address"}
-            </Text>
-            <Text style={styles.headerCopy}>
-              Add delivery details when you're ready to check out.
-            </Text>
-          </View>
-        </View>
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyTitle}>Address details unavailable</Text>
-          <Text style={styles.emptySubtitle}>
-            You can add a delivery address during checkout.
-          </Text>
-          <AnimatedPressable onPress={handleGoBack} style={styles.primaryButton}>
-            <Text style={styles.primaryButtonText}>Back</Text>
-          </AnimatedPressable>
-        </View>
-      </SafeAreaView>
-    );
-  }
 
   // ---- Validation ----
 
@@ -200,6 +174,35 @@ export default function AddressFormScreen() {
     editAddress,
     router,
   ]);
+
+  if (showGuestState) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          <AnimatedPressable onPress={handleGoBack} style={styles.backButton}>
+            <Text style={styles.backArrow}>←</Text>
+          </AnimatedPressable>
+          <View>
+            <Text style={styles.headerTitle}>
+              {isEdit ? "Edit Address" : "New Address"}
+            </Text>
+            <Text style={styles.headerCopy}>
+              Add delivery details when you&apos;re ready to check out.
+            </Text>
+          </View>
+        </View>
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyTitle}>Address details unavailable</Text>
+          <Text style={styles.emptySubtitle}>
+            You can add a delivery address during checkout.
+          </Text>
+          <AnimatedPressable onPress={handleGoBack} style={styles.primaryButton}>
+            <Text style={styles.primaryButtonText}>Back</Text>
+          </AnimatedPressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -407,6 +410,27 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     borderRadius: radius.lg,
     backgroundColor: colors.warmWhite,
+  emptyContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: spacing.xl,
+  },
+  emptyTitle: {
+    fontFamily: typography.serif,
+    fontSize: 20,
+    color: colors.charcoal,
+    textAlign: "center",
+    marginBottom: spacing.xs,
+  },
+  emptySubtitle: {
+    fontFamily: typography.sans,
+    fontSize: 12,
+    color: colors.brownSoft,
+    textAlign: "center",
+    lineHeight: 18,
+    marginBottom: spacing.md,
+  },
     borderWidth: 1,
     borderColor: colors.borderSoft,
     ...shadow.card,
@@ -431,12 +455,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   inputError: {
-    borderColor: "#A65D57",
+    borderColor: colors.gold,
   },
   errorText: {
     fontFamily: typography.sans,
     fontSize: 11,
-    color: "#A65D57",
+    color: colors.gold,
     marginTop: 3,
   },
   labelRow: {
@@ -453,7 +477,7 @@ const styles = StyleSheet.create({
   },
   labelChipActive: {
     borderColor: colors.gold,
-    backgroundColor: "#F5EFE4",
+    backgroundColor: "rgba(184, 149, 108, 0.12)",
   },
   labelChipText: {
     fontFamily: typography.sansMedium,
@@ -467,7 +491,7 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     marginTop: spacing.lg,
-    backgroundColor: colors.charcoal,
+    backgroundColor: colors.gold,
     borderRadius: radius.md,
     paddingVertical: 14,
     alignItems: "center",

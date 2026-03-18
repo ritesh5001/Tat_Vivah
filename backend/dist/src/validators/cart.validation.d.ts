@@ -8,12 +8,12 @@ export declare const addCartItemSchema: z.ZodObject<{
     variantId: z.ZodString;
     quantity: z.ZodNumber;
 }, "strip", z.ZodTypeAny, {
-    productId: string;
     variantId: string;
+    productId: string;
     quantity: number;
 }, {
-    productId: string;
     variantId: string;
+    productId: string;
     quantity: number;
 }>;
 export type AddCartItemInput = z.infer<typeof addCartItemSchema>;

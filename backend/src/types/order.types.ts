@@ -32,6 +32,7 @@ export interface OrderEntity {
     shippingAddressLine1?: string | null;
     shippingAddressLine2?: string | null;
     shippingCity?: string | null;
+    shippingPincode?: string | null;
     shippingNotes?: string | null;
     createdAt: Date;
 }
@@ -110,12 +111,19 @@ export interface SellerOrderItem extends OrderItemEntity {
         id: string;
         status: OrderStatus;
         createdAt: Date;
+        cancellationRequest?: {
+            id: string;
+            status: string;
+            reason: string;
+            createdAt: Date;
+        } | null;
         shippingName?: string | null;
         shippingPhone?: string | null;
         shippingEmail?: string | null;
         shippingAddressLine1?: string | null;
         shippingAddressLine2?: string | null;
         shippingCity?: string | null;
+        shippingPincode?: string | null;
         shippingNotes?: string | null;
     };
     productTitle: string | undefined;
@@ -138,6 +146,7 @@ export interface CreateOrderRequest {
     shippingAddressLine1?: string | null;
     shippingAddressLine2?: string | null;
     shippingCity?: string | null;
+    shippingPincode?: string | null;
     shippingNotes?: string | null;
     items: CreateOrderItemRequest[];
 }

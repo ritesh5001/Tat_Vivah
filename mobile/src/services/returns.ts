@@ -38,7 +38,7 @@ export async function listMyReturns(
 export async function requestReturn(
   orderId: string,
   reason: string,
-  items: Array<{ orderItemId: string; quantity: number; reason?: string }>,
+  items: { orderItemId: string; quantity: number; reason?: string }[],
   token?: string | null,
   signal?: AbortSignal
 ) {

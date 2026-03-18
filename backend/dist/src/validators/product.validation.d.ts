@@ -10,6 +10,7 @@ export declare const createProductSchema: z.ZodObject<{
     description: z.ZodOptional<z.ZodString>;
     images: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
     isPublished: z.ZodDefault<z.ZodOptional<z.ZodBoolean>>;
+    occasionIds: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
 }, "strip", z.ZodTypeAny, {
     categoryId: string;
     title: string;
@@ -17,6 +18,7 @@ export declare const createProductSchema: z.ZodObject<{
     isPublished: boolean;
     description?: string | undefined;
     images?: string[] | undefined;
+    occasionIds?: string[] | undefined;
 }, {
     categoryId: string;
     title: string;
@@ -24,6 +26,7 @@ export declare const createProductSchema: z.ZodObject<{
     description?: string | undefined;
     isPublished?: boolean | undefined;
     images?: string[] | undefined;
+    occasionIds?: string[] | undefined;
 }>;
 export type CreateProductInput = z.infer<typeof createProductSchema>;
 /**
@@ -36,18 +39,21 @@ export declare const updateProductSchema: z.ZodObject<{
     description: z.ZodOptional<z.ZodString>;
     images: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
     isPublished: z.ZodOptional<z.ZodBoolean>;
+    occasionIds: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
 }, "strip", z.ZodTypeAny, {
     categoryId?: string | undefined;
     title?: string | undefined;
     description?: string | undefined;
     isPublished?: boolean | undefined;
     images?: string[] | undefined;
+    occasionIds?: string[] | undefined;
 }, {
     categoryId?: string | undefined;
     title?: string | undefined;
     description?: string | undefined;
     isPublished?: boolean | undefined;
     images?: string[] | undefined;
+    occasionIds?: string[] | undefined;
 }>;
 export type UpdateProductInput = z.infer<typeof updateProductSchema>;
 /**
@@ -59,14 +65,17 @@ export declare const productQuerySchema: z.ZodObject<{
     limit: z.ZodDefault<z.ZodOptional<z.ZodPipeline<z.ZodEffects<z.ZodString, number, string>, z.ZodNumber>>>;
     categoryId: z.ZodOptional<z.ZodString>;
     search: z.ZodOptional<z.ZodString>;
+    occasion: z.ZodOptional<z.ZodString>;
 }, "strip", z.ZodTypeAny, {
     page: number;
     limit: number;
     search?: string | undefined;
     categoryId?: string | undefined;
+    occasion?: string | undefined;
 }, {
     search?: string | undefined;
     categoryId?: string | undefined;
+    occasion?: string | undefined;
     page?: string | undefined;
     limit?: string | undefined;
 }>;

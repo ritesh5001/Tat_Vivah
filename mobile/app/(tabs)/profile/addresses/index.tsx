@@ -1,14 +1,11 @@
 import * as React from "react";
 import {
   View,
-  Text,
   StyleSheet,
   FlatList,
-  Alert,
   Modal,
   Pressable,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import {
   colors,
@@ -23,6 +20,7 @@ import { AnimatedPressable } from "../../../../src/components/AnimatedPressable"
 import { impactLight, notifySuccess, notifyError } from "../../../../src/utils/haptics";
 import type { Address } from "../../../../src/services/addresses";
 import { TatvivahLoader } from "../../../../src/components/TatvivahLoader";
+import { AppText as Text, ScreenContainer as SafeAreaView } from "../../../../src/components";
 
 // ---------------------------------------------------------------------------
 // Row component — memoized for FlatList performance
@@ -101,6 +99,7 @@ export default function AddressesScreen() {
   const router = useRouter();
   const { session, isLoading: authLoading } = useAuth();
   const token = session?.accessToken ?? null;
+  const showGuestState = !authLoading && !token;
   const {
     addresses,
     isLoading,
@@ -117,37 +116,6 @@ export default function AddressesScreen() {
   const handleGoBack = React.useCallback(() => {
     router.back();
   }, [router]);
-
-  if (!authLoading && !token) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.header}>
-          <AnimatedPressable onPress={handleGoBack} style={styles.backButton}>
-            <Text style={styles.backArrow}>←</Text>
-          </AnimatedPressable>
-          <View>
-            <Text style={styles.headerTitle}>Manage Addresses</Text>
-            <Text style={styles.headerCopy}>
-              Add, edit, or remove delivery addresses.
-            </Text>
-          </View>
-        </View>
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyIcon}>📍</Text>
-          <Text style={styles.emptyTitle}>No saved addresses</Text>
-          <Text style={styles.emptySubtitle}>
-            Add a delivery address when you're ready to check out.
-          </Text>
-          <AnimatedPressable
-            onPress={handleGoBack}
-            style={styles.primaryButton}
-          >
-            <Text style={styles.primaryButtonText}>Back to profile</Text>
-          </AnimatedPressable>
-        </View>
-      </SafeAreaView>
-    );
-  }
 
   // ---- Handlers (stable references) ----
 
@@ -223,6 +191,37 @@ export default function AddressesScreen() {
       ) : null,
     [isLoading],
   );
+
+  if (showGuestState) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          <AnimatedPressable onPress={handleGoBack} style={styles.backButton}>
+            <Text style={styles.backArrow}>←</Text>
+          </AnimatedPressable>
+          <View>
+            <Text style={styles.headerTitle}>Manage Addresses</Text>
+            <Text style={styles.headerCopy}>
+              Add, edit, or remove delivery addresses.
+            </Text>
+          </View>
+        </View>
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyIcon}>📍</Text>
+          <Text style={styles.emptyTitle}>No saved addresses</Text>
+          <Text style={styles.emptySubtitle}>
+            Add a delivery address when you&apos;re ready to check out.
+          </Text>
+          <AnimatedPressable
+            onPress={handleGoBack}
+            style={styles.primaryButton}
+          >
+            <Text style={styles.primaryButtonText}>Back to profile</Text>
+          </AnimatedPressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -336,7 +335,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     alignItems: "center",
@@ -365,7 +364,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     padding: spacing.lg,
     borderRadius: radius.lg,
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     ...shadow.card,
@@ -386,8 +385,10 @@ const styles = StyleSheet.create({
     fontSize: 10,
     letterSpacing: 1.2,
     textTransform: "uppercase",
-    color: colors.brownSoft,
-    backgroundColor: colors.cream,
+    color: colors.gold,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
     paddingHorizontal: spacing.sm,
     paddingVertical: 3,
     borderRadius: radius.sm,
@@ -399,7 +400,9 @@ const styles = StyleSheet.create({
     letterSpacing: 1.2,
     textTransform: "uppercase",
     color: colors.gold,
-    backgroundColor: "#F5EFE4",
+    backgroundColor: "rgba(184, 149, 108, 0.14)",
+    borderWidth: 1,
+    borderColor: colors.gold,
     paddingHorizontal: spacing.sm,
     paddingVertical: 3,
     borderRadius: radius.sm,
@@ -426,7 +429,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surface,
   },
   actionButtonText: {
     fontFamily: typography.sansMedium,
@@ -436,11 +439,11 @@ const styles = StyleSheet.create({
     color: colors.charcoal,
   },
   dangerButton: {
-    borderColor: "#E5BAB6",
-    backgroundColor: "#FFF5F4",
+    borderColor: colors.gold,
+    backgroundColor: "rgba(184, 149, 108, 0.12)",
   },
   dangerText: {
-    color: "#A65D57",
+    color: colors.gold,
   },
 
   // Empty / loading
@@ -494,7 +497,9 @@ const styles = StyleSheet.create({
     borderTopColor: colors.borderSoft,
   },
   primaryButton: {
-    backgroundColor: colors.charcoal,
+    backgroundColor: colors.gold,
+    borderWidth: 1,
+    borderColor: colors.gold,
     borderRadius: radius.md,
     paddingVertical: 14,
     alignItems: "center",
@@ -521,9 +526,11 @@ const styles = StyleSheet.create({
   modalCard: {
     width: "100%",
     maxWidth: 340,
-    backgroundColor: colors.warmWhite,
+    backgroundColor: colors.surfaceElevated,
     borderRadius: radius.lg,
     padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
     ...shadow.card,
   },
   modalTitle: {
@@ -556,13 +563,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     letterSpacing: 1,
     textTransform: "uppercase",
-    color: colors.charcoal,
+    color: colors.foreground,
   },
   modalConfirmButton: {
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderRadius: radius.md,
-    backgroundColor: "#A65D57",
+    backgroundColor: colors.gold,
     minWidth: 90,
     alignItems: "center",
   },

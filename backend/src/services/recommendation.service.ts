@@ -6,6 +6,7 @@ import {
     recommendationGenerationTimeMs,
     recommendationRequestTotal,
 } from '../config/metrics.js';
+import { CACHE_KEYS, getFromCache, setCache } from '../utils/cache.util.js';
 
 const RECENTLY_VIEWED_KEY_PREFIX = 'recently_viewed:';
 const CATEGORY_AFFINITY_KEY_PREFIX = 'user_category_affinity:';
@@ -64,6 +65,12 @@ export function scoreRecommendationCandidate(params: {
 
 export class RecommendationService {
     async getRecommendations(userId: string): Promise<RecommendedProduct[]> {
+        const cacheKey = CACHE_KEYS.RECOMMENDATIONS(userId);
+        const cached = await getFromCache<RecommendedProduct[]>(cacheKey);
+        if (cached) {
+            return cached;
+        }
+
         const startedAt = performance.now();
         recommendationRequestTotal.inc();
 
@@ -73,6 +80,7 @@ export class RecommendationService {
                 productId: true,
                 product: { select: { categoryId: true } },
             },
+            take: 500,
         });
 
         const purchasedOrderItemsPromise = prisma.orderItem.findMany({
@@ -83,6 +91,7 @@ export class RecommendationService {
                 },
             },
             select: { productId: true },
+            take: 100,
         });
 
         const recentlyViewedIdsPromise = redis.zrange<string[]>(
@@ -258,6 +267,8 @@ export class RecommendationService {
             resultCount: results.length,
             executionTime: Math.round(executionTime),
         }, 'recommendations_generated');
+
+        await setCache(cacheKey, results, 60);
 
         return results;
     }

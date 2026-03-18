@@ -1,29 +1,17 @@
 import * as React from "react";
-import { View, Text, StyleSheet, Animated } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
 import { colors, typography, spacing } from "../theme/tokens";
 
 // ---------------------------------------------------------------------------
 // OfflineBanner — shows a subtle top banner when the device is offline
 // ---------------------------------------------------------------------------
 export function OfflineBanner({ visible }: { visible: boolean }) {
-  const translateY = React.useRef(new Animated.Value(-48)).current;
+  if (!visible) return null;
 
-  React.useEffect(() => {
-    Animated.timing(translateY, {
-      toValue: visible ? 0 : -48,
-      duration: 250,
-      useNativeDriver: true,
-    }).start();
-  }, [visible, translateY]);
-
-  // Keep component mounted for animation; transparency when hidden
   return (
-    <Animated.View
-      style={[styles.banner, { transform: [{ translateY }] }]}
-      pointerEvents={visible ? "auto" : "none"}
-    >
+    <View style={styles.banner} pointerEvents="none">
       <Text style={styles.text}>You are offline</Text>
-    </Animated.View>
+    </View>
   );
 }
 

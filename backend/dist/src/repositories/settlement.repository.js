@@ -1,27 +1,24 @@
 import { prisma } from '../config/db.js';
 import { SettlementStatus } from '@prisma/client';
 export class SettlementRepository {
-    async createSettlement(data) {
-        return prisma.sellerSettlement.create({
-            data
-        });
-    }
     async findSettlementsBySellerId(sellerId) {
         return prisma.sellerSettlement.findMany({
             where: { sellerId },
             include: {
-                orderItem: true
+                order: { select: { id: true, totalAmount: true, status: true, invoiceNumber: true } },
             },
             orderBy: {
                 createdAt: 'desc'
-            }
+            },
+            take: 500,
         });
     }
-    async markSettlementAsPaid(settlementId) {
+    async markSettlementAsSettled(settlementId) {
         return prisma.sellerSettlement.update({
             where: { id: settlementId },
             data: {
-                status: SettlementStatus.PAID
+                status: SettlementStatus.SETTLED,
+                settledAt: new Date(),
             }
         });
     }
