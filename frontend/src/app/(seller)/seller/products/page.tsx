@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import ImageKit from "imagekit-javascript";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Search, X } from "lucide-react";
@@ -857,11 +858,18 @@ export default function SellerProductsPage() {
                           <div className="flex flex-wrap gap-2">
                             {(productMedia[product.id] ?? []).map((media) => (
                               <div key={media.id} className="relative h-16 w-16 overflow-hidden border border-border-soft group">
-                                <img src={media.url} alt="media" className="h-full w-full object-cover" />
+                                <Image
+                                  src={media.url}
+                                  alt="Product media"
+                                  fill
+                                  sizes="64px"
+                                  className="object-cover"
+                                />
                                 <button
                                   type="button"
                                   onClick={() => handleDeleteMedia(product.id, media.id)}
                                   className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  aria-label="Remove product media"
                                 >
                                   <X className="h-4 w-4 text-white" />
                                 </button>

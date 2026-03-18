@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
 import ImageKit from "imagekit-javascript";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -65,7 +66,15 @@ const OccasionFormFields = ({
         )}
         {values.image ? (
           <div className="space-y-2">
-            <img src={values.image} alt="Occasion" className="h-24 w-full border border-border-soft object-cover" />
+            <div className="relative h-24 w-full overflow-hidden border border-border-soft">
+              <Image
+                src={values.image}
+                alt="Occasion"
+                fill
+                sizes="(max-width: 768px) 100vw, 24rem"
+                className="object-cover"
+              />
+            </div>
             <Button type="button" variant="outline" size="sm" onClick={() => onChange("image", "")}>Remove Image</Button>
           </div>
         ) : null}
@@ -270,7 +279,14 @@ export default function AdminOccasionsPage() {
                 <div key={occasion.id} className="flex flex-col gap-3 p-6 md:flex-row md:items-center md:justify-between">
                   <div className="flex items-center gap-4 flex-1">
                     {occasion.image && (
-                      <img src={occasion.image} alt={occasion.name} className="h-12 w-12 rounded border border-border-soft object-cover" />
+                      <Image
+                        src={occasion.image}
+                        alt={occasion.name}
+                        width={48}
+                        height={48}
+                        sizes="48px"
+                        className="h-12 w-12 rounded border border-border-soft object-cover"
+                      />
                     )}
                     <div className="space-y-1">
                       <p className="font-medium text-foreground">{occasion.name}</p>

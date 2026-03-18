@@ -41,10 +41,8 @@ export function WeddingSectionBanner() {
             alt="Wedding season essentials"
             fill
             className="object-cover"
-            sizes="100vw"
+            sizes="(max-width: 767px) 0px, 100vw"
             quality={70}
-            priority={false}
-            loading="lazy"
           />
         </div>
 
@@ -54,10 +52,8 @@ export function WeddingSectionBanner() {
             alt="Wedding season essentials"
             fill
             className="object-cover"
-            sizes="100vw"
+            sizes="(max-width: 767px) 100vw, 0px"
             quality={70}
-            priority={false}
-            loading="lazy"
           />
         </div>
 

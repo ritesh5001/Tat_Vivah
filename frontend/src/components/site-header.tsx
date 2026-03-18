@@ -207,7 +207,6 @@ export function SiteHeader() {
                 width={100}
                 height={40}
                 className="h-8 w-auto transition-transform duration-300 group-hover:scale-105"
-                priority
               />
             </Link>
           </div>
@@ -257,7 +256,6 @@ export function SiteHeader() {
               width={120}
               height={50}
               className="h-9 w-auto transition-transform duration-300 group-hover:scale-105"
-              priority
             />
           </Link>
 

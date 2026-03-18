@@ -71,6 +71,13 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+
+  /* ──────────────────────────────────────────────────────────────────────── */
+  /*  CSS OPTIMISATION                                                      */
+  /* ──────────────────────────────────────────────────────────────────────── */
+  experimental: {
+    optimizeCss: true,
+  },
 };
 
 export default nextConfig;

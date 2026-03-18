@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Autoplay, EffectFade } from "swiper/modules";
 import type { Swiper as SwiperType } from "swiper";
@@ -216,10 +216,12 @@ function SlideBackground({
   slide,
   isActive,
   priority,
+  disableHeavyMotion,
 }: {
   slide: HeroSlide;
   isActive: boolean;
   priority: boolean;
+  disableHeavyMotion: boolean;
 }) {
   const isRight = slide.textPosition === "right";
 
@@ -227,33 +229,33 @@ function SlideBackground({
     <div className="absolute inset-0 overflow-hidden">
       {/* Desktop Image */}
       <div
-        className={`hidden md:block absolute inset-0 transition-transform duration-6000 ease-in-out ${isActive ? "scale-[1.04]" : "scale-100"}`}
+        className={`hidden md:block absolute inset-0 ${disableHeavyMotion ? "" : "transition-transform duration-6000 ease-in-out"} ${isActive && !disableHeavyMotion ? "scale-[1.04]" : "scale-100"}`}
       >
         <Image
           src={slide.desktopImage}
           alt={slide.heading}
           fill
           className="object-cover"
-          sizes="100vw"
+          sizes="(max-width: 767px) 0px, 100vw"
           quality={priority ? 80 : 70}
           priority={priority}
-          loading={priority ? "eager" : "lazy"}
+          fetchPriority={priority ? "high" : "auto"}
         />
       </div>
 
       {/* Mobile Image */}
       <div
-        className={`block md:hidden absolute inset-0 transition-transform duration-6000 ease-in-out ${isActive ? "scale-[1.04]" : "scale-100"}`}
+        className={`block md:hidden absolute inset-0 ${disableHeavyMotion ? "" : "transition-transform duration-6000 ease-in-out"} ${isActive && !disableHeavyMotion ? "scale-[1.04]" : "scale-100"}`}
       >
         <Image
           src={slide.mobileImage}
           alt={slide.heading}
           fill
           className="object-cover"
-          sizes="100vw"
+          sizes="(max-width: 767px) 100vw, 0px"
           quality={priority ? 80 : 70}
           priority={priority}
-          loading={priority ? "eager" : "lazy"}
+          fetchPriority={priority ? "high" : "auto"}
         />
       </div>
 
@@ -283,7 +285,19 @@ function SlideBackground({
 
 export function LuxuryHero() {
   const [activeIndex, setActiveIndex] = useState(0);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
   const swiperRef = useRef<SwiperType | null>(null);
+  const prefersReducedMotion = useReducedMotion();
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const update = () => setIsMobileViewport(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+
+  const disableHeavyMotion = Boolean(prefersReducedMotion) || isMobileViewport;
 
   const handleSlideChange = useCallback((swiper: SwiperType) => {
     setActiveIndex(swiper.realIndex);
@@ -326,6 +340,7 @@ export function LuxuryHero() {
               slide={slide}
               isActive={activeIndex === index}
               priority={index === 0}
+              disableHeavyMotion={disableHeavyMotion}
             />
           </SwiperSlide>
         ))}
@@ -376,8 +391,8 @@ export function LuxuryHero() {
             Scroll
           </span>
           <motion.div
-            animate={{ y: [0, 6, 0] }}
-            transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" as const }}
+            animate={disableHeavyMotion ? undefined : { y: [0, 6, 0] }}
+            transition={disableHeavyMotion ? undefined : { duration: 1.8, repeat: Infinity, ease: "easeInOut" as const }}
             className="h-8 w-px bg-white/25"
           />
         </motion.div>
