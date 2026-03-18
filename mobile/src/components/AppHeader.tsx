@@ -2,7 +2,7 @@ import * as React from "react";
 import { View, Text, StyleSheet, Pressable, Animated, Easing } from "react-native";
 import { usePathname, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, spacing, typography, shadow } from "../theme/tokens";
+import { colors, spacing, typography } from "../theme/tokens";
 import { images } from "../data/images";
 import { MenuSheet } from "./MenuSheet";
 import { Image } from "./CompatImage";
@@ -211,7 +211,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.borderSoft,
     paddingHorizontal: spacing.md,
-    paddingBottom: spacing.xs,
+    paddingBottom: spacing.sm,
     shadowColor: colors.charcoal,
     shadowOpacity: 0.02,
     shadowOffset: { width: 0, height: 1 },
@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    minHeight: 52,
+    minHeight: 58,
   },
   leftSlot: {
     flex: 1,
@@ -301,19 +301,19 @@ const styles = StyleSheet.create({
     marginLeft: spacing.xs,
   },
   iconButton: {
-    height: 34,
-    width: 34,
+    height: 36,
+    width: 36,
     alignItems: "center",
     justifyContent: "center",
   },
   logo: {
-    height: 32,
-    width: 120,
+    height: 36,
+    width: 134,
     marginLeft: 0,
   },
   subLogo: {
-    height: 28,
-    width: 112,
+    height: 32,
+    width: 122,
   },
   titleText: {
     fontFamily: typography.serif,

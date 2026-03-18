@@ -1,5 +1,6 @@
 import * as React from "react";
 import { Modal, Pressable, View, Text, StyleSheet } from "react-native";
+import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, spacing, typography } from "../theme/tokens";
 import { useAuth } from "../hooks/useAuth";
@@ -20,11 +21,22 @@ const baseItems: { label: string; route: string }[] = [
 ];
 
 export function MenuSheet({ visible, onClose, onNavigate, items }: MenuSheetProps) {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { session, signOut } = useAuth();
   const { showToast } = useToast();
   const [loggingOut, setLoggingOut] = React.useState(false);
   const logoutLockRef = React.useRef(false);
+
+  const normalizeRoute = React.useCallback((route: string) => {
+    if (route.startsWith("/(tabs)/")) {
+      return `/${route.slice("/(tabs)/".length)}`;
+    }
+    if (route.startsWith("/(auth)/")) {
+      return `/${route.slice("/(auth)/".length)}`;
+    }
+    return route;
+  }, []);
 
   const menuItems = React.useMemo(() => {
     if (items) return items;
@@ -35,7 +47,7 @@ export function MenuSheet({ visible, onClose, onNavigate, items }: MenuSheetProp
         { label: "Orders", route: "/orders" },
         { label: "Wishlist", route: "/wishlist" },
         { label: "Profile", route: "/profile" },
-        { label: "Support", route: "/(tabs)/contact" },
+        { label: "Support", route: "/contact" },
         { label: "Logout", route: "__logout__" },
       ];
     }
@@ -56,15 +68,22 @@ export function MenuSheet({ visible, onClose, onNavigate, items }: MenuSheetProp
           await signOut();
           showToast("Signed out successfully", "success");
           onClose();
+          router.push("/home");
         } finally {
           logoutLockRef.current = false;
           setLoggingOut(false);
         }
         return;
       }
-      onNavigate?.(route);
+      const nextRoute = normalizeRoute(route);
+      onClose();
+      if (onNavigate) {
+        onNavigate(nextRoute);
+      } else {
+        router.push(nextRoute as any);
+      }
     },
-    [loggingOut, onNavigate, onClose, signOut, showToast]
+    [loggingOut, normalizeRoute, onNavigate, onClose, router, signOut, showToast]
   );
 
   return (

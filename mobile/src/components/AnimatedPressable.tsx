@@ -1,22 +1,6 @@
-/**
- * AnimatedPressable — a drop-in replacement for Pressable with a subtle
- * scale-down spring animation on press.  Uses the built-in Animated API
- * with useNativeDriver for 60 fps performance.
- *
- * Usage:
- *   <AnimatedPressable style={styles.btn} onPress={handleTap}>
- *     <Text>Add to cart</Text>
- *   </AnimatedPressable>
- */
 import * as React from "react";
-import {
-  Animated,
-  Pressable,
-  type PressableProps,
-  type ViewStyle,
-  type StyleProp,
-} from "react-native";
-import { impactLight } from "../utils/haptics";
+import { type PressableProps, type StyleProp, type ViewStyle } from "react-native";
+import { MotionPressable } from "./motion/MotionPressable";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -35,60 +19,22 @@ export interface AnimatedPressableProps extends Omit<PressableProps, "style"> {
   haptic?: boolean;
 }
 
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
-
 export const AnimatedPressable = React.memo(function AnimatedPressable({
   style,
   activeScale = 0.96,
   haptic = true,
-  onPressIn,
-  onPressOut,
   children,
   ...rest
 }: AnimatedPressableProps) {
-  const scaleAnim = React.useRef(new Animated.Value(1)).current;
-  const AnimatedPressableBase = React.useMemo(
-    () => Animated.createAnimatedComponent(Pressable),
-    []
-  );
-
-  const handlePressIn = React.useCallback(
-    (e: any) => {
-      Animated.spring(scaleAnim, {
-        toValue: activeScale,
-        useNativeDriver: true,
-        speed: 50,
-        bounciness: 4,
-      }).start();
-      if (haptic) impactLight();
-      onPressIn?.(e);
-    },
-    [scaleAnim, activeScale, haptic, onPressIn],
-  );
-
-  const handlePressOut = React.useCallback(
-    (e: any) => {
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        useNativeDriver: true,
-        speed: 40,
-        bounciness: 6,
-      }).start();
-      onPressOut?.(e);
-    },
-    [scaleAnim, onPressOut],
-  );
-
   return (
-    <AnimatedPressableBase
+    <MotionPressable
       {...rest}
-      style={[style, { transform: [{ scale: scaleAnim }] }]}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
+      style={style}
+      pressScale={activeScale}
+      haptic={haptic}
+      preset="fade"
     >
       {children}
-    </AnimatedPressableBase>
+    </MotionPressable>
   );
 });

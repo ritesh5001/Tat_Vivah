@@ -43,9 +43,12 @@ import {
 } from "../../../src/components";
 import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
 import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
+import { WishlistIcon } from "../../../src/components/WishlistIcon";
+import { APP_BOTTOM_BAR_HEIGHT } from "../../../src/components/GlobalBottomBar";
 import { impactMedium, impactLight, notifySuccess } from "../../../src/utils/haptics";
 import { AppHeader } from "../../../src/components/AppHeader";
 import { useQuery } from "@tanstack/react-query";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
   runOnJS,
   useAnimatedStyle,
@@ -337,6 +340,7 @@ function renderStars(avg: number): string {
 
 export default function ProductDetailScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
   const productId = typeof params.id === "string" ? params.id : "";
   const { session } = useAuth();
@@ -365,6 +369,10 @@ export default function ProductDetailScreen() {
 
   const [relatedProducts, setRelatedProducts] = React.useState<ProductSummary[]>([]);
   const [loadingRelated, setLoadingRelated] = React.useState(false);
+
+  const stickyBottomOffset = insets.bottom + APP_BOTTOM_BAR_HEIGHT;
+  const stickyActionHeight = 76;
+  const stickyReserveSpace = stickyBottomOffset + stickyActionHeight + spacing.lg;
 
   const [galleryIndex, setGalleryIndex] = React.useState(0);
   const [isViewerVisible, setIsViewerVisible] = React.useState(false);
@@ -520,6 +528,46 @@ export default function ProductDetailScreen() {
       }, 6000);
     } catch {
       // CartProvider shows error toast
+    } finally {
+      if (mountedRef.current) setAdding(false);
+    }
+  }, [token, isConnected, product, fallbackVariant, outOfStock, addToCart, router, showToast]);
+
+  const handleBuyNow = React.useCallback(async () => {
+    if (!token) {
+      showToast("Please sign in to continue", "info");
+      router.push("/login");
+      return;
+    }
+    if (!isConnected) {
+      showToast("You're offline. Please check your connection.", "error");
+      return;
+    }
+    if (!product || !fallbackVariant) {
+      showToast(
+        product?.variants?.length
+          ? "Select a variant to continue"
+          : "Variants are not available for this item",
+        "info"
+      );
+      return;
+    }
+    if (outOfStock) {
+      showToast("This variant is out of stock", "info");
+      return;
+    }
+
+    setAdding(true);
+    try {
+      await addToCart({
+        productId: product.id,
+        variantId: fallbackVariant.id,
+        quantity: 1,
+      });
+      impactMedium();
+      router.push("/checkout");
+    } catch {
+      // CartProvider handles toast messaging
     } finally {
       if (mountedRef.current) setAdding(false);
     }
@@ -760,7 +808,10 @@ export default function ProductDetailScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <AppHeader showMenu showBack showWishlist showCart />
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={[styles.container, { paddingBottom: stickyReserveSpace }]}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* ---- Image gallery with paging dots ---- */}
         <View style={styles.galleryFrame}>
           <FlatList
@@ -804,15 +855,41 @@ export default function ProductDetailScreen() {
 
         {/* ---- Details card ---- */}
         <View style={styles.detailsCard}>
+          <Text style={styles.categoryLabel}>
+            {product.category?.name ?? "Curated Collection"}
+          </Text>
+
+          <View style={styles.titleRow}>
+            <Text style={styles.productTitle}>{product.title}</Text>
+            <Pressable
+              onPress={() => {
+                if (!token) {
+                  router.push("/login");
+                  return;
+                }
+                impactLight();
+                toggleWishlist(product.id);
+              }}
+              disabled={!product || wishlistMutatingIds.has(product?.id ?? "")}
+              style={styles.wishlistInlineButton}
+              hitSlop={8}
+            >
+              <WishlistIcon
+                size={22}
+                color={isWishlisted(product.id) ? "#E8453C" : colors.charcoal}
+                filled={isWishlisted(product.id)}
+              />
+            </Pressable>
+          </View>
+
           <View style={styles.detailsTopRow}>
-            <Text style={styles.categoryLabel}>
-              {product.category?.name ?? "Curated Collection"}
-            </Text>
             <View style={styles.detailsBadge}>
               <Text style={styles.detailsBadgeText}>Luxury Edit</Text>
             </View>
+            <Text style={styles.skuText}>
+              SKU ID- {fallbackVariant?.sku ?? "N/A"}
+            </Text>
           </View>
-          <Text style={styles.productTitle}>{product.title}</Text>
 
           {/* Average rating */}
           {reviews.length > 0 && (
@@ -832,7 +909,7 @@ export default function ProductDetailScreen() {
 
           {/* Price */}
           <View style={styles.priceRow}>
-            <Text style={styles.priceLabel}>Price</Text>
+            <Text style={styles.priceLabel}>MRP (Inclusive of all taxes)</Text>
             <View style={styles.priceValues}>
               <Text style={styles.priceValue}>
                 {selectedVariant ? currency.format(selectedVariant.price) : "—"}
@@ -864,7 +941,7 @@ export default function ProductDetailScreen() {
 
           {/* Variant selector */}
           <View style={styles.variantRow}>
-            <Text style={styles.variantLabel}>Select Variant</Text>
+            <Text style={styles.variantLabel}>Select Size</Text>
             <View style={styles.variantWrap}>
               {product.variants?.length ? (
                 product.variants.map((variant: ProductVariant) => {
@@ -889,7 +966,7 @@ export default function ProductDetailScreen() {
                           variantOOS && styles.variantChipTextDisabled,
                         ]}
                       >
-                        {variant.sku}
+                        {variant.sku.split("-").pop() || variant.sku}
                       </Text>
                     </Pressable>
                   );
@@ -898,56 +975,6 @@ export default function ProductDetailScreen() {
                 <Text style={styles.mutedText}>Variants coming soon.</Text>
               )}
             </View>
-          </View>
-
-          {/* Add to cart + Wishlist row */}
-          <View style={styles.actionRow}>
-            <AnimatedPressable
-              style={[
-                styles.primaryButton,
-                styles.primaryAction,
-                (outOfStock || adding) && styles.buttonDisabled,
-              ]}
-              onPress={handleAddToCart}
-              disabled={outOfStock || adding}
-              hitSlop={10}
-            >
-              {adding ? (
-                <TatvivahLoader size="sm" color={colors.background} />
-              ) : (
-                <Text style={styles.primaryButtonText}>
-                  {!selectedVariant
-                    ? "Select variant"
-                    : outOfStock
-                      ? "Out of stock"
-                      : "Add to cart"}
-                </Text>
-              )}
-            </AnimatedPressable>
-
-            {/* Wishlist heart */}
-            <Pressable
-              onPress={() => {
-                if (!token) {
-                  router.push("/login");
-                  return;
-                }
-                if (product) {
-                  impactLight();
-                  toggleWishlist(product.id);
-                }
-              }}
-              disabled={!product || wishlistMutatingIds.has(product?.id ?? "")}
-              style={[
-                styles.wishlistButton,
-                product && isWishlisted(product.id) && styles.wishlistButtonActive,
-              ]}
-              hitSlop={8}
-            >
-              <Text style={{ fontSize: 22 }}>
-                {product && isWishlisted(product.id) ? "❤️" : "🤍"}
-              </Text>
-            </Pressable>
           </View>
 
           {showViewCart && (
@@ -1093,6 +1120,56 @@ export default function ProductDetailScreen() {
         </View>
       </ScrollView>
 
+      <View
+        style={[
+          styles.stickyActionShell,
+          {
+            bottom: stickyBottomOffset,
+            paddingBottom: Math.max(insets.bottom, spacing.xs),
+          },
+        ]}
+      >
+        <View style={styles.actionRow}>
+          <AnimatedPressable
+            style={[
+              styles.primaryButton,
+              styles.secondaryAction,
+              (outOfStock || adding) && styles.buttonDisabled,
+            ]}
+            onPress={handleAddToCart}
+            disabled={outOfStock || adding}
+            hitSlop={10}
+          >
+            {adding ? (
+              <TatvivahLoader size="sm" color={colors.background} />
+            ) : (
+              <Text style={[styles.primaryButtonText, styles.secondaryActionText]}>
+                {!selectedVariant
+                  ? "Select variant"
+                  : outOfStock
+                    ? "Out of stock"
+                    : "Add to cart"}
+              </Text>
+            )}
+          </AnimatedPressable>
+
+          <AnimatedPressable
+            style={[
+              styles.buyNowButton,
+              (outOfStock || adding) && styles.buttonDisabled,
+            ]}
+            onPress={handleBuyNow}
+            disabled={outOfStock || adding}
+          >
+            {adding ? (
+              <TatvivahLoader size="sm" color={colors.background} />
+            ) : (
+              <Text style={styles.buyNowButtonText}>Buy now</Text>
+            )}
+          </AnimatedPressable>
+        </View>
+      </View>
+
       <Modal
         visible={isViewerVisible}
         transparent
@@ -1199,16 +1276,21 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.lg,
     padding: spacing.lg,
     borderRadius: 0,
-    backgroundColor: colors.surfaceElevated,
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    ...shadow.card,
+    backgroundColor: colors.background,
+  },
+  titleRow: {
+    marginTop: spacing.xs,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: spacing.sm,
   },
   detailsTopRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: spacing.sm,
+    marginTop: spacing.xs,
   },
   categoryLabel: {
     fontFamily: typography.sans,
@@ -1233,10 +1315,20 @@ const styles = StyleSheet.create({
     letterSpacing: 1.1,
   },
   productTitle: {
-    marginTop: spacing.xs,
     fontFamily: typography.serif,
-    fontSize: 22,
+    flex: 1,
+    fontSize: 30,
     color: colors.charcoal,
+    lineHeight: 34,
+  },
+  wishlistInlineButton: {
+    width: 44,
+    height: 44,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.surfaceElevated,
+    alignItems: "center",
+    justifyContent: "center",
   },
   ratingRow: {
     flexDirection: "row",
@@ -1262,13 +1354,16 @@ const styles = StyleSheet.create({
   },
   priceRow: {
     marginTop: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderSoft,
+    paddingBottom: spacing.md,
   },
   priceLabel: {
     fontFamily: typography.sans,
-    fontSize: 11,
+    fontSize: 10,
     color: colors.brownSoft,
     textTransform: "uppercase",
-    letterSpacing: 1.2,
+    letterSpacing: 0.8,
   },
   priceValues: {
     flexDirection: "row",
@@ -1278,7 +1373,7 @@ const styles = StyleSheet.create({
   },
   priceValue: {
     fontFamily: typography.serif,
-    fontSize: 20,
+    fontSize: 34,
     color: colors.charcoal,
   },
   comparePrice: {
@@ -1351,16 +1446,38 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   actionRow: {
-    marginTop: spacing.sm,
     flexDirection: "row",
-    gap: 12,
+    gap: spacing.sm,
     alignItems: "center",
   },
-  primaryAction: {
+  secondaryAction: {
     flex: 1,
     marginTop: 0,
+    backgroundColor: colors.surfaceElevated,
+    borderWidth: 1,
+    borderColor: colors.gold,
+  },
+  secondaryActionText: {
+    color: colors.charcoal,
   },
   primaryButtonText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 12,
+    letterSpacing: 1.4,
+    textTransform: "uppercase",
+    color: colors.background,
+  },
+  buyNowButton: {
+    flex: 1,
+    marginTop: 0,
+    backgroundColor: colors.gold,
+    borderWidth: 1,
+    borderColor: colors.gold,
+    borderRadius: 0,
+    paddingVertical: 14,
+    alignItems: "center",
+  },
+  buyNowButtonText: {
     fontFamily: typography.sansMedium,
     fontSize: 12,
     letterSpacing: 1.4,
@@ -1385,6 +1502,16 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     opacity: 0.5,
   },
+  stickyActionShell: {
+    position: "absolute",
+    left: spacing.lg,
+    right: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.background,
+  },
   wishlistButton: {
     width: 52,
     height: 52,
@@ -1398,6 +1525,13 @@ const styles = StyleSheet.create({
   wishlistButtonActive: {
     borderColor: "#E8453C",
     backgroundColor: "#3B1E22",
+  },
+  skuText: {
+    fontFamily: typography.sans,
+    fontSize: 10,
+    letterSpacing: 0.9,
+    textTransform: "uppercase",
+    color: colors.brownSoft,
   },
   loaderOverlay: {
     position: "absolute",

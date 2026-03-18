@@ -6,7 +6,7 @@ import {
   Pressable,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
+import { colors, spacing, typography, shadow } from "../../../src/theme/tokens";
 import { useAuth } from "../../../src/hooks/useAuth";
 import { useCart } from "@/src/providers/CartProvider";
 import { useNetworkStatus } from "../../../src/hooks/useNetworkStatus";
@@ -16,6 +16,7 @@ import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
 import { impactLight } from "../../../src/utils/haptics";
 import type { CartItemDetails } from "../../../src/services/cart";
 import { AppHeader } from "../../../src/components/AppHeader";
+import { MotionView } from "../../../src/components/motion";
 import { AppText as Text, ScreenContainer as SafeAreaView } from "../../../src/components";
 
 const currency = new Intl.NumberFormat("en-IN", {
@@ -86,53 +87,55 @@ export default function CartScreen() {
   const total = subtotal + shipping + gst;
 
   const renderItem = React.useCallback(
-    ({ item }: { item: CartItemDetails }) => {
+    ({ item, index }: { item: CartItemDetails; index: number }) => {
       const locked = mutatingIds.has(item.id);
       return (
-        <View style={styles.itemCard}>
-          <View style={styles.itemInfo}>
-            <Text style={styles.itemTitle}>
-              {item.product?.title ?? "Item"}
-            </Text>
-            <Text style={styles.itemMeta}>
-              Variant · {item.variant?.sku ?? "—"}
-            </Text>
-            <Text style={styles.itemPrice}>
-              {currency.format(item.priceSnapshot)}
-            </Text>
-          </View>
-          <View style={styles.qtyRow}>
+        <MotionView preset="slideUp" delay={Math.min(index * 24, 180)}>
+          <View style={styles.itemCard}>
+            <View style={styles.itemInfo}>
+              <Text style={styles.itemTitle}>
+                {item.product?.title ?? "Item"}
+              </Text>
+              <Text style={styles.itemMeta}>
+                Variant · {item.variant?.sku ?? "—"}
+              </Text>
+              <Text style={styles.itemPrice}>
+                {currency.format(item.priceSnapshot)}
+              </Text>
+            </View>
+            <View style={styles.qtyRow}>
+              <Pressable
+                style={[styles.qtyButton, locked && styles.qtyButtonDisabled]}
+                onPress={() => handleQty(item.id, item.quantity - 1)}
+                disabled={locked}
+              >
+                <Text style={styles.qtyButtonText}>−</Text>
+              </Pressable>
+              <Text style={styles.qtyValue}>{item.quantity}</Text>
+              <Pressable
+                style={[styles.qtyButton, locked && styles.qtyButtonDisabled]}
+                onPress={() => handleQty(item.id, item.quantity + 1)}
+                disabled={locked}
+              >
+                <Text style={styles.qtyButtonText}>+</Text>
+              </Pressable>
+            </View>
             <Pressable
-              style={[styles.qtyButton, locked && styles.qtyButtonDisabled]}
-              onPress={() => handleQty(item.id, item.quantity - 1)}
+              style={styles.removeButton}
+              onPress={() => handleRemove(item.id)}
               disabled={locked}
             >
-              <Text style={styles.qtyButtonText}>−</Text>
-            </Pressable>
-            <Text style={styles.qtyValue}>{item.quantity}</Text>
-            <Pressable
-              style={[styles.qtyButton, locked && styles.qtyButtonDisabled]}
-              onPress={() => handleQty(item.id, item.quantity + 1)}
-              disabled={locked}
-            >
-              <Text style={styles.qtyButtonText}>+</Text>
+              <Text
+                style={[
+                  styles.removeButtonText,
+                  locked && { opacity: 0.4 },
+                ]}
+              >
+                {locked ? "Updating…" : "Remove"}
+              </Text>
             </Pressable>
           </View>
-          <Pressable
-            style={styles.removeButton}
-            onPress={() => handleRemove(item.id)}
-            disabled={locked}
-          >
-            <Text
-              style={[
-                styles.removeButtonText,
-                locked && { opacity: 0.4 },
-              ]}
-            >
-              {locked ? "Updating…" : "Remove"}
-            </Text>
-          </Pressable>
-        </View>
+        </MotionView>
       );
     },
     [mutatingIds, handleQty, handleRemove]

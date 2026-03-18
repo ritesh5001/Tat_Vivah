@@ -14,6 +14,7 @@ import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client
 import { queryClient, queryPersister } from "../src/providers/queryClient";
 import { colors } from "../src/theme/tokens";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { GlobalBottomBar } from "../src/components/GlobalBottomBar";
 
 function AppShell() {
   const { isConnected } = useNetworkStatus();
@@ -26,7 +27,8 @@ function AppShell() {
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: colors.background },
-          animation: "fade",
+          animation: "fade_from_bottom",
+          animationDuration: 260,
           gestureEnabled: true,
         }}
       >
@@ -43,6 +45,7 @@ function AppShell() {
           options={{ animation: "slide_from_bottom" }}
         />
       </Stack>
+      <GlobalBottomBar />
     </>
   );
 }

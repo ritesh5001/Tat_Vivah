@@ -12,9 +12,11 @@ import { useRouter } from "expo-router";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { createVideoPlayer } from "expo-video";
 import { AppText as Text } from "../../../src/components";
+import { MotionView } from "../../../src/components/motion";
 import { ReelItem, type ReelFeedItem } from "../../../src/components/ReelItem";
 import { companyInfo } from "../../../src/data/company";
 import { listPublicReels } from "../../../src/services/reels";
+import { impactLight } from "../../../src/utils/haptics";
 import { colors, spacing } from "../../../src/theme";
 
 const REELS_PAGE_LIMIT = 8;
@@ -25,7 +27,7 @@ export default function ReelsScreen() {
   const { width, height } = useWindowDimensions();
   const [visibleIndex, setVisibleIndex] = React.useState(0);
   const [likedById, setLikedById] = React.useState<Record<string, boolean>>({});
-  const [mutedById, setMutedById] = React.useState<Record<string, boolean>>({});
+  const [isMuted, setIsMuted] = React.useState(false);
   const preloadedRef = React.useRef<Set<string>>(new Set());
 
   const reelsQuery = useInfiniteQuery({
@@ -78,11 +80,12 @@ export default function ReelsScreen() {
   }, [reelsQuery]);
 
   const toggleLike = React.useCallback((id: string) => {
+    impactLight();
     setLikedById((prev) => ({ ...prev, [id]: !prev[id] }));
   }, []);
 
-  const toggleMute = React.useCallback((id: string) => {
-    setMutedById((prev) => ({ ...prev, [id]: !prev[id] }));
+  const toggleMute = React.useCallback(() => {
+    setIsMuted((prev) => !prev);
   }, []);
 
   const shareReel = React.useCallback(async (item: ReelFeedItem) => {
@@ -134,24 +137,26 @@ export default function ReelsScreen() {
 
   const renderReel = React.useCallback(
     ({ item, index }: { item: ReelFeedItem; index: number }) => (
-      <ReelItem
-        item={item}
-        width={itemWidth}
-        height={itemHeight}
-        isActive={index === visibleIndex}
-        isMuted={mutedById[item.id] ?? false}
-        liked={likedById[item.id] ?? false}
-        onToggleMute={() => toggleMute(item.id)}
-        onToggleLike={() => toggleLike(item.id)}
-        onShare={() => void shareReel(item)}
-        onPressProduct={
-          item.productId
-            ? () => router.push(`/product/${item.productId}` as any)
-            : undefined
-        }
-      />
+      <MotionView preset="slideUp" delay={Math.min(index * 20, 140)}>
+        <ReelItem
+          item={item}
+          width={itemWidth}
+          height={itemHeight}
+          isActive={index === visibleIndex}
+          isMuted={isMuted}
+          liked={likedById[item.id] ?? false}
+          onToggleMute={toggleMute}
+          onToggleLike={() => toggleLike(item.id)}
+          onShare={() => void shareReel(item)}
+          onPressProduct={
+            item.productId
+              ? () => router.push(`/product/${item.productId}` as any)
+              : undefined
+          }
+        />
+      </MotionView>
     ),
-    [itemHeight, itemWidth, likedById, mutedById, router, shareReel, toggleLike, toggleMute, visibleIndex]
+    [isMuted, itemHeight, itemWidth, likedById, router, shareReel, toggleLike, toggleMute, visibleIndex]
   );
 
   if (reelsQuery.isLoading) {
