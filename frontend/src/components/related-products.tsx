@@ -46,7 +46,7 @@ export function RelatedProducts({ productId }: RelatedProductsProps) {
       </div>
 
       {loading ? (
-        <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
+        <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <div
               key={i}
@@ -59,7 +59,7 @@ export function RelatedProducts({ productId }: RelatedProductsProps) {
           ))}
         </div>
       ) : (
-        <div className="grid gap-6 grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
+        <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-4">
           {products.map((product) => (
             <MarketplaceProductCard key={product.id} product={product} />
           ))}
