@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { addCartItem } from "@/services/cart";
 import { toggleWishlistItem, checkWishlistItems } from "@/services/wishlist";
+import { createAppointment } from "@/services/appointments";
 
 interface Variant {
   id: string;
@@ -53,6 +54,20 @@ export default function ProductDetailClient({
   const [wishlistLoading, setWishlistLoading] = React.useState(false);
   const [pincode, setPincode] = React.useState("");
   const [deliveryMessage, setDeliveryMessage] = React.useState("");
+  const [bookModalOpen, setBookModalOpen] = React.useState(false);
+  const [appointmentDate, setAppointmentDate] = React.useState("");
+  const [appointmentTime, setAppointmentTime] = React.useState("");
+  const [booking, setBooking] = React.useState(false);
+
+  const getLocalDateString = React.useCallback(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }, []);
+
+  const minAppointmentDate = getLocalDateString();
 
   const handlePincodeCheck = () => {
     if (pincode.length === 6) {
@@ -139,6 +154,78 @@ export default function ProductDetailClient({
       toast.error(message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleOpenBooking = () => {
+    const roleMatch = document.cookie.match(/(?:^|; )tatvivah_role=([^;]*)/);
+    const role = roleMatch ? decodeURIComponent(roleMatch[1]).toUpperCase() : "";
+    const hasToken = document.cookie.match(/(?:^|; )tatvivah_access=([^;]*)/);
+
+    if (!hasToken || role !== "USER") {
+      toast.error("Please sign in as a customer to book a video call.");
+      router.push("/login?force=1");
+      return;
+    }
+
+    if (!product.sellerId) {
+      toast.error("Seller details are unavailable for this product.");
+      return;
+    }
+
+    setBookModalOpen(true);
+  };
+
+  const handleConfirmBooking = async () => {
+    if (!appointmentDate || !appointmentTime) {
+      toast.error("Please select both date and time.");
+      return;
+    }
+
+    const selectedDateTime = new Date(`${appointmentDate}T${appointmentTime}:00`);
+    if (Number.isNaN(selectedDateTime.getTime())) {
+      toast.error("Please choose a valid date and time.");
+      return;
+    }
+
+    if (appointmentDate < minAppointmentDate) {
+      toast.error("Please choose today or a future date.");
+      return;
+    }
+
+    if (selectedDateTime.getTime() <= Date.now()) {
+      toast.error("Please choose a future time slot.");
+      return;
+    }
+
+    if (!product.sellerId) {
+      toast.error("Seller details are unavailable for this product.");
+      return;
+    }
+
+    setBooking(true);
+    try {
+      await createAppointment({
+        sellerId: product.sellerId,
+        productId: product.id,
+        date: appointmentDate,
+        time: appointmentTime,
+      });
+      toast.success("Video appointment booked.");
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(
+          "tatvivah_appointment_alert",
+          "Your appointment is booked successfully.",
+        );
+      }
+      setBookModalOpen(false);
+      setAppointmentDate("");
+      setAppointmentTime("");
+      router.push("/user/appointments");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to book appointment");
+    } finally {
+      setBooking(false);
     }
   };
 
@@ -270,6 +357,17 @@ export default function ProductDetailClient({
           </motion.div>
         </div>
 
+        <div className="pt-3">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleOpenBooking}
+            className="h-12 w-full border border-gold/40 text-[12px] font-medium uppercase tracking-[0.12em] text-foreground hover:bg-gold/5"
+          >
+            Book Video Call
+          </Button>
+        </div>
+
         {/* 7. Pincode Check */}
         <div className="pt-6 relative">
           <div className="flex flex-col gap-2">
@@ -365,6 +463,65 @@ export default function ProductDetailClient({
           </details>
         </div>
       </div>
+
+      {bookModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+          <div className="w-full max-w-md border border-border-soft bg-card p-6 shadow-xl">
+            <div className="mb-5">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-gold">WhatsApp Consultation</p>
+              <h3 className="mt-2 font-serif text-2xl font-light text-foreground">Book Video Call</h3>
+              <p className="mt-2 text-sm text-muted-foreground">Select your preferred date and time for the seller video call.</p>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="mb-2 block text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                  Date
+                </label>
+                <input
+                  type="date"
+                  min={minAppointmentDate}
+                  value={appointmentDate}
+                  onChange={(event) => setAppointmentDate(event.target.value)}
+                  className="h-11 w-full border border-border-soft bg-background px-3 text-sm text-foreground outline-none focus:border-gold/50"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                  Time
+                </label>
+                <input
+                  type="time"
+                  value={appointmentTime}
+                  onChange={(event) => setAppointmentTime(event.target.value)}
+                  className="h-11 w-full border border-border-soft bg-background px-3 text-sm text-foreground outline-none focus:border-gold/50"
+                />
+              </div>
+            </div>
+
+            <div className="mt-6 flex gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1"
+                onClick={() => setBookModalOpen(false)}
+                disabled={booking}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                className="flex-1"
+                onClick={handleConfirmBooking}
+                disabled={booking}
+              >
+                {booking ? "Booking..." : "Confirm"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 }

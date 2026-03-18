@@ -32,6 +32,32 @@ function setMemCache<T>(key: string, data: T, ttlMs: number): void {
     memCache.set(key, { data, expiresAt: Date.now() + ttlMs });
 }
 
+const DEFAULT_LIMIT = 20;
+const MAX_LIMIT = 100;
+
+interface PaginationParams {
+    page?: number;
+    limit?: number;
+}
+
+interface DateRangeParams {
+    startDate?: Date;
+    endDate?: Date;
+}
+
+function resolvePagination(params?: PaginationParams): { page: number; limit: number; skip: number; take: number } {
+    const pageRaw = Number(params?.page ?? 1);
+    const limitRaw = Number(params?.limit ?? DEFAULT_LIMIT);
+    const page = Number.isFinite(pageRaw) && pageRaw > 0 ? Math.trunc(pageRaw) : 1;
+    const limit = Math.min(MAX_LIMIT, Math.max(1, Number.isFinite(limitRaw) ? Math.trunc(limitRaw) : DEFAULT_LIMIT));
+    return {
+        page,
+        limit,
+        skip: (page - 1) * limit,
+        take: limit,
+    };
+}
+
 // ============================================================================
 // TYPES
 // ============================================================================
@@ -92,14 +118,28 @@ export interface AdminProduct {
 export interface AdminOrder {
     id: string;
     userId: string;
+    buyerEmail?: string | null;
+    buyerPhone?: string | null;
     status: string;
     totalAmount: number;
+    shippingName?: string | null;
+    shippingPhone?: string | null;
+    shippingEmail?: string | null;
+    shippingAddressLine1?: string | null;
+    shippingAddressLine2?: string | null;
+    shippingCity?: string | null;
+    shippingPincode?: string | null;
+    shippingNotes?: string | null;
     createdAt: Date;
     items: {
         id: string;
         sellerId: string;
+        sellerEmail?: string | null;
+        sellerName?: string | null;
         productId: string;
+        productTitle?: string | null;
         variantId: string;
+        variantSku?: string | null;
         quantity: number;
         priceSnapshot: number;
         sellerPriceSnapshot?: number;
@@ -277,7 +317,8 @@ export class AdminRepository {
     /**
      * Find all sellers
      */
-    async findAllSellers(): Promise<AdminSeller[]> {
+    async findAllSellers(params?: PaginationParams): Promise<AdminSeller[]> {
+        const { skip, take } = resolvePagination(params);
         const sellers = await prisma.user.findMany({
             where: { role: 'SELLER' },
             select: {
@@ -289,7 +330,8 @@ export class AdminRepository {
                 createdAt: true,
             },
             orderBy: { createdAt: 'desc' },
-            take: 1000,
+            skip,
+            take,
         });
         return sellers;
     }
@@ -336,7 +378,8 @@ export class AdminRepository {
     /**
      * Find all products pending moderation
      */
-    async findPendingProducts(): Promise<AdminProduct[]> {
+    async findPendingProducts(params?: PaginationParams): Promise<AdminProduct[]> {
+        const { skip, take } = resolvePagination(params);
         const products = await prisma.product.findMany({
             where: { status: 'PENDING', deletedByAdmin: false },
             include: {
@@ -363,6 +406,8 @@ export class AdminRepository {
                 },
             },
             orderBy: { createdAt: 'desc' },
+            skip,
+            take,
         });
 
         return products.map((product) => ({
@@ -482,7 +527,8 @@ export class AdminRepository {
     /**
      * List all products for admin view
      */
-    async findAllProducts(): Promise<AdminProduct[]> {
+    async findAllProducts(params?: PaginationParams): Promise<AdminProduct[]> {
+        const { skip, take } = resolvePagination(params);
         const products = await prisma.product.findMany({
             include: {
                 seller: {
@@ -504,7 +550,8 @@ export class AdminRepository {
                 },
             },
             orderBy: { createdAt: 'desc' },
-            take: 2000,
+            skip,
+            take,
         });
 
         return products.map((product) => ({
@@ -752,7 +799,8 @@ export class AdminRepository {
         };
     }
 
-    async findProductPricingOverview(): Promise<AdminPricingOverviewItem[]> {
+    async findProductPricingOverview(params?: PaginationParams): Promise<AdminPricingOverviewItem[]> {
+        const { skip, take } = resolvePagination(params);
         const products = await prisma.product.findMany({
             where: { deletedByAdmin: false },
             include: {
@@ -768,7 +816,8 @@ export class AdminRepository {
                 },
             },
             orderBy: { updatedAt: 'desc' },
-            take: 2000,
+            skip,
+            take,
         });
 
         return products.map((product) => {
@@ -795,74 +844,72 @@ export class AdminRepository {
         });
     }
 
-    async getProfitAnalytics(): Promise<AdminProfitAnalytics> {
+    async getProfitAnalytics(params?: DateRangeParams & { limit?: number }): Promise<AdminProfitAnalytics> {
         const cached = getMemCache<AdminProfitAnalytics>('profit_analytics');
         if (cached) return cached;
 
-        const items = await prisma.orderItem.findMany({
-            where: {
-                order: {
-                    status: { in: ['CONFIRMED', 'SHIPPED', 'DELIVERED'] },
-                },
-            },
-            select: {
-                productId: true,
-                sellerId: true,
-                quantity: true,
-                priceSnapshot: true,
-                sellerPriceSnapshot: true,
-                adminPriceSnapshot: true,
-                platformMargin: true,
-            },
-            take: 50000,
-        });
+        const whereDateClause =
+            params?.startDate || params?.endDate
+                ? ` AND o."created_at" BETWEEN $1::timestamp AND $2::timestamp`
+                : '';
+        const queryParams: unknown[] =
+            params?.startDate || params?.endDate
+                ? [params.startDate ?? new Date('1970-01-01T00:00:00Z'), params.endDate ?? new Date()]
+                : [];
+        const limit = Math.min(MAX_LIMIT, Math.max(1, Math.trunc(params?.limit ?? DEFAULT_LIMIT)));
 
-        const uniqueProductIds = [...new Set(items.map((item) => item.productId))];
-        const products = uniqueProductIds.length
-            ? await prisma.product.findMany({
-                where: { id: { in: uniqueProductIds } },
-                select: {
-                    id: true,
-                    title: true,
-                },
-            })
-            : [];
-        const productLookup = new Map(products.map((product) => [product.id, product.title]));
+        const [totalsRows, productRows, sellerRows] = await Promise.all([
+            prisma.$queryRawUnsafe<Array<{
+                totalPlatformRevenue: unknown;
+                totalSellerPayout: unknown;
+                totalMarginEarned: unknown;
+            }>>(
+                `SELECT
+                    COALESCE(SUM(COALESCE(oi."admin_price_snapshot", oi."price_snapshot") * oi."quantity"), 0) AS "totalPlatformRevenue",
+                    COALESCE(SUM(COALESCE(oi."seller_price_snapshot", oi."price_snapshot") * oi."quantity"), 0) AS "totalSellerPayout",
+                    COALESCE(SUM(COALESCE(oi."platform_margin", COALESCE(oi."admin_price_snapshot", oi."price_snapshot") - COALESCE(oi."seller_price_snapshot", oi."price_snapshot")) * oi."quantity"), 0) AS "totalMarginEarned"
+                 FROM "order_items" oi
+                 INNER JOIN "orders" o ON o."id" = oi."order_id"
+                 WHERE o."status" IN ('CONFIRMED', 'SHIPPED', 'DELIVERED')${whereDateClause}`,
+                ...queryParams,
+            ),
+            prisma.$queryRawUnsafe<Array<{ productId: string; title: string; margin: unknown; soldUnits: unknown }>>(
+                `SELECT
+                    oi."product_id" AS "productId",
+                    COALESCE(p."title", 'Untitled product') AS "title",
+                    COALESCE(SUM(COALESCE(oi."platform_margin", COALESCE(oi."admin_price_snapshot", oi."price_snapshot") - COALESCE(oi."seller_price_snapshot", oi."price_snapshot")) * oi."quantity"), 0) AS "margin",
+                    COALESCE(SUM(oi."quantity"), 0) AS "soldUnits"
+                 FROM "order_items" oi
+                 INNER JOIN "orders" o ON o."id" = oi."order_id"
+                 LEFT JOIN "products" p ON p."id" = oi."product_id"
+                 WHERE o."status" IN ('CONFIRMED', 'SHIPPED', 'DELIVERED')${whereDateClause}
+                 GROUP BY oi."product_id", p."title"
+                 ORDER BY "margin" DESC
+                 LIMIT ${limit}`,
+                ...queryParams,
+            ),
+            prisma.$queryRawUnsafe<Array<{ sellerId: string; margin: unknown; soldUnits: unknown }>>(
+                `SELECT
+                    oi."seller_id" AS "sellerId",
+                    COALESCE(SUM(COALESCE(oi."platform_margin", COALESCE(oi."admin_price_snapshot", oi."price_snapshot") - COALESCE(oi."seller_price_snapshot", oi."price_snapshot")) * oi."quantity"), 0) AS "margin",
+                    COALESCE(SUM(oi."quantity"), 0) AS "soldUnits"
+                 FROM "order_items" oi
+                 INNER JOIN "orders" o ON o."id" = oi."order_id"
+                 WHERE o."status" IN ('CONFIRMED', 'SHIPPED', 'DELIVERED')${whereDateClause}
+                 GROUP BY oi."seller_id"
+                 ORDER BY "margin" DESC
+                 LIMIT ${limit}`,
+                ...queryParams,
+            ),
+        ]);
 
-        const sellerMap = new Map<string, { margin: number; soldUnits: number }>();
-        const productMap = new Map<string, { title: string; margin: number; soldUnits: number }>();
+        const totals = totalsRows[0] ?? {
+            totalPlatformRevenue: 0,
+            totalSellerPayout: 0,
+            totalMarginEarned: 0,
+        };
 
-        let totalPlatformRevenue = 0;
-        let totalSellerPayout = 0;
-        let totalMarginEarned = 0;
-
-        for (const item of items) {
-            const qty = item.quantity;
-            const adminPrice = item.adminPriceSnapshot ?? item.priceSnapshot;
-            const sellerPrice = item.sellerPriceSnapshot ?? item.priceSnapshot;
-            const marginPerUnit = item.platformMargin ?? (adminPrice - sellerPrice);
-
-            totalPlatformRevenue += adminPrice * qty;
-            totalSellerPayout += sellerPrice * qty;
-            totalMarginEarned += marginPerUnit * qty;
-
-            const sellerEntry = sellerMap.get(item.sellerId) ?? { margin: 0, soldUnits: 0 };
-            sellerEntry.margin += marginPerUnit * qty;
-            sellerEntry.soldUnits += qty;
-            sellerMap.set(item.sellerId, sellerEntry);
-
-            const productEntry =
-                productMap.get(item.productId) ?? {
-                    title: productLookup.get(item.productId) ?? 'Untitled product',
-                    margin: 0,
-                    soldUnits: 0,
-                };
-            productEntry.margin += marginPerUnit * qty;
-            productEntry.soldUnits += qty;
-            productMap.set(item.productId, productEntry);
-        }
-
-        const sellerIds = Array.from(sellerMap.keys());
+        const sellerIds = sellerRows.map((row) => row.sellerId);
         const sellers = sellerIds.length
             ? await prisma.user.findMany({
                 where: { id: { in: sellerIds } },
@@ -880,23 +927,23 @@ export class AdminRepository {
         const sellerLookup = new Map(sellers.map((seller) => [seller.id, seller]));
 
         const result = {
-            totalPlatformRevenue,
-            totalSellerPayout,
-            totalMarginEarned,
-            profitPerProduct: Array.from(productMap.entries()).map(([productId, value]) => ({
-                productId,
-                title: value.title,
-                margin: value.margin,
-                soldUnits: value.soldUnits,
+            totalPlatformRevenue: Number(totals.totalPlatformRevenue ?? 0),
+            totalSellerPayout: Number(totals.totalSellerPayout ?? 0),
+            totalMarginEarned: Number(totals.totalMarginEarned ?? 0),
+            profitPerProduct: productRows.map((row) => ({
+                productId: row.productId,
+                title: row.title,
+                margin: Number(row.margin ?? 0),
+                soldUnits: Number(row.soldUnits ?? 0),
             })),
-            profitPerSeller: Array.from(sellerMap.entries()).map(([sellerId, value]) => {
-                const seller = sellerLookup.get(sellerId);
+            profitPerSeller: sellerRows.map((row) => {
+                const seller = sellerLookup.get(row.sellerId);
                 return {
-                    sellerId,
+                    sellerId: row.sellerId,
                     sellerEmail: seller?.email ?? null,
                     sellerName: seller?.seller_profiles?.store_name ?? null,
-                    margin: value.margin,
-                    soldUnits: value.soldUnits,
+                    margin: Number(row.margin ?? 0),
+                    soldUnits: Number(row.soldUnits ?? 0),
                 };
             }),
         };
@@ -912,33 +959,54 @@ export class AdminRepository {
     /**
      * Find all orders
      */
-    async findAllOrders(): Promise<AdminOrder[]> {
+    async findAllOrders(params?: PaginationParams & DateRangeParams): Promise<AdminOrder[]> {
+        const { skip, take } = resolvePagination(params);
+        const createdAtFilter =
+            params?.startDate || params?.endDate
+                ? {
+                    ...(params.startDate ? { gte: params.startDate } : {}),
+                    ...(params.endDate ? { lte: params.endDate } : {}),
+                }
+                : undefined;
+
         const orders = await prisma.order.findMany({
-            include: {
-                items: true,
+            where: {
+                ...(createdAtFilter ? { createdAt: createdAtFilter } : {}),
+            },
+            select: {
+                id: true,
+                userId: true,
+                status: true,
+                totalAmount: true,
+                shippingName: true,
+                shippingPhone: true,
+                shippingEmail: true,
+                shippingAddressLine1: true,
+                shippingAddressLine2: true,
+                shippingCity: true,
+                shippingPincode: true,
+                shippingNotes: true,
+                createdAt: true,
+                items: {
+                    select: {
+                        id: true,
+                        sellerId: true,
+                        productId: true,
+                        variantId: true,
+                        quantity: true,
+                        priceSnapshot: true,
+                        sellerPriceSnapshot: true,
+                        adminPriceSnapshot: true,
+                        platformMargin: true,
+                    },
+                },
             },
             orderBy: { createdAt: 'desc' },
-            take: 2000,
+            skip,
+            take,
         });
 
-        return orders.map((order) => ({
-            id: order.id,
-            userId: order.userId,
-            status: order.status,
-            totalAmount: order.totalAmount,
-            createdAt: order.createdAt,
-            items: order.items.map((item) => ({
-                id: item.id,
-                sellerId: item.sellerId,
-                productId: item.productId,
-                variantId: item.variantId,
-                quantity: item.quantity,
-                priceSnapshot: item.priceSnapshot,
-                sellerPriceSnapshot: item.sellerPriceSnapshot,
-                adminPriceSnapshot: item.adminPriceSnapshot,
-                platformMargin: item.platformMargin,
-            })),
-        }));
+        return this.enrichOrders(orders);
     }
 
     /**
@@ -954,24 +1022,8 @@ export class AdminRepository {
 
         if (!order) return null;
 
-        return {
-            id: order.id,
-            userId: order.userId,
-            status: order.status,
-            totalAmount: order.totalAmount,
-            createdAt: order.createdAt,
-            items: order.items.map((item) => ({
-                id: item.id,
-                sellerId: item.sellerId,
-                productId: item.productId,
-                variantId: item.variantId,
-                quantity: item.quantity,
-                priceSnapshot: item.priceSnapshot,
-                sellerPriceSnapshot: item.sellerPriceSnapshot,
-                adminPriceSnapshot: item.adminPriceSnapshot,
-                platformMargin: item.platformMargin,
-            })),
-        };
+        const enriched = await this.enrichOrders([order]);
+        return enriched[0] ?? null;
     }
 
     /**
@@ -986,24 +1038,116 @@ export class AdminRepository {
             },
         });
 
-        return {
+        const enriched = await this.enrichOrders([order]);
+        return enriched[0] as AdminOrder;
+    }
+
+    private async enrichOrders(
+        orders: Array<{
+            id: string;
+            userId: string;
+            status: string;
+            totalAmount: number;
+            shippingName: string | null;
+            shippingPhone: string | null;
+            shippingEmail: string | null;
+            shippingAddressLine1: string | null;
+            shippingAddressLine2: string | null;
+            shippingCity: string | null;
+            shippingPincode: string | null;
+            shippingNotes: string | null;
+            createdAt: Date;
+            items: Array<{
+                id: string;
+                sellerId: string;
+                productId: string;
+                variantId: string;
+                quantity: number;
+                priceSnapshot: number;
+                sellerPriceSnapshot: number;
+                adminPriceSnapshot: number;
+                platformMargin: number;
+            }>;
+        }>
+    ): Promise<AdminOrder[]> {
+        if (orders.length === 0) return [];
+
+        const userIds = [...new Set(orders.map((order) => order.userId))];
+        const allItems = orders.flatMap((order) => order.items);
+        const sellerIds = [...new Set(allItems.map((item) => item.sellerId))];
+        const productIds = [...new Set(allItems.map((item) => item.productId))];
+        const variantIds = [...new Set(allItems.map((item) => item.variantId))];
+
+        const [buyers, sellers, products, variants] = await Promise.all([
+            userIds.length
+                ? prisma.user.findMany({
+                    where: { id: { in: userIds } },
+                    select: { id: true, email: true, phone: true },
+                })
+                : [],
+            sellerIds.length
+                ? prisma.user.findMany({
+                    where: { id: { in: sellerIds } },
+                    select: {
+                        id: true,
+                        email: true,
+                        seller_profiles: {
+                            select: { store_name: true },
+                        },
+                    },
+                })
+                : [],
+            productIds.length
+                ? prisma.product.findMany({
+                    where: { id: { in: productIds } },
+                    select: { id: true, title: true },
+                })
+                : [],
+            variantIds.length
+                ? prisma.productVariant.findMany({
+                    where: { id: { in: variantIds } },
+                    select: { id: true, sku: true },
+                })
+                : [],
+        ]);
+
+        const buyerMap = new Map(buyers.map((user) => [user.id, user]));
+        const sellerMap = new Map(sellers.map((seller) => [seller.id, seller]));
+        const productMap = new Map(products.map((product) => [product.id, product]));
+        const variantMap = new Map(variants.map((variant) => [variant.id, variant]));
+
+        return orders.map((order) => ({
             id: order.id,
             userId: order.userId,
+            buyerEmail: buyerMap.get(order.userId)?.email ?? null,
+            buyerPhone: buyerMap.get(order.userId)?.phone ?? null,
             status: order.status,
             totalAmount: order.totalAmount,
+            shippingName: order.shippingName,
+            shippingPhone: order.shippingPhone,
+            shippingEmail: order.shippingEmail,
+            shippingAddressLine1: order.shippingAddressLine1,
+            shippingAddressLine2: order.shippingAddressLine2,
+            shippingCity: order.shippingCity,
+            shippingPincode: order.shippingPincode,
+            shippingNotes: order.shippingNotes,
             createdAt: order.createdAt,
             items: order.items.map((item) => ({
                 id: item.id,
                 sellerId: item.sellerId,
+                sellerEmail: sellerMap.get(item.sellerId)?.email ?? null,
+                sellerName: sellerMap.get(item.sellerId)?.seller_profiles?.store_name ?? null,
                 productId: item.productId,
+                productTitle: productMap.get(item.productId)?.title ?? null,
                 variantId: item.variantId,
+                variantSku: variantMap.get(item.variantId)?.sku ?? null,
                 quantity: item.quantity,
                 priceSnapshot: item.priceSnapshot,
                 sellerPriceSnapshot: item.sellerPriceSnapshot,
                 adminPriceSnapshot: item.adminPriceSnapshot,
                 platformMargin: item.platformMargin,
             })),
-        };
+        }));
     }
 
     // =========================================================================
@@ -1013,10 +1157,12 @@ export class AdminRepository {
     /**
      * Find all payments
      */
-    async findAllPayments(): Promise<AdminPayment[]> {
+    async findAllPayments(params?: PaginationParams): Promise<AdminPayment[]> {
+        const { skip, take } = resolvePagination(params);
         const payments = await prisma.payment.findMany({
             orderBy: { createdAt: 'desc' },
-            take: 2000,
+            skip,
+            take,
             select: {
                 id: true,
                 orderId: true,
@@ -1046,10 +1192,12 @@ export class AdminRepository {
     /**
      * Find all settlements
      */
-    async findAllSettlements(): Promise<AdminSettlement[]> {
+    async findAllSettlements(params?: PaginationParams): Promise<AdminSettlement[]> {
+        const { skip, take } = resolvePagination(params);
         const settlements = await prisma.sellerSettlement.findMany({
             orderBy: { createdAt: 'desc' },
-            take: 2000,
+            skip,
+            take,
         });
 
         return settlements.map((s) => ({

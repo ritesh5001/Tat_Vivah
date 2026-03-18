@@ -9,7 +9,8 @@ export class SettlementRepository {
             },
             orderBy: {
                 createdAt: 'desc'
-            }
+            },
+            take: 500,
         });
     }
     async markSettlementAsSettled(settlementId) {

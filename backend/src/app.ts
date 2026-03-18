@@ -20,6 +20,7 @@ import {
     couponRouter,
     orderRouter,
     sellerOrderRouter,
+    appointmentRouter,
     cancellationRouter,
     returnRouter,
     paymentRouter,
@@ -69,9 +70,12 @@ export function createApp(): Application {
     // Parse URL-encoded bodies
     app.use(express.urlencoded({ extended: true }));
 
-    // Enable CORS
+    // Enable CORS — support comma-separated origins for multi-subdomain setup
+    const corsOrigin = process.env['CORS_ORIGIN'];
     app.use(cors({
-        origin: process.env['CORS_ORIGIN'] ?? '*',
+        origin: corsOrigin
+            ? corsOrigin.split(',').map(o => o.trim())
+            : true,  // `true` reflects the request origin (safer than '*' with credentials)
         credentials: true,
     }));
 
@@ -195,6 +199,7 @@ export function createApp(): Application {
     app.use('/v1/coupons', couponRouter);
     app.use('/v1/orders', orderRouter);
     app.use('/v1/seller/orders', sellerOrderRouter);
+    app.use('/v1/appointments', appointmentRouter);
     app.use('/v1/cancellations', cancellationRouter);
     app.use('/v1/returns', returnRouter);
 

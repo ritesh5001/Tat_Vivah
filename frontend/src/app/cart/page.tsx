@@ -166,6 +166,7 @@ export default function CartPage() {
                 </div>
                 <Link
                   href="/marketplace"
+                  prefetch={false}
                   className="inline-flex h-12 items-center justify-center bg-charcoal px-8 text-xs font-medium uppercase tracking-[0.15em] text-ivory transition-all duration-400 hover:bg-brown dark:bg-gold dark:text-charcoal dark:hover:bg-gold-muted"
                 >
                   Explore Collection
@@ -191,7 +192,7 @@ export default function CartPage() {
                   >
                     <div className="flex gap-6">
                       {/* Product Image - Gallery Frame */}
-                      <div className="w-24 h-28 sm:w-32 sm:h-36 flex-shrink-0 bg-cream dark:bg-brown/20 p-2 border border-border-soft">
+                      <div className="w-24 h-28 sm:w-32 sm:h-36 shrink-0 bg-cream dark:bg-brown/20 p-2 border border-border-soft">
                         <div className="w-full h-full bg-card flex items-center justify-center">
                           <span className="text-[10px] text-muted-foreground/50 uppercase tracking-wider">
                             Image
@@ -334,6 +335,7 @@ export default function CartPage() {
 
                 <Link
                   href="/marketplace"
+                  prefetch={false}
                   className="block text-center text-xs font-medium uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors duration-300"
                 >
                   Continue Exploring

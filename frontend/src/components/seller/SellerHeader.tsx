@@ -31,6 +31,7 @@ export function SellerHeader() {
     { href: "/seller/products", label: "Products" },
     { href: "/seller/reels", label: "Reels" },
     { href: "/seller/orders", label: "Orders" },
+    { href: "/seller/appointments", label: "Appointments" },
     { href: "/seller/settlements", label: "Settlements" },
     { href: "/seller/analytics", label: "Analytics" },
   ];

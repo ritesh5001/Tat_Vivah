@@ -1,13 +1,24 @@
 import { EmailTemplateResult } from '../../types.js';
+import { renderBrandedEmail } from './layout.js';
 
 export function orderShippedTemplate(data: { orderId: string, trackingNumber: string, carrier: string }): EmailTemplateResult {
     return {
         subject: `Your Order #${data.orderId} has Shipped!`,
-        html: `
-            <h1>Order Shipped</h1>
-            <p>Your order is on the way.</p>
-            <p><strong>Carrier:</strong> ${data.carrier}</p>
-            <p><strong>Tracking Number:</strong> ${data.trackingNumber}</p>
-        `
+        html: renderBrandedEmail({
+            preheader: `Order #${data.orderId} has been shipped.`,
+            eyebrow: 'Shipment Update',
+            title: 'Your Order Is On The Way',
+            message: [
+                'Your parcel has been handed over to our delivery partner and is now in transit.',
+                'Use the shipment details below to track movement with the carrier.',
+            ],
+            details: [
+                { label: 'Order ID', value: data.orderId },
+                { label: 'Carrier', value: data.carrier },
+                { label: 'Tracking Number', value: data.trackingNumber },
+            ],
+            ctaLabel: 'View Order Status',
+            ctaUrl: 'https://tatvivahtrends.com/user/orders',
+        }),
     };
 }

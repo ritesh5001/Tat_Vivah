@@ -11,6 +11,7 @@ export declare class ProductController {
      * Handle Zod validation errors
      */
     private handleZodError;
+    private parsePositiveInt;
     /**
      * GET /v1/products
      * List published products with pagination

@@ -2,11 +2,13 @@ import { prisma } from '../config/db.js';
 import { redis } from '../config/redis.js';
 import { ApiError } from '../errors/ApiError.js';
 import { searchLogger } from '../config/logger.js';
+import { CACHE_KEYS, getFromCache, setCache } from '../utils/cache.util.js';
 import { searchQueryTotal, searchNoResultTotal, autocompleteTotal, searchDurationSeconds, } from '../config/metrics.js';
 // ---------------------------------------------------------------------------
 // Redis key
 // ---------------------------------------------------------------------------
 const TRENDING_KEY = 'search:trending';
+const MAX_SEARCH_LIMIT = 20;
 // ---------------------------------------------------------------------------
 // Service
 // ---------------------------------------------------------------------------
@@ -16,8 +18,15 @@ export class SearchService {
     // -----------------------------------------------------------------------
     async searchProducts(filters) {
         const timer = searchDurationSeconds.startTimer();
-        const { q, page, limit, categoryId, sort = 'relevance' } = filters;
-        const offset = (page - 1) * limit;
+        const { q, page, categoryId, sort = 'relevance' } = filters;
+        const safeLimit = Math.min(MAX_SEARCH_LIMIT, Math.max(1, Math.trunc(filters.limit || 20)));
+        const cacheKey = CACHE_KEYS.SEARCH_RESULTS(q.trim().toLowerCase(), page, safeLimit, categoryId, sort);
+        const cached = await getFromCache(cacheKey);
+        if (cached) {
+            timer();
+            return cached;
+        }
+        const offset = (page - 1) * safeLimit;
         searchQueryTotal.inc();
         try {
             // Track in Redis trending
@@ -26,6 +35,7 @@ export class SearchService {
             const conditions = [
                 `p."is_published" = true`,
                 `p."deleted_by_admin" = false`,
+                `p."admin_listing_price" IS NOT NULL`,
                 `p."search_vector" @@ plainto_tsquery('english', $1)`,
             ];
             const params = [q];
@@ -74,10 +84,12 @@ export class SearchService {
                 searchNoResultTotal.inc();
                 searchLogger.info({ q, categoryId, total: 0 }, 'search returned zero results');
                 timer();
-                return {
+                const emptyResponse = {
                     data: [],
-                    pagination: { page, limit, total: 0, totalPages: 0 },
+                    pagination: { page, limit: safeLimit, total: 0, totalPages: 0 },
                 };
+                await setCache(cacheKey, emptyResponse, 15);
+                return emptyResponse;
             }
             // Data query
             const dataQuery = `
@@ -87,7 +99,6 @@ export class SearchService {
                     p."description",
                     p."images",
                     p."category_id" AS "categoryId",
-                    p."seller_price" AS "sellerPrice",
                     p."admin_listing_price" AS "adminListingPrice",
                     p."is_published" AS "isPublished",
                     p."created_at" AS "createdAt",
@@ -99,19 +110,20 @@ export class SearchService {
                 ORDER BY ${orderBy}
                 LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
             `;
-            params.push(limit, offset);
+            params.push(safeLimit, offset);
             const rows = await prisma.$queryRawUnsafe(dataQuery, ...params);
             // Convert Decimal values to numbers for JSON serialization
             const data = rows.map((row) => ({
                 ...row,
-                sellerPrice: Number(row.sellerPrice ?? 0),
                 adminListingPrice: row.adminListingPrice != null ? Number(row.adminListingPrice) : null,
                 rank: row.rank != null ? Number(row.rank) : undefined,
             }));
-            const totalPages = Math.ceil(total / limit);
+            const totalPages = Math.ceil(total / safeLimit);
             searchLogger.info({ q, categoryId, sort, total, page }, 'search executed');
             timer();
-            return { data, pagination: { page, limit, total, totalPages } };
+            const response = { data, pagination: { page, limit: safeLimit, total, totalPages } };
+            await setCache(cacheKey, response, 60);
+            return response;
         }
         catch (error) {
             timer();
@@ -124,6 +136,12 @@ export class SearchService {
     // -----------------------------------------------------------------------
     async getSuggestions(q, limit = 8) {
         autocompleteTotal.inc();
+        const safeLimit = Math.min(MAX_SEARCH_LIMIT, Math.max(1, Math.trunc(limit || 8)));
+        const cacheKey = CACHE_KEYS.SEARCH_SUGGESTIONS(q.trim().toLowerCase(), safeLimit);
+        const cached = await getFromCache(cacheKey);
+        if (cached) {
+            return cached;
+        }
         const rows = await prisma.$queryRawUnsafe(`SELECT p."id", p."title", c."name" AS "categoryName"
              FROM "products" p
              LEFT JOIN "categories" c ON c."id" = p."category_id"
@@ -131,13 +149,15 @@ export class SearchService {
                AND p."deleted_by_admin" = false
                AND p."title" ILIKE $1
              ORDER BY p."title" ASC
-             LIMIT $2`, `${q}%`, limit);
+             LIMIT $2`, `${q}%`, safeLimit);
         searchLogger.debug({ q, count: rows.length }, 'autocomplete suggestions');
-        return rows.map((r) => ({
+        const suggestions = rows.map((r) => ({
             id: r.id,
             title: r.title,
             category: r.categoryName ?? null,
         }));
+        await setCache(cacheKey, suggestions, 60);
+        return suggestions;
     }
     // -----------------------------------------------------------------------
     // Trending searches (Redis sorted set)
@@ -156,6 +176,12 @@ export class SearchService {
     // Related products
     // -----------------------------------------------------------------------
     async getRelatedProducts(productId, limit = 8) {
+        const safeLimit = Math.min(MAX_SEARCH_LIMIT, Math.max(1, Math.trunc(limit || 8)));
+        const cacheKey = CACHE_KEYS.SEARCH_RELATED(productId, safeLimit);
+        const cached = await getFromCache(cacheKey);
+        if (cached) {
+            return cached;
+        }
         // Find the product's category
         const product = await prisma.product.findUnique({
             where: { id: productId },
@@ -164,14 +190,13 @@ export class SearchService {
         if (!product) {
             throw ApiError.notFound('Product not found');
         }
-        // Same category, exclude self, random order
+        // Same category, exclude self, deterministic latest-first ordering.
         const rows = await prisma.$queryRawUnsafe(`SELECT
                 p."id",
                 p."title",
                 p."description",
                 p."images",
                 p."category_id" AS "categoryId",
-                p."seller_price" AS "sellerPrice",
                 p."admin_listing_price" AS "adminListingPrice",
                 json_build_object('id', c."id", 'name', c."name") AS category
             FROM "products" p
@@ -180,12 +205,12 @@ export class SearchService {
               AND p."id" != $2
               AND p."is_published" = true
               AND p."deleted_by_admin" = false
-            ORDER BY RANDOM()
-            LIMIT $3`, product.categoryId, productId, limit);
+                            AND p."admin_listing_price" IS NOT NULL
+            ORDER BY p."created_at" DESC
+            LIMIT $3`, product.categoryId, productId, safeLimit);
         // Convert decimals
         let data = rows.map((row) => ({
             ...row,
-            sellerPrice: Number(row.sellerPrice ?? 0),
             adminListingPrice: row.adminListingPrice != null ? Number(row.adminListingPrice) : null,
         }));
         // Fallback to bestsellers if fewer than 4 found
@@ -196,7 +221,6 @@ export class SearchService {
                     p."description",
                     p."images",
                     p."category_id" AS "categoryId",
-                    p."seller_price" AS "sellerPrice",
                     p."admin_listing_price" AS "adminListingPrice",
                     json_build_object('id', c."id", 'name', c."name") AS category
                 FROM "products" p
@@ -205,19 +229,20 @@ export class SearchService {
                 WHERE p."id" != $1
                   AND p."is_published" = true
                   AND p."deleted_by_admin" = false
+                                    AND p."admin_listing_price" IS NOT NULL
                 ORDER BY b."position" ASC
-                LIMIT $2`, productId, limit - data.length);
+                LIMIT $2`, productId, safeLimit - data.length);
             const existingIds = new Set(data.map((d) => d.id));
             const extra = fallbackRows
                 .filter((r) => !existingIds.has(r.id))
                 .map((row) => ({
                 ...row,
-                sellerPrice: Number(row.sellerPrice ?? 0),
                 adminListingPrice: row.adminListingPrice != null ? Number(row.adminListingPrice) : null,
             }));
-            data = [...data, ...extra].slice(0, limit);
+            data = [...data, ...extra].slice(0, safeLimit);
         }
         searchLogger.debug({ productId, count: data.length }, 'related products');
+        await setCache(cacheKey, data, data.length === 0 ? 15 : 60);
         return data;
     }
 }

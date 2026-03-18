@@ -54,7 +54,7 @@ export class CategoryService {
         const response: CategoryListResponse = { categories };
 
         // Cache the result
-        await setCache(CACHE_KEYS.CATEGORIES_LIST, response);
+        await setCache(CACHE_KEYS.CATEGORIES_LIST, response, 120);
 
         return response;
     }

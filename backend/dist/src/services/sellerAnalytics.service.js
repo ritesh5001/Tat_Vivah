@@ -229,6 +229,7 @@ class SellerAnalyticsService {
         const [variants, fastMovingAggs] = await Promise.all([
             prisma.productVariant.findMany({
                 where: { product: { sellerId } },
+                take: 5000,
                 include: {
                     inventory: true,
                     product: { select: { id: true, title: true, images: true } },

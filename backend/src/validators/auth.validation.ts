@@ -39,6 +39,10 @@ export const registerSellerSchema = z.object({
         .string()
         .regex(/^\d{10,15}$/, 'Phone must be 10-15 digits'),
 
+    whatsappNumber: z
+        .string()
+        .regex(/^\d{10,15}$/, 'WhatsApp number must be 10-15 digits'),
+
     password: z
         .string()
         .min(8, 'Password must be at least 8 characters')

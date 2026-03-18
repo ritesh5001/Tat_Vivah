@@ -17,16 +17,21 @@ export class OrderService {
      * List buyer's orders
      * Uses Redis caching
      */
-    async listBuyerOrders(userId) {
+    async listBuyerOrders(userId, params) {
+        const page = params?.page ?? 1;
+        const limit = params?.limit ?? 20;
+        const startKey = params?.startDate?.toISOString() ?? '_';
+        const endKey = params?.endDate?.toISOString() ?? '_';
+        const cacheKey = `${CACHE_KEYS.BUYER_ORDERS(userId)}:${page}:${limit}:${startKey}:${endKey}`;
         // Try cache first
-        const cached = await getFromCache(CACHE_KEYS.BUYER_ORDERS(userId));
+        const cached = await getFromCache(cacheKey);
         if (cached) {
             return cached;
         }
-        const orders = await this.orderRepo.findByUserId(userId);
+        const orders = await this.orderRepo.findByUserId(userId, params);
         const response = { orders };
         // Cache the result
-        await setCache(CACHE_KEYS.BUYER_ORDERS(userId), response);
+        await setCache(cacheKey, response);
         return response;
     }
     /**
@@ -55,8 +60,8 @@ export class OrderService {
      * List seller's order items
      * No caching (frequently changing data)
      */
-    async listSellerOrders(sellerId) {
-        const orderItems = await this.orderRepo.findBySellerId(sellerId);
+    async listSellerOrders(sellerId, params) {
+        const orderItems = await this.orderRepo.findBySellerId(sellerId, params);
         return { orderItems };
     }
     /**

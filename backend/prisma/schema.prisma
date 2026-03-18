@@ -14,6 +14,7 @@ model User {
   id                 String              @id @default(uuid())
   email              String?             @unique
   phone              String?             @unique
+  whatsappNumber     String?             @map("whatsapp_number")
   passwordHash       String              @map("password_hash")
   role               Role
   status             UserStatus
@@ -52,6 +53,9 @@ model User {
   reelLikes            ReelLike[]
   reelViews            ReelView[]
   reelProductClicks    ReelProductClick[]
+  userAppointments     Appointment[]      @relation("UserAppointments")
+  sellerAppointments   Appointment[]      @relation("SellerAppointments")
+  sellerAvailabilities SellerAvailability[]
 
   @@index([role])
   @@index([status])
@@ -187,6 +191,7 @@ model Product {
   reels                Reel[]                @relation("ProductReels")
   reelProductClicks    ReelProductClick[]
   occasions            ProductOccasion[]
+  appointments         Appointment[]
 
   @@index([sellerId])
   @@index([categoryId])
@@ -199,6 +204,53 @@ model Product {
   @@index([sellerId, status])
   @@index([status, deletedByAdmin])
   @@map("products")
+}
+
+/// Buyer-seller video call appointments over WhatsApp
+model Appointment {
+  id             String            @id @default(cuid())
+  userId         String            @map("user_id")
+  sellerId       String            @map("seller_id")
+  productId      String?           @map("product_id")
+  date           DateTime          @db.Date
+  time           String
+  status         AppointmentStatus @default(PENDING)
+  whatsappNumber String            @map("whatsapp_number")
+  notes          String?
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+
+  user    User    @relation("UserAppointments", fields: [userId], references: [id], onDelete: Cascade)
+  seller  User    @relation("SellerAppointments", fields: [sellerId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([sellerId])
+  @@index([productId])
+  @@index([date])
+  @@index([status])
+  @@index([sellerId, date, time])
+  @@map("appointments")
+}
+
+/// Seller weekly availability windows for appointment booking
+model SellerAvailability {
+  id        String   @id @default(cuid())
+  sellerId  String   @map("seller_id")
+  dayOfWeek Int      @map("day_of_week")
+  startTime String   @map("start_time")
+  endTime   String   @map("end_time")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  seller User @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  @@index([sellerId])
+  @@index([dayOfWeek])
+  @@index([isActive])
+  @@unique([sellerId, dayOfWeek, startTime, endTime], name: "seller_availability_slot_unique")
+  @@map("seller_availability")
 }
 
 /// Admin-managed bestseller list for homepage
@@ -289,6 +341,7 @@ model Order {
   shippingAddressLine1 String?             @map("shipping_address_line_1")
   shippingAddressLine2 String?             @map("shipping_address_line_2")
   shippingCity         String?             @map("shipping_city")
+  shippingPincode      String?             @map("shipping_pincode")
   shippingNotes        String?             @map("shipping_notes")
   createdAt            DateTime            @default(now()) @map("created_at")
   movements            InventoryMovement[]
@@ -726,6 +779,13 @@ enum UserStatus {
   PENDING
   ACTIVE
   SUSPENDED
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
 }
 
 enum OrderStatus {

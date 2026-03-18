@@ -89,6 +89,7 @@ export class CancellationService {
         const cancellations = await prisma.cancellationRequest.findMany({
             where: { userId },
             orderBy: { createdAt: 'desc' },
+            take: 200,
             include: {
                 order: {
                     select: {
@@ -112,6 +113,7 @@ export class CancellationService {
                 ...(filters.orderId ? { orderId: filters.orderId } : {}),
             },
             orderBy: { createdAt: 'desc' },
+            take: 100,
             include: {
                 user: {
                     select: {
@@ -327,16 +329,22 @@ export class CancellationService {
                 restockByVariant.set(item.variantId, currentQty + item.quantity);
             }
             for (const [variantId, quantity] of restockByVariant) {
-                const inventoryUpdate = await tx.inventory.updateMany({
-                    where: { variantId },
-                    data: { stock: { increment: quantity } },
-                });
-                if (inventoryUpdate.count === 0) {
+                try {
+                    await tx.inventory.upsert({
+                        where: { variantId },
+                        update: { stock: { increment: quantity } },
+                        create: {
+                            variantId,
+                            stock: quantity,
+                        },
+                    });
+                }
+                catch (error) {
                     recordCancellationFatal({
                         cancellationId,
                         orderId: liveOrder.id,
                         adminId: reviewerId,
-                        reason: `Inventory increment failed for variant ${variantId}`,
+                        reason: `Inventory restore failed for variant ${variantId}`,
                     });
                     throw ApiError.internal(`Failed to restore inventory for variant ${variantId}`);
                 }

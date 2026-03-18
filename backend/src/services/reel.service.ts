@@ -9,6 +9,12 @@ import type {
     ReelDetailResponse,
     AdminReelListResponse,
 } from '../types/reel.types.js';
+import {
+    CACHE_KEYS,
+    getFromCache,
+    setCache,
+    invalidateCacheByPattern,
+} from '../utils/cache.util.js';
 
 export class ReelService {
     constructor(private readonly reelRepo: ReelRepository) {}
@@ -33,6 +39,8 @@ export class ReelService {
             caption: data.caption,
             productId: data.productId,
         });
+
+        await invalidateCacheByPattern('reels:public:*');
 
         // Fire-and-forget: compress video + extract metadata
         compressReelVideo(reel.id, reel.videoUrl).catch(() => {});
@@ -67,6 +75,7 @@ export class ReelService {
         }
 
         await this.reelRepo.delete(reelId);
+        await invalidateCacheByPattern('reels:public:*');
         return { message: 'Reel deleted successfully' };
     }
 
@@ -108,6 +117,7 @@ export class ReelService {
         }
 
         const updated = await this.reelRepo.updateStatus(reelId, 'APPROVED');
+        await invalidateCacheByPattern('reels:public:*');
         return { message: 'Reel approved successfully', reel: updated };
     }
 
@@ -118,6 +128,7 @@ export class ReelService {
         }
 
         const updated = await this.reelRepo.updateStatus(reelId, 'REJECTED');
+        await invalidateCacheByPattern('reels:public:*');
         return { message: 'Reel rejected successfully', reel: updated };
     }
 
@@ -128,6 +139,7 @@ export class ReelService {
         }
 
         await this.reelRepo.delete(reelId);
+        await invalidateCacheByPattern('reels:public:*');
         return { message: 'Reel deleted by admin' };
     }
 
@@ -136,11 +148,16 @@ export class ReelService {
     // =========================================================================
 
     async listPublicReels(filters: ReelQueryFilters): Promise<PublicReelListResponse> {
-        const { reels, total } = await this.reelRepo.findPublished(filters);
         const page = filters.page ?? 1;
         const limit = filters.limit ?? 20;
+        const cacheKey = CACHE_KEYS.REELS_PUBLIC(page, limit);
+        const cached = await getFromCache<PublicReelListResponse>(cacheKey);
+        if (cached) {
+            return cached;
+        }
 
-        return {
+        const { reels, total } = await this.reelRepo.findPublished(filters);
+        const response = {
             reels: reels.map((r) => ({
                 ...r,
                 product: r.product
@@ -160,6 +177,8 @@ export class ReelService {
                 totalPages: Math.ceil(total / limit),
             },
         };
+        await setCache(cacheKey, response, 120);
+        return response;
     }
 
     async getPublicReel(reelId: string): Promise<ReelDetailResponse> {

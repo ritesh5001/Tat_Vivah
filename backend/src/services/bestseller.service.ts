@@ -33,7 +33,7 @@ export class BestsellerService {
         });
 
         const response = { products };
-        await setCache(cacheKey, response);
+        await setCache(cacheKey, response, 120);
         return response;
     }
 

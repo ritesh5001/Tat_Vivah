@@ -19,12 +19,22 @@ export declare class OrderRepository {
     /**
      * Find all orders for a user (buyer)
      */
-    findByUserId(userId: string): Promise<OrderWithItems[]>;
+    findByUserId(userId: string, params?: {
+        page?: number;
+        limit?: number;
+        startDate?: Date;
+        endDate?: Date;
+    }): Promise<OrderWithItems[]>;
     /**
      * Find order items for a seller
      * Uses batch lookups instead of N+1 queries
      */
-    findBySellerId(sellerId: string): Promise<SellerOrderItem[]>;
+    findBySellerId(sellerId: string, params?: {
+        page?: number;
+        limit?: number;
+        startDate?: Date;
+        endDate?: Date;
+    }): Promise<SellerOrderItem[]>;
     /**
      * Find order items for a specific order belonging to seller
      */

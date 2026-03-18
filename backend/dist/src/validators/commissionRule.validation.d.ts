@@ -1,7 +1,7 @@
 import { z } from 'zod';
 export declare const createCommissionRuleSchema: z.ZodObject<{
-    sellerId: z.ZodOptional<z.ZodString>;
-    categoryId: z.ZodOptional<z.ZodString>;
+    sellerId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    categoryId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     commissionPercent: z.ZodNumber;
     platformFee: z.ZodNumber;
     isActive: z.ZodDefault<z.ZodOptional<z.ZodBoolean>>;
@@ -9,13 +9,13 @@ export declare const createCommissionRuleSchema: z.ZodObject<{
     commissionPercent: number;
     platformFee: number;
     isActive: boolean;
-    sellerId?: string | undefined;
-    categoryId?: string | undefined;
+    sellerId?: string | null | undefined;
+    categoryId?: string | null | undefined;
 }, {
     commissionPercent: number;
     platformFee: number;
-    sellerId?: string | undefined;
-    categoryId?: string | undefined;
+    sellerId?: string | null | undefined;
+    categoryId?: string | null | undefined;
     isActive?: boolean | undefined;
 }>;
 export declare const updateCommissionRuleSchema: z.ZodObject<{

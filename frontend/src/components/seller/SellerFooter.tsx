@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+const MAIN_DOMAIN = "https://tatvivahtrends.com";
+
 export function SellerFooter() {
   return (
     <footer className="border-t border-border-soft bg-background">
@@ -20,12 +22,14 @@ export function SellerFooter() {
           >
             Profile
           </Link>
-          <Link
-            href="/contact"
+          <a
+            href={`${MAIN_DOMAIN}/contact`}
+            target="_blank"
+            rel="noopener noreferrer"
             className="text-[11px] uppercase tracking-[0.14em] text-foreground transition-colors hover:text-gold"
           >
             Support
-          </Link>
+          </a>
         </div>
       </div>
     </footer>

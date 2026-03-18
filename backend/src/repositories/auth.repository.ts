@@ -69,6 +69,7 @@ export class AuthRepository {
             data: {
                 email: data.email,
                 phone: data.phone,
+                whatsappNumber: data.whatsappNumber ?? null,
                 passwordHash: data.passwordHash,
                 role: data.role,
                 status: data.status,
@@ -90,6 +91,7 @@ export class AuthRepository {
             data: {
                 ...(data.email !== undefined && { email: data.email }),
                 ...(data.phone !== undefined && { phone: data.phone }),
+                ...(data.whatsappNumber !== undefined && { whatsappNumber: data.whatsappNumber }),
                 ...(data.passwordHash !== undefined && { passwordHash: data.passwordHash }),
                 ...(data.role !== undefined && { role: data.role }),
                 ...(data.status !== undefined && { status: data.status }),

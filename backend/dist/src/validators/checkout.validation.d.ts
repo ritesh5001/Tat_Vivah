@@ -12,6 +12,7 @@ export declare const checkoutSchema: z.ZodObject<{
         shippingAddressLine1: z.ZodOptional<z.ZodString>;
         shippingAddressLine2: z.ZodOptional<z.ZodString>;
         shippingCity: z.ZodOptional<z.ZodString>;
+        shippingPincode: z.ZodOptional<z.ZodString>;
         shippingNotes: z.ZodOptional<z.ZodString>;
     }, "strip", z.ZodTypeAny, {
         couponCode?: string | undefined;
@@ -21,6 +22,7 @@ export declare const checkoutSchema: z.ZodObject<{
         shippingAddressLine1?: string | undefined;
         shippingAddressLine2?: string | undefined;
         shippingCity?: string | undefined;
+        shippingPincode?: string | undefined;
         shippingNotes?: string | undefined;
     }, {
         couponCode?: string | undefined;
@@ -30,6 +32,7 @@ export declare const checkoutSchema: z.ZodObject<{
         shippingAddressLine1?: string | undefined;
         shippingAddressLine2?: string | undefined;
         shippingCity?: string | undefined;
+        shippingPincode?: string | undefined;
         shippingNotes?: string | undefined;
     }>;
 }, "strip", z.ZodTypeAny, {
@@ -41,6 +44,7 @@ export declare const checkoutSchema: z.ZodObject<{
         shippingAddressLine1?: string | undefined;
         shippingAddressLine2?: string | undefined;
         shippingCity?: string | undefined;
+        shippingPincode?: string | undefined;
         shippingNotes?: string | undefined;
     };
 }, {
@@ -52,6 +56,7 @@ export declare const checkoutSchema: z.ZodObject<{
         shippingAddressLine1?: string | undefined;
         shippingAddressLine2?: string | undefined;
         shippingCity?: string | undefined;
+        shippingPincode?: string | undefined;
         shippingNotes?: string | undefined;
     };
 }>;

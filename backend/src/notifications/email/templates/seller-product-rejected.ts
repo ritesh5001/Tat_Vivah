@@ -1,4 +1,5 @@
 import { EmailTemplateResult } from '../../types.js';
+import { renderBrandedEmail } from './layout.js';
 
 export function sellerProductRejectedTemplate(meta: any): EmailTemplateResult {
   const productTitle = meta?.productTitle ?? 'your product';
@@ -6,12 +7,21 @@ export function sellerProductRejectedTemplate(meta: any): EmailTemplateResult {
 
   return {
     subject: 'Product Rejected',
-    html: `
-      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #1f2937;">
-        <h2 style="margin-bottom: 8px;">Product Rejected</h2>
-        <p>Your product <strong>${productTitle}</strong> was rejected.</p>
-        <p><strong>Reason:</strong> ${reason}</p>
-      </div>
-    `,
+    html: renderBrandedEmail({
+      preheader: `${productTitle} needs revisions before approval.`,
+      eyebrow: 'Product Moderation',
+      title: 'Product Rejected',
+      message: [
+        `Your product ${productTitle} was reviewed and requires updates before it can go live.`,
+        'Please address the moderation feedback and submit again.',
+      ],
+      details: [
+        { label: 'Product', value: productTitle },
+        { label: 'Reason', value: reason },
+      ],
+      ctaLabel: 'Edit Product',
+      ctaUrl: 'https://seller.tatvivahtrends.com/seller/products',
+      accentText: 'A clear correction on title, images, and compliance details typically speeds up re-approval.',
+    }),
   };
 }

@@ -2,6 +2,14 @@
  * Admin Repository
  * Database operations for admin panel
  */
+interface PaginationParams {
+    page?: number;
+    limit?: number;
+}
+interface DateRangeParams {
+    startDate?: Date;
+    endDate?: Date;
+}
 export type ProductModerationStatusType = 'PENDING' | 'APPROVED' | 'REJECTED';
 export type UserStatusType = 'PENDING' | 'ACTIVE' | 'SUSPENDED';
 export type OrderStatusType = 'PLACED' | 'CONFIRMED' | 'CANCELLED' | 'SHIPPED' | 'DELIVERED';
@@ -50,18 +58,33 @@ export interface AdminProduct {
         reviewedBy: string | null;
         reviewedAt: Date | null;
     } | null;
+    occasionIds?: string[];
 }
 export interface AdminOrder {
     id: string;
     userId: string;
+    buyerEmail?: string | null;
+    buyerPhone?: string | null;
     status: string;
     totalAmount: number;
+    shippingName?: string | null;
+    shippingPhone?: string | null;
+    shippingEmail?: string | null;
+    shippingAddressLine1?: string | null;
+    shippingAddressLine2?: string | null;
+    shippingCity?: string | null;
+    shippingPincode?: string | null;
+    shippingNotes?: string | null;
     createdAt: Date;
     items: {
         id: string;
         sellerId: string;
+        sellerEmail?: string | null;
+        sellerName?: string | null;
         productId: string;
+        productTitle?: string | null;
         variantId: string;
+        variantSku?: string | null;
         quantity: number;
         priceSnapshot: number;
         sellerPriceSnapshot?: number;
@@ -149,7 +172,7 @@ export declare class AdminRepository {
     /**
      * Find all sellers
      */
-    findAllSellers(): Promise<AdminSeller[]>;
+    findAllSellers(params?: PaginationParams): Promise<AdminSeller[]>;
     /**
      * Find seller by ID
      */
@@ -161,7 +184,7 @@ export declare class AdminRepository {
     /**
      * Find all products pending moderation
      */
-    findPendingProducts(): Promise<AdminProduct[]>;
+    findPendingProducts(params?: PaginationParams): Promise<AdminProduct[]>;
     /**
      * Find product by ID with moderation info
      */
@@ -169,7 +192,7 @@ export declare class AdminRepository {
     /**
      * List all products for admin view
      */
-    findAllProducts(): Promise<AdminProduct[]>;
+    findAllProducts(params?: PaginationParams): Promise<AdminProduct[]>;
     /**
      * Soft-delete a product by admin
      */
@@ -184,12 +207,14 @@ export declare class AdminRepository {
     updateProductPublishStatus(id: string, isPublished: boolean): Promise<AdminProduct>;
     applyProductApprovalDecision(productId: string, actorId: string, decision: 'APPROVED' | 'REJECTED', reason?: string): Promise<AdminProduct>;
     setProductListingPrice(productId: string, adminListingPrice: number, actorId: string): Promise<AdminProduct>;
-    findProductPricingOverview(): Promise<AdminPricingOverviewItem[]>;
-    getProfitAnalytics(): Promise<AdminProfitAnalytics>;
+    findProductPricingOverview(params?: PaginationParams): Promise<AdminPricingOverviewItem[]>;
+    getProfitAnalytics(params?: DateRangeParams & {
+        limit?: number;
+    }): Promise<AdminProfitAnalytics>;
     /**
      * Find all orders
      */
-    findAllOrders(): Promise<AdminOrder[]>;
+    findAllOrders(params?: PaginationParams & DateRangeParams): Promise<AdminOrder[]>;
     /**
      * Find order by ID
      */
@@ -198,14 +223,16 @@ export declare class AdminRepository {
      * Update order status
      */
     updateOrderStatus(id: string, status: OrderStatusType): Promise<AdminOrder>;
+    private enrichOrders;
     /**
      * Find all payments
      */
-    findAllPayments(): Promise<AdminPayment[]>;
+    findAllPayments(params?: PaginationParams): Promise<AdminPayment[]>;
     /**
      * Find all settlements
      */
-    findAllSettlements(): Promise<AdminSettlement[]>;
+    findAllSettlements(params?: PaginationParams): Promise<AdminSettlement[]>;
 }
 export declare const adminRepository: AdminRepository;
+export {};
 //# sourceMappingURL=admin.repository.d.ts.map

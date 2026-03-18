@@ -71,6 +71,7 @@ export class ProductService {
         const listingPrice = this.toNumber(product.adminListingPrice);
         return {
             id: product.id,
+            sellerId: product.sellerId,
             categoryId: product.categoryId,
             title: product.title,
             description: product.description ?? null,
@@ -114,19 +115,19 @@ export class ProductService {
      * Uses Redis caching
      */
     async listProducts(filters: ProductQueryFilters): Promise<ProductListResponse> {
-        // Only cache if no filters (default listing)
-        const useCache = !filters.categoryId && !filters.search && !filters.occasion && filters.page === 1;
+        const page = filters.page ?? 1;
+        const limit = filters.limit ?? 20;
+        const cacheKey =
+            !filters.categoryId && !filters.search && !filters.occasion && page === 1 && limit === 20
+                ? CACHE_KEYS.PRODUCTS_LIST
+                : CACHE_KEYS.PRODUCTS_LIST_FILTERED(page, limit, filters.categoryId, filters.search, filters.occasion);
 
-        if (useCache) {
-            const cached = await getFromCache<ProductListResponse>(CACHE_KEYS.PRODUCTS_LIST);
-            if (cached) {
-                return cached;
-            }
+        const cached = await getFromCache<ProductListResponse>(cacheKey);
+        if (cached) {
+            return cached;
         }
 
         const { products, total } = await this.productRepo.findPublished(filters);
-        const page = filters.page ?? 1;
-        const limit = filters.limit ?? 20;
 
         const response: ProductListResponse = {
             data: products.map((product) => this.toPublicProduct(product)),
@@ -138,10 +139,7 @@ export class ProductService {
             },
         };
 
-        // Cache only default listing
-        if (useCache) {
-            await setCache(CACHE_KEYS.PRODUCTS_LIST, response);
-        }
+        await setCache(cacheKey, response, 60);
 
         return response;
     }
@@ -152,8 +150,9 @@ export class ProductService {
      */
     async getProductById(id: string): Promise<ProductDetailResponse> {
         // Try cache first
-        const cached = await getFromCache<ProductDetailResponse>(CACHE_KEYS.PRODUCT_DETAIL(id));
-        if (cached) {
+        const cacheKey = CACHE_KEYS.PRODUCT_DETAIL(id);
+        const cached = await getFromCache<ProductDetailResponse>(cacheKey);
+        if (cached?.product?.sellerId) {
             return cached;
         }
 
@@ -165,7 +164,7 @@ export class ProductService {
         const response: ProductDetailResponse = { product: this.toPublicProductDetail(product) };
 
         // Cache the result
-        await setCache(CACHE_KEYS.PRODUCT_DETAIL(id), response);
+        await setCache(cacheKey, response, 60);
 
         return response;
     }
@@ -207,9 +206,22 @@ export class ProductService {
      * List seller's own products
      * No caching (private data)
      */
-    async listSellerProducts(sellerId: string): Promise<SellerProductListResponse> {
-        const products = await this.productRepo.findBySellerId(sellerId);
-        return { products: products.map((product) => this.toSellerProduct(product)) };
+    async listSellerProducts(
+        sellerId: string,
+        params?: { page?: number; limit?: number }
+    ): Promise<SellerProductListResponse> {
+        const page = params?.page ?? 1;
+        const limit = params?.limit ?? 20;
+        const cacheKey = CACHE_KEYS.SELLER_PRODUCTS(sellerId, page, limit);
+        const cached = await getFromCache<SellerProductListResponse>(cacheKey);
+        if (cached) {
+            return cached;
+        }
+
+        const products = await this.productRepo.findBySellerId(sellerId, params);
+        const response = { products: products.map((product) => this.toSellerProduct(product)) };
+        await setCache(cacheKey, response, 60);
+        return response;
     }
 
     /**

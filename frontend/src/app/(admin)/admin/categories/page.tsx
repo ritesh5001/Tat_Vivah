@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
 import ImageKit from "imagekit-javascript";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -92,7 +93,15 @@ const CategoryFormFields = ({
           )}
           {values.image ? (
             <div className="space-y-2">
-              <img src={values.image} alt="Category" className="h-24 w-full border border-border-soft object-cover" />
+              <div className="relative h-24 w-full overflow-hidden border border-border-soft">
+                <Image
+                  src={values.image}
+                  alt="Category"
+                  fill
+                  sizes="(max-width: 768px) 100vw, 24rem"
+                  className="object-cover"
+                />
+              </div>
               <Button type="button" variant="outline" size="sm" onClick={() => onChange("image", "")}>Remove Image</Button>
             </div>
           ) : null}
@@ -118,7 +127,15 @@ const CategoryFormFields = ({
           )}
           {values.bannerImage ? (
             <div className="space-y-2">
-              <img src={values.bannerImage} alt="Category banner" className="h-24 w-full border border-border-soft object-cover" />
+              <div className="relative h-24 w-full overflow-hidden border border-border-soft">
+                <Image
+                  src={values.bannerImage}
+                  alt="Category banner"
+                  fill
+                  sizes="(max-width: 768px) 100vw, 24rem"
+                  className="object-cover"
+                />
+              </div>
               <Button type="button" variant="outline" size="sm" onClick={() => onChange("bannerImage", "")}>Remove Banner</Button>
             </div>
           ) : null}

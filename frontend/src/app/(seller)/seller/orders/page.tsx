@@ -81,6 +81,7 @@ export default function SellerOrdersPage() {
         item.order?.shippingAddressLine1,
         item.order?.shippingAddressLine2,
         item.order?.shippingCity,
+        item.order?.shippingPincode,
         shipment?.trackingNumber,
         shipment?.carrier,
       ]
@@ -281,6 +282,9 @@ export default function SellerOrdersPage() {
                         {item.order?.shippingAddressLine2 ?? ""}
                         {item.order?.shippingCity
                           ? `, ${item.order.shippingCity}`
+                          : ""}
+                        {item.order?.shippingPincode
+                          ? ` - ${item.order.shippingPincode}`
                           : ""}
                       </p>
                     </div>

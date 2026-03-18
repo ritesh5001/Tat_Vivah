@@ -1,5 +1,17 @@
 import { orderService } from '../services/order.service.js';
 import { generateInvoicePDF, recordInvoiceDownload } from '../services/invoice.service.js';
+function parsePositiveInt(value, fallback) {
+    const n = Number(value);
+    if (!Number.isFinite(n) || n < 1)
+        return fallback;
+    return Math.trunc(n);
+}
+function parseDate(value) {
+    if (typeof value !== 'string' || !value.trim())
+        return undefined;
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? undefined : d;
+}
 /**
  * Order Controller
  * Handles HTTP requests for order viewing (buyer and seller)
@@ -15,7 +27,16 @@ export class OrderController {
     async listBuyerOrders(req, res, next) {
         try {
             const userId = req.user.userId;
-            const result = await orderService.listBuyerOrders(userId);
+            const page = parsePositiveInt(req.query['page'], 1);
+            const limit = parsePositiveInt(req.query['limit'], 20);
+            const startDate = parseDate(req.query['startDate']);
+            const endDate = parseDate(req.query['endDate']);
+            const result = await orderService.listBuyerOrders(userId, {
+                page,
+                limit,
+                ...(startDate ? { startDate } : {}),
+                ...(endDate ? { endDate } : {}),
+            });
             res.json(result);
         }
         catch (error) {
@@ -74,7 +95,16 @@ export class OrderController {
     async listSellerOrders(req, res, next) {
         try {
             const sellerId = req.user.userId;
-            const result = await orderService.listSellerOrders(sellerId);
+            const page = parsePositiveInt(req.query['page'], 1);
+            const limit = parsePositiveInt(req.query['limit'], 20);
+            const startDate = parseDate(req.query['startDate']);
+            const endDate = parseDate(req.query['endDate']);
+            const result = await orderService.listSellerOrders(sellerId, {
+                page,
+                limit,
+                ...(startDate ? { startDate } : {}),
+                ...(endDate ? { endDate } : {}),
+            });
             res.json(result);
         }
         catch (error) {

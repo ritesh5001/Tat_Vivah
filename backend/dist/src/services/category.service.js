@@ -44,7 +44,7 @@ export class CategoryService {
         const categories = await this.repository.findAllActive();
         const response = { categories };
         // Cache the result
-        await setCache(CACHE_KEYS.CATEGORIES_LIST, response);
+        await setCache(CACHE_KEYS.CATEGORIES_LIST, response, 120);
         return response;
     }
     /**
@@ -119,6 +119,7 @@ export class CategoryService {
         if (hasProducts) {
             throw ApiError.badRequest('Cannot delete category that has products. Reassign products first.');
         }
+        await this.repository.purgeSoftDeletedProducts(id);
         await this.repository.delete(id);
         await invalidateCache(CACHE_KEYS.CATEGORIES_LIST);
     }

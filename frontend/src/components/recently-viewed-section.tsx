@@ -100,7 +100,7 @@ export function RecentlyViewedSection() {
           whileInView="visible"
           viewport={viewportSettings}
           variants={staggerContainerVariants}
-          className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4"
+          className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-4"
         >
           {products.slice(0, 8).map((product) => (
             <motion.div key={product.id} variants={staggerItemVariants}>

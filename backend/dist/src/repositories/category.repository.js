@@ -90,8 +90,24 @@ export class CategoryRepository {
      * Check if category has products assigned
      */
     async hasProducts(id) {
-        const count = await prisma.product.count({ where: { categoryId: id } });
+        const count = await prisma.product.count({
+            where: {
+                categoryId: id,
+                deletedByAdmin: false,
+            },
+        });
         return count > 0;
+    }
+    /**
+     * Remove soft-deleted products that still reference the category
+     */
+    async purgeSoftDeletedProducts(categoryId) {
+        await prisma.product.deleteMany({
+            where: {
+                categoryId,
+                deletedByAdmin: true,
+            },
+        });
     }
     /**
      * Hard delete a category

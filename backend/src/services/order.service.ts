@@ -27,20 +27,27 @@ export class OrderService {
      * List buyer's orders
      * Uses Redis caching
      */
-    async listBuyerOrders(userId: string): Promise<BuyerOrderListResponse> {
+    async listBuyerOrders(
+        userId: string,
+        params?: { page?: number; limit?: number; startDate?: Date; endDate?: Date }
+    ): Promise<BuyerOrderListResponse> {
+        const page = params?.page ?? 1;
+        const limit = params?.limit ?? 20;
+        const startKey = params?.startDate?.toISOString() ?? '_';
+        const endKey = params?.endDate?.toISOString() ?? '_';
+        const cacheKey = `${CACHE_KEYS.BUYER_ORDERS(userId)}:${page}:${limit}:${startKey}:${endKey}`;
+
         // Try cache first
-        const cached = await getFromCache<BuyerOrderListResponse>(
-            CACHE_KEYS.BUYER_ORDERS(userId)
-        );
+        const cached = await getFromCache<BuyerOrderListResponse>(cacheKey);
         if (cached) {
             return cached;
         }
 
-        const orders = await this.orderRepo.findByUserId(userId);
+        const orders = await this.orderRepo.findByUserId(userId, params);
         const response: BuyerOrderListResponse = { orders };
 
         // Cache the result
-        await setCache(CACHE_KEYS.BUYER_ORDERS(userId), response);
+        await setCache(cacheKey, response);
 
         return response;
     }
@@ -79,8 +86,11 @@ export class OrderService {
      * List seller's order items
      * No caching (frequently changing data)
      */
-    async listSellerOrders(sellerId: string): Promise<SellerOrderListResponse> {
-        const orderItems = await this.orderRepo.findBySellerId(sellerId);
+    async listSellerOrders(
+        sellerId: string,
+        params?: { page?: number; limit?: number; startDate?: Date; endDate?: Date }
+    ): Promise<SellerOrderListResponse> {
+        const orderItems = await this.orderRepo.findBySellerId(sellerId, params);
         return { orderItems };
     }
 

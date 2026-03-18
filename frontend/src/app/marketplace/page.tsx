@@ -362,14 +362,14 @@ export default async function MarketplacePage({
         </div>
       </section>
 
-      <div className="mx-auto flex max-w-6xl flex-col gap-16 px-6 py-20">
-        <section className="space-y-4">
+      <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-10 sm:gap-12 sm:px-6 sm:py-14 lg:gap-16 lg:py-20">
+        <section className="space-y-3 sm:space-y-4">
           <p className="text-xs font-medium uppercase tracking-[0.3em] text-gold">
             Occasion Collections
           </p>
-          <div className="flex flex-wrap items-end justify-between gap-4">
+          <div className="flex flex-wrap items-end justify-between gap-3 sm:gap-4">
             <div>
-              <h1 className="font-serif text-4xl font-light tracking-tight text-foreground sm:text-5xl">
+              <h1 className="font-serif text-3xl font-light tracking-tight text-foreground sm:text-5xl">
                 {selectedOccasion?.name ?? "All Occasions"}
               </h1>
               <p className="mt-2 text-sm text-muted-foreground">
@@ -379,14 +379,14 @@ export default async function MarketplacePage({
           </div>
         </section>
 
-        <section className="flex flex-col gap-4 border border-border-soft bg-card p-4 md:flex-row md:items-center md:justify-between">
+        <section className="flex flex-col gap-3 border border-border-soft bg-card p-3 sm:gap-4 sm:p-4 md:flex-row md:items-center md:justify-between">
           <div className="w-full md:max-w-md">
             <SearchAutocomplete
               defaultValue={search ?? ""}
               placeholder="Search collections, styles..."
             />
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <Button asChild variant="outline" size="sm">
               <Link href="#marketplace-categories">Filter</Link>
             </Button>
@@ -394,7 +394,10 @@ export default async function MarketplacePage({
           </div>
         </section>
 
-        <section id="marketplace-categories" className="flex flex-wrap gap-3">
+        <section
+          id="marketplace-categories"
+          className="flex gap-3 overflow-x-auto pb-1 whitespace-nowrap md:flex-wrap md:overflow-visible md:whitespace-normal"
+        >
           {categories.length === 0 ? (
             <span className="text-sm text-muted-foreground">
               Categories loading...
@@ -404,7 +407,7 @@ export default async function MarketplacePage({
               <Link
                 key={category.id}
                 href={buildUrl({ nextPage: 1, nextCategoryId: category.id })}
-                className={`px-5 py-2.5 text-xs uppercase tracking-wider transition-all duration-300 border ${selectedCategory?.id === category.id
+                className={`shrink-0 px-5 py-2.5 text-xs uppercase tracking-wider transition-all duration-300 border ${selectedCategory?.id === category.id
                   ? "border-gold bg-cream text-charcoal dark:bg-brown/30 dark:text-ivory"
                   : "border-border-soft bg-card text-muted-foreground hover:border-gold/50 hover:text-foreground"
                   }`}
@@ -415,7 +418,7 @@ export default async function MarketplacePage({
           )}
         </section>
 
-        <section className="flex items-center justify-between">
+        <section className="flex items-center justify-between gap-3">
           <p className="text-xs text-muted-foreground uppercase tracking-wider">
             {pagination.total} {pagination.total === 1 ? "product" : "products"} found
           </p>
@@ -431,9 +434,9 @@ export default async function MarketplacePage({
         </section>
 
         {/* Products Grid */}
-        <section className="grid gap-8 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
+        <section className="grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-4">
           {products.length === 0 ? (
-            <Card className="sm:col-span-2 lg:col-span-3 border-border-soft">
+            <Card className="col-span-2 md:col-span-3 lg:col-span-4 border-border-soft">
               <CardContent className="p-8 text-center text-muted-foreground">
                 No products found. Try adjusting your search or filters.
               </CardContent>
@@ -446,7 +449,7 @@ export default async function MarketplacePage({
         </section>
 
         {/* Pagination */}
-        <section className="flex items-center justify-between border-t border-border-soft pt-8">
+        <section className="flex items-center justify-between border-t border-border-soft pt-5 sm:pt-8">
           <Button
             asChild
             variant="outline"
@@ -476,7 +479,7 @@ export default async function MarketplacePage({
           </Button>
         </section>
         {/* SEO Quick Links */}
-        <section className="border-t border-border-soft pt-12 pb-4">
+        <section className="border-t border-border-soft pt-7 pb-2 sm:pt-12 sm:pb-4">
           <div className="flex flex-col items-center justify-center gap-4 text-center">
             <p className="text-xs font-medium uppercase tracking-[0.2em] text-gold">Explore Collections</p>
             <div className="flex flex-wrap justify-center gap-4">

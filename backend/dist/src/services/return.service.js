@@ -133,6 +133,7 @@ export class ReturnService {
         const returns = await prisma.returnRequest.findMany({
             where: { userId },
             orderBy: { createdAt: 'desc' },
+            take: 200,
             include: {
                 items: true,
                 order: {
@@ -193,6 +194,7 @@ export class ReturnService {
                 ...(filters.orderId ? { orderId: filters.orderId } : {}),
             },
             orderBy: { createdAt: 'desc' },
+            take: 100,
             include: {
                 items: true,
                 user: {
@@ -288,16 +290,22 @@ export class ReturnService {
                 const orderItem = returnReq.order.items.find((oi) => oi.id === returnItem.orderItemId);
                 if (orderItem) {
                     sellerIds.add(orderItem.sellerId);
-                    const inventoryUpdate = await tx.inventory.updateMany({
-                        where: { variantId: returnItem.variantId },
-                        data: { stock: { increment: returnItem.quantity } },
-                    });
-                    if (inventoryUpdate.count === 0) {
+                    try {
+                        await tx.inventory.upsert({
+                            where: { variantId: returnItem.variantId },
+                            update: { stock: { increment: returnItem.quantity } },
+                            create: {
+                                variantId: returnItem.variantId,
+                                stock: returnItem.quantity,
+                            },
+                        });
+                    }
+                    catch (error) {
                         recordReturnFatal({
                             returnId,
                             orderId: returnReq.order.id,
                             adminId,
-                            reason: `Inventory increment failed for variant ${returnItem.variantId}`,
+                            reason: `Inventory restore failed for variant ${returnItem.variantId}`,
                         });
                         throw ApiError.internal(`Failed to restore inventory for variant ${returnItem.variantId}`);
                     }

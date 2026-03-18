@@ -1,12 +1,13 @@
 import express from 'express';
 import cors from 'cors';
+import compression from 'compression';
 import { errorMiddleware } from './middlewares/error.middleware.js';
 import { register, httpRequestDuration } from './config/metrics.js';
 import { prisma } from './config/db.js';
 import { checkRedisConnection } from './config/redis.js';
-import { authRouter, sellerRouter, categoryRouter, productRouter, sellerProductRouter, productMediaRouter, imagekitRouter, bestsellerRouter, cartRouter, checkoutRouter, couponRouter, orderRouter, sellerOrderRouter, cancellationRouter, returnRouter, paymentRouter, webhookRouter, sellerSettlementRouter, adminRouter, 
+import { authRouter, sellerRouter, categoryRouter, productRouter, sellerProductRouter, productMediaRouter, imagekitRouter, bestsellerRouter, cartRouter, checkoutRouter, couponRouter, orderRouter, sellerOrderRouter, appointmentRouter, cancellationRouter, returnRouter, paymentRouter, webhookRouter, sellerSettlementRouter, adminRouter, 
 // Shipping imports
-shipmentRouter, sellerShipmentRouter, adminShipmentRouter, adminNotificationRouter, reviewRouter, addressRouter, notificationRouter, wishlistRouter, searchRouter, personalizationRouter, sellerAnalyticsRouter, } from './routes/index.js';
+shipmentRouter, sellerShipmentRouter, adminShipmentRouter, adminNotificationRouter, reviewRouter, addressRouter, notificationRouter, wishlistRouter, searchRouter, personalizationRouter, sellerAnalyticsRouter, reelRouter, sellerReelRouter, adminReelRouter, occasionRouter, } from './routes/index.js';
 import { searchController } from './controllers/search.controller.js';
 import { apiReference } from "@scalar/express-api-reference";
 import { openApiSpec } from "./docs/openapi.js";
@@ -21,13 +22,18 @@ export function createApp() {
     // =========================================================================
     // GLOBAL MIDDLEWARE
     // =========================================================================
+    // Gzip / Brotli compression for all responses (reduces payload ~70%)
+    app.use(compression());
     // Parse JSON bodies
     app.use(express.json());
     // Parse URL-encoded bodies
     app.use(express.urlencoded({ extended: true }));
-    // Enable CORS
+    // Enable CORS — support comma-separated origins for multi-subdomain setup
+    const corsOrigin = process.env['CORS_ORIGIN'];
     app.use(cors({
-        origin: process.env['CORS_ORIGIN'] ?? '*',
+        origin: corsOrigin
+            ? corsOrigin.split(',').map(o => o.trim())
+            : true, // `true` reflects the request origin (safer than '*' with credentials)
         credentials: true,
     }));
     // =========================================================================
@@ -123,6 +129,7 @@ export function createApp() {
     app.use('/v1/seller', sellerRouter);
     app.use('/v1/categories', categoryRouter);
     app.use('/v1/products', productRouter);
+    app.use('/v1/occasions', occasionRouter);
     app.use('/v1/seller/products', sellerProductRouter);
     app.use('/v1/seller/products', productMediaRouter);
     app.use('/v1/imagekit', imagekitRouter);
@@ -135,6 +142,7 @@ export function createApp() {
     app.use('/v1/coupons', couponRouter);
     app.use('/v1/orders', orderRouter);
     app.use('/v1/seller/orders', sellerOrderRouter);
+    app.use('/v1/appointments', appointmentRouter);
     app.use('/v1/cancellations', cancellationRouter);
     app.use('/v1/returns', returnRouter);
     // Payments & Settlement domain
@@ -189,6 +197,10 @@ export function createApp() {
     app.use('/v1/personalization', personalizationRouter);
     // Seller Analytics
     app.use('/v1/seller/analytics', sellerAnalyticsRouter);
+    // Reels
+    app.use('/v1/reels', reelRouter);
+    app.use('/v1/seller/reels', sellerReelRouter);
+    app.use('/v1/admin/reels', adminReelRouter);
     // Related products (mounted on products path)
     app.get('/v1/products/:id/related', searchController.relatedProducts);
     // Notification Worker initialization removed to keep API process HTTP-only

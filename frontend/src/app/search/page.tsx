@@ -103,7 +103,7 @@ function SearchContent() {
           </div>
         ) : (
           <>
-            <section className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+            <section className="grid grid-cols-2 gap-8 md:grid-cols-3 lg:grid-cols-4">
               {items.map((product) => (
                 <MarketplaceProductCard key={product.id} product={product} />
               ))}

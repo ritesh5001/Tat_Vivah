@@ -123,6 +123,7 @@ export interface PublicProductWithCategory {
 
 export interface PublicProductWithDetails {
     id: string;
+    sellerId: string;
     categoryId: string;
     title: string;
     description: string | null;

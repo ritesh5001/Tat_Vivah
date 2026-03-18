@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 const CATEGORIES = [
     { name: 'Saree', slug: 'saree' },
@@ -7,8 +8,39 @@ const CATEGORIES = [
     { name: 'Sherwani', slug: 'sherwani' },
     { name: 'Indo-Western', slug: 'indo-western' },
 ];
+const SUPER_ADMIN_EMAIL = 'rgiri5001@gmail.com';
+const SUPER_ADMIN_PASSWORD = 'Ritesh5001@';
 async function main() {
     console.log('🌱 Starting seed...');
+    const superAdminPasswordHash = await bcrypt.hash(SUPER_ADMIN_PASSWORD, 12);
+    const superAdminUser = await prisma.user.upsert({
+        where: { email: SUPER_ADMIN_EMAIL },
+        update: {
+            passwordHash: superAdminPasswordHash,
+            role: 'SUPER_ADMIN',
+            status: 'ACTIVE',
+            isEmailVerified: true,
+            isPhoneVerified: false,
+        },
+        create: {
+            email: SUPER_ADMIN_EMAIL,
+            passwordHash: superAdminPasswordHash,
+            role: 'SUPER_ADMIN',
+            status: 'ACTIVE',
+            isEmailVerified: true,
+            isPhoneVerified: false,
+        },
+    });
+    await prisma.superAdminProfile.upsert({
+        where: { userId: superAdminUser.id },
+        update: {},
+        create: {
+            userId: superAdminUser.id,
+            firstName: 'Ritesh',
+            lastName: 'Giri',
+        },
+    });
+    console.log(`Super admin ensured: ${SUPER_ADMIN_EMAIL}`);
     for (const category of CATEGORIES) {
         const existing = await prisma.category.findUnique({
             where: { slug: category.slug },

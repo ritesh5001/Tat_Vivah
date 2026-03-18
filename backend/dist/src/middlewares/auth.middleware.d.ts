@@ -10,6 +10,12 @@ import type { Role } from '@prisma/client';
  */
 export declare function authenticate(req: Request, _res: Response, next: NextFunction): void;
 /**
+ * Optional authenticate middleware
+ * Attempts to verify JWT but does not fail if token is missing.
+ * Attaches user to request if token is valid, otherwise continues without user.
+ */
+export declare function optionalAuthenticate(req: Request, _res: Response, next: NextFunction): void;
+/**
  * Authorize by role middleware factory
  * Creates middleware that checks if user has required role
  */

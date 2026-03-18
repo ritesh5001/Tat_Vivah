@@ -154,9 +154,9 @@ export default async function CollectionPage({ params }: Props) {
                     </Link>
                 </div>
 
-                <div className="grid gap-8 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+                <div className="grid grid-cols-2 gap-8 md:grid-cols-3 lg:grid-cols-4">
                     {products.length === 0 ? (
-                        <Card className="sm:col-span-2 md:col-span-3 xl:col-span-4 border-border-soft">
+                        <Card className="col-span-2 md:col-span-3 lg:col-span-4 border-border-soft">
                             <CardContent className="p-12 text-center text-muted-foreground">
                                 No items currently available in this collection.
                             </CardContent>

@@ -26,6 +26,16 @@ const cormorant = Cormorant_Garamond({
   display: "swap",
 });
 
+const API_ORIGIN = (() => {
+  const base = process.env.NEXT_PUBLIC_API_BASE_URL;
+  if (!base) return null;
+  try {
+    return new URL(base).origin;
+  } catch {
+    return null;
+  }
+})();
+
 export const metadata: Metadata = {
   metadataBase: new URL("https://tatvivahtrends.com"),
   title: {
@@ -101,10 +111,9 @@ export default function RootLayout({
   return (
     <html lang="en" className="scroll-smooth" suppressHydrationWarning>
       <head>
-        {/* Preconnect to critical origins to cut DNS/TLS latency */}
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        {/* Preconnect to critical external origins to cut DNS/TLS latency */}
         <link rel="preconnect" href="https://ik.imagekit.io" />
+        {API_ORIGIN && <link rel="preconnect" href={API_ORIGIN} />}
         <script
           dangerouslySetInnerHTML={{
             __html: `(() => {

@@ -63,7 +63,7 @@ export function MarketplaceProductCard({ product }: { product: MarketplaceCardPr
   return (
     <Link href={`/product/${product.id}`} className="group block">
       {/* Image */}
-      <div className="relative overflow-hidden bg-cream dark:bg-brown/20 aspect-[3/4]">
+      <div className="relative overflow-hidden bg-cream dark:bg-brown/20 aspect-3/4">
         <Image
           src={imageSrc}
           alt={product.title}

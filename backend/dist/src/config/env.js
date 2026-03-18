@@ -17,10 +17,11 @@ const envSchema = z.object({
     // Token Expiry
     ACCESS_TOKEN_EXPIRY: z.string().default('15m'),
     REFRESH_TOKEN_EXPIRY: z.string().default('7d'),
-    // Upstash Redis
-    UPSTASH_REDIS_REST_URL: z.string().url('UPSTASH_REDIS_REST_URL must be a valid URL'),
-    UPSTASH_REDIS_REST_TOKEN: z.string().min(1, 'UPSTASH_REDIS_REST_TOKEN is required'),
-    REDIS_URL: z.string().url('REDIS_URL must be a valid URL (rediss://...)').optional(),
+    // Redis
+    REDIS_URL: z.string().url('REDIS_URL must be a valid URL').optional(),
+    // Legacy Upstash vars retained as optional for backwards compatibility
+    UPSTASH_REDIS_REST_URL: z.string().url('UPSTASH_REDIS_REST_URL must be a valid URL').optional(),
+    UPSTASH_REDIS_REST_TOKEN: z.string().min(1, 'UPSTASH_REDIS_REST_TOKEN is required').optional(),
     // Resend
     RESEND_API_KEY: z.string().min(1, 'RESEND_API_KEY is required'),
     EMAIL_FROM: z.string().email('EMAIL_FROM must be a valid email'),

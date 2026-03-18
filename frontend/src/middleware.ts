@@ -280,7 +280,7 @@ export function middleware(request: NextRequest) {
       // Clear all auth cookies via Set-Cookie headers
       const cookieExpiry = "Thu, 01 Jan 1970 00:00:00 GMT";
       const cookieDomain = getBaseDomain(host || "");
-      const clearOpts = `Path=/; Expires=${cookieExpiry}; Domain=.${cookieDomain}`;
+      const clearOpts = `Path=/; Expires=${cookieExpiry}; Domain=.${cookieDomain}; SameSite=Lax; Secure`;
       response.headers.append("Set-Cookie", `tatvivah_access=; ${clearOpts}`);
       response.headers.append("Set-Cookie", `tatvivah_refresh=; ${clearOpts}`);
       response.headers.append("Set-Cookie", `tatvivah_role=; ${clearOpts}`);

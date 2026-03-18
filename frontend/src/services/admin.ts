@@ -103,14 +103,28 @@ export interface AdminSeller {
 export interface AdminOrder {
   id: string;
   userId: string;
+  buyerEmail?: string | null;
+  buyerPhone?: string | null;
   status: "PLACED" | "CONFIRMED" | "CANCELLED" | "SHIPPED" | "DELIVERED";
   totalAmount: number;
+  shippingName?: string | null;
+  shippingPhone?: string | null;
+  shippingEmail?: string | null;
+  shippingAddressLine1?: string | null;
+  shippingAddressLine2?: string | null;
+  shippingCity?: string | null;
+  shippingPincode?: string | null;
+  shippingNotes?: string | null;
   createdAt: string;
   items?: Array<{
     id: string;
     sellerId: string;
+    sellerEmail?: string | null;
+    sellerName?: string | null;
     productId: string;
+    productTitle?: string | null;
     variantId: string;
+    variantSku?: string | null;
     quantity: number;
     priceSnapshot: number;
     sellerPriceSnapshot: number;

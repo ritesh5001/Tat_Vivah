@@ -1,6 +1,7 @@
 export type SignupOtpPayload = {
     email: string;
     phone: string;
+    whatsappNumber?: string;
     passwordHash: string;
     role: 'USER' | 'SELLER';
     fullName?: string;

@@ -11,6 +11,7 @@ const quickLinks = [
   { label: "Browse Marketplace", href: "/marketplace", description: "Discover curated collections" },
   { label: "Saved Vendors", href: "/vendors", description: "Your trusted artisans" },
   { label: "My Orders", href: "/user/orders", description: "Track your journey" },
+  { label: "My Appointments", href: "/user/appointments", description: "Video call bookings" },
   { label: "My Profile", href: "/user/profile", description: "Account details" },
 ];
 
