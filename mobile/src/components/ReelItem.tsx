@@ -1,7 +1,7 @@
 import React from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useVideoPlayer, VideoView } from "expo-video";
+import { Video, ResizeMode } from "expo-av";
 import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
 import { colors, spacing, textStyles } from "../theme";
 import { AppText as Text } from "./AppText";
@@ -9,6 +9,7 @@ import { AppText as Text } from "./AppText";
 export type ReelFeedItem = {
   id: string;
   videoUrl: string;
+  thumbnailUrl?: string | null;
   caption: string;
   username: string;
   productId: string | null;
@@ -22,19 +23,23 @@ type ReelItemProps = {
   height: number;
   isActive: boolean;
   isMuted: boolean;
+  shouldPreload: boolean;
+  shouldKeepInMemory: boolean;
   liked: boolean;
   onToggleMute: () => void;
-  onToggleLike: () => void;
-  onShare: () => void;
-  onPressProduct?: () => void;
+  onToggleLike: (id: string) => void;
+  onShare: (item: ReelFeedItem) => void;
+  onPressProduct?: (id: string) => void;
 };
 
-export const ReelItem = React.memo(function ReelItem({
+function ReelItemBase({
   item,
   width,
   height,
   isActive,
   isMuted,
+  shouldPreload,
+  shouldKeepInMemory,
   liked,
   onToggleMute,
   onToggleLike,
@@ -45,6 +50,8 @@ export const ReelItem = React.memo(function ReelItem({
   const overlayOpacity = useSharedValue(0.24);
   const likeScale = useSharedValue(0.2);
   const likeOpacity = useSharedValue(0);
+  const videoRef = React.useRef<Video | null>(null);
+  const isLoadedRef = React.useRef(false);
   const lastTapRef = React.useRef(0);
   const singleTapTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasProductDetails = Boolean(item.productTitle || item.productId);
@@ -57,22 +64,68 @@ export const ReelItem = React.memo(function ReelItem({
     : item.aboutFallback?.trim() ||
       "TatVivah curates premium ethnic wear crafted for weddings, celebrations, and festive occasions across India.";
 
-  const player = useVideoPlayer({ uri: item.videoUrl }, (videoPlayer) => {
-    videoPlayer.loop = true;
-    videoPlayer.muted = isMuted;
-  });
-
   React.useEffect(() => {
-    player.muted = isMuted;
-  }, [isMuted, player]);
+    let mounted = true;
 
-  React.useEffect(() => {
-    if (isActive && !isHolding) {
-      player.play();
-    } else {
-      player.pause();
-    }
-  }, [isActive, isHolding, player]);
+    const ensureLoaded = async () => {
+      const video = videoRef.current;
+      if (!video || isLoadedRef.current || (!shouldKeepInMemory && !shouldPreload && !isActive)) {
+        return;
+      }
+      try {
+        await video.loadAsync(
+          { uri: item.videoUrl },
+          {
+            shouldPlay: false,
+            isLooping: true,
+            isMuted,
+            progressUpdateIntervalMillis: 750,
+          },
+          false
+        );
+        if (mounted) {
+          isLoadedRef.current = true;
+        }
+      } catch {
+        // ignore transient load errors
+      }
+    };
+
+    const applyPlaybackState = async () => {
+      const video = videoRef.current;
+      if (!video || !isLoadedRef.current) return;
+      try {
+        await video.setStatusAsync({
+          shouldPlay: isActive && !isHolding,
+          isMuted,
+          isLooping: true,
+          progressUpdateIntervalMillis: 750,
+        });
+      } catch {
+        // ignore state update errors
+      }
+    };
+
+    const maybeUnload = async () => {
+      const video = videoRef.current;
+      if (!video || !isLoadedRef.current || shouldKeepInMemory || shouldPreload || isActive) {
+        return;
+      }
+      try {
+        await video.unloadAsync();
+      } catch {
+        // ignore unload errors
+      } finally {
+        isLoadedRef.current = false;
+      }
+    };
+
+    void ensureLoaded().then(applyPlaybackState).then(maybeUnload);
+
+    return () => {
+      mounted = false;
+    };
+  }, [isActive, isHolding, isMuted, item.videoUrl, shouldKeepInMemory, shouldPreload]);
 
   React.useEffect(() => {
     overlayOpacity.value = withTiming(isActive ? 0.18 : 0.28, { duration: 220 });
@@ -92,7 +145,14 @@ export const ReelItem = React.memo(function ReelItem({
   }, [liked, likeOpacity, likeScale]);
 
   React.useEffect(() => {
+    const videoNode = videoRef.current;
+
     return () => {
+      if (videoNode && isLoadedRef.current) {
+        void videoNode.unloadAsync().catch(() => {
+          // ignore cleanup unload errors
+        });
+      }
       if (singleTapTimerRef.current) {
         clearTimeout(singleTapTimerRef.current);
       }
@@ -108,7 +168,7 @@ export const ReelItem = React.memo(function ReelItem({
         singleTapTimerRef.current = null;
       }
       lastTapRef.current = 0;
-      onToggleLike();
+      onToggleLike(item.id);
       return;
     }
 
@@ -117,7 +177,7 @@ export const ReelItem = React.memo(function ReelItem({
       onToggleMute();
       singleTapTimerRef.current = null;
     }, 260);
-  }, [onToggleLike, onToggleMute]);
+  }, [item.id, onToggleLike, onToggleMute]);
 
   const handleLongPress = React.useCallback(() => {
     setIsHolding(true);
@@ -138,12 +198,17 @@ export const ReelItem = React.memo(function ReelItem({
 
   return (
     <View style={[styles.container, { width, height }]}>
-      <VideoView
-        player={player}
+      <Video
+        ref={videoRef}
         style={styles.video}
-        allowsFullscreen={false}
-        nativeControls={false}
-        contentFit="cover"
+        source={undefined}
+        resizeMode={ResizeMode.COVER}
+        shouldPlay={false}
+        isLooping
+        isMuted
+        usePoster={Boolean(item.thumbnailUrl)}
+        posterSource={item.thumbnailUrl ? { uri: item.thumbnailUrl } : undefined}
+        progressUpdateIntervalMillis={750}
       />
       <Pressable
         style={StyleSheet.absoluteFillObject}
@@ -160,7 +225,7 @@ export const ReelItem = React.memo(function ReelItem({
       </Animated.View>
 
       <View style={styles.sideActions}>
-        <Pressable style={styles.actionButton} onPress={onToggleLike}>
+        <Pressable style={styles.actionButton} onPress={() => onToggleLike(item.id)}>
           <Ionicons
             name={liked ? "heart" : "heart-outline"}
             size={20}
@@ -169,7 +234,7 @@ export const ReelItem = React.memo(function ReelItem({
           <Text style={styles.actionLabel}>{liked ? "Liked" : "Like"}</Text>
         </Pressable>
 
-        <Pressable style={styles.actionButton} onPress={onShare}>
+        <Pressable style={styles.actionButton} onPress={() => onShare(item)}>
           <Ionicons name="share-social-outline" size={20} color="#FFFFFF" />
           <Text style={styles.actionLabel}>Share</Text>
         </Pressable>
@@ -194,14 +259,17 @@ export const ReelItem = React.memo(function ReelItem({
           {detailBody}
         </Text>
         {hasProductDetails && item.productId ? (
-          <Pressable style={styles.shopButton} onPress={onPressProduct}>
+          <Pressable
+            style={styles.shopButton}
+            onPress={() => onPressProduct?.(item.productId as string)}
+          >
             <Text style={styles.shopButtonText}>SHOP NOW</Text>
           </Pressable>
         ) : null}
       </View>
     </View>
   );
-});
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -305,3 +373,18 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
 });
+
+function areEqual(prev: ReelItemProps, next: ReelItemProps) {
+  return (
+    prev.item.id === next.item.id &&
+    prev.width === next.width &&
+    prev.height === next.height &&
+    prev.isActive === next.isActive &&
+    prev.isMuted === next.isMuted &&
+    prev.shouldPreload === next.shouldPreload &&
+    prev.shouldKeepInMemory === next.shouldKeepInMemory &&
+    prev.liked === next.liked
+  );
+}
+
+export const ReelItem = React.memo(ReelItemBase, areEqual);

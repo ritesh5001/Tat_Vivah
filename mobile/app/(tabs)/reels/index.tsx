@@ -1,18 +1,16 @@
 import React from "react";
 import {
   ActivityIndicator,
-  FlatList,
   Pressable,
   Share,
   StyleSheet,
   View,
   useWindowDimensions,
 } from "react-native";
+import { FlashList } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { createVideoPlayer } from "expo-video";
 import { AppText as Text } from "../../../src/components";
-import { MotionView } from "../../../src/components/motion";
 import { ReelItem, type ReelFeedItem } from "../../../src/components/ReelItem";
 import { companyInfo } from "../../../src/data/company";
 import { listPublicReels } from "../../../src/services/reels";
@@ -28,7 +26,6 @@ export default function ReelsScreen() {
   const [visibleIndex, setVisibleIndex] = React.useState(0);
   const [likedById, setLikedById] = React.useState<Record<string, boolean>>({});
   const [isMuted, setIsMuted] = React.useState(false);
-  const preloadedRef = React.useRef<Set<string>>(new Set());
 
   const reelsQuery = useInfiniteQuery({
     queryKey: ["reels-feed", REELS_PAGE_LIMIT],
@@ -49,6 +46,7 @@ export default function ReelsScreen() {
       (page.reels ?? []).map((reel) => ({
         id: reel.id,
         videoUrl: reel.videoUrl,
+        thumbnailUrl: reel.thumbnailUrl ?? reel.product?.images?.[0] ?? null,
         caption: reel.caption?.trim() || "",
         username: "@tatvivah",
         productId: reel.productId ?? null,
@@ -99,64 +97,31 @@ export default function ReelsScreen() {
     }
   }, []);
 
-  React.useEffect(() => {
-    if (reels.length === 0) return;
-
-    const nextCandidates = reels.slice(visibleIndex + 1, visibleIndex + 3);
-    let cancelled = false;
-
-    const preload = async () => {
-      for (const reel of nextCandidates) {
-        if (!reel || preloadedRef.current.has(reel.id)) continue;
-        preloadedRef.current.add(reel.id);
-
-        const preloadPlayer = createVideoPlayer({ uri: reel.videoUrl });
-        try {
-          await preloadPlayer.replaceAsync({ uri: reel.videoUrl });
-          preloadPlayer.pause();
-        } catch {
-          // Ignore preload failures; playback still works when user reaches item.
-        } finally {
-          try {
-            preloadPlayer.release();
-          } catch {
-            // ignore release errors
-          }
-        }
-
-        if (cancelled) return;
-      }
-    };
-
-    void preload();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [reels, visibleIndex]);
+  const handlePressProduct = React.useCallback(
+    (id: string) => {
+      router.push(`/product/${id}` as any);
+    },
+    [router]
+  );
 
   const renderReel = React.useCallback(
     ({ item, index }: { item: ReelFeedItem; index: number }) => (
-      <MotionView preset="slideUp" delay={Math.min(index * 20, 140)}>
-        <ReelItem
-          item={item}
-          width={itemWidth}
-          height={itemHeight}
-          isActive={index === visibleIndex}
-          isMuted={isMuted}
-          liked={likedById[item.id] ?? false}
-          onToggleMute={toggleMute}
-          onToggleLike={() => toggleLike(item.id)}
-          onShare={() => void shareReel(item)}
-          onPressProduct={
-            item.productId
-              ? () => router.push(`/product/${item.productId}` as any)
-              : undefined
-          }
-        />
-      </MotionView>
+      <ReelItem
+        item={item}
+        width={itemWidth}
+        height={itemHeight}
+        isActive={index === visibleIndex}
+        isMuted={isMuted}
+        shouldPreload={index === visibleIndex + 1}
+        shouldKeepInMemory={Math.abs(index - visibleIndex) <= 1}
+        liked={likedById[item.id] ?? false}
+        onToggleMute={toggleMute}
+        onToggleLike={toggleLike}
+        onShare={shareReel}
+        onPressProduct={handlePressProduct}
+      />
     ),
-    [isMuted, itemHeight, itemWidth, likedById, router, shareReel, toggleLike, toggleMute, visibleIndex]
+    [handlePressProduct, isMuted, itemHeight, itemWidth, likedById, shareReel, toggleLike, toggleMute, visibleIndex]
   );
 
   if (reelsQuery.isLoading) {
@@ -181,16 +146,18 @@ export default function ReelsScreen() {
 
   return (
     <View style={styles.container}>
-      <FlatList
+      <FlashList
         data={reels}
         keyExtractor={(item) => item.id}
         renderItem={renderReel}
+        estimatedItemSize={itemHeight}
         pagingEnabled
         snapToAlignment="start"
         snapToInterval={itemHeight}
         decelerationRate="fast"
         showsVerticalScrollIndicator={false}
         removeClippedSubviews
+        drawDistance={itemHeight * 1.5}
         initialNumToRender={2}
         maxToRenderPerBatch={2}
         windowSize={3}
