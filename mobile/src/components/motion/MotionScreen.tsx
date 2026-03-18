@@ -1,7 +1,7 @@
 import * as React from "react";
 import type { StyleProp, ViewStyle } from "react-native";
-import { MotiView } from "moti";
-import { motionDuration, motionEasing } from "../../lib/motion.config";
+import Animated, { Easing, FadeInDown } from "react-native-reanimated";
+import { motionDuration } from "../../lib/motion.config";
 
 type MotionScreenProps = React.PropsWithChildren<{
   style?: StyleProp<ViewStyle>;
@@ -9,17 +9,13 @@ type MotionScreenProps = React.PropsWithChildren<{
 
 export const MotionScreen = React.memo(function MotionScreen({ children, style }: MotionScreenProps) {
   return (
-    <MotiView
-      from={{ opacity: 0, translateY: 8 }}
-      animate={{ opacity: 1, translateY: 0 }}
-      transition={{
-        type: "timing",
-        duration: motionDuration.normal,
-        easing: motionEasing.smooth,
-      }}
+    <Animated.View
+      entering={FadeInDown
+        .duration(motionDuration.normal)
+        .easing(Easing.bezier(0.24, 1, 0.32, 1))}
       style={style}
     >
       {children}
-    </MotiView>
+    </Animated.View>
   );
 });

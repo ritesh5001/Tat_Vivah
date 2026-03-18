@@ -1,21 +1,45 @@
 import * as React from "react";
 import type { StyleProp, ViewStyle } from "react-native";
-import { MotiView, type MotiProps } from "moti";
+import Animated, {
+  Easing,
+  FadeIn,
+  SlideInDown,
+  SlideInLeft,
+  SlideInRight,
+  SlideInUp,
+  ZoomIn,
+} from "react-native-reanimated";
 import {
-  getMotionPreset,
   motionDuration,
-  motionEasing,
   type MotionPreset,
 } from "../../lib/motion.config";
 
-type MotionViewProps = React.PropsWithChildren<
-  Omit<MotiProps<ViewStyle>, "from" | "animate" | "transition"> & {
-    style?: StyleProp<ViewStyle>;
-    preset?: MotionPreset;
-    delay?: number;
-    duration?: number;
+type MotionViewProps = React.PropsWithChildren<{
+  style?: StyleProp<ViewStyle>;
+  preset?: MotionPreset;
+  delay?: number;
+  duration?: number;
+}>;
+
+function getEntering(preset: MotionPreset, delay: number, duration: number) {
+  const easing = Easing.bezier(0.2, 0.0, 0.0, 1);
+
+  switch (preset) {
+    case "scale":
+      return ZoomIn.duration(duration).delay(delay).easing(easing);
+    case "slideUp":
+      return SlideInUp.duration(duration).delay(delay).easing(easing);
+    case "slideDown":
+      return SlideInDown.duration(duration).delay(delay).easing(easing);
+    case "slideLeft":
+      return SlideInLeft.duration(duration).delay(delay).easing(easing);
+    case "slideRight":
+      return SlideInRight.duration(duration).delay(delay).easing(easing);
+    case "fade":
+    default:
+      return FadeIn.duration(duration).delay(delay).easing(easing);
   }
->;
+}
 
 export const MotionView = React.memo(function MotionView({
   children,
@@ -25,22 +49,14 @@ export const MotionView = React.memo(function MotionView({
   duration = motionDuration.normal,
   ...rest
 }: MotionViewProps) {
-  const presetStyles = React.useMemo(() => getMotionPreset(preset), [preset]);
+  const entering = React.useMemo(
+    () => getEntering(preset, delay, duration),
+    [preset, delay, duration]
+  );
 
   return (
-    <MotiView
-      from={presetStyles.from}
-      animate={presetStyles.to}
-      transition={{
-        type: "timing",
-        delay,
-        duration,
-        easing: motionEasing.standard,
-      }}
-      style={style}
-      {...rest}
-    >
+    <Animated.View entering={entering} style={style} {...rest}>
       {children}
-    </MotiView>
+    </Animated.View>
   );
 });
