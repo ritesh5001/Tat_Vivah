@@ -217,8 +217,9 @@ export default function CartScreen() {
             renderItem={renderItem}
             contentContainerStyle={styles.listContent}
             initialNumToRender={6}
-            maxToRenderPerBatch={4}
-            windowSize={5}
+            maxToRenderPerBatch={2}
+            windowSize={3}
+            updateCellsBatchingPeriod={24}
             removeClippedSubviews
           />
 

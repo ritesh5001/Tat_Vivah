@@ -65,6 +65,9 @@ export default function MarketplaceScreen() {
       return current < total ? current + 1 : undefined;
     },
     initialPageParam: 1,
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 20,
+    refetchOnMount: false,
   });
 
   const products = React.useMemo<ProductItem[]>(
@@ -218,7 +221,12 @@ export default function MarketplaceScreen() {
         contentContainerStyle={styles.container}
         columnWrapperStyle={styles.gridRow}
         estimatedItemSize={320}
+        drawDistance={420}
         renderItem={renderItem}
+        removeClippedSubviews
+        initialNumToRender={2}
+        maxToRenderPerBatch={2}
+        windowSize={3}
         ListHeaderComponent={ListHeader}
         ListEmptyComponent={
           productsQuery.isLoading ? (

@@ -8,9 +8,10 @@ import {
   Dimensions,
   Modal,
 } from "react-native";
+import { FlashList } from "@shopify/flash-list";
 import { Image } from "../../../src/components/CompatImage";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
+import { colors, spacing, typography, shadow } from "../../../src/theme/tokens";
 import { getCategories } from "../../../src/services/catalog";
 import {
   getProductsAndCache,
@@ -454,6 +455,11 @@ export default function SearchScreen() {
           keyExtractor={categoryKeyExtractor}
           contentContainerStyle={styles.categoryRow}
           renderItem={renderCategoryItem}
+          initialNumToRender={6}
+          maxToRenderPerBatch={6}
+          windowSize={3}
+          updateCellsBatchingPeriod={24}
+          removeClippedSubviews
         />
       </View>
 
@@ -506,7 +512,7 @@ export default function SearchScreen() {
         </View>
       ) : null}
 
-      <FlatList
+      <FlashList
         data={
           (loading ? skeletons : products) as (
             ProductSummary | { id: string; skeleton: true }
@@ -514,6 +520,8 @@ export default function SearchScreen() {
         }
         keyExtractor={keyExtractor}
         numColumns={2}
+        estimatedItemSize={Math.round(cardWidth * 1.75)}
+        drawDistance={Math.round(cardWidth * 3)}
         columnWrapperStyle={styles.gridRow}
         renderItem={renderItem}
         contentContainerStyle={styles.gridContent}
@@ -534,10 +542,10 @@ export default function SearchScreen() {
             </View>
           ) : null
         }
-        initialNumToRender={6}
-        maxToRenderPerBatch={6}
-        windowSize={5}
         removeClippedSubviews
+        initialNumToRender={2}
+        maxToRenderPerBatch={2}
+        windowSize={3}
       />
     </SafeAreaView>
   );

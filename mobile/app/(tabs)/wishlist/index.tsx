@@ -213,6 +213,11 @@ export default function WishlistScreen() {
           keyExtractor={keyExtractor}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          removeClippedSubviews
+          initialNumToRender={2}
+          maxToRenderPerBatch={2}
+          windowSize={3}
+          updateCellsBatchingPeriod={24}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
         />
       )}

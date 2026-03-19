@@ -8,6 +8,7 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
+import { FlashList } from "@shopify/flash-list";
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from "react-native-svg";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -207,7 +208,7 @@ export default function HomeScreen() {
   const mostLovedQuery = useProductsQuery({ page: 1, limit: 4, sort: "popularity" });
 
   const [showScrollTop, setShowScrollTop] = React.useState(false);
-  const listRef = React.useRef<FlatList<never> | null>(null);
+  const listRef = React.useRef<FlashList<never> | null>(null);
   const testimonialRef = React.useRef<FlatList<typeof testimonials[number]> | null>(null);
   const [occasionRepeatCount, setOccasionRepeatCount] = React.useState(1);
   const [categoryRepeatCount, setCategoryRepeatCount] = React.useState(1);
@@ -637,8 +638,9 @@ export default function HomeScreen() {
           keyExtractor={(item) => item.id}
           renderItem={renderVibeCard}
           initialNumToRender={4}
-          maxToRenderPerBatch={4}
-          windowSize={5}
+          maxToRenderPerBatch={2}
+          windowSize={3}
+          updateCellsBatchingPeriod={24}
           removeClippedSubviews
           onEndReached={loadMoreVibe}
           onEndReachedThreshold={0.5}
@@ -793,8 +795,9 @@ export default function HomeScreen() {
             renderItem={renderCategoryCard}
             horizontal
             initialNumToRender={1}
-            maxToRenderPerBatch={4}
-            windowSize={5}
+            maxToRenderPerBatch={2}
+            windowSize={3}
+            updateCellsBatchingPeriod={24}
             removeClippedSubviews
             decelerationRate="fast"
             disableIntervalMomentum
@@ -951,6 +954,7 @@ export default function HomeScreen() {
           initialNumToRender={2}
           maxToRenderPerBatch={2}
           windowSize={3}
+            updateCellsBatchingPeriod={24}
           removeClippedSubviews
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.testimonialViewport}
@@ -1055,19 +1059,20 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
       <AppHeader variant="main" />
-      <FlatList
+      <FlashList
         ref={listRef}
         data={[]}
         keyExtractor={(_item, index) => String(index)}
+        estimatedItemSize={980}
+        drawDistance={1400}
         renderItem={() => null}
         ListHeaderComponent={listHeader}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.contentContainer}
         removeClippedSubviews
-        maxToRenderPerBatch={5}
-        updateCellsBatchingPeriod={30}
-        initialNumToRender={4}
-        windowSize={5}
+        maxToRenderPerBatch={2}
+        initialNumToRender={2}
+        windowSize={3}
         onScroll={(event) => handleScroll(event.nativeEvent.contentOffset.y)}
         scrollEventThrottle={16}
       />
