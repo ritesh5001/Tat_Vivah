@@ -448,7 +448,7 @@ function BestsellersCarousel({
                                 className="shrink-0 w-[calc(50%-12px)] md:w-[calc(33.333%-16px)] lg:w-[calc(25%-18px)]"
                             >
                                 <div className="animate-pulse space-y-3">
-                                    <div className="aspect-[3/4] bg-cream dark:bg-brown/20" />
+                                    <div className="aspect-3/4 bg-cream dark:bg-brown/20" />
                                     <div className="h-4 w-3/4 bg-cream dark:bg-brown/20 rounded" />
                                     <div className="h-3 w-1/2 bg-cream dark:bg-brown/20 rounded" />
                                 </div>

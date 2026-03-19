@@ -219,14 +219,9 @@ export default function MarketplaceScreen() {
         keyExtractor={(item) => item.id}
         numColumns={2}
         contentContainerStyle={styles.container}
-        columnWrapperStyle={styles.gridRow}
-        estimatedItemSize={320}
         drawDistance={420}
         renderItem={renderItem}
         removeClippedSubviews
-        initialNumToRender={2}
-        maxToRenderPerBatch={2}
-        windowSize={3}
         ListHeaderComponent={ListHeader}
         ListEmptyComponent={
           productsQuery.isLoading ? (

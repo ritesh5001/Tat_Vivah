@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { AppText as Text } from "../../../src/components";
 import { ReelItem, type ReelFeedItem } from "../../../src/components/ReelItem";
@@ -22,10 +23,11 @@ const ABOUT_US_FALLBACK = `${companyInfo.brand} curates premium ethnic wear for 
 
 export default function ReelsScreen() {
   const router = useRouter();
+  const tabBarHeight = useBottomTabBarHeight();
   const { width, height } = useWindowDimensions();
   const [visibleIndex, setVisibleIndex] = React.useState(0);
   const [likedById, setLikedById] = React.useState<Record<string, boolean>>({});
-  const [isMuted, setIsMuted] = React.useState(false);
+  const [isMuted, setIsMuted] = React.useState(true);
 
   const reelsQuery = useInfiniteQuery({
     queryKey: ["reels-feed", REELS_PAGE_LIMIT],
@@ -66,8 +68,9 @@ export default function ReelsScreen() {
 
   const onViewableItemsChanged = React.useRef(({ viewableItems }: { viewableItems: { index: number | null }[] }) => {
     const firstVisible = viewableItems.find((entry) => typeof entry.index === "number");
-    if (typeof firstVisible?.index === "number") {
-      setVisibleIndex((prev) => (prev === firstVisible.index ? prev : firstVisible.index));
+    const nextIndex = firstVisible?.index;
+    if (typeof nextIndex === "number") {
+      setVisibleIndex((prev) => (prev === nextIndex ? prev : nextIndex));
     }
   }).current;
 
@@ -110,6 +113,7 @@ export default function ReelsScreen() {
         item={item}
         width={itemWidth}
         height={itemHeight}
+        tabBarHeight={tabBarHeight}
         isActive={index === visibleIndex}
         isMuted={isMuted}
         shouldPreload={index === visibleIndex + 1}
@@ -121,13 +125,13 @@ export default function ReelsScreen() {
         onPressProduct={handlePressProduct}
       />
     ),
-    [handlePressProduct, isMuted, itemHeight, itemWidth, likedById, shareReel, toggleLike, toggleMute, visibleIndex]
+    [handlePressProduct, isMuted, itemHeight, itemWidth, likedById, shareReel, tabBarHeight, toggleLike, toggleMute, visibleIndex]
   );
 
   if (reelsQuery.isLoading) {
     return (
       <View style={styles.stateWrap}>
-        <ActivityIndicator size="large" color={colors.gold} />
+        <ActivityIndicator size="large" color={colors.primaryAccent} />
         <Text style={styles.stateText}>Loading reels...</Text>
       </View>
     );
@@ -150,7 +154,6 @@ export default function ReelsScreen() {
         data={reels}
         keyExtractor={(item) => item.id}
         renderItem={renderReel}
-        estimatedItemSize={itemHeight}
         pagingEnabled
         snapToAlignment="start"
         snapToInterval={itemHeight}
@@ -158,10 +161,6 @@ export default function ReelsScreen() {
         showsVerticalScrollIndicator={false}
         removeClippedSubviews
         drawDistance={itemHeight * 1.5}
-        initialNumToRender={2}
-        maxToRenderPerBatch={2}
-        windowSize={3}
-        getItemLayout={(_, index) => ({ length: itemHeight, offset: itemHeight * index, index })}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfigRef.current}
         onEndReached={loadMore}
@@ -169,7 +168,7 @@ export default function ReelsScreen() {
         ListFooterComponent={
           reelsQuery.isFetchingNextPage ? (
             <View style={styles.footerLoader}>
-              <ActivityIndicator color={colors.gold} />
+              <ActivityIndicator color={colors.primaryAccent} />
             </View>
           ) : null
         }
@@ -199,7 +198,7 @@ const styles = StyleSheet.create({
   },
   retryButton: {
     borderWidth: 1,
-    borderColor: colors.gold,
+    borderColor: colors.primaryAccent,
     borderRadius: 0,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,

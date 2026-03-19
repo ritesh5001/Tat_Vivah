@@ -8,7 +8,6 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
-import { FlashList } from "@shopify/flash-list";
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from "react-native-svg";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -18,10 +17,9 @@ import { AppHeader } from "../../../src/components/AppHeader";
 import { Footer } from "../../../src/components/Footer";
 import { ScrollToTopFab } from "../../../src/components/ScrollToTopFab";
 import { CachedImage } from "../../../src/components/CachedImage";
-import { HomeHeroBanner } from "../../../src/components/HomeHeroBanner";
 import { SkeletonBlock } from "../../../src/components/Skeleton";
 import { images } from "../../../src/data/images";
-import { AppText as Text, ScreenContainer as SafeAreaView } from "../../../src/components";
+import { AppText as Text, HomeHeroBanner, ScreenContainer as SafeAreaView } from "../../../src/components";
 import { useQuery } from "@tanstack/react-query";
 import {
   getCategories,
@@ -51,6 +49,7 @@ type HomeProductCard = {
   title: string;
   image: string;
   priceText: string;
+  categoryText?: string;
   query: string;
 };
 
@@ -208,7 +207,7 @@ export default function HomeScreen() {
   const mostLovedQuery = useProductsQuery({ page: 1, limit: 4, sort: "popularity" });
 
   const [showScrollTop, setShowScrollTop] = React.useState(false);
-  const listRef = React.useRef<FlashList<never> | null>(null);
+  const listRef = React.useRef<FlatList<never> | null>(null);
   const testimonialRef = React.useRef<FlatList<typeof testimonials[number]> | null>(null);
   const [occasionRepeatCount, setOccasionRepeatCount] = React.useState(1);
   const [categoryRepeatCount, setCategoryRepeatCount] = React.useState(1);
@@ -341,6 +340,7 @@ export default function HomeScreen() {
         typeof item.price === "number"
           ? `₹${item.price.toLocaleString("en-IN")}`
           : "₹0",
+      categoryText: item.category?.name ?? "Collection",
       query: item.title,
     }));
   }, [fallbackGridImages, mostLovedQuery.data]);
@@ -355,6 +355,7 @@ export default function HomeScreen() {
         typeof (item.salePrice ?? item.adminPrice ?? item.minPrice ?? item.regularPrice) === "number"
           ? `₹${Number(item.salePrice ?? item.adminPrice ?? item.minPrice ?? item.regularPrice).toLocaleString("en-IN")}`
           : "₹0",
+      categoryText: item.categoryName ?? "Collection",
       query: item.title,
     }));
   }, [bestsellersQuery.data, fallbackGridImages]);
@@ -539,18 +540,20 @@ export default function HomeScreen() {
   const renderBestsellerCard = React.useCallback(
     ({ item }: ListRenderItemInfo<HomeProductCard>) => (
       <Pressable
-        style={[styles.largeProductCard, { width: bestsellerCardWidth }]}
+        style={[styles.bestSellerCard, { width: bestsellerCardWidth }]}
         onPress={() => deferNavigate(`/search?q=${encodeURIComponent(item.query)}`)}
       >
         <CachedImage
           source={item.image}
-          style={[styles.largeProductImage, { height: bestsellerCardHeight }]}
+          style={[styles.bestSellerImage, { height: bestsellerCardHeight }]}
           contentFit="cover"
         />
-        <View style={styles.largeProductOverlay} />
-        <View style={styles.largeProductMeta}>
-          <Text numberOfLines={1} style={styles.largeProductTitle}>{item.title}</Text>
-          <Text style={styles.largeProductPrice}>{item.priceText}</Text>
+        <View style={styles.bestSellerMeta}>
+          <Text numberOfLines={1} style={styles.bestSellerTitle}>{item.title}</Text>
+          <Text numberOfLines={1} style={styles.bestSellerCategory}>
+            {(item.categoryText ?? "Collection").toUpperCase()}
+          </Text>
+          <Text style={styles.bestSellerPrice}>{item.priceText}</Text>
         </View>
       </Pressable>
     ),
@@ -1059,12 +1062,10 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
       <AppHeader variant="main" />
-      <FlashList
+      <FlatList
         ref={listRef}
         data={[]}
         keyExtractor={(_item, index) => String(index)}
-        estimatedItemSize={980}
-        drawDistance={1400}
         renderItem={() => null}
         ListHeaderComponent={listHeader}
         showsVerticalScrollIndicator={false}
@@ -1489,6 +1490,39 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     letterSpacing: 0.6,
     textAlign: "center",
+  },
+  bestSellerCard: {
+    borderWidth: 1,
+    borderColor: "#D9D3CD",
+    backgroundColor: "#F8F6F3",
+    overflow: "hidden",
+  },
+  bestSellerImage: {
+    width: "100%",
+  },
+  bestSellerMeta: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
+    gap: 4,
+  },
+  bestSellerTitle: {
+    ...textStyles.sectionTitle,
+    color: "#2F2924",
+    fontSize: 20,
+    letterSpacing: 0.2,
+  },
+  bestSellerCategory: {
+    fontSize: 11,
+    letterSpacing: 2.2,
+    color: "#5D5650",
+  },
+  bestSellerPrice: {
+    marginTop: spacing.xs,
+    fontSize: 18,
+    letterSpacing: 0.2,
+    color: "#2F2924",
+    fontFamily: "Inter_500Medium",
   },
   testimonialSection: {
     marginTop: 35,

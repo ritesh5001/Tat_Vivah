@@ -1,4 +1,4 @@
-import { apiRequest } from "./api";
+import { API_BASE_URL, apiRequest } from "./api";
 
 export type PublicReel = {
   id: string;
@@ -29,7 +29,29 @@ export async function listPublicReels(params?: { page?: number; limit?: number }
   if (params?.limit) searchParams.set("limit", String(params.limit));
 
   const queryString = searchParams.toString();
-  return apiRequest<PublicReelListResponse>(`/v1/reels${queryString ? `?${queryString}` : ""}`, {
+  const response = await apiRequest<PublicReelListResponse>(`/v1/reels${queryString ? `?${queryString}` : ""}`, {
     method: "GET",
   });
+
+  const toAbsoluteMediaUrl = (value: string | null | undefined) => {
+    if (!value) return value ?? null;
+    if (/^https?:\/\//i.test(value)) return value;
+    const normalizedPath = value.startsWith("/") ? value : `/${value}`;
+    return `${API_BASE_URL}${normalizedPath}`;
+  };
+
+  return {
+    ...response,
+    reels: (response.reels ?? []).map((reel) => ({
+      ...reel,
+      videoUrl: toAbsoluteMediaUrl(reel.videoUrl) ?? reel.videoUrl,
+      thumbnailUrl: toAbsoluteMediaUrl(reel.thumbnailUrl),
+      product: reel.product
+        ? {
+            ...reel.product,
+            images: (reel.product.images ?? []).map((image) => toAbsoluteMediaUrl(image) ?? image),
+          }
+        : reel.product,
+    })),
+  };
 }

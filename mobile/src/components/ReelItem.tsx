@@ -1,10 +1,11 @@
 import React from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Video, ResizeMode } from "expo-av";
+import { VideoView, useVideoPlayer } from "expo-video";
 import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
 import { colors, spacing, textStyles } from "../theme";
 import { AppText as Text } from "./AppText";
+import { CachedImage } from "./CachedImage";
 
 export type ReelFeedItem = {
   id: string;
@@ -21,6 +22,7 @@ type ReelItemProps = {
   item: ReelFeedItem;
   width: number;
   height: number;
+  tabBarHeight?: number;
   isActive: boolean;
   isMuted: boolean;
   shouldPreload: boolean;
@@ -36,10 +38,11 @@ function ReelItemBase({
   item,
   width,
   height,
+  tabBarHeight = 0,
   isActive,
   isMuted,
-  shouldPreload,
-  shouldKeepInMemory,
+  shouldPreload: _shouldPreload,
+  shouldKeepInMemory: _shouldKeepInMemory,
   liked,
   onToggleMute,
   onToggleLike,
@@ -50,11 +53,16 @@ function ReelItemBase({
   const overlayOpacity = useSharedValue(0.24);
   const likeScale = useSharedValue(0.2);
   const likeOpacity = useSharedValue(0);
-  const videoRef = React.useRef<Video | null>(null);
-  const isLoadedRef = React.useRef(false);
   const lastTapRef = React.useRef(0);
   const singleTapTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const player = useVideoPlayer(item.videoUrl ? { uri: item.videoUrl } : null, (videoPlayer) => {
+    videoPlayer.loop = true;
+    videoPlayer.muted = isMuted;
+  });
   const hasProductDetails = Boolean(item.productTitle || item.productId);
+  const bottomOffset = Math.max(tabBarHeight, 0);
+  const actionsBottom = bottomOffset + 144;
+  const metaBottom = bottomOffset + spacing.sm;
   const detailHeading = hasProductDetails ? "Product Details" : "About Us";
   const detailTitle = hasProductDetails
     ? item.productTitle?.trim() || "TatVivah Selection"
@@ -65,71 +73,20 @@ function ReelItemBase({
       "TatVivah curates premium ethnic wear crafted for weddings, celebrations, and festive occasions across India.";
 
   React.useEffect(() => {
-    let mounted = true;
-
-    const ensureLoaded = async () => {
-      const video = videoRef.current;
-      if (!video || isLoadedRef.current || (!shouldKeepInMemory && !shouldPreload && !isActive)) {
-        return;
-      }
-      try {
-        await video.loadAsync(
-          { uri: item.videoUrl },
-          {
-            shouldPlay: false,
-            isLooping: true,
-            isMuted,
-            progressUpdateIntervalMillis: 750,
-          },
-          false
-        );
-        if (mounted) {
-          isLoadedRef.current = true;
-        }
-      } catch {
-        // ignore transient load errors
-      }
-    };
-
-    const applyPlaybackState = async () => {
-      const video = videoRef.current;
-      if (!video || !isLoadedRef.current) return;
-      try {
-        await video.setStatusAsync({
-          shouldPlay: isActive && !isHolding,
-          isMuted,
-          isLooping: true,
-          progressUpdateIntervalMillis: 750,
-        });
-      } catch {
-        // ignore state update errors
-      }
-    };
-
-    const maybeUnload = async () => {
-      const video = videoRef.current;
-      if (!video || !isLoadedRef.current || shouldKeepInMemory || shouldPreload || isActive) {
-        return;
-      }
-      try {
-        await video.unloadAsync();
-      } catch {
-        // ignore unload errors
-      } finally {
-        isLoadedRef.current = false;
-      }
-    };
-
-    void ensureLoaded().then(applyPlaybackState).then(maybeUnload);
-
-    return () => {
-      mounted = false;
-    };
-  }, [isActive, isHolding, isMuted, item.videoUrl, shouldKeepInMemory, shouldPreload]);
-
-  React.useEffect(() => {
     overlayOpacity.value = withTiming(isActive ? 0.18 : 0.28, { duration: 220 });
   }, [isActive, overlayOpacity]);
+
+  React.useEffect(() => {
+    player.muted = isMuted;
+  }, [isMuted, player]);
+
+  React.useEffect(() => {
+    if (isActive && !isHolding) {
+      player.play();
+      return;
+    }
+    player.pause();
+  }, [isActive, isHolding, player]);
 
   React.useEffect(() => {
     if (!liked) return;
@@ -145,14 +102,7 @@ function ReelItemBase({
   }, [liked, likeOpacity, likeScale]);
 
   React.useEffect(() => {
-    const videoNode = videoRef.current;
-
     return () => {
-      if (videoNode && isLoadedRef.current) {
-        void videoNode.unloadAsync().catch(() => {
-          // ignore cleanup unload errors
-        });
-      }
       if (singleTapTimerRef.current) {
         clearTimeout(singleTapTimerRef.current);
       }
@@ -198,17 +148,15 @@ function ReelItemBase({
 
   return (
     <View style={[styles.container, { width, height }]}>
-      <Video
-        ref={videoRef}
+      {item.thumbnailUrl ? (
+        <CachedImage source={item.thumbnailUrl} style={styles.videoPoster} contentFit="cover" />
+      ) : null}
+      <VideoView
+        player={player}
         style={styles.video}
-        source={undefined}
-        resizeMode={ResizeMode.COVER}
-        shouldPlay={false}
-        isLooping
-        isMuted
-        usePoster={Boolean(item.thumbnailUrl)}
-        posterSource={item.thumbnailUrl ? { uri: item.thumbnailUrl } : undefined}
-        progressUpdateIntervalMillis={750}
+        contentFit="cover"
+        nativeControls={false}
+        allowsFullscreen={false}
       />
       <Pressable
         style={StyleSheet.absoluteFillObject}
@@ -224,12 +172,12 @@ function ReelItemBase({
         <Ionicons name="heart" size={74} color="rgba(255, 255, 255, 0.95)" />
       </Animated.View>
 
-      <View style={styles.sideActions}>
+      <View style={[styles.sideActions, { bottom: actionsBottom }]}>
         <Pressable style={styles.actionButton} onPress={() => onToggleLike(item.id)}>
           <Ionicons
             name={liked ? "heart" : "heart-outline"}
             size={20}
-            color={liked ? colors.gold : "#FFFFFF"}
+            color={liked ? colors.primaryAccent : "#FFFFFF"}
           />
           <Text style={styles.actionLabel}>{liked ? "Liked" : "Like"}</Text>
         </Pressable>
@@ -249,24 +197,40 @@ function ReelItemBase({
         </Pressable>
       </View>
 
-      <View style={styles.metaWrap}>
-        <Text style={styles.username}>{item.username}</Text>
-        <Text style={styles.metaHeading}>{detailHeading}</Text>
-        <Text numberOfLines={1} style={styles.metaTitle}>
-          {detailTitle}
-        </Text>
-        <Text numberOfLines={3} style={styles.caption}>
-          {detailBody}
-        </Text>
-        {hasProductDetails && item.productId ? (
-          <Pressable
-            style={styles.shopButton}
-            onPress={() => onPressProduct?.(item.productId as string)}
-          >
-            <Text style={styles.shopButtonText}>SHOP NOW</Text>
-          </Pressable>
-        ) : null}
-      </View>
+      {hasProductDetails && item.productId ? (
+        <Pressable
+            style={[styles.metaWrap, styles.productMetaWrap, { bottom: metaBottom }]}
+          onPress={() => onPressProduct?.(item.productId as string)}
+        >
+            <View style={styles.productInfoCol}>
+              <Text numberOfLines={2} style={styles.productTitleInline}>
+                {detailTitle}
+              </Text>
+              <View style={styles.shopButtonInline}>
+                <Text style={styles.shopButtonText}>SHOP NOW</Text>
+              </View>
+            </View>
+
+            {item.thumbnailUrl ? (
+              <CachedImage source={item.thumbnailUrl} style={styles.productThumb} contentFit="cover" />
+            ) : (
+              <View style={[styles.productThumb, styles.productThumbFallback]}>
+                <Text style={styles.productThumbFallbackText}>No Image</Text>
+              </View>
+            )}
+        </Pressable>
+      ) : (
+        <View style={[styles.metaWrap, { bottom: metaBottom }]}>
+          <Text style={styles.username}>{item.username}</Text>
+          <Text style={styles.metaHeading}>{detailHeading}</Text>
+          <Text numberOfLines={1} style={styles.metaTitle}>
+            {detailTitle}
+          </Text>
+          <Text numberOfLines={3} style={styles.caption}>
+            {detailBody}
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -277,6 +241,9 @@ const styles = StyleSheet.create({
     position: "relative",
   },
   video: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  videoPoster: {
     ...StyleSheet.absoluteFillObject,
   },
   overlay: {
@@ -292,7 +259,6 @@ const styles = StyleSheet.create({
   sideActions: {
     position: "absolute",
     right: spacing.md,
-    bottom: 178,
     gap: spacing.md,
     zIndex: 3,
   },
@@ -318,7 +284,6 @@ const styles = StyleSheet.create({
     position: "absolute",
     alignSelf: "center",
     width: "78%",
-    bottom: spacing.xl,
     padding: spacing.sm,
     borderWidth: 1,
     borderColor: "rgba(183, 149, 108, 0.45)",
@@ -327,9 +292,56 @@ const styles = StyleSheet.create({
     zIndex: 2,
     alignItems: "center",
   },
+  productMetaWrap: {
+    width: "84%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
+  },
+  productInfoCol: {
+    flex: 1,
+    alignItems: "flex-start",
+    justifyContent: "center",
+    gap: spacing.sm,
+  },
+  productTitleInline: {
+    ...textStyles.bodyText,
+    color: "#FFFFFF",
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: 0.2,
+  },
+  shopButtonInline: {
+    borderWidth: 1,
+    borderColor: colors.primaryAccent,
+    backgroundColor: "rgba(183, 149, 108, 0.14)",
+    borderRadius: 0,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 7,
+  },
+  productThumb: {
+    width: 78,
+    height: 96,
+    borderWidth: 1,
+    borderColor: "rgba(183, 149, 108, 0.7)",
+    backgroundColor: "#161616",
+  },
+  productThumbFallback: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  productThumbFallbackText: {
+    color: "#D5C4B0",
+    fontSize: 9,
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+  },
   username: {
     ...textStyles.bodyText,
-    color: colors.gold,
+    color: colors.primaryAccent,
     fontSize: 12,
     letterSpacing: 0.6,
     textTransform: "uppercase",
@@ -360,7 +372,7 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     marginTop: spacing.sm,
     borderWidth: 1,
-    borderColor: colors.gold,
+    borderColor: colors.primaryAccent,
     backgroundColor: "rgba(183, 149, 108, 0.14)",
     borderRadius: 0,
     paddingHorizontal: spacing.md,

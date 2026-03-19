@@ -1,6 +1,7 @@
 import * as React from "react";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
+import { Platform } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { colors, typography } from "../../src/theme/tokens";
 import { impactLight } from "../../src/utils/haptics";
@@ -66,11 +67,15 @@ export default function TabsLayout() {
           borderTopWidth: 1,
           borderTopColor: "rgba(196, 167, 108, 0.35)",
           borderRadius: 0,
-          shadowColor: colors.charcoal,
-          shadowOpacity: 0.06,
-          shadowOffset: { width: 0, height: -2 },
-          shadowRadius: 6,
-          elevation: 8,
+          ...(Platform.OS === "web"
+            ? { boxShadow: "0 -2px 6px rgba(44, 40, 37, 0.06)" }
+            : {
+                shadowColor: colors.charcoal,
+                shadowOpacity: 0.06,
+                shadowOffset: { width: 0, height: -2 },
+                shadowRadius: 6,
+                elevation: 8,
+              }),
         },
         sceneStyle: { backgroundColor: colors.background },
       }}
