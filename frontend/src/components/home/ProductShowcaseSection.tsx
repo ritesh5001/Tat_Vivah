@@ -63,20 +63,11 @@ export function ProductShowcaseSection() {
       <div
         className={`mx-auto max-w-460 px-3 py-16 sm:px-6 sm:py-20 lg:px-10 transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
       >
-        <div className="mb-10 flex items-end justify-between">
+        <div className="mb-10 text-center">
           <div>
             <p className="mb-2 text-xs font-medium uppercase tracking-[0.3em] text-gold">Our Picks</p>
             <h2 className="font-serif text-3xl font-light tracking-tight text-foreground sm:text-4xl">Product Showcase</h2>
           </div>
-          <Link
-            href="/marketplace"
-            className="hidden text-[13px] font-medium text-muted-foreground transition-colors hover:text-gold sm:inline-flex items-center gap-1.5"
-          >
-            View All
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
-              <path d="M5 12h14" /><path d="m12 5 7 7-7 7" />
-            </svg>
-          </Link>
         </div>
 
         <div className="px-0 sm:px-14 lg:px-16">
@@ -106,12 +97,12 @@ export function ProductShowcaseSection() {
           )}
         </div>
 
-        <div className="mt-8 text-center sm:hidden">
+        <div className="mt-10 text-center">
           <Link
             href="/marketplace"
             className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-gold"
           >
-            View All Products
+            View All
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
               <path d="M5 12h14" /><path d="m12 5 7 7-7 7" />
             </svg>
