@@ -1,4 +1,8 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { cn } from "@/lib/utils";
 
 const adminLinks = [
   { href: "/admin/dashboard", label: "Overview" },
@@ -24,6 +28,11 @@ const adminLinks = [
 ];
 
 export function AdminSidebar() {
+  const pathname = usePathname();
+
+  const isActive = (href: string) =>
+    pathname === href || pathname.startsWith(`${href}/`);
+
   return (
     <aside className="hidden w-64 shrink-0 border-r border-border-soft bg-card lg:block">
       <nav className="flex h-full flex-col gap-1 p-4">
@@ -31,7 +40,13 @@ export function AdminSidebar() {
           <Link
             key={item.href}
             href={item.href}
-            className="inline-flex h-10 items-center border border-transparent px-3 text-sm font-medium text-foreground transition-colors hover:border-border-soft hover:bg-cream"
+            aria-current={isActive(item.href) ? "page" : undefined}
+            className={cn(
+              "inline-flex h-10 items-center border px-3 text-sm font-medium transition-colors",
+              isActive(item.href)
+                ? "border-gold/40 bg-cream text-foreground"
+                : "border-transparent text-foreground hover:border-border-soft hover:bg-cream"
+            )}
           >
             {item.label}
           </Link>
