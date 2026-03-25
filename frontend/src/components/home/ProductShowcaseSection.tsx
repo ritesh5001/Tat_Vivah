@@ -79,30 +79,32 @@ export function ProductShowcaseSection() {
           </Link>
         </div>
 
-        {loading ? (
-          <div className="grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-3 lg:grid-cols-4">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="animate-pulse">
-                <div className="aspect-[3/4] rounded bg-border-soft dark:bg-border" />
-                <div className="mt-3 space-y-2">
-                  <div className="h-3.5 w-3/4 rounded bg-border-soft dark:bg-border" />
-                  <div className="h-2.5 w-1/3 rounded bg-border-soft dark:bg-border" />
-                  <div className="h-3 w-1/2 rounded bg-border-soft dark:bg-border" />
+        <div className="px-0 sm:px-14 lg:px-16">
+          {loading ? (
+            <div className="grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-3 lg:grid-cols-4">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="animate-pulse">
+                  <div className="aspect-3/4 rounded bg-border-soft dark:bg-border" />
+                  <div className="mt-3 space-y-2">
+                    <div className="h-3.5 w-3/4 rounded bg-border-soft dark:bg-border" />
+                    <div className="h-2.5 w-1/3 rounded bg-border-soft dark:bg-border" />
+                    <div className="h-3 w-1/2 rounded bg-border-soft dark:bg-border" />
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        ) : products.length === 0 ? (
-          <div className="py-16 text-center">
-            <p className="text-sm text-muted-foreground">No products available right now.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-3 lg:grid-cols-4">
-            {products.map((product) => (
-              <MarketplaceProductCard key={product.id} product={product} />
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          ) : products.length === 0 ? (
+            <div className="py-16 text-center">
+              <p className="text-sm text-muted-foreground">No products available right now.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-3 lg:grid-cols-4">
+              {products.map((product) => (
+                <MarketplaceProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          )}
+        </div>
 
         <div className="mt-8 text-center sm:hidden">
           <Link
