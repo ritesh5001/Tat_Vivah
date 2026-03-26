@@ -380,7 +380,7 @@ export function OccasionSection() {
       className="border-t border-[#e9ddd3] bg-[#f3ede7]"
     >
       <div
-        className={`mx-auto max-w-360 px-3 py-8 sm:px-6 sm:py-10 lg:px-8 transition-all duration-700 ${
+        className={`mx-auto max-w-360 px-3 py-4 sm:px-6 sm:py-6 lg:px-8 transition-all duration-700 ${
           visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
         }`}
       >
@@ -395,7 +395,7 @@ export function OccasionSection() {
             <div className="relative mx-auto max-w-330 px-0 sm:px-10 lg:hidden">
               <div
                 ref={trackRef}
-                className="flex gap-2 overflow-x-auto px-0 py-2 scrollbar-hide select-none md:gap-3"
+                className="flex gap-2 overflow-x-auto px-0 py-1 scrollbar-hide select-none md:gap-3"
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}
                 onMouseUp={endMouseDrag}
