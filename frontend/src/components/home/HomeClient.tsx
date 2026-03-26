@@ -12,12 +12,14 @@ import {
     viewportSettings
 } from "@/lib/motion.config";
 import { getBestsellers, type BestsellerProduct } from "@/services/bestsellers";
+import { apiRequest } from "@/services/api";
 import { LuxuryHero } from "@/components/home/LuxuryHero";
 import { FeaturesMarquee } from "@/components/features-marquee";
 import { CategoryCarousel } from "@/components/home/CategoryCarousel";
 import { OccasionSection } from "@/components/home/OccasionSection";
 import { ProductShowcaseSection } from "@/components/home/ProductShowcaseSection";
 import { MarketplaceProductCard } from "@/components/marketplace-product-card";
+import type { MarketplaceCardProduct } from "@/components/marketplace-product-card";
 
 /* ── Below-fold components loaded on demand to reduce initial JS ── */
 const WeddingSectionBanner = dynamic(
@@ -39,6 +41,8 @@ const RecentlyViewedSection = dynamic(
 export default function HomeClient() {
     const [bestsellers, setBestsellers] = React.useState<BestsellerProduct[]>([]);
     const [loadingBestsellers, setLoadingBestsellers] = React.useState(true);
+    const [newArrivals, setNewArrivals] = React.useState<MarketplaceCardProduct[]>([]);
+    const [loadingNewArrivals, setLoadingNewArrivals] = React.useState(true);
 
     React.useEffect(() => {
         let isMounted = true;
@@ -61,6 +65,46 @@ export default function HomeClient() {
         };
 
         load();
+
+        return () => {
+            isMounted = false;
+        };
+    }, []);
+
+    React.useEffect(() => {
+        let isMounted = true;
+
+        const loadLatestArrivals = async () => {
+            try {
+                const res = await apiRequest<{ data: (MarketplaceCardProduct & { createdAt?: string })[] }>(
+                    "/v1/products?page=1&limit=12",
+                    { method: "GET" }
+                );
+
+                if (!isMounted) return;
+
+                const items = (res?.data ?? [])
+                    .slice()
+                    .sort((a, b) => {
+                        const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+                        const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+                        return bTime - aTime;
+                    })
+                    .slice(0, 2);
+
+                setNewArrivals(items);
+            } catch {
+                if (isMounted) {
+                    setNewArrivals([]);
+                }
+            } finally {
+                if (isMounted) {
+                    setLoadingNewArrivals(false);
+                }
+            }
+        };
+
+        loadLatestArrivals();
 
         return () => {
             isMounted = false;
@@ -146,14 +190,27 @@ export default function HomeClient() {
                             variants={fadeInVariants}
                             className="grid gap-4 grid-cols-2"
                         >
-                            {["Modern Fusion", "Heritage Edit"].map((item) => (
-                                <div
-                                    key={item}
-                                    className="aspect-3/4 bg-card border border-border-soft flex items-end p-6"
-                                >
-                                    <span className="font-serif text-sm text-foreground">{item}</span>
-                                </div>
-                            ))}
+                            {loadingNewArrivals ? (
+                                Array.from({ length: 2 }).map((_, i) => (
+                                    <div
+                                        key={i}
+                                        className="aspect-3/4 animate-pulse border border-border-soft bg-card"
+                                    />
+                                ))
+                            ) : newArrivals.length > 0 ? (
+                                newArrivals.map((product) => (
+                                    <MarketplaceProductCard key={product.id} product={product} />
+                                ))
+                            ) : (
+                                ["Modern Fusion", "Heritage Edit"].map((item) => (
+                                    <div
+                                        key={item}
+                                        className="aspect-3/4 bg-card border border-border-soft flex items-end p-6"
+                                    >
+                                        <span className="font-serif text-sm text-foreground">{item}</span>
+                                    </div>
+                                ))
+                            )}
                         </motion.div>
                     </div>
                 </div>
