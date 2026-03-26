@@ -15,6 +15,10 @@ type NavItem = {
 
 export const APP_BOTTOM_BAR_HEIGHT = 64;
 
+export function getBottomBarTotalHeight(insetBottom: number): number {
+  return APP_BOTTOM_BAR_HEIGHT + Math.max(insetBottom, 6);
+}
+
 const TAB_ROUTE_PREFIXES = [
   "/home",
   "/marketplace",
@@ -71,13 +75,22 @@ export function GlobalBottomBar() {
   const router = useRouter();
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
+  const bottomPadding = Math.max(insets.bottom, 6);
 
   if (isTabRoute(pathname)) {
     return null;
   }
 
   return (
-    <View style={[styles.wrapper, { paddingBottom: Math.max(insets.bottom, 6) }]}>
+    <View
+      style={[
+        styles.wrapper,
+        {
+          paddingBottom: bottomPadding,
+          height: getBottomBarTotalHeight(insets.bottom),
+        },
+      ]}
+    >
       {NAV_ITEMS.map((item) => {
         const active = pathname === item.path || pathname.startsWith(`${item.path}/`);
         const color = active ? colors.gold : colors.brownSoft;

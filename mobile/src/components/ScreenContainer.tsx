@@ -12,7 +12,7 @@ interface ScreenContainerProps {
 export function ScreenContainer({
   children,
   style,
-  edges = ["top"],
+  edges = ["top", "bottom"],
 }: ScreenContainerProps) {
   return (
     <SafeAreaView edges={edges} style={[{ flex: 1, backgroundColor: colors.background }, style]}>

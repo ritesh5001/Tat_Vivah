@@ -79,6 +79,7 @@ export function HomeHeroBanner({ onPress }: HomeHeroBannerProps) {
   const { width: windowWidth } = useWindowDimensions();
   const [bannerWidth, setBannerWidth] = React.useState(windowWidth);
   const [activeIndex, setActiveIndex] = React.useState(0);
+  const isDraggingRef = React.useRef(false);
 
   const sliderRef = React.useRef<FlatList<HeroSlide> | null>(null);
   const activeIndexRef = React.useRef(0);
@@ -106,7 +107,7 @@ export function HomeHeroBanner({ onPress }: HomeHeroBannerProps) {
 
   React.useEffect(() => {
     const interval = setInterval(() => {
-      if (!bannerWidth) return;
+      if (!bannerWidth || isDraggingRef.current) return;
       const nextIndex = (activeIndexRef.current + 1) % HERO_SLIDES.length;
       sliderRef.current?.scrollToOffset({
         offset: nextIndex * bannerWidth,
@@ -133,6 +134,9 @@ export function HomeHeroBanner({ onPress }: HomeHeroBannerProps) {
         ref={sliderRef}
         data={HERO_SLIDES}
         horizontal
+        scrollEnabled
+        nestedScrollEnabled
+        directionalLockEnabled
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         keyExtractor={(item) => item.id}
@@ -159,7 +163,19 @@ export function HomeHeroBanner({ onPress }: HomeHeroBannerProps) {
           </Pressable>
         )}
         onScroll={handleScroll}
-        onMomentumScrollEnd={handleScroll}
+        onScrollBeginDrag={() => {
+          isDraggingRef.current = true;
+        }}
+        onScrollEndDrag={() => {
+          isDraggingRef.current = false;
+        }}
+        onMomentumScrollEnd={(event) => {
+          isDraggingRef.current = false;
+          handleScroll(event);
+        }}
+        onMomentumScrollBegin={() => {
+          isDraggingRef.current = true;
+        }}
         scrollEventThrottle={16}
       />
 

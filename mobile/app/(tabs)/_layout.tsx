@@ -3,6 +3,7 @@ import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import { Platform } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, typography } from "../../src/theme/tokens";
 import { impactLight } from "../../src/utils/haptics";
 
@@ -31,6 +32,10 @@ const TabIconScale = React.memo(function TabIconScale({
 });
 
 export default function TabsLayout() {
+  const insets = useSafeAreaInsets();
+  const tabBarBottomPadding = Math.max(insets.bottom, 6);
+  const tabBarHeight = 64 + tabBarBottomPadding;
+
   const tabListeners = React.useMemo(
     () => ({
       tabPress: () => {
@@ -61,8 +66,9 @@ export default function TabsLayout() {
           marginVertical: 4,
         },
         tabBarStyle: {
-          height: 64,
+          height: tabBarHeight,
           paddingTop: 4,
+          paddingBottom: tabBarBottomPadding,
           backgroundColor: colors.surfaceElevated,
           borderTopWidth: 1,
           borderTopColor: "rgba(196, 167, 108, 0.35)",

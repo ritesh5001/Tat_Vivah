@@ -323,11 +323,9 @@ export function LuxuryHero() {
         loop
         speed={1200}
         allowTouchMove={true}
-        breakpoints={{
-          768: {
-            allowTouchMove: false,
-          },
-        }}
+        simulateTouch={true}
+        touchRatio={1}
+        grabCursor={true}
         onSwiper={(swiper) => {
           swiperRef.current = swiper;
         }}

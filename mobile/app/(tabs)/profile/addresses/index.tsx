@@ -6,6 +6,7 @@ import {
   Modal,
   Pressable,
 } from "react-native";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useRouter } from "expo-router";
 import {
   colors,
@@ -97,6 +98,7 @@ const AddressRow = React.memo(function AddressRow({
 
 export default function AddressesScreen() {
   const router = useRouter();
+  const tabBarHeight = useBottomTabBarHeight();
   const { session, isLoading: authLoading } = useAuth();
   const token = session?.accessToken ?? null;
   const showGuestState = !authLoading && !token;
@@ -259,13 +261,16 @@ export default function AddressesScreen() {
           keyExtractor={keyExtractor}
           renderItem={renderItem}
           ListEmptyComponent={ListEmpty}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingBottom: tabBarHeight + 116 },
+          ]}
           showsVerticalScrollIndicator={false}
         />
       )}
 
       {/* Add button — always visible at bottom */}
-      <View style={styles.addButtonContainer}>
+      <View style={[styles.addButtonContainer, { bottom: tabBarHeight }]}> 
         <AnimatedPressable style={styles.primaryButton} onPress={handleAdd}>
           <Text style={styles.primaryButtonText}>+ Add new address</Text>
         </AnimatedPressable>

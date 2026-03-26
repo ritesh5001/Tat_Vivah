@@ -5,6 +5,7 @@ import {
   FlatList,
   Pressable,
 } from "react-native";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useRouter } from "expo-router";
 import { colors, spacing, typography, shadow } from "../../../src/theme/tokens";
 import { useAuth } from "../../../src/hooks/useAuth";
@@ -27,6 +28,7 @@ const currency = new Intl.NumberFormat("en-IN", {
 
 export default function CartScreen() {
   const router = useRouter();
+  const tabBarHeight = useBottomTabBarHeight();
   const { session, isLoading: authLoading } = useAuth();
   const token = session?.accessToken ?? null;
   const { isConnected } = useNetworkStatus();
@@ -215,7 +217,10 @@ export default function CartScreen() {
             data={cartItems}
             keyExtractor={keyExtractor}
             renderItem={renderItem}
-            contentContainerStyle={styles.listContent}
+            contentContainerStyle={[
+              styles.listContent,
+              { paddingBottom: tabBarHeight + spacing.lg },
+            ]}
             initialNumToRender={6}
             maxToRenderPerBatch={2}
             windowSize={3}
@@ -223,7 +228,7 @@ export default function CartScreen() {
             removeClippedSubviews
           />
 
-          <View style={styles.summaryCard}>
+          <View style={[styles.summaryCard, { marginBottom: tabBarHeight + spacing.sm }]}> 
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Subtotal</Text>
               <Text style={styles.summaryValue}>

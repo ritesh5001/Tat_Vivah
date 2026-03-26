@@ -44,7 +44,7 @@ import {
 import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
 import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
 import { WishlistIcon } from "../../../src/components/WishlistIcon";
-import { APP_BOTTOM_BAR_HEIGHT } from "../../../src/components/GlobalBottomBar";
+import { getBottomBarTotalHeight } from "../../../src/components/GlobalBottomBar";
 import { impactMedium, impactLight, notifySuccess } from "../../../src/utils/haptics";
 import { AppHeader } from "../../../src/components/AppHeader";
 import { useQuery } from "@tanstack/react-query";
@@ -370,7 +370,7 @@ export default function ProductDetailScreen() {
   const [relatedProducts, setRelatedProducts] = React.useState<ProductSummary[]>([]);
   const [loadingRelated, setLoadingRelated] = React.useState(false);
 
-  const stickyBottomOffset = insets.bottom + APP_BOTTOM_BAR_HEIGHT;
+  const stickyBottomOffset = getBottomBarTotalHeight(insets.bottom);
   const stickyActionHeight = 76;
   const stickyReserveSpace = stickyBottomOffset + stickyActionHeight + spacing.lg;
 
