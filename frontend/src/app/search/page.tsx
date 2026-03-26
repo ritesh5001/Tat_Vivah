@@ -4,7 +4,9 @@ import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { MarketplaceProductCard, type MarketplaceCardProduct } from "@/components/marketplace-product-card";
 import { Button } from "@/components/ui/button";
-import { searchProducts, type SearchResultItem } from "@/services/search";
+import { apiRequest } from "@/services/api";
+import { getCategories, type Category } from "@/services/catalog";
+import { getOccasions, type Occasion } from "@/services/occasions";
 
 type SearchPagination = {
   page: number;
@@ -13,14 +15,19 @@ type SearchPagination = {
   totalPages: number;
 };
 
-function toMarketplaceCardProduct(item: SearchResultItem): MarketplaceCardProduct {
-  return {
-    id: item.id,
-    title: item.title,
-    images: item.images,
-    category: item.category,
-    adminListingPrice: item.adminListingPrice,
-  };
+type ProductsResponse = {
+  data: MarketplaceCardProduct[];
+  pagination?: SearchPagination;
+};
+
+function normalize(value: string): string {
+  return value.toLowerCase().trim().replace(/\s+/g, " ");
+}
+
+function isNameMatch(query: string, target: string): boolean {
+  const q = normalize(query);
+  const t = normalize(target);
+  return q === t || q.includes(t) || t.includes(q);
 }
 
 function SearchContent() {
@@ -32,12 +39,34 @@ function SearchContent() {
 
   const [loading, setLoading] = React.useState(false);
   const [items, setItems] = React.useState<MarketplaceCardProduct[]>([]);
+  const [categories, setCategories] = React.useState<Category[]>([]);
+  const [occasions, setOccasions] = React.useState<Occasion[]>([]);
   const [pagination, setPagination] = React.useState<SearchPagination>({
     page: 1,
     limit: 12,
     total: 0,
     totalPages: 1,
   });
+
+  React.useEffect(() => {
+    let mounted = true;
+
+    Promise.all([getCategories(), getOccasions()])
+      .then(([categoryRes, occasionRes]) => {
+        if (!mounted) return;
+        setCategories((categoryRes?.categories ?? []).filter((item) => item.isActive));
+        setOccasions((occasionRes?.occasions ?? []).filter((item) => item.isActive));
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setCategories([]);
+        setOccasions([]);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   React.useEffect(() => {
     const controller = new AbortController();
@@ -49,9 +78,23 @@ function SearchContent() {
     }
 
     setLoading(true);
-    searchProducts({ q: query, page, limit: 12, signal: controller.signal })
+    const matchedCategory = categories.find((category) => isNameMatch(query, category.name));
+    const matchedOccasion = occasions.find((occasion) => isNameMatch(query, occasion.name));
+    const useFilterOnly = Boolean(matchedCategory || matchedOccasion);
+
+    const params = new URLSearchParams();
+    params.set("page", String(page));
+    params.set("limit", "12");
+    if (matchedCategory) params.set("categoryId", matchedCategory.id);
+    if (matchedOccasion) params.set("occasion", matchedOccasion.slug);
+    if (!useFilterOnly) params.set("search", query);
+
+    apiRequest<ProductsResponse>(`/v1/products?${params.toString()}`, {
+      method: "GET",
+      signal: controller.signal,
+    })
       .then((res) => {
-        setItems((res.data ?? []).map(toMarketplaceCardProduct));
+        setItems(res.data ?? []);
         setPagination(res.pagination ?? { page, limit: 12, total: 0, totalPages: 1 });
       })
       .catch((error) => {
@@ -67,7 +110,7 @@ function SearchContent() {
       });
 
     return () => controller.abort();
-  }, [page, query]);
+  }, [categories, occasions, page, query]);
 
   const goToPage = (nextPage: number) => {
     const params = new URLSearchParams();
