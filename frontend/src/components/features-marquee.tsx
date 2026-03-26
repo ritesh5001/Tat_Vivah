@@ -70,10 +70,10 @@ export function FeaturesMarquee() {
             <style jsx>{`
         @keyframes features-scroll {
           from {
-            transform: translateX(0);
+                        transform: translateX(-50%);
           }
           to {
-            transform: translateX(-50%);
+                        transform: translateX(0);
           }
         }
         .animate-features-scroll {
