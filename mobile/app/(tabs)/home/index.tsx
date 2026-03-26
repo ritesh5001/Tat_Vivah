@@ -82,6 +82,7 @@ function ArchGradientBorder({
   topRadius: number;
   strokeWidth?: number;
 }) {
+
   const inset = strokeWidth / 2;
   const radius = Math.max(1, Math.min(topRadius, (width - strokeWidth) / 2));
   const leftX = inset;
