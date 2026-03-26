@@ -1105,14 +1105,15 @@ model WishlistItem {
 
 /// Seller reels for product promotion (short-form video)
 model Reel {
-  id           String     @id @default(cuid())
-  sellerId     String     @map("seller_id")
-  productId    String?    @map("product_id")
-  videoUrl     String     @map("video_url")
-  thumbnailUrl String?    @map("thumbnail_url")
+  id           String       @id @default(cuid())
+  sellerId     String       @map("seller_id")
+  productId    String?      @map("product_id")
+  category     ReelCategory @default(MENS)
+  videoUrl     String       @map("video_url")
+  thumbnailUrl String?      @map("thumbnail_url")
   caption      String?
-  status       ReelStatus @default(PENDING)
-  views        Int        @default(0)
+  status       ReelStatus   @default(PENDING)
+  views        Int          @default(0)
   likes        Int        @default(0)
   createdAt    DateTime   @default(now()) @map("created_at")
   updatedAt    DateTime   @updatedAt @map("updated_at")
@@ -1186,6 +1187,11 @@ enum ReelStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+enum ReelCategory {
+  MENS
+  KIDS
 }
 
 /// Shop by Occasion — curated occasion categories (Wedding, Haldi, etc.)

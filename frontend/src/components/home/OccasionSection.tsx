@@ -7,9 +7,6 @@ import { getOccasions, type Occasion } from "@/services/occasions";
 
 const LOOP_COPIES = 3;
 
-/** Arch border-radius: semicircular top, flat bottom */
-const ARCH_RADIUS = "50% 50% 0 0 / 40% 40% 0 0";
-
 function resolveOccasionImage(occasion: Occasion): string {
   const raw = occasion.image ?? "";
   if (!raw) return "/images/product-placeholder.svg";
@@ -20,16 +17,32 @@ function resolveOccasionImage(occasion: Occasion): string {
 
 function OccasionSkeletonCard() {
   return (
-    <div className="shrink-0 w-[calc(50%-6px)] md:w-[calc(33.333%-11px)] lg:w-[calc(25%-18px)]">
-      <div
-        className="relative w-full p-0.5"
-        style={{ aspectRatio: "3 / 4", borderRadius: ARCH_RADIUS, background: "linear-gradient(to bottom, #e4cfc4, #b89078, #4a2515)" }}
-      >
-        <div
-          className="h-full w-full animate-pulse overflow-hidden bg-[#e5ddd5]"
-          style={{ borderRadius: ARCH_RADIUS }}
+    <div className="shrink-0 w-[calc((100%-2rem)/5)] md:w-[calc((100%-4.5rem)/7)] lg:w-[calc((100%-9rem)/10)]">
+      <div className="relative aspect-square w-full animate-pulse overflow-hidden border border-[#dfd7cf] bg-[#e9e4de]" />
+      <div className="mt-2 h-3 w-3/4 animate-pulse bg-[#ddd3ca] mx-auto" />
+    </div>
+  );
+}
+
+function OccasionCard({ occasion }: { occasion: Occasion }) {
+  return (
+    <div className="group shrink-0 w-[calc((100%-2rem)/5)] md:w-[calc((100%-4.5rem)/7)] lg:w-[calc((100%-9rem)/10)]">
+      <div className="relative aspect-square w-full overflow-hidden border border-[#ddd2c6] bg-[#f5f1ec] transition-all duration-300 group-hover:border-[#b79b87]">
+        <Image
+          src={resolveOccasionImage(occasion)}
+          alt={occasion.name}
+          fill
+          sizes="(max-width: 767px) 20vw, (max-width: 1023px) 14vw, 10vw"
+          quality={75}
+          loading="lazy"
+          draggable={false}
+          className="object-cover transition-transform duration-300 ease-out group-hover:scale-105"
+          style={{ objectPosition: "center 20%" }}
         />
       </div>
+      <h3 className="mt-3 text-center text-[11px] font-medium uppercase tracking-[0.12em] text-[#4f4741] sm:text-xs lg:text-sm">
+        {occasion.name}
+      </h3>
     </div>
   );
 }
@@ -219,7 +232,7 @@ export function OccasionSection() {
     const el = trackRef.current;
     if (!el) return;
     const cardWidth = el.querySelector<HTMLElement>(":scope > a > div")?.offsetWidth ?? 260;
-    const gap = window.innerWidth >= 1024 ? 24 : window.innerWidth >= 768 ? 16 : 12;
+    const gap = window.innerWidth >= 1024 ? 16 : window.innerWidth >= 768 ? 12 : 8;
     const distance = cardWidth + gap;
     el.scrollBy({ left: direction === "left" ? -distance : distance, behavior: "smooth" });
   };
@@ -324,30 +337,30 @@ export function OccasionSection() {
       className="border-t border-[#e9ddd3] bg-[#f3ede7]"
     >
       <div
-        className={`mx-auto max-w-460 px-3 py-16 sm:px-6 sm:py-20 lg:px-10 transition-all duration-700 ${
+        className={`mx-auto max-w-360 px-3 py-10 sm:px-6 sm:py-12 lg:px-8 transition-all duration-700 ${
           visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
         }`}
       >
-        <div className="mb-12 text-center">
-          <p className="mb-4 text-[11px] font-medium uppercase tracking-[0.34em] text-[#a07a63]">
+        <div className="mb-7 text-center sm:mb-9">
+          <p className="mb-3 text-[10px] font-medium uppercase tracking-[0.28em] text-[#a07a63]">
             Curated for Every Celebration
           </p>
-          <h2 className="font-serif text-3xl font-light tracking-[0.02em] text-[#34231b] sm:text-4xl">
+          <h2 className="font-serif text-2xl font-light tracking-[0.02em] text-[#34231b] sm:text-3xl">
             Shop by Collection
           </h2>
         </div>
 
         {loading ? (
-          <div className="flex gap-3 overflow-hidden px-1 md:gap-4 lg:gap-6">
-            {Array.from({ length: 4 }).map((_, i) => (
+          <div className="mx-auto flex max-w-330 gap-2 overflow-hidden px-1 md:gap-3 lg:gap-4">
+            {Array.from({ length: 10 }).map((_, i) => (
               <OccasionSkeletonCard key={i} />
             ))}
           </div>
         ) : (
-          <div className="relative px-0 sm:px-14 lg:px-16">
+          <div className="relative mx-auto max-w-330 px-0 sm:px-10 lg:px-12">
             <div
               ref={trackRef}
-              className="flex gap-3 overflow-x-auto px-0 py-2 scrollbar-hide select-none md:gap-4 lg:gap-6"
+              className="flex gap-2 overflow-x-auto px-0 py-2 scrollbar-hide select-none md:gap-3 lg:gap-4"
               onMouseDown={handleMouseDown}
               onMouseMove={handleMouseMove}
               onMouseUp={endMouseDrag}
@@ -357,52 +370,7 @@ export function OccasionSection() {
             >
               {loopingOccasions.map(({ occasion, key }) => (
                 <Link key={key} href={`/marketplace?occasion=${occasion.slug}`} className="contents">
-                  <div className="group shrink-0 snap-start w-[calc(50%-6px)] md:w-[calc(33.333%-11px)] lg:w-[calc(25%-18px)]">
-                    {/* Outer div acts as the gradient border */}
-                    <div
-                      className="relative w-full p-0.5"
-                      style={{
-                        aspectRatio: "3 / 4",
-                        borderRadius: ARCH_RADIUS,
-                        background: "linear-gradient(to bottom, #e4cfc4, #b89078 40%, #4a2515)",
-                      }}
-                    >
-                      {/* Inner div clips the image to the arch shape */}
-                      <div
-                        className="relative h-full w-full overflow-hidden bg-[#ebe1d7]"
-                        style={{ borderRadius: ARCH_RADIUS }}
-                      >
-                        {/* Image */}
-                        <Image
-                          src={resolveOccasionImage(occasion)}
-                          alt={occasion.name}
-                          fill
-                          sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                          quality={75}
-                          loading="lazy"
-                          draggable={false}
-                          className="object-cover transition-transform duration-400 ease-out group-hover:scale-105"
-                          style={{ objectPosition: "center 20%" }}
-                        />
-
-                        {/* Bottom gradient overlay */}
-                        <div
-                          className="pointer-events-none absolute inset-0"
-                          style={{
-                            background:
-                              "linear-gradient(to top, rgba(40,14,4,0.82) 0%, rgba(40,14,4,0.4) 18%, rgba(40,14,4,0.06) 36%, transparent 55%)",
-                          }}
-                        />
-
-                        {/* Occasion title */}
-                        <div className="absolute inset-x-0 bottom-0 flex items-end justify-center px-3 pb-4 pt-16 sm:px-5 sm:pb-5 lg:pb-7">
-                          <h3 className="text-center font-serif text-sm font-normal uppercase tracking-widest leading-snug text-[#fff9f5] drop-shadow-[0_2px_10px_rgba(0,0,0,0.4)] sm:text-xl lg:text-2xl">
-                            {occasion.name}
-                          </h3>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                  <OccasionCard occasion={occasion} />
                 </Link>
               ))}
             </div>
@@ -412,7 +380,7 @@ export function OccasionSection() {
                 type="button"
                 onClick={() => scroll("left")}
                 aria-label="Scroll occasions left"
-                className="absolute left-2 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-[#edd9cc] bg-[#faf6f1]/95 text-[#3d2a21] shadow-[0_10px_24px_rgba(129,91,69,0.14)] transition-all duration-200 hover:scale-105 hover:shadow-[0_14px_28px_rgba(129,91,69,0.18)] sm:left-0 sm:h-13 sm:w-13 sm:bg-[#faf6f1]"
+                className="absolute left-1 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-[#edd9cc] bg-[#faf6f1]/95 text-[#3d2a21] shadow-[0_10px_24px_rgba(129,91,69,0.14)] transition-all duration-200 hover:scale-105 hover:shadow-[0_14px_28px_rgba(129,91,69,0.18)] sm:left-0 sm:h-10 sm:w-10 sm:bg-[#faf6f1]"
               >
                 <ChevronIcon direction="left" />
               </button>
@@ -422,7 +390,7 @@ export function OccasionSection() {
                 type="button"
                 onClick={() => scroll("right")}
                 aria-label="Scroll occasions right"
-                className="absolute right-2 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-[#edd9cc] bg-[#faf6f1]/95 text-[#3d2a21] shadow-[0_10px_24px_rgba(129,91,69,0.14)] transition-all duration-200 hover:scale-105 hover:shadow-[0_14px_28px_rgba(129,91,69,0.18)] sm:right-0 sm:h-13 sm:w-13 sm:bg-[#faf6f1]"
+                className="absolute right-1 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-[#edd9cc] bg-[#faf6f1]/95 text-[#3d2a21] shadow-[0_10px_24px_rgba(129,91,69,0.14)] transition-all duration-200 hover:scale-105 hover:shadow-[0_14px_28px_rgba(129,91,69,0.18)] sm:right-0 sm:h-10 sm:w-10 sm:bg-[#faf6f1]"
               >
                 <ChevronIcon direction="right" />
               </button>
@@ -430,7 +398,7 @@ export function OccasionSection() {
           </div>
         )}
 
-        <div className="mt-12 text-center">
+        <div className="mt-8 text-center sm:mt-10">
           <Link
             href="/marketplace"
             className="inline-flex items-center gap-2 border-b border-transparent pb-1 text-xs font-medium uppercase tracking-[0.15em] text-[#7f6859] transition-colors duration-300 hover:border-[#b2886d] hover:text-[#3d2a21]"
