@@ -28,11 +28,12 @@ export default function ReelsScreen() {
   const [visibleIndex, setVisibleIndex] = React.useState(0);
   const [likedById, setLikedById] = React.useState<Record<string, boolean>>({});
   const [isMuted, setIsMuted] = React.useState(true);
+  const [activeCategory, setActiveCategory] = React.useState<"MENS" | "KIDS">("MENS");
 
   const reelsQuery = useInfiniteQuery({
-    queryKey: ["reels-feed", REELS_PAGE_LIMIT],
+    queryKey: ["reels-feed", REELS_PAGE_LIMIT, activeCategory],
     initialPageParam: 1,
-    queryFn: ({ pageParam }) => listPublicReels({ page: pageParam, limit: REELS_PAGE_LIMIT }),
+    queryFn: ({ pageParam }) => listPublicReels({ page: pageParam, limit: REELS_PAGE_LIMIT, category: activeCategory }),
     getNextPageParam: (lastPage) => {
       const { page, totalPages } = lastPage.pagination;
       return page < totalPages ? page + 1 : undefined;
@@ -128,9 +129,27 @@ export default function ReelsScreen() {
     [handlePressProduct, isMuted, itemHeight, itemWidth, likedById, shareReel, tabBarHeight, toggleLike, toggleMute, visibleIndex]
   );
 
+  const renderCategorySwitcher = () => (
+    <View style={styles.switcherContainer}>
+      <Pressable
+        style={[styles.switcherTab, activeCategory === "MENS" && styles.switcherTabActive]}
+        onPress={() => setActiveCategory("MENS")}
+      >
+        <Text style={[styles.switcherText, activeCategory === "MENS" && styles.switcherTextActive]}>Mens</Text>
+      </Pressable>
+      <Pressable
+        style={[styles.switcherTab, activeCategory === "KIDS" && styles.switcherTabActive]}
+        onPress={() => setActiveCategory("KIDS")}
+      >
+        <Text style={[styles.switcherText, activeCategory === "KIDS" && styles.switcherTextActive]}>Kids</Text>
+      </Pressable>
+    </View>
+  );
+
   if (reelsQuery.isLoading) {
     return (
       <View style={styles.stateWrap}>
+        {renderCategorySwitcher()}
         <ActivityIndicator size="large" color={colors.primaryAccent} />
         <Text style={styles.stateText}>Loading reels...</Text>
       </View>
@@ -140,6 +159,7 @@ export default function ReelsScreen() {
   if (reelsQuery.isError || reels.length === 0) {
     return (
       <View style={styles.stateWrap}>
+        {renderCategorySwitcher()}
         <Text style={styles.stateText}>No reels available right now.</Text>
         <Pressable style={styles.retryButton} onPress={() => reelsQuery.refetch()}>
           <Text style={styles.retryText}>Retry</Text>
@@ -150,6 +170,7 @@ export default function ReelsScreen() {
 
   return (
     <View style={styles.container}>
+      {renderCategorySwitcher()}
       <FlashList
         data={reels}
         keyExtractor={(item) => item.id}
@@ -215,5 +236,31 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#000000",
+  },
+  switcherContainer: {
+    position: "absolute",
+    top: 60,
+    zIndex: 40,
+    flexDirection: "row",
+    alignSelf: "center",
+    backgroundColor: "rgba(255,255,255,0.15)",
+    borderRadius: 20,
+    padding: 4,
+  },
+  switcherTab: {
+    paddingHorizontal: 20,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  switcherTabActive: {
+    backgroundColor: "#FFFFFF",
+  },
+  switcherText: {
+    color: "rgba(255,255,255,0.7)",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  switcherTextActive: {
+    color: "#000000",
   },
 });

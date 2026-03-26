@@ -23,10 +23,11 @@ export type PublicReelListResponse = {
   };
 };
 
-export async function listPublicReels(params?: { page?: number; limit?: number }) {
+export async function listPublicReels(params?: { page?: number; limit?: number; category?: string }) {
   const searchParams = new URLSearchParams();
   if (params?.page) searchParams.set("page", String(params.page));
   if (params?.limit) searchParams.set("limit", String(params.limit));
+  if (params?.category) searchParams.set("category", params.category);
 
   const queryString = searchParams.toString();
   const response = await apiRequest<PublicReelListResponse>(`/v1/reels${queryString ? `?${queryString}` : ""}`, {
