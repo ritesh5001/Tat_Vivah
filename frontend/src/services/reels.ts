@@ -52,6 +52,12 @@ export interface CreateReelPayload {
   productId?: string;
 }
 
+export interface UpdateReelPayload {
+  caption?: string;
+  category?: "MENS" | "KIDS";
+  productId?: string | null;
+}
+
 // ============================================================================
 // SELLER APIs
 // ============================================================================
@@ -88,6 +94,18 @@ export async function deleteSellerReel(
 ) {
   return apiRequest<{ message: string }>(`/v1/seller/reels/${reelId}`, {
     method: "DELETE",
+    token,
+  });
+}
+
+export async function updateSellerReel(
+  reelId: string,
+  payload: UpdateReelPayload,
+  token?: string | null
+) {
+  return apiRequest<{ message: string; reel: Reel }>(`/v1/seller/reels/${reelId}`, {
+    method: "PATCH",
+    body: payload,
     token,
   });
 }

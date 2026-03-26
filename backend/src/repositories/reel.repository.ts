@@ -149,6 +149,22 @@ export class ReelRepository {
         });
     }
 
+    async updateSellerFields(
+        id: string,
+        data: {
+            caption?: string | null;
+            category?: 'MENS' | 'KIDS';
+            productId?: string | null;
+            status?: 'PENDING' | 'APPROVED' | 'REJECTED';
+        }
+    ) {
+        return prisma.reel.update({
+            where: { id },
+            data,
+            include: { product: { select: productSelect } },
+        });
+    }
+
     async incrementViews(id: string) {
         return prisma.reel.update({
             where: { id },

@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, ChevronUp, Eye, Heart, Loader2, ShoppingBag, X } from "lucide-react";
 import { listPublicReels, likeReel, unlikeReel, checkReelLiked, recordReelView, recordProductClick, type Reel } from "@/services/reels";
 import { useAuth } from "@/hooks/use-auth";
@@ -250,15 +249,10 @@ export default function ReelFeedPage() {
       </div>
 
       {/* Reel Content */}
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={currentReel.id}
-          initial={{ opacity: 0, y: 40 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -40 }}
-          transition={{ duration: 0.3 }}
-          className="relative w-full max-w-md h-full max-h-dvh flex flex-col"
-        >
+      <div
+        key={currentReel.id}
+        className="relative w-full max-w-md h-full max-h-dvh flex flex-col"
+      >
           {/* Video */}
           <video
             key={currentReel.id}
@@ -357,8 +351,7 @@ export default function ReelFeedPage() {
               </Link>
             </div>
           )}
-        </motion.div>
-      </AnimatePresence>
+      </div>
 
       {/* Loading More Indicator */}
       {loadingMore && (

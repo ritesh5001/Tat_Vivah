@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import { ReelService, reelService } from '../services/reel.service.js';
-import { createReelSchema, reelQuerySchema } from '../validators/reel.validation.js';
+import { createReelSchema, reelQuerySchema, updateReelSchema } from '../validators/reel.validation.js';
 import { ApiError } from '../errors/ApiError.js';
 import { ZodError } from 'zod';
 
@@ -44,6 +44,19 @@ export class ReelController {
             if (!req.user) throw ApiError.unauthorized('Authentication required');
             const filters = reelQuerySchema.parse(req.query);
             const result = await this.service.listSellerReels(req.user.userId, filters);
+            res.status(200).json(result);
+        } catch (error) {
+            if (error instanceof ZodError) { this.handleZodError(error, next); return; }
+            next(error);
+        }
+    };
+
+    updateSellerReel = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+        try {
+            if (!req.user) throw ApiError.unauthorized('Authentication required');
+            const id = extractId(req);
+            const data = updateReelSchema.parse(req.body);
+            const result = await this.service.updateSellerReel(id, req.user.userId, data);
             res.status(200).json(result);
         } catch (error) {
             if (error instanceof ZodError) { this.handleZodError(error, next); return; }

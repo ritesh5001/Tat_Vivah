@@ -25,6 +25,12 @@ sellerReelRouter.post('/', reelController.createReel);
 sellerReelRouter.get('/', reelController.listSellerReels);
 
 /**
+ * PATCH /v1/seller/reels/:id
+ * Update a reel
+ */
+sellerReelRouter.patch('/:id', reelController.updateSellerReel);
+
+/**
  * GET /v1/seller/reels/analytics
  * Get seller reel analytics (views, likes, product clicks)
  */

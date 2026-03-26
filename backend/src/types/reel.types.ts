@@ -61,6 +61,12 @@ export interface CreateReelRequest {
     durationSeconds?: number | undefined;
 }
 
+export interface UpdateReelRequest {
+    caption?: string | undefined;
+    category?: 'MENS' | 'KIDS' | undefined;
+    productId?: string | null | undefined;
+}
+
 export interface ReelQueryFilters {
     page?: number | undefined;
     limit?: number | undefined;

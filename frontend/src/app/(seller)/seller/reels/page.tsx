@@ -3,7 +3,7 @@
 import * as React from "react";
 import ImageKit from "imagekit-javascript";
 import { AnimatePresence, motion } from "framer-motion";
-import { BarChart3, Loader2, Plus, Trash2, Video, X, Heart, Eye, MousePointerClick } from "lucide-react";
+import { BarChart3, Loader2, Pencil, Plus, Trash2, Video, X, Heart, Eye, MousePointerClick } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +12,7 @@ import {
   listSellerReels,
   createSellerReel,
   deleteSellerReel,
+  updateSellerReel,
   getSellerReelAnalytics,
   type Reel,
   type SellerReelAnalytics,
@@ -51,6 +52,14 @@ export default function SellerReelsPage() {
     productId: "",
     category: "MENS" as "MENS" | "KIDS",
   });
+  const [showEditModal, setShowEditModal] = React.useState(false);
+  const [editingReelId, setEditingReelId] = React.useState<string | null>(null);
+  const [editForm, setEditForm] = React.useState({
+    caption: "",
+    productId: "",
+    category: "MENS" as "MENS" | "KIDS",
+  });
+  const [savingEdit, setSavingEdit] = React.useState(false);
   const [videoUrl, setVideoUrl] = React.useState("");
   const [thumbnailUrl, setThumbnailUrl] = React.useState("");
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
@@ -183,6 +192,39 @@ export default function SellerReelsPage() {
       );
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const openEditModal = (reel: Reel) => {
+    setEditingReelId(reel.id);
+    setEditForm({
+      caption: reel.caption ?? "",
+      productId: reel.productId ?? "",
+      category: reel.category,
+    });
+    setShowEditModal(true);
+  };
+
+  const handleEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingReelId) return;
+
+    setSavingEdit(true);
+    try {
+      const result = await updateSellerReel(editingReelId, {
+        caption: editForm.caption,
+        category: editForm.category,
+        productId: editForm.productId || null,
+      });
+
+      toast.success("Reel updated and sent for approval");
+      setReels((prev) => prev.map((r) => (r.id === editingReelId ? result.reel : r)));
+      setShowEditModal(false);
+      setEditingReelId(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to update reel");
+    } finally {
+      setSavingEdit(false);
     }
   };
 
@@ -351,6 +393,92 @@ export default function SellerReelsPage() {
         )}
       </AnimatePresence>
 
+      {/* Edit Modal */}
+      <AnimatePresence>
+        {showEditModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+            onClick={() => setShowEditModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-card border border-border rounded-xl shadow-lg p-6 w-full max-w-md mx-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-lg font-semibold">Edit Reel</h2>
+                <button
+                  onClick={() => setShowEditModal(false)}
+                  className="p-1 rounded-md hover:bg-muted"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleEdit} className="space-y-4">
+                <div>
+                  <Label>Caption</Label>
+                  <Input
+                    className="mt-1"
+                    placeholder="Add a caption..."
+                    maxLength={500}
+                    value={editForm.caption}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, caption: e.target.value })
+                    }
+                  />
+                </div>
+
+                <div>
+                  <Label>Category *</Label>
+                  <select
+                    className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                    value={editForm.category}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, category: e.target.value as "MENS" | "KIDS" })
+                    }
+                  >
+                    <option value="MENS">Mens</option>
+                    <option value="KIDS">Kids</option>
+                  </select>
+                </div>
+
+                <div>
+                  <Label>Tag a Product</Label>
+                  <select
+                    className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                    value={editForm.productId}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, productId: e.target.value })
+                    }
+                  >
+                    <option value="">None</option>
+                    {products.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <p className="text-xs text-muted-foreground">
+                  Saving changes will submit this reel for approval again.
+                </p>
+
+                <Button type="submit" className="w-full" disabled={savingEdit}>
+                  {savingEdit ? "Saving..." : "Save Changes"}
+                </Button>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Analytics Panel */}
       {showAnalytics && analytics.length > 0 && (
         <div className="mb-8">
@@ -467,17 +595,28 @@ export default function SellerReelsPage() {
                       </span>
                     </div>
 
-                    <button
-                      onClick={() => handleDelete(reel.id)}
-                      disabled={deletingId === reel.id}
-                      className="p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-                    >
-                      {deletingId === reel.id ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-3.5 w-3.5" />
-                      )}
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => openEditModal(reel)}
+                        disabled={deletingId === reel.id}
+                        className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                        title="Edit reel"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(reel.id)}
+                        disabled={deletingId === reel.id}
+                        className="p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                        title="Delete reel"
+                      >
+                        {deletingId === reel.id ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-3.5 w-3.5" />
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
