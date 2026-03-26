@@ -109,7 +109,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="scroll-smooth" suppressHydrationWarning>
+    <html lang="en" className="scroll-smooth dark" suppressHydrationWarning>
       <head>
         {/* Preconnect to critical external origins to cut DNS/TLS latency */}
         <link rel="preconnect" href="https://ik.imagekit.io" />
@@ -118,11 +118,9 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `(() => {
   try {
-    const stored = localStorage.getItem('tatvivah-theme');
-    const theme = stored ?? 'light';
-    if (theme === 'dark') document.documentElement.classList.add('dark');
-    else document.documentElement.classList.remove('dark');
-    document.documentElement.style.colorScheme = theme;
+    localStorage.setItem('tatvivah-theme', 'dark');
+    document.documentElement.classList.add('dark');
+    document.documentElement.style.colorScheme = 'dark';
   } catch (_) {}
 })();`,
           }}

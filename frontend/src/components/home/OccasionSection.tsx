@@ -18,10 +18,10 @@ function resolveOccasionImage(occasion: Occasion): string {
 function OccasionSkeletonCard() {
   return (
     <div className="shrink-0 w-[calc((100%-2rem)/5)] md:w-[calc((100%-4.5rem)/7)] lg:w-[calc((100%-9rem)/10)]">
-      <div className="relative aspect-3/4 w-full overflow-hidden border border-[#dfd7cf] bg-[#e9e4de]">
-        <div className="h-[76%] w-full animate-pulse bg-[#e6dfd8]" />
-        <div className="flex h-[24%] items-center justify-center border-t border-[#ddd3ca] bg-[#f1ebe5] px-1">
-          <div className="h-3 w-3/4 animate-pulse bg-[#ddd3ca]" />
+      <div className="relative aspect-3/4 w-full overflow-hidden border border-[#dfd7cf] bg-[#e9e4de] dark:border-border dark:bg-brown/20">
+        <div className="h-[76%] w-full animate-pulse bg-[#e6dfd8] dark:bg-brown/40" />
+        <div className="flex h-[24%] items-center justify-center border-t border-[#ddd3ca] bg-[#f1ebe5] px-1 dark:border-border dark:bg-brown/40">
+          <div className="h-3 w-3/4 animate-pulse bg-[#ddd3ca] dark:bg-brown/60" />
         </div>
       </div>
     </div>
@@ -42,8 +42,8 @@ function OccasionCard({ occasion, mode = "carousel" }: { occasion: Occasion; mod
       <div
         className={
           isGrid
-            ? "relative aspect-4/5 w-full overflow-hidden border border-[#ddd2c6] bg-[#f5f1ec] transition-all duration-300 group-hover:border-[#b79b87]"
-            : "relative aspect-3/4 w-full overflow-hidden border border-[#ddd2c6] bg-[#f5f1ec] transition-all duration-300 group-hover:border-[#b79b87]"
+            ? "relative aspect-4/5 w-full overflow-hidden border border-[#ddd2c6] bg-[#f5f1ec] transition-all duration-300 group-hover:border-[#b79b87] dark:border-border dark:bg-brown/20 dark:group-hover:border-gold"
+            : "relative aspect-3/4 w-full overflow-hidden border border-[#ddd2c6] bg-[#f5f1ec] transition-all duration-300 group-hover:border-[#b79b87] dark:border-border dark:bg-brown/20 dark:group-hover:border-gold"
         }
       >
         {isGrid ? (
@@ -73,8 +73,8 @@ function OccasionCard({ occasion, mode = "carousel" }: { occasion: Occasion; mod
                 style={{ objectPosition: "center 20%" }}
               />
             </div>
-            <div className="flex h-[24%] items-center justify-center border-t border-[#ddd2c6] bg-[#f3ece5] px-1">
-              <span className="truncate text-[9px] font-medium uppercase tracking-[0.11em] text-[#4f4741] sm:text-[10px]">
+            <div className="flex h-[24%] items-center justify-center border-t border-[#ddd2c6] bg-[#f3ece5] px-1 dark:border-border dark:bg-brown/50">
+              <span className="truncate text-[9px] font-medium uppercase tracking-[0.11em] text-[#4f4741] dark:text-ivory sm:text-[10px]">
                 {occasion.name}
               </span>
             </div>
@@ -82,7 +82,7 @@ function OccasionCard({ occasion, mode = "carousel" }: { occasion: Occasion; mod
         )}
       </div>
       {isGrid && (
-        <h3 className="mt-2 text-center text-[11px] font-medium uppercase tracking-[0.12em] text-[#4f4741]">
+        <h3 className="mt-2 text-center text-[11px] font-medium uppercase tracking-[0.12em] text-[#4f4741] dark:text-ivory">
           {occasion.name}
         </h3>
       )}
@@ -377,7 +377,7 @@ export function OccasionSection() {
   return (
     <section
       ref={sectionRef}
-      className="border-t border-[#e9ddd3] bg-[#f3ede7]"
+      className="border-t border-border-soft bg-[#f3ede7] dark:bg-card"
     >
       <div
         className={`mx-auto max-w-360 px-3 py-4 sm:px-6 sm:py-6 lg:px-8 transition-all duration-700 ${
@@ -419,7 +419,7 @@ export function OccasionSection() {
                   type="button"
                   onClick={() => scroll("left")}
                   aria-label="Scroll occasions left"
-                  className="absolute left-1 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-[#edd9cc]/70 text-[#3d2a21] shadow-[0_10px_24px_rgba(129,91,69,0.10)] transition-all duration-200 hover:scale-105 hover:shadow-[0_14px_28px_rgba(129,91,69,0.14)] sm:left-0 sm:h-10 sm:w-10"
+                  className="absolute left-1 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-[#edd9cc]/70 text-[#3d2a21] shadow-[0_10px_24px_rgba(129,91,69,0.10)] transition-all duration-200 hover:scale-105 hover:shadow-[0_14px_28px_rgba(129,91,69,0.14)] dark:border-border dark:text-ivory dark:shadow-[0_10px_24px_rgba(0,0,0,0.3)] sm:left-0 sm:h-10 sm:w-10"
                   style={{
                     background:
                       "radial-gradient(circle, rgba(250,246,241,0.62) 0%, rgba(250,246,241,0.26) 48%, rgba(250,246,241,0) 100%)",
@@ -433,7 +433,7 @@ export function OccasionSection() {
                   type="button"
                   onClick={() => scroll("right")}
                   aria-label="Scroll occasions right"
-                  className="absolute right-1 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-[#edd9cc]/70 text-[#3d2a21] shadow-[0_10px_24px_rgba(129,91,69,0.10)] transition-all duration-200 hover:scale-105 hover:shadow-[0_14px_28px_rgba(129,91,69,0.14)] sm:right-0 sm:h-10 sm:w-10"
+                  className="absolute right-1 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-[#edd9cc]/70 text-[#3d2a21] shadow-[0_10px_24px_rgba(129,91,69,0.10)] transition-all duration-200 hover:scale-105 hover:shadow-[0_14px_28px_rgba(129,91,69,0.14)] dark:border-border dark:text-ivory dark:shadow-[0_10px_24px_rgba(0,0,0,0.3)] sm:right-0 sm:h-10 sm:w-10"
                   style={{
                     background:
                       "radial-gradient(circle, rgba(250,246,241,0.62) 0%, rgba(250,246,241,0.26) 48%, rgba(250,246,241,0) 100%)",

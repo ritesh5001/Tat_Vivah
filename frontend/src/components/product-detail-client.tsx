@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import { ArrowLeftRight, ChevronDown, CircleHelp, Eye, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { addCartItem } from "@/services/cart";
@@ -288,7 +289,7 @@ export default function ProductDetailClient({
               SELECT SIZE
             </p>
             <button className="flex items-center gap-1.5 text-[11px] text-foreground underline decoration-1 underline-offset-4 hover:text-gold transition-colors tracking-wide">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" /></svg>
+              <CircleHelp className="h-3.5 w-3.5" strokeWidth={1.5} />
               Size Chart
             </button>
           </div>
@@ -328,7 +329,7 @@ export default function ProductDetailClient({
 
         {/* 5. Views Counter */}
         <div className="flex items-center gap-2 pt-6 pb-2 text-[13px] text-foreground">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" /><circle cx="12" cy="12" r="3" /></svg>
+          <Eye className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.5} />
           <span className="font-medium tracking-wide">671</span> people have viewed the product recently
         </div>
 
@@ -404,13 +405,13 @@ export default function ProductDetailClient({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-10 pb-6 border-b border-border-soft">
           <div className="flex items-center gap-4">
             <div className="h-12 w-12 flex items-center justify-center rounded-full bg-[#fefaf6] dark:bg-brown/30 text-gold shrink-0 border border-gold/10">
-              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2" /><path d="M15 18H9" /><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14" /><circle cx="17" cy="18" r="2" /><circle cx="7" cy="18" r="2" /></svg>
+              <Truck className="h-5.5 w-5.5" strokeWidth={1.35} />
             </div>
             <p className="text-[14px] font-medium leading-tight text-foreground">Free delivery<br /><span className="text-[13px] text-muted-foreground font-normal">within 2-3 days</span></p>
           </div>
           <div className="flex items-center gap-4">
             <div className="h-12 w-12 flex items-center justify-center rounded-full bg-[#fefaf6] dark:bg-brown/30 text-gold shrink-0 border border-gold/10">
-              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v6h6" /><path d="M21 17v-6h-6" /><path d="M18.5 4.5 21 7l-2.5 2.5" /><path d="M5.5 19.5 3 17l2.5-2.5" /></svg>
+              <ArrowLeftRight className="h-5.5 w-5.5" strokeWidth={1.35} />
             </div>
             <p className="text-[14px] font-medium leading-tight text-foreground">Easy Exchange in<br /><span className="text-[13px] text-muted-foreground font-normal">10 days</span></p>
           </div>
@@ -421,7 +422,7 @@ export default function ProductDetailClient({
           <details className="border-b border-border-soft group list-none [&::-webkit-details-marker]:hidden" open>
             <summary className="flex w-full items-center justify-between py-5 text-[12px] font-bold uppercase tracking-[0.15em] text-foreground hover:text-gold transition-colors cursor-pointer list-none [&::-webkit-details-marker]:hidden">
               Product Details
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="transition-transform group-open:rotate-180"><path d="M5 15l7-7 7 7" /></svg>
+              <ChevronDown className="h-4.5 w-4.5 transition-transform group-open:rotate-180" strokeWidth={1.5} />
             </summary>
             <div className="pb-5 space-y-3 animate-in fade-in slide-in-from-top-2">
               <p className="leading-relaxed">
@@ -441,7 +442,7 @@ export default function ProductDetailClient({
           <details className="border-b border-border-soft group list-none [&::-webkit-details-marker]:hidden">
             <summary className="flex w-full items-center justify-between py-5 text-[12px] font-bold uppercase tracking-[0.15em] text-foreground hover:text-gold transition-colors cursor-pointer list-none [&::-webkit-details-marker]:hidden">
               Product Declaration
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6" /></svg>
+              <ChevronDown className="h-4.5 w-4.5 transition-transform group-open:rotate-180" strokeWidth={1.5} />
             </summary>
             <div className="pb-5 space-y-3 animate-in fade-in slide-in-from-top-2">
               <p className="leading-relaxed">
@@ -453,7 +454,7 @@ export default function ProductDetailClient({
           <details className="border-b border-border-soft group list-none [&::-webkit-details-marker]:hidden">
             <summary className="flex w-full items-center justify-between py-5 text-[12px] font-bold uppercase tracking-[0.15em] text-foreground hover:text-gold transition-colors cursor-pointer list-none [&::-webkit-details-marker]:hidden">
               Shipping & Returns
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6" /></svg>
+              <ChevronDown className="h-4.5 w-4.5 transition-transform group-open:rotate-180" strokeWidth={1.5} />
             </summary>
             <div className="pb-5 space-y-3 animate-in fade-in slide-in-from-top-2">
               <p className="leading-relaxed">

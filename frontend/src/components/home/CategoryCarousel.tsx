@@ -338,7 +338,7 @@ export function CategoryCarousel() {
     <section
       id="categories"
       ref={sectionRef}
-      className="border-t border-[#e9ddd3] bg-[#f3ede7]"
+      className="border-t border-border-soft bg-[#f3ede7] dark:bg-card"
     >
       <div
         className={`mx-auto max-w-460 px-3 py-16 sm:px-6 sm:py-20 lg:px-10 transition-all duration-700 ${
@@ -346,10 +346,10 @@ export function CategoryCarousel() {
         }`}
       >
         <div className="mb-12 text-center">
-          <p className="mb-4 text-[11px] font-medium uppercase tracking-[0.34em] text-[#a07a63]">
+          <p className="mb-4 text-[11px] font-medium uppercase tracking-[0.34em] text-[#a07a63] dark:text-gold">
             Shop by Category
           </p>
-          <h2 className="font-serif text-3xl font-light tracking-[0.02em] text-[#34231b] sm:text-4xl">
+          <h2 className="font-serif text-3xl font-light tracking-[0.02em] text-[#34231b] dark:text-foreground sm:text-4xl">
             Curated Collections
           </h2>
         </div>
@@ -361,7 +361,7 @@ export function CategoryCarousel() {
             ))}
           </div>
         ) : categories.length === 0 ? (
-          <div className="rounded border border-[#e1d3c8] bg-white/70 px-6 py-10 text-center text-sm text-[#7a675c]">
+          <div className="rounded border border-[#e1d3c8] bg-white/70 px-6 py-10 text-center text-sm text-[#7a675c] dark:border-border dark:bg-brown/20 dark:text-muted-foreground">
             Categories will be available soon.
           </div>
         ) : (
@@ -391,7 +391,7 @@ export function CategoryCarousel() {
                     >
                       {/* Inner div clips the image to the arch shape */}
                       <div
-                        className="relative h-full w-full overflow-hidden bg-[#ebe1d7]"
+                        className="relative h-full w-full overflow-hidden bg-[#ebe1d7] dark:bg-brown/20"
                         style={{ borderRadius: ARCH_RADIUS }}
                       >
                         {/* Image */}
@@ -418,7 +418,7 @@ export function CategoryCarousel() {
 
                         {/* Category title */}
                         <div className="absolute inset-x-0 bottom-0 flex items-end justify-center px-3 pb-4 pt-16 sm:px-5 sm:pb-5 lg:pb-7">
-                          <h3 className="text-center font-serif text-sm font-normal uppercase tracking-widest leading-snug text-[#fff9f5] drop-shadow-[0_2px_10px_rgba(0,0,0,0.4)] sm:text-xl lg:text-2xl">
+                          <h3 className="text-center font-serif text-sm font-normal uppercase tracking-widest leading-snug text-[#fff9f5] dark:text-ivory drop-shadow-[0_2px_10px_rgba(0,0,0,0.4)] sm:text-xl lg:text-2xl">
                             {category.name}
                           </h3>
                         </div>
@@ -455,7 +455,7 @@ export function CategoryCarousel() {
         <div className="mt-12 text-center">
           <Link
             href="/categories"
-            className="inline-flex items-center gap-2 border-b border-transparent pb-1 text-xs font-medium uppercase tracking-[0.15em] text-[#7f6859] transition-colors duration-300 hover:border-[#b2886d] hover:text-[#3d2a21]"
+            className="inline-flex items-center gap-2 border-b border-transparent pb-1 text-xs font-medium uppercase tracking-[0.15em] text-[#7f6859] dark:text-muted-foreground transition-colors duration-300 hover:border-[#b2886d] dark:hover:border-gold hover:text-[#3d2a21] dark:hover:text-foreground"
           >
             View All Categories
             <span className="text-[#b2886d]">→</span>
