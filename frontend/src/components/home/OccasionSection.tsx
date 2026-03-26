@@ -403,9 +403,9 @@ export function OccasionSection() {
               )}
             </div>
 
-            <div className="mx-auto hidden max-w-330 grid-cols-10 gap-4 px-12 lg:grid">
+            <div className="mx-auto hidden max-w-330 flex-wrap justify-center gap-4 px-12 lg:flex">
               {occasions.map((occasion) => (
-                <Link key={occasion.id} href={`/marketplace?occasion=${occasion.slug}`} className="block">
+                <Link key={occasion.id} href={`/marketplace?occasion=${occasion.slug}`} className="block w-26">
                   <OccasionCard occasion={occasion} mode="grid" />
                 </Link>
               ))}
