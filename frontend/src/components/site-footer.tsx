@@ -120,7 +120,7 @@ export function SiteFooter() {
   };
 
   return (
-    <footer className="relative overflow-hidden border-t border-border-soft bg-cream text-foreground font-sans">
+    <footer className="relative overflow-hidden border-t border-border-soft bg-cream text-foreground font-sans dark:bg-charcoal">
       {/* ornamental stripe removed per design request */}
 
       <div className="mx-auto w-full max-w-6xl px-6 pt-14">
@@ -213,7 +213,7 @@ export function SiteFooter() {
         </div>
       </div>
 
-      <div className="mt-6 bg-charcoal py-5 text-ivory">
+      <div className="mt-6 bg-charcoal py-5 text-ivory dark:bg-[#0f0d0d]">
         <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-5 px-6 max-sm:flex-col-reverse max-sm:text-center">
           <p className="text-xs tracking-wide text-gold/90">
             © 2026 TatVivah. Crafted with ♥ by NextGen Fusion.
