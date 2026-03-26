@@ -24,10 +24,24 @@ function OccasionSkeletonCard() {
   );
 }
 
-function OccasionCard({ occasion }: { occasion: Occasion }) {
+function OccasionCard({ occasion, mode = "carousel" }: { occasion: Occasion; mode?: "carousel" | "grid" }) {
+  const isGrid = mode === "grid";
+
   return (
-    <div className="group shrink-0 w-[calc((100%-2rem)/5)] md:w-[calc((100%-4.5rem)/7)] lg:w-[calc((100%-9rem)/10)]">
-      <div className="relative aspect-square w-full overflow-hidden border border-[#ddd2c6] bg-[#f5f1ec] transition-all duration-300 group-hover:border-[#b79b87]">
+    <div
+      className={
+        isGrid
+          ? "group w-full"
+          : "group shrink-0 w-[calc((100%-2rem)/5)] md:w-[calc((100%-4.5rem)/7)] lg:w-[calc((100%-9rem)/10)]"
+      }
+    >
+      <div
+        className={
+          isGrid
+            ? "relative aspect-4/5 w-full overflow-hidden border border-[#ddd2c6] bg-[#f5f1ec] transition-all duration-300 group-hover:border-[#b79b87]"
+            : "relative aspect-square w-full overflow-hidden border border-[#ddd2c6] bg-[#f5f1ec] transition-all duration-300 group-hover:border-[#b79b87]"
+        }
+      >
         <Image
           src={resolveOccasionImage(occasion)}
           alt={occasion.name}
@@ -40,7 +54,7 @@ function OccasionCard({ occasion }: { occasion: Occasion }) {
           style={{ objectPosition: "center 20%" }}
         />
       </div>
-      <h3 className="mt-3 text-center text-[11px] font-medium uppercase tracking-[0.12em] text-[#4f4741] sm:text-xs lg:text-sm">
+      <h3 className={isGrid ? "mt-2 text-center text-[11px] font-medium uppercase tracking-[0.12em] text-[#4f4741]" : "mt-3 text-center text-[11px] font-medium uppercase tracking-[0.12em] text-[#4f4741] sm:text-xs lg:text-sm"}>
         {occasion.name}
       </h3>
     </div>
@@ -361,7 +375,7 @@ export function OccasionSection() {
                 style={{ WebkitOverflowScrolling: "touch", overscrollBehaviorX: "contain", willChange: "scroll-position" }}
               >
                 {loopingOccasions.map(({ occasion, key }) => (
-                  <Link key={key} href={`/marketplace?occasion=${occasion.slug}`} className="contents">
+                  <Link key={key} href={`/marketplace?occasion=${occasion.slug}`} className="block">
                     <OccasionCard occasion={occasion} />
                   </Link>
                 ))}
@@ -391,8 +405,8 @@ export function OccasionSection() {
 
             <div className="mx-auto hidden max-w-330 grid-cols-10 gap-4 px-12 lg:grid">
               {occasions.map((occasion) => (
-                <Link key={occasion.id} href={`/marketplace?occasion=${occasion.slug}`} className="contents">
-                  <OccasionCard occasion={occasion} />
+                <Link key={occasion.id} href={`/marketplace?occasion=${occasion.slug}`} className="block">
+                  <OccasionCard occasion={occasion} mode="grid" />
                 </Link>
               ))}
             </div>
