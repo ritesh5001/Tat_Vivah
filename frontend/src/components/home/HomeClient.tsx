@@ -224,46 +224,6 @@ export default function HomeClient() {
             </section>
 
             {/* =========================================================================
-          SEO INTERNAL LINKS SECTION
-          ========================================================================= */}
-            <section className="border-t border-border-soft bg-background">
-                <div className="mx-auto max-w-6xl px-6 py-16">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
-                        <div>
-                            <h3 className="mb-6 font-serif text-xl tracking-wide text-foreground">Popular Collections</h3>
-                            <ul className="space-y-3">
-                                <li><Link href="/collections/kurta" className="text-sm text-muted-foreground hover:text-gold transition-colors">Men's Kurta Sets</Link></li>
-                                <li><Link href="/collections/sherwani" className="text-sm text-muted-foreground hover:text-gold transition-colors">Wedding Sherwanis</Link></li>
-                                <li><Link href="/collections/indo-western" className="text-sm text-muted-foreground hover:text-gold transition-colors">Indo-Western Outfits</Link></li>
-                                <li><Link href="/collections/kurta-set" className="text-sm text-muted-foreground hover:text-gold transition-colors">Designer Kurta Pajama</Link></li>
-                                <li><Link href="/collections/wedding" className="text-sm text-muted-foreground hover:text-gold transition-colors">Bridal & Groom Edit</Link></li>
-                                <li><Link href="/collections/festive" className="text-sm text-muted-foreground hover:text-gold transition-colors">Festive Wear</Link></li>
-                            </ul>
-                        </div>
-                        <div>
-                            <h3 className="mb-6 font-serif text-xl tracking-wide text-foreground">Shop by Occasion</h3>
-                            <ul className="space-y-3">
-                                <li><Link href="/occasion/wedding" className="text-sm text-muted-foreground hover:text-gold transition-colors">Wedding Ceremonies</Link></li>
-                                <li><Link href="/occasion/sangeet" className="text-sm text-muted-foreground hover:text-gold transition-colors">Sangeet Night</Link></li>
-                                <li><Link href="/occasion/haldi" className="text-sm text-muted-foreground hover:text-gold transition-colors">Haldi Outfits</Link></li>
-                                <li><Link href="/occasion/mehendi" className="text-sm text-muted-foreground hover:text-gold transition-colors">Mehendi Celebration</Link></li>
-                                <li><Link href="/occasion/reception" className="text-sm text-muted-foreground hover:text-gold transition-colors">Reception Party</Link></li>
-                                <li><Link href="/occasion/engagement" className="text-sm text-muted-foreground hover:text-gold transition-colors">Engagement Styles</Link></li>
-                            </ul>
-                        </div>
-                        <div>
-                            <h3 className="mb-6 font-serif text-xl tracking-wide text-foreground">From The Journal</h3>
-                            <ul className="space-y-3">
-                                <li><Link href="/blog" className="text-sm text-muted-foreground hover:text-gold transition-colors">All Articles</Link></li>
-                                <li><Link href="/blog/trending-wedding-outfits-for-men-2026" className="text-sm text-muted-foreground hover:text-gold transition-colors">Trending Wedding Outfits 2026</Link></li>
-                                <li><Link href="/blog/how-to-style-kurta-pajama-for-haldi" className="text-sm text-muted-foreground hover:text-gold transition-colors">How to Style for Haldi</Link></li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            {/* =========================================================================
           TRUST SECTION
           ========================================================================= */}
             <section className="border-t border-border-soft bg-cream/50 dark:bg-card/50">
