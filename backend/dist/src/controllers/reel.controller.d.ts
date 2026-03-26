@@ -6,6 +6,7 @@ export declare class ReelController {
     private handleZodError;
     createReel: (req: Request, res: Response, next: NextFunction) => Promise<void>;
     listSellerReels: (req: Request, res: Response, next: NextFunction) => Promise<void>;
+    updateSellerReel: (req: Request, res: Response, next: NextFunction) => Promise<void>;
     deleteSellerReel: (req: Request, res: Response, next: NextFunction) => Promise<void>;
     listAdminReels: (req: Request, res: Response, next: NextFunction) => Promise<void>;
     approveReel: (req: Request, res: Response, next: NextFunction) => Promise<void>;

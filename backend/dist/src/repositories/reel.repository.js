@@ -120,6 +120,13 @@ export class ReelRepository {
             data: { status },
         });
     }
+    async updateSellerFields(id, data) {
+        return prisma.reel.update({
+            where: { id },
+            data,
+            include: { product: { select: productSelect } },
+        });
+    }
     async incrementViews(id) {
         return prisma.reel.update({
             where: { id },

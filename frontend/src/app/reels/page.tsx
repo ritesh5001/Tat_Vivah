@@ -163,7 +163,7 @@ export default function ReelFeedPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-black">
+      <div className="flex items-center justify-center min-h-[calc(100vh-160px)] bg-black">
         <Loader2 className="h-8 w-8 animate-spin text-white/60" />
       </div>
     );
@@ -193,7 +193,7 @@ export default function ReelFeedPage() {
 
   if (reels.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white relative">
+      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-160px)] bg-black text-white relative">
         <Link
           href="/"
           className="absolute top-4 left-4 z-30 p-2 text-white/70 hover:text-white transition-colors"
@@ -212,7 +212,7 @@ export default function ReelFeedPage() {
   return (
     <div
       ref={containerRef}
-      className="fixed inset-0 bg-black flex items-center justify-center overflow-hidden"
+      className="relative w-full min-h-[calc(100vh-160px)] bg-black flex items-center justify-center overflow-hidden pb-20"
     >
       {/* Back Button */}
       <Link
@@ -251,7 +251,7 @@ export default function ReelFeedPage() {
       {/* Reel Content */}
       <div
         key={currentReel.id}
-        className="relative w-full max-w-md h-full max-h-dvh flex flex-col"
+        className="relative w-full max-w-md h-[calc(100vh-240px)] min-h-105 max-h-190 flex flex-col"
       >
           {/* Video */}
           <video

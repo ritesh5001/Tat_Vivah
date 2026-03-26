@@ -210,6 +210,34 @@ export declare class ReelRepository {
         views: number;
         likes: number;
     }>;
+    updateSellerFields(id: string, data: {
+        caption?: string | null;
+        category?: 'MENS' | 'KIDS';
+        productId?: string | null;
+        status?: 'PENDING' | 'APPROVED' | 'REJECTED';
+    }): Promise<{
+        product: {
+            status: import(".prisma/client").$Enums.ProductStatus;
+            id: string;
+            title: string;
+            sellerPrice: import("@prisma/client/runtime/library").Decimal;
+            adminListingPrice: import("@prisma/client/runtime/library").Decimal | null;
+            images: string[];
+        } | null;
+    } & {
+        status: import(".prisma/client").$Enums.ReelStatus;
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        productId: string | null;
+        sellerId: string;
+        category: import(".prisma/client").$Enums.ReelCategory;
+        videoUrl: string;
+        thumbnailUrl: string | null;
+        caption: string | null;
+        views: number;
+        likes: number;
+    }>;
     incrementViews(id: string): Promise<{
         status: import(".prisma/client").$Enums.ReelStatus;
         id: string;

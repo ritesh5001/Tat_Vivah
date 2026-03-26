@@ -707,12 +707,6 @@ export default function SellerProductsPage() {
                       <p className="text-xs text-muted-foreground mt-2">
                         Seller Price: {currency.format(Number(product.sellerPrice ?? 0))}
                       </p>
-                      {String(product.status ?? "PENDING").toUpperCase() === "APPROVED" &&
-                        product.adminListingPrice != null ? (
-                        <p className="text-xs text-gold mt-1">
-                          Listed at {currency.format(Number(product.adminListingPrice))} by Admin
-                        </p>
-                      ) : null}
                     </div>
                     <div className="flex items-center gap-2">
                       <Button

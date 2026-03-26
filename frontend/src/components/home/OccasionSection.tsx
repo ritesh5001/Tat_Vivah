@@ -419,7 +419,11 @@ export function OccasionSection() {
                   type="button"
                   onClick={() => scroll("left")}
                   aria-label="Scroll occasions left"
-                  className="absolute left-1 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-[#edd9cc] bg-[#faf6f1]/95 text-[#3d2a21] shadow-[0_10px_24px_rgba(129,91,69,0.14)] transition-all duration-200 hover:scale-105 hover:shadow-[0_14px_28px_rgba(129,91,69,0.18)] sm:left-0 sm:h-10 sm:w-10 sm:bg-[#faf6f1]"
+                  className="absolute left-1 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-[#edd9cc]/70 text-[#3d2a21] shadow-[0_10px_24px_rgba(129,91,69,0.10)] transition-all duration-200 hover:scale-105 hover:shadow-[0_14px_28px_rgba(129,91,69,0.14)] sm:left-0 sm:h-10 sm:w-10"
+                  style={{
+                    background:
+                      "radial-gradient(circle, rgba(250,246,241,0.62) 0%, rgba(250,246,241,0.26) 48%, rgba(250,246,241,0) 100%)",
+                  }}
                 >
                   <ChevronIcon direction="left" />
                 </button>
@@ -429,7 +433,11 @@ export function OccasionSection() {
                   type="button"
                   onClick={() => scroll("right")}
                   aria-label="Scroll occasions right"
-                  className="absolute right-1 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-[#edd9cc] bg-[#faf6f1]/95 text-[#3d2a21] shadow-[0_10px_24px_rgba(129,91,69,0.14)] transition-all duration-200 hover:scale-105 hover:shadow-[0_14px_28px_rgba(129,91,69,0.18)] sm:right-0 sm:h-10 sm:w-10 sm:bg-[#faf6f1]"
+                  className="absolute right-1 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-[#edd9cc]/70 text-[#3d2a21] shadow-[0_10px_24px_rgba(129,91,69,0.10)] transition-all duration-200 hover:scale-105 hover:shadow-[0_14px_28px_rgba(129,91,69,0.14)] sm:right-0 sm:h-10 sm:w-10"
+                  style={{
+                    background:
+                      "radial-gradient(circle, rgba(250,246,241,0.62) 0%, rgba(250,246,241,0.26) 48%, rgba(250,246,241,0) 100%)",
+                  }}
                 >
                   <ChevronIcon direction="right" />
                 </button>

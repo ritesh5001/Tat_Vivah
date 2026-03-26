@@ -22,6 +22,28 @@ export declare const createReelSchema: z.ZodObject<{
     durationSeconds?: number | undefined;
 }>;
 export type CreateReelInput = z.infer<typeof createReelSchema>;
+export declare const updateReelSchema: z.ZodEffects<z.ZodObject<{
+    caption: z.ZodOptional<z.ZodString>;
+    category: z.ZodOptional<z.ZodEnum<["MENS", "KIDS"]>>;
+    productId: z.ZodOptional<z.ZodUnion<[z.ZodString, z.ZodNull]>>;
+}, "strip", z.ZodTypeAny, {
+    productId?: string | null | undefined;
+    category?: "MENS" | "KIDS" | undefined;
+    caption?: string | undefined;
+}, {
+    productId?: string | null | undefined;
+    category?: "MENS" | "KIDS" | undefined;
+    caption?: string | undefined;
+}>, {
+    productId?: string | null | undefined;
+    category?: "MENS" | "KIDS" | undefined;
+    caption?: string | undefined;
+}, {
+    productId?: string | null | undefined;
+    category?: "MENS" | "KIDS" | undefined;
+    caption?: string | undefined;
+}>;
+export type UpdateReelInput = z.infer<typeof updateReelSchema>;
 export declare const reelQuerySchema: z.ZodObject<{
     page: z.ZodDefault<z.ZodOptional<z.ZodPipeline<z.ZodEffects<z.ZodString, number, string>, z.ZodNumber>>>;
     limit: z.ZodDefault<z.ZodOptional<z.ZodPipeline<z.ZodEffects<z.ZodString, number, string>, z.ZodNumber>>>;
