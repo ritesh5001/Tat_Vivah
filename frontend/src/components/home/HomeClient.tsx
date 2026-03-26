@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
+import { Lock, RotateCcw, ShieldCheck } from "lucide-react";
 import {
     staggerContainerVariants,
     staggerItemVariants,
@@ -280,68 +281,26 @@ export default function HomeClient() {
                                 titleShort: "Verified",
                                 desc: "Every seller is personally vetted",
                                 descShort: "Seller vetted",
-                                icon: "shield",
+                                Icon: ShieldCheck,
                             },
                             {
                                 title: "Secure Payments",
                                 titleShort: "Payments",
                                 desc: "Protected by Razorpay",
                                 descShort: "Razorpay",
-                                icon: "lock",
+                                Icon: Lock,
                             },
                             {
                                 title: "Hassle-Free Returns",
                                 titleShort: "Returns",
                                 desc: "10-day easy returns",
                                 descShort: "10-day",
-                                icon: "refresh",
+                                Icon: RotateCcw,
                             },
                         ].map((item) => (
                             <motion.div key={item.title} variants={staggerItemVariants} className="px-1">
                                 <div className="mb-1.5 flex justify-center text-gold">
-                                    {item.icon === "shield" ? (
-                                        <svg
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            strokeWidth={1.6}
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            className="h-4 w-4 sm:h-5 sm:w-5"
-                                        >
-                                            <path d="M12 3 5 6v6c0 5 3.5 8 7 9 3.5-1 7-4 7-9V6l-7-3Z" />
-                                            <path d="m9 12 2 2 4-4" />
-                                        </svg>
-                                    ) : item.icon === "lock" ? (
-                                        <svg
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            strokeWidth={1.6}
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            className="h-4 w-4 sm:h-5 sm:w-5"
-                                        >
-                                            <rect x="4" y="11" width="16" height="10" />
-                                            <path d="M8 11V8a4 4 0 1 1 8 0v3" />
-                                        </svg>
-                                    ) : (
-                                        <svg
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            strokeWidth={1.6}
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            className="h-4 w-4 sm:h-5 sm:w-5"
-                                        >
-                                            <path d="M21 12a9 9 0 1 1-2.64-6.36" />
-                                            <path d="M21 3v6h-6" />
-                                        </svg>
-                                    )}
+                                    <item.Icon className="h-4 w-4 sm:h-5 sm:w-5" strokeWidth={1.8} />
                                 </div>
                                 <h4 className="mb-0.5 text-[11px] font-medium leading-tight text-foreground sm:text-sm">
                                     <span className="sm:hidden">{item.titleShort}</span>
