@@ -47,6 +47,17 @@ const adminLinks = [
   { href: "/admin/profile", label: "Profile" },
 ];
 
+const premiumSearchPrompts = [
+  "Search festive",
+  "Search haldi",
+  "Search mehendi",
+  "Search sangeet",
+  "Search reception",
+  "Search wedding",
+  "Search cocktail",
+  "Search engagement",
+];
+
 export function SiteHeader() {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = React.useState(false);
@@ -243,7 +254,11 @@ export function SiteHeader() {
         </div>
 
         <div className="pb-2 sm:hidden">
-          <SearchBar placeholder="Search products..." className="w-full" />
+          <SearchBar
+            placeholder="Search products..."
+            rotatingPhrases={premiumSearchPrompts}
+            className="w-full"
+          />
         </div>
 
         {/* Desktop Header */}
@@ -282,7 +297,11 @@ export function SiteHeader() {
 
           {/* Search - grows to fill available space */}
           <div className="hidden flex-1 lg:block lg:max-w-md">
-            <SearchBar placeholder="Search products..." className="w-full" />
+              <SearchBar
+                placeholder="Search products..."
+                rotatingPhrases={premiumSearchPrompts}
+                className="w-full"
+              />
           </div>
 
           {/* Right Actions */}

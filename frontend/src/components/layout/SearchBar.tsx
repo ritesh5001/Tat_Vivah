@@ -4,12 +4,25 @@ import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { AnimatePresence, motion } from "framer-motion";
 import { searchProducts, type SearchResultItem } from "@/services/search";
 
 type SearchBarProps = {
   placeholder?: string;
   className?: string;
+  rotatingPhrases?: string[];
 };
+
+const DEFAULT_ROTATING_PHRASES = [
+  "Search festive",
+  "Search haldi",
+  "Search mehendi",
+  "Search sangeet",
+  "Search reception",
+  "Search wedding",
+  "Search cocktail",
+  "Search engagement",
+];
 
 const currency = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -25,6 +38,7 @@ function resolvePrice(item: SearchResultItem): number | null {
 export function SearchBar({
   placeholder = "Search products...",
   className,
+  rotatingPhrases = DEFAULT_ROTATING_PHRASES,
 }: SearchBarProps) {
   const router = useRouter();
   const rootRef = React.useRef<HTMLDivElement | null>(null);
@@ -32,9 +46,21 @@ export function SearchBar({
   const abortRef = React.useRef<AbortController | null>(null);
 
   const [query, setQuery] = React.useState("");
+  const [isFocused, setIsFocused] = React.useState(false);
+  const [phraseIndex, setPhraseIndex] = React.useState(0);
   const [open, setOpen] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [suggestions, setSuggestions] = React.useState<SearchResultItem[]>([]);
+
+  React.useEffect(() => {
+    if (rotatingPhrases.length <= 1) return;
+
+    const interval = window.setInterval(() => {
+      setPhraseIndex((prev) => (prev + 1) % rotatingPhrases.length);
+    }, 2600);
+
+    return () => window.clearInterval(interval);
+  }, [rotatingPhrases]);
 
   const runSearch = React.useCallback(async (value: string) => {
     const trimmed = value.trim();
@@ -140,7 +166,9 @@ export function SearchBar({
           type="text"
           value={query}
           onChange={handleChange}
+          onBlur={() => setIsFocused(false)}
           onFocus={() => {
+            setIsFocused(true);
             if (suggestions.length > 0) setOpen(true);
           }}
           onKeyDown={(event) => {
@@ -152,11 +180,28 @@ export function SearchBar({
               setOpen(false);
             }
           }}
-          placeholder={placeholder}
+          placeholder={isFocused ? placeholder : ""}
           className="h-10 w-full border border-border-soft bg-card pl-10 pr-10 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/20"
           aria-label="Search products"
           autoComplete="off"
         />
+
+        {!query && !isFocused ? (
+          <div className="pointer-events-none absolute inset-y-0 left-10 right-10 flex items-center overflow-hidden">
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.span
+                key={rotatingPhrases[phraseIndex]}
+                initial={{ opacity: 0, y: 8, filter: "blur(2px)" }}
+                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                exit={{ opacity: 0, y: -8, filter: "blur(2px)" }}
+                transition={{ duration: 0.4, ease: "easeOut" }}
+                className="truncate text-sm text-muted-foreground/90"
+              >
+                {rotatingPhrases[phraseIndex]}
+              </motion.span>
+            </AnimatePresence>
+          </div>
+        ) : null}
 
         {loading ? (
           <span className="absolute right-3 top-1/2 -translate-y-1/2">
