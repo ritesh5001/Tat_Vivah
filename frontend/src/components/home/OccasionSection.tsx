@@ -36,7 +36,7 @@ function OccasionCard({ occasion, mode = "carousel" }: { occasion: Occasion; mod
       className={
         isGrid
           ? "group w-full"
-          : "group shrink-0 w-[calc((100%-2rem)/5)] md:w-[calc((100%-4.5rem)/7)] lg:w-[calc((100%-9rem)/10)]"
+          : "group w-full"
       }
     >
       <div
@@ -404,7 +404,11 @@ export function OccasionSection() {
                 style={{ WebkitOverflowScrolling: "touch", overscrollBehaviorX: "contain", willChange: "scroll-position" }}
               >
                 {loopingOccasions.map(({ occasion, key }) => (
-                  <Link key={key} href={`/marketplace?occasion=${occasion.slug}`} className="block">
+                  <Link
+                    key={key}
+                    href={`/marketplace?occasion=${occasion.slug}`}
+                    className="block shrink-0 w-[calc((100%-2rem)/5)] md:w-[calc((100%-4.5rem)/7)]"
+                  >
                     <OccasionCard occasion={occasion} />
                   </Link>
                 ))}
