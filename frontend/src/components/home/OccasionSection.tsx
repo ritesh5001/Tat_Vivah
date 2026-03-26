@@ -18,8 +18,12 @@ function resolveOccasionImage(occasion: Occasion): string {
 function OccasionSkeletonCard() {
   return (
     <div className="shrink-0 w-[calc((100%-2rem)/5)] md:w-[calc((100%-4.5rem)/7)] lg:w-[calc((100%-9rem)/10)]">
-      <div className="relative aspect-square w-full animate-pulse overflow-hidden border border-[#dfd7cf] bg-[#e9e4de]" />
-      <div className="mt-2 h-3 w-3/4 animate-pulse bg-[#ddd3ca] mx-auto" />
+      <div className="relative aspect-3/4 w-full overflow-hidden border border-[#dfd7cf] bg-[#e9e4de]">
+        <div className="h-[76%] w-full animate-pulse bg-[#e6dfd8]" />
+        <div className="flex h-[24%] items-center justify-center border-t border-[#ddd3ca] bg-[#f1ebe5] px-1">
+          <div className="h-3 w-3/4 animate-pulse bg-[#ddd3ca]" />
+        </div>
+      </div>
     </div>
   );
 }
@@ -39,24 +43,49 @@ function OccasionCard({ occasion, mode = "carousel" }: { occasion: Occasion; mod
         className={
           isGrid
             ? "relative aspect-4/5 w-full overflow-hidden border border-[#ddd2c6] bg-[#f5f1ec] transition-all duration-300 group-hover:border-[#b79b87]"
-            : "relative aspect-square w-full overflow-hidden border border-[#ddd2c6] bg-[#f5f1ec] transition-all duration-300 group-hover:border-[#b79b87]"
+            : "relative aspect-3/4 w-full overflow-hidden border border-[#ddd2c6] bg-[#f5f1ec] transition-all duration-300 group-hover:border-[#b79b87]"
         }
       >
-        <Image
-          src={resolveOccasionImage(occasion)}
-          alt={occasion.name}
-          fill
-          sizes="(max-width: 767px) 20vw, (max-width: 1023px) 14vw, 10vw"
-          quality={75}
-          loading="lazy"
-          draggable={false}
-          className="object-cover transition-transform duration-300 ease-out group-hover:scale-105"
-          style={{ objectPosition: "center 20%" }}
-        />
+        {isGrid ? (
+          <Image
+            src={resolveOccasionImage(occasion)}
+            alt={occasion.name}
+            fill
+            sizes="(max-width: 767px) 20vw, (max-width: 1023px) 14vw, 10vw"
+            quality={75}
+            loading="lazy"
+            draggable={false}
+            className="object-cover transition-transform duration-300 ease-out group-hover:scale-105"
+            style={{ objectPosition: "center 20%" }}
+          />
+        ) : (
+          <>
+            <div className="relative h-[76%] w-full overflow-hidden">
+              <Image
+                src={resolveOccasionImage(occasion)}
+                alt={occasion.name}
+                fill
+                sizes="(max-width: 767px) 20vw, (max-width: 1023px) 14vw, 10vw"
+                quality={75}
+                loading="lazy"
+                draggable={false}
+                className="object-cover transition-transform duration-300 ease-out group-hover:scale-105"
+                style={{ objectPosition: "center 20%" }}
+              />
+            </div>
+            <div className="flex h-[24%] items-center justify-center border-t border-[#ddd2c6] bg-[#f3ece5] px-1">
+              <span className="truncate text-[9px] font-medium uppercase tracking-[0.11em] text-[#4f4741] sm:text-[10px]">
+                {occasion.name}
+              </span>
+            </div>
+          </>
+        )}
       </div>
-      <h3 className={isGrid ? "mt-2 text-center text-[11px] font-medium uppercase tracking-[0.12em] text-[#4f4741]" : "mt-3 text-center text-[11px] font-medium uppercase tracking-[0.12em] text-[#4f4741] sm:text-xs lg:text-sm"}>
-        {occasion.name}
-      </h3>
+      {isGrid && (
+        <h3 className="mt-2 text-center text-[11px] font-medium uppercase tracking-[0.12em] text-[#4f4741]">
+          {occasion.name}
+        </h3>
+      )}
     </div>
   );
 }

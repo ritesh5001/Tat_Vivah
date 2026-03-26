@@ -312,7 +312,8 @@ export default async function MarketplacePage({
       />
       <section className="border-b border-border-soft bg-background">
         <div className="mx-auto max-w-6xl px-4 py-4 sm:px-6">
-          <div className="flex gap-4 overflow-x-auto pb-1">
+          <div className="overflow-x-auto pb-1">
+            <div className="mx-auto flex w-max min-w-full justify-center gap-4 px-1">
             <Link
               href={buildUrl({ nextPage: 1, nextOccasion: null })}
               className="group shrink-0 text-center"
@@ -358,6 +359,7 @@ export default async function MarketplacePage({
                 </Link>
               );
             })}
+            </div>
           </div>
         </div>
       </section>
