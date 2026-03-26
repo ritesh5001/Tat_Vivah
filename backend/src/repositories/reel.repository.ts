@@ -25,11 +25,13 @@ export class ReelRepository {
         videoUrl: string;
         thumbnailUrl?: string | undefined;
         caption?: string | undefined;
+        category?: 'MENS' | 'KIDS' | undefined;
         productId?: string | undefined;
     }) {
         return prisma.reel.create({
             data: {
                 sellerId: data.sellerId,
+                category: data.category ?? 'MENS',
                 videoUrl: data.videoUrl,
                 thumbnailUrl: data.thumbnailUrl ?? null,
                 caption: data.caption ?? null,
@@ -56,10 +58,13 @@ export class ReelRepository {
     }
 
     async findBySeller(sellerId: string, filters: ReelQueryFilters) {
-        const { page = 1, limit = 20 } = filters;
+        const { page = 1, limit = 20, category } = filters;
         const skip = (page - 1) * limit;
 
-        const where = { sellerId };
+        const where = {
+            sellerId,
+            ...(category && { category }),
+        };
 
         const [reels, total] = await Promise.all([
             prisma.reel.findMany({
@@ -76,11 +81,12 @@ export class ReelRepository {
     }
 
     async findAllAdmin(filters: ReelQueryFilters) {
-        const { page = 1, limit = 20, status } = filters;
+        const { page = 1, limit = 20, status, category } = filters;
         const skip = (page - 1) * limit;
 
         const where = {
             ...(status && { status }),
+            ...(category && { category }),
         };
 
         const [reels, total] = await Promise.all([
@@ -101,10 +107,13 @@ export class ReelRepository {
     }
 
     async findPublished(filters: ReelQueryFilters) {
-        const { page = 1, limit = 20 } = filters;
+        const { page = 1, limit = 20, category } = filters;
         const skip = (page - 1) * limit;
 
-        const where = { status: 'APPROVED' as const };
+        const where = {
+            status: 'APPROVED' as const,
+            ...(category && { category }),
+        };
 
         const [reels, total] = await Promise.all([
             prisma.reel.findMany({

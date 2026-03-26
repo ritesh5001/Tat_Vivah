@@ -23,6 +23,7 @@ export class ReelService {
             videoUrl: data.videoUrl,
             thumbnailUrl: data.thumbnailUrl,
             caption: data.caption,
+            category: data.category,
             productId: data.productId,
         });
         await invalidateCacheByPattern('reels:public:*');
@@ -118,7 +119,7 @@ export class ReelService {
     async listPublicReels(filters) {
         const page = filters.page ?? 1;
         const limit = filters.limit ?? 20;
-        const cacheKey = CACHE_KEYS.REELS_PUBLIC(page, limit);
+        const cacheKey = CACHE_KEYS.REELS_PUBLIC(page, limit, filters.category);
         const cached = await getFromCache(cacheKey);
         if (cached) {
             return cached;

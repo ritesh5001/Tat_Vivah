@@ -337,19 +337,10 @@ export function OccasionSection() {
       className="border-t border-[#e9ddd3] bg-[#f3ede7]"
     >
       <div
-        className={`mx-auto max-w-360 px-3 py-10 sm:px-6 sm:py-12 lg:px-8 transition-all duration-700 ${
+        className={`mx-auto max-w-360 px-3 py-8 sm:px-6 sm:py-10 lg:px-8 transition-all duration-700 ${
           visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
         }`}
       >
-        <div className="mb-7 text-center sm:mb-9">
-          <p className="mb-3 text-[10px] font-medium uppercase tracking-[0.28em] text-[#a07a63]">
-            Curated for Every Celebration
-          </p>
-          <h2 className="font-serif text-2xl font-light tracking-[0.02em] text-[#34231b] sm:text-3xl">
-            Shop by Collection
-          </h2>
-        </div>
-
         {loading ? (
           <div className="mx-auto flex max-w-330 gap-2 overflow-hidden px-1 md:gap-3 lg:gap-4">
             {Array.from({ length: 10 }).map((_, i) => (
@@ -357,56 +348,56 @@ export function OccasionSection() {
             ))}
           </div>
         ) : (
-          <div className="relative mx-auto max-w-330 px-0 sm:px-10 lg:px-12">
-            <div
-              ref={trackRef}
-              className="flex gap-2 overflow-x-auto px-0 py-2 scrollbar-hide select-none md:gap-3 lg:gap-4"
-              onMouseDown={handleMouseDown}
-              onMouseMove={handleMouseMove}
-              onMouseUp={endMouseDrag}
-              onMouseLeave={endMouseDrag}
-              onClickCapture={handleTrackClickCapture}
-              style={{ WebkitOverflowScrolling: "touch", overscrollBehaviorX: "contain", willChange: "scroll-position" }}
-            >
-              {loopingOccasions.map(({ occasion, key }) => (
-                <Link key={key} href={`/marketplace?occasion=${occasion.slug}`} className="contents">
+          <>
+            <div className="relative mx-auto max-w-330 px-0 sm:px-10 lg:hidden">
+              <div
+                ref={trackRef}
+                className="flex gap-2 overflow-x-auto px-0 py-2 scrollbar-hide select-none md:gap-3"
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={endMouseDrag}
+                onMouseLeave={endMouseDrag}
+                onClickCapture={handleTrackClickCapture}
+                style={{ WebkitOverflowScrolling: "touch", overscrollBehaviorX: "contain", willChange: "scroll-position" }}
+              >
+                {loopingOccasions.map(({ occasion, key }) => (
+                  <Link key={key} href={`/marketplace?occasion=${occasion.slug}`} className="contents">
+                    <OccasionCard occasion={occasion} />
+                  </Link>
+                ))}
+              </div>
+
+              {canScrollLeft && (
+                <button
+                  type="button"
+                  onClick={() => scroll("left")}
+                  aria-label="Scroll occasions left"
+                  className="absolute left-1 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-[#edd9cc] bg-[#faf6f1]/95 text-[#3d2a21] shadow-[0_10px_24px_rgba(129,91,69,0.14)] transition-all duration-200 hover:scale-105 hover:shadow-[0_14px_28px_rgba(129,91,69,0.18)] sm:left-0 sm:h-10 sm:w-10 sm:bg-[#faf6f1]"
+                >
+                  <ChevronIcon direction="left" />
+                </button>
+              )}
+              {canScrollRight && (
+                <button
+                  type="button"
+                  onClick={() => scroll("right")}
+                  aria-label="Scroll occasions right"
+                  className="absolute right-1 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-[#edd9cc] bg-[#faf6f1]/95 text-[#3d2a21] shadow-[0_10px_24px_rgba(129,91,69,0.14)] transition-all duration-200 hover:scale-105 hover:shadow-[0_14px_28px_rgba(129,91,69,0.18)] sm:right-0 sm:h-10 sm:w-10 sm:bg-[#faf6f1]"
+                >
+                  <ChevronIcon direction="right" />
+                </button>
+              )}
+            </div>
+
+            <div className="mx-auto hidden max-w-330 grid-cols-10 gap-4 px-12 lg:grid">
+              {occasions.map((occasion) => (
+                <Link key={occasion.id} href={`/marketplace?occasion=${occasion.slug}`} className="contents">
                   <OccasionCard occasion={occasion} />
                 </Link>
               ))}
             </div>
-
-            {canScrollLeft && (
-              <button
-                type="button"
-                onClick={() => scroll("left")}
-                aria-label="Scroll occasions left"
-                className="absolute left-1 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-[#edd9cc] bg-[#faf6f1]/95 text-[#3d2a21] shadow-[0_10px_24px_rgba(129,91,69,0.14)] transition-all duration-200 hover:scale-105 hover:shadow-[0_14px_28px_rgba(129,91,69,0.18)] sm:left-0 sm:h-10 sm:w-10 sm:bg-[#faf6f1]"
-              >
-                <ChevronIcon direction="left" />
-              </button>
-            )}
-            {canScrollRight && (
-              <button
-                type="button"
-                onClick={() => scroll("right")}
-                aria-label="Scroll occasions right"
-                className="absolute right-1 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-[#edd9cc] bg-[#faf6f1]/95 text-[#3d2a21] shadow-[0_10px_24px_rgba(129,91,69,0.14)] transition-all duration-200 hover:scale-105 hover:shadow-[0_14px_28px_rgba(129,91,69,0.18)] sm:right-0 sm:h-10 sm:w-10 sm:bg-[#faf6f1]"
-              >
-                <ChevronIcon direction="right" />
-              </button>
-            )}
-          </div>
+          </>
         )}
-
-        <div className="mt-8 text-center sm:mt-10">
-          <Link
-            href="/marketplace"
-            className="inline-flex items-center gap-2 border-b border-transparent pb-1 text-xs font-medium uppercase tracking-[0.15em] text-[#7f6859] transition-colors duration-300 hover:border-[#b2886d] hover:text-[#3d2a21]"
-          >
-            Browse All Collections
-            <span className="text-[#b2886d]">→</span>
-          </Link>
-        </div>
       </div>
     </section>
   );

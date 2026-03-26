@@ -40,7 +40,7 @@ export const CACHE_KEYS = {
     RECOMMENDATIONS: (userId: string) => `recommendations:${userId}`,
 
     // Reels domain
-    REELS_PUBLIC: (page: number, limit: number) => `reels:public:${page}:${limit}`,
+    REELS_PUBLIC: (page: number, limit: number, category?: string) => `reels:public:${page}:${limit}:${category ?? '_'}`,
 
     // Admin domain
     ADMIN_STATS: 'admin:stats',

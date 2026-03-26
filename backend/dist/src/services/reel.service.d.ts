@@ -12,6 +12,7 @@ export declare class ReelService {
             updatedAt: Date;
             productId: string | null;
             sellerId: string;
+            category: import(".prisma/client").$Enums.ReelCategory;
             videoUrl: string;
             thumbnailUrl: string | null;
             caption: string | null;
@@ -33,6 +34,7 @@ export declare class ReelService {
             updatedAt: Date;
             productId: string | null;
             sellerId: string;
+            category: import(".prisma/client").$Enums.ReelCategory;
             videoUrl: string;
             thumbnailUrl: string | null;
             caption: string | null;
@@ -49,6 +51,7 @@ export declare class ReelService {
             updatedAt: Date;
             productId: string | null;
             sellerId: string;
+            category: import(".prisma/client").$Enums.ReelCategory;
             videoUrl: string;
             thumbnailUrl: string | null;
             caption: string | null;

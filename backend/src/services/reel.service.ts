@@ -37,6 +37,7 @@ export class ReelService {
             videoUrl: data.videoUrl,
             thumbnailUrl: data.thumbnailUrl,
             caption: data.caption,
+            category: data.category,
             productId: data.productId,
         });
 
@@ -150,7 +151,7 @@ export class ReelService {
     async listPublicReels(filters: ReelQueryFilters): Promise<PublicReelListResponse> {
         const page = filters.page ?? 1;
         const limit = filters.limit ?? 20;
-        const cacheKey = CACHE_KEYS.REELS_PUBLIC(page, limit);
+        const cacheKey = CACHE_KEYS.REELS_PUBLIC(page, limit, filters.category);
         const cached = await getFromCache<PublicReelListResponse>(cacheKey);
         if (cached) {
             return cached;

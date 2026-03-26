@@ -49,6 +49,7 @@ export default function SellerReelsPage() {
   const [form, setForm] = React.useState({
     caption: "",
     productId: "",
+    category: "MENS" as "MENS" | "KIDS",
   });
   const [videoUrl, setVideoUrl] = React.useState("");
   const [thumbnailUrl, setThumbnailUrl] = React.useState("");
@@ -154,11 +155,12 @@ export default function SellerReelsPage() {
         videoUrl,
         thumbnailUrl: thumbnailUrl || undefined,
         caption: form.caption || undefined,
+        category: form.category,
         productId: form.productId || undefined,
       });
       toast.success("Reel submitted for approval");
       setShowCreateModal(false);
-      setForm({ caption: "", productId: "" });
+      setForm({ caption: "", productId: "", category: "MENS" });
       setVideoUrl("");
       setThumbnailUrl("");
       await loadAll();
@@ -307,6 +309,20 @@ export default function SellerReelsPage() {
                   />
                 </div>
 
+                <div>
+                  <Label>Category *</Label>
+                  <select
+                    className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                    value={form.category}
+                    onChange={(e) =>
+                      setForm({ ...form, category: e.target.value as "MENS" | "KIDS" })
+                    }
+                  >
+                    <option value="MENS">Mens</option>
+                    <option value="KIDS">Kids</option>
+                  </select>
+                </div>
+
                 {/* Product Selector */}
                 <div>
                   <Label>Tag a Product</Label>
@@ -428,6 +444,10 @@ export default function SellerReelsPage() {
                   {reel.caption && (
                     <p className="text-sm line-clamp-2">{reel.caption}</p>
                   )}
+
+                  <p className="text-xs font-semibold text-primary">
+                    Category: {reel.category === "MENS" ? "Mens" : "Kids"}
+                  </p>
 
                   {reel.product && (
                     <p className="text-xs text-muted-foreground truncate">

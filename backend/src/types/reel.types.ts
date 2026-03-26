@@ -11,6 +11,7 @@ export interface ReelEntity {
     videoUrl: string;
     thumbnailUrl: string | null;
     caption: string | null;
+    category: 'MENS' | 'KIDS';
     status: 'PENDING' | 'APPROVED' | 'REJECTED';
     views: number;
     likes: number;
@@ -55,6 +56,7 @@ export interface CreateReelRequest {
     videoUrl: string;
     thumbnailUrl?: string | undefined;
     caption?: string | undefined;
+    category?: 'MENS' | 'KIDS' | undefined;
     productId?: string | undefined;
     durationSeconds?: number | undefined;
 }
@@ -62,6 +64,7 @@ export interface CreateReelRequest {
 export interface ReelQueryFilters {
     page?: number | undefined;
     limit?: number | undefined;
+    category?: 'MENS' | 'KIDS' | undefined;
     status?: 'PENDING' | 'APPROVED' | 'REJECTED' | undefined;
 }
 

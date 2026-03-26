@@ -17,7 +17,7 @@ export declare const CACHE_KEYS: {
     readonly ORDER_DETAIL: (orderId: string) => string;
     readonly PRODUCT_REVIEWS: (productId: string, page: number, limit: number, sort: string) => string;
     readonly RECOMMENDATIONS: (userId: string) => string;
-    readonly REELS_PUBLIC: (page: number, limit: number) => string;
+    readonly REELS_PUBLIC: (page: number, limit: number, category?: string) => string;
     readonly ADMIN_STATS: "admin:stats";
     readonly ADMIN_PROFIT_SUMMARY: (start?: string, end?: string, limit?: number) => string;
     readonly ADMIN_ORDERS: "admin:orders:list";

@@ -5,6 +5,7 @@ export declare class ReelRepository {
         videoUrl: string;
         thumbnailUrl?: string | undefined;
         caption?: string | undefined;
+        category?: 'MENS' | 'KIDS' | undefined;
         productId?: string | undefined;
     }): Promise<{
         status: import(".prisma/client").$Enums.ReelStatus;
@@ -13,6 +14,7 @@ export declare class ReelRepository {
         updatedAt: Date;
         productId: string | null;
         sellerId: string;
+        category: import(".prisma/client").$Enums.ReelCategory;
         videoUrl: string;
         thumbnailUrl: string | null;
         caption: string | null;
@@ -35,6 +37,7 @@ export declare class ReelRepository {
         updatedAt: Date;
         productId: string | null;
         sellerId: string;
+        category: import(".prisma/client").$Enums.ReelCategory;
         videoUrl: string;
         thumbnailUrl: string | null;
         caption: string | null;
@@ -64,6 +67,7 @@ export declare class ReelRepository {
         updatedAt: Date;
         productId: string | null;
         sellerId: string;
+        category: import(".prisma/client").$Enums.ReelCategory;
         videoUrl: string;
         thumbnailUrl: string | null;
         caption: string | null;
@@ -87,6 +91,7 @@ export declare class ReelRepository {
             updatedAt: Date;
             productId: string | null;
             sellerId: string;
+            category: import(".prisma/client").$Enums.ReelCategory;
             videoUrl: string;
             thumbnailUrl: string | null;
             caption: string | null;
@@ -119,6 +124,7 @@ export declare class ReelRepository {
             updatedAt: Date;
             productId: string | null;
             sellerId: string;
+            category: import(".prisma/client").$Enums.ReelCategory;
             videoUrl: string;
             thumbnailUrl: string | null;
             caption: string | null;
@@ -151,6 +157,7 @@ export declare class ReelRepository {
             updatedAt: Date;
             productId: string | null;
             sellerId: string;
+            category: import(".prisma/client").$Enums.ReelCategory;
             videoUrl: string;
             thumbnailUrl: string | null;
             caption: string | null;
@@ -182,6 +189,7 @@ export declare class ReelRepository {
         updatedAt: Date;
         productId: string | null;
         sellerId: string;
+        category: import(".prisma/client").$Enums.ReelCategory;
         videoUrl: string;
         thumbnailUrl: string | null;
         caption: string | null;
@@ -195,6 +203,7 @@ export declare class ReelRepository {
         updatedAt: Date;
         productId: string | null;
         sellerId: string;
+        category: import(".prisma/client").$Enums.ReelCategory;
         videoUrl: string;
         thumbnailUrl: string | null;
         caption: string | null;
@@ -208,6 +217,7 @@ export declare class ReelRepository {
         updatedAt: Date;
         productId: string | null;
         sellerId: string;
+        category: import(".prisma/client").$Enums.ReelCategory;
         videoUrl: string;
         thumbnailUrl: string | null;
         caption: string | null;
@@ -221,6 +231,7 @@ export declare class ReelRepository {
         updatedAt: Date;
         productId: string | null;
         sellerId: string;
+        category: import(".prisma/client").$Enums.ReelCategory;
         videoUrl: string;
         thumbnailUrl: string | null;
         caption: string | null;

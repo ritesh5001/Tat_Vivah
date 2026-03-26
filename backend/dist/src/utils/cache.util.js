@@ -25,7 +25,7 @@ export const CACHE_KEYS = {
     // Recommendation domain
     RECOMMENDATIONS: (userId) => `recommendations:${userId}`,
     // Reels domain
-    REELS_PUBLIC: (page, limit) => `reels:public:${page}:${limit}`,
+    REELS_PUBLIC: (page, limit, category) => `reels:public:${page}:${limit}:${category ?? '_'}`,
     // Admin domain
     ADMIN_STATS: 'admin:stats',
     ADMIN_PROFIT_SUMMARY: (start, end, limit) => `admin:profit:${start ?? '_'}:${end ?? '_'}:${limit ?? 20}`,

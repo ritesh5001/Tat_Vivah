@@ -19,6 +19,7 @@ export class ReelRepository {
         return prisma.reel.create({
             data: {
                 sellerId: data.sellerId,
+                category: data.category ?? 'MENS',
                 videoUrl: data.videoUrl,
                 thumbnailUrl: data.thumbnailUrl ?? null,
                 caption: data.caption ?? null,
@@ -42,9 +43,12 @@ export class ReelRepository {
         });
     }
     async findBySeller(sellerId, filters) {
-        const { page = 1, limit = 20 } = filters;
+        const { page = 1, limit = 20, category } = filters;
         const skip = (page - 1) * limit;
-        const where = { sellerId };
+        const where = {
+            sellerId,
+            ...(category && { category }),
+        };
         const [reels, total] = await Promise.all([
             prisma.reel.findMany({
                 where,
@@ -58,10 +62,11 @@ export class ReelRepository {
         return { reels, total };
     }
     async findAllAdmin(filters) {
-        const { page = 1, limit = 20, status } = filters;
+        const { page = 1, limit = 20, status, category } = filters;
         const skip = (page - 1) * limit;
         const where = {
             ...(status && { status }),
+            ...(category && { category }),
         };
         const [reels, total] = await Promise.all([
             prisma.reel.findMany({
@@ -79,9 +84,12 @@ export class ReelRepository {
         return { reels, total };
     }
     async findPublished(filters) {
-        const { page = 1, limit = 20 } = filters;
+        const { page = 1, limit = 20, category } = filters;
         const skip = (page - 1) * limit;
-        const where = { status: 'APPROVED' };
+        const where = {
+            status: 'APPROVED',
+            ...(category && { category }),
+        };
         const [reels, total] = await Promise.all([
             prisma.reel.findMany({
                 where,

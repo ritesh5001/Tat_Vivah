@@ -21,6 +21,7 @@ export default function ReelFeedPage() {
   const [hasMore, setHasMore] = React.useState(true);
   const [loadingMore, setLoadingMore] = React.useState(false);
   const [currentIndex, setCurrentIndex] = React.useState(0);
+  const [activeCategory, setActiveCategory] = React.useState<"MENS" | "KIDS">("MENS");
   const containerRef = React.useRef<HTMLDivElement>(null);
 
   // Engagement state
@@ -33,12 +34,13 @@ export default function ReelFeedPage() {
     else setLoading(true);
 
     try {
-      const result = await listPublicReels({ page: pageNum, limit: 10 });
+      const result = await listPublicReels({ page: pageNum, limit: 10, category: activeCategory });
       const newReels = result.reels ?? [];
       if (append) {
         setReels((prev) => [...prev, ...newReels]);
       } else {
         setReels(newReels);
+        setCurrentIndex(0);
       }
       const totalPages = Math.max(1, result.pagination?.totalPages ?? 1);
       setHasMore(pageNum < totalPages);
@@ -48,7 +50,7 @@ export default function ReelFeedPage() {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, []);
+  }, [activeCategory]);
 
   React.useEffect(() => {
     loadReels(1);
@@ -168,13 +170,39 @@ export default function ReelFeedPage() {
     );
   }
 
+  // We still need the main UI wrapper for the switcher, even if reels are empty.
+  const renderCategorySwitcher = () => (
+    <div className="absolute top-6 left-1/2 -translate-x-1/2 z-40 flex items-center bg-white/10 backdrop-blur-md rounded-full p-1 border border-white/10">
+      <button
+        onClick={() => { setActiveCategory("MENS"); setPage(1); setReels([]); }}
+        className={`px-6 py-1.5 rounded-full text-sm font-medium transition-all ${
+          activeCategory === "MENS" ? "bg-white text-black" : "text-white/70 hover:text-white"
+        }`}
+      >
+        Mens
+      </button>
+      <button
+        onClick={() => { setActiveCategory("KIDS"); setPage(1); setReels([]); }}
+        className={`px-6 py-1.5 rounded-full text-sm font-medium transition-all ${
+          activeCategory === "KIDS" ? "bg-white text-black" : "text-white/70 hover:text-white"
+        }`}
+      >
+        Kids
+      </button>
+    </div>
+  );
+
   if (reels.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white">
-        <p className="text-white/60">No reels available yet</p>
-        <Link href="/" className="mt-4 text-sm text-white/40 hover:text-white/60 underline">
-          Back to home
+      <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white relative">
+        <Link
+          href="/"
+          className="absolute top-4 left-4 z-30 p-2 text-white/70 hover:text-white transition-colors"
+        >
+          <X className="h-6 w-6" />
         </Link>
+        {renderCategorySwitcher()}
+        <p className="text-white/60 mt-10">No reels available yet in {activeCategory === "MENS" ? "Mens" : "Kids"} category</p>
       </div>
     );
   }
@@ -194,6 +222,9 @@ export default function ReelFeedPage() {
       >
         <X className="h-6 w-6" />
       </Link>
+
+      {/* Category Switcher */}
+      {renderCategorySwitcher()}
 
       {/* Navigation Arrows (desktop) */}
       <div className="absolute right-4 top-1/2 -translate-y-1/2 z-30 hidden md:flex flex-col gap-2">
