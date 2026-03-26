@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { searchProducts, type SearchResultItem } from "@/services/search";
+import { getCategories } from "@/services/catalog";
 
 type SearchBarProps = {
   placeholder?: string;
@@ -51,6 +52,28 @@ export function SearchBar({
   const [open, setOpen] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [suggestions, setSuggestions] = React.useState<SearchResultItem[]>([]);
+  const [categorySuggestions, setCategorySuggestions] = React.useState<string[]>([]);
+
+  React.useEffect(() => {
+    let mounted = true;
+
+    getCategories()
+      .then((res) => {
+        if (!mounted) return;
+        const names = (res?.categories ?? [])
+          .filter((category) => category.isActive)
+          .slice(0, 8)
+          .map((category) => category.name);
+        setCategorySuggestions(names);
+      })
+      .catch(() => {
+        if (mounted) setCategorySuggestions([]);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   React.useEffect(() => {
     if (rotatingPhrases.length <= 1) return;
@@ -169,6 +192,10 @@ export function SearchBar({
           onBlur={() => setIsFocused(false)}
           onFocus={() => {
             setIsFocused(true);
+            if (query.trim().length === 0) {
+              if (categorySuggestions.length > 0) setOpen(true);
+              return;
+            }
             if (suggestions.length > 0) setOpen(true);
           }}
           onKeyDown={(event) => {
@@ -212,7 +239,31 @@ export function SearchBar({
 
       {open ? (
         <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 border border-border-soft bg-card shadow-lg">
-          {suggestions.length === 0 ? (
+          {query.trim().length === 0 ? (
+            <div className="px-4 py-3">
+              <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.16em] text-gold">
+                Search by category
+              </p>
+              {categorySuggestions.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Type to search products...</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {categorySuggestions.map((category) => (
+                    <button
+                      key={category}
+                      type="button"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => submitQuery(category)}
+                      className="inline-flex items-center gap-1 border border-border-soft bg-background px-3 py-1.5 text-xs font-medium tracking-[0.06em] text-foreground transition-colors hover:bg-cream hover:text-gold dark:hover:bg-brown/20"
+                    >
+                      <span className="text-gold/80">✿</span>
+                      <span>Search {category}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : suggestions.length === 0 ? (
             <div className="px-4 py-3 text-sm text-muted-foreground">No products found.</div>
           ) : (
             <ul className="max-h-96 overflow-y-auto">
