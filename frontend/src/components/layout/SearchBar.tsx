@@ -3,7 +3,7 @@
 import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { searchProducts, type SearchResultItem } from "@/services/search";
 import { getCategories } from "@/services/catalog";
@@ -42,7 +42,7 @@ export function SearchBar({
   rotatingPhrases = DEFAULT_ROTATING_PHRASES,
 }: SearchBarProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const pathname = usePathname();
   const rootRef = React.useRef<HTMLDivElement | null>(null);
   const debounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = React.useRef<AbortController | null>(null);
@@ -55,16 +55,14 @@ export function SearchBar({
   const [suggestions, setSuggestions] = React.useState<SearchResultItem[]>([]);
   const [categorySuggestions, setCategorySuggestions] = React.useState<string[]>([]);
 
-  const urlSearchTerm = React.useMemo(() => {
-    const q = searchParams.get("q")?.trim();
-    const search = searchParams.get("search")?.trim();
-    return q || search || "";
-  }, [searchParams]);
-
   React.useEffect(() => {
-    setQuery(urlSearchTerm);
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const q = params.get("q")?.trim();
+    const search = params.get("search")?.trim();
+    setQuery(q || search || "");
     setOpen(false);
-  }, [urlSearchTerm]);
+  }, [pathname]);
 
   React.useEffect(() => {
     let mounted = true;
