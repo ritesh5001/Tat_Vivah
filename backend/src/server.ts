@@ -6,12 +6,24 @@ import { paymentService } from './services/payment.service.js';
 import { logger } from './config/logger.js';
 import { runInventoryIntegrityCheck } from './jobs/inventoryIntegrity.js';
 import { hashPassword } from './utils/password.util.js';
+import { reelRepository } from './repositories/reel.repository.js';
 
 /** How often to run the stale-order cleanup (10 minutes). */
 const STALE_ORDER_INTERVAL_MS = 10 * 60 * 1000;
 
 /** How often to run the inventory integrity check (10 minutes). */
 const INTEGRITY_CHECK_INTERVAL_MS = 10 * 60 * 1000;
+
+/** How often to flush buffered reel views (1 minute). */
+const REEL_VIEW_FLUSH_INTERVAL_MS = 60 * 1000;
+
+/** Max random jitter added to recurring job intervals (up to 1 minute). */
+const JOB_JITTER_MAX_MS = 60 * 1000;
+
+function withIntervalJitter(baseMs: number): number {
+    const jitter = Math.floor(Math.random() * JOB_JITTER_MAX_MS);
+    return baseMs + jitter;
+}
 
 /** Guard: only execute shutdown sequence once. */
 let isShuttingDown = false;
@@ -85,7 +97,7 @@ async function bootstrap(): Promise<void> {
             } catch (err) {
                 logger.error({ err }, 'Stale order cleanup error');
             }
-        }, STALE_ORDER_INTERVAL_MS);
+        }, withIntervalJitter(STALE_ORDER_INTERVAL_MS));
 
         // ---- Inventory integrity check (runs every 10 min) ----
         const integrityTimer = setInterval(async () => {
@@ -95,7 +107,32 @@ async function bootstrap(): Promise<void> {
             } catch (err) {
                 logger.error({ err }, 'Inventory integrity check error');
             }
-        }, INTEGRITY_CHECK_INTERVAL_MS);
+        }, withIntervalJitter(INTEGRITY_CHECK_INTERVAL_MS));
+
+        let reelFlushInProgress = false;
+
+        const flushReelViews = async (reason: 'startup' | 'interval' | 'shutdown') => {
+            if (reelFlushInProgress) {
+                return;
+            }
+
+            reelFlushInProgress = true;
+            try {
+                const result = await reelRepository.flushReelViews();
+                if (result.flushed > 0) {
+                    logger.info({ reason, flushed: result.flushed }, 'Buffered reel views flushed');
+                }
+            } catch (err) {
+                logger.error({ err, reason }, 'Reel view flush error');
+            } finally {
+                reelFlushInProgress = false;
+            }
+        };
+
+        // ---- Reel view buffer flush (runs every 1 min) ----
+        const reelViewFlushTimer = setInterval(() => {
+            void flushReelViews('interval');
+        }, withIntervalJitter(REEL_VIEW_FLUSH_INTERVAL_MS));
 
         // Run both once on startup (after a short delay to let connections settle)
         setTimeout(async () => {
@@ -115,6 +152,8 @@ async function bootstrap(): Promise<void> {
             } catch (err) {
                 logger.error({ err }, 'Initial integrity check error');
             }
+
+            await flushReelViews('startup');
         }, 5000);
 
         // ------------------------------------------------------------------
@@ -129,9 +168,11 @@ async function bootstrap(): Promise<void> {
 
             clearInterval(staleOrderTimer);
             clearInterval(integrityTimer);
+            clearInterval(reelViewFlushTimer);
 
             server.close(async () => {
                 logger.info('HTTP server closed');
+                await flushReelViews('shutdown');
                 await closeQueueResources().catch(() => {});
                 await disconnectDatabase();
                 process.exit(0);

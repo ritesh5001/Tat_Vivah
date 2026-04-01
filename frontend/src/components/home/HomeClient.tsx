@@ -38,13 +38,55 @@ const RecentlyViewedSection = dynamic(
     () => import("@/components/recently-viewed-section").then((m) => m.RecentlyViewedSection),
     { ssr: false },
 );
-export default function HomeClient() {
-    const [bestsellers, setBestsellers] = React.useState<BestsellerProduct[]>([]);
-    const [loadingBestsellers, setLoadingBestsellers] = React.useState(true);
-    const [newArrivals, setNewArrivals] = React.useState<MarketplaceCardProduct[]>([]);
-    const [loadingNewArrivals, setLoadingNewArrivals] = React.useState(true);
+
+type HomeInitialData = {
+    categories?: Array<{
+        id: string;
+        name: string;
+        slug: string;
+        isActive: boolean;
+        image?: string | null;
+        imageUrl?: string | null;
+        createdAt: string;
+    }>;
+    bestsellers?: { products?: BestsellerProduct[] } | BestsellerProduct[];
+    products?: { data?: (MarketplaceCardProduct & { createdAt?: string })[] };
+};
+
+function pickInitialBestsellers(initialData?: HomeInitialData): BestsellerProduct[] {
+    if (!initialData?.bestsellers) return [];
+    if (Array.isArray(initialData.bestsellers)) return initialData.bestsellers;
+    return initialData.bestsellers.products ?? [];
+}
+
+function pickInitialNewArrivals(initialData?: HomeInitialData): MarketplaceCardProduct[] {
+    const items = (initialData?.products?.data ?? [])
+        .slice()
+        .sort((a, b) => {
+            const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            return bTime - aTime;
+        })
+        .slice(0, 2);
+    return items;
+}
+
+export default function HomeClient({ initialData }: { initialData?: HomeInitialData }) {
+    const initialBestsellers = React.useMemo(() => pickInitialBestsellers(initialData), [initialData]);
+    const initialNewArrivals = React.useMemo(() => pickInitialNewArrivals(initialData), [initialData]);
+    const hasInitialBestsellers = initialData?.bestsellers !== undefined;
+    const hasInitialProducts = initialData?.products !== undefined;
+
+    const [bestsellers, setBestsellers] = React.useState<BestsellerProduct[]>(initialBestsellers);
+    const [loadingBestsellers, setLoadingBestsellers] = React.useState(!hasInitialBestsellers);
+    const [newArrivals, setNewArrivals] = React.useState<MarketplaceCardProduct[]>(initialNewArrivals);
+    const [loadingNewArrivals, setLoadingNewArrivals] = React.useState(!hasInitialProducts);
 
     React.useEffect(() => {
+        if (hasInitialBestsellers) {
+            return;
+        }
+
         let isMounted = true;
 
         const load = async () => {
@@ -69,9 +111,13 @@ export default function HomeClient() {
         return () => {
             isMounted = false;
         };
-    }, []);
+    }, [hasInitialBestsellers]);
 
     React.useEffect(() => {
+        if (hasInitialProducts) {
+            return;
+        }
+
         let isMounted = true;
 
         const loadLatestArrivals = async () => {
@@ -109,7 +155,7 @@ export default function HomeClient() {
         return () => {
             isMounted = false;
         };
-    }, []);
+    }, [hasInitialProducts]);
 
     return (
         <div className="min-h-[calc(100vh-160px)] bg-background">
@@ -126,7 +172,7 @@ export default function HomeClient() {
             {/* =========================================================================
           CATEGORIES SECTION
           ========================================================================= */}
-            <CategoryCarousel />
+            <CategoryCarousel initialCategories={initialData?.categories} />
 
             {/* =========================================================================
           BESTSELLERS SECTION

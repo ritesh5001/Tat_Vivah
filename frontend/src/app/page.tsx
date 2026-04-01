@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import HomeClient from "@/components/home/HomeClient";
+import type { MarketplaceCardProduct } from "@/components/marketplace-product-card";
+import type { CategoryListResponse } from "@/services/catalog";
+import type { BestsellerProduct } from "@/services/bestsellers";
 
 export const metadata: Metadata = {
   title:
@@ -93,7 +96,33 @@ const faqJsonLd = {
   ]
 };
 
-export default function Home() {
+const API_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+
+async function fetchHomeData<T>(path: string): Promise<T | null> {
+  if (!API_URL) return null;
+
+  try {
+    const response = await fetch(`${API_URL}${path}`, {
+      next: { revalidate: 60 },
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    return (await response.json()) as T;
+  } catch {
+    return null;
+  }
+}
+
+export default async function Home() {
+  const [categories, bestsellers, products] = await Promise.all([
+    fetchHomeData<CategoryListResponse>("/v1/categories"),
+    fetchHomeData<{ products: BestsellerProduct[] }>("/v1/bestsellers?limit=4"),
+    fetchHomeData<{ data: (MarketplaceCardProduct & { createdAt?: string })[] }>("/v1/products?limit=20"),
+  ]);
+
   return (
     <>
       <script
@@ -104,7 +133,13 @@ export default function Home() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
       />
-      <HomeClient />
+      <HomeClient
+        initialData={{
+          categories: categories?.categories ?? undefined,
+          bestsellers: bestsellers ?? undefined,
+          products: products ?? undefined,
+        }}
+      />
     </>
   );
 }

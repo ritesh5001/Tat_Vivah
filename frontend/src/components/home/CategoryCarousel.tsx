@@ -67,9 +67,14 @@ function ChevronIcon({ direction }: { direction: "left" | "right" }) {
   );
 }
 
-export function CategoryCarousel() {
-  const [categories, setCategories] = React.useState<CategoryItem[]>([]);
-  const [loading, setLoading] = React.useState(true);
+export function CategoryCarousel({ initialCategories }: { initialCategories?: CategoryItem[] }) {
+  const hasInitialCategories = initialCategories !== undefined;
+  const [categories, setCategories] = React.useState<CategoryItem[]>(
+    hasInitialCategories
+      ? (initialCategories ?? []).filter((category) => category.isActive)
+      : []
+  );
+  const [loading, setLoading] = React.useState(!hasInitialCategories);
   const [visible, setVisible] = React.useState(false);
   const [canScrollLeft, setCanScrollLeft] = React.useState(false);
   const [canScrollRight, setCanScrollRight] = React.useState(false);
@@ -102,8 +107,12 @@ export function CategoryCarousel() {
     ).flat();
   }, [categories]);
 
-  /* ── Data fetching (unchanged) ── */
+  /* ── Data fetching (skip when SSR provided data) ── */
   React.useEffect(() => {
+    if (hasInitialCategories) {
+      return;
+    }
+
     let mounted = true;
 
     const load = async () => {
@@ -124,7 +133,7 @@ export function CategoryCarousel() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [hasInitialCategories]);
 
   /* ── Section reveal on viewport entry ── */
   React.useEffect(() => {

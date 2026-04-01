@@ -317,14 +317,21 @@ class SellerAnalyticsService {
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-        const [variants, fastMovingAggs] = await Promise.all([
-            prisma.productVariant.findMany({
-                where: { product: { sellerId } },
-                take: 5000,
-                include: {
-                    inventory: true,
-                    product: { select: { id: true, title: true, images: true } },
+        const [lowStockCount, outOfStockCount, totalVariants, fastMovingAggs] = await Promise.all([
+            prisma.productVariant.count({
+                where: {
+                    product: { sellerId },
+                    inventory: { stock: { gt: 0, lt: 10 } },
                 },
+            }),
+            prisma.productVariant.count({
+                where: {
+                    product: { sellerId },
+                    inventory: { stock: 0 },
+                },
+            }),
+            prisma.productVariant.count({
+                where: { product: { sellerId } },
             }),
             prisma.orderItem.groupBy({
                 by: ['productId'],
@@ -341,16 +348,6 @@ class SellerAnalyticsService {
             }),
         ]);
 
-        const totalVariants = variants.length;
-        const lowStockSet = new Set<string>();
-        const outOfStockSet = new Set<string>();
-
-        for (const v of variants) {
-            const stock = v.inventory?.stock ?? 0;
-            if (stock === 0) outOfStockSet.add(v.productId);
-            else if (stock < 10) lowStockSet.add(v.productId);
-        }
-
         // Build fast mover detail map
         const fmProductIds = fastMovingAggs.map((f) => f.productId);
         const fmProducts =
@@ -363,8 +360,8 @@ class SellerAnalyticsService {
         const fmMap = new Map(fmProducts.map((p) => [p.id, p]));
 
         const result: InventoryHealth = {
-            lowStockProducts: lowStockSet.size,
-            outOfStockProducts: outOfStockSet.size,
+            lowStockProducts: lowStockCount,
+            outOfStockProducts: outOfStockCount,
             totalVariants,
             fastMovingProducts: fastMovingAggs
                 .filter((f) => (f._sum.quantity ?? 0) >= 5)

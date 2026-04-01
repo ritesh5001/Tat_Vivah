@@ -7,6 +7,13 @@ type ApiRequestOptions = Omit<RequestInit, "body"> & {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
+export const swrConfig = {
+  dedupingInterval: 5000,
+  revalidateOnFocus: false,
+  revalidateOnReconnect: false,
+  errorRetryCount: 2,
+} as const;
+
 function getAuthToken(): string | null {
   if (typeof document === "undefined") {
     return null;

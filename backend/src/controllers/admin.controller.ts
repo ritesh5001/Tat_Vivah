@@ -408,12 +408,17 @@ export const adminController = {
      * List all reviews
      */
     listReviews: async (
-        _req: Request,
+        req: Request,
         res: Response,
         next: NextFunction
     ): Promise<void> => {
         try {
-            const result = await reviewService.listReviews();
+            const rawPage = Number(req.query['page'] ?? 1);
+            const rawLimit = Number(req.query['limit'] ?? 50);
+            const page = Number.isFinite(rawPage) && rawPage > 0 ? Math.trunc(rawPage) : 1;
+            const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(100, Math.trunc(rawLimit)) : 50;
+
+            const result = await reviewService.listReviews({ page, limit });
             res.json(result);
         } catch (error) {
             next(error);

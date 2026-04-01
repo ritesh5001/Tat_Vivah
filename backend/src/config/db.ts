@@ -26,7 +26,7 @@ function buildPrismaDatabaseUrl(rawUrl: string): string {
         const isPooledHost = parsed.hostname.includes('-pooler.');
 
         const pooledConnectionLimit = getIntEnv('DB_POOL_CONNECTION_LIMIT', 10, 1, 100);
-        const pooledPoolTimeout = getIntEnv('DB_POOL_TIMEOUT', 20, 1, 120);
+        const pooledPoolTimeout = getIntEnv('DB_POOL_TIMEOUT', 15, 1, 120);
         const directConnectionLimit = getIntEnv('DB_DIRECT_CONNECTION_LIMIT', 5, 1, 100);
 
         if (isPooledHost) {
@@ -51,8 +51,9 @@ function createPrismaClient() {
         datasources: {
             db: { url: buildPrismaDatabaseUrl(env.DATABASE_URL) },
         },
-        // Only log errors — removes noisy query/warn spam in dev terminal
-        log: ['error'],
+        log: env.NODE_ENV === 'development'
+            ? [{ emit: 'stdout', level: 'query' }]
+            : [],
     });
 
     return client;

@@ -149,24 +149,6 @@ export class SearchService {
                 WHERE ${whereClause}
             `;
 
-            const countResult = await prisma.$queryRawUnsafe<[{ total: number }]>(
-                countQuery,
-                ...params,
-            );
-            const total = countResult[0]?.total ?? 0;
-
-            if (total === 0) {
-                searchNoResultTotal.inc();
-                searchLogger.info({ q, categoryId, total: 0 }, 'search returned zero results');
-                timer();
-                const emptyResponse = {
-                    data: [],
-                    pagination: { page, limit: safeLimit, total: 0, totalPages: 0 },
-                };
-                await setCache(cacheKey, emptyResponse, 15);
-                return emptyResponse;
-            }
-
             // Data query
             const dataQuery = `
                 SELECT
@@ -187,12 +169,26 @@ export class SearchService {
                 LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
             `;
 
-            params.push(safeLimit, offset);
+            const countParams = [...params];
+            const dataParams = [...params, safeLimit, offset];
 
-            const rows = await prisma.$queryRawUnsafe<SearchResultItem[]>(
-                dataQuery,
-                ...params,
-            );
+            const [countResult, rows] = await Promise.all([
+                prisma.$queryRawUnsafe<[{ total: number }]>(countQuery, ...countParams),
+                prisma.$queryRawUnsafe<SearchResultItem[]>(dataQuery, ...dataParams),
+            ]);
+            const total = countResult[0]?.total ?? 0;
+
+            if (total === 0) {
+                searchNoResultTotal.inc();
+                searchLogger.info({ q, categoryId, total: 0 }, 'search returned zero results');
+                timer();
+                const emptyResponse = {
+                    data: [],
+                    pagination: { page, limit: safeLimit, total: 0, totalPages: 0 },
+                };
+                await setCache(cacheKey, emptyResponse, 15);
+                return emptyResponse;
+            }
 
             // Convert Decimal values to numbers for JSON serialization
             const data = rows.map((row: any) => ({

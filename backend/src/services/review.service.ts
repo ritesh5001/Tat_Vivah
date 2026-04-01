@@ -177,8 +177,14 @@ export class ReviewService {
     /**
      * List all reviews for admin (includes hidden)
      */
-    async listReviews() {
-        const reviews = await reviewRepository.findAll();
+    async listReviews(params?: { page?: number; limit?: number }) {
+        const page = params?.page ?? 1;
+        const limit = params?.limit ?? 50;
+
+        const reviews = await reviewRepository.findAll({
+            skip: (page - 1) * limit,
+            take: limit,
+        });
 
         return {
             reviews: reviews.map((review: any) => ({
