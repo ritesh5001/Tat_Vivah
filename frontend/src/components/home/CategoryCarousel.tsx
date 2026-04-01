@@ -80,7 +80,6 @@ export function CategoryCarousel({ initialCategories }: { initialCategories?: Ca
   const [canScrollRight, setCanScrollRight] = React.useState(false);
   const sectionRef = React.useRef<HTMLElement | null>(null);
   const trackRef = React.useRef<HTMLDivElement | null>(null);
-  const snapTypeRef = React.useRef<string | null>(null);
   const dragStateRef = React.useRef({
     isDragging: false,
     startX: 0,
@@ -194,21 +193,16 @@ export function CategoryCarousel({ initialCategories }: { initialCategories?: Ca
     const settleCarousel = () => {
       if (!dragStateRef.current.isDragging && !rafRef.current) {
         normalizeLoopPosition();
-        el.style.scrollSnapType = "x mandatory";
       }
     };
 
     const handleScroll = () => {
-      // Disable snap while actively scrolling to prevent jitter
-      el.style.scrollSnapType = "none";
-
       if (scrollEndTimerRef.current) clearTimeout(scrollEndTimerRef.current);
       scrollEndTimerRef.current = setTimeout(settleCarousel, 150);
     };
 
     if (categories.length > 1) {
       setLoopStartPosition();
-      el.style.scrollSnapType = "x mandatory";
     }
 
     el.addEventListener("scroll", handleScroll, { passive: true });
@@ -274,9 +268,6 @@ export function CategoryCarousel({ initialCategories }: { initialCategories?: Ca
     };
 
     velocityRef.current = { lastX: event.clientX, lastTime: performance.now(), velocity: 0 };
-
-    snapTypeRef.current = el.style.scrollSnapType;
-    el.style.scrollSnapType = "none";
   };
 
   const handleMouseMove = (event: React.MouseEvent<HTMLDivElement>) => {
@@ -321,7 +312,6 @@ export function CategoryCarousel({ initialCategories }: { initialCategories?: Ca
         if (Math.abs(v) < 0.5) {
           rafRef.current = 0;
           normalizeLoopPosition();
-          el.style.scrollSnapType = "x mandatory";
           return;
         }
         el.scrollLeft -= v;
@@ -331,7 +321,6 @@ export function CategoryCarousel({ initialCategories }: { initialCategories?: Ca
       rafRef.current = requestAnimationFrame(step);
     } else {
       normalizeLoopPosition();
-      el.style.scrollSnapType = "x mandatory";
     }
   };
 
@@ -387,7 +376,7 @@ export function CategoryCarousel({ initialCategories }: { initialCategories?: Ca
             >
               {loopingCategories.map(({ category, key }) => (
                 <Link key={key} href="/marketplace" className="contents">
-                  <div className="group shrink-0 snap-start w-[calc(50%-6px)] md:w-[calc(33.333%-11px)] lg:w-[calc(25%-18px)]">
+                  <div className="group shrink-0 w-[calc(50%-6px)] md:w-[calc(33.333%-11px)] lg:w-[calc(25%-18px)]">
                     {/* Outer div acts as the gradient border */}
                     <div
                       className="relative w-full"
