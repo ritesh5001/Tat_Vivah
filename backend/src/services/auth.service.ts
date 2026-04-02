@@ -19,6 +19,7 @@ import { otpService, type SignupOtpPayload } from './otp.service.js';
 import { generateOtpCode, hashOtp } from '../utils/otp.util.js';
 import { otpRepository } from '../repositories/otp.repository.js';
 import { sendEmail } from '../notifications/email/resend.client.js';
+import { renderBrandedEmail } from '../notifications/email/templates/layout.js';
 import { OtpPurpose } from '@prisma/client';
 import type { Role, UserStatus } from '@prisma/client';
 
@@ -534,15 +535,17 @@ export class AuthService {
             expiresAt,
         });
 
-        const html = `
-            <div style="font-family:Arial,sans-serif; line-height:1.6;">
-                <h2>Reset your TatVivah password</h2>
-                <p>Your password-reset OTP is:</p>
-                <p style="font-size:24px; font-weight:bold; letter-spacing:4px;">${code}</p>
-                <p>This OTP expires in ${AuthService.PASSWORD_RESET_EXPIRY_MINUTES} minutes.</p>
-                <p>If you did not request this, please ignore this email.</p>
-            </div>
-        `;
+        const html = renderBrandedEmail({
+            preheader: 'Your password reset verification code for TatVivah.',
+            eyebrow: 'Password Recovery',
+            title: 'Reset Your Password',
+            message: [
+                'Use the one-time code below to reset your TatVivah account password.',
+                `This code expires in ${AuthService.PASSWORD_RESET_EXPIRY_MINUTES} minutes and can only be used once.`,
+            ],
+            details: [{ label: 'Reset Code', value: code }],
+            accentText: 'If you did not request this reset, you can safely ignore this email.',
+        });
 
         await sendEmail(email, 'Reset your TatVivah password', html);
 
