@@ -7,6 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { searchProducts, type SearchResultItem } from "@/services/search";
 import { getCategories } from "@/services/catalog";
+import { startNavigationFeedback } from "@/lib/navigation-feedback";
 
 type SearchBarProps = {
   placeholder?: string;
@@ -86,6 +87,10 @@ export function SearchBar({
   }, []);
 
   React.useEffect(() => {
+    router.prefetch("/search");
+  }, [router]);
+
+  React.useEffect(() => {
     if (rotatingPhrases.length <= 1) return;
 
     const interval = window.setInterval(() => {
@@ -158,6 +163,7 @@ export function SearchBar({
       const params = new URLSearchParams();
       params.set("q", term);
       setOpen(false);
+      startNavigationFeedback();
       router.push(`/search?${params.toString()}`);
     },
     [query, router]

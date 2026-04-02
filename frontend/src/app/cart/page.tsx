@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { getCart, removeCartItem, updateCartItem } from "@/services/cart";
 import { toast } from "sonner";
+import { startNavigationFeedback } from "@/lib/navigation-feedback";
 
 const currency = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -31,6 +32,7 @@ export default function CartPage() {
       const message = error instanceof Error ? error.message : "Unable to load cart";
       if (/access token required|unauthorized|authentication/i.test(message)) {
         toast.error("Please sign in to view your cart.");
+        startNavigationFeedback();
         router.push("/login?force=1");
         return;
       }
@@ -52,6 +54,7 @@ export default function CartPage() {
     const token = getCookie("tatvivah_access");
     if (!token) {
       toast.error("Please sign in to view your cart.");
+      startNavigationFeedback();
       router.push("/login?force=1");
       return;
     }
@@ -59,6 +62,7 @@ export default function CartPage() {
     const role = getCookie("tatvivah_role")?.toUpperCase();
     if (role && role !== "USER") {
       toast.error("Cart is available for customers only.");
+      startNavigationFeedback();
       router.push("/marketplace");
       return;
     }
@@ -166,7 +170,6 @@ export default function CartPage() {
                 </div>
                 <Link
                   href="/marketplace"
-                  prefetch={false}
                   className="inline-flex h-12 items-center justify-center bg-charcoal px-8 text-xs font-medium uppercase tracking-[0.15em] text-ivory transition-all duration-400 hover:bg-brown dark:bg-gold dark:text-charcoal dark:hover:bg-gold-muted"
                 >
                   Explore Collection
@@ -326,7 +329,10 @@ export default function CartPage() {
                   <Button
                     size="lg"
                     className="w-full h-14"
-                    onClick={() => router.push("/checkout")}
+                    onClick={() => {
+                      startNavigationFeedback();
+                      router.push("/checkout");
+                    }}
                     disabled={items.length === 0}
                   >
                     Proceed to Checkout
@@ -335,7 +341,6 @@ export default function CartPage() {
 
                 <Link
                   href="/marketplace"
-                  prefetch={false}
                   className="block text-center text-xs font-medium uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors duration-300"
                 >
                   Continue Exploring

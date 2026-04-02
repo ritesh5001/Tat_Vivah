@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/services/api";
 import { getCategories, type Category } from "@/services/catalog";
 import { getOccasions, type Occasion } from "@/services/occasions";
+import { startNavigationFeedback } from "@/lib/navigation-feedback";
 
 type SearchPagination = {
   page: number;
@@ -116,6 +117,7 @@ function SearchContent() {
     const params = new URLSearchParams();
     if (query) params.set("q", query);
     params.set("page", String(nextPage));
+    startNavigationFeedback();
     router.push(`/search?${params.toString()}`);
   };
 

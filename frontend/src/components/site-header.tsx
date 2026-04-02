@@ -11,7 +11,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -110,10 +109,42 @@ export function SiteHeader() {
   const initial = displayName?.charAt(0)?.toUpperCase() ?? "A";
   const role = user?.role?.toUpperCase();
 
+  const profileLink = React.useMemo(() => {
+    if (role === "SELLER") {
+      return "/seller/profile";
+    }
+    if (role === "ADMIN" || role === "SUPER_ADMIN") {
+      return "/admin/profile";
+    }
+    return "/user/profile";
+  }, [role]);
+  const dashboardLink = React.useMemo(() => {
+    if (role === "SELLER") {
+      return "/seller/dashboard";
+    }
+    if (role === "ADMIN" || role === "SUPER_ADMIN") {
+      return "/admin/dashboard";
+    }
+    return "/user/dashboard";
+  }, [role]);
+
+  React.useEffect(() => {
+    if (user) {
+      router.prefetch("/marketplace");
+      router.prefetch("/cart");
+      router.prefetch(profileLink);
+      router.prefetch(dashboardLink);
+      return;
+    }
+
+    router.prefetch("/marketplace");
+    router.prefetch("/login");
+  }, [dashboardLink, profileLink, router, user]);
+
   const hasAccessToken = React.useMemo(() => {
     if (typeof document === "undefined") return false;
     return /(?:^|; )tatvivah_access=/.test(document.cookie);
-  }, [user]);
+  }, []);
 
   // Notification badge count
   const [unreadCount, setUnreadCount] = React.useState(0);
@@ -152,24 +183,6 @@ export function SiteHeader() {
       clearInterval(interval);
     };
   }, [hasAccessToken, role, user]);
-  const profileLink = React.useMemo(() => {
-    if (role === "SELLER") {
-      return "/seller/profile";
-    }
-    if (role === "ADMIN" || role === "SUPER_ADMIN") {
-      return "/admin/profile";
-    }
-    return "/user/profile";
-  }, [role]);
-  const dashboardLink = React.useMemo(() => {
-    if (role === "SELLER") {
-      return "/seller/dashboard";
-    }
-    if (role === "ADMIN" || role === "SUPER_ADMIN") {
-      return "/admin/dashboard";
-    }
-    return "/user/dashboard";
-  }, [role]);
   const navLinks = React.useMemo(() => {
     if (!user) {
       return buyerLinks;
@@ -282,9 +295,7 @@ export function SiteHeader() {
                 href={link.href}
                 prefetch={
                   link.href.startsWith("/admin") ||
-                  link.href.startsWith("/seller") ||
-                  link.href === "/marketplace" ||
-                  link.href === "/"
+                  link.href.startsWith("/seller")
                     ? false
                     : undefined
                 }
@@ -390,7 +401,7 @@ export function SiteHeader() {
                   </div>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
-                    <Link href={profileLink} prefetch={false} className="gap-2">
+                    <Link href={profileLink} className="gap-2">
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
                         <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
                         <circle cx="12" cy="7" r="4" />
@@ -399,7 +410,7 @@ export function SiteHeader() {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <Link href={dashboardLink} prefetch={false} className="gap-2">
+                    <Link href={dashboardLink} className="gap-2">
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
                         <rect x="3" y="3" width="7" height="9" />
                         <rect x="14" y="3" width="7" height="5" />

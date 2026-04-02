@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Cormorant_Garamond } from "next/font/google";
+import { Suspense } from "react";
 import "./globals.css";
 import { PublicLayoutShell } from "@/components/layout/PublicLayoutShell";
+import { NavigationProgress } from "@/components/navigation/NavigationProgress";
 import { Toaster } from "@/components/ui/sonner";
 import { SessionGuard } from "@/components/SessionGuard";
 
@@ -137,6 +139,9 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${cormorant.variable} min-h-screen bg-background text-foreground antialiased`}
       >
+        <Suspense fallback={null}>
+          <NavigationProgress />
+        </Suspense>
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{

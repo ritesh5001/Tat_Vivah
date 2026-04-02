@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { addCartItem } from "@/services/cart";
 import { toggleWishlistItem, checkWishlistItems } from "@/services/wishlist";
 import { createAppointment } from "@/services/appointments";
+import { startNavigationFeedback } from "@/lib/navigation-feedback";
 
 interface Variant {
   id: string;
@@ -97,6 +98,7 @@ export default function ProductDetailClient({
     const hasToken = document.cookie.match(/(?:^|; )tatvivah_access=([^;]*)/);
     if (!hasToken) {
       toast.error("Please sign in to save items.");
+      startNavigationFeedback();
       router.push("/login?force=1");
       return;
     }
@@ -131,6 +133,7 @@ export default function ProductDetailClient({
       const hasToken = document.cookie.match(/(?:^|; )tatvivah_access=([^;]*)/);
       if (!hasToken) {
         toast.error("Please sign in to add items to cart.");
+        startNavigationFeedback();
         router.push("/login?force=1");
         return;
       }
@@ -149,6 +152,7 @@ export default function ProductDetailClient({
         error instanceof Error ? error.message : "Unable to add to cart";
       if (/access token required|unauthorized/i.test(message)) {
         toast.error("Please sign in to add items to cart.");
+        startNavigationFeedback();
         router.push("/login?force=1");
         return;
       }
@@ -165,6 +169,7 @@ export default function ProductDetailClient({
 
     if (!hasToken || role !== "USER") {
       toast.error("Please sign in as a customer to book a video call.");
+      startNavigationFeedback();
       router.push("/login?force=1");
       return;
     }
@@ -222,6 +227,7 @@ export default function ProductDetailClient({
       setBookModalOpen(false);
       setAppointmentDate("");
       setAppointmentTime("");
+      startNavigationFeedback();
       router.push("/user/appointments");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to book appointment");
@@ -350,7 +356,10 @@ export default function ProductDetailClient({
           <motion.div whileHover={{ y: -2 }} transition={{ duration: 0.4 }} className="flex-1">
             <Button
               size="lg"
-              onClick={() => router.push('/checkout')}
+              onClick={() => {
+                startNavigationFeedback();
+                router.push("/checkout");
+              }}
               className="w-full h-14 bg-[#d85025] hover:bg-[#b03d19] text-white font-medium tracking-widest uppercase text-[13px] border-none transition-colors"
             >
               Buy Now
