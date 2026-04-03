@@ -6,9 +6,9 @@ import ProductImageCarousel from "@/components/product-image-carousel";
 import ProductReviews from "@/components/product-reviews";
 import { RelatedProducts } from "@/components/related-products";
 import { RecentlyViewedTracker } from "@/components/recently-viewed-tracker";
+import { SITE_URL } from "@/lib/site-config";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
-const SITE_URL = "https://tatvivahtrends.com";
 
 async function fetchProduct(id: string) {
   if (!API_BASE_URL) {

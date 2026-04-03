@@ -1,5 +1,6 @@
 import { EmailTemplateResult } from '../../types.js';
 import { renderBrandedEmail } from './layout.js';
+import { portalLinks } from './portal-links.js';
 
 export function sellerNewOrderTemplate(data: { orderId: string, itemsCount: number }): EmailTemplateResult {
     return {
@@ -17,7 +18,7 @@ export function sellerNewOrderTemplate(data: { orderId: string, itemsCount: numb
                 { label: 'Items', value: data.itemsCount },
             ],
             ctaLabel: 'Open Seller Orders',
-            ctaUrl: 'https://seller.tatvivahtrends.com/seller/orders',
+            ctaUrl: portalLinks.sellerOrders,
         }),
     };
 }

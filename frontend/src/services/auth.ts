@@ -1,3 +1,5 @@
+import { COOKIE_ATTRIBUTES_SUFFIX } from "@/lib/site-config";
+
 export interface LoginPayload {
   identifier: string;
   password: string;
@@ -66,15 +68,12 @@ export interface VerifyOtpResponse {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
-const isProd = process.env.NODE_ENV === "production";
-const cookieDomain = isProd ? "; domain=.tatvivahtrends.com; SameSite=Lax; Secure" : "";
-
 export function clearAuthSession(): void {
   if (typeof document === "undefined") return;
-  document.cookie = `tatvivah_access=; path=/; max-age=0${cookieDomain}`;
-  document.cookie = `tatvivah_refresh=; path=/; max-age=0${cookieDomain}`;
-  document.cookie = `tatvivah_role=; path=/; max-age=0${cookieDomain}`;
-  document.cookie = `tatvivah_user=; path=/; max-age=0${cookieDomain}`;
+  document.cookie = `tatvivah_access=; path=/; max-age=0${COOKIE_ATTRIBUTES_SUFFIX}`;
+  document.cookie = `tatvivah_refresh=; path=/; max-age=0${COOKIE_ATTRIBUTES_SUFFIX}`;
+  document.cookie = `tatvivah_role=; path=/; max-age=0${COOKIE_ATTRIBUTES_SUFFIX}`;
+  document.cookie = `tatvivah_user=; path=/; max-age=0${COOKIE_ATTRIBUTES_SUFFIX}`;
   window.dispatchEvent(new Event("tatvivah-auth"));
 }
 
@@ -86,12 +85,12 @@ export function persistAuthCookies(
   refreshToken: string,
   user: { role: string;[key: string]: unknown }
 ): void {
-  document.cookie = `tatvivah_access=${accessToken}; path=/; max-age=86400${cookieDomain}`;
-  document.cookie = `tatvivah_refresh=${refreshToken}; path=/; max-age=604800${cookieDomain}`;
-  document.cookie = `tatvivah_role=${user.role}; path=/; max-age=86400${cookieDomain}`;
+  document.cookie = `tatvivah_access=${accessToken}; path=/; max-age=86400${COOKIE_ATTRIBUTES_SUFFIX}`;
+  document.cookie = `tatvivah_refresh=${refreshToken}; path=/; max-age=604800${COOKIE_ATTRIBUTES_SUFFIX}`;
+  document.cookie = `tatvivah_role=${user.role}; path=/; max-age=86400${COOKIE_ATTRIBUTES_SUFFIX}`;
   document.cookie = `tatvivah_user=${encodeURIComponent(
     JSON.stringify(user)
-  )}; path=/; max-age=86400${cookieDomain}`;
+  )}; path=/; max-age=86400${COOKIE_ATTRIBUTES_SUFFIX}`;
   window.dispatchEvent(new Event("tatvivah-auth"));
 }
 

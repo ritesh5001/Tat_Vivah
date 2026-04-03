@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { BLOG_POSTS } from "./[slug]/page";
-
-const SITE_URL = "https://tatvivahtrends.com";
+import { SITE_URL } from "@/lib/site-config";
 
 export const metadata: Metadata = {
     title: "The TatVivah Journal | Traditional Menswear & Wedding Style Blog",

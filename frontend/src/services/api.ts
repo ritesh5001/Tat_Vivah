@@ -1,3 +1,5 @@
+import { COOKIE_ATTRIBUTES_SUFFIX } from "@/lib/site-config";
+
 type ApiRequestOptions = Omit<RequestInit, "body"> & {
   body?: unknown;
   token?: string | null;
@@ -34,15 +36,12 @@ function getErrorMessage(data: any, fallback: string) {
   return data?.error?.message ?? data?.message ?? fallback;
 }
 
-const isProd = process.env.NODE_ENV === "production";
-const cookieDomain = isProd ? "; domain=.tatvivahtrends.com; SameSite=Lax; Secure" : "";
-
 function clearAuthCookies() {
   if (typeof document === "undefined") return;
-  document.cookie = `tatvivah_access=; path=/; max-age=0${cookieDomain}`;
-  document.cookie = `tatvivah_refresh=; path=/; max-age=0${cookieDomain}`;
-  document.cookie = `tatvivah_role=; path=/; max-age=0${cookieDomain}`;
-  document.cookie = `tatvivah_user=; path=/; max-age=0${cookieDomain}`;
+  document.cookie = `tatvivah_access=; path=/; max-age=0${COOKIE_ATTRIBUTES_SUFFIX}`;
+  document.cookie = `tatvivah_refresh=; path=/; max-age=0${COOKIE_ATTRIBUTES_SUFFIX}`;
+  document.cookie = `tatvivah_role=; path=/; max-age=0${COOKIE_ATTRIBUTES_SUFFIX}`;
+  document.cookie = `tatvivah_user=; path=/; max-age=0${COOKIE_ATTRIBUTES_SUFFIX}`;
   window.dispatchEvent(new Event("tatvivah-auth"));
 }
 
@@ -74,9 +73,9 @@ async function silentRefresh(): Promise<string | null> {
       if (!data?.accessToken) return null;
 
       // Persist new tokens
-      document.cookie = `tatvivah_access=${data.accessToken}; path=/; max-age=86400${cookieDomain}`;
+      document.cookie = `tatvivah_access=${data.accessToken}; path=/; max-age=86400${COOKIE_ATTRIBUTES_SUFFIX}`;
       if (data.refreshToken) {
-        document.cookie = `tatvivah_refresh=${data.refreshToken}; path=/; max-age=604800${cookieDomain}`;
+        document.cookie = `tatvivah_refresh=${data.refreshToken}; path=/; max-age=604800${COOKIE_ATTRIBUTES_SUFFIX}`;
       }
 
       return data.accessToken as string;

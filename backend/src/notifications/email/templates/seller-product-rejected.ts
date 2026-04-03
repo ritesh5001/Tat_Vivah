@@ -1,5 +1,6 @@
 import { EmailTemplateResult } from '../../types.js';
 import { renderBrandedEmail } from './layout.js';
+import { portalLinks } from './portal-links.js';
 
 export function sellerProductRejectedTemplate(meta: any): EmailTemplateResult {
   const productTitle = meta?.productTitle ?? 'your product';
@@ -20,7 +21,7 @@ export function sellerProductRejectedTemplate(meta: any): EmailTemplateResult {
         { label: 'Reason', value: reason },
       ],
       ctaLabel: 'Edit Product',
-      ctaUrl: 'https://seller.tatvivahtrends.com/seller/products',
+      ctaUrl: portalLinks.sellerProducts,
       accentText: 'A clear correction on title, images, and compliance details typically speeds up re-approval.',
     }),
   };

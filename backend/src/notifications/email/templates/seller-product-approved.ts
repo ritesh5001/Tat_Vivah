@@ -1,5 +1,6 @@
 import { EmailTemplateResult } from '../../types.js';
 import { renderBrandedEmail } from './layout.js';
+import { portalLinks } from './portal-links.js';
 
 export function sellerProductApprovedTemplate(meta: any): EmailTemplateResult {
   const productTitle = meta?.productTitle ?? 'your product';
@@ -16,7 +17,7 @@ export function sellerProductApprovedTemplate(meta: any): EmailTemplateResult {
       ],
       details: [{ label: 'Product', value: productTitle }],
       ctaLabel: 'Manage Products',
-      ctaUrl: 'https://seller.tatvivahtrends.com/seller/products',
+      ctaUrl: portalLinks.sellerProducts,
     }),
   };
 }

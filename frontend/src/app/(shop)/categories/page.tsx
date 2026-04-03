@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getCategories, type Category } from "@/services/catalog";
 import { MotionCard } from "@/components/motion/MotionCard";
+import { SITE_URL } from "@/lib/site-config";
 
 // Using the same resolver as CategoryCarousel so they look identical
 type CategoryItem = Category & {
@@ -22,13 +23,13 @@ export const metadata: Metadata = {
     description:
         "Browse curated ethnic wear categories for men. Shop sherwani, kurta sets, Indo-Western outfits, wedding wear and festive collections from top designers in India.",
     alternates: {
-        canonical: "https://tatvivahtrends.com/categories",
+        canonical: `${SITE_URL}/categories`,
     },
     openGraph: {
         title: "All Categories | Ethnic Wear Collections for Men | TatVivah",
         description:
             "Browse curated ethnic wear categories for men. Shop sherwani, kurta sets, Indo-Western outfits, wedding wear and festive collections.",
-        url: "https://tatvivahtrends.com/categories",
+        url: `${SITE_URL}/categories`,
         siteName: "TatVivah",
         type: "website",
     },
@@ -51,13 +52,13 @@ export default async function CategoriesPage() {
                 "@type": "ListItem",
                 position: 1,
                 name: "Home",
-                item: "https://tatvivahtrends.com",
+                item: SITE_URL,
             },
             {
                 "@type": "ListItem",
                 position: 2,
                 name: "Categories",
-                item: "https://tatvivahtrends.com/categories",
+                item: `${SITE_URL}/categories`,
             },
         ],
     };

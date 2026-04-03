@@ -5,9 +5,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { SearchAutocomplete } from "@/components/search-autocomplete";
 import { SortDropdown } from "@/components/sort-dropdown";
 import { MarketplaceProductCard } from "@/components/marketplace-product-card";
+import { SITE_URL } from "@/lib/site-config";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
-const SITE_URL = "https://tatvivahtrends.com";
 
 type SearchParams = {
   page?: string;

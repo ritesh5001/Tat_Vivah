@@ -23,6 +23,10 @@ const envSchema = z.object({
     ACCESS_TOKEN_EXPIRY: z.string().default('15m'),
     REFRESH_TOKEN_EXPIRY: z.string().default('7d'),
 
+    // Public portal URLs (used in email CTA links)
+    FRONTEND_BASE_URL: z.string().url('FRONTEND_BASE_URL must be a valid URL').optional(),
+    SELLER_BASE_URL: z.string().url('SELLER_BASE_URL must be a valid URL').optional(),
+
     // Redis
     REDIS_URL: z.string().url('REDIS_URL must be a valid URL').optional(),
     // Legacy Upstash vars retained as optional for backwards compatibility

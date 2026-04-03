@@ -3,9 +3,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MarketplaceProductCard } from "@/components/marketplace-product-card";
 import { Card, CardContent } from "@/components/ui/card";
+import { SITE_URL } from "@/lib/site-config";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
-const SITE_URL = "https://tatvivahtrends.com";
 
 type OccasionItem = { id: string; name: string; slug: string; isActive: boolean; image?: string };
 

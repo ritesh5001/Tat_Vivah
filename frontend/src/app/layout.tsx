@@ -6,6 +6,7 @@ import { PublicLayoutShell } from "@/components/layout/PublicLayoutShell";
 import { NavigationProgress } from "@/components/navigation/NavigationProgress";
 import { Toaster } from "@/components/ui/sonner";
 import { SessionGuard } from "@/components/SessionGuard";
+import { SITE_URL } from "@/lib/site-config";
 
 /**
  * Inter - Body text, UI elements
@@ -39,7 +40,7 @@ const API_ORIGIN = (() => {
 })();
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://tatvivahtrends.com"),
+  metadataBase: new URL(SITE_URL),
   title: {
     default: "TatVivah | Best Ethnic Wear for Men in India | Sherwani, Kurta, Indo Western",
     template: "%s | TatVivah",
@@ -61,7 +62,7 @@ export const metadata: Metadata = {
     description:
       "Shop the best ethnic wear for men in India. Explore premium sherwani, kurta sets, Indo-Western outfits, wedding wear, festive outfits and groom collections from top designers.",
     siteName: "TatVivah",
-    url: "https://tatvivahtrends.com",
+    url: SITE_URL,
     images: [
       {
         url: "/logo.png",
@@ -149,12 +150,12 @@ export default function RootLayout({
               "@context": "https://schema.org",
               "@type": "WebSite",
               name: "TatVivah",
-              url: "https://tatvivahtrends.com",
+              url: SITE_URL,
               potentialAction: {
                 "@type": "SearchAction",
                 target: {
                   "@type": "EntryPoint",
-                  urlTemplate: "https://tatvivahtrends.com/marketplace?search={search_term_string}"
+                  urlTemplate: `${SITE_URL}/marketplace?search={search_term_string}`
                 },
                 "query-input": "required name=search_term_string"
               }

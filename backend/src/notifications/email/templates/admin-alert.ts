@@ -1,5 +1,6 @@
 import { EmailTemplateResult } from '../../types.js';
 import { renderBrandedEmail } from './layout.js';
+import { portalLinks } from './portal-links.js';
 
 export function adminAlertTemplate(data: { title: string, message: string }): EmailTemplateResult {
     return {
@@ -14,7 +15,7 @@ export function adminAlertTemplate(data: { title: string, message: string }): Em
             ],
             details: [{ label: 'Alert', value: data.title }],
             ctaLabel: 'Open Admin Dashboard',
-            ctaUrl: 'https://tatvivahtrends.com/admin',
+            ctaUrl: portalLinks.adminDashboard,
             accentText: 'Please review this alert promptly and take necessary action.',
         }),
     };
