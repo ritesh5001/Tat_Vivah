@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { HERO_SLIDES } from "@/components/home/hero-data";
@@ -8,18 +8,70 @@ import { HERO_SLIDES } from "@/components/home/hero-data";
 export function HeroStaticServer() {
   const slides = HERO_SLIDES.slice(0, 4);
   const [activeIndex, setActiveIndex] = useState(0);
+  const pointerStartX = useRef<number | null>(null);
+  const pointerStartY = useRef<number | null>(null);
+  const pointerDragging = useRef(false);
+
+  const showNext = () => {
+    setActiveIndex((current) => (current + 1) % slides.length);
+  };
+
+  const showPrev = () => {
+    setActiveIndex((current) => (current - 1 + slides.length) % slides.length);
+  };
 
   useEffect(() => {
     const timer = window.setInterval(() => {
-      setActiveIndex((current) => (current + 1) % slides.length);
+      showNext();
     }, 5000);
 
     return () => window.clearInterval(timer);
   }, [slides.length]);
 
+  const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    pointerStartX.current = event.clientX;
+    pointerStartY.current = event.clientY;
+    pointerDragging.current = true;
+  };
+
+  const onPointerEnd = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!pointerDragging.current || pointerStartX.current === null || pointerStartY.current === null) {
+      return;
+    }
+
+    const deltaX = event.clientX - pointerStartX.current;
+    const deltaY = event.clientY - pointerStartY.current;
+
+    pointerDragging.current = false;
+    pointerStartX.current = null;
+    pointerStartY.current = null;
+
+    if (Math.abs(deltaX) < 40 || Math.abs(deltaX) <= Math.abs(deltaY)) {
+      return;
+    }
+
+    if (deltaX < 0) {
+      showNext();
+      return;
+    }
+
+    showPrev();
+  };
+
+  const onPointerCancel = () => {
+    pointerDragging.current = false;
+    pointerStartX.current = null;
+    pointerStartY.current = null;
+  };
+
   return (
     <section className="relative w-full overflow-hidden bg-charcoal aspect-square md:aspect-21/8" aria-label="Hero carousel">
-      <div className="relative h-full">
+      <div
+        className="relative h-full touch-pan-y"
+        onPointerDown={onPointerDown}
+        onPointerUp={onPointerEnd}
+        onPointerCancel={onPointerCancel}
+      >
         {slides.map((slide, index) => {
           const isActive = index === activeIndex;
           const isRight = slide.textPosition === "right";
