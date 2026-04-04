@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { SearchAutocomplete } from "@/components/search-autocomplete";
-import { SortDropdown } from "@/components/sort-dropdown";
 import { MarketplaceProductCard } from "@/components/marketplace-product-card";
 import { SITE_URL } from "@/lib/site-config";
 
@@ -31,6 +30,14 @@ type OccasionItem = {
   image?: string | null;
   isActive: boolean;
 };
+
+const SORT_OPTIONS = [
+  { value: "relevance", label: "Relevance" },
+  { value: "newest", label: "Newest" },
+  { value: "price_asc", label: "Price: Low to High" },
+  { value: "price_desc", label: "Price: High to Low" },
+  { value: "popularity", label: "Popularity" },
+];
 
 function slugify(value: string): string {
   return value
@@ -342,10 +349,14 @@ export default async function MarketplacePage({
                     : "border-border-soft group-hover:border-gold/60"
                     }`}>
                     {occasion.image ? (
-                      <img
+                      <Image
                         src={occasion.image}
                         alt={occasion.name}
+                        width={80}
+                        height={80}
+                        quality={60}
                         className="h-full w-full object-cover"
+                        loading="lazy"
                       />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center bg-cream text-lg font-serif text-muted-foreground">
@@ -382,17 +393,51 @@ export default async function MarketplacePage({
         </section>
 
         <section className="flex flex-col gap-3 border border-border-soft bg-card p-3 sm:gap-4 sm:p-4 md:flex-row md:items-center md:justify-between">
-          <div className="w-full md:max-w-md">
-            <SearchAutocomplete
-              defaultValue={search ?? ""}
-              placeholder="Search collections, styles..."
-            />
-          </div>
-          <div className="flex items-center gap-2 sm:gap-3">
+          <form action="/marketplace" method="get" className="w-full md:max-w-md">
+            {selectedCategoryId ? <input type="hidden" name="categoryId" value={selectedCategoryId} /> : null}
+            {occasionSlug ? <input type="hidden" name="occasion" value={occasionSlug} /> : null}
+            {sort ? <input type="hidden" name="sort" value={sort} /> : null}
+            <div className="relative">
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={1.8}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-4 w-4"
+                >
+                  <circle cx="11" cy="11" r="8" />
+                  <path d="m21 21-4.3-4.3" />
+                </svg>
+              </span>
+              <input
+                name="search"
+                defaultValue={search ?? ""}
+                placeholder="Search collections, styles..."
+                className="h-10 w-full border border-border-soft bg-background pl-10 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/20"
+              />
+            </div>
+          </form>
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <Button asChild variant="outline" size="sm">
               <Link href="#marketplace-categories">Filter</Link>
             </Button>
-            <SortDropdown />
+            {SORT_OPTIONS.map((option) => (
+              <Link
+                key={option.value}
+                href={buildUrl({ nextPage: 1, nextSort: option.value })}
+                className={`px-3 py-2 text-[11px] uppercase tracking-[0.12em] border transition-colors ${
+                  sort === option.value || (!sort && option.value === "relevance")
+                    ? "border-gold bg-cream text-charcoal dark:bg-brown/30 dark:text-ivory"
+                    : "border-border-soft bg-background text-muted-foreground hover:border-gold/50 hover:text-foreground"
+                }`}
+              >
+                {option.label}
+              </Link>
+            ))}
           </div>
         </section>
 

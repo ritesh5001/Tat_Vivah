@@ -1,5 +1,3 @@
-"use client";
-
 const announcements = [
     "Verified Sellers",
     "Secure Payments",
@@ -35,24 +33,6 @@ export function AnnouncementBar() {
                     </div>
                 ))}
             </div>
-
-            <style jsx>{`
-        @keyframes announcement-scroll {
-          from {
-            transform: translateX(0);
-          }
-          to {
-            transform: translateX(-50%);
-          }
-        }
-        .animate-announcement-scroll {
-          animation: announcement-scroll 60s linear infinite;
-        }
-        /* Pause on hover */
-        .animate-announcement-scroll:hover {
-          animation-play-state: paused;
-        }
-      `}</style>
         </div>
     );
 }

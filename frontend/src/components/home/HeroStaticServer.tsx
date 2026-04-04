@@ -1,37 +1,20 @@
-"use client";
-
-import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { HERO_SLIDES } from "@/components/home/hero-data";
 
-const AUTOPLAY_MS = 5500;
-
 export function HeroStaticServer() {
-  const [activeIndex, setActiveIndex] = useState(0);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-
-    const timer = window.setInterval(() => {
-      setActiveIndex((prev) => (prev + 1) % HERO_SLIDES.length);
-    }, AUTOPLAY_MS);
-
-    return () => window.clearInterval(timer);
-  }, []);
-
   return (
     <section className="relative w-full overflow-hidden bg-charcoal aspect-square md:aspect-21/8" aria-label="Hero carousel">
-      {HERO_SLIDES.map((slide, index) => {
-        const isActive = index === activeIndex;
+      <div className="flex h-full snap-x snap-mandatory overflow-x-auto scroll-smooth scrollbar-hide" style={{ WebkitOverflowScrolling: "touch" }}>
+        {HERO_SLIDES.map((slide, index) => {
         const isRight = slide.textPosition === "right";
+        const slideId = `hero-slide-${slide.id}`;
 
         return (
           <div
             key={slide.id}
-            className={`absolute inset-0 transition-opacity duration-700 ${isActive ? "opacity-100" : "opacity-0 pointer-events-none"}`}
-            aria-hidden={!isActive}
+            id={slideId}
+            className="relative h-full min-w-full snap-start"
           >
             <div className="absolute inset-0 overflow-hidden">
               <div className="hidden md:block absolute inset-0">
@@ -92,16 +75,16 @@ export function HeroStaticServer() {
             </div>
           </div>
         );
-      })}
+        })}
+      </div>
 
       <div className="absolute bottom-6 left-1/2 z-30 flex -translate-x-1/2 gap-3 md:bottom-8">
         {HERO_SLIDES.map((slide, index) => (
-          <button
+          <Link
             key={slide.id}
-            type="button"
-            onClick={() => setActiveIndex(index)}
+            href={`#hero-slide-${slide.id}`}
             aria-label={`Go to slide ${index + 1}`}
-            className={`h-2.5 w-2.5 rounded-full transition-all ${index === activeIndex ? "bg-white shadow-[0_0_8px_rgba(255,255,255,0.45)]" : "bg-white/45 hover:bg-white/75"}`}
+            className="h-2.5 w-2.5 rounded-full bg-white/45 transition-all hover:bg-white/75"
           />
         ))}
       </div>

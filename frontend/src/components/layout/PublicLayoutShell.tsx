@@ -4,7 +4,11 @@ import { usePathname } from "next/navigation";
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 
-export function PublicLayoutShell({ children }: { children: React.ReactNode }) {
+export function PublicLayoutShell({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const pathname = usePathname();
   const isDashboardRoute = pathname.startsWith("/admin") || pathname.startsWith("/seller");
 

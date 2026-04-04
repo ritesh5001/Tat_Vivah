@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-04T07:24:03.700Z",
+  "generatedAt": "2026-04-04T07:43:22.614Z",
   "source": "frontend/.next manifests",
   "routes": [
     {
@@ -58,7 +58,7 @@
       ],
       "clientServer": {
         "pageIsClient": false,
-        "projectClientModulesCount": 6,
+        "projectClientModulesCount": 2,
         "thirdPartyClientModulesCount": 20
       }
     },
@@ -118,8 +118,8 @@
       ],
       "clientServer": {
         "pageIsClient": false,
-        "projectClientModulesCount": 8,
-        "thirdPartyClientModulesCount": 18
+        "projectClientModulesCount": 2,
+        "thirdPartyClientModulesCount": 20
       }
     },
     {

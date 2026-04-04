@@ -1,5 +1,3 @@
-"use client";
-
 import {
     Truck,
     RotateCcw,
@@ -65,29 +63,6 @@ export function FeaturesMarquee() {
                     );
                 })}
             </div>
-
-            <style jsx>{`
-        @keyframes features-scroll {
-          from {
-                        transform: translateX(-50%);
-          }
-          to {
-                        transform: translateX(0);
-          }
-        }
-        .animate-features-scroll {
-          animation: features-scroll 40s linear infinite;
-        }
-        .animate-features-scroll:hover {
-          animation-play-state: paused;
-        }
-                @media (prefers-reduced-motion: reduce) {
-                    .animate-features-scroll {
-                        animation: none;
-                        transform: translateX(0);
-                    }
-                }
-      `}</style>
         </section>
     );
 }

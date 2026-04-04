@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Cormorant_Garamond } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import { PublicLayoutShell } from "@/components/layout/PublicLayoutShell";
 import { SITE_URL } from "@/lib/site-config";
@@ -11,17 +11,7 @@ import { SITE_URL } from "@/lib/site-config";
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
-  display: "swap",
-});
-
-/**
- * Cormorant Garamond - Display headings
- * Elegant, editorial, luxury feel
- */
-const cormorant = Cormorant_Garamond({
-  variable: "--font-cormorant",
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600"],
+  weight: ["400", "600"],
   display: "swap",
 });
 
@@ -134,7 +124,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${inter.variable} ${cormorant.variable} min-h-screen bg-background text-foreground antialiased`}
+        className={`${inter.variable} min-h-screen bg-background text-foreground antialiased`}
       >
         <script
           type="application/ld+json"
