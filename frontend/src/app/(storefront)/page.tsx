@@ -9,6 +9,7 @@ import { BestsellersStrip } from "@/components/home/BestsellersStrip";
 import { WeddingSectionBanner } from "@/components/home/WeddingSectionBanner";
 import { MarketplaceProductCard } from "@/components/marketplace-product-card";
 import { FeaturesMarquee } from "@/components/features-marquee";
+import { SectionReveal } from "@/components/motion/SectionReveal";
 import type { MarketplaceCardProduct } from "@/components/marketplace-product-card";
 import type { CategoryListResponse } from "@/services/catalog";
 import type { BestsellerProduct } from "@/services/bestsellers";
@@ -307,16 +308,32 @@ export default async function Home() {
       <div className="min-h-[calc(100vh-160px)] bg-background">
         <OccasionSection initialOccasions={occasions?.occasions} />
         <HeroStaticServer />
-        <CategoryCarousel initialCategories={categories?.categories} />
-        <BestsellersStrip bestsellers={bestsellersProducts} />
-        <ProductShowcaseSection initialProducts={products?.data} />
+        <SectionReveal>
+          <CategoryCarousel initialCategories={categories?.categories} />
+        </SectionReveal>
+        <SectionReveal delayMs={40}>
+          <BestsellersStrip bestsellers={bestsellersProducts} />
+        </SectionReveal>
+        <SectionReveal delayMs={60}>
+          <ProductShowcaseSection initialProducts={products?.data} />
+        </SectionReveal>
 
-        <WeddingSectionBanner />
+        <SectionReveal>
+          <WeddingSectionBanner />
+        </SectionReveal>
 
-        <NewArrivalsSection products={newArrivals} />
-        <FeaturesMarquee />
-        <GiftingSection />
-        <TrustSection />
+        <SectionReveal delayMs={40}>
+          <NewArrivalsSection products={newArrivals} />
+        </SectionReveal>
+        <SectionReveal>
+          <FeaturesMarquee />
+        </SectionReveal>
+        <SectionReveal delayMs={40}>
+          <GiftingSection />
+        </SectionReveal>
+        <SectionReveal delayMs={60}>
+          <TrustSection />
+        </SectionReveal>
       </div>
     </>
   );
