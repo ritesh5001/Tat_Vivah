@@ -210,7 +210,10 @@ export class PaymentService {
 
     async initiatePayment(userId: string, orderId: string, provider: PaymentProvider) {
         // 1. Validate Order
-        const order = await this.findOrderForPayment(userId, orderId);
+        const [order, existingPayment] = await Promise.all([
+            this.findOrderForPayment(userId, orderId),
+            paymentRepository.findPaymentByOrderId(orderId),
+        ]);
         if (!order) {
             throw new ApiError(404, 'Order not found or access denied');
         }
@@ -226,7 +229,6 @@ export class PaymentService {
         }
 
         // Check for existing successful payment
-        const existingPayment = await paymentRepository.findPaymentByOrderId(orderId);
         if (existingPayment && existingPayment.status === PaymentStatus.SUCCESS) {
             throw new ApiError(400, 'Order already paid');
         }

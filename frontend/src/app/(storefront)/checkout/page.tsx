@@ -13,12 +13,52 @@ import CouponSection from "@/components/checkout/CouponSection";
 import { toast } from "sonner";
 
 const CHECKOUT_CART_SNAPSHOT_KEY = "tatvivah_checkout_cart_snapshot";
+const CHECKOUT_ADDRESSES_CACHE_KEY = "tatvivah_checkout_addresses_cache";
+const CHECKOUT_ADDRESS_CACHE_TTL_MS = 5 * 60_000;
 
 const currency = new Intl.NumberFormat("en-IN", {
   style: "currency",
   currency: "INR",
   maximumFractionDigits: 0,
 });
+
+type RazorpayPaymentResponse = {
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
+  razorpay_signature: string;
+};
+
+type RazorpayCheckoutOptions = {
+  key: string;
+  amount: number;
+  currency: string;
+  name: string;
+  description: string;
+  order_id: string;
+  handler: (response: RazorpayPaymentResponse) => Promise<void>;
+  modal: {
+    ondismiss: () => void;
+  };
+  theme: {
+    color: string;
+  };
+};
+
+type RazorpayInstance = {
+  open: () => void;
+};
+
+type RazorpayConstructor = new (
+  options: RazorpayCheckoutOptions
+) => RazorpayInstance;
+
+function getRazorpayConstructor() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  return (window as Window & { Razorpay?: RazorpayConstructor }).Razorpay ?? null;
+}
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -49,6 +89,7 @@ export default function CheckoutPage() {
   // ---- Coupon state ----
   const [appliedCoupon, setAppliedCoupon] = React.useState<CouponPreview | null>(null);
   const cartItemsRef = React.useRef<string>("");
+  const razorpayLoaderRef = React.useRef<Promise<boolean> | null>(null);
 
   const applyCartSnapshot = React.useCallback(
     (items: Array<{ variantId: string; quantity: number; priceSnapshot: number }>) => {
@@ -72,26 +113,60 @@ export default function CheckoutPage() {
     []
   );
 
-  const loadRazorpayScript = React.useCallback(() => {
-    return new Promise<boolean>((resolve) => {
-      if (typeof window === "undefined") {
-        resolve(false);
-        return;
-      }
-      if ((window as any).Razorpay) {
-        resolve(true);
-        return;
-      }
+  const applySavedAddresses = React.useCallback((addresses: Address[]) => {
+    setSavedAddresses(addresses);
 
-      const script = document.createElement("script");
-      script.src = "https://checkout.razorpay.com/v1/checkout.js";
-      script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
-      document.body.appendChild(script);
-    });
+    const defaultAddr = addresses.find((address) => address.isDefault);
+    if (!defaultAddr) {
+      return;
+    }
+
+    setSelectedAddressId(defaultAddr.id);
+    setShipping((prev) => ({
+      ...prev,
+      addressLine1: prev.addressLine1 || defaultAddr.addressLine1,
+      addressLine2: prev.addressLine2 || defaultAddr.addressLine2 || "",
+      city: prev.city || defaultAddr.city,
+      pincode: prev.pincode || defaultAddr.pincode,
+    }));
   }, []);
 
+  const loadRazorpayScript = React.useCallback(() => {
+    if (typeof window === "undefined") {
+      return Promise.resolve(false);
+    }
+    if (getRazorpayConstructor()) {
+      return Promise.resolve(true);
+    }
+    if (razorpayLoaderRef.current) {
+      return razorpayLoaderRef.current;
+    }
+
+    razorpayLoaderRef.current = new Promise<boolean>((resolve) => {
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.async = true;
+      script.onload = () => resolve(true);
+      script.onerror = () => {
+        razorpayLoaderRef.current = null;
+        resolve(false);
+      };
+      document.body.appendChild(script);
+    });
+
+    return razorpayLoaderRef.current;
+  }, []);
+
+  const warmRazorpay = React.useCallback(() => {
+    return loadRazorpayScript().then((ready) => {
+      setRazorpayReady(ready);
+      return ready;
+    });
+  }, [loadRazorpayScript]);
+
   React.useEffect(() => {
+    let usedCachedAddresses = false;
+
     if (typeof window !== "undefined") {
       const cached = window.sessionStorage.getItem(CHECKOUT_CART_SNAPSHOT_KEY);
       if (cached) {
@@ -102,6 +177,28 @@ export default function CheckoutPage() {
           };
           if (Date.now() - parsed.at < 60_000 && Array.isArray(parsed.items)) {
             applyCartSnapshot(parsed.items);
+          }
+        } catch {
+          // Ignore malformed cache.
+        }
+      }
+
+      const cachedAddresses = window.sessionStorage.getItem(
+        CHECKOUT_ADDRESSES_CACHE_KEY
+      );
+      if (cachedAddresses) {
+        try {
+          const parsed = JSON.parse(cachedAddresses) as {
+            at: number;
+            addresses: Address[];
+          };
+
+          if (
+            Date.now() - parsed.at < CHECKOUT_ADDRESS_CACHE_TTL_MS &&
+            Array.isArray(parsed.addresses)
+          ) {
+            applySavedAddresses(parsed.addresses);
+            usedCachedAddresses = true;
           }
         } catch {
           // Ignore malformed cache.
@@ -130,31 +227,27 @@ export default function CheckoutPage() {
     const loadAddresses = async () => {
       try {
         const addrResult = await getAddresses();
-        setSavedAddresses(addrResult.addresses);
+        applySavedAddresses(addrResult.addresses);
 
-        const defaultAddr = addrResult.addresses.find((a) => a.isDefault);
-        if (defaultAddr) {
-          setSelectedAddressId(defaultAddr.id);
-          setShipping((prev) => ({
-            ...prev,
-            addressLine1: prev.addressLine1 || defaultAddr.addressLine1,
-            addressLine2: prev.addressLine2 || defaultAddr.addressLine2 || "",
-            city: prev.city || defaultAddr.city,
-            pincode: prev.pincode || defaultAddr.pincode,
-          }));
+        if (typeof window !== "undefined") {
+          window.sessionStorage.setItem(
+            CHECKOUT_ADDRESSES_CACHE_KEY,
+            JSON.stringify({
+              at: Date.now(),
+              addresses: addrResult.addresses,
+            })
+          );
         }
       } catch {
-        setSavedAddresses([]);
+        if (!usedCachedAddresses) {
+          setSavedAddresses([]);
+        }
       }
     };
 
     void loadCart();
     void loadAddresses();
-  }, [applyCartSnapshot]);
-
-  React.useEffect(() => {
-    loadRazorpayScript().then(setRazorpayReady);
-  }, [loadRazorpayScript]);
+  }, [applyCartSnapshot, applySavedAddresses]);
 
   const handleCheckout = async () => {
     if (isPaying) return; // Prevent double-submit
@@ -162,6 +255,11 @@ export default function CheckoutPage() {
       toast.error("Please enter a valid 6-digit pincode");
       return;
     }
+
+    const gatewayPromise = razorpayReady
+      ? Promise.resolve(true)
+      : warmRazorpay();
+
     setLoading(true);
     setIsPaying(true);
     try {
@@ -191,11 +289,7 @@ export default function CheckoutPage() {
         });
       }
 
-      let gatewayReady = razorpayReady;
-      if (!gatewayReady) {
-        gatewayReady = await loadRazorpayScript();
-        setRazorpayReady(gatewayReady);
-      }
+      const gatewayReady = await gatewayPromise;
 
       if (!gatewayReady) {
         toast.error("Payment gateway failed to load.");
@@ -204,14 +298,14 @@ export default function CheckoutPage() {
 
       const data = orderResult.payment ?? (await initiatePayment(orderId, "RAZORPAY")).data;
 
-      const options = {
+      const options: RazorpayCheckoutOptions = {
         key: data.key,
         amount: data.amount,
         currency: data.currency,
         name: "TatVivah",
         description: "Complete your purchase",
         order_id: data.orderId,
-        handler: async (response: any) => {
+        handler: async (response) => {
           try {
             await verifyPayment({
               razorpayOrderId: response.razorpay_order_id,
@@ -237,7 +331,12 @@ export default function CheckoutPage() {
         theme: { color: "#B7956C" },
       };
 
-      const razorpay = new (window as any).Razorpay(options);
+      const RazorpayCheckout = getRazorpayConstructor();
+      if (!RazorpayCheckout) {
+        throw new Error("Payment gateway failed to load.");
+      }
+
+      const razorpay = new RazorpayCheckout(options);
       razorpay.open();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Checkout failed");
@@ -612,6 +711,9 @@ export default function CheckoutPage() {
                     size="lg"
                     className="w-full h-14"
                     onClick={handleCheckout}
+                    onMouseEnter={() => void warmRazorpay()}
+                    onFocus={() => void warmRazorpay()}
+                    onTouchStart={() => void warmRazorpay()}
                     disabled={!hasItems || loading || isPaying}
                   >
                     {isPaying ? "Processing Payment..." : loading ? "Processing..." : "Complete Purchase"}

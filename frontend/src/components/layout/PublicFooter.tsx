@@ -34,17 +34,13 @@ const accordionSections = [
   { title: "Collections", links: collections },
 ];
 
-function shouldDisablePrefetch(href: string): boolean {
-  return href === "/register/seller" || href === "/register/admin";
-}
-
 export function PublicFooter() {
   return (
     <footer className="relative overflow-hidden border-t border-border-soft bg-cream text-foreground font-sans dark:bg-charcoal">
       <div className="mx-auto w-full max-w-6xl px-6 pt-14">
         <div className="grid gap-6 pb-10 md:gap-8 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1fr]">
           <div className="min-w-0 pr-0 lg:pr-6">
-            <Link href="/" className="inline-block transition-transform duration-300 hover:-translate-y-1">
+            <Link href="/" prefetch={false} className="inline-block transition-transform duration-300 hover:-translate-y-1">
               <Image
                 src="/logo-old.avif"
                 alt="TatVivah Trends"
@@ -54,7 +50,7 @@ export function PublicFooter() {
               />
             </Link>
             <p className="max-w-xl border-l-[3px] border-gold pl-4 text-[15px] italic leading-7 text-muted-foreground max-sm:border-l-0 max-sm:border-t-2 max-sm:border-gold max-sm:pl-0 max-sm:pt-3">
-              "Elegance Woven in Tradition." At TatVivah, we bring curated ethnic wear and handcrafted wedding fashion for modern celebrations rooted in heritage.
+              &ldquo;Elegance Woven in Tradition.&rdquo; At TatVivah, we bring curated ethnic wear and handcrafted wedding fashion for modern celebrations rooted in heritage.
             </p>
           </div>
 
@@ -70,7 +66,7 @@ export function PublicFooter() {
                     <li key={item.label}>
                       <Link
                         href={item.href}
-                        prefetch={!shouldDisablePrefetch(item.href)}
+                        prefetch={false}
                         className="group flex items-center gap-2 transition-all duration-300 hover:translate-x-1 hover:text-gold"
                       >
                         <span className="-ml-1 inline-block text-gold opacity-70 transition-opacity duration-300 group-hover:opacity-100">
@@ -92,7 +88,7 @@ export function PublicFooter() {
                     <li key={item.label}>
                       <Link
                         href={item.href}
-                        prefetch={!shouldDisablePrefetch(item.href)}
+                        prefetch={false}
                         className="group inline-flex items-center gap-2 text-sm font-medium tracking-[0.03em] text-foreground transition-all duration-300 hover:translate-x-1 hover:text-gold"
                       >
                         <span className="-ml-1 inline-block text-gold opacity-70 transition-opacity duration-300 group-hover:opacity-100">✿</span>
