@@ -30,6 +30,14 @@ const emptyForm: CreateOccasionPayload = {
   image: "",
 };
 
+function slugify(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 const OccasionFormFields = ({
   values,
   onChange,
@@ -87,6 +95,7 @@ export default function AdminOccasionsPage() {
   const [loading, setLoading] = React.useState(true);
   const [occasions, setOccasions] = React.useState<AdminOccasion[]>([]);
   const [saving, setSaving] = React.useState(false);
+  const [pendingOccasionIds, setPendingOccasionIds] = React.useState<string[]>([]);
 
   // Create modal
   const [showCreate, setShowCreate] = React.useState(false);
@@ -105,6 +114,36 @@ export default function AdminOccasionsPage() {
       urlEndpoint: IMAGEKIT_URL_ENDPOINT,
     });
   }, []);
+
+  const setOccasionPending = React.useCallback((id: string, pending: boolean) => {
+    setPendingOccasionIds((prev) => {
+      if (pending) {
+        return prev.includes(id) ? prev : [...prev, id];
+      }
+      return prev.filter((value) => value !== id);
+    });
+  }, []);
+
+  const buildOccasionPreview = React.useCallback(
+    (
+      payload: CreateOccasionPayload | UpdateOccasionPayload,
+      current?: AdminOccasion,
+      overrides?: Partial<AdminOccasion>
+    ): AdminOccasion => {
+      const nextName = payload.name?.trim() || current?.name || "";
+
+      return {
+        id: overrides?.id ?? current?.id ?? `temp-occasion-${Date.now()}`,
+        name: nextName,
+        slug: slugify(nextName),
+        image: payload.image === undefined ? current?.image ?? null : payload.image || null,
+        isActive: overrides?.isActive ?? current?.isActive ?? true,
+        createdAt: overrides?.createdAt ?? current?.createdAt ?? new Date().toISOString(),
+        updatedAt: overrides?.updatedAt ?? current?.updatedAt ?? new Date().toISOString(),
+      };
+    },
+    []
+  );
 
   const uploadOccasionImage = React.useCallback(
     async ({ file, mode }: { file: File; mode: "create" | "edit" }) => {
@@ -177,16 +216,30 @@ export default function AdminOccasionsPage() {
   const handleCreate = async () => {
     if (!createForm.name?.trim()) { toast.error("Name is required."); return; }
     setSaving(true);
+    const previousForm = { ...createForm };
+    const tempId = `temp-occasion-${Date.now()}`;
     try {
-      await createAdminOccasion({
+      const payload: CreateOccasionPayload = {
         name: createForm.name.trim(),
         image: createForm.image?.trim() || undefined,
-      });
-      toast.success("Occasion created.");
+      };
+
       setCreateForm({ ...emptyForm });
       setShowCreate(false);
-      load();
+      setOccasions((prev) => [
+        buildOccasionPreview(payload, undefined, { id: tempId, isActive: true }),
+        ...prev,
+      ]);
+
+      const result = await createAdminOccasion(payload);
+      setOccasions((prev) =>
+        prev.map((occasion) => (occasion.id === tempId ? result.occasion : occasion))
+      );
+      toast.success("Occasion created.");
     } catch (error) {
+      setOccasions((prev) => prev.filter((occasion) => occasion.id !== tempId));
+      setCreateForm(previousForm);
+      setShowCreate(true);
       toast.error(error instanceof Error ? error.message : "Unable to create occasion");
     } finally {
       setSaving(false);
@@ -203,16 +256,41 @@ export default function AdminOccasionsPage() {
 
   const handleUpdate = async () => {
     if (!editingId) return;
+    const existingOccasion = occasions.find((occasion) => occasion.id === editingId);
+    if (!existingOccasion) return;
+
     setSaving(true);
+    const occasionId = editingId;
+    const previousForm = { ...editForm };
     try {
-      await updateAdminOccasion(editingId, {
+      const payload: UpdateOccasionPayload = {
         ...editForm,
-        image: editForm.image === "" ? null : editForm.image,
-      });
-      toast.success("Occasion updated.");
+        name: editForm.name?.trim() || undefined,
+        image: editForm.image === undefined ? undefined : editForm.image?.trim() || null,
+      };
+
+      setOccasions((prev) =>
+        prev.map((occasion) =>
+          occasion.id === occasionId
+            ? buildOccasionPreview(payload, occasion)
+            : occasion
+        )
+      );
       setEditingId(null);
-      load();
+
+      const result = await updateAdminOccasion(occasionId, payload);
+      setOccasions((prev) =>
+        prev.map((occasion) => (occasion.id === occasionId ? result.occasion : occasion))
+      );
+      toast.success("Occasion updated.");
     } catch (error) {
+      setOccasions((prev) =>
+        prev.map((occasion) =>
+          occasion.id === occasionId ? existingOccasion : occasion
+        )
+      );
+      setEditingId(occasionId);
+      setEditForm(previousForm);
       toast.error(error instanceof Error ? error.message : "Unable to update occasion");
     } finally {
       setSaving(false);
@@ -220,23 +298,59 @@ export default function AdminOccasionsPage() {
   };
 
   const handleToggle = async (id: string) => {
+    const currentOccasion = occasions.find((occasion) => occasion.id === id);
+    if (!currentOccasion) return;
+
+    setOccasionPending(id, true);
+    setOccasions((prev) =>
+      prev.map((occasion) =>
+        occasion.id === id ? { ...occasion, isActive: !occasion.isActive } : occasion
+      )
+    );
+
     try {
-      await toggleAdminOccasion(id);
-      toast.success("Occasion toggled.");
-      load();
+      const result = await toggleAdminOccasion(id);
+      setOccasions((prev) =>
+        prev.map((occasion) => (occasion.id === id ? result.occasion : occasion))
+      );
+      toast.success(result.occasion.isActive ? "Occasion activated." : "Occasion deactivated.");
     } catch (error) {
+      setOccasions((prev) =>
+        prev.map((occasion) =>
+          occasion.id === id ? currentOccasion : occasion
+        )
+      );
       toast.error(error instanceof Error ? error.message : "Unable to toggle occasion");
+    } finally {
+      setOccasionPending(id, false);
     }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this occasion? Products linked to it will be unlinked.")) return;
+
+    const occasionIndex = occasions.findIndex((occasion) => occasion.id === id);
+    const occasionToDelete = occasions[occasionIndex];
+    if (!occasionToDelete) return;
+
+    setOccasionPending(id, true);
+    setOccasions((prev) => prev.filter((occasion) => occasion.id !== id));
+
     try {
       await deleteAdminOccasion(id);
       toast.success("Occasion deleted.");
-      load();
     } catch (error) {
+      setOccasions((prev) => {
+        if (prev.some((occasion) => occasion.id === occasionToDelete.id)) {
+          return prev;
+        }
+        const next = [...prev];
+        next.splice(Math.min(occasionIndex, next.length), 0, occasionToDelete);
+        return next;
+      });
       toast.error(error instanceof Error ? error.message : "Unable to delete occasion");
+    } finally {
+      setOccasionPending(id, false);
     }
   };
 
@@ -276,7 +390,12 @@ export default function AdminOccasionsPage() {
           ) : (
             <div className="divide-y divide-border-soft">
               {occasions.map((occasion) => (
-                <div key={occasion.id} className="flex flex-col gap-3 p-6 md:flex-row md:items-center md:justify-between">
+                <div
+                  key={occasion.id}
+                  className={`flex flex-col gap-3 p-6 md:flex-row md:items-center md:justify-between ${
+                    pendingOccasionIds.includes(occasion.id) ? "opacity-60" : ""
+                  }`}
+                >
                   <div className="flex items-center gap-4 flex-1">
                     {occasion.image && (
                       <Image
@@ -294,14 +413,20 @@ export default function AdminOccasionsPage() {
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-3">
+                    {pendingOccasionIds.includes(occasion.id) ? (
+                      <span className="inline-flex items-center gap-1 px-3 py-1 text-[10px] uppercase tracking-wider border border-gold/30 bg-gold/5 text-[#8A7054]">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Updating
+                      </span>
+                    ) : null}
                     <span className={`px-3 py-1 text-[10px] uppercase tracking-wider border ${occasion.isActive ? "border-[#7B9971]/30 text-[#5A7352] bg-[#7B9971]/5" : "border-[#A67575]/30 text-[#7A5656] bg-[#A67575]/5"}`}>
                       {occasion.isActive ? "Active" : "Inactive"}
                     </span>
-                    <Button size="sm" variant="outline" onClick={() => openEdit(occasion)}>Edit</Button>
-                    <Button size="sm" variant="outline" className={occasion.isActive ? "border-[#A67575]/40 text-[#7A5656]" : "border-[#7B9971]/40 text-[#5A7352]"} onClick={() => handleToggle(occasion.id)}>
+                    <Button size="sm" variant="outline" disabled={pendingOccasionIds.includes(occasion.id)} onClick={() => openEdit(occasion)}>Edit</Button>
+                    <Button size="sm" variant="outline" disabled={pendingOccasionIds.includes(occasion.id)} className={occasion.isActive ? "border-[#A67575]/40 text-[#7A5656]" : "border-[#7B9971]/40 text-[#5A7352]"} onClick={() => handleToggle(occasion.id)}>
                       {occasion.isActive ? "Deactivate" : "Activate"}
                     </Button>
-                    <Button size="sm" variant="outline" className="border-red-300/40 text-red-600" onClick={() => handleDelete(occasion.id)}>Delete</Button>
+                    <Button size="sm" variant="outline" disabled={pendingOccasionIds.includes(occasion.id)} className="border-red-300/40 text-red-600" onClick={() => handleDelete(occasion.id)}>Delete</Button>
                   </div>
                 </div>
               ))}

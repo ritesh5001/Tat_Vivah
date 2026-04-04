@@ -2,7 +2,11 @@
 
 import * as React from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { NAVIGATION_START_EVENT } from "@/lib/navigation-feedback";
+import {
+  API_ACTIVITY_EVENT,
+  NAVIGATION_START_EVENT,
+  type ApiActivityDetail,
+} from "@/lib/navigation-feedback";
 
 const COMPLETE_DELAY_MS = 170;
 const FAILSAFE_TIMEOUT_MS = 10000;
@@ -14,11 +18,15 @@ export function NavigationProgress() {
   const [visible, setVisible] = React.useState(false);
   const [overlayVisible, setOverlayVisible] = React.useState(false);
   const [progress, setProgress] = React.useState(0);
+  const [mode, setMode] = React.useState<"navigation" | "mutation">("navigation");
+  const [message, setMessage] = React.useState("Preparing your next view");
 
   const completeTimeoutRef = React.useRef<number | null>(null);
   const failsafeRef = React.useRef<number | null>(null);
   const tickRef = React.useRef<number | null>(null);
   const overlayDelayRef = React.useRef<number | null>(null);
+  const navigationPendingRef = React.useRef(false);
+  const mutationCountRef = React.useRef(0);
 
   const clearTimers = React.useCallback(() => {
     if (completeTimeoutRef.current) {
@@ -39,33 +47,40 @@ export function NavigationProgress() {
     }
   }, []);
 
-  const begin = React.useCallback(() => {
-    clearTimers();
-    setVisible(true);
-    setOverlayVisible(false);
-    setProgress(14);
-
-    // Animate quickly to indicate immediate reaction, then crawl.
-    window.requestAnimationFrame(() => setProgress(46));
-
-    tickRef.current = window.setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 88) return prev;
-        return prev + 4;
-      });
-    }, 220);
-
-    overlayDelayRef.current = window.setTimeout(() => {
-      setOverlayVisible(true);
-    }, OVERLAY_DELAY_MS);
-
-    failsafeRef.current = window.setTimeout(() => {
-      setVisible(false);
-      setOverlayVisible(false);
-      setProgress(0);
+  const begin = React.useCallback(
+    (nextMode: "navigation" | "mutation", nextMessage: string) => {
       clearTimers();
-    }, FAILSAFE_TIMEOUT_MS);
-  }, [clearTimers]);
+      setMode(nextMode);
+      setMessage(nextMessage);
+      setVisible(true);
+      setOverlayVisible(false);
+      setProgress(14);
+
+      // Animate quickly to indicate immediate reaction, then crawl.
+      window.requestAnimationFrame(() => setProgress(46));
+
+      tickRef.current = window.setInterval(() => {
+        setProgress((prev) => {
+          if (prev >= 88) return prev;
+          return prev + 4;
+        });
+      }, 220);
+
+      overlayDelayRef.current = window.setTimeout(() => {
+        setOverlayVisible(true);
+      }, OVERLAY_DELAY_MS);
+
+      failsafeRef.current = window.setTimeout(() => {
+        setVisible(false);
+        setOverlayVisible(false);
+        setProgress(0);
+        navigationPendingRef.current = false;
+        mutationCountRef.current = 0;
+        clearTimers();
+      }, FAILSAFE_TIMEOUT_MS);
+    },
+    [clearTimers]
+  );
 
   const finish = React.useCallback(() => {
     setProgress(100);
@@ -76,6 +91,13 @@ export function NavigationProgress() {
       setProgress(0);
     }, COMPLETE_DELAY_MS);
   }, [clearTimers]);
+
+  const finishIfIdle = React.useCallback(() => {
+    if (navigationPendingRef.current || mutationCountRef.current > 0) {
+      return;
+    }
+    finish();
+  }, [finish]);
 
   React.useEffect(() => {
     const onClickCapture = (event: MouseEvent) => {
@@ -101,22 +123,62 @@ export function NavigationProgress() {
       const nextPath = `${nextUrl.pathname}${nextUrl.search}`;
       if (currentPath === nextPath) return;
 
-      begin();
+      navigationPendingRef.current = true;
+      begin("navigation", "Preparing your next view");
+    };
+
+    const onApiActivity = (event: Event) => {
+      const detail = (event as CustomEvent<ApiActivityDetail>).detail;
+      if (!detail) return;
+
+      if (detail.type === "start") {
+        mutationCountRef.current += 1;
+        begin("mutation", detail.label ?? "Processing your request");
+        return;
+      }
+
+      mutationCountRef.current = Math.max(0, mutationCountRef.current - 1);
+      if (mutationCountRef.current > 0) {
+        setMode("mutation");
+        setMessage("Finishing your request");
+        return;
+      }
+
+      if (navigationPendingRef.current) {
+        setMode("navigation");
+        setMessage("Preparing your next view");
+        return;
+      }
+
+      finishIfIdle();
+    };
+
+    const onNavigationStart = () => {
+      navigationPendingRef.current = true;
+      begin("navigation", "Preparing your next view");
     };
 
     window.addEventListener("click", onClickCapture, true);
-    window.addEventListener(NAVIGATION_START_EVENT, begin);
+    window.addEventListener(NAVIGATION_START_EVENT, onNavigationStart);
+    window.addEventListener(API_ACTIVITY_EVENT, onApiActivity as EventListener);
 
     return () => {
       window.removeEventListener("click", onClickCapture, true);
-      window.removeEventListener(NAVIGATION_START_EVENT, begin);
+      window.removeEventListener(NAVIGATION_START_EVENT, onNavigationStart);
+      window.removeEventListener(API_ACTIVITY_EVENT, onApiActivity as EventListener);
       clearTimers();
     };
-  }, [begin, clearTimers]);
+  }, [begin, clearTimers, finishIfIdle]);
 
   React.useEffect(() => {
-    if (visible) {
-      finish();
+    if (navigationPendingRef.current) {
+      navigationPendingRef.current = false;
+      if (mutationCountRef.current > 0) {
+        setMode("mutation");
+        setMessage("Finishing your request");
+        return;
+      }
+      finishIfIdle();
     }
     // Route/search change means navigation has completed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -147,8 +209,10 @@ export function NavigationProgress() {
           <div className="flex items-center gap-3">
             <span className="h-5 w-5 rounded-full border-2 border-gold/25 border-t-gold animate-spin" />
             <div className="min-w-0">
-              <p className="text-[10px] font-medium uppercase tracking-[0.24em] text-gold">Please Wait</p>
-              <p className="truncate text-sm text-foreground">Preparing your next view</p>
+              <p className="text-[10px] font-medium uppercase tracking-[0.24em] text-gold">
+                {mode === "mutation" ? "Working" : "Please Wait"}
+              </p>
+              <p className="truncate text-sm text-foreground">{message}</p>
             </div>
           </div>
           <div className="mt-3 h-1 w-full overflow-hidden bg-cream dark:bg-brown/25">

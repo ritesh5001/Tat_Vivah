@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
+import { Suspense } from "react";
 import "./globals.css";
 import { SITE_URL } from "@/lib/site-config";
+import { NavigationProgress } from "@/components/navigation/NavigationProgress";
 
 /**
  * Inter - Body text, UI elements
@@ -145,6 +147,9 @@ export default function RootLayout({
           }}
         />
         {children}
+        <Suspense fallback={null}>
+          <NavigationProgress />
+        </Suspense>
       </body>
     </html>
   );

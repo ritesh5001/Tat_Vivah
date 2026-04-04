@@ -305,9 +305,8 @@ export default async function Home() {
       />
 
       <div className="min-h-[calc(100vh-160px)] bg-background">
-        <HeroStaticServer />
-
         <OccasionSection initialOccasions={occasions?.occasions} />
+        <HeroStaticServer />
         <CategoryCarousel initialCategories={categories?.categories} />
         <BestsellersStrip bestsellers={bestsellersProducts} />
         <ProductShowcaseSection initialProducts={products?.data} />

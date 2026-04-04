@@ -1,4 +1,5 @@
 import { COOKIE_ATTRIBUTES_SUFFIX } from "@/lib/site-config";
+import { reportApiActivity } from "@/lib/navigation-feedback";
 
 type ApiRequestOptions = Omit<RequestInit, "body"> & {
   body?: unknown;
@@ -34,6 +35,21 @@ function getRefreshToken(): string | null {
 
 function getErrorMessage(data: any, fallback: string) {
   return data?.error?.message ?? data?.message ?? fallback;
+}
+
+function normalizeMethod(method?: string) {
+  return method?.toUpperCase() ?? "GET";
+}
+
+function isMutationMethod(method: string) {
+  return method !== "GET" && method !== "HEAD" && method !== "OPTIONS";
+}
+
+function getActivityLabel(method: string) {
+  if (method === "DELETE") return "Removing item";
+  if (method === "PATCH" || method === "PUT") return "Applying your changes";
+  if (method === "POST") return "Submitting your request";
+  return "Processing your request";
 }
 
 function clearAuthCookies() {
@@ -98,6 +114,9 @@ export async function apiRequest<T>(
   }
 
   const { body, token, headers, _isRetry, ...rest } = options;
+  const method = normalizeMethod(rest.method);
+  const shouldTrackActivity =
+    typeof window !== "undefined" && isMutationMethod(method) && !_isRetry;
   const authToken = token ?? getAuthToken();
 
   const finalHeaders: HeadersInit = {
@@ -106,29 +125,48 @@ export async function apiRequest<T>(
     ...(headers ?? {}),
   };
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...rest,
-    headers: finalHeaders,
-    body: body ? JSON.stringify(body) : undefined,
-  });
-
-  const data = await response.json().catch(() => null);
-
-  if (!response.ok) {
-    // On 401, attempt a silent token refresh before giving up
-    if (response.status === 401 && !_isRetry && !token) {
-      const newToken = await silentRefresh();
-      if (newToken) {
-        // Retry the original request with the fresh token
-        return apiRequest<T>(path, { ...options, token: newToken, _isRetry: true });
-      }
-      // Refresh failed — clear session
-      clearAuthCookies();
-    } else if (response.status === 401 || response.status === 403) {
-      clearAuthCookies();
-    }
-    throw new Error(getErrorMessage(data, "Request failed"));
+  if (shouldTrackActivity) {
+    reportApiActivity({
+      type: "start",
+      method,
+      path,
+      label: getActivityLabel(method),
+    });
   }
 
-  return data as T;
+  try {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      ...rest,
+      headers: finalHeaders,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+
+    const data = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      // On 401, attempt a silent token refresh before giving up
+      if (response.status === 401 && !_isRetry && !token) {
+        const newToken = await silentRefresh();
+        if (newToken) {
+          // Retry the original request with the fresh token
+          return apiRequest<T>(path, { ...options, token: newToken, _isRetry: true });
+        }
+        // Refresh failed — clear session
+        clearAuthCookies();
+      } else if (response.status === 401 || response.status === 403) {
+        clearAuthCookies();
+      }
+      throw new Error(getErrorMessage(data, "Request failed"));
+    }
+
+    return data as T;
+  } finally {
+    if (shouldTrackActivity) {
+      reportApiActivity({
+        type: "end",
+        method,
+        path,
+      });
+    }
+  }
 }
