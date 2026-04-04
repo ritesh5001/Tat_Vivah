@@ -23,7 +23,7 @@ export function ProductShowcaseSection({
           </div>
         </div>
 
-        <div className="px-0 sm:px-14 lg:px-16">
+        <div className="px-0 sm:px-2">
           {products.length === 0 ? (
             <div className="py-16 text-center">
               <p className="text-sm text-muted-foreground">No products available right now.</p>
