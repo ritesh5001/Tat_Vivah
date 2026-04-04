@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { checkout, getCart, type CouponPreview } from "@/services/cart";
+import { checkoutWithPayment, getCart, type CouponPreview } from "@/services/cart";
 import { initiatePayment, verifyPayment } from "@/services/payments";
 import { getAddresses, type Address } from "@/services/addresses";
 import CouponSection from "@/components/checkout/CouponSection";
@@ -165,7 +165,7 @@ export default function CheckoutPage() {
     setLoading(true);
     setIsPaying(true);
     try {
-      const orderResult = await checkout({
+      const orderResult = await checkoutWithPayment({
         shippingName: shipping.name || undefined,
         shippingPhone: shipping.phone || undefined,
         shippingEmail: shipping.email || undefined,
@@ -202,8 +202,7 @@ export default function CheckoutPage() {
         return;
       }
 
-      const paymentResult = await initiatePayment(orderId, "RAZORPAY");
-      const data = paymentResult.data;
+      const data = orderResult.payment ?? (await initiatePayment(orderId, "RAZORPAY")).data;
 
       const options = {
         key: data.key,
