@@ -42,11 +42,11 @@ export function PublicFooter() {
           <div className="min-w-0 pr-0 lg:pr-6">
             <Link href="/" className="inline-block transition-transform duration-300 hover:-translate-y-1">
               <Image
-                src="/tatvivah-logo.svg"
+                src="/logo-old.avif"
                 alt="TatVivah Trends"
-                width={160}
-                height={64}
-                className="mb-5 h-auto w-40"
+                width={140}
+                height={56}
+                className="mb-5 h-auto w-32"
               />
             </Link>
             <p className="max-w-xl border-l-[3px] border-gold pl-4 text-[15px] italic leading-7 text-muted-foreground max-sm:border-l-0 max-sm:border-t-2 max-sm:border-gold max-sm:pl-0 max-sm:pt-3">
