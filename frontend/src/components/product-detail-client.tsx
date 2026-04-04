@@ -241,13 +241,13 @@ export default function ProductDetailClient({
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.7, delay: 0.15, ease: [0.25, 0.1, 0.25, 1] }}
-      className="flex flex-col justify-center py-6 lg:py-12"
+      className="flex min-w-0 max-w-full flex-col justify-center overflow-x-clip py-4 sm:py-6 lg:py-12"
     >
       {/* Editorial Content Block */}
       {/* Editorial Content Block */}
       <div className="space-y-6">
         {/* 1. Title */}
-        <h1 className="font-serif text-3xl font-light leading-tight tracking-tight text-foreground lg:text-4xl xl:text-5xl">
+        <h1 className="break-words font-serif text-2xl font-light leading-tight tracking-tight text-foreground sm:text-3xl lg:text-4xl xl:text-5xl">
           {product.title}
         </h1>
 
@@ -397,7 +397,7 @@ export default function ProductDetailClient({
               <button
                 onClick={handlePincodeCheck}
                 disabled={pincode.length !== 6}
-                className="h-full px-8 text-[12px] font-bold tracking-[0.15em] border-l border-border-soft hover:bg-border-soft/30 transition-colors uppercase text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+                className="h-full border-l border-border-soft px-4 text-[11px] font-bold uppercase tracking-[0.12em] text-foreground transition-colors hover:bg-border-soft/30 disabled:cursor-not-allowed disabled:opacity-50 sm:px-8 sm:text-[12px] sm:tracking-[0.15em]"
               >
                 Check
               </button>
@@ -437,7 +437,7 @@ export default function ProductDetailClient({
               <p className="leading-relaxed">
                 {product.description || "Indulge in the finest craftsmanship with this stunning piece, designed to stand out. Impeccably tailored to match the highest standards."}
               </p>
-              <ul className="space-y-2 mt-4 grid grid-cols-2 gap-x-4 border-t border-border-soft pt-4">
+              <ul className="mt-4 grid grid-cols-1 gap-x-4 gap-y-2 border-t border-border-soft pt-4 sm:grid-cols-2">
                 <li><strong className="text-foreground uppercase text-[10px] tracking-widest font-bold">Category:</strong> {product.category?.name || "Curated Collection"}</li>
                 <li><strong className="text-foreground uppercase text-[10px] tracking-widest font-bold">Color:</strong> Multi Variation</li>
                 <li><strong className="text-foreground uppercase text-[10px] tracking-widest font-bold">Material:</strong> Premium Blend</li>

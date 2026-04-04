@@ -155,12 +155,16 @@ export default async function ProductDetailPage({
         />
       )}
 
-      <div className="mx-auto flex max-w-7xl flex-col gap-20 px-6 py-16 lg:py-20">
+      <div className="mx-auto flex max-w-7xl flex-col gap-12 px-4 py-10 sm:gap-16 sm:px-6 sm:py-14 lg:gap-20 lg:py-20">
         {/* Main Product Section */}
         <section className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:gap-12">
-          <ProductImageCarousel images={images} title={product?.title} />
+          <div className="min-w-0 max-w-full">
+            <ProductImageCarousel images={images} title={product?.title} />
+          </div>
           {product ? (
-            <ProductDetailClient product={product} />
+            <div className="min-w-0 max-w-full">
+              <ProductDetailClient product={product} />
+            </div>
           ) : (
             <div className="flex flex-col justify-center space-y-6 py-12">
               <p className="text-[11px] font-medium uppercase tracking-[0.25em] text-gold">
