@@ -11,6 +11,8 @@ export function HeroStaticServer() {
   const pointerStartX = useRef<number | null>(null);
   const pointerStartY = useRef<number | null>(null);
   const pointerDragging = useRef(false);
+  const wheelDeltaX = useRef(0);
+  const wheelLockUntil = useRef(0);
 
   const showNext = () => {
     setActiveIndex((current) => (current + 1) % slides.length);
@@ -64,6 +66,29 @@ export function HeroStaticServer() {
     pointerStartY.current = null;
   };
 
+  const onWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+    const now = Date.now();
+    if (now < wheelLockUntil.current) return;
+
+    // Touchpads emit wheel deltas for two-finger swipe gestures.
+    // We only react to primarily horizontal swipes.
+    if (Math.abs(event.deltaX) <= Math.abs(event.deltaY)) return;
+
+    wheelDeltaX.current += event.deltaX;
+    if (Math.abs(wheelDeltaX.current) < 45) return;
+
+    event.preventDefault();
+
+    if (wheelDeltaX.current > 0) {
+      showNext();
+    } else {
+      showPrev();
+    }
+
+    wheelDeltaX.current = 0;
+    wheelLockUntil.current = now + 350;
+  };
+
   return (
     <section className="relative w-full overflow-hidden bg-charcoal aspect-square md:aspect-21/8" aria-label="Hero carousel">
       <div
@@ -71,6 +96,7 @@ export function HeroStaticServer() {
         onPointerDown={onPointerDown}
         onPointerUp={onPointerEnd}
         onPointerCancel={onPointerCancel}
+        onWheel={onWheel}
       >
         {slides.map((slide, index) => {
           const isActive = index === activeIndex;
