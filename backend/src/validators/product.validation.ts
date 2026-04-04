@@ -94,7 +94,7 @@ export const productQuerySchema = z.object({
     limit: z
         .string()
         .transform(Number)
-        .pipe(z.number().int().min(1).max(100))
+        .pipe(z.number().int().min(1).max(50))
         .optional()
         .default('20'),
 

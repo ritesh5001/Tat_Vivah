@@ -75,15 +75,22 @@ const MAX_SEARCH_LIMIT = 20;
 // ---------------------------------------------------------------------------
 
 export class SearchService {
+    private normalizeQuery(input: string): string {
+        return input.trim().replace(/\s+/g, ' ');
+    }
+
     // -----------------------------------------------------------------------
     // Full-text search with tsvector + ts_rank
     // -----------------------------------------------------------------------
 
     async searchProducts(filters: SearchFilters): Promise<SearchResponse> {
         const timer = searchDurationSeconds.startTimer();
-        const { q, page, categoryId, sort = 'relevance' } = filters;
+        const normalizedQ = this.normalizeQuery(filters.q);
+        const page = Math.max(1, Math.trunc(filters.page || 1));
+        const categoryId = filters.categoryId?.trim() || undefined;
+        const sort = filters.sort ?? 'relevance';
         const safeLimit = Math.min(MAX_SEARCH_LIMIT, Math.max(1, Math.trunc(filters.limit || 20)));
-        const cacheKey = CACHE_KEYS.SEARCH_RESULTS(q.trim().toLowerCase(), page, safeLimit, categoryId, sort);
+        const cacheKey = CACHE_KEYS.SEARCH_RESULTS(normalizedQ.toLowerCase(), page, safeLimit, categoryId, sort);
         const cached = await getFromCache<SearchResponse>(cacheKey);
         if (cached) {
             timer();
@@ -95,7 +102,7 @@ export class SearchService {
 
         try {
             // Track in Redis trending
-            this.trackTrending(q).catch(() => { /* fire-and-forget */ });
+            this.trackTrending(normalizedQ).catch(() => { /* fire-and-forget */ });
 
             // Build WHERE clause pieces
             const conditions: string[] = [
@@ -104,7 +111,7 @@ export class SearchService {
                 `p."admin_listing_price" IS NOT NULL`,
                 `p."search_vector" @@ plainto_tsquery('english', $1)`,
             ];
-            const params: unknown[] = [q];
+            const params: unknown[] = [normalizedQ];
             let paramIndex = 2;
 
             if (categoryId) {
@@ -180,7 +187,7 @@ export class SearchService {
 
             if (total === 0) {
                 searchNoResultTotal.inc();
-                searchLogger.info({ q, categoryId, total: 0 }, 'search returned zero results');
+                searchLogger.info({ q: normalizedQ, categoryId, total: 0 }, 'search returned zero results');
                 timer();
                 const emptyResponse = {
                     data: [],
@@ -199,14 +206,14 @@ export class SearchService {
 
             const totalPages = Math.ceil(total / safeLimit);
 
-            searchLogger.info({ q, categoryId, sort, total, page }, 'search executed');
+            searchLogger.info({ q: normalizedQ, categoryId, sort, total, page }, 'search executed');
             timer();
             const response = { data, pagination: { page, limit: safeLimit, total, totalPages } };
             await setCache(cacheKey, response, 60);
             return response;
         } catch (error) {
             timer();
-            searchLogger.error({ q, error }, 'search query failed');
+            searchLogger.error({ q: normalizedQ, error }, 'search query failed');
             throw error;
         }
     }
@@ -217,8 +224,12 @@ export class SearchService {
 
     async getSuggestions(q: string, limit: number = 8): Promise<SuggestionItem[]> {
         autocompleteTotal.inc();
+        const normalizedQ = this.normalizeQuery(q);
+        if (normalizedQ.length < 2) {
+            return [];
+        }
         const safeLimit = Math.min(MAX_SEARCH_LIMIT, Math.max(1, Math.trunc(limit || 8)));
-        const cacheKey = CACHE_KEYS.SEARCH_SUGGESTIONS(q.trim().toLowerCase(), safeLimit);
+        const cacheKey = CACHE_KEYS.SEARCH_SUGGESTIONS(normalizedQ.toLowerCase(), safeLimit);
         const cached = await getFromCache<SuggestionItem[]>(cacheKey);
         if (cached) {
             return cached;
@@ -233,11 +244,11 @@ export class SearchService {
                AND p."title" ILIKE $1
              ORDER BY p."title" ASC
              LIMIT $2`,
-            `${q}%`,
+                        `${normalizedQ}%`,
             safeLimit,
         );
 
-        searchLogger.debug({ q, count: rows.length }, 'autocomplete suggestions');
+                searchLogger.debug({ q: normalizedQ, count: rows.length }, 'autocomplete suggestions');
 
         const suggestions = rows.map((r) => ({
             id: r.id,
@@ -259,7 +270,15 @@ export class SearchService {
     }
 
     async getTrending(limit: number = 10): Promise<string[]> {
-        const results = await redis.zrange(TRENDING_KEY, 0, limit - 1, { rev: true });
+        const safeLimit = Math.min(MAX_SEARCH_LIMIT, Math.max(1, Math.trunc(limit || 10)));
+        const cacheKey = `search:trending:${safeLimit}`;
+        const cached = await getFromCache<string[]>(cacheKey);
+        if (cached) {
+            return cached;
+        }
+
+        const results = await redis.zrange(TRENDING_KEY, 0, safeLimit - 1, { rev: true });
+        await setCache(cacheKey, results as string[], 30);
         return results as string[];
     }
 

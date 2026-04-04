@@ -19,14 +19,31 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-export function ProductShowcaseSection() {
-  const [products, setProducts] = React.useState<MarketplaceCardProduct[]>([]);
-  const [loading, setLoading] = React.useState(true);
-  const [visible, setVisible] = React.useState(false);
+export function ProductShowcaseSection({
+  initialProducts,
+}: {
+  initialProducts?: MarketplaceCardProduct[];
+}) {
+  const initialItems = React.useMemo(
+    () => (initialProducts ?? []).slice(0, 20),
+    [initialProducts]
+  );
+  const hasInitialProducts = initialProducts !== undefined;
+
+  const [products, setProducts] = React.useState<MarketplaceCardProduct[]>(
+    hasInitialProducts ? shuffle(initialItems).slice(0, 8) : []
+  );
+  const [loading, setLoading] = React.useState(!hasInitialProducts);
+  const [visible, setVisible] = React.useState(hasInitialProducts);
   const sectionRef = React.useRef<HTMLElement | null>(null);
   const fetched = React.useRef(false);
 
   React.useEffect(() => {
+    if (hasInitialProducts) {
+      setVisible(true);
+      return;
+    }
+
     const node = sectionRef.current;
     if (!node) return;
 
@@ -42,11 +59,11 @@ export function ProductShowcaseSection() {
 
     observer.observe(node);
     return () => observer.disconnect();
-  }, []);
+  }, [hasInitialProducts]);
 
   // Fetch products when section becomes visible
   React.useEffect(() => {
-    if (!visible || fetched.current) return;
+    if (hasInitialProducts || !visible || fetched.current) return;
     fetched.current = true;
 
     apiRequest<ProductsResponse>("/v1/products?page=1&limit=20", { method: "GET" })
@@ -56,7 +73,7 @@ export function ProductShowcaseSection() {
       })
       .catch(() => setProducts([]))
       .finally(() => setLoading(false));
-  }, [visible]);
+  }, [hasInitialProducts, visible]);
 
   return (
     <section id="product-showcase" ref={sectionRef} className="border-t border-border-soft bg-cream/50 dark:bg-card/50">

@@ -2,13 +2,6 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
-import {
-  staggerContainerVariants,
-  staggerItemVariants,
-  fadeInVariants,
-  viewportSettings,
-} from "@/lib/motion.config";
 import { apiRequest } from "@/services/api";
 import { MarketplaceProductCard } from "@/components/marketplace-product-card";
 
@@ -71,13 +64,7 @@ export function RecentlyViewedSection() {
   return (
     <section className="border-t border-border-soft">
       <div className="mx-auto max-w-6xl px-6 py-24">
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={viewportSettings}
-          variants={fadeInVariants}
-          className="mb-16 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"
-        >
+        <div className="mb-16 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.3em] text-gold mb-4">
               Continue Exploring
@@ -93,21 +80,15 @@ export function RecentlyViewedSection() {
             View All
             <span className="text-gold">→</span>
           </Link>
-        </motion.div>
+        </div>
 
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={viewportSettings}
-          variants={staggerContainerVariants}
-          className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-4"
-        >
+        <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-4">
           {products.slice(0, 8).map((product) => (
-            <motion.div key={product.id} variants={staggerItemVariants}>
+            <div key={product.id}>
               <MarketplaceProductCard product={product} />
-            </motion.div>
+            </div>
           ))}
-        </motion.div>
+        </div>
       </div>
     </section>
   );

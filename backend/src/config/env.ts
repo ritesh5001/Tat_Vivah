@@ -11,6 +11,24 @@ const envSchema = z.object({
     // Server
     NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
     PORT: z.string().transform(Number).default('3000'),
+    TRUST_PROXY: z.string().default('1').transform((v) => {
+        const normalized = v.trim().toLowerCase();
+        if (normalized === 'false' || normalized === '0' || normalized === 'off') return 0;
+        if (normalized === 'true' || normalized === 'on') return 1;
+        const parsed = Number(normalized);
+        return Number.isFinite(parsed) ? parsed : 1;
+    }),
+    KEEP_ALIVE_TIMEOUT_MS: z.string().default('65000').transform(Number),
+    HEADERS_TIMEOUT_MS: z.string().default('70000').transform(Number),
+    REQUEST_TIMEOUT_MS: z.string().default('120000').transform(Number),
+    MAX_REQUESTS_PER_SOCKET: z.string().default('1000').transform(Number),
+    RUN_BACKGROUND_JOBS: z.string().optional().transform((v) => {
+        if (!v) return undefined;
+        const normalized = v.trim().toLowerCase();
+        return !(normalized === 'false' || normalized === '0' || normalized === 'off');
+    }),
+    BACKEND_WARMUP_URL: z.string().url('BACKEND_WARMUP_URL must be a valid URL').optional(),
+    BACKEND_WARMUP_INTERVAL_MS: z.string().default('240000').transform(Number),
 
     // Database
     DATABASE_URL: z.string().url('DATABASE_URL must be a valid URL'),

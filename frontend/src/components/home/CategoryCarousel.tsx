@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { getCategories, type Category } from "@/services/catalog";
 
-const LOOP_COPIES = 3;
+const LOOP_COPIES = 2;
 
 /** Arch border-radius: semicircular top, flat bottom */
 const ARCH_RADIUS = "50% 50% 0 0 / 40% 40% 0 0";

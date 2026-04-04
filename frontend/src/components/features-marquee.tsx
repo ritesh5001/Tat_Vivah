@@ -42,8 +42,8 @@ const features = [
     },
 ];
 
-// Duplicate for infinite loop properties
-const allFeatures = [...features, ...features, ...features, ...features];
+// Duplicate once for seamless loop while keeping DOM size low.
+const allFeatures = [...features, ...features];
 
 export function FeaturesMarquee() {
     return (
@@ -82,6 +82,12 @@ export function FeaturesMarquee() {
         .animate-features-scroll:hover {
           animation-play-state: paused;
         }
+                @media (prefers-reduced-motion: reduce) {
+                    .animate-features-scroll {
+                        animation: none;
+                        transform: translateX(0);
+                    }
+                }
       `}</style>
         </section>
     );

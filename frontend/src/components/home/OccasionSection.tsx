@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { getOccasions, type Occasion } from "@/services/occasions";
 
-const LOOP_COPIES = 3;
+const LOOP_COPIES = 2;
 
 function resolveOccasionImage(occasion: Occasion): string {
   const raw = occasion.image ?? "";
@@ -112,9 +112,10 @@ function ChevronIcon({ direction }: { direction: "left" | "right" }) {
   );
 }
 
-export function OccasionSection() {
-  const [occasions, setOccasions] = React.useState<Occasion[]>([]);
-  const [loading, setLoading] = React.useState(true);
+export function OccasionSection({ initialOccasions }: { initialOccasions?: Occasion[] }) {
+  const hasInitialOccasions = initialOccasions !== undefined;
+  const [occasions, setOccasions] = React.useState<Occasion[]>(initialOccasions ?? []);
+  const [loading, setLoading] = React.useState(!hasInitialOccasions);
   const [visible, setVisible] = React.useState(false);
   const [canScrollLeft, setCanScrollLeft] = React.useState(false);
   const [canScrollRight, setCanScrollRight] = React.useState(false);
@@ -149,6 +150,10 @@ export function OccasionSection() {
 
   /* ── Data fetching ── */
   React.useEffect(() => {
+    if (hasInitialOccasions) {
+      return;
+    }
+
     let mounted = true;
     const load = async () => {
       try {
@@ -162,7 +167,7 @@ export function OccasionSection() {
     };
     load();
     return () => { mounted = false; };
-  }, []);
+  }, [hasInitialOccasions]);
 
   /* ── Section reveal on viewport entry ── */
   React.useEffect(() => {

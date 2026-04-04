@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
+  compress: true,
+  generateEtags: true,
+
   /* ──────────────────────────────────────────────────────────────────────── */
   /*  IMAGE OPTIMISATION                                                    */
   /* ──────────────────────────────────────────────────────────────────────── */
@@ -62,6 +66,36 @@ const nextConfig: NextConfig = {
       {
         // Static JS/CSS chunks
         source: "/_next/static/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
+      {
+        // Next.js static media/font assets
+        source: "/_next/static/media/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
+      {
+        // Public root assets commonly used by SEO and browser chrome
+        source: "/:path(logo.png|tatvivah-logo.svg|favicon.ico|robots.txt|sitemap.xml|manifest.json)",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=86400, stale-while-revalidate=604800",
+          },
+        ],
+      },
+      {
+        // Static fonts shipped from /public/fonts
+        source: "/fonts/:path*",
         headers: [
           {
             key: "Cache-Control",

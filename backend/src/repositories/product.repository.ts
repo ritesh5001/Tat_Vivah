@@ -40,7 +40,7 @@ export class ProductRepository {
         total: number;
     }> {
         const { page = 1, limit = 20, categoryId, search, occasion } = filters;
-        const skip = (page - 1) * limit;
+        const { skip, take } = this.resolvePagination(page, Math.min(limit, 50));
 
         const where: any = {
             status: 'APPROVED' as const,
@@ -71,9 +71,27 @@ export class ProductRepository {
             prisma.product.findMany({
                 where,
                 skip,
-                take: limit,
-                include: {
-                    category: true,
+                take,
+                select: {
+                    id: true,
+                    sellerPrice: true,
+                    categoryId: true,
+                    title: true,
+                    description: true,
+                    images: true,
+                    status: true,
+                    isPublished: true,
+                    createdAt: true,
+                    updatedAt: true,
+                    adminListingPrice: true,
+                    category: {
+                        select: {
+                            id: true,
+                            name: true,
+                            slug: true,
+                            isActive: true,
+                        },
+                    },
                 },
                 orderBy: { createdAt: 'desc' },
             }),
@@ -92,17 +110,59 @@ export class ProductRepository {
     async findPublishedById(id: string): Promise<ProductWithDetails | null> {
         const product = await prisma.product.findFirst({
             where: { id, status: 'APPROVED', deletedByAdmin: false, adminListingPrice: { not: null } },
-            include: {
-                category: true,
+            select: {
+                id: true,
+                sellerId: true,
+                sellerPrice: true,
+                categoryId: true,
+                title: true,
+                description: true,
+                images: true,
+                status: true,
+                isPublished: true,
+                createdAt: true,
+                updatedAt: true,
+                adminListingPrice: true,
+                category: {
+                    select: {
+                        id: true,
+                        name: true,
+                        slug: true,
+                        isActive: true,
+                    },
+                },
                 variants: {
-                    include: {
+                    select: {
+                        id: true,
+                        sku: true,
+                        compareAtPrice: true,
                         inventory: true,
                     },
                 },
             },
         });
 
-        return product ? this.mapProductDecimals(product) as ProductWithDetails : null;
+        if (!product) {
+            return null;
+        }
+
+        const mapped = {
+            ...product,
+            sellerPrice: Number(product.sellerPrice),
+            adminListingPrice:
+                product.adminListingPrice == null
+                    ? null
+                    : Number(product.adminListingPrice),
+            variants: (product.variants ?? []).map((variant) => ({
+                ...variant,
+                compareAtPrice:
+                    variant.compareAtPrice == null
+                        ? null
+                        : Number(variant.compareAtPrice),
+            })),
+        };
+
+        return mapped as ProductWithDetails;
     }
 
     /**

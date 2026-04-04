@@ -20,6 +20,7 @@ import { OccasionSection } from "@/components/home/OccasionSection";
 import { ProductShowcaseSection } from "@/components/home/ProductShowcaseSection";
 import { MarketplaceProductCard } from "@/components/marketplace-product-card";
 import type { MarketplaceCardProduct } from "@/components/marketplace-product-card";
+import type { Occasion } from "@/services/occasions";
 
 /* ── Below-fold components loaded on demand to reduce initial JS ── */
 const WeddingSectionBanner = dynamic(
@@ -51,6 +52,7 @@ type HomeInitialData = {
     }>;
     bestsellers?: { products?: BestsellerProduct[] } | BestsellerProduct[];
     products?: { data?: (MarketplaceCardProduct & { createdAt?: string })[] };
+    occasions?: Occasion[];
 };
 
 function pickInitialBestsellers(initialData?: HomeInitialData): BestsellerProduct[] {
@@ -162,7 +164,7 @@ export default function HomeClient({ initialData }: { initialData?: HomeInitialD
                         {/* =========================================================================
                     SHOP BY OCCASION SECTION
                     ========================================================================= */}
-                        <OccasionSection />
+                        <OccasionSection initialOccasions={initialData?.occasions} />
 
             {/* =========================================================================
           HERO SECTION - Luxury Carousel
@@ -182,7 +184,7 @@ export default function HomeClient({ initialData }: { initialData?: HomeInitialD
                 loading={loadingBestsellers}
             />
 
-            <ProductShowcaseSection />
+            <ProductShowcaseSection initialProducts={initialData?.products?.data} />
 
             <WeddingSectionBanner />
 
