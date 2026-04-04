@@ -78,3 +78,33 @@ export function getCorrectLoginUrl(role: string): string {
   }
   return `${protocol}//${targetSub}.${baseDomain}${portSuffix}/login`;
 }
+
+/**
+ * Build main storefront URL from any subdomain context.
+ * In production this points to https://www.<base-domain>/<home|shop>.
+ * On localhost it falls back to in-app routes.
+ */
+export function getStorefrontUrl(target: "home" | "shop"): string {
+  if (typeof window === "undefined") {
+    return target === "home" ? "/home" : "/shop";
+  }
+
+  const { hostname, protocol, port } = window.location;
+
+  if (hostname === "localhost" || hostname === "127.0.0.1") {
+    return target === "home" ? "/" : "/marketplace";
+  }
+
+  let baseDomain = hostname;
+  for (const sub of ["admin", "seller", "www"]) {
+    if (hostname.startsWith(`${sub}.`)) {
+      baseDomain = hostname.slice(sub.length + 1);
+      break;
+    }
+  }
+
+  const portSuffix = port ? `:${port}` : "";
+  const path = target === "home" ? "/home" : "/shop";
+
+  return `${protocol}//www.${baseDomain}${portSuffix}${path}`;
+}

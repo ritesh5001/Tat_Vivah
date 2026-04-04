@@ -5,10 +5,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "@/services/auth";
 import { getUnreadCount } from "@/services/notifications";
+import { getStorefrontUrl } from "@/lib/subdomain";
 
 export function SellerHeader() {
   const pathname = usePathname();
   const [unread, setUnread] = React.useState(0);
+  const homeUrl = getStorefrontUrl("home");
+  const shopUrl = getStorefrontUrl("shop");
 
   React.useEffect(() => {
     let mounted = true;
@@ -48,6 +51,18 @@ export function SellerHeader() {
         </div>
 
         <div className="flex items-center gap-2">
+          <a
+            href={homeUrl}
+            className="inline-flex h-9 items-center border border-border-soft px-4 text-xs font-medium uppercase tracking-[0.12em] text-foreground transition-colors hover:bg-cream"
+          >
+            Home
+          </a>
+          <a
+            href={shopUrl}
+            className="inline-flex h-9 items-center border border-border-soft px-4 text-xs font-medium uppercase tracking-[0.12em] text-foreground transition-colors hover:bg-cream"
+          >
+            Shop
+          </a>
           {navItems.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
             return (
