@@ -11,10 +11,12 @@ import { initiatePayment, verifyPayment } from "@/services/payments";
 import { getAddresses, type Address } from "@/services/addresses";
 import CouponSection from "@/components/checkout/CouponSection";
 import { toast } from "sonner";
-
-const CHECKOUT_CART_SNAPSHOT_KEY = "tatvivah_checkout_cart_snapshot";
-const CHECKOUT_ADDRESSES_CACHE_KEY = "tatvivah_checkout_addresses_cache";
-const CHECKOUT_ADDRESS_CACHE_TTL_MS = 5 * 60_000;
+import {
+  CHECKOUT_ADDRESSES_CACHE_KEY,
+  CHECKOUT_ADDRESS_CACHE_TTL_MS,
+  persistCheckoutCartSnapshot,
+  readCheckoutCartSnapshot,
+} from "@/lib/checkout-snapshot";
 
 const currency = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -168,19 +170,9 @@ export default function CheckoutPage() {
     let usedCachedAddresses = false;
 
     if (typeof window !== "undefined") {
-      const cached = window.sessionStorage.getItem(CHECKOUT_CART_SNAPSHOT_KEY);
-      if (cached) {
-        try {
-          const parsed = JSON.parse(cached) as {
-            at: number;
-            items: Array<{ variantId: string; quantity: number; priceSnapshot: number }>;
-          };
-          if (Date.now() - parsed.at < 60_000 && Array.isArray(parsed.items)) {
-            applyCartSnapshot(parsed.items);
-          }
-        } catch {
-          // Ignore malformed cache.
-        }
+      const cachedCartItems = readCheckoutCartSnapshot();
+      if (cachedCartItems) {
+        applyCartSnapshot(cachedCartItems);
       }
 
       const cachedAddresses = window.sessionStorage.getItem(
@@ -211,12 +203,7 @@ export default function CheckoutPage() {
         const cartResult = await getCart();
         const items = cartResult.cart.items ?? [];
         applyCartSnapshot(items);
-        if (typeof window !== "undefined") {
-          window.sessionStorage.setItem(
-            CHECKOUT_CART_SNAPSHOT_KEY,
-            JSON.stringify({ at: Date.now(), items })
-          );
-        }
+        persistCheckoutCartSnapshot(items);
       } catch (error) {
         toast.error(
           error instanceof Error ? error.message : "Unable to load cart"

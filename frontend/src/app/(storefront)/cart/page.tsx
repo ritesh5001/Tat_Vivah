@@ -5,9 +5,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { getCart, removeCartItem, updateCartItem } from "@/services/cart";
+import {
+  getCart,
+  removeCartItem,
+  updateCartItem,
+  type CartResponse,
+} from "@/services/cart";
 import { toast } from "sonner";
 import { startNavigationFeedback } from "@/lib/navigation-feedback";
+import { persistCheckoutCartSnapshot } from "@/lib/checkout-snapshot";
 
 const currency = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -19,9 +25,7 @@ export default function CartPage() {
   const router = useRouter();
   const [loading, setLoading] = React.useState(true);
   const [canLoad, setCanLoad] = React.useState(false);
-  const [cart, setCart] = React.useState<
-    { items: Array<any> } | null
-  >(null);
+  const [cart, setCart] = React.useState<CartResponse["cart"] | null>(null);
 
   const loadCart = React.useCallback(async () => {
     setLoading(true);
@@ -165,7 +169,7 @@ export default function CartPage() {
                   </p>
                   <p className="text-sm text-muted-foreground max-w-sm mx-auto leading-relaxed">
                     Discover handcrafted pieces that tell a story of heritage and craftsmanship.
-                    Each item is curated from India's finest artisans.
+                    Each item is curated from India&apos;s finest artisans.
                   </p>
                 </div>
                 <Link
@@ -330,6 +334,13 @@ export default function CartPage() {
                     size="lg"
                     className="w-full h-14"
                     onClick={() => {
+                      persistCheckoutCartSnapshot(
+                        items.map((item) => ({
+                          variantId: item.variantId,
+                          quantity: item.quantity,
+                          priceSnapshot: item.priceSnapshot,
+                        }))
+                      );
                       startNavigationFeedback();
                       router.push("/checkout");
                     }}

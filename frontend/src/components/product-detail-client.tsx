@@ -11,6 +11,7 @@ import { addCartItem } from "@/services/cart";
 import { toggleWishlistItem, checkWishlistItems } from "@/services/wishlist";
 import { createAppointment } from "@/services/appointments";
 import { startNavigationFeedback } from "@/lib/navigation-feedback";
+import { upsertCheckoutSnapshotItem } from "@/lib/checkout-snapshot";
 
 interface Variant {
   id: string;
@@ -185,10 +186,15 @@ export default function ProductDetailClient({
 
     setBuyNowLoading(true);
     try {
-      await addCartItem({
+      const result = await addCartItem({
         productId: product.id,
         variantId: selectedVariant.id,
         quantity: 1,
+      });
+      upsertCheckoutSnapshotItem({
+        variantId: result.item.variantId,
+        quantity: result.item.quantity,
+        priceSnapshot: result.item.priceSnapshot,
       });
       startNavigationFeedback();
       router.push("/checkout");
