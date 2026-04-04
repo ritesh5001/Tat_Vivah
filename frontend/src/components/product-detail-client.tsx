@@ -52,6 +52,7 @@ export default function ProductDetailClient({
     product.variants?.[0]?.id ?? ""
   );
   const [loading, setLoading] = React.useState(false);
+  const [buyNowLoading, setBuyNowLoading] = React.useState(false);
   const [wishlisted, setWishlisted] = React.useState(false);
   const [wishlistLoading, setWishlistLoading] = React.useState(false);
   const [pincode, setPincode] = React.useState("");
@@ -159,6 +160,46 @@ export default function ProductDetailClient({
       toast.error(message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleBuyNow = async () => {
+    if (!selectedVariant) {
+      toast.error("Please choose a variant first.");
+      return;
+    }
+
+    if (typeof document !== "undefined") {
+      const hasToken = document.cookie.match(/(?:^|; )tatvivah_access=([^;]*)/);
+      if (!hasToken) {
+        toast.error("Please sign in to continue.");
+        startNavigationFeedback();
+        router.push("/login?force=1");
+        return;
+      }
+    }
+
+    setBuyNowLoading(true);
+    try {
+      await addCartItem({
+        productId: product.id,
+        variantId: selectedVariant.id,
+        quantity: 1,
+      });
+      startNavigationFeedback();
+      router.push("/checkout");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to continue to checkout";
+      if (/access token required|unauthorized/i.test(message)) {
+        toast.error("Please sign in to continue.");
+        startNavigationFeedback();
+        router.push("/login?force=1");
+        return;
+      }
+      toast.error(message);
+    } finally {
+      setBuyNowLoading(false);
     }
   };
 
@@ -346,7 +387,7 @@ export default function ProductDetailClient({
               size="lg"
               variant="outline"
               onClick={handleAddToCart}
-              disabled={loading}
+              disabled={loading || buyNowLoading}
               className="w-full h-14 border border-gold/40 bg-[#fefaf6] dark:bg-brown/20 text-[#d85025] hover:bg-cream dark:hover:bg-brown/40 hover:text-[#b03d19] font-medium tracking-widest uppercase text-[13px] transition-colors"
             >
               {loading ? "Adding..." : "Add to Cart"}
@@ -356,13 +397,11 @@ export default function ProductDetailClient({
           <motion.div whileHover={{ y: -2 }} transition={{ duration: 0.4 }} className="flex-1">
             <Button
               size="lg"
-              onClick={() => {
-                startNavigationFeedback();
-                router.push("/checkout");
-              }}
+              onClick={handleBuyNow}
+              disabled={buyNowLoading || loading}
               className="w-full h-14 bg-[#d85025] hover:bg-[#b03d19] text-white font-medium tracking-widest uppercase text-[13px] border-none transition-colors"
             >
-              Buy Now
+              {buyNowLoading ? "Processing..." : "Buy Now"}
             </Button>
           </motion.div>
         </div>
