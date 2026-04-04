@@ -216,6 +216,10 @@ export default async function MarketplacePage({
   const selectedCategory =
     categories.find((category) => category.id === selectedCategoryId) ?? null;
 
+  const activeSort = sort ?? "relevance";
+  const activeSortLabel =
+    SORT_OPTIONS.find((option) => option.value === activeSort)?.label ?? "Relevance";
+
   const getCategorySlug = (category: CategoryItem) =>
     category.slug ?? slugify(category.name);
 
@@ -392,12 +396,39 @@ export default async function MarketplacePage({
           </div>
         </section>
 
-        <section className="flex flex-col gap-3 border border-border-soft bg-card p-3 sm:gap-4 sm:p-4 md:flex-row md:items-center md:justify-between">
-          <form action="/marketplace" method="get" className="w-full md:max-w-md">
-            {selectedCategoryId ? <input type="hidden" name="categoryId" value={selectedCategoryId} /> : null}
-            {occasionSlug ? <input type="hidden" name="occasion" value={occasionSlug} /> : null}
-            {sort ? <input type="hidden" name="sort" value={sort} /> : null}
-            <div className="relative">
+        <section className="space-y-4 border border-border-soft bg-card p-4 sm:p-5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+              Refine Results
+            </p>
+            {search || sort || selectedCategoryId ? (
+              <Link
+                href={buildUrl({
+                  nextPage: 1,
+                  nextSearch: null,
+                  nextSort: null,
+                  nextCategoryId: null,
+                })}
+                className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+              >
+                Clear All
+              </Link>
+            ) : null}
+          </div>
+
+          <form
+            action="/marketplace"
+            method="get"
+            className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px_auto]"
+          >
+            {selectedCategoryId ? (
+              <input type="hidden" name="categoryId" value={selectedCategoryId} />
+            ) : null}
+            {occasionSlug ? (
+              <input type="hidden" name="occasion" value={occasionSlug} />
+            ) : null}
+
+            <label className="relative block">
               <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -417,67 +448,113 @@ export default async function MarketplacePage({
                 name="search"
                 defaultValue={search ?? ""}
                 placeholder="Search collections, styles..."
-                className="h-10 w-full border border-border-soft bg-background pl-10 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/20"
+                className="h-10 w-full border border-border-soft bg-background pl-10 pr-3 text-sm text-foreground placeholder:text-muted-foreground transition-colors focus:border-gold/60 focus-visible:outline-none"
               />
-            </div>
-          </form>
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            <Button asChild variant="outline" size="sm">
-              <Link href="#marketplace-categories">Filter</Link>
-            </Button>
-            {SORT_OPTIONS.map((option) => (
-              <Link
-                key={option.value}
-                href={buildUrl({ nextPage: 1, nextSort: option.value })}
-                className={`px-3 py-2 text-[11px] uppercase tracking-[0.12em] border transition-colors ${
-                  sort === option.value || (!sort && option.value === "relevance")
-                    ? "border-gold bg-cream text-charcoal dark:bg-brown/30 dark:text-ivory"
-                    : "border-border-soft bg-background text-muted-foreground hover:border-gold/50 hover:text-foreground"
-                }`}
+            </label>
+
+            <label className="relative">
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                Sort
+              </span>
+              <select
+                name="sort"
+                defaultValue={activeSort}
+                className="h-10 w-full cursor-pointer appearance-none border border-border-soft bg-background pl-14 pr-8 text-xs font-medium uppercase tracking-[0.12em] text-foreground transition-colors focus:border-gold/60 focus-visible:outline-none"
               >
-                {option.label}
-              </Link>
-            ))}
+                {SORT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={1.8}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-4 w-4"
+                >
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
+              </span>
+            </label>
+
+            <Button type="submit" variant="outline" size="sm" className="h-10 px-6">
+              Apply
+            </Button>
+          </form>
+        </section>
+
+        <section id="marketplace-categories" className="space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+              Category
+            </p>
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-1 whitespace-nowrap md:flex-wrap md:overflow-visible md:whitespace-normal">
+            <Link
+              href={buildUrl({ nextPage: 1, nextCategoryId: null })}
+              className={`shrink-0 border px-4 py-2 text-[11px] font-medium uppercase tracking-[0.14em] transition-colors ${
+                !selectedCategory
+                  ? "border-gold bg-cream text-charcoal dark:bg-brown/30 dark:text-ivory"
+                  : "border-border-soft bg-card text-muted-foreground hover:border-gold/50 hover:text-foreground"
+              }`}
+            >
+              All Categories
+            </Link>
+
+            {categories.length === 0 ? (
+              <span className="px-3 py-2 text-sm text-muted-foreground">
+                Categories loading...
+              </span>
+            ) : (
+              categories.map((category) => (
+                <Link
+                  key={category.id}
+                  href={buildUrl({ nextPage: 1, nextCategoryId: category.id })}
+                  className={`shrink-0 border px-4 py-2 text-[11px] font-medium uppercase tracking-[0.14em] transition-colors ${
+                    selectedCategory?.id === category.id
+                      ? "border-gold bg-cream text-charcoal dark:bg-brown/30 dark:text-ivory"
+                      : "border-border-soft bg-card text-muted-foreground hover:border-gold/50 hover:text-foreground"
+                  }`}
+                >
+                  {category.name}
+                </Link>
+              ))
+            )}
           </div>
         </section>
 
-        <section
-          id="marketplace-categories"
-          className="flex gap-3 overflow-x-auto pb-1 whitespace-nowrap md:flex-wrap md:overflow-visible md:whitespace-normal"
-        >
-          {categories.length === 0 ? (
-            <span className="text-sm text-muted-foreground">
-              Categories loading...
-            </span>
-          ) : (
-            categories.map((category) => (
-              <Link
-                key={category.id}
-                href={buildUrl({ nextPage: 1, nextCategoryId: category.id })}
-                className={`shrink-0 px-5 py-2.5 text-xs uppercase tracking-wider transition-all duration-300 border ${selectedCategory?.id === category.id
-                  ? "border-gold bg-cream text-charcoal dark:bg-brown/30 dark:text-ivory"
-                  : "border-border-soft bg-card text-muted-foreground hover:border-gold/50 hover:text-foreground"
-                  }`}
-              >
-                {category.name}
-              </Link>
-            ))
-          )}
-        </section>
-
-        <section className="flex items-center justify-between gap-3">
+        <section className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-xs text-muted-foreground uppercase tracking-wider">
             {pagination.total} {pagination.total === 1 ? "product" : "products"} found
           </p>
-          {selectedCategory ? (
-            <Button asChild variant="ghost" size="sm" className="text-xs uppercase tracking-wider">
-              <Link
-                href={buildUrl({ nextPage: 1, nextCategoryId: null })}
-              >
-                Clear Category
-              </Link>
-            </Button>
-          ) : null}
+          <div className="flex flex-wrap items-center gap-2">
+            {search ? (
+              <span className="border border-border-soft bg-card px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                Search: {search}
+              </span>
+            ) : null}
+            {selectedCategory ? (
+              <span className="border border-border-soft bg-card px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                Category: {selectedCategory.name}
+              </span>
+            ) : null}
+            {selectedOccasion ? (
+              <span className="border border-border-soft bg-card px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                Occasion: {selectedOccasion.name}
+              </span>
+            ) : null}
+            {activeSortLabel !== "Relevance" ? (
+              <span className="border border-border-soft bg-card px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                Sort: {activeSortLabel}
+              </span>
+            ) : null}
+          </div>
         </section>
 
         {/* Products Grid */}
