@@ -211,7 +211,7 @@ export default function CartPage() {
                       <div className="flex-1 flex flex-col justify-between">
                         <div className="space-y-2">
                           <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-gold">
-                            {item.product?.category?.name ?? "Curated"}
+                            Curated
                           </p>
                           <h3 className="font-serif text-lg font-normal text-foreground">
                             {item.product?.title ?? "Item"}

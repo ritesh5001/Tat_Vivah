@@ -10,6 +10,8 @@ export interface CartItemDetails {
     id: string;
     title: string;
     sellerId: string;
+    sellerPrice?: number;
+    adminListingPrice?: number | null;
   };
   variant?: {
     id: string;
