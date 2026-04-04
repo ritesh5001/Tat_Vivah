@@ -31,8 +31,8 @@ export class OrderService {
         userId: string,
         params?: { page?: number; limit?: number; startDate?: Date; endDate?: Date }
     ): Promise<BuyerOrderListResponse> {
-        const page = params?.page ?? 1;
-        const limit = params?.limit ?? 20;
+        const page = Math.max(1, Math.trunc(params?.page ?? 1));
+        const limit = Math.min(20, Math.max(1, Math.trunc(params?.limit ?? 20)));
         const startKey = params?.startDate?.toISOString() ?? '_';
         const endKey = params?.endDate?.toISOString() ?? '_';
         const cacheKey = `${CACHE_KEYS.BUYER_ORDERS(userId)}:${page}:${limit}:${startKey}:${endKey}`;
@@ -43,7 +43,7 @@ export class OrderService {
             return cached;
         }
 
-        const orders = await this.orderRepo.findByUserId(userId, params);
+        const orders = await this.orderRepo.findByUserId(userId, { ...params, page, limit });
         const response: BuyerOrderListResponse = { orders };
 
         // Cache the result
@@ -90,7 +90,9 @@ export class OrderService {
         sellerId: string,
         params?: { page?: number; limit?: number; startDate?: Date; endDate?: Date }
     ): Promise<SellerOrderListResponse> {
-        const orderItems = await this.orderRepo.findBySellerId(sellerId, params);
+        const page = Math.max(1, Math.trunc(params?.page ?? 1));
+        const limit = Math.min(20, Math.max(1, Math.trunc(params?.limit ?? 20)));
+        const orderItems = await this.orderRepo.findBySellerId(sellerId, { ...params, page, limit });
         return { orderItems };
     }
 

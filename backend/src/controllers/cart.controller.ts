@@ -15,6 +15,7 @@ export class CartController {
         try {
             const userId = req.user!.userId;
             const result = await cartService.getCart(userId);
+            res.set('Cache-Control', 'private, max-age=10, stale-while-revalidate=30');
             res.json(result);
         } catch (error) {
             next(error);

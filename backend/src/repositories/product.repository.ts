@@ -17,7 +17,7 @@ export class ProductRepository {
         const pRaw = Number(page ?? 1);
         const lRaw = Number(limit ?? 20);
         const p = Number.isFinite(pRaw) && pRaw > 0 ? Math.trunc(pRaw) : 1;
-        const l = Math.min(100, Math.max(1, Number.isFinite(lRaw) ? Math.trunc(lRaw) : 20));
+        const l = Math.min(20, Math.max(1, Number.isFinite(lRaw) ? Math.trunc(lRaw) : 20));
         return { skip: (p - 1) * l, take: l };
     }
 
@@ -40,7 +40,7 @@ export class ProductRepository {
         total: number;
     }> {
         const { page = 1, limit = 20, categoryId, search, occasion } = filters;
-        const { skip, take } = this.resolvePagination(page, Math.min(limit, 50));
+        const { skip, take } = this.resolvePagination(page, Math.min(limit, 20));
 
         const where: any = {
             status: 'APPROVED' as const,

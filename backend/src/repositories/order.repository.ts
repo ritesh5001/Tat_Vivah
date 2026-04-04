@@ -9,7 +9,7 @@ import type {
 } from '../types/order.types.js';
 
 const DEFAULT_LIMIT = 20;
-const MAX_LIMIT = 100;
+const MAX_LIMIT = 20;
 
 function resolvePagination(page?: number, limit?: number): { skip: number; take: number } {
     const pRaw = Number(page ?? 1);

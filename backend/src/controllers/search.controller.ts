@@ -18,7 +18,7 @@ const searchQuerySchema = z.object({
     limit: z
         .string()
         .transform(Number)
-        .pipe(z.number().int().min(1).max(50))
+        .pipe(z.number().int().min(1).max(20))
         .optional()
         .default('20'),
     categoryId: z.string().optional(),

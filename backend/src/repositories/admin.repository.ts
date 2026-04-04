@@ -33,7 +33,7 @@ function setMemCache<T>(key: string, data: T, ttlMs: number): void {
 }
 
 const DEFAULT_LIMIT = 20;
-const MAX_LIMIT = 100;
+const MAX_LIMIT = 20;
 
 interface PaginationParams {
     page?: number;
