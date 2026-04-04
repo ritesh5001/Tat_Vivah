@@ -415,8 +415,10 @@ export class CheckoutService {
         // Invalidate caches
         const productIdsToInvalidate = Array.from(new Set(itemsWithStock.map((item) => item.productId)));
 
-        await Promise.all([
-            invalidateCache(CACHE_KEYS.CART(userId)),
+        // Keep buyer cart immediately consistent for UX; run broader invalidations asynchronously.
+        await invalidateCache(CACHE_KEYS.CART(userId));
+
+        void Promise.allSettled([
             invalidateCacheByPattern(`${CACHE_KEYS.BUYER_ORDERS(userId)}:*`),
             invalidateCacheByPattern(`orders:detail:*`),
             invalidateCacheByPattern(`recommendations:${userId}`),
@@ -426,7 +428,9 @@ export class CheckoutService {
             invalidateCache(CACHE_KEYS.PRODUCTS_LIST),
             invalidateCacheByPattern('products:list:*'),
             invalidateCacheByPattern('search:*'),
-        ]);
+        ]).catch((error) => {
+            checkoutLogger.warn({ userId, orderId: order.id, error }, 'Async cache invalidation failed');
+        });
 
         // Trigger Notifications (event-driven, idempotent, best-effort)
         void emitOrderPlaced(order.id).catch((error) => {

@@ -12,6 +12,8 @@ import { getAddresses, type Address } from "@/services/addresses";
 import CouponSection from "@/components/checkout/CouponSection";
 import { toast } from "sonner";
 
+const CHECKOUT_CART_SNAPSHOT_KEY = "tatvivah_checkout_cart_snapshot";
+
 const currency = new Intl.NumberFormat("en-IN", {
   style: "currency",
   currency: "INR",
@@ -48,6 +50,28 @@ export default function CheckoutPage() {
   const [appliedCoupon, setAppliedCoupon] = React.useState<CouponPreview | null>(null);
   const cartItemsRef = React.useRef<string>("");
 
+  const applyCartSnapshot = React.useCallback(
+    (items: Array<{ variantId: string; quantity: number; priceSnapshot: number }>) => {
+      setHasItems(items.length > 0);
+      const subtotal = items.reduce(
+        (sum, item) => sum + item.priceSnapshot * item.quantity,
+        0
+      );
+      setCartTotal(subtotal + (items.length > 0 ? 180 : 0));
+
+      const fingerprint = items
+        .map((i) => `${i.variantId}:${i.quantity}`)
+        .sort()
+        .join("|");
+
+      if (cartItemsRef.current && cartItemsRef.current !== fingerprint) {
+        setAppliedCoupon(null);
+      }
+      cartItemsRef.current = fingerprint;
+    },
+    []
+  );
+
   const loadRazorpayScript = React.useCallback(() => {
     return new Promise<boolean>((resolve) => {
       if (typeof window === "undefined") {
@@ -68,39 +92,33 @@ export default function CheckoutPage() {
   }, []);
 
   React.useEffect(() => {
-    const load = async () => {
-      try {
-        const [cartResult, addrResult] = await Promise.all([
-          getCart(),
-          getAddresses().catch(() => ({ addresses: [] as Address[] })),
-        ]);
-        const items = cartResult.cart.items ?? [];
-        setHasItems(items.length > 0);
-        const subtotal = items.reduce(
-          (sum, item) => sum + item.priceSnapshot * item.quantity,
-          0
-        );
-        setCartTotal(subtotal + (items.length > 0 ? 180 : 0));
-
-        // Track cart fingerprint — clear coupon if items change
-        const fingerprint = items.map((i) => `${i.variantId}:${i.quantity}`).sort().join("|");
-        if (cartItemsRef.current && cartItemsRef.current !== fingerprint) {
-          setAppliedCoupon(null);
+    if (typeof window !== "undefined") {
+      const cached = window.sessionStorage.getItem(CHECKOUT_CART_SNAPSHOT_KEY);
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached) as {
+            at: number;
+            items: Array<{ variantId: string; quantity: number; priceSnapshot: number }>;
+          };
+          if (Date.now() - parsed.at < 60_000 && Array.isArray(parsed.items)) {
+            applyCartSnapshot(parsed.items);
+          }
+        } catch {
+          // Ignore malformed cache.
         }
-        cartItemsRef.current = fingerprint;
+      }
+    }
 
-        setSavedAddresses(addrResult.addresses);
-        // Auto-select the default address
-        const defaultAddr = addrResult.addresses.find((a) => a.isDefault);
-        if (defaultAddr) {
-          setSelectedAddressId(defaultAddr.id);
-          setShipping((prev) => ({
-            ...prev,
-            addressLine1: defaultAddr.addressLine1,
-            addressLine2: defaultAddr.addressLine2 ?? "",
-            city: defaultAddr.city,
-            pincode: defaultAddr.pincode,
-          }));
+    const loadCart = async () => {
+      try {
+        const cartResult = await getCart();
+        const items = cartResult.cart.items ?? [];
+        applyCartSnapshot(items);
+        if (typeof window !== "undefined") {
+          window.sessionStorage.setItem(
+            CHECKOUT_CART_SNAPSHOT_KEY,
+            JSON.stringify({ at: Date.now(), items })
+          );
         }
       } catch (error) {
         toast.error(
@@ -108,8 +126,31 @@ export default function CheckoutPage() {
         );
       }
     };
-    load();
-  }, []);
+
+    const loadAddresses = async () => {
+      try {
+        const addrResult = await getAddresses();
+        setSavedAddresses(addrResult.addresses);
+
+        const defaultAddr = addrResult.addresses.find((a) => a.isDefault);
+        if (defaultAddr) {
+          setSelectedAddressId(defaultAddr.id);
+          setShipping((prev) => ({
+            ...prev,
+            addressLine1: prev.addressLine1 || defaultAddr.addressLine1,
+            addressLine2: prev.addressLine2 || defaultAddr.addressLine2 || "",
+            city: prev.city || defaultAddr.city,
+            pincode: prev.pincode || defaultAddr.pincode,
+          }));
+        }
+      } catch {
+        setSavedAddresses([]);
+      }
+    };
+
+    void loadCart();
+    void loadAddresses();
+  }, [applyCartSnapshot]);
 
   React.useEffect(() => {
     loadRazorpayScript().then(setRazorpayReady);
@@ -150,7 +191,13 @@ export default function CheckoutPage() {
         });
       }
 
-      if (!razorpayReady) {
+      let gatewayReady = razorpayReady;
+      if (!gatewayReady) {
+        gatewayReady = await loadRazorpayScript();
+        setRazorpayReady(gatewayReady);
+      }
+
+      if (!gatewayReady) {
         toast.error("Payment gateway failed to load.");
         return;
       }
@@ -566,7 +613,7 @@ export default function CheckoutPage() {
                     size="lg"
                     className="w-full h-14"
                     onClick={handleCheckout}
-                    disabled={!hasItems || loading || isPaying || !razorpayReady}
+                    disabled={!hasItems || loading || isPaying}
                   >
                     {isPaying ? "Processing Payment..." : loading ? "Processing..." : "Complete Purchase"}
                   </Button>

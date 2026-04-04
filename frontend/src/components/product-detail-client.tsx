@@ -95,6 +95,10 @@ export default function ProductDetailClient({
     return () => { cancelled = true; };
   }, [product.id]);
 
+  React.useEffect(() => {
+    router.prefetch("/checkout");
+  }, [router]);
+
   const handleToggleWishlist = async () => {
     const hasToken = document.cookie.match(/(?:^|; )tatvivah_access=([^;]*)/);
     if (!hasToken) {
