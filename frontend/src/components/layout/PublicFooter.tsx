@@ -34,6 +34,10 @@ const accordionSections = [
   { title: "Collections", links: collections },
 ];
 
+function shouldDisablePrefetch(href: string): boolean {
+  return href === "/register/seller" || href === "/register/admin";
+}
+
 export function PublicFooter() {
   return (
     <footer className="relative overflow-hidden border-t border-border-soft bg-cream text-foreground font-sans dark:bg-charcoal">
@@ -66,6 +70,7 @@ export function PublicFooter() {
                     <li key={item.label}>
                       <Link
                         href={item.href}
+                        prefetch={!shouldDisablePrefetch(item.href)}
                         className="group flex items-center gap-2 transition-all duration-300 hover:translate-x-1 hover:text-gold"
                       >
                         <span className="-ml-1 inline-block text-gold opacity-70 transition-opacity duration-300 group-hover:opacity-100">
@@ -87,6 +92,7 @@ export function PublicFooter() {
                     <li key={item.label}>
                       <Link
                         href={item.href}
+                        prefetch={!shouldDisablePrefetch(item.href)}
                         className="group inline-flex items-center gap-2 text-sm font-medium tracking-[0.03em] text-foreground transition-all duration-300 hover:translate-x-1 hover:text-gold"
                       >
                         <span className="-ml-1 inline-block text-gold opacity-70 transition-opacity duration-300 group-hover:opacity-100">✿</span>
