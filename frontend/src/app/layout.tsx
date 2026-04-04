@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { PublicLayoutShell } from "@/components/layout/PublicLayoutShell";
 import { SITE_URL } from "@/lib/site-config";
 
 /**
@@ -69,11 +68,11 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/logo.png" },
-      { url: "/tatvivah-logo.svg", type: "image/svg+xml" }
+      { url: "/tatvivah-logo.svg", type: "image/svg+xml" },
+      { url: "/favicon-64.png", type: "image/png", sizes: "64x64" },
     ],
-    shortcut: "/logo.png",
-    apple: "/logo.png",
+    shortcut: "/favicon-64.png",
+    apple: "/apple-touch-icon.png",
   },
   robots: {
     index: true,
@@ -145,7 +144,7 @@ export default function RootLayout({
             })
           }}
         />
-        <PublicLayoutShell>{children}</PublicLayoutShell>
+        {children}
       </body>
     </html>
   );

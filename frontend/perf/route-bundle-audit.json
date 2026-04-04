@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-04T07:43:22.614Z",
+  "generatedAt": "2026-04-04T08:17:03.319Z",
   "source": "frontend/.next manifests",
   "routes": [
     {
@@ -33,12 +33,12 @@
             "kb": 32.1
           },
           {
-            "chunk": "static/chunks/ef28d311ddeaf3ad.js",
+            "chunk": "static/chunks/30a85d86229c47e0.js",
             "bytes": 30173,
             "kb": 29.5
           },
           {
-            "chunk": "static/chunks/turbopack-af6112f01735091c.js",
+            "chunk": "static/chunks/turbopack-166e5cdcf7836b78.js",
             "bytes": 10268,
             "kb": 10
           },
@@ -58,7 +58,7 @@
       ],
       "clientServer": {
         "pageIsClient": false,
-        "projectClientModulesCount": 2,
+        "projectClientModulesCount": 0,
         "thirdPartyClientModulesCount": 20
       }
     },
@@ -93,12 +93,12 @@
             "kb": 32.1
           },
           {
-            "chunk": "static/chunks/ef28d311ddeaf3ad.js",
+            "chunk": "static/chunks/30a85d86229c47e0.js",
             "bytes": 30173,
             "kb": 29.5
           },
           {
-            "chunk": "static/chunks/turbopack-af6112f01735091c.js",
+            "chunk": "static/chunks/turbopack-166e5cdcf7836b78.js",
             "bytes": 10268,
             "kb": 10
           },
@@ -118,7 +118,7 @@
       ],
       "clientServer": {
         "pageIsClient": false,
-        "projectClientModulesCount": 2,
+        "projectClientModulesCount": 0,
         "thirdPartyClientModulesCount": 20
       }
     },
@@ -153,12 +153,12 @@
             "kb": 32.1
           },
           {
-            "chunk": "static/chunks/ef28d311ddeaf3ad.js",
+            "chunk": "static/chunks/30a85d86229c47e0.js",
             "bytes": 30173,
             "kb": 29.5
           },
           {
-            "chunk": "static/chunks/turbopack-af6112f01735091c.js",
+            "chunk": "static/chunks/turbopack-166e5cdcf7836b78.js",
             "bytes": 10268,
             "kb": 10
           },
@@ -177,9 +177,9 @@
         }
       ],
       "clientServer": {
-        "pageIsClient": true,
-        "projectClientModulesCount": 4,
-        "thirdPartyClientModulesCount": 16
+        "pageIsClient": false,
+        "projectClientModulesCount": 0,
+        "thirdPartyClientModulesCount": 20
       }
     },
     {
@@ -213,12 +213,12 @@
             "kb": 32.1
           },
           {
-            "chunk": "static/chunks/ef28d311ddeaf3ad.js",
+            "chunk": "static/chunks/30a85d86229c47e0.js",
             "bytes": 30173,
             "kb": 29.5
           },
           {
-            "chunk": "static/chunks/turbopack-af6112f01735091c.js",
+            "chunk": "static/chunks/turbopack-166e5cdcf7836b78.js",
             "bytes": 10268,
             "kb": 10
           },
@@ -238,8 +238,8 @@
       ],
       "clientServer": {
         "pageIsClient": false,
-        "projectClientModulesCount": 12,
-        "thirdPartyClientModulesCount": 18
+        "projectClientModulesCount": 6,
+        "thirdPartyClientModulesCount": 20
       }
     },
     {
@@ -273,12 +273,12 @@
             "kb": 32.1
           },
           {
-            "chunk": "static/chunks/ef28d311ddeaf3ad.js",
+            "chunk": "static/chunks/30a85d86229c47e0.js",
             "bytes": 30173,
             "kb": 29.5
           },
           {
-            "chunk": "static/chunks/turbopack-af6112f01735091c.js",
+            "chunk": "static/chunks/turbopack-166e5cdcf7836b78.js",
             "bytes": 10268,
             "kb": 10
           },
@@ -298,8 +298,8 @@
       ],
       "clientServer": {
         "pageIsClient": true,
-        "projectClientModulesCount": 4,
-        "thirdPartyClientModulesCount": 16
+        "projectClientModulesCount": 2,
+        "thirdPartyClientModulesCount": 20
       }
     },
     {
@@ -333,12 +333,12 @@
             "kb": 32.1
           },
           {
-            "chunk": "static/chunks/ef28d311ddeaf3ad.js",
+            "chunk": "static/chunks/30a85d86229c47e0.js",
             "bytes": 30173,
             "kb": 29.5
           },
           {
-            "chunk": "static/chunks/turbopack-af6112f01735091c.js",
+            "chunk": "static/chunks/turbopack-166e5cdcf7836b78.js",
             "bytes": 10268,
             "kb": 10
           },
@@ -358,8 +358,8 @@
       ],
       "clientServer": {
         "pageIsClient": true,
-        "projectClientModulesCount": 4,
-        "thirdPartyClientModulesCount": 16
+        "projectClientModulesCount": 2,
+        "thirdPartyClientModulesCount": 20
       }
     },
     {
@@ -393,12 +393,12 @@
             "kb": 32.1
           },
           {
-            "chunk": "static/chunks/ef28d311ddeaf3ad.js",
+            "chunk": "static/chunks/30a85d86229c47e0.js",
             "bytes": 30173,
             "kb": 29.5
           },
           {
-            "chunk": "static/chunks/turbopack-af6112f01735091c.js",
+            "chunk": "static/chunks/turbopack-166e5cdcf7836b78.js",
             "bytes": 10268,
             "kb": 10
           },
@@ -418,7 +418,7 @@
       ],
       "clientServer": {
         "pageIsClient": true,
-        "projectClientModulesCount": 6,
+        "projectClientModulesCount": 4,
         "thirdPartyClientModulesCount": 18
       }
     },
@@ -453,12 +453,12 @@
             "kb": 32.1
           },
           {
-            "chunk": "static/chunks/ef28d311ddeaf3ad.js",
+            "chunk": "static/chunks/30a85d86229c47e0.js",
             "bytes": 30173,
             "kb": 29.5
           },
           {
-            "chunk": "static/chunks/turbopack-af6112f01735091c.js",
+            "chunk": "static/chunks/turbopack-166e5cdcf7836b78.js",
             "bytes": 10268,
             "kb": 10
           },
@@ -478,7 +478,7 @@
       ],
       "clientServer": {
         "pageIsClient": true,
-        "projectClientModulesCount": 8,
+        "projectClientModulesCount": 6,
         "thirdPartyClientModulesCount": 16
       }
     }

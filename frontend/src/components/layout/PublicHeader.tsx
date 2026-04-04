@@ -80,11 +80,12 @@ export function PublicHeader() {
             <div className="flex-1 text-center">
               <Link href="/" className="inline-block">
                 <Image
-                  src="/logo.png"
+                  src="/tatvivah-logo.svg"
                   alt="TatVivah Trends"
                   width={100}
                   height={40}
                   className="h-8 w-auto"
+                  priority
                 />
               </Link>
             </div>
@@ -130,11 +131,12 @@ export function PublicHeader() {
         <div className="hidden h-16 w-full items-center gap-8 sm:flex">
           <Link href="/" className="shrink-0">
             <Image
-              src="/logo.png"
+              src="/tatvivah-logo.svg"
               alt="TatVivah Trends"
               width={120}
               height={50}
               className="h-9 w-auto"
+              priority
             />
           </Link>
 

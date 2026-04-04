@@ -3,7 +3,7 @@ import { MarketplaceProductCard, type MarketplaceCardProduct } from "@/component
 
 function pickShowcaseProducts(products?: MarketplaceCardProduct[]): MarketplaceCardProduct[] {
   if (!products?.length) return [];
-  return products.slice(0, 8);
+  return products.slice(0, 6);
 }
 
 export function ProductShowcaseSection({

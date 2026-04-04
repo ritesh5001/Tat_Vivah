@@ -8,33 +8,33 @@ const NEXT_DIR = path.join(ROOT, ".next");
 const ROUTES = [
   {
     route: "/",
-    sourcePage: path.join(ROOT, "src/app/page.tsx"),
-    manifest: path.join(NEXT_DIR, "server/app/page_client-reference-manifest.js"),
+    sourcePage: path.join(ROOT, "src/app/(storefront)/page.tsx"),
+    manifest: path.join(NEXT_DIR, "server/app/(storefront)/page_client-reference-manifest.js"),
   },
   {
     route: "/marketplace",
-    sourcePage: path.join(ROOT, "src/app/marketplace/page.tsx"),
-    manifest: path.join(NEXT_DIR, "server/app/marketplace/page_client-reference-manifest.js"),
+    sourcePage: path.join(ROOT, "src/app/(storefront)/marketplace/page.tsx"),
+    manifest: path.join(NEXT_DIR, "server/app/(storefront)/marketplace/page_client-reference-manifest.js"),
   },
   {
     route: "/search",
-    sourcePage: path.join(ROOT, "src/app/search/page.tsx"),
-    manifest: path.join(NEXT_DIR, "server/app/search/page_client-reference-manifest.js"),
+    sourcePage: path.join(ROOT, "src/app/(storefront)/search/page.tsx"),
+    manifest: path.join(NEXT_DIR, "server/app/(storefront)/search/page_client-reference-manifest.js"),
   },
   {
     route: "/product/[id]",
-    sourcePage: path.join(ROOT, "src/app/product/[id]/page.tsx"),
-    manifest: path.join(NEXT_DIR, "server/app/product/[id]/page_client-reference-manifest.js"),
+    sourcePage: path.join(ROOT, "src/app/(storefront)/product/[id]/page.tsx"),
+    manifest: path.join(NEXT_DIR, "server/app/(storefront)/product/[id]/page_client-reference-manifest.js"),
   },
   {
     route: "/cart",
-    sourcePage: path.join(ROOT, "src/app/cart/page.tsx"),
-    manifest: path.join(NEXT_DIR, "server/app/cart/page_client-reference-manifest.js"),
+    sourcePage: path.join(ROOT, "src/app/(storefront)/cart/page.tsx"),
+    manifest: path.join(NEXT_DIR, "server/app/(storefront)/cart/page_client-reference-manifest.js"),
   },
   {
     route: "/checkout",
-    sourcePage: path.join(ROOT, "src/app/checkout/page.tsx"),
-    manifest: path.join(NEXT_DIR, "server/app/checkout/page_client-reference-manifest.js"),
+    sourcePage: path.join(ROOT, "src/app/(storefront)/checkout/page.tsx"),
+    manifest: path.join(NEXT_DIR, "server/app/(storefront)/checkout/page_client-reference-manifest.js"),
   },
   {
     route: "/seller/dashboard",

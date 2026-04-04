@@ -286,7 +286,7 @@ export default async function Home() {
   const [categories, bestsellers, products, occasions] = await Promise.all([
     fetchHomeData<CategoryListResponse>("/v1/categories"),
     fetchHomeData<{ products: BestsellerProduct[] }>("/v1/bestsellers?limit=4"),
-    fetchHomeData<{ data: (MarketplaceCardProduct & { createdAt?: string })[] }>("/v1/products?limit=20"),
+    fetchHomeData<{ data: (MarketplaceCardProduct & { createdAt?: string })[] }>("/v1/products?limit=10"),
     fetchHomeData<{ occasions: Occasion[] }>("/v1/occasions"),
   ]);
 
@@ -305,10 +305,9 @@ export default async function Home() {
       />
 
       <div className="min-h-[calc(100vh-160px)] bg-background">
-        <OccasionSection initialOccasions={occasions?.occasions} />
-
         <HeroStaticServer />
 
+        <OccasionSection initialOccasions={occasions?.occasions} />
         <CategoryCarousel initialCategories={categories?.categories} />
         <BestsellersStrip bestsellers={bestsellersProducts} />
         <ProductShowcaseSection initialProducts={products?.data} />
