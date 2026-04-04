@@ -5,9 +5,8 @@ import { CategoryCarousel } from "@/components/home/CategoryCarousel";
 import { OccasionSection } from "@/components/home/OccasionSection";
 import { ProductShowcaseSection } from "@/components/home/ProductShowcaseSection";
 import { HeroStaticServer } from "@/components/home/HeroStaticServer";
-import { HeroInteractiveLoader } from "@/components/home/HeroInteractiveLoader";
 import { BestsellersStrip } from "@/components/home/BestsellersStrip";
-import { HomeDeferredSections } from "@/components/home/HomeDeferredSections.client";
+import { WeddingSectionBanner } from "@/components/home/WeddingSectionBanner";
 import { MarketplaceProductCard } from "@/components/marketplace-product-card";
 import { FeaturesMarquee } from "@/components/features-marquee";
 import type { MarketplaceCardProduct } from "@/components/marketplace-product-card";
@@ -308,16 +307,13 @@ export default async function Home() {
       <div className="min-h-[calc(100vh-160px)] bg-background">
         <OccasionSection initialOccasions={occasions?.occasions} />
 
-        <div className="relative">
-          <HeroStaticServer />
-          <HeroInteractiveLoader />
-        </div>
+        <HeroStaticServer />
 
         <CategoryCarousel initialCategories={categories?.categories} />
         <BestsellersStrip bestsellers={bestsellersProducts} />
         <ProductShowcaseSection initialProducts={products?.data} />
 
-        <HomeDeferredSections />
+        <WeddingSectionBanner />
 
         <NewArrivalsSection products={newArrivals} />
         <FeaturesMarquee />

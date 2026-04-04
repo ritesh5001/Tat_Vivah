@@ -1,7 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
 import type { BestsellerProduct } from "@/services/bestsellers";
-import { WishlistHeartButton } from "@/components/wishlist-heart-button";
 
 type Props = {
   bestsellers: BestsellerProduct[];
@@ -76,13 +75,7 @@ export function BestsellersStrip({ bestsellers }: Props) {
                     sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
                     className="object-cover transition-transform duration-500 group-hover:scale-105"
                     loading="lazy"
-                    quality={72}
-                  />
-
-                  <WishlistHeartButton
-                    productId={item.productId}
-                    size={18}
-                    className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center bg-white/80 dark:bg-card/80 backdrop-blur-sm text-muted-foreground shadow-sm transition-all duration-300 hover:text-destructive"
+                    quality={60}
                   />
                 </div>
 

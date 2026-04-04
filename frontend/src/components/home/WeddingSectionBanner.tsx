@@ -1,5 +1,3 @@
-"use client";
-
 import Image from "next/image";
 import Link from "next/link";
 
@@ -14,7 +12,7 @@ export function WeddingSectionBanner() {
             fill
             className="object-cover"
             sizes="(max-width: 767px) 0px, 100vw"
-            quality={70}
+            quality={60}
           />
         </div>
 
@@ -25,7 +23,7 @@ export function WeddingSectionBanner() {
             fill
             className="object-cover"
             sizes="(max-width: 767px) 100vw, 0px"
-            quality={70}
+            quality={60}
           />
         </div>
 

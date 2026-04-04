@@ -1,7 +1,5 @@
 "use client";
 
-import React from "react";
-
 const announcements = [
     "Verified Sellers",
     "Secure Payments",
