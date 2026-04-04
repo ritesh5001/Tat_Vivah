@@ -1,6 +1,10 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import { AnnouncementBar } from "@/components/announcement-bar";
+import { useAuth } from "@/hooks/use-auth";
+import { getRoleDashboardUrl } from "@/lib/subdomain";
 
 const navLinks = [
   { href: "/", label: "Home" },
@@ -40,6 +44,16 @@ function SearchForm({ className }: { className?: string }) {
 }
 
 export function PublicHeader() {
+  const { user, token, loading } = useAuth();
+  const role = (user?.role ?? "USER").toUpperCase();
+  const isSignedIn = Boolean(token);
+  const accountHref = isSignedIn ? getRoleDashboardUrl(role) : "/login";
+  const accountLabel = isSignedIn
+    ? role === "USER"
+      ? "My Account"
+      : "Dashboard"
+    : "Sign In";
+
   return (
     <header className="sticky top-0 z-30 flex flex-col border-b border-border-soft bg-background/95 backdrop-blur-sm">
       <AnnouncementBar />
@@ -119,10 +133,11 @@ export function PublicHeader() {
                 </Link>
               ))}
               <Link
-                href="/login"
+                href={accountHref}
+                prefetch={false}
                 className="py-3 text-sm font-medium text-foreground transition-colors hover:text-gold"
               >
-                Sign In
+                {loading ? "..." : accountLabel}
               </Link>
             </nav>
           </div>
@@ -170,10 +185,11 @@ export function PublicHeader() {
             </Link>
 
             <Link
-              href="/login"
+              href={accountHref}
+              prefetch={false}
               className="hidden items-center rounded-full bg-charcoal px-4 py-2 text-xs font-medium uppercase tracking-[0.12em] text-ivory transition-colors hover:bg-brown sm:inline-flex"
             >
-              Sign In
+              {loading ? "..." : accountLabel}
             </Link>
           </div>
         </div>

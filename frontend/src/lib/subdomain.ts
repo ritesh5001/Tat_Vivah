@@ -108,3 +108,41 @@ export function getStorefrontUrl(target: "home" | "shop"): string {
 
   return `${protocol}//www.${baseDomain}${portSuffix}${path}`;
 }
+
+/**
+ * Build dashboard URL for a role from any current subdomain.
+ * Uses cross-subdomain absolute URLs in production, same-origin in localhost.
+ */
+export function getRoleDashboardUrl(role: string): string {
+  if (typeof window === "undefined") return "/user/dashboard";
+
+  const normalizedRole = role.toUpperCase();
+  const { hostname, protocol, port } = window.location;
+
+  if (hostname === "localhost" || hostname === "127.0.0.1") {
+    if (normalizedRole === "SELLER") return "/seller/dashboard";
+    if (normalizedRole === "ADMIN" || normalizedRole === "SUPER_ADMIN") {
+      return "/admin/dashboard";
+    }
+    return "/user/dashboard";
+  }
+
+  let baseDomain = hostname;
+  for (const sub of ["admin", "seller", "www"]) {
+    if (hostname.startsWith(`${sub}.`)) {
+      baseDomain = hostname.slice(sub.length + 1);
+      break;
+    }
+  }
+
+  const portSuffix = port ? `:${port}` : "";
+
+  if (normalizedRole === "SELLER") {
+    return `${protocol}//seller.${baseDomain}${portSuffix}/seller/dashboard`;
+  }
+  if (normalizedRole === "ADMIN" || normalizedRole === "SUPER_ADMIN") {
+    return `${protocol}//admin.${baseDomain}${portSuffix}/admin/dashboard`;
+  }
+
+  return `${protocol}//${baseDomain}${portSuffix}/user/dashboard`;
+}
