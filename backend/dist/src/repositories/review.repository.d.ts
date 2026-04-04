@@ -1,5 +1,8 @@
 export declare class ReviewRepository {
-    findAll(): Promise<({
+    findAll(params?: {
+        skip?: number;
+        take?: number;
+    }): Promise<({
         user: {
             id: string;
             email: string | null;

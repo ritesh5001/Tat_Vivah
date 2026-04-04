@@ -1,4 +1,5 @@
 import { renderBrandedEmail } from './layout.js';
+import { portalLinks } from './portal-links.js';
 export function paymentSuccessTemplate(data) {
     return {
         subject: `Payment Confirmed for Order #${data.orderId}`,
@@ -15,7 +16,7 @@ export function paymentSuccessTemplate(data) {
                 { label: 'Amount Paid', value: `INR ${Number(data.amount).toLocaleString('en-IN')}` },
             ],
             ctaLabel: 'Open My Orders',
-            ctaUrl: 'https://tatvivahtrends.com/user/orders',
+            ctaUrl: portalLinks.userOrders,
         }),
     };
 }

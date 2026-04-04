@@ -48,6 +48,7 @@ export interface RelatedProductItem {
     } | null;
 }
 export declare class SearchService {
+    private normalizeQuery;
     searchProducts(filters: SearchFilters): Promise<SearchResponse>;
     getSuggestions(q: string, limit?: number): Promise<SuggestionItem[]>;
     private trackTrending;

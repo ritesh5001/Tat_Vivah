@@ -100,7 +100,7 @@ export declare const adminController: {
      * GET /v1/admin/reviews
      * List all reviews
      */
-    listReviews: (_req: Request, res: Response, next: NextFunction) => Promise<void>;
+    listReviews: (req: Request, res: Response, next: NextFunction) => Promise<void>;
     /**
      * DELETE /v1/admin/reviews/:id
      * Delete review

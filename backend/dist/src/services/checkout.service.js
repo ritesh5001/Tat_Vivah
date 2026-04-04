@@ -52,6 +52,24 @@ export class CheckoutService {
             select: { state: true },
         });
         const buyerState = buyer?.state ?? '';
+        const productIds = cart.items.map((i) => i.productId);
+        const sellerIds = [
+            ...new Set(cart.items
+                .map((i) => i.product?.sellerId)
+                .filter((sellerId) => Boolean(sellerId))),
+        ];
+        const [productTaxRates, sellerProfiles] = await Promise.all([
+            prisma.product.findMany({
+                where: { id: { in: productIds } },
+                select: { id: true, taxRate: true },
+            }),
+            prisma.seller_profiles.findMany({
+                where: { user_id: { in: sellerIds } },
+                select: { user_id: true, state: true },
+            }),
+        ]);
+        const taxRateMap = new Map(productTaxRates.map((p) => [p.id, p.taxRate ?? 0]));
+        const sellerStateMap = new Map(sellerProfiles.map((s) => [s.user_id, s.state ?? '']));
         for (const item of cart.items) {
             const availableStock = item.variant?.inventory?.stock ?? 0;
             if (!item.product || !item.variant) {
@@ -71,17 +89,8 @@ export class CheckoutService {
                 validationErrors.push(`Invalid pricing state for ${item.product.title}`);
                 continue;
             }
-            // Fetch product taxRate and seller state for GST
-            const productWithTax = await prisma.product.findUnique({
-                where: { id: item.productId },
-                select: { taxRate: true },
-            });
-            const sellerProfile = await prisma.seller_profiles.findUnique({
-                where: { user_id: item.product.sellerId },
-                select: { state: true },
-            });
-            const productTaxRate = productWithTax?.taxRate ?? 0;
-            const sellerState = sellerProfile?.state ?? '';
+            const productTaxRate = taxRateMap.get(item.productId) ?? 0;
+            const sellerState = sellerStateMap.get(item.product.sellerId) ?? '';
             if (item.quantity > availableStock) {
                 validationErrors.push(`Insufficient stock for ${item.product.title}: Available ${availableStock}, Requested ${item.quantity}`);
             }

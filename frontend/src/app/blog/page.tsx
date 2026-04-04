@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { BLOG_POSTS } from "./[slug]/page";
+import { BLOG_POSTS } from "./posts";
 import { SITE_URL } from "@/lib/site-config";
 
 export const metadata: Metadata = {

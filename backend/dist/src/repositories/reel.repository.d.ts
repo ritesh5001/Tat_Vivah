@@ -1,5 +1,6 @@
 import type { ReelQueryFilters } from '../types/reel.types.js';
 export declare class ReelRepository {
+    private readonly reelViewsBufferKey;
     create(data: {
         sellerId: string;
         videoUrl: string;
@@ -238,19 +239,9 @@ export declare class ReelRepository {
         views: number;
         likes: number;
     }>;
-    incrementViews(id: string): Promise<{
-        status: import(".prisma/client").$Enums.ReelStatus;
-        id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        productId: string | null;
-        sellerId: string;
-        category: import(".prisma/client").$Enums.ReelCategory;
-        videoUrl: string;
-        thumbnailUrl: string | null;
-        caption: string | null;
-        views: number;
-        likes: number;
+    incrementViews(id: string): Promise<void>;
+    flushReelViews(): Promise<{
+        flushed: number;
     }>;
     delete(id: string): Promise<{
         status: import(".prisma/client").$Enums.ReelStatus;

@@ -81,17 +81,13 @@ export async function deleteCache(key) {
 export async function clearCache(pattern) {
     try {
         let cursor = '0';
-        const redisKeys = [];
         do {
             const [nextCursor, batchKeys] = await redis.scan(cursor, pattern, 200);
             cursor = nextCursor;
             if (batchKeys.length > 0) {
-                redisKeys.push(...batchKeys);
+                await redis.del(...batchKeys);
             }
         } while (cursor !== '0');
-        if (redisKeys.length > 0) {
-            await redis.del(...redisKeys);
-        }
     }
     catch {
         // Ignore Redis errors and still clear memory cache by pattern.

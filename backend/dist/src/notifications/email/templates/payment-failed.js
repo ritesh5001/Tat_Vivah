@@ -1,4 +1,5 @@
 import { renderBrandedEmail } from './layout.js';
+import { portalLinks } from './portal-links.js';
 export function paymentFailedTemplate(data) {
     return {
         subject: `Payment Failed for Order #${data.orderId}`,
@@ -12,7 +13,7 @@ export function paymentFailedTemplate(data) {
             ],
             details: [{ label: 'Order ID', value: data.orderId }],
             ctaLabel: 'Retry Payment',
-            ctaUrl: 'https://tatvivahtrends.com/user/orders',
+            ctaUrl: portalLinks.userOrders,
             accentText: 'If your account was charged but status remains failed, contact support with this order ID.',
         }),
     };

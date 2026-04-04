@@ -13,14 +13,20 @@ const MAX_SEARCH_LIMIT = 20;
 // Service
 // ---------------------------------------------------------------------------
 export class SearchService {
+    normalizeQuery(input) {
+        return input.trim().replace(/\s+/g, ' ');
+    }
     // -----------------------------------------------------------------------
     // Full-text search with tsvector + ts_rank
     // -----------------------------------------------------------------------
     async searchProducts(filters) {
         const timer = searchDurationSeconds.startTimer();
-        const { q, page, categoryId, sort = 'relevance' } = filters;
+        const normalizedQ = this.normalizeQuery(filters.q);
+        const page = Math.max(1, Math.trunc(filters.page || 1));
+        const categoryId = filters.categoryId?.trim() || undefined;
+        const sort = filters.sort ?? 'relevance';
         const safeLimit = Math.min(MAX_SEARCH_LIMIT, Math.max(1, Math.trunc(filters.limit || 20)));
-        const cacheKey = CACHE_KEYS.SEARCH_RESULTS(q.trim().toLowerCase(), page, safeLimit, categoryId, sort);
+        const cacheKey = CACHE_KEYS.SEARCH_RESULTS(normalizedQ.toLowerCase(), page, safeLimit, categoryId, sort);
         const cached = await getFromCache(cacheKey);
         if (cached) {
             timer();
@@ -30,7 +36,7 @@ export class SearchService {
         searchQueryTotal.inc();
         try {
             // Track in Redis trending
-            this.trackTrending(q).catch(() => { });
+            this.trackTrending(normalizedQ).catch(() => { });
             // Build WHERE clause pieces
             const conditions = [
                 `p."is_published" = true`,
@@ -38,7 +44,7 @@ export class SearchService {
                 `p."admin_listing_price" IS NOT NULL`,
                 `p."search_vector" @@ plainto_tsquery('english', $1)`,
             ];
-            const params = [q];
+            const params = [normalizedQ];
             let paramIndex = 2;
             if (categoryId) {
                 conditions.push(`p."category_id" = $${paramIndex}`);
@@ -78,19 +84,6 @@ export class SearchService {
                 FROM "products" p
                 WHERE ${whereClause}
             `;
-            const countResult = await prisma.$queryRawUnsafe(countQuery, ...params);
-            const total = countResult[0]?.total ?? 0;
-            if (total === 0) {
-                searchNoResultTotal.inc();
-                searchLogger.info({ q, categoryId, total: 0 }, 'search returned zero results');
-                timer();
-                const emptyResponse = {
-                    data: [],
-                    pagination: { page, limit: safeLimit, total: 0, totalPages: 0 },
-                };
-                await setCache(cacheKey, emptyResponse, 15);
-                return emptyResponse;
-            }
             // Data query
             const dataQuery = `
                 SELECT
@@ -110,8 +103,24 @@ export class SearchService {
                 ORDER BY ${orderBy}
                 LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
             `;
-            params.push(safeLimit, offset);
-            const rows = await prisma.$queryRawUnsafe(dataQuery, ...params);
+            const countParams = [...params];
+            const dataParams = [...params, safeLimit, offset];
+            const [countResult, rows] = await Promise.all([
+                prisma.$queryRawUnsafe(countQuery, ...countParams),
+                prisma.$queryRawUnsafe(dataQuery, ...dataParams),
+            ]);
+            const total = countResult[0]?.total ?? 0;
+            if (total === 0) {
+                searchNoResultTotal.inc();
+                searchLogger.info({ q: normalizedQ, categoryId, total: 0 }, 'search returned zero results');
+                timer();
+                const emptyResponse = {
+                    data: [],
+                    pagination: { page, limit: safeLimit, total: 0, totalPages: 0 },
+                };
+                await setCache(cacheKey, emptyResponse, 15);
+                return emptyResponse;
+            }
             // Convert Decimal values to numbers for JSON serialization
             const data = rows.map((row) => ({
                 ...row,
@@ -119,7 +128,7 @@ export class SearchService {
                 rank: row.rank != null ? Number(row.rank) : undefined,
             }));
             const totalPages = Math.ceil(total / safeLimit);
-            searchLogger.info({ q, categoryId, sort, total, page }, 'search executed');
+            searchLogger.info({ q: normalizedQ, categoryId, sort, total, page }, 'search executed');
             timer();
             const response = { data, pagination: { page, limit: safeLimit, total, totalPages } };
             await setCache(cacheKey, response, 60);
@@ -127,7 +136,7 @@ export class SearchService {
         }
         catch (error) {
             timer();
-            searchLogger.error({ q, error }, 'search query failed');
+            searchLogger.error({ q: normalizedQ, error }, 'search query failed');
             throw error;
         }
     }
@@ -136,8 +145,12 @@ export class SearchService {
     // -----------------------------------------------------------------------
     async getSuggestions(q, limit = 8) {
         autocompleteTotal.inc();
+        const normalizedQ = this.normalizeQuery(q);
+        if (normalizedQ.length < 2) {
+            return [];
+        }
         const safeLimit = Math.min(MAX_SEARCH_LIMIT, Math.max(1, Math.trunc(limit || 8)));
-        const cacheKey = CACHE_KEYS.SEARCH_SUGGESTIONS(q.trim().toLowerCase(), safeLimit);
+        const cacheKey = CACHE_KEYS.SEARCH_SUGGESTIONS(normalizedQ.toLowerCase(), safeLimit);
         const cached = await getFromCache(cacheKey);
         if (cached) {
             return cached;
@@ -149,8 +162,8 @@ export class SearchService {
                AND p."deleted_by_admin" = false
                AND p."title" ILIKE $1
              ORDER BY p."title" ASC
-             LIMIT $2`, `${q}%`, safeLimit);
-        searchLogger.debug({ q, count: rows.length }, 'autocomplete suggestions');
+             LIMIT $2`, `${normalizedQ}%`, safeLimit);
+        searchLogger.debug({ q: normalizedQ, count: rows.length }, 'autocomplete suggestions');
         const suggestions = rows.map((r) => ({
             id: r.id,
             title: r.title,
@@ -169,7 +182,14 @@ export class SearchService {
         await redis.zincrby(TRENDING_KEY, 1, normalized);
     }
     async getTrending(limit = 10) {
-        const results = await redis.zrange(TRENDING_KEY, 0, limit - 1, { rev: true });
+        const safeLimit = Math.min(MAX_SEARCH_LIMIT, Math.max(1, Math.trunc(limit || 10)));
+        const cacheKey = `search:trending:${safeLimit}`;
+        const cached = await getFromCache(cacheKey);
+        if (cached) {
+            return cached;
+        }
+        const results = await redis.zrange(TRENDING_KEY, 0, safeLimit - 1, { rev: true });
+        await setCache(cacheKey, results, 30);
         return results;
     }
     // -----------------------------------------------------------------------

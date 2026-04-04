@@ -6,14 +6,14 @@ export declare const createAppointmentSchema: z.ZodObject<{
     time: z.ZodString;
     notes: z.ZodOptional<z.ZodString>;
 }, "strip", z.ZodTypeAny, {
-    sellerId: string;
     date: string;
+    sellerId: string;
     time: string;
     productId?: string | undefined;
     notes?: string | undefined;
 }, {
-    sellerId: string;
     date: string;
+    sellerId: string;
     time: string;
     productId?: string | undefined;
     notes?: string | undefined;

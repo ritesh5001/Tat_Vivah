@@ -1,4 +1,5 @@
 import { renderBrandedEmail } from './layout.js';
+import { portalLinks } from './portal-links.js';
 export function orderShippedTemplate(data) {
     return {
         subject: `Your Order #${data.orderId} has Shipped!`,
@@ -16,7 +17,7 @@ export function orderShippedTemplate(data) {
                 { label: 'Tracking Number', value: data.trackingNumber },
             ],
             ctaLabel: 'View Order Status',
-            ctaUrl: 'https://tatvivahtrends.com/user/orders',
+            ctaUrl: portalLinks.userOrders,
         }),
     };
 }

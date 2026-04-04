@@ -1,0 +1,1461 @@
+{
+  "generatedAt": "2026-04-04T07:02:43.314Z",
+  "productId": "cmnjzdrid01fnxn50mm0b1va8",
+  "routes": [
+    {
+      "route": "/",
+      "url": "https://www.tatvivahtrends.com/",
+      "auth": "none",
+      "measuredAt": "2026-04-04T07:02:49.961Z",
+      "requestCount": 88,
+      "blockingRequestCount": 0,
+      "duplicateRequests": [
+        {
+          "url": "https://tat-vivah-multi-vendor-ecom.onrender.com/v1/categories",
+          "count": 3
+        }
+      ],
+      "totalPayloadBytes": 2712173,
+      "totalPayloadKb": 2648.6,
+      "js": {
+        "scriptRequestCount": 17,
+        "totalScriptBytes": 925519,
+        "totalScriptKb": 903.8,
+        "largestScripts": [
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/d1a0d26e8c6b7ca3.js",
+            "sizeBytes": 224408,
+            "durationMs": 470
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/9837d8b8aa5cd346.js",
+            "sizeBytes": 126444,
+            "durationMs": 491
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/404b72e2be243ddc.js",
+            "sizeBytes": 116932,
+            "durationMs": 491
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/2d1d7a44ffb8a291.js",
+            "sizeBytes": 110896,
+            "durationMs": 467
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/32b63bc73f865971.js",
+            "sizeBytes": 94645,
+            "durationMs": 96
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/4d7f1ce4b2bda1a2.js",
+            "sizeBytes": 43167,
+            "durationMs": 467
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/0e92410334fd7743.js",
+            "sizeBytes": 38490,
+            "durationMs": 491
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/16231f8c1f2b76e4.js",
+            "sizeBytes": 34911,
+            "durationMs": 491
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/38232f66bb685250.js",
+            "sizeBytes": 32827,
+            "durationMs": 461
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/c585a01853f8100b.js",
+            "sizeBytes": 30680,
+            "durationMs": 491
+          }
+        ]
+      },
+      "api": {
+        "requestCount": 3,
+        "endpoints": [
+          "https://tat-vivah-multi-vendor-ecom.onrender.com/v1/categories"
+        ],
+        "p50Ms": 1972,
+        "p95Ms": 2112,
+        "maxMs": 2127
+      },
+      "assets": {
+        "largestImages": [
+          {
+            "url": "https://www.tatvivahtrends.com/_next/image?url=%2FIndoWesternTatvivah.jpg&w=640&q=75",
+            "sizeBytes": 135727,
+            "durationMs": 261
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/image?url=%2Fimages%2Fhero%2F3rd%20mobile%20banner.jpeg&w=1200&q=75",
+            "sizeBytes": 82567,
+            "durationMs": 131
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/image?url=%2FSherwaniTatvivah.jpg&w=640&q=75",
+            "sizeBytes": 82425,
+            "durationMs": 277
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/image?url=%2Fimages%2Fhero%2F1st%20mobile%20banner.jpeg&w=1200&q=75",
+            "sizeBytes": 70351,
+            "durationMs": 284
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/image?url=%2Fimages%2Fhero%2F2nd%20mobile%20banner.jpeg&w=1200&q=75",
+            "sizeBytes": 68772,
+            "durationMs": 131
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/image?url=%2FAccesories.jpg&w=640&q=75",
+            "sizeBytes": 67017,
+            "durationMs": 279
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/image?url=https%3A%2F%2Fik.imagekit.io%2Fi85bduykd%2F6331greenblueb_yT8AVi4-s.png&w=640&q=75",
+            "sizeBytes": 63595,
+            "durationMs": 946
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/image?url=%2Fimages%2Fhero%2F1st%20desktop%20banner.jpg&w=1200&q=75",
+            "sizeBytes": 54654,
+            "durationMs": 144
+          }
+        ],
+        "aboveFoldImageCount": 20,
+        "aboveFoldImages": [
+          {
+            "src": "https://www.tatvivahtrends.com/_next/image?url=%2Flogo.png&w=256&q=75",
+            "loading": "lazy",
+            "width": 128,
+            "height": 72,
+            "aboveFold": true
+          },
+          {
+            "src": "https://www.tatvivahtrends.com/_next/image?url=%2Fimages%2Fhero%2F1st%2520mobile%2520banner.jpeg&w=256&q=75",
+            "loading": "lazy",
+            "width": 78,
+            "height": 78,
+            "aboveFold": true
+          },
+          {
+            "src": "https://www.tatvivahtrends.com/_next/image?url=%2Fimages%2Fhero%2F2nd%2520mobile%2520banner.jpeg&w=256&q=75",
+            "loading": "lazy",
+            "width": 78,
+            "height": 78,
+            "aboveFold": true
+          },
+          {
+            "src": "https://www.tatvivahtrends.com/_next/image?url=%2Fimages%2Fhero%2F1st%2520desktop%2520banner.jpg&w=256&q=75",
+            "loading": "lazy",
+            "width": 78,
+            "height": 30,
+            "aboveFold": true
+          },
+          {
+            "src": "https://www.tatvivahtrends.com/_next/image?url=%2Fimages%2Fhero%2F2nd%2520desktop%2520banner.jpg&w=256&q=75",
+            "loading": "lazy",
+            "width": 78,
+            "height": 30,
+            "aboveFold": true
+          },
+          {
+            "src": "https://www.tatvivahtrends.com/_next/image?url=%2Fimages%2Fhero%2F4th%2520desktop%2520banner.jpg&w=256&q=75",
+            "loading": "lazy",
+            "width": 78,
+            "height": 30,
+            "aboveFold": true
+          },
+          {
+            "src": "https://www.tatvivahtrends.com/_next/image?url=%2Fimages%2Fhero%2F3rd%2520desktop%2520banner.jpg&w=256&q=75",
+            "loading": "lazy",
+            "width": 78,
+            "height": 30,
+            "aboveFold": true
+          },
+          {
+            "src": "https://www.tatvivahtrends.com/_next/image?url=%2Fimages%2Fhero%2Fwedding%2520section%2520desktop%2520banner.jpeg&w=256&q=75",
+            "loading": "lazy",
+            "width": 78,
+            "height": 30,
+            "aboveFold": true
+          },
+          {
+            "src": "https://www.tatvivahtrends.com/_next/image?url=%2Fimages%2Fhero%2F1st%2520mobile%2520banner.jpeg&w=256&q=75",
+            "loading": "lazy",
+            "width": 78,
+            "height": 78,
+            "aboveFold": true
+          },
+          {
+            "src": "https://www.tatvivahtrends.com/_next/image?url=%2Fimages%2Fhero%2F2nd%2520mobile%2520banner.jpeg&w=256&q=75",
+            "loading": "lazy",
+            "width": 78,
+            "height": 78,
+            "aboveFold": true
+          },
+          {
+            "src": "https://www.tatvivahtrends.com/_next/image?url=%2Fimages%2Fhero%2F1st%2520desktop%2520banner.jpg&w=256&q=75",
+            "loading": "lazy",
+            "width": 78,
+            "height": 30,
+            "aboveFold": true
+          },
+          {
+            "src": "https://www.tatvivahtrends.com/_next/image?url=%2Fimages%2Fhero%2F2nd%2520desktop%2520banner.jpg&w=256&q=75",
+            "loading": "lazy",
+            "width": 78,
+            "height": 30,
+            "aboveFold": true
+          }
+        ],
+        "fonts": [
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/media/01e4147cff8141ee-s.p.7787e134.woff2",
+            "cacheControl": "public,max-age=31536000,immutable"
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2",
+            "cacheControl": "public,max-age=31536000,immutable"
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/media/1bffadaabf893a1e-s.7cd81963.woff2",
+            "cacheControl": "public,max-age=31536000,immutable"
+          }
+        ],
+        "cacheStats": {
+          "strong": 50,
+          "good": 1,
+          "weak": 4,
+          "missing": 0
+        }
+      },
+      "vitalsEstimate": {
+        "ttfbMs": 484,
+        "lcpMs": 1128,
+        "cls": 0,
+        "inpProxyMs": 0,
+        "tbtMs": 12,
+        "maxLongTaskMs": 62
+      },
+      "runtime": {
+        "dclMs": 1120,
+        "loadMs": 1731,
+        "navWallTimeMs": 6456
+      }
+    },
+    {
+      "route": "/marketplace",
+      "url": "https://www.tatvivahtrends.com/marketplace",
+      "auth": "none",
+      "measuredAt": "2026-04-04T07:02:58.138Z",
+      "requestCount": 79,
+      "blockingRequestCount": 0,
+      "duplicateRequests": [
+        {
+          "url": "https://tat-vivah-multi-vendor-ecom.onrender.com/v1/categories",
+          "count": 3
+        }
+      ],
+      "totalPayloadBytes": 3083395,
+      "totalPayloadKb": 3011.1,
+      "js": {
+        "scriptRequestCount": 17,
+        "totalScriptBytes": 838617,
+        "totalScriptKb": 819,
+        "largestScripts": [
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/d1a0d26e8c6b7ca3.js",
+            "sizeBytes": 224408,
+            "durationMs": 188
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/9837d8b8aa5cd346.js",
+            "sizeBytes": 126444,
+            "durationMs": 187
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/404b72e2be243ddc.js",
+            "sizeBytes": 116932,
+            "durationMs": 187
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/2d1d7a44ffb8a291.js",
+            "sizeBytes": 110896,
+            "durationMs": 184
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/4d7f1ce4b2bda1a2.js",
+            "sizeBytes": 43167,
+            "durationMs": 183
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/0e92410334fd7743.js",
+            "sizeBytes": 38490,
+            "durationMs": 184
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/16231f8c1f2b76e4.js",
+            "sizeBytes": 34911,
+            "durationMs": 177
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/38232f66bb685250.js",
+            "sizeBytes": 32827,
+            "durationMs": 188
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/c585a01853f8100b.js",
+            "sizeBytes": 30680,
+            "durationMs": 187
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/ef28d311ddeaf3ad.js",
+            "sizeBytes": 30173,
+            "durationMs": 184
+          }
+        ]
+      },
+      "api": {
+        "requestCount": 3,
+        "endpoints": [
+          "https://tat-vivah-multi-vendor-ecom.onrender.com/v1/categories"
+        ],
+        "p50Ms": 506,
+        "p95Ms": 650,
+        "maxMs": 666
+      },
+      "assets": {
+        "largestImages": [
+          {
+            "url": "https://www.tatvivahtrends.com/images/hero/3rd%20desktop%20banner.jpg",
+            "sizeBytes": 261585,
+            "durationMs": 178
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/images/hero/1st%20desktop%20banner.jpg",
+            "sizeBytes": 250887,
+            "durationMs": 57
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/images/hero/2nd%20desktop%20banner.jpg",
+            "sizeBytes": 243477,
+            "durationMs": 57
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/images/hero/4th%20desktop%20banner.jpg",
+            "sizeBytes": 200390,
+            "durationMs": 93
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/image?url=https%3A%2F%2Fik.imagekit.io%2Fi85bduykd%2FDSC05818_Gw97_FR_D1.jpg&w=640&q=75",
+            "sizeBytes": 177817,
+            "durationMs": 571
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/images/hero/wedding%20section%20desktop%20banner.jpeg",
+            "sizeBytes": 173559,
+            "durationMs": 174
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/images/hero/1st%20mobile%20banner.jpeg",
+            "sizeBytes": 128875,
+            "durationMs": 188
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/images/hero/2nd%20mobile%20banner.jpeg",
+            "sizeBytes": 123882,
+            "durationMs": 48
+          }
+        ],
+        "aboveFoldImageCount": 10,
+        "aboveFoldImages": [
+          {
+            "src": "https://www.tatvivahtrends.com/_next/image?url=%2Flogo.png&w=256&q=75",
+            "loading": "lazy",
+            "width": 128,
+            "height": 72,
+            "aboveFold": true
+          },
+          {
+            "src": "https://www.tatvivahtrends.com/images/hero/1st%20mobile%20banner.jpeg",
+            "loading": "auto",
+            "width": 1000,
+            "height": 1000,
+            "aboveFold": true
+          },
+          {
+            "src": "https://www.tatvivahtrends.com/images/hero/2nd%20mobile%20banner.jpeg",
+            "loading": "auto",
+            "width": 1000,
+            "height": 1000,
+            "aboveFold": true
+          },
+          {
+            "src": "https://www.tatvivahtrends.com/images/hero/1st%20desktop%20banner.jpg",
+            "loading": "auto",
+            "width": 2100,
+            "height": 800,
+            "aboveFold": true
+          },
+          {
+            "src": "https://www.tatvivahtrends.com/images/hero/2nd%20desktop%20banner.jpg",
+            "loading": "auto",
+            "width": 2100,
+            "height": 800,
+            "aboveFold": true
+          },
+          {
+            "src": "https://www.tatvivahtrends.com/images/hero/4th%20desktop%20banner.jpg",
+            "loading": "auto",
+            "width": 2100,
+            "height": 800,
+            "aboveFold": true
+          },
+          {
+            "src": "https://www.tatvivahtrends.com/images/hero/3rd%20desktop%20banner.jpg",
+            "loading": "auto",
+            "width": 2100,
+            "height": 800,
+            "aboveFold": true
+          },
+          {
+            "src": "https://www.tatvivahtrends.com/images/hero/wedding%20section%20desktop%20banner.jpeg",
+            "loading": "auto",
+            "width": 2100,
+            "height": 800,
+            "aboveFold": true
+          },
+          {
+            "src": "https://www.tatvivahtrends.com/_next/image?url=https%3A%2F%2Fik.imagekit.io%2Fi85bduykd%2F2112BottleGreenFront_WRq0_1NoiO.jpg&w=640&q=75",
+            "loading": "lazy",
+            "width": 196,
+            "height": 252,
+            "aboveFold": true
+          },
+          {
+            "src": "https://www.tatvivahtrends.com/_next/image?url=https%3A%2F%2Fik.imagekit.io%2Fi85bduykd%2F2114LightBlueFront_XQeBpGjnIV.jpg&w=640&q=75",
+            "loading": "lazy",
+            "width": 196,
+            "height": 252,
+            "aboveFold": true
+          }
+        ],
+        "fonts": [
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/media/01e4147cff8141ee-s.p.7787e134.woff2",
+            "cacheControl": "public,max-age=31536000,immutable"
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2",
+            "cacheControl": "public,max-age=31536000,immutable"
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/media/1bffadaabf893a1e-s.7cd81963.woff2",
+            "cacheControl": "public,max-age=31536000,immutable"
+          }
+        ],
+        "cacheStats": {
+          "strong": 38,
+          "good": 2,
+          "weak": 0,
+          "missing": 0
+        }
+      },
+      "vitalsEstimate": {
+        "ttfbMs": 114,
+        "lcpMs": 744,
+        "cls": 0,
+        "inpProxyMs": 0,
+        "tbtMs": 0,
+        "maxLongTaskMs": 0
+      },
+      "runtime": {
+        "dclMs": 667,
+        "loadMs": 894,
+        "navWallTimeMs": 8128
+      }
+    },
+    {
+      "route": "/search",
+      "url": "https://www.tatvivahtrends.com/search?q=kurta",
+      "auth": "none",
+      "measuredAt": "2026-04-04T07:03:03.986Z",
+      "requestCount": 48,
+      "blockingRequestCount": 0,
+      "duplicateRequests": [
+        {
+          "url": "https://tat-vivah-multi-vendor-ecom.onrender.com/v1/categories",
+          "count": 4
+        }
+      ],
+      "totalPayloadBytes": 1210227,
+      "totalPayloadKb": 1181.9,
+      "js": {
+        "scriptRequestCount": 16,
+        "totalScriptBytes": 830874,
+        "totalScriptKb": 811.4,
+        "largestScripts": [
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/d1a0d26e8c6b7ca3.js",
+            "sizeBytes": 224408,
+            "durationMs": 126
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/9837d8b8aa5cd346.js",
+            "sizeBytes": 126444,
+            "durationMs": 112
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/404b72e2be243ddc.js",
+            "sizeBytes": 116932,
+            "durationMs": 125
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/2d1d7a44ffb8a291.js",
+            "sizeBytes": 110896,
+            "durationMs": 107
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/4d7f1ce4b2bda1a2.js",
+            "sizeBytes": 43167,
+            "durationMs": 125
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/0e92410334fd7743.js",
+            "sizeBytes": 38490,
+            "durationMs": 106
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/16231f8c1f2b76e4.js",
+            "sizeBytes": 34911,
+            "durationMs": 42
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/38232f66bb685250.js",
+            "sizeBytes": 32827,
+            "durationMs": 107
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/c585a01853f8100b.js",
+            "sizeBytes": 30680,
+            "durationMs": 124
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/ef28d311ddeaf3ad.js",
+            "sizeBytes": 30173,
+            "durationMs": 101
+          }
+        ]
+      },
+      "api": {
+        "requestCount": 6,
+        "endpoints": [
+          "https://tat-vivah-multi-vendor-ecom.onrender.com/v1/occasions",
+          "https://tat-vivah-multi-vendor-ecom.onrender.com/v1/categories",
+          "https://tat-vivah-multi-vendor-ecom.onrender.com/v1/products?categoryId=cmng7zh5z0004xnw6bq30vmlm&limit=12&page=1"
+        ],
+        "p50Ms": 568,
+        "p95Ms": 1433,
+        "maxMs": 1643
+      },
+      "assets": {
+        "largestImages": [
+          {
+            "url": "https://www.tatvivahtrends.com/_next/image?url=%2Flogo.png&w=384&q=75",
+            "sizeBytes": 14057,
+            "durationMs": 56
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/image?url=%2Flogo.png&w=256&q=75",
+            "sizeBytes": 9212,
+            "durationMs": 55
+          }
+        ],
+        "aboveFoldImageCount": 1,
+        "aboveFoldImages": [
+          {
+            "src": "https://www.tatvivahtrends.com/_next/image?url=%2Flogo.png&w=256&q=75",
+            "loading": "lazy",
+            "width": 128,
+            "height": 72,
+            "aboveFold": true
+          }
+        ],
+        "fonts": [
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2",
+            "cacheControl": "public,max-age=31536000,immutable"
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/media/01e4147cff8141ee-s.p.7787e134.woff2",
+            "cacheControl": "public,max-age=31536000,immutable"
+          }
+        ],
+        "cacheStats": {
+          "strong": 20,
+          "good": 2,
+          "weak": 0,
+          "missing": 0
+        }
+      },
+      "vitalsEstimate": {
+        "ttfbMs": 110,
+        "lcpMs": 340,
+        "cls": 0,
+        "inpProxyMs": 0,
+        "tbtMs": 0,
+        "maxLongTaskMs": 0
+      },
+      "runtime": {
+        "dclMs": 241,
+        "loadMs": 311,
+        "navWallTimeMs": 5788
+      }
+    },
+    {
+      "route": "/product/[id]",
+      "url": "https://www.tatvivahtrends.com/product/cmnjzdrid01fnxn50mm0b1va8",
+      "auth": "none",
+      "measuredAt": "2026-04-04T07:03:11.539Z",
+      "requestCount": 65,
+      "blockingRequestCount": 0,
+      "duplicateRequests": [
+        {
+          "url": "https://tat-vivah-multi-vendor-ecom.onrender.com/v1/categories",
+          "count": 3
+        }
+      ],
+      "totalPayloadBytes": 1714472,
+      "totalPayloadKb": 1674.3,
+      "js": {
+        "scriptRequestCount": 17,
+        "totalScriptBytes": 870349,
+        "totalScriptKb": 850,
+        "largestScripts": [
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/d1a0d26e8c6b7ca3.js",
+            "sizeBytes": 224408,
+            "durationMs": 350
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/9837d8b8aa5cd346.js",
+            "sizeBytes": 126444,
+            "durationMs": 376
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/404b72e2be243ddc.js",
+            "sizeBytes": 116932,
+            "durationMs": 377
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/2d1d7a44ffb8a291.js",
+            "sizeBytes": 110896,
+            "durationMs": 355
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/4d7f1ce4b2bda1a2.js",
+            "sizeBytes": 43167,
+            "durationMs": 357
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/b0619347fff310cc.js",
+            "sizeBytes": 39475,
+            "durationMs": 359
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/0e92410334fd7743.js",
+            "sizeBytes": 38490,
+            "durationMs": 358
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/16231f8c1f2b76e4.js",
+            "sizeBytes": 34911,
+            "durationMs": 43
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/38232f66bb685250.js",
+            "sizeBytes": 32827,
+            "durationMs": 346
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/c585a01853f8100b.js",
+            "sizeBytes": 30680,
+            "durationMs": 346
+          }
+        ]
+      },
+      "api": {
+        "requestCount": 6,
+        "endpoints": [
+          "https://tat-vivah-multi-vendor-ecom.onrender.com/v1/personalization/recently-viewed/cmnjzdrid01fnxn50mm0b1va8",
+          "https://tat-vivah-multi-vendor-ecom.onrender.com/v1/categories",
+          "https://tat-vivah-multi-vendor-ecom.onrender.com/v1/products/cmnjzdrid01fnxn50mm0b1va8/reviews?limit=10&page=1&sort=newest",
+          "https://tat-vivah-multi-vendor-ecom.onrender.com/v1/products/cmnjzdrid01fnxn50mm0b1va8/related?limit=8"
+        ],
+        "p50Ms": 765,
+        "p95Ms": 2880,
+        "maxMs": 3307
+      },
+      "assets": {
+        "largestImages": [
+          {
+            "url": "https://www.tatvivahtrends.com/_next/image?url=https%3A%2F%2Fik.imagekit.io%2Fi85bduykd%2FDSC05818_Gw97_FR_D1.jpg&w=640&q=75",
+            "sizeBytes": 177817,
+            "durationMs": 68
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/image?url=https%3A%2F%2Fik.imagekit.io%2Fi85bduykd%2FDSC05838_Wg3m3_Bl4L.jpg&w=640&q=75",
+            "sizeBytes": 46694,
+            "durationMs": 49
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/image?url=https%3A%2F%2Fik.imagekit.io%2Fi85bduykd%2F2112BottleGreenFront_WRq0_1NoiO.jpg&w=1200&q=75",
+            "sizeBytes": 27641,
+            "durationMs": 521
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/image?url=https%3A%2F%2Fik.imagekit.io%2Fi85bduykd%2F2113YellowFront_MGZGt8gjXR.jpg&w=640&q=75",
+            "sizeBytes": 9971,
+            "durationMs": 87
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/image?url=%2Flogo.png&w=256&q=75",
+            "sizeBytes": 9212,
+            "durationMs": 286
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/image?url=https%3A%2F%2Fik.imagekit.io%2Fi85bduykd%2F2110DarkCreamFront_j9-PlrH5ra.jpg&w=640&q=75",
+            "sizeBytes": 8481,
+            "durationMs": 50
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/image?url=https%3A%2F%2Fik.imagekit.io%2Fi85bduykd%2F2112BottleGreenZoom_rhK16x_mv8.jpg&w=256&q=75",
+            "sizeBytes": 8448,
+            "durationMs": 689
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/image?url=https%3A%2F%2Fik.imagekit.io%2Fi85bduykd%2F3148CreamFront_tvkhQD2PqO.jpg&w=640&q=75",
+            "sizeBytes": 7762,
+            "durationMs": 100
+          }
+        ],
+        "aboveFoldImageCount": 10,
+        "aboveFoldImages": [
+          {
+            "src": "https://www.tatvivahtrends.com/_next/image?url=%2Flogo.png&w=256&q=75",
+            "loading": "lazy",
+            "width": 128,
+            "height": 72,
+            "aboveFold": true
+          },
+          {
+            "src": "https://www.tatvivahtrends.com/_next/image?url=https%3A%2F%2Fik.imagekit.io%2Fi85bduykd%2F2112BottleGreenFront_WRq0_1NoiO.jpg&w=256&q=75",
+            "loading": "lazy",
+            "width": 128,
+            "height": 164,
+            "aboveFold": true
+          },
+          {
+            "src": "https://www.tatvivahtrends.com/_next/image?url=https%3A%2F%2Fik.imagekit.io%2Fi85bduykd%2F2112DarkGreenFront_c5ZAVSrBo.jpg&w=256&q=75",
+            "loading": "lazy",
+            "width": 128,
+            "height": 164,
+            "aboveFold": true
+          },
+          {
+            "src": "https://www.tatvivahtrends.com/_next/image?url=https%3A%2F%2Fik.imagekit.io%2Fi85bduykd%2F2112BottleGreenBack_A5eTzlU22q.jpg&w=256&q=75",
+            "loading": "lazy",
+            "width": 128,
+            "height": 164,
+            "aboveFold": true
+          },
+          {
+            "src": "https://www.tatvivahtrends.com/_next/image?url=https%3A%2F%2Fik.imagekit.io%2Fi85bduykd%2F2112BottleGreenSide_bb9YKrQtPR.jpg&w=256&q=75",
+            "loading": "lazy",
+            "width": 128,
+            "height": 164,
+            "aboveFold": true
+          },
+          {
+            "src": "https://www.tatvivahtrends.com/_next/image?url=https%3A%2F%2Fik.imagekit.io%2Fi85bduykd%2F2112BottleGreenZoom_rhK16x_mv8.jpg&w=256&q=75",
+            "loading": "lazy",
+            "width": 128,
+            "height": 164,
+            "aboveFold": true
+          },
+          {
+            "src": "https://www.tatvivahtrends.com/_next/image?url=https%3A%2F%2Fik.imagekit.io%2Fi85bduykd%2F2112DarkGreenBack_i8ldSRLB0n.jpg&w=256&q=75",
+            "loading": "lazy",
+            "width": 128,
+            "height": 164,
+            "aboveFold": true
+          },
+          {
+            "src": "https://www.tatvivahtrends.com/_next/image?url=https%3A%2F%2Fik.imagekit.io%2Fi85bduykd%2F2112DarkGreenSide_gBsiKTpYTy.jpg&w=256&q=75",
+            "loading": "lazy",
+            "width": 128,
+            "height": 164,
+            "aboveFold": true
+          },
+          {
+            "src": "https://www.tatvivahtrends.com/_next/image?url=https%3A%2F%2Fik.imagekit.io%2Fi85bduykd%2F2112DarkGreenZoom_aVf7zmaB2A.jpg&w=256&q=75",
+            "loading": "lazy",
+            "width": 128,
+            "height": 164,
+            "aboveFold": true
+          },
+          {
+            "src": "https://www.tatvivahtrends.com/_next/image?url=https%3A%2F%2Fik.imagekit.io%2Fi85bduykd%2F2112BottleGreenFront_WRq0_1NoiO.jpg&w=1200&q=75",
+            "loading": "auto",
+            "width": 293,
+            "height": 377,
+            "aboveFold": true
+          }
+        ],
+        "fonts": [
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/media/01e4147cff8141ee-s.p.7787e134.woff2",
+            "cacheControl": "public,max-age=31536000,immutable"
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2",
+            "cacheControl": "public,max-age=31536000,immutable"
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/media/1f9e983605289f29-s.ef9233b7.woff2",
+            "cacheControl": "public,max-age=31536000,immutable"
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/media/1bffadaabf893a1e-s.7cd81963.woff2",
+            "cacheControl": "public,max-age=31536000,immutable"
+          }
+        ],
+        "cacheStats": {
+          "strong": 38,
+          "good": 1,
+          "weak": 0,
+          "missing": 0
+        }
+      },
+      "vitalsEstimate": {
+        "ttfbMs": 320,
+        "lcpMs": 1956,
+        "cls": 0,
+        "inpProxyMs": 0,
+        "tbtMs": 0,
+        "maxLongTaskMs": 0
+      },
+      "runtime": {
+        "dclMs": 884,
+        "loadMs": 1174,
+        "navWallTimeMs": 7508
+      }
+    },
+    {
+      "route": "/cart",
+      "url": "https://www.tatvivahtrends.com/cart",
+      "auth": "user",
+      "measuredAt": "2026-04-04T07:03:18.661Z",
+      "requestCount": 63,
+      "blockingRequestCount": 0,
+      "duplicateRequests": [
+        {
+          "url": "https://tat-vivah-multi-vendor-ecom.onrender.com/v1/categories",
+          "count": 3
+        }
+      ],
+      "totalPayloadBytes": 1346905,
+      "totalPayloadKb": 1315.3,
+      "js": {
+        "scriptRequestCount": 18,
+        "totalScriptBytes": 836788,
+        "totalScriptKb": 817.2,
+        "largestScripts": [
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/d1a0d26e8c6b7ca3.js",
+            "sizeBytes": 224408,
+            "durationMs": 156
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/9837d8b8aa5cd346.js",
+            "sizeBytes": 126444,
+            "durationMs": 168
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/404b72e2be243ddc.js",
+            "sizeBytes": 116932,
+            "durationMs": 135
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/2d1d7a44ffb8a291.js",
+            "sizeBytes": 110896,
+            "durationMs": 131
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/4d7f1ce4b2bda1a2.js",
+            "sizeBytes": 43167,
+            "durationMs": 137
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/0e92410334fd7743.js",
+            "sizeBytes": 38490,
+            "durationMs": 134
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/16231f8c1f2b76e4.js",
+            "sizeBytes": 34911,
+            "durationMs": 180
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/38232f66bb685250.js",
+            "sizeBytes": 32827,
+            "durationMs": 150
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/c585a01853f8100b.js",
+            "sizeBytes": 30680,
+            "durationMs": 168
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/ef28d311ddeaf3ad.js",
+            "sizeBytes": 30173,
+            "durationMs": 127
+          }
+        ]
+      },
+      "api": {
+        "requestCount": 6,
+        "endpoints": [
+          "https://tat-vivah-multi-vendor-ecom.onrender.com/v1/categories",
+          "https://tat-vivah-multi-vendor-ecom.onrender.com/v1/wishlist/count",
+          "https://tat-vivah-multi-vendor-ecom.onrender.com/v1/notifications/unread-count",
+          "https://tat-vivah-multi-vendor-ecom.onrender.com/v1/cart"
+        ],
+        "p50Ms": 1520,
+        "p95Ms": 3240,
+        "maxMs": 3694
+      },
+      "assets": {
+        "largestImages": [
+          {
+            "url": "https://www.tatvivahtrends.com/_next/image?url=%2Flogo.png&w=384&q=75",
+            "sizeBytes": 14057,
+            "durationMs": 56
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/image?url=%2Flogo.png&w=256&q=75",
+            "sizeBytes": 9212,
+            "durationMs": 52
+          }
+        ],
+        "aboveFoldImageCount": 1,
+        "aboveFoldImages": [
+          {
+            "src": "https://www.tatvivahtrends.com/_next/image?url=%2Flogo.png&w=256&q=75",
+            "loading": "lazy",
+            "width": 128,
+            "height": 72,
+            "aboveFold": true
+          }
+        ],
+        "fonts": [
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2",
+            "cacheControl": "public,max-age=31536000,immutable"
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/media/01e4147cff8141ee-s.p.7787e134.woff2",
+            "cacheControl": "public,max-age=31536000,immutable"
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/media/1f9e983605289f29-s.ef9233b7.woff2",
+            "cacheControl": "public,max-age=31536000,immutable"
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/media/1bffadaabf893a1e-s.7cd81963.woff2",
+            "cacheControl": "public,max-age=31536000,immutable"
+          }
+        ],
+        "cacheStats": {
+          "strong": 24,
+          "good": 2,
+          "weak": 0,
+          "missing": 0
+        }
+      },
+      "vitalsEstimate": {
+        "ttfbMs": 123,
+        "lcpMs": 4784,
+        "cls": 0.0255,
+        "inpProxyMs": 0,
+        "tbtMs": 0,
+        "maxLongTaskMs": 0
+      },
+      "runtime": {
+        "dclMs": 248,
+        "loadMs": 355,
+        "navWallTimeMs": 7073
+      }
+    },
+    {
+      "route": "/checkout",
+      "url": "https://www.tatvivahtrends.com/checkout",
+      "auth": "user",
+      "measuredAt": "2026-04-04T07:03:26.918Z",
+      "requestCount": 143,
+      "blockingRequestCount": 0,
+      "duplicateRequests": [
+        {
+          "url": "https://tat-vivah-multi-vendor-ecom.onrender.com/v1/categories",
+          "count": 3
+        },
+        {
+          "url": "https://checkout-static-next.razorpay.com/build/chunks/v2-entry-upi-qr-b8e66c56.modern.js",
+          "count": 2
+        },
+        {
+          "url": "https://checkout-static-next.razorpay.com/build/chunks/v2-entry-upi-block-3837159e.modern.js",
+          "count": 2
+        },
+        {
+          "url": "https://checkout-static-next.razorpay.com/build/chunks/v2-entry-checkout-payment-9592a10e.modern.js",
+          "count": 2
+        },
+        {
+          "url": "https://checkout-static-next.razorpay.com/build/chunks/v2-entry-card-39f7cd63.modern.js",
+          "count": 2
+        }
+      ],
+      "totalPayloadBytes": 3691980,
+      "totalPayloadKb": 3605.4,
+      "js": {
+        "scriptRequestCount": 61,
+        "totalScriptBytes": 3048876,
+        "totalScriptKb": 2977.4,
+        "largestScripts": [
+          {
+            "url": "https://checkout-static-next.razorpay.com/build/chunks/v2-entry-app-a4e09b4d.modern.js",
+            "sizeBytes": 532559,
+            "durationMs": 950
+          },
+          {
+            "url": "https://checkout-static-next.razorpay.com/build/chunks/v2-entry-v2-asset-common-10dcd96e.modern.js",
+            "sizeBytes": 341874,
+            "durationMs": 239
+          },
+          {
+            "url": "https://checkout-static-next.razorpay.com/build/chunks/v2-entry-lottie-player-d1554c4a.modern.js",
+            "sizeBytes": 305285,
+            "durationMs": 230
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/d1a0d26e8c6b7ca3.js",
+            "sizeBytes": 224408,
+            "durationMs": 130
+          },
+          {
+            "url": "https://checkout.razorpay.com/v1/checkout.js",
+            "sizeBytes": 186714,
+            "durationMs": 221
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/9837d8b8aa5cd346.js",
+            "sizeBytes": 126444,
+            "durationMs": 145
+          },
+          {
+            "url": "https://checkout-static-next.razorpay.com/build/b3fd5e2fb9ae23367e758c1f098f07fe742d5acc/v2-entry.modern.js",
+            "sizeBytes": 117383,
+            "durationMs": 670
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/404b72e2be243ddc.js",
+            "sizeBytes": 116932,
+            "durationMs": 121
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/chunks/2d1d7a44ffb8a291.js",
+            "sizeBytes": 110896,
+            "durationMs": 117
+          },
+          {
+            "url": "https://checkout-static-next.razorpay.com/build/chunks/v2-entry-918ad83f.modern.js",
+            "sizeBytes": 74451,
+            "durationMs": 705
+          }
+        ]
+      },
+      "api": {
+        "requestCount": 10,
+        "endpoints": [
+          "https://checkout.razorpay.com/v1/checkout.js",
+          "https://tat-vivah-multi-vendor-ecom.onrender.com/v1/categories",
+          "https://tat-vivah-multi-vendor-ecom.onrender.com/v1/cart",
+          "https://lumberjack.razorpay.com/v1/track",
+          "https://api.razorpay.com/v1/checkout/public?build=b3fd5e2fb9ae23367e758c1f098f07fe742d5acc&build_v1=95116d6cc420916ce3670edbea4b0e136ba1271c&checkout_v2=1&new_session=1&traffic_env=production&unified_session_id=SZKIJCHoyOUT3Z",
+          "https://tat-vivah-multi-vendor-ecom.onrender.com/v1/notifications/unread-count",
+          "https://tat-vivah-multi-vendor-ecom.onrender.com/v1/wishlist/count",
+          "https://tat-vivah-multi-vendor-ecom.onrender.com/v1/addresses"
+        ],
+        "p50Ms": 659,
+        "p95Ms": 1617,
+        "maxMs": 1719
+      },
+      "assets": {
+        "largestImages": [
+          {
+            "url": "https://www.tatvivahtrends.com/_next/image?url=%2Flogo.png&w=384&q=75",
+            "sizeBytes": 14057,
+            "durationMs": 44
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/image?url=%2Flogo.png&w=256&q=75",
+            "sizeBytes": 9212,
+            "durationMs": 65
+          }
+        ],
+        "aboveFoldImageCount": 1,
+        "aboveFoldImages": [
+          {
+            "src": "https://www.tatvivahtrends.com/_next/image?url=%2Flogo.png&w=256&q=75",
+            "loading": "lazy",
+            "width": 128,
+            "height": 72,
+            "aboveFold": true
+          }
+        ],
+        "fonts": [
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/media/01e4147cff8141ee-s.p.7787e134.woff2",
+            "cacheControl": "public,max-age=31536000,immutable"
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2",
+            "cacheControl": "public,max-age=31536000,immutable"
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/media/1f9e983605289f29-s.ef9233b7.woff2",
+            "cacheControl": "public,max-age=31536000,immutable"
+          },
+          {
+            "url": "https://www.tatvivahtrends.com/_next/static/media/1bffadaabf893a1e-s.7cd81963.woff2",
+            "cacheControl": "public,max-age=31536000,immutable"
+          }
+        ],
+        "cacheStats": {
+          "strong": 25,
+          "good": 2,
+          "weak": 0,
+          "missing": 0
+        }
+      },
+      "vitalsEstimate": {
+        "ttfbMs": 119,
+        "lcpMs": 348,
+        "cls": 0,
+        "inpProxyMs": 0,
+        "tbtMs": 0,
+        "maxLongTaskMs": 0
+      },
+      "runtime": {
+        "dclMs": 259,
+        "loadMs": 328,
+        "navWallTimeMs": 8228
+      }
+    },
+    {
+      "route": "/seller/dashboard",
+      "url": "https://seller.tatvivahtrends.com/dashboard",
+      "auth": "seller",
+      "measuredAt": "2026-04-04T07:03:33.270Z",
+      "requestCount": 89,
+      "blockingRequestCount": 0,
+      "duplicateRequests": [
+        {
+          "url": "https://seller.tatvivahtrends.com/seller/dashboard",
+          "count": 5
+        },
+        {
+          "url": "https://tat-vivah-multi-vendor-ecom.onrender.com/v1/categories",
+          "count": 3
+        }
+      ],
+      "totalPayloadBytes": 1391324,
+      "totalPayloadKb": 1358.7,
+      "js": {
+        "scriptRequestCount": 23,
+        "totalScriptBytes": 1011206,
+        "totalScriptKb": 987.5,
+        "largestScripts": [
+          {
+            "url": "https://seller.tatvivahtrends.com/_next/static/chunks/d1a0d26e8c6b7ca3.js",
+            "sizeBytes": 224408,
+            "durationMs": 111
+          },
+          {
+            "url": "https://seller.tatvivahtrends.com/_next/static/chunks/9837d8b8aa5cd346.js",
+            "sizeBytes": 126444,
+            "durationMs": 137
+          },
+          {
+            "url": "https://seller.tatvivahtrends.com/_next/static/chunks/404b72e2be243ddc.js",
+            "sizeBytes": 116932,
+            "durationMs": 135
+          },
+          {
+            "url": "https://seller.tatvivahtrends.com/_next/static/chunks/2d1d7a44ffb8a291.js",
+            "sizeBytes": 110896,
+            "durationMs": 114
+          },
+          {
+            "url": "https://seller.tatvivahtrends.com/_next/static/chunks/b779c20e63b98688.js",
+            "sizeBytes": 62139,
+            "durationMs": 49
+          },
+          {
+            "url": "https://seller.tatvivahtrends.com/_next/static/chunks/2f008d3fb728e47b.js",
+            "sizeBytes": 55438,
+            "durationMs": 43
+          },
+          {
+            "url": "https://seller.tatvivahtrends.com/_next/static/chunks/e7abc9ccc77e29af.js",
+            "sizeBytes": 52056,
+            "durationMs": 44
+          },
+          {
+            "url": "https://seller.tatvivahtrends.com/_next/static/chunks/4d7f1ce4b2bda1a2.js",
+            "sizeBytes": 43167,
+            "durationMs": 137
+          },
+          {
+            "url": "https://seller.tatvivahtrends.com/_next/static/chunks/0e92410334fd7743.js",
+            "sizeBytes": 38490,
+            "durationMs": 114
+          },
+          {
+            "url": "https://seller.tatvivahtrends.com/_next/static/chunks/38232f66bb685250.js",
+            "sizeBytes": 32827,
+            "durationMs": 116
+          }
+        ]
+      },
+      "api": {
+        "requestCount": 9,
+        "endpoints": [
+          "https://tat-vivah-multi-vendor-ecom.onrender.com/v1/categories",
+          "https://tat-vivah-multi-vendor-ecom.onrender.com/v1/notifications/unread-count",
+          "https://tat-vivah-multi-vendor-ecom.onrender.com/v1/seller/analytics/refund-impact",
+          "https://tat-vivah-multi-vendor-ecom.onrender.com/v1/seller/analytics/summary",
+          "https://tat-vivah-multi-vendor-ecom.onrender.com/v1/seller/analytics/inventory-health",
+          "https://tat-vivah-multi-vendor-ecom.onrender.com/v1/seller/analytics/top-products?limit=10",
+          "https://tat-vivah-multi-vendor-ecom.onrender.com/v1/seller/analytics/revenue-chart?interval=daily"
+        ],
+        "p50Ms": 1875,
+        "p95Ms": 2815,
+        "maxMs": 2959
+      },
+      "assets": {
+        "largestImages": [
+          {
+            "url": "https://seller.tatvivahtrends.com/_next/image?url=%2Flogo.png&w=384&q=75",
+            "sizeBytes": 14057,
+            "durationMs": 42
+          },
+          {
+            "url": "https://seller.tatvivahtrends.com/_next/image?url=%2Flogo.png&w=256&q=75",
+            "sizeBytes": 9212,
+            "durationMs": 45
+          }
+        ],
+        "aboveFoldImageCount": 1,
+        "aboveFoldImages": [
+          {
+            "src": "https://seller.tatvivahtrends.com/_next/image?url=%2Flogo.png&w=256&q=75",
+            "loading": "lazy",
+            "width": 128,
+            "height": 72,
+            "aboveFold": true
+          }
+        ],
+        "fonts": [
+          {
+            "url": "https://seller.tatvivahtrends.com/_next/static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2",
+            "cacheControl": "public,max-age=31536000,immutable"
+          },
+          {
+            "url": "https://seller.tatvivahtrends.com/_next/static/media/01e4147cff8141ee-s.p.7787e134.woff2",
+            "cacheControl": "public,max-age=31536000,immutable"
+          },
+          {
+            "url": "https://seller.tatvivahtrends.com/_next/static/media/1f9e983605289f29-s.ef9233b7.woff2",
+            "cacheControl": "public,max-age=31536000,immutable"
+          }
+        ],
+        "cacheStats": {
+          "strong": 28,
+          "good": 2,
+          "weak": 0,
+          "missing": 0
+        }
+      },
+      "vitalsEstimate": {
+        "ttfbMs": 112,
+        "lcpMs": 1084,
+        "cls": 0,
+        "inpProxyMs": 0,
+        "tbtMs": 0,
+        "maxLongTaskMs": 0
+      },
+      "runtime": {
+        "dclMs": 231,
+        "loadMs": 303,
+        "navWallTimeMs": 6301
+      }
+    },
+    {
+      "route": "/admin/dashboard",
+      "url": "https://admin.tatvivahtrends.com/dashboard",
+      "auth": "admin",
+      "measuredAt": "2026-04-04T07:03:41.047Z",
+      "requestCount": 53,
+      "blockingRequestCount": 0,
+      "duplicateRequests": [
+        {
+          "url": "https://admin.tatvivahtrends.com/admin/dashboard",
+          "count": 5
+        },
+        {
+          "url": "https://tat-vivah-multi-vendor-ecom.onrender.com/v1/categories",
+          "count": 3
+        }
+      ],
+      "totalPayloadBytes": 1230171,
+      "totalPayloadKb": 1201.3,
+      "js": {
+        "scriptRequestCount": 17,
+        "totalScriptBytes": 910841,
+        "totalScriptKb": 889.5,
+        "largestScripts": [
+          {
+            "url": "https://admin.tatvivahtrends.com/_next/static/chunks/d1a0d26e8c6b7ca3.js",
+            "sizeBytes": 224408,
+            "durationMs": 367
+          },
+          {
+            "url": "https://admin.tatvivahtrends.com/_next/static/chunks/9837d8b8aa5cd346.js",
+            "sizeBytes": 126444,
+            "durationMs": 387
+          },
+          {
+            "url": "https://admin.tatvivahtrends.com/_next/static/chunks/404b72e2be243ddc.js",
+            "sizeBytes": 116932,
+            "durationMs": 356
+          },
+          {
+            "url": "https://admin.tatvivahtrends.com/_next/static/chunks/2d1d7a44ffb8a291.js",
+            "sizeBytes": 110896,
+            "durationMs": 363
+          },
+          {
+            "url": "https://admin.tatvivahtrends.com/_next/static/chunks/a426cc1707b33e56.js",
+            "sizeBytes": 66079,
+            "durationMs": 51
+          },
+          {
+            "url": "https://admin.tatvivahtrends.com/_next/static/chunks/e7abc9ccc77e29af.js",
+            "sizeBytes": 52056,
+            "durationMs": 44
+          },
+          {
+            "url": "https://admin.tatvivahtrends.com/_next/static/chunks/4d7f1ce4b2bda1a2.js",
+            "sizeBytes": 43167,
+            "durationMs": 351
+          },
+          {
+            "url": "https://admin.tatvivahtrends.com/_next/static/chunks/0e92410334fd7743.js",
+            "sizeBytes": 38490,
+            "durationMs": 351
+          },
+          {
+            "url": "https://admin.tatvivahtrends.com/_next/static/chunks/38232f66bb685250.js",
+            "sizeBytes": 32827,
+            "durationMs": 349
+          },
+          {
+            "url": "https://admin.tatvivahtrends.com/_next/static/chunks/c585a01853f8100b.js",
+            "sizeBytes": 30680,
+            "durationMs": 366
+          }
+        ]
+      },
+      "api": {
+        "requestCount": 4,
+        "endpoints": [
+          "https://tat-vivah-multi-vendor-ecom.onrender.com/v1/categories",
+          "https://tat-vivah-multi-vendor-ecom.onrender.com/v1/admin/stats"
+        ],
+        "p50Ms": 2198,
+        "p95Ms": 3407,
+        "maxMs": 3606
+      },
+      "assets": {
+        "largestImages": [
+          {
+            "url": "https://admin.tatvivahtrends.com/_next/image?url=%2Flogo.png&w=384&q=75",
+            "sizeBytes": 14057,
+            "durationMs": 118
+          },
+          {
+            "url": "https://admin.tatvivahtrends.com/_next/image?url=%2Flogo.png&w=256&q=75",
+            "sizeBytes": 9212,
+            "durationMs": 120
+          }
+        ],
+        "aboveFoldImageCount": 1,
+        "aboveFoldImages": [
+          {
+            "src": "https://admin.tatvivahtrends.com/_next/image?url=%2Flogo.png&w=256&q=75",
+            "loading": "lazy",
+            "width": 128,
+            "height": 72,
+            "aboveFold": true
+          }
+        ],
+        "fonts": [
+          {
+            "url": "https://admin.tatvivahtrends.com/_next/static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2",
+            "cacheControl": "public,max-age=31536000,immutable"
+          },
+          {
+            "url": "https://admin.tatvivahtrends.com/_next/static/media/01e4147cff8141ee-s.p.7787e134.woff2",
+            "cacheControl": "public,max-age=31536000,immutable"
+          }
+        ],
+        "cacheStats": {
+          "strong": 21,
+          "good": 2,
+          "weak": 0,
+          "missing": 0
+        }
+      },
+      "vitalsEstimate": {
+        "ttfbMs": 331,
+        "lcpMs": 1664,
+        "cls": 0,
+        "inpProxyMs": 0,
+        "tbtMs": 0,
+        "maxLongTaskMs": 0
+      },
+      "runtime": {
+        "dclMs": 687,
+        "loadMs": 879,
+        "navWallTimeMs": 7742
+      }
+    }
+  ]
+}

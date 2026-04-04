@@ -24,7 +24,7 @@ const searchQuerySchema = z.object({
         .default('relevance'),
 });
 const suggestQuerySchema = z.object({
-    q: z.string().min(1, 'Query is required').max(100),
+    q: z.string().min(2, 'Query must be at least 2 characters').max(100),
     limit: z
         .string()
         .transform(Number)
@@ -68,6 +68,7 @@ export class SearchController {
                 categoryId: filters.categoryId,
                 sort: filters.sort,
             });
+            res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=120');
             res.json(result);
         }
         catch (error) {
@@ -81,6 +82,7 @@ export class SearchController {
         try {
             const { q, limit } = suggestQuerySchema.parse(req.query);
             const suggestions = await searchService.getSuggestions(q, limit);
+            res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=120');
             res.json({ suggestions });
         }
         catch (error) {
@@ -94,6 +96,7 @@ export class SearchController {
         try {
             const { limit } = trendingQuerySchema.parse(req.query);
             const trending = await searchService.getTrending(limit);
+            res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=120');
             res.json({ trending });
         }
         catch (error) {
@@ -108,6 +111,7 @@ export class SearchController {
             const { id } = relatedParamsSchema.parse(req.params);
             const { limit } = relatedQuerySchema.parse(req.query);
             const related = await searchService.getRelatedProducts(id, limit);
+            res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=180');
             res.json({ data: related });
         }
         catch (error) {

@@ -1,4 +1,5 @@
 import { prisma } from '../config/db.js';
+import { redis } from '../config/redis.js';
 const productSelect = {
     id: true,
     title: true,
@@ -15,6 +16,7 @@ const sellerSelect = {
     },
 };
 export class ReelRepository {
+    reelViewsBufferKey = 'reel:views:buffer';
     async create(data) {
         return prisma.reel.create({
             data: {
@@ -128,10 +130,26 @@ export class ReelRepository {
         });
     }
     async incrementViews(id) {
-        return prisma.reel.update({
-            where: { id },
-            data: { views: { increment: 1 } },
-        });
+        await redis.hincrby(this.reelViewsBufferKey, id, 1);
+    }
+    async flushReelViews() {
+        const buffer = await redis.hgetall(this.reelViewsBufferKey);
+        const entries = Object.entries(buffer);
+        if (entries.length === 0) {
+            return { flushed: 0 };
+        }
+        for (const [reelId, count] of entries) {
+            const increment = Number(count);
+            if (!Number.isFinite(increment) || increment <= 0) {
+                continue;
+            }
+            await prisma.reel.updateMany({
+                where: { id: reelId },
+                data: { views: { increment: Math.trunc(increment) } },
+            });
+        }
+        await redis.del(this.reelViewsBufferKey);
+        return { flushed: entries.length };
     }
     async delete(id) {
         return prisma.reel.delete({ where: { id } });

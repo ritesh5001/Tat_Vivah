@@ -1,0 +1,606 @@
+{
+  "generatedAt": "2026-04-04T06:56:24.484Z",
+  "source": "frontend/.next manifests",
+  "routes": [
+    {
+      "route": "/",
+      "js": {
+        "initialBytes": 505052,
+        "initialKb": 493.2,
+        "routeSpecificBytes": 378990,
+        "routeSpecificKb": 370.1,
+        "totalShippedBytes": 884042,
+        "totalShippedKb": 863.3,
+        "largestChunks": [
+          {
+            "chunk": "static/chunks/4bd1b696-e5d7c65570c947b7.js",
+            "bytes": 198492,
+            "kb": 193.8
+          },
+          {
+            "chunk": "static/chunks/3794-084a406ae2f53c6d.js",
+            "bytes": 188468,
+            "kb": 184.1
+          },
+          {
+            "chunk": "static/chunks/5918-13db76f52630a08b.js",
+            "bytes": 117520,
+            "kb": 114.8
+          },
+          {
+            "chunk": "static/chunks/polyfills-42372ed130431b0a.js",
+            "bytes": 112594,
+            "kb": 110
+          },
+          {
+            "chunk": "static/chunks/8444-612ebedf408053ed.js",
+            "bytes": 93728,
+            "kb": 91.5
+          },
+          {
+            "chunk": "static/chunks/app/layout-835a86d60c2d7176.js",
+            "bytes": 48090,
+            "kb": 47
+          },
+          {
+            "chunk": "static/chunks/6609-80e42c74e2ed6b14.js",
+            "bytes": 32768,
+            "kb": 32
+          },
+          {
+            "chunk": "static/chunks/app/page-2049ba6b76baff1d.js",
+            "bytes": 31992,
+            "kb": 31.2
+          },
+          {
+            "chunk": "static/chunks/2992-dbd1daa0a82a412d.js",
+            "bytes": 14865,
+            "kb": 14.5
+          },
+          {
+            "chunk": "static/chunks/5772-bd30d902b80458d2.js",
+            "bytes": 14328,
+            "kb": 14
+          }
+        ]
+      },
+      "libraries": [
+        {
+          "library": "next",
+          "bytes": 371388,
+          "kb": 362.7
+        }
+      ],
+      "clientServer": {
+        "pageIsClient": false,
+        "projectClientModulesCount": 77,
+        "thirdPartyClientModulesCount": 22
+      }
+    },
+    {
+      "route": "/marketplace",
+      "js": {
+        "initialBytes": 505052,
+        "initialKb": 493.2,
+        "routeSpecificBytes": 390903,
+        "routeSpecificKb": 381.7,
+        "totalShippedBytes": 895955,
+        "totalShippedKb": 875,
+        "largestChunks": [
+          {
+            "chunk": "static/chunks/4bd1b696-e5d7c65570c947b7.js",
+            "bytes": 198492,
+            "kb": 193.8
+          },
+          {
+            "chunk": "static/chunks/3794-084a406ae2f53c6d.js",
+            "bytes": 188468,
+            "kb": 184.1
+          },
+          {
+            "chunk": "static/chunks/5918-13db76f52630a08b.js",
+            "bytes": 117520,
+            "kb": 114.8
+          },
+          {
+            "chunk": "static/chunks/polyfills-42372ed130431b0a.js",
+            "bytes": 112594,
+            "kb": 110
+          },
+          {
+            "chunk": "static/chunks/8444-612ebedf408053ed.js",
+            "bytes": 93728,
+            "kb": 91.5
+          },
+          {
+            "chunk": "static/chunks/app/layout-835a86d60c2d7176.js",
+            "bytes": 48090,
+            "kb": 47
+          },
+          {
+            "chunk": "static/chunks/6609-80e42c74e2ed6b14.js",
+            "bytes": 32768,
+            "kb": 32
+          },
+          {
+            "chunk": "static/chunks/app/page-2049ba6b76baff1d.js",
+            "bytes": 31992,
+            "kb": 31.2
+          },
+          {
+            "chunk": "static/chunks/2992-dbd1daa0a82a412d.js",
+            "bytes": 14865,
+            "kb": 14.5
+          },
+          {
+            "chunk": "static/chunks/5772-bd30d902b80458d2.js",
+            "bytes": 14328,
+            "kb": 14
+          }
+        ]
+      },
+      "libraries": [
+        {
+          "library": "next",
+          "bytes": 373950,
+          "kb": 365.2
+        }
+      ],
+      "clientServer": {
+        "pageIsClient": false,
+        "projectClientModulesCount": 77,
+        "thirdPartyClientModulesCount": 22
+      }
+    },
+    {
+      "route": "/search",
+      "js": {
+        "initialBytes": 505052,
+        "initialKb": 493.2,
+        "routeSpecificBytes": 393248,
+        "routeSpecificKb": 384,
+        "totalShippedBytes": 898300,
+        "totalShippedKb": 877.2,
+        "largestChunks": [
+          {
+            "chunk": "static/chunks/4bd1b696-e5d7c65570c947b7.js",
+            "bytes": 198492,
+            "kb": 193.8
+          },
+          {
+            "chunk": "static/chunks/3794-084a406ae2f53c6d.js",
+            "bytes": 188468,
+            "kb": 184.1
+          },
+          {
+            "chunk": "static/chunks/5918-13db76f52630a08b.js",
+            "bytes": 117520,
+            "kb": 114.8
+          },
+          {
+            "chunk": "static/chunks/polyfills-42372ed130431b0a.js",
+            "bytes": 112594,
+            "kb": 110
+          },
+          {
+            "chunk": "static/chunks/8444-612ebedf408053ed.js",
+            "bytes": 93728,
+            "kb": 91.5
+          },
+          {
+            "chunk": "static/chunks/app/layout-835a86d60c2d7176.js",
+            "bytes": 48090,
+            "kb": 47
+          },
+          {
+            "chunk": "static/chunks/6609-80e42c74e2ed6b14.js",
+            "bytes": 32768,
+            "kb": 32
+          },
+          {
+            "chunk": "static/chunks/app/page-2049ba6b76baff1d.js",
+            "bytes": 31992,
+            "kb": 31.2
+          },
+          {
+            "chunk": "static/chunks/2992-dbd1daa0a82a412d.js",
+            "bytes": 14865,
+            "kb": 14.5
+          },
+          {
+            "chunk": "static/chunks/5772-bd30d902b80458d2.js",
+            "bytes": 14328,
+            "kb": 14
+          }
+        ]
+      },
+      "libraries": [
+        {
+          "library": "next",
+          "bytes": 371388,
+          "kb": 362.7
+        }
+      ],
+      "clientServer": {
+        "pageIsClient": true,
+        "projectClientModulesCount": 77,
+        "thirdPartyClientModulesCount": 22
+      }
+    },
+    {
+      "route": "/product/[id]",
+      "js": {
+        "initialBytes": 505052,
+        "initialKb": 493.2,
+        "routeSpecificBytes": 386512,
+        "routeSpecificKb": 377.5,
+        "totalShippedBytes": 891564,
+        "totalShippedKb": 870.7,
+        "largestChunks": [
+          {
+            "chunk": "static/chunks/4bd1b696-e5d7c65570c947b7.js",
+            "bytes": 198492,
+            "kb": 193.8
+          },
+          {
+            "chunk": "static/chunks/3794-084a406ae2f53c6d.js",
+            "bytes": 188468,
+            "kb": 184.1
+          },
+          {
+            "chunk": "static/chunks/5918-13db76f52630a08b.js",
+            "bytes": 117520,
+            "kb": 114.8
+          },
+          {
+            "chunk": "static/chunks/polyfills-42372ed130431b0a.js",
+            "bytes": 112594,
+            "kb": 110
+          },
+          {
+            "chunk": "static/chunks/8444-612ebedf408053ed.js",
+            "bytes": 93728,
+            "kb": 91.5
+          },
+          {
+            "chunk": "static/chunks/app/layout-835a86d60c2d7176.js",
+            "bytes": 48090,
+            "kb": 47
+          },
+          {
+            "chunk": "static/chunks/6609-80e42c74e2ed6b14.js",
+            "bytes": 32768,
+            "kb": 32
+          },
+          {
+            "chunk": "static/chunks/app/page-2049ba6b76baff1d.js",
+            "bytes": 31992,
+            "kb": 31.2
+          },
+          {
+            "chunk": "static/chunks/2992-dbd1daa0a82a412d.js",
+            "bytes": 14865,
+            "kb": 14.5
+          },
+          {
+            "chunk": "static/chunks/5772-bd30d902b80458d2.js",
+            "bytes": 14328,
+            "kb": 14
+          }
+        ]
+      },
+      "libraries": [
+        {
+          "library": "next",
+          "bytes": 369559,
+          "kb": 360.9
+        }
+      ],
+      "clientServer": {
+        "pageIsClient": false,
+        "projectClientModulesCount": 77,
+        "thirdPartyClientModulesCount": 22
+      }
+    },
+    {
+      "route": "/cart",
+      "js": {
+        "initialBytes": 505052,
+        "initialKb": 493.2,
+        "routeSpecificBytes": 395087,
+        "routeSpecificKb": 385.8,
+        "totalShippedBytes": 900139,
+        "totalShippedKb": 879,
+        "largestChunks": [
+          {
+            "chunk": "static/chunks/4bd1b696-e5d7c65570c947b7.js",
+            "bytes": 198492,
+            "kb": 193.8
+          },
+          {
+            "chunk": "static/chunks/3794-084a406ae2f53c6d.js",
+            "bytes": 188468,
+            "kb": 184.1
+          },
+          {
+            "chunk": "static/chunks/5918-13db76f52630a08b.js",
+            "bytes": 117520,
+            "kb": 114.8
+          },
+          {
+            "chunk": "static/chunks/polyfills-42372ed130431b0a.js",
+            "bytes": 112594,
+            "kb": 110
+          },
+          {
+            "chunk": "static/chunks/8444-612ebedf408053ed.js",
+            "bytes": 93728,
+            "kb": 91.5
+          },
+          {
+            "chunk": "static/chunks/app/layout-835a86d60c2d7176.js",
+            "bytes": 48090,
+            "kb": 47
+          },
+          {
+            "chunk": "static/chunks/6609-80e42c74e2ed6b14.js",
+            "bytes": 32768,
+            "kb": 32
+          },
+          {
+            "chunk": "static/chunks/app/page-2049ba6b76baff1d.js",
+            "bytes": 31992,
+            "kb": 31.2
+          },
+          {
+            "chunk": "static/chunks/app/cart/page-ccfab0cf41aa3e7e.js",
+            "bytes": 16097,
+            "kb": 15.7
+          },
+          {
+            "chunk": "static/chunks/2992-dbd1daa0a82a412d.js",
+            "bytes": 14865,
+            "kb": 14.5
+          }
+        ]
+      },
+      "libraries": [
+        {
+          "library": "next",
+          "bytes": 371388,
+          "kb": 362.7
+        }
+      ],
+      "clientServer": {
+        "pageIsClient": true,
+        "projectClientModulesCount": 77,
+        "thirdPartyClientModulesCount": 22
+      }
+    },
+    {
+      "route": "/checkout",
+      "js": {
+        "initialBytes": 505052,
+        "initialKb": 493.2,
+        "routeSpecificBytes": 407914,
+        "routeSpecificKb": 398.4,
+        "totalShippedBytes": 912966,
+        "totalShippedKb": 891.6,
+        "largestChunks": [
+          {
+            "chunk": "static/chunks/4bd1b696-e5d7c65570c947b7.js",
+            "bytes": 198492,
+            "kb": 193.8
+          },
+          {
+            "chunk": "static/chunks/3794-084a406ae2f53c6d.js",
+            "bytes": 188468,
+            "kb": 184.1
+          },
+          {
+            "chunk": "static/chunks/5918-13db76f52630a08b.js",
+            "bytes": 117520,
+            "kb": 114.8
+          },
+          {
+            "chunk": "static/chunks/polyfills-42372ed130431b0a.js",
+            "bytes": 112594,
+            "kb": 110
+          },
+          {
+            "chunk": "static/chunks/8444-612ebedf408053ed.js",
+            "bytes": 93728,
+            "kb": 91.5
+          },
+          {
+            "chunk": "static/chunks/app/layout-835a86d60c2d7176.js",
+            "bytes": 48090,
+            "kb": 47
+          },
+          {
+            "chunk": "static/chunks/6609-80e42c74e2ed6b14.js",
+            "bytes": 32768,
+            "kb": 32
+          },
+          {
+            "chunk": "static/chunks/app/page-2049ba6b76baff1d.js",
+            "bytes": 31992,
+            "kb": 31.2
+          },
+          {
+            "chunk": "static/chunks/app/checkout/page-290d02bbff574ca4.js",
+            "bytes": 22596,
+            "kb": 22.1
+          },
+          {
+            "chunk": "static/chunks/2992-dbd1daa0a82a412d.js",
+            "bytes": 14865,
+            "kb": 14.5
+          }
+        ]
+      },
+      "libraries": [
+        {
+          "library": "next",
+          "bytes": 371388,
+          "kb": 362.7
+        }
+      ],
+      "clientServer": {
+        "pageIsClient": true,
+        "projectClientModulesCount": 77,
+        "thirdPartyClientModulesCount": 22
+      }
+    },
+    {
+      "route": "/seller/dashboard",
+      "js": {
+        "initialBytes": 505052,
+        "initialKb": 493.2,
+        "routeSpecificBytes": 420212,
+        "routeSpecificKb": 410.4,
+        "totalShippedBytes": 925264,
+        "totalShippedKb": 903.6,
+        "largestChunks": [
+          {
+            "chunk": "static/chunks/4bd1b696-e5d7c65570c947b7.js",
+            "bytes": 198492,
+            "kb": 193.8
+          },
+          {
+            "chunk": "static/chunks/3794-084a406ae2f53c6d.js",
+            "bytes": 188468,
+            "kb": 184.1
+          },
+          {
+            "chunk": "static/chunks/5918-13db76f52630a08b.js",
+            "bytes": 117520,
+            "kb": 114.8
+          },
+          {
+            "chunk": "static/chunks/polyfills-42372ed130431b0a.js",
+            "bytes": 112594,
+            "kb": 110
+          },
+          {
+            "chunk": "static/chunks/8444-612ebedf408053ed.js",
+            "bytes": 93728,
+            "kb": 91.5
+          },
+          {
+            "chunk": "static/chunks/app/layout-835a86d60c2d7176.js",
+            "bytes": 48090,
+            "kb": 47
+          },
+          {
+            "chunk": "static/chunks/6609-80e42c74e2ed6b14.js",
+            "bytes": 32768,
+            "kb": 32
+          },
+          {
+            "chunk": "static/chunks/app/page-2049ba6b76baff1d.js",
+            "bytes": 31992,
+            "kb": 31.2
+          },
+          {
+            "chunk": "static/chunks/2410-435b5e73d0770293.js",
+            "bytes": 21114,
+            "kb": 20.6
+          },
+          {
+            "chunk": "static/chunks/536-00923b9b4c58a857.js",
+            "bytes": 19903,
+            "kb": 19.4
+          }
+        ]
+      },
+      "libraries": [
+        {
+          "library": "next",
+          "bytes": 371388,
+          "kb": 362.7
+        }
+      ],
+      "clientServer": {
+        "pageIsClient": true,
+        "projectClientModulesCount": 77,
+        "thirdPartyClientModulesCount": 22
+      }
+    },
+    {
+      "route": "/admin/dashboard",
+      "js": {
+        "initialBytes": 505052,
+        "initialKb": 493.2,
+        "routeSpecificBytes": 401466,
+        "routeSpecificKb": 392.1,
+        "totalShippedBytes": 906518,
+        "totalShippedKb": 885.3,
+        "largestChunks": [
+          {
+            "chunk": "static/chunks/4bd1b696-e5d7c65570c947b7.js",
+            "bytes": 198492,
+            "kb": 193.8
+          },
+          {
+            "chunk": "static/chunks/3794-084a406ae2f53c6d.js",
+            "bytes": 188468,
+            "kb": 184.1
+          },
+          {
+            "chunk": "static/chunks/5918-13db76f52630a08b.js",
+            "bytes": 117520,
+            "kb": 114.8
+          },
+          {
+            "chunk": "static/chunks/polyfills-42372ed130431b0a.js",
+            "bytes": 112594,
+            "kb": 110
+          },
+          {
+            "chunk": "static/chunks/8444-612ebedf408053ed.js",
+            "bytes": 93728,
+            "kb": 91.5
+          },
+          {
+            "chunk": "static/chunks/app/layout-835a86d60c2d7176.js",
+            "bytes": 48090,
+            "kb": 47
+          },
+          {
+            "chunk": "static/chunks/6609-80e42c74e2ed6b14.js",
+            "bytes": 32768,
+            "kb": 32
+          },
+          {
+            "chunk": "static/chunks/app/page-2049ba6b76baff1d.js",
+            "bytes": 31992,
+            "kb": 31.2
+          },
+          {
+            "chunk": "static/chunks/app/(admin)/admin/dashboard/page-2af317a04c56da1b.js",
+            "bytes": 22476,
+            "kb": 21.9
+          },
+          {
+            "chunk": "static/chunks/2992-dbd1daa0a82a412d.js",
+            "bytes": 14865,
+            "kb": 14.5
+          }
+        ]
+      },
+      "libraries": [
+        {
+          "library": "next",
+          "bytes": 371388,
+          "kb": 362.7
+        }
+      ],
+      "clientServer": {
+        "pageIsClient": true,
+        "projectClientModulesCount": 77,
+        "thirdPartyClientModulesCount": 22
+      }
+    }
+  ]
+}

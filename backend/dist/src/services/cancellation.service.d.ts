@@ -8,8 +8,8 @@ export declare class CancellationService {
             userId: string;
         };
     } & {
-        reason: string;
         status: import(".prisma/client").$Enums.CancellationStatus;
+        reason: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
@@ -28,8 +28,8 @@ export declare class CancellationService {
                 totalAmount: number;
             };
         } & {
-            reason: string;
             status: import(".prisma/client").$Enums.CancellationStatus;
+            reason: string;
             id: string;
             createdAt: Date;
             updatedAt: Date;
@@ -63,8 +63,8 @@ export declare class CancellationService {
                 totalAmount: number;
             };
         } & {
-            reason: string;
             status: import(".prisma/client").$Enums.CancellationStatus;
+            reason: string;
             id: string;
             createdAt: Date;
             updatedAt: Date;

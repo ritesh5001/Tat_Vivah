@@ -83,18 +83,19 @@ export class WishlistService {
      * Returns whether the item was added or removed.
      */
     async toggleItem(userId, productId) {
-        // Validate product exists and is published
-        const product = await prisma.product.findUnique({
-            where: { id: productId },
-            select: { id: true, categoryId: true, isPublished: true, deletedByAdmin: true, status: true },
-        });
+        const [product, wishlist] = await Promise.all([
+            prisma.product.findUnique({
+                where: { id: productId },
+                select: { id: true, categoryId: true, isPublished: true, deletedByAdmin: true, status: true },
+            }),
+            this.findOrCreateWishlist(userId),
+        ]);
         if (!product) {
             throw ApiError.notFound('Product not found');
         }
         if (product.deletedByAdmin || product.status !== 'APPROVED' || !product.isPublished) {
             throw ApiError.badRequest('Product is not available');
         }
-        const wishlist = await this.findOrCreateWishlist(userId);
         // Check if item already exists
         const existing = await prisma.wishlistItem.findUnique({
             where: {
@@ -133,17 +134,19 @@ export class WishlistService {
      * Explicitly add a product to the wishlist (idempotent).
      */
     async addItem(userId, productId) {
-        const product = await prisma.product.findUnique({
-            where: { id: productId },
-            select: { id: true, categoryId: true, isPublished: true, deletedByAdmin: true, status: true },
-        });
+        const [product, wishlist] = await Promise.all([
+            prisma.product.findUnique({
+                where: { id: productId },
+                select: { id: true, categoryId: true, isPublished: true, deletedByAdmin: true, status: true },
+            }),
+            this.findOrCreateWishlist(userId),
+        ]);
         if (!product) {
             throw ApiError.notFound('Product not found');
         }
         if (product.deletedByAdmin || product.status !== 'APPROVED' || !product.isPublished) {
             throw ApiError.badRequest('Product is not available');
         }
-        const wishlist = await this.findOrCreateWishlist(userId);
         // Upsert — if it already exists, no-op
         const existing = await prisma.wishlistItem.findUnique({
             where: {

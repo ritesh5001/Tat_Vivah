@@ -82,6 +82,24 @@ export class ProductService {
                 : this.toNumber(product.adminListingPrice),
         };
     }
+    normalizeTextFilter(value) {
+        if (!value)
+            return undefined;
+        const normalized = value.trim().replace(/\s+/g, ' ');
+        return normalized.length > 0 ? normalized : undefined;
+    }
+    normalizeListFilters(filters) {
+        const pageRaw = Number(filters.page ?? 1);
+        const limitRaw = Number(filters.limit ?? 20);
+        return {
+            ...filters,
+            page: Number.isFinite(pageRaw) && pageRaw > 0 ? Math.trunc(pageRaw) : 1,
+            limit: Math.min(50, Math.max(1, Number.isFinite(limitRaw) ? Math.trunc(limitRaw) : 20)),
+            categoryId: this.normalizeTextFilter(filters.categoryId),
+            search: this.normalizeTextFilter(filters.search),
+            occasion: this.normalizeTextFilter(filters.occasion)?.toLowerCase(),
+        };
+    }
     // =========================================================================
     // PUBLIC METHODS (Buyer)
     // =========================================================================
@@ -90,16 +108,17 @@ export class ProductService {
      * Uses Redis caching
      */
     async listProducts(filters) {
-        const page = filters.page ?? 1;
-        const limit = filters.limit ?? 20;
-        const cacheKey = !filters.categoryId && !filters.search && !filters.occasion && page === 1 && limit === 20
+        const normalizedFilters = this.normalizeListFilters(filters);
+        const page = normalizedFilters.page ?? 1;
+        const limit = normalizedFilters.limit ?? 20;
+        const cacheKey = !normalizedFilters.categoryId && !normalizedFilters.search && !normalizedFilters.occasion && page === 1 && limit === 20
             ? CACHE_KEYS.PRODUCTS_LIST
-            : CACHE_KEYS.PRODUCTS_LIST_FILTERED(page, limit, filters.categoryId, filters.search, filters.occasion);
+            : CACHE_KEYS.PRODUCTS_LIST_FILTERED(page, limit, normalizedFilters.categoryId, normalizedFilters.search, normalizedFilters.occasion);
         const cached = await getFromCache(cacheKey);
         if (cached) {
             return cached;
         }
-        const { products, total } = await this.productRepo.findPublished(filters);
+        const { products, total } = await this.productRepo.findPublished(normalizedFilters);
         const response = {
             data: products.map((product) => this.toPublicProduct(product)),
             pagination: {
@@ -109,7 +128,7 @@ export class ProductService {
                 totalPages: Math.ceil(total / limit),
             },
         };
-        await setCache(cacheKey, response, 60);
+        await setCache(cacheKey, response, page === 1 ? 120 : 90);
         return response;
     }
     /**
