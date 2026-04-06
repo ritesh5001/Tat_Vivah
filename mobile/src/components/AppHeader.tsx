@@ -281,6 +281,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "flex-start",
     alignItems: "center",
+    zIndex: 50,
   },
   mainEdgeSlot: {
     flex: 0,
@@ -326,6 +327,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: colors.warmWhite,
+    zIndex: 50,
   },
   logo: {
     height: 36,
