@@ -56,6 +56,12 @@ export function AppHeader({
   const marqueeItems = React.useMemo(() => [...ANNOUNCEMENTS, ...ANNOUNCEMENTS], []);
   const backFallbackRoute = "/home";
 
+  const handleOpenMenu = React.useCallback(() => {
+    requestAnimationFrame(() => {
+      setMenuOpen(true);
+    });
+  }, []);
+
   const handleBack = React.useCallback(() => {
     if (pathname === backFallbackRoute) {
       router.replace(backFallbackRoute);
@@ -129,11 +135,11 @@ export function AppHeader({
         <View style={[styles.leftSlot, isMainHeader && styles.mainEdgeSlot]}>
           {isMainHeader ? (
             <Pressable
-              onPress={() => setMenuOpen(true)}
-              style={styles.iconButton}
+              onPress={handleOpenMenu}
+              style={[styles.iconButton, styles.mainHeaderIconButton]}
               hitSlop={8}
             >
-              <Ionicons name="menu" size={25} color={colors.charcoal} />
+              <Ionicons name="menu" size={21} color={colors.charcoal} />
             </Pressable>
           ) : shouldShowBack ? (
             <View style={styles.leftRow}>
@@ -159,15 +165,15 @@ export function AppHeader({
         <View style={[styles.actions, isMainHeader && styles.mainEdgeSlot]}>
           {shouldShowSearch ? (
             <Pressable
-              style={styles.iconButton}
+              style={[styles.iconButton, isMainHeader && styles.mainHeaderIconButton]}
               onPress={() => router.push("/search")}
             >
-              <Ionicons name="search-outline" size={21} color={colors.charcoal} />
+              <Ionicons name="search-outline" size={19} color={colors.charcoal} />
             </Pressable>
           ) : null}
           {shouldShowProfile ? (
             <Pressable
-              style={styles.iconButton}
+              style={[styles.iconButton, isMainHeader && styles.mainHeaderIconButton]}
               onPress={() => router.push("/profile")}
             >
               <Ionicons name="person-outline" size={21} color={colors.charcoal} />
@@ -175,7 +181,7 @@ export function AppHeader({
           ) : null}
           {shouldShowWishlist ? (
             <Pressable
-              style={styles.iconButton}
+              style={[styles.iconButton, isMainHeader && styles.mainHeaderIconButton]}
               onPress={() => router.push("/wishlist")}
             >
               <Ionicons name="heart-outline" size={21} color={colors.charcoal} />
@@ -183,16 +189,16 @@ export function AppHeader({
           ) : null}
           {shouldShowCart ? (
             <Pressable
-              style={styles.iconButton}
+              style={[styles.iconButton, isMainHeader && styles.mainHeaderIconButton]}
               onPress={() => router.push("/cart")}
             >
-              <Ionicons name="bag-outline" size={20} color={colors.charcoal} />
+              <Ionicons name="bag-handle-outline" size={19} color={colors.charcoal} />
             </Pressable>
           ) : null}
           {shouldShowMenu && !isMainHeader ? (
             <Pressable
               style={styles.iconButton}
-              onPress={() => setMenuOpen(true)}
+              onPress={handleOpenMenu}
             >
               <Ionicons name="menu" size={18} color={colors.charcoal} />
             </Pressable>
@@ -312,6 +318,11 @@ const styles = StyleSheet.create({
     width: 36,
     alignItems: "center",
     justifyContent: "center",
+  },
+  mainHeaderIconButton: {
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.warmWhite,
   },
   logo: {
     height: 36,

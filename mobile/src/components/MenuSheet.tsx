@@ -56,7 +56,9 @@ export function MenuSheet({ visible, onClose, onNavigate, items }: MenuSheetProp
   const { showToast } = useToast();
   const [loggingOut, setLoggingOut] = React.useState(false);
   const [rendered, setRendered] = React.useState(visible);
+  const [overlayDismissEnabled, setOverlayDismissEnabled] = React.useState(false);
   const logoutLockRef = React.useRef(false);
+  const dismissEnableTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const overlayOpacity = React.useRef(new Animated.Value(0)).current;
   const drawerTranslateX = React.useRef(new Animated.Value(-DRAWER_WIDTH)).current;
 
@@ -123,8 +125,17 @@ export function MenuSheet({ visible, onClose, onNavigate, items }: MenuSheetProp
     onClose();
   }, [loggingOut, onClose]);
 
+  const handleOverlayPress = React.useCallback(() => {
+    if (!overlayDismissEnabled) return;
+    closeMenu();
+  }, [closeMenu, overlayDismissEnabled]);
+
   React.useEffect(() => {
     if (visible) {
+      if (dismissEnableTimerRef.current) {
+        clearTimeout(dismissEnableTimerRef.current);
+      }
+      setOverlayDismissEnabled(false);
       setRendered(true);
       Animated.parallel([
         Animated.timing(overlayOpacity, {
@@ -140,8 +151,18 @@ export function MenuSheet({ visible, onClose, onNavigate, items }: MenuSheetProp
           useNativeDriver: true,
         }),
       ]).start();
+
+      dismissEnableTimerRef.current = setTimeout(() => {
+        setOverlayDismissEnabled(true);
+      }, 220);
       return;
     }
+
+    if (dismissEnableTimerRef.current) {
+      clearTimeout(dismissEnableTimerRef.current);
+      dismissEnableTimerRef.current = null;
+    }
+    setOverlayDismissEnabled(false);
 
     if (!rendered) return;
 
@@ -163,6 +184,14 @@ export function MenuSheet({ visible, onClose, onNavigate, items }: MenuSheetProp
     });
   }, [drawerTranslateX, overlayOpacity, rendered, visible]);
 
+  React.useEffect(() => {
+    return () => {
+      if (dismissEnableTimerRef.current) {
+        clearTimeout(dismissEnableTimerRef.current);
+      }
+    };
+  }, []);
+
   if (!rendered) return null;
 
   return (
@@ -176,7 +205,7 @@ export function MenuSheet({ visible, onClose, onNavigate, items }: MenuSheetProp
       <View style={styles.modalRoot}>
         <AnimatedPressable
           style={[styles.overlay, { opacity: overlayOpacity }]}
-          onPress={closeMenu}
+          onPress={handleOverlayPress}
         />
 
         <Animated.View
