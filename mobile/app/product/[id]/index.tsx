@@ -5,6 +5,7 @@ import {
   ScrollView,
   Pressable,
   FlatList,
+  Platform,
   useWindowDimensions,
   Alert,
   Modal,
@@ -370,11 +371,14 @@ export default function ProductDetailScreen() {
   const [relatedProducts, setRelatedProducts] = React.useState<ProductSummary[]>([]);
   const [loadingRelated, setLoadingRelated] = React.useState(false);
 
-  const stickyBottomOffset = Math.max(insets.bottom, spacing.sm);
+  const WEB_BOTTOM_OFFSET = 16;
+  const stickyBottomOffset = Platform.OS === "web"
+    ? WEB_BOTTOM_OFFSET
+    : Math.max(insets.bottom, spacing.sm);
   const galleryWidth = Math.max(windowWidth - spacing.lg * 2, 260);
   const galleryHeight = Math.round(galleryWidth * 1.25);
   const stickyActionHeight = 96;
-  const stickyReserveSpace = stickyBottomOffset + stickyActionHeight + spacing.lg;
+  const stickyReserveSpace = stickyBottomOffset + stickyActionHeight + spacing.xl;
   const viewerWidth = Math.max(windowWidth, VIEWER_MIN_WIDTH);
 
   const [galleryIndex, setGalleryIndex] = React.useState(0);
@@ -1129,50 +1133,56 @@ export default function ProductDetailScreen() {
         style={[
           styles.stickyActionShell,
           {
-            bottom: stickyBottomOffset,
-            paddingBottom: Math.max(insets.bottom, spacing.xs),
+            bottom: Platform.OS === "web" ? 0 : stickyBottomOffset,
+            paddingBottom: Platform.OS === "web"
+              ? spacing.md
+              : Math.max(insets.bottom, spacing.xs),
           },
         ]}
       >
         <View style={styles.actionRow}>
-          <AnimatedPressable
-            style={[
-              styles.ctaButtonBase,
-              styles.addToCartButton,
-              (outOfStock || adding) && styles.buttonDisabled,
-            ]}
-            onPress={handleAddToCart}
-            disabled={outOfStock || adding}
-            hitSlop={10}
-          >
-            {adding ? (
-              <TatvivahLoader size="sm" color={colors.charcoal} />
-            ) : (
-              <Text style={[styles.ctaButtonText, styles.addToCartButtonText]}>
-                {!selectedVariant
-                  ? "Select variant"
-                  : outOfStock
-                    ? "Out of stock"
-                    : "Add to cart"}
-              </Text>
-            )}
-          </AnimatedPressable>
+          <View style={{ flex: 1 }}>
+            <AnimatedPressable
+              style={[
+                styles.ctaButtonBase,
+                styles.addToCartButton,
+                (outOfStock || adding) && styles.buttonDisabled,
+              ]}
+              onPress={handleAddToCart}
+              disabled={outOfStock || adding}
+              hitSlop={10}
+            >
+              {adding ? (
+                <TatvivahLoader size="sm" color={colors.charcoal} />
+              ) : (
+                <Text style={[styles.ctaButtonText, styles.addToCartButtonText]}>
+                  {!selectedVariant
+                    ? "Select variant"
+                    : outOfStock
+                      ? "Out of stock"
+                      : "Add to cart"}
+                </Text>
+              )}
+            </AnimatedPressable>
+          </View>
 
-          <AnimatedPressable
-            style={[
-              styles.ctaButtonBase,
-              styles.buyNowButton,
-              (outOfStock || adding) && styles.buttonDisabled,
-            ]}
-            onPress={handleBuyNow}
-            disabled={outOfStock || adding}
-          >
-            {adding ? (
-              <TatvivahLoader size="sm" color={colors.background} />
-            ) : (
-              <Text style={styles.ctaButtonText}>Buy now</Text>
-            )}
-          </AnimatedPressable>
+          <View style={{ flex: 1 }}>
+            <AnimatedPressable
+              style={[
+                styles.ctaButtonBase,
+                styles.buyNowButton,
+                (outOfStock || adding) && styles.buttonDisabled,
+              ]}
+              onPress={handleBuyNow}
+              disabled={outOfStock || adding}
+            >
+              {adding ? (
+                <TatvivahLoader size="sm" color={colors.background} />
+              ) : (
+                <Text style={styles.ctaButtonText}>Buy now</Text>
+              )}
+            </AnimatedPressable>
+          </View>
         </View>
       </View>
 

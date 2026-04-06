@@ -30,7 +30,6 @@ import {
   AppText as Text,
   ScreenContainer as SafeAreaView,
 } from "../../src/components";
-import { getBottomBarTotalHeight } from "../../src/components/GlobalBottomBar";
 
 // ---------------------------------------------------------------------------
 // Address selector row — memoized for FlatList
@@ -426,11 +425,8 @@ export default function CheckoutScreen() {
     cartItems.length === 0 ||
     (hasAddresses && !selectedAddressId);
 
-  const bottomBarOffset = React.useMemo(
-    () => getBottomBarTotalHeight(insets.bottom),
-    [insets.bottom]
-  );
-  const checkoutBottomReserve = bottomBarOffset + spacing.xl;
+  // Bottom bar is hidden on checkout, so only account for safe area + comfortable padding
+  const checkoutBottomReserve = Math.max(insets.bottom, spacing.sm) + spacing.xl;
 
   // ---- Selector key ----
   const selectorKeyExtractor = React.useCallback(

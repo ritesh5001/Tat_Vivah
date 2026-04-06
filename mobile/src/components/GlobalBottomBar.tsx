@@ -71,14 +71,26 @@ function isTabRoute(pathname: string): boolean {
   );
 }
 
+/** Routes where the bottom bar should be hidden (focused flows with their own CTA). */
+const HIDDEN_ROUTE_PREFIXES = [
+  "/product",
+  "/checkout",
+];
+
+export function shouldHideBottomBar(pathname: string): boolean {
+  if (isTabRoute(pathname)) return true;
+  return HIDDEN_ROUTE_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  );
+}
+
 export function GlobalBottomBar() {
   const router = useRouter();
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const bottomPadding = Math.max(insets.bottom, 6);
-  const isProductDetailRoute = pathname === "/product" || pathname.startsWith("/product/");
 
-  if (isTabRoute(pathname) || isProductDetailRoute) {
+  if (shouldHideBottomBar(pathname)) {
     return null;
   }
 
