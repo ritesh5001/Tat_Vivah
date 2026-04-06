@@ -1,6 +1,5 @@
 import * as React from "react";
 import {
-  InteractionManager,
   View,
   StyleSheet,
   Pressable,
@@ -99,9 +98,7 @@ export default function MarketplaceScreen() {
 
   const handleProductPress = React.useCallback(
     (product: ProductItem) => {
-      InteractionManager.runAfterInteractions(() => {
-        router.push(`/product/${product.id}`);
-      });
+      router.push(`/product/${product.id}`);
     },
     [router]
   );

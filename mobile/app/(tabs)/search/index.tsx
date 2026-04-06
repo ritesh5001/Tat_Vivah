@@ -1,6 +1,5 @@
 import * as React from "react";
 import {
-  InteractionManager,
   View,
   StyleSheet,
   FlatList,
@@ -324,9 +323,7 @@ export default function SearchScreen() {
 
   const handleProductPress = React.useCallback(
     (id: string) => {
-      InteractionManager.runAfterInteractions(() => {
-        router.push({ pathname: "/product/[id]", params: { id } });
-      });
+      router.push({ pathname: "/product/[id]", params: { id } });
     },
     [router]
   );

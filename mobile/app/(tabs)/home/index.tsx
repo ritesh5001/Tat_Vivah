@@ -2,7 +2,6 @@ import React from "react";
 import {
   FlatList,
   ListRenderItemInfo,
-  InteractionManager,
   Pressable,
   StyleSheet,
   View,
@@ -55,7 +54,7 @@ type HomeProductCard = {
 
 function BottomWineFade() {
   return (
-    <View style={styles.bottomWineFade}>
+    <View pointerEvents="none" style={styles.bottomWineFade}>
       <Svg width="100%" height="100%" preserveAspectRatio="none">
         <Defs>
           <SvgLinearGradient id="tv-wine-fade" x1="0" y1="0" x2="0" y2="1">
@@ -92,7 +91,7 @@ function ArchGradientBorder({
   const gradientId = `tv-arch-border-${Math.round(width)}-${Math.round(height)}-${Math.round(radius)}`;
 
   return (
-    <View style={styles.archGradientBorderWrap}>
+    <View pointerEvents="none" style={styles.archGradientBorderWrap}>
       <Svg width={width} height={height}>
         <Defs>
           <SvgLinearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
@@ -125,7 +124,7 @@ function RectGradientBorder({
   const gradientId = `tv-rect-border-${Math.round(width)}-${Math.round(height)}-${Math.round(strokeWidth * 10)}`;
 
   return (
-    <View style={styles.archGradientBorderWrap}>
+    <View pointerEvents="none" style={styles.archGradientBorderWrap}>
       <Svg width={width} height={height}>
         <Defs>
           <SvgLinearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
@@ -227,11 +226,12 @@ export default function HomeScreen() {
     testimonialIndexRef.current = testimonialPageIndex;
   }, [testimonialPageIndex]);
 
-  const deferNavigate = React.useCallback((to: string) => {
-    InteractionManager.runAfterInteractions(() => {
+  const navigateTo = React.useCallback(
+    (to: string) => {
       router.push(to as any);
-    });
-  }, [router]);
+    },
+    [router]
+  );
 
   const spotlightCards = React.useMemo(() => {
     const products = spotlightQuery.data?.data ?? [];
@@ -439,14 +439,14 @@ export default function HomeScreen() {
           <Pressable
             key={card.id}
             style={[styles.occasionCard, { width: gridCardWidth }]}
-            onPress={() => deferNavigate(`/search?q=${encodeURIComponent(card.query)}`)}
+            onPress={() => navigateTo(`/search?q=${encodeURIComponent(card.query)}`)}
           >
             <CachedImage
               source={card.image}
               style={styles.occasionCardImage}
               contentFit="cover"
             />
-            <View style={styles.occasionCardOverlay} />
+            <View pointerEvents="none" style={styles.occasionCardOverlay} />
             <BottomWineFade />
             <RectGradientBorder
               width={gridCardWidth}
@@ -458,7 +458,7 @@ export default function HomeScreen() {
         ))}
       </View>
     ),
-    [deferNavigate, gridCardWidth, gridPageWidth, occasionCardHeight]
+    [navigateTo, gridCardWidth, gridPageWidth, occasionCardHeight]
   );
 
   const renderVibeCard = React.useCallback(
@@ -468,14 +468,14 @@ export default function HomeScreen() {
           styles.vibeCard,
           { width: vibeCardWidth, height: vibeCardHeight },
         ]}
-        onPress={() => deferNavigate(`/search?q=${encodeURIComponent(item.query)}`)}
+        onPress={() => navigateTo(`/search?q=${encodeURIComponent(item.query)}`)}
       >
         <CachedImage
           source={item.image}
           style={{ width: vibeCardWidth, height: vibeCardHeight }}
           contentFit="cover"
         />
-        <View style={styles.vibeCardOverlay} />
+        <View pointerEvents="none" style={styles.vibeCardOverlay} />
         <BottomWineFade />
         <ArchGradientBorder
           width={vibeCardWidth}
@@ -486,7 +486,7 @@ export default function HomeScreen() {
         <Text style={styles.vibeCardTitle}>{item.title}</Text>
       </Pressable>
     ),
-    [deferNavigate, vibeCardHeight, vibeCardWidth]
+    [navigateTo, vibeCardHeight, vibeCardWidth]
   );
 
   const renderCategoryCard = React.useCallback(
@@ -496,14 +496,14 @@ export default function HomeScreen() {
           styles.categoryCard,
           { width: categoryCardWidth, height: categoryCardHeight },
         ]}
-        onPress={() => deferNavigate(`/search?q=${encodeURIComponent(item.query)}`)}
+        onPress={() => navigateTo(`/search?q=${encodeURIComponent(item.query)}`)}
       >
         <CachedImage
           source={item.image}
           style={{ width: categoryCardWidth, height: categoryCardHeight }}
           contentFit="cover"
         />
-        <View style={styles.categoryCardOverlay} />
+        <View pointerEvents="none" style={styles.categoryCardOverlay} />
         <BottomWineFade />
         <ArchGradientBorder
           width={categoryCardWidth}
@@ -514,14 +514,14 @@ export default function HomeScreen() {
         <Text style={styles.categoryCardTitle}>{item.title}</Text>
       </Pressable>
     ),
-    [categoryCardHeight, categoryCardWidth, deferNavigate]
+    [categoryCardHeight, categoryCardWidth, navigateTo]
   );
 
   const renderLargeProductCard = React.useCallback(
     ({ item }: ListRenderItemInfo<HomeProductCard>) => (
       <Pressable
         style={[styles.largeProductCard, { width: productCardWidth }]}
-        onPress={() => deferNavigate(`/search?q=${encodeURIComponent(item.query)}`)}
+        onPress={() => navigateTo(`/search?q=${encodeURIComponent(item.query)}`)}
       >
         <CachedImage
           source={item.image}
@@ -535,14 +535,14 @@ export default function HomeScreen() {
         </View>
       </Pressable>
     ),
-    [deferNavigate, productCardHeight, productCardWidth]
+    [navigateTo, productCardHeight, productCardWidth]
   );
 
   const renderBestsellerCard = React.useCallback(
     ({ item }: ListRenderItemInfo<HomeProductCard>) => (
       <Pressable
         style={[styles.bestSellerCard, { width: bestsellerCardWidth }]}
-        onPress={() => deferNavigate(`/search?q=${encodeURIComponent(item.query)}`)}
+        onPress={() => navigateTo(`/search?q=${encodeURIComponent(item.query)}`)}
       >
         <CachedImage
           source={item.image}
@@ -558,7 +558,7 @@ export default function HomeScreen() {
         </View>
       </Pressable>
     ),
-    [bestsellerCardHeight, bestsellerCardWidth, deferNavigate]
+    [bestsellerCardHeight, bestsellerCardWidth, navigateTo]
   );
 
   const testimonials = React.useMemo(
@@ -627,7 +627,7 @@ export default function HomeScreen() {
   const listHeader = React.useMemo(() => (
     <>
       <View style={styles.fullBleed}>
-        <HomeHeroBanner onPress={() => deferNavigate("/marketplace")} />
+        <HomeHeroBanner onPress={() => navigateTo("/marketplace")} />
       </View>
 
       <View style={styles.vibeSection}>
@@ -751,8 +751,8 @@ export default function HomeScreen() {
           style={[styles.spotlightFeatureCard, { height: spotlightCardHeight }]}
           onPress={() =>
             spotlightFeature?.productId
-              ? deferNavigate(`/product/${spotlightFeature.productId}`)
-              : deferNavigate("/marketplace")
+              ? navigateTo(`/product/${spotlightFeature.productId}`)
+              : navigateTo("/marketplace")
           }
         >
           {spotlightQuery.isLoading ? (
@@ -1014,7 +1014,7 @@ export default function HomeScreen() {
     </>
   ), [
     categoriesQuery.isLoading,
-    deferNavigate,
+    navigateTo,
     baseCategoryPagesCount,
     baseOccasionPagesCount,
     baseVibePagesCount,
