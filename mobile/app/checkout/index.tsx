@@ -9,6 +9,7 @@ import {
   FlatList,
 } from "react-native";
 import { usePathname, useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, radius, spacing, typography, shadow } from "../../src/theme/tokens";
 import { checkout, validateCoupon, type CouponPreview } from "../../src/services/cart";
 import { initiatePayment, verifyPayment } from "../../src/services/payments";
@@ -29,6 +30,7 @@ import {
   AppText as Text,
   ScreenContainer as SafeAreaView,
 } from "../../src/components";
+import { getBottomBarTotalHeight } from "../../src/components/GlobalBottomBar";
 
 // ---------------------------------------------------------------------------
 // Address selector row — memoized for FlatList
@@ -79,6 +81,7 @@ const AddressSelectorRow = React.memo(function AddressSelectorRow({
 export default function CheckoutScreen() {
   const router = useRouter();
   const pathname = usePathname();
+  const insets = useSafeAreaInsets();
   const { session, isLoading: authLoading } = useAuth();
   const token = session?.accessToken ?? null;
   const { isConnected } = useNetworkStatus();
@@ -423,6 +426,12 @@ export default function CheckoutScreen() {
     cartItems.length === 0 ||
     (hasAddresses && !selectedAddressId);
 
+  const bottomBarOffset = React.useMemo(
+    () => getBottomBarTotalHeight(insets.bottom),
+    [insets.bottom]
+  );
+  const checkoutBottomReserve = bottomBarOffset + spacing.xl;
+
   // ---- Selector key ----
   const selectorKeyExtractor = React.useCallback(
     (item: Address) => item.id,
@@ -446,7 +455,11 @@ export default function CheckoutScreen() {
       {isPaying ? (
         <TatvivahOverlayLoader label={payLabel} />
       ) : null}
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={[styles.container, { paddingBottom: checkoutBottomReserve }]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={styles.title}>Checkout</Text>
         <Text style={styles.subtitle}>
           Confirm delivery address and complete your order.

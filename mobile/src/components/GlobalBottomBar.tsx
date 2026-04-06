@@ -76,8 +76,9 @@ export function GlobalBottomBar() {
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const bottomPadding = Math.max(insets.bottom, 6);
+  const isProductDetailRoute = pathname === "/product" || pathname.startsWith("/product/");
 
-  if (isTabRoute(pathname)) {
+  if (isTabRoute(pathname) || isProductDetailRoute) {
     return null;
   }
 

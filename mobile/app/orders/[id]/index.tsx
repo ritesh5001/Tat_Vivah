@@ -9,6 +9,7 @@ import {
   FlatList,
 } from "react-native";
 import { useLocalSearchParams, usePathname, useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import {
   getBuyerOrderDetail,
@@ -25,6 +26,7 @@ import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
 import { DeliveredShimmer } from "../../../src/components/DeliveredShimmer";
 import { impactLight } from "../../../src/utils/haptics";
 import { AppText as Text, ScreenContainer as SafeAreaView } from "../../../src/components";
+import { getBottomBarTotalHeight } from "../../../src/components/GlobalBottomBar";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -110,6 +112,7 @@ function normalizeStatusForTimeline(status: string) {
 export default function OrderDetailScreen() {
   const router = useRouter();
   const pathname = usePathname();
+  const insets = useSafeAreaInsets();
   const { id: orderId } = useLocalSearchParams<{ id: string }>();
   const { session, isLoading: authLoading } = useAuth();
   const token = session?.accessToken ?? null;
@@ -230,6 +233,11 @@ export default function OrderDetailScreen() {
     typeof order?.grandTotal === "number" && order.grandTotal > 0
       ? order.grandTotal
       : order?.totalAmount ?? 0;
+  const bottomBarOffset = React.useMemo(
+    () => getBottomBarTotalHeight(insets.bottom),
+    [insets.bottom]
+  );
+  const detailBottomReserve = bottomBarOffset + spacing.lg;
 
   // ---- Loading ----
   if (loading && !order) {
@@ -288,7 +296,7 @@ export default function OrderDetailScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: detailBottomReserve }]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

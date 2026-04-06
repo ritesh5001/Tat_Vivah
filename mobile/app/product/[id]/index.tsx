@@ -44,7 +44,6 @@ import {
 import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
 import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
 import { WishlistIcon } from "../../../src/components/WishlistIcon";
-import { getBottomBarTotalHeight } from "../../../src/components/GlobalBottomBar";
 import { impactMedium, impactLight, notifySuccess } from "../../../src/utils/haptics";
 import { AppHeader } from "../../../src/components/AppHeader";
 import { useQuery } from "@tanstack/react-query";
@@ -371,11 +370,11 @@ export default function ProductDetailScreen() {
   const [relatedProducts, setRelatedProducts] = React.useState<ProductSummary[]>([]);
   const [loadingRelated, setLoadingRelated] = React.useState(false);
 
-  const stickyBottomOffset = getBottomBarTotalHeight(insets.bottom);
+  const stickyBottomOffset = Math.max(insets.bottom, spacing.sm);
   const galleryWidth = Math.max(windowWidth - spacing.lg * 2, 260);
   const galleryHeight = Math.round(galleryWidth * 1.25);
-  const stickyActionHeight = 88;
-  const stickyReserveSpace = stickyBottomOffset + stickyActionHeight + spacing.xl;
+  const stickyActionHeight = 96;
+  const stickyReserveSpace = stickyBottomOffset + stickyActionHeight + spacing.lg;
   const viewerWidth = Math.max(windowWidth, VIEWER_MIN_WIDTH);
 
   const [galleryIndex, setGalleryIndex] = React.useState(0);
@@ -1138,8 +1137,8 @@ export default function ProductDetailScreen() {
         <View style={styles.actionRow}>
           <AnimatedPressable
             style={[
-              styles.primaryButton,
-              styles.secondaryAction,
+              styles.ctaButtonBase,
+              styles.addToCartButton,
               (outOfStock || adding) && styles.buttonDisabled,
             ]}
             onPress={handleAddToCart}
@@ -1147,9 +1146,9 @@ export default function ProductDetailScreen() {
             hitSlop={10}
           >
             {adding ? (
-              <TatvivahLoader size="sm" color={colors.background} />
+              <TatvivahLoader size="sm" color={colors.charcoal} />
             ) : (
-              <Text style={[styles.primaryButtonText, styles.secondaryActionText]}>
+              <Text style={[styles.ctaButtonText, styles.addToCartButtonText]}>
                 {!selectedVariant
                   ? "Select variant"
                   : outOfStock
@@ -1161,6 +1160,7 @@ export default function ProductDetailScreen() {
 
           <AnimatedPressable
             style={[
+              styles.ctaButtonBase,
               styles.buyNowButton,
               (outOfStock || adding) && styles.buttonDisabled,
             ]}
@@ -1170,7 +1170,7 @@ export default function ProductDetailScreen() {
             {adding ? (
               <TatvivahLoader size="sm" color={colors.background} />
             ) : (
-              <Text style={styles.buyNowButtonText}>Buy now</Text>
+              <Text style={styles.ctaButtonText}>Buy now</Text>
             )}
           </AnimatedPressable>
         </View>
@@ -1458,40 +1458,43 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: spacing.sm,
     alignItems: "center",
+    width: "100%",
   },
-  secondaryAction: {
+  ctaButtonBase: {
     flex: 1,
+    minHeight: 50,
     marginTop: 0,
-    backgroundColor: colors.surfaceElevated,
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 0,
+  },
+  addToCartButton: {
+    backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.gold,
   },
-  secondaryActionText: {
+  addToCartButtonText: {
     color: colors.charcoal,
   },
   primaryButtonText: {
     fontFamily: typography.sansMedium,
     fontSize: 12,
-    letterSpacing: 1.4,
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+    color: colors.background,
+  },
+  ctaButtonText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 12,
+    letterSpacing: 1.2,
     textTransform: "uppercase",
     color: colors.background,
   },
   buyNowButton: {
-    flex: 1,
-    marginTop: 0,
     backgroundColor: colors.gold,
     borderWidth: 1,
     borderColor: colors.gold,
-    borderRadius: 0,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-  buyNowButtonText: {
-    fontFamily: typography.sansMedium,
-    fontSize: 12,
-    letterSpacing: 1.4,
-    textTransform: "uppercase",
-    color: colors.background,
   },
   secondaryButton: {
     marginTop: spacing.md,
@@ -1513,17 +1516,17 @@ const styles = StyleSheet.create({
   },
   stickyActionShell: {
     position: "absolute",
-    left: spacing.lg,
-    right: spacing.lg,
+    left: 0,
+    right: 0,
     zIndex: 12,
     elevation: 12,
     paddingTop: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    borderWidth: 1,
+    paddingHorizontal: spacing.lg,
+    borderTopWidth: 1,
     borderColor: colors.borderSoft,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surfaceElevated,
     shadowColor: colors.charcoal,
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.06,
     shadowOffset: { width: 0, height: -4 },
     shadowRadius: 10,
   },
