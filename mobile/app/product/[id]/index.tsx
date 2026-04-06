@@ -5,7 +5,7 @@ import {
   ScrollView,
   Pressable,
   FlatList,
-  Dimensions,
+  useWindowDimensions,
   Alert,
   Modal,
   type ListRenderItemInfo,
@@ -66,9 +66,7 @@ import {
 // Constants
 // ---------------------------------------------------------------------------
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const IMAGE_WIDTH = SCREEN_WIDTH - spacing.lg * 2;
-const IMAGE_HEIGHT = Math.round(IMAGE_WIDTH * 1.25);
+const VIEWER_MIN_WIDTH = 1;
 
 const fallbackImage =
   "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80";
@@ -89,13 +87,17 @@ const MAX_REVIEW_IMAGE_BYTES = 2 * 1024 * 1024;
 /** Single gallery image with full-width paging. */
 const GalleryImage = React.memo(function GalleryImage({
   uri,
+  width,
+  height,
 }: {
   uri: string;
+  width: number;
+  height: number;
 }) {
   return (
     <Image
       source={{ uri }}
-      style={galleryStyles.image}
+      style={[galleryStyles.image, { width, height }]}
       contentFit="contain"
       transition={200}
       cachePolicy="memory-disk"
@@ -105,8 +107,6 @@ const GalleryImage = React.memo(function GalleryImage({
 
 const galleryStyles = StyleSheet.create({
   image: {
-    width: IMAGE_WIDTH,
-    height: IMAGE_HEIGHT,
     borderRadius: 0,
     backgroundColor: colors.cream,
   },
@@ -209,13 +209,13 @@ const ZoomableModalImage = React.memo(function ZoomableModalImage({
 
 const viewerStyles = StyleSheet.create({
   itemWrap: {
-    width: SCREEN_WIDTH,
+    width: "100%",
     height: "100%",
     alignItems: "center",
     justifyContent: "center",
   },
   image: {
-    width: SCREEN_WIDTH,
+    width: "100%",
     height: "100%",
   },
 });
@@ -340,6 +340,7 @@ function renderStars(avg: number): string {
 
 export default function ProductDetailScreen() {
   const router = useRouter();
+  const { width: windowWidth } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
   const productId = typeof params.id === "string" ? params.id : "";
@@ -371,8 +372,11 @@ export default function ProductDetailScreen() {
   const [loadingRelated, setLoadingRelated] = React.useState(false);
 
   const stickyBottomOffset = getBottomBarTotalHeight(insets.bottom);
-  const stickyActionHeight = 76;
-  const stickyReserveSpace = stickyBottomOffset + stickyActionHeight + spacing.lg;
+  const galleryWidth = Math.max(windowWidth - spacing.lg * 2, 260);
+  const galleryHeight = Math.round(galleryWidth * 1.25);
+  const stickyActionHeight = 88;
+  const stickyReserveSpace = stickyBottomOffset + stickyActionHeight + spacing.xl;
+  const viewerWidth = Math.max(windowWidth, VIEWER_MIN_WIDTH);
 
   const [galleryIndex, setGalleryIndex] = React.useState(0);
   const [isViewerVisible, setIsViewerVisible] = React.useState(false);
@@ -699,10 +703,10 @@ export default function ProductDetailScreen() {
   const handleGalleryScroll = React.useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       const offset = e.nativeEvent.contentOffset.x;
-      const idx = Math.round(offset / IMAGE_WIDTH);
+      const idx = Math.round(offset / galleryWidth);
       setGalleryIndex(idx);
     },
-    []
+    [galleryWidth]
   );
 
   const openImageViewer = React.useCallback((index: number) => {
@@ -723,10 +727,10 @@ export default function ProductDetailScreen() {
   const renderGalleryItem = React.useCallback(
     ({ item, index }: ListRenderItemInfo<string>) => (
       <Pressable onPress={() => openImageViewer(index)}>
-        <GalleryImage uri={item} />
+        <GalleryImage uri={item} width={galleryWidth} height={galleryHeight} />
       </Pressable>
     ),
-    [openImageViewer]
+    [galleryHeight, galleryWidth, openImageViewer]
   );
 
   const renderViewerItem = React.useCallback(
@@ -775,8 +779,8 @@ export default function ProductDetailScreen() {
         <AppHeader showMenu showBack showWishlist showCart />
         <ScrollView contentContainerStyle={styles.container}>
           <SkeletonBlock
-            width={IMAGE_WIDTH}
-            height={IMAGE_HEIGHT}
+            width={galleryWidth}
+            height={galleryHeight}
             borderRadius={radius.lg}
             style={{ marginHorizontal: spacing.lg, marginTop: spacing.md }}
           />
@@ -811,6 +815,8 @@ export default function ProductDetailScreen() {
       <ScrollView
         contentContainerStyle={[styles.container, { paddingBottom: stickyReserveSpace }]}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        showsVerticalScrollIndicator={false}
       >
         {/* ---- Image gallery with paging dots ---- */}
         <View style={styles.galleryFrame}>
@@ -819,15 +825,15 @@ export default function ProductDetailScreen() {
             keyExtractor={galleryKeyExtractor}
             horizontal
             pagingEnabled
-            snapToInterval={IMAGE_WIDTH}
+            snapToInterval={galleryWidth}
             decelerationRate="fast"
             showsHorizontalScrollIndicator={false}
             onScroll={handleGalleryScroll}
             scrollEventThrottle={16}
             contentContainerStyle={styles.galleryContainer}
             getItemLayout={(_data, index) => ({
-              length: IMAGE_WIDTH,
-              offset: IMAGE_WIDTH * index,
+              length: galleryWidth,
+              offset: galleryWidth * index,
               index,
             })}
             renderItem={renderGalleryItem}
@@ -1177,7 +1183,10 @@ export default function ProductDetailScreen() {
         onRequestClose={closeImageViewer}
       >
         <View style={styles.viewerOverlay}>
-          <Pressable style={styles.viewerCloseButton} onPress={closeImageViewer}>
+          <Pressable
+            style={[styles.viewerCloseButton, { top: insets.top + spacing.md }]}
+            onPress={closeImageViewer}
+          >
             <Text style={styles.viewerCloseText}>Close</Text>
           </Pressable>
 
@@ -1190,13 +1199,13 @@ export default function ProductDetailScreen() {
             renderItem={renderViewerItem}
             showsHorizontalScrollIndicator={false}
             getItemLayout={(_data, index) => ({
-              length: SCREEN_WIDTH,
-              offset: SCREEN_WIDTH * index,
+              length: viewerWidth,
+              offset: viewerWidth * index,
               index,
             })}
             onMomentumScrollEnd={(e) => {
               const next = Math.round(
-                e.nativeEvent.contentOffset.x / SCREEN_WIDTH
+                e.nativeEvent.contentOffset.x / viewerWidth
               );
               setViewerIndex(next);
             }}
@@ -1317,9 +1326,9 @@ const styles = StyleSheet.create({
   productTitle: {
     fontFamily: typography.serif,
     flex: 1,
-    fontSize: 30,
+    fontSize: 26,
     color: colors.charcoal,
-    lineHeight: 34,
+    lineHeight: 30,
   },
   wishlistInlineButton: {
     width: 44,
@@ -1506,11 +1515,17 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: spacing.lg,
     right: spacing.lg,
+    zIndex: 12,
+    elevation: 12,
     paddingTop: spacing.sm,
     paddingHorizontal: spacing.sm,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: colors.background,
+    shadowColor: colors.charcoal,
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: -4 },
+    shadowRadius: 10,
   },
   wishlistButton: {
     width: 52,
