@@ -56,6 +56,7 @@ export function MenuSheet({ visible, onClose, onNavigate, items }: MenuSheetProp
   const { showToast } = useToast();
   const [loggingOut, setLoggingOut] = React.useState(false);
   const logoutLockRef = React.useRef(false);
+  const openedAtRef = React.useRef(0);
   const overlayOpacity = React.useRef(new Animated.Value(0)).current;
   const drawerTranslateX = React.useRef(new Animated.Value(-DRAWER_WIDTH)).current;
 
@@ -122,8 +123,17 @@ export function MenuSheet({ visible, onClose, onNavigate, items }: MenuSheetProp
     onClose();
   }, [loggingOut, onClose]);
 
+  const handleOverlayPress = React.useCallback(() => {
+    // Ignore the first overlay tap right after open to avoid same-tap close.
+    if (Date.now() - openedAtRef.current < 260) {
+      return;
+    }
+    closeMenu();
+  }, [closeMenu]);
+
   React.useEffect(() => {
     if (visible) {
+      openedAtRef.current = Date.now();
       overlayOpacity.setValue(0);
       drawerTranslateX.setValue(-DRAWER_WIDTH);
 
@@ -155,7 +165,7 @@ export function MenuSheet({ visible, onClose, onNavigate, items }: MenuSheetProp
       <View style={styles.modalRoot}>
         <AnimatedPressable
           style={[styles.overlay, { opacity: overlayOpacity }]}
-          onPress={closeMenu}
+          onPress={handleOverlayPress}
         />
 
         <Animated.View
