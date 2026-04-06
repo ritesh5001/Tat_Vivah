@@ -1,5 +1,5 @@
 import * as React from "react";
-import { View, Text, StyleSheet, Pressable, Animated, Easing } from "react-native";
+import { View, Text, StyleSheet, Pressable, Animated, Easing, TouchableOpacity } from "react-native";
 import { usePathname, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing, typography } from "../theme/tokens";
@@ -57,6 +57,7 @@ export function AppHeader({
   const backFallbackRoute = "/home";
 
   const handleOpenMenu = React.useCallback(() => {
+    console.log("MENU CLICKED");
     setMenuOpen(true);
   }, []);
 
@@ -132,13 +133,14 @@ export function AppHeader({
       <View style={styles.row}>
         <View style={[styles.leftSlot, isMainHeader && styles.mainEdgeSlot]}>
           {isMainHeader ? (
-            <Pressable
+            <TouchableOpacity
               onPress={handleOpenMenu}
               style={[styles.iconButton, styles.mainHeaderIconButton]}
-              hitSlop={8}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              activeOpacity={0.7}
             >
               <Ionicons name="menu" size={21} color={colors.charcoal} />
-            </Pressable>
+            </TouchableOpacity>
           ) : shouldShowBack ? (
             <View style={styles.leftRow}>
               <Pressable onPress={handleBack} style={styles.iconButton} hitSlop={8}>
@@ -228,6 +230,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowRadius: 2,
     elevation: 1,
+    zIndex: 10,
   },
   marqueeStrip: {
     height: 28,
@@ -275,7 +278,9 @@ const styles = StyleSheet.create({
   },
   leftSlot: {
     flex: 1,
+    flexDirection: "row",
     justifyContent: "flex-start",
+    alignItems: "center",
   },
   mainEdgeSlot: {
     flex: 0,
