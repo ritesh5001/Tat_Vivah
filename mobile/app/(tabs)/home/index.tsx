@@ -212,12 +212,10 @@ export default function HomeScreen() {
   const [occasionRepeatCount, setOccasionRepeatCount] = React.useState(1);
   const [categoryRepeatCount, setCategoryRepeatCount] = React.useState(1);
   const [vibeRepeatCount, setVibeRepeatCount] = React.useState(1);
-  const [mostLovedRepeatCount, setMostLovedRepeatCount] = React.useState(1);
   const [bestsellerRepeatCount, setBestsellerRepeatCount] = React.useState(1);
   const [occasionPageIndex, setOccasionPageIndex] = React.useState(0);
   const [categoryPageIndex, setCategoryPageIndex] = React.useState(0);
   const [vibePageIndex, setVibePageIndex] = React.useState(0);
-  const [mostLovedPageIndex, setMostLovedPageIndex] = React.useState(0);
   const [bestsellerPageIndex, setBestsellerPageIndex] = React.useState(0);
   const [testimonialPageIndex, setTestimonialPageIndex] = React.useState(0);
   const testimonialIndexRef = React.useRef(0);
@@ -266,11 +264,11 @@ export default function HomeScreen() {
     : gridPageWidth;
   const categoryCardHeight = Math.round(categoryCardWidth * 1.34);
   const productCardGap = spacing.md;
-  const productCardWidth = gridPageWidth;
-  const productCardHeight = Math.round(productCardWidth * (4 / 3));
+  const mostLovedCardWidth = (gridPageWidth - productCardGap) / 2;
+  const mostLovedCardHeight = Math.round(mostLovedCardWidth * (4 / 3));
   const bestsellerCardWidth = isPhone
     ? (gridPageWidth - productCardGap) / 2
-    : productCardWidth;
+    : gridPageWidth;
   const bestsellerCardHeight = Math.round(bestsellerCardWidth * (4 / 3));
   const testimonialCardGap = spacing.md;
   const testimonialCardWidth = Math.min(Math.max(gridPageWidth * 0.82, 260), 320);
@@ -361,11 +359,6 @@ export default function HomeScreen() {
     }));
   }, [bestsellersQuery.data, fallbackGridImages]);
 
-  const repeatedMostLovedCards = React.useMemo(
-    () => repeatProductCards(mostLovedCards, mostLovedRepeatCount),
-    [mostLovedCards, mostLovedRepeatCount]
-  );
-
   const repeatedBestsellerCards = React.useMemo(
     () => repeatProductCards(bestsellerCards, bestsellerRepeatCount),
     [bestsellerCards, bestsellerRepeatCount]
@@ -379,7 +372,6 @@ export default function HomeScreen() {
   const baseOccasionPagesCount = Math.max(1, Math.ceil(occasionCards.length / 4));
   const baseCategoryPagesCount = Math.max(1, categoryCards.length);
   const baseVibePagesCount = Math.max(1, vibeCards.length);
-  const baseMostLovedPagesCount = Math.max(1, mostLovedCards.length);
   const baseBestsellerPagesCount = Math.max(1, bestsellerCards.length);
 
   const loadMoreOccasions = React.useCallback(() => {
@@ -396,11 +388,6 @@ export default function HomeScreen() {
     if (vibeCards.length === 0) return;
     setVibeRepeatCount((prev) => prev + 1);
   }, [vibeCards.length]);
-
-  const loadMoreMostLoved = React.useCallback(() => {
-    if (mostLovedCards.length === 0) return;
-    setMostLovedRepeatCount((prev) => prev + 1);
-  }, [mostLovedCards.length]);
 
   const loadMoreBestsellers = React.useCallback(() => {
     if (bestsellerCards.length === 0) return;
@@ -421,11 +408,6 @@ export default function HomeScreen() {
     setVibeRepeatCount(1);
     setVibePageIndex(0);
   }, [vibeCards.length]);
-
-  React.useEffect(() => {
-    setMostLovedRepeatCount(1);
-    setMostLovedPageIndex(0);
-  }, [mostLovedCards.length]);
 
   React.useEffect(() => {
     setBestsellerRepeatCount(1);
@@ -520,22 +502,21 @@ export default function HomeScreen() {
   const renderLargeProductCard = React.useCallback(
     ({ item }: ListRenderItemInfo<HomeProductCard>) => (
       <Pressable
-        style={[styles.largeProductCard, { width: productCardWidth }]}
+        style={[styles.largeProductCard, { width: mostLovedCardWidth }]}
         onPress={() => navigateTo(`/search?q=${encodeURIComponent(item.query)}`)}
       >
         <CachedImage
           source={item.image}
-          style={[styles.largeProductImage, { height: productCardHeight }]}
+          style={[styles.largeProductImage, { height: mostLovedCardHeight }]}
           contentFit="cover"
         />
-        <View style={styles.largeProductOverlay} />
         <View style={styles.largeProductMeta}>
           <Text numberOfLines={1} style={styles.largeProductTitle}>{item.title}</Text>
           <Text style={styles.largeProductPrice}>{item.priceText}</Text>
         </View>
       </Pressable>
     ),
-    [navigateTo, productCardHeight, productCardWidth]
+    [mostLovedCardHeight, mostLovedCardWidth, navigateTo]
   );
 
   const renderBestsellerCard = React.useCallback(
@@ -837,55 +818,31 @@ export default function HomeScreen() {
         <View style={styles.mostLovedHeaderRow}>
           <Ionicons name="sparkles-outline" size={28} color="#511d00" />
           <Text style={styles.mostLovedHeading}>MOST LOVED</Text>
-          <Text style={styles.scrollDirectionText}>Swipe left or right</Text>
         </View>
         {mostLovedQuery.isLoading ? (
           <View style={styles.gridLoadingWrap}>
-            <SkeletonBlock width="74%" height={320} />
+            <SkeletonBlock width="47%" height={240} />
+            <SkeletonBlock width="47%" height={240} />
           </View>
-        ) : repeatedMostLovedCards.length === 0 ? (
+        ) : mostLovedCards.length === 0 ? (
           <View style={styles.gridEmptyState}>
             <Text style={styles.gridEmptyText}>No loved products available right now.</Text>
           </View>
         ) : (
           <FlatList
-            horizontal
-            data={repeatedMostLovedCards}
+            data={mostLovedCards}
             keyExtractor={(item) => item.id}
             renderItem={renderLargeProductCard}
+            numColumns={2}
             initialNumToRender={2}
-            maxToRenderPerBatch={2}
+            maxToRenderPerBatch={4}
             windowSize={3}
             removeClippedSubviews
-            contentContainerStyle={styles.largeProductList}
-            showsHorizontalScrollIndicator={false}
-            onEndReached={loadMoreMostLoved}
-            onEndReachedThreshold={0.4}
-            snapToInterval={productCardWidth + productCardGap}
-            decelerationRate="fast"
-            disableIntervalMomentum
-            snapToAlignment="start"
-            onScroll={(event) => {
-              const page = Math.round(
-                event.nativeEvent.contentOffset.x / (productCardWidth + productCardGap)
-              );
-              setMostLovedPageIndex((prev) => (prev === page ? prev : page));
-            }}
-            scrollEventThrottle={16}
-            onMomentumScrollEnd={(event) => {
-              const page = Math.round(
-                event.nativeEvent.contentOffset.x / (productCardWidth + productCardGap)
-              );
-              setMostLovedPageIndex((prev) => (prev === page ? prev : page));
-            }}
+            scrollEnabled={false}
+            contentContainerStyle={styles.mostLovedGridList}
+            columnWrapperStyle={styles.mostLovedGridRow}
           />
         )}
-        <View style={styles.paginationWrap}>
-          {Array.from({ length: baseMostLovedPagesCount }).map((_, idx) => {
-            const isActive = idx === (mostLovedPageIndex % baseMostLovedPagesCount);
-            return <View key={`most-loved-dot-${idx}`} style={[styles.paginationDot, isActive && styles.paginationDotActive]} />;
-          })}
-        </View>
       </View>
 
       <View style={styles.mostLovedSection}>
@@ -1018,7 +975,6 @@ export default function HomeScreen() {
     baseCategoryPagesCount,
     baseOccasionPagesCount,
     baseVibePagesCount,
-    baseMostLovedPagesCount,
     baseBestsellerPagesCount,
     bestsellersQuery.isLoading,
     categoryPageIndex,
@@ -1026,11 +982,10 @@ export default function HomeScreen() {
     gridPageWidth,
     loadMoreBestsellers,
     loadMoreCategories,
-    loadMoreMostLoved,
     loadMoreOccasions,
     loadMoreVibe,
-    mostLovedPageIndex,
     mostLovedQuery.isLoading,
+    mostLovedCards,
     occasionPageIndex,
     occasionsQuery.isLoading,
     renderLargeProductCard,
@@ -1042,10 +997,8 @@ export default function HomeScreen() {
     categoryCardGap,
     categoryCardWidth,
     productCardGap,
-    productCardWidth,
     repeatedCategoryCards,
     repeatedBestsellerCards,
-    repeatedMostLovedCards,
     spotlightCardHeight,
     spotlightFeature,
     spotlightQuery.isLoading,
@@ -1456,11 +1409,19 @@ const styles = StyleSheet.create({
     paddingRight: spacing.md,
     gap: spacing.md,
   },
+  mostLovedGridList: {
+    gap: spacing.md,
+  },
+  mostLovedGridRow: {
+    justifyContent: "space-between",
+    marginBottom: spacing.md,
+  },
   largeProductCard: {
     borderWidth: 1.5,
     borderColor: "#7B4C2C",
     backgroundColor: "#D7CCBC",
     overflow: "hidden",
+    marginBottom: 0,
   },
   largeProductImage: {
     width: "100%",
@@ -1471,26 +1432,25 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.10)",
   },
   largeProductMeta: {
-    position: "absolute",
-    bottom: spacing.md,
-    left: spacing.md,
-    right: spacing.md,
-    alignItems: "center",
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    alignItems: "flex-start",
+    backgroundColor: "#F8F6F3",
+    borderTopWidth: 1,
+    borderTopColor: "#D9D3CD",
   },
   largeProductTitle: {
     ...textStyles.sectionTitle,
-    color: "#FFF9F1",
-    letterSpacing: 1.0,
-    fontSize: 22,
-    textAlign: "center",
+    color: "#2F2924",
+    letterSpacing: 0.2,
+    fontSize: 16,
   },
   largeProductPrice: {
     marginTop: spacing.xs,
-    color: "#FBE8BE",
-    fontSize: 13,
+    color: "#2F2924",
+    fontSize: 14,
     fontWeight: "700",
-    letterSpacing: 0.6,
-    textAlign: "center",
+    letterSpacing: 0.2,
   },
   bestSellerCard: {
     borderWidth: 1,

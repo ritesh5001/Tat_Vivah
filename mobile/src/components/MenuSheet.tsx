@@ -1,6 +1,16 @@
 import * as React from "react";
-import { Modal, Pressable, View, Text, StyleSheet } from "react-native";
+import {
+  Modal,
+  Pressable,
+  View,
+  Text,
+  StyleSheet,
+  Animated,
+  Easing,
+  Dimensions,
+} from "react-native";
 import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, spacing, typography } from "../theme/tokens";
 import { useAuth } from "../hooks/useAuth";
@@ -20,13 +30,35 @@ const baseItems: { label: string; route: string }[] = [
   { label: "Search", route: "/search" },
 ];
 
+const DRAWER_WIDTH = Math.min(340, Math.round(Dimensions.get("window").width * 0.82));
+
+const MENU_ICON_BY_ROUTE: Record<string, keyof typeof Ionicons.glyphMap> = {
+  "/home": "home-outline",
+  "/marketplace": "bag-handle-outline",
+  "/reels": "videocam-outline",
+  "/search": "search-outline",
+  "/cart": "cart-outline",
+  "/orders": "receipt-outline",
+  "/wishlist": "heart-outline",
+  "/profile": "person-outline",
+  "/contact": "headset-outline",
+  "/login": "log-in-outline",
+  "/register": "person-add-outline",
+  "__logout__": "log-out-outline",
+};
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
 export function MenuSheet({ visible, onClose, onNavigate, items }: MenuSheetProps) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { session, signOut } = useAuth();
   const { showToast } = useToast();
   const [loggingOut, setLoggingOut] = React.useState(false);
+  const [rendered, setRendered] = React.useState(visible);
   const logoutLockRef = React.useRef(false);
+  const overlayOpacity = React.useRef(new Animated.Value(0)).current;
+  const drawerTranslateX = React.useRef(new Animated.Value(-DRAWER_WIDTH)).current;
 
   const normalizeRoute = React.useCallback((route: string) => {
     if (route.startsWith("/(tabs)/")) {
@@ -86,92 +118,192 @@ export function MenuSheet({ visible, onClose, onNavigate, items }: MenuSheetProp
     [loggingOut, normalizeRoute, onNavigate, onClose, router, signOut, showToast]
   );
 
+  const closeMenu = React.useCallback(() => {
+    if (loggingOut) return;
+    onClose();
+  }, [loggingOut, onClose]);
+
+  React.useEffect(() => {
+    if (visible) {
+      setRendered(true);
+      Animated.parallel([
+        Animated.timing(overlayOpacity, {
+          toValue: 1,
+          duration: 180,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(drawerTranslateX, {
+          toValue: 0,
+          duration: 220,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]).start();
+      return;
+    }
+
+    if (!rendered) return;
+
+    Animated.parallel([
+      Animated.timing(overlayOpacity, {
+        toValue: 0,
+        duration: 150,
+        easing: Easing.in(Easing.quad),
+        useNativeDriver: true,
+      }),
+      Animated.timing(drawerTranslateX, {
+        toValue: -DRAWER_WIDTH,
+        duration: 180,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start(({ finished }) => {
+      if (finished) setRendered(false);
+    });
+  }, [drawerTranslateX, overlayOpacity, rendered, visible]);
+
+  if (!rendered) return null;
+
   return (
-    <Modal visible={visible} transparent animationType="fade">
-      <Pressable style={styles.overlay} onPress={onClose}>
-        <Pressable
-          style={[styles.sheet, { paddingTop: Math.max(insets.top, spacing.lg) }]}
-          onPress={() => {}}
-          onStartShouldSetResponder={() => true}
+    <Modal
+      visible={rendered}
+      transparent
+      animationType="none"
+      onRequestClose={closeMenu}
+      statusBarTranslucent
+    >
+      <View style={styles.modalRoot}>
+        <AnimatedPressable
+          style={[styles.overlay, { opacity: overlayOpacity }]}
+          onPress={closeMenu}
+        />
+
+        <Animated.View
+          style={[
+            styles.drawer,
+            {
+              paddingTop: Math.max(insets.top, spacing.lg),
+              paddingBottom: Math.max(insets.bottom, spacing.lg),
+              transform: [{ translateX: drawerTranslateX }],
+            },
+          ]}
         >
-          <View style={styles.sheetHeader}>
-            <Text style={styles.title}>Menu</Text>
-            <Pressable onPress={onClose} style={styles.closeButton}>
-              <Text style={styles.closeText}>Close</Text>
+          <View style={styles.drawerHeader}>
+            <View>
+              <Text style={styles.title}>Tatvivah</Text>
+              <Text style={styles.subtitle}>Navigation</Text>
+            </View>
+
+            <Pressable onPress={closeMenu} style={styles.closeIconButton} hitSlop={8}>
+              <Ionicons name="close" size={18} color={colors.charcoal} />
             </Pressable>
           </View>
-          {menuItems.map((item) => (
-            <Pressable
-              key={item.route}
-              style={[
-                styles.menuItem,
-                item.route === "__logout__" && loggingOut && styles.menuItemDisabled,
-              ]}
-              onPress={() => handleNavigate(item.route)}
-              disabled={item.route === "__logout__" && loggingOut}
-            >
-              <Text style={styles.menuItemText}>{item.label}</Text>
-            </Pressable>
-          ))}
-        </Pressable>
-      </Pressable>
+
+          <View style={styles.menuList}>
+            {menuItems.map((item) => (
+              <Pressable
+                key={item.route}
+                style={[
+                  styles.menuItem,
+                  item.route === "__logout__" && loggingOut && styles.menuItemDisabled,
+                ]}
+                onPress={() => handleNavigate(item.route)}
+                disabled={item.route === "__logout__" && loggingOut}
+              >
+                <View style={styles.menuItemLeft}>
+                  <Ionicons
+                    name={MENU_ICON_BY_ROUTE[item.route] ?? "ellipse-outline"}
+                    size={17}
+                    color={colors.charcoal}
+                  />
+                  <Text style={styles.menuItemText}>{item.label}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={14} color={colors.brownSoft} />
+              </Pressable>
+            ))}
+          </View>
+        </Animated.View>
+      </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
+  modalRoot: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
     justifyContent: "flex-start",
   },
-  sheet: {
-    backgroundColor: colors.cream,
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.lg,
-    borderBottomWidth: 1,
-    borderColor: colors.borderSoft,
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
   },
-  sheetHeader: {
+  drawer: {
+    width: DRAWER_WIDTH,
+    height: "100%",
+    backgroundColor: colors.cream,
+    paddingHorizontal: spacing.lg,
+    borderRightWidth: 1,
+    borderRightColor: colors.borderSoft,
+    shadowColor: colors.charcoal,
+    shadowOpacity: 0.2,
+    shadowOffset: { width: 8, height: 0 },
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  drawerHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderSoft,
   },
   title: {
     fontFamily: typography.serif,
-    fontSize: 18,
+    fontSize: 24,
     color: colors.charcoal,
+    lineHeight: 26,
   },
-  closeButton: {
-    paddingVertical: 6,
-    paddingHorizontal: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    borderRadius: 0,
-    backgroundColor: colors.warmWhite,
-  },
-  closeText: {
+  subtitle: {
+    marginTop: 2,
     fontFamily: typography.sans,
     fontSize: 10,
     textTransform: "uppercase",
-    letterSpacing: 1.2,
-    color: colors.charcoal,
+    letterSpacing: 1.3,
+    color: colors.brownSoft,
+  },
+  closeIconButton: {
+    width: 34,
+    height: 34,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.warmWhite,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  menuList: {
+    gap: 2,
   },
   menuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.borderSoft,
-    backgroundColor: "transparent",
+  },
+  menuItemLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
   },
   menuItemText: {
     fontFamily: typography.sansMedium,
-    fontSize: 11,
+    fontSize: 13,
     color: colors.charcoal,
-    textTransform: "uppercase",
-    letterSpacing: 2,
+    letterSpacing: 0.4,
   },
   menuItemDisabled: {
     opacity: 0.5,
