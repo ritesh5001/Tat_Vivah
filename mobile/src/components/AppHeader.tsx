@@ -135,8 +135,7 @@ export function AppHeader({
           {isMainHeader ? (
             <TouchableOpacity
               onPress={handleOpenMenu}
-              style={[styles.iconButton, styles.mainHeaderIconButton]}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={[styles.iconButton, styles.mainHeaderIconButton, { cursor: "pointer" as any }]}
               activeOpacity={0.7}
             >
               <Ionicons name="menu" size={21} color={colors.charcoal} />
