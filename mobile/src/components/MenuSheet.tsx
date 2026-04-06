@@ -55,10 +55,7 @@ export function MenuSheet({ visible, onClose, onNavigate, items }: MenuSheetProp
   const { session, signOut } = useAuth();
   const { showToast } = useToast();
   const [loggingOut, setLoggingOut] = React.useState(false);
-  const [rendered, setRendered] = React.useState(visible);
-  const [overlayDismissEnabled, setOverlayDismissEnabled] = React.useState(false);
   const logoutLockRef = React.useRef(false);
-  const dismissEnableTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const overlayOpacity = React.useRef(new Animated.Value(0)).current;
   const drawerTranslateX = React.useRef(new Animated.Value(-DRAWER_WIDTH)).current;
 
@@ -125,78 +122,31 @@ export function MenuSheet({ visible, onClose, onNavigate, items }: MenuSheetProp
     onClose();
   }, [loggingOut, onClose]);
 
-  const handleOverlayPress = React.useCallback(() => {
-    if (!overlayDismissEnabled) return;
-    closeMenu();
-  }, [closeMenu, overlayDismissEnabled]);
-
   React.useEffect(() => {
     if (visible) {
-      if (dismissEnableTimerRef.current) {
-        clearTimeout(dismissEnableTimerRef.current);
-      }
-      setOverlayDismissEnabled(false);
-      setRendered(true);
+      overlayOpacity.setValue(0);
+      drawerTranslateX.setValue(-DRAWER_WIDTH);
+
       Animated.parallel([
         Animated.timing(overlayOpacity, {
           toValue: 1,
           duration: 180,
           easing: Easing.out(Easing.quad),
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
         Animated.timing(drawerTranslateX, {
           toValue: 0,
           duration: 220,
           easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
       ]).start();
-
-      dismissEnableTimerRef.current = setTimeout(() => {
-        setOverlayDismissEnabled(true);
-      }, 220);
-      return;
     }
-
-    if (dismissEnableTimerRef.current) {
-      clearTimeout(dismissEnableTimerRef.current);
-      dismissEnableTimerRef.current = null;
-    }
-    setOverlayDismissEnabled(false);
-
-    if (!rendered) return;
-
-    Animated.parallel([
-      Animated.timing(overlayOpacity, {
-        toValue: 0,
-        duration: 150,
-        easing: Easing.in(Easing.quad),
-        useNativeDriver: true,
-      }),
-      Animated.timing(drawerTranslateX, {
-        toValue: -DRAWER_WIDTH,
-        duration: 180,
-        easing: Easing.in(Easing.cubic),
-        useNativeDriver: true,
-      }),
-    ]).start(({ finished }) => {
-      if (finished) setRendered(false);
-    });
-  }, [drawerTranslateX, overlayOpacity, rendered, visible]);
-
-  React.useEffect(() => {
-    return () => {
-      if (dismissEnableTimerRef.current) {
-        clearTimeout(dismissEnableTimerRef.current);
-      }
-    };
-  }, []);
-
-  if (!rendered) return null;
+  }, [drawerTranslateX, overlayOpacity, visible]);
 
   return (
     <Modal
-      visible={rendered}
+      visible={visible}
       transparent
       animationType="none"
       onRequestClose={closeMenu}
@@ -205,7 +155,7 @@ export function MenuSheet({ visible, onClose, onNavigate, items }: MenuSheetProp
       <View style={styles.modalRoot}>
         <AnimatedPressable
           style={[styles.overlay, { opacity: overlayOpacity }]}
-          onPress={handleOverlayPress}
+          onPress={closeMenu}
         />
 
         <Animated.View

@@ -57,9 +57,7 @@ export function AppHeader({
   const backFallbackRoute = "/home";
 
   const handleOpenMenu = React.useCallback(() => {
-    requestAnimationFrame(() => {
-      setMenuOpen(true);
-    });
+    setMenuOpen(true);
   }, []);
 
   const handleBack = React.useCallback(() => {
