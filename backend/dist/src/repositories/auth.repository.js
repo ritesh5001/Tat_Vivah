@@ -25,13 +25,14 @@ export class AuthRepository {
      * Find a user by email OR phone (for login)
      */
     async findByIdentifier(identifier) {
-        return prisma.user.findFirst({
-            where: {
-                OR: [
-                    { email: identifier },
-                    { phone: identifier },
-                ],
-            },
+        const normalized = identifier.trim();
+        if (normalized.includes('@')) {
+            return prisma.user.findUnique({
+                where: { email: normalized.toLowerCase() },
+            });
+        }
+        return prisma.user.findUnique({
+            where: { phone: normalized },
         });
     }
     /**
@@ -95,6 +96,7 @@ export class AuthRepository {
     async createSession(data) {
         return prisma.loginSession.create({
             data: {
+                ...(data.sessionId ? { id: data.sessionId } : {}),
                 userId: data.userId,
                 refreshToken: data.refreshToken,
                 userAgent: data.userAgent ?? null,

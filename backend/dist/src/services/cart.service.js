@@ -1,6 +1,5 @@
 import { cartRepository } from '../repositories/cart.repository.js';
 import { variantRepository } from '../repositories/variant.repository.js';
-import { inventoryRepository } from '../repositories/inventory.repository.js';
 import { getFromCache, setCache, invalidateCache, CACHE_KEYS, } from '../utils/cache.util.js';
 import { ApiError } from '../errors/ApiError.js';
 /**
@@ -10,11 +9,9 @@ import { ApiError } from '../errors/ApiError.js';
 export class CartService {
     cartRepo;
     variantRepo;
-    inventoryRepo;
-    constructor(cartRepo, variantRepo, inventoryRepo) {
+    constructor(cartRepo, variantRepo) {
         this.cartRepo = cartRepo;
         this.variantRepo = variantRepo;
-        this.inventoryRepo = inventoryRepo;
     }
     /**
      * Get user's cart with items
@@ -26,8 +23,6 @@ export class CartService {
         if (cached) {
             return cached;
         }
-        // Ensure cart exists
-        await this.cartRepo.findOrCreateByUserId(userId);
         // Get cart with details
         const cart = await this.cartRepo.getCartWithDetails(userId);
         if (!cart) {
@@ -60,8 +55,7 @@ export class CartService {
             throw ApiError.badRequest('This product is pending price approval');
         }
         // 3. Check stock availability
-        const inventory = await this.inventoryRepo.findByVariantId(data.variantId);
-        const availableStock = inventory?.stock ?? 0;
+        const availableStock = variant.inventory?.stock ?? 0;
         if (data.quantity > availableStock) {
             throw ApiError.badRequest(`Insufficient stock. Available: ${availableStock}, Requested: ${data.quantity}`);
         }
@@ -93,18 +87,19 @@ export class CartService {
         if (itemWithCart.cart.userId !== userId) {
             throw ApiError.forbidden('You do not have permission to update this item');
         }
-        // 3. Check stock availability
-        const inventory = await this.inventoryRepo.findByVariantId(itemWithCart.variantId);
-        const availableStock = inventory?.stock ?? 0;
+        // 3. Check stock availability + pricing in a single variant lookup
+        const variantWithProduct = await this.variantRepo.findByIdWithProduct(itemWithCart.variantId);
+        if (!variantWithProduct) {
+            throw ApiError.notFound('Variant not found');
+        }
+        const availableStock = variantWithProduct.inventory?.stock ?? 0;
         if (quantity > availableStock) {
             throw ApiError.badRequest(`Insufficient stock. Available: ${availableStock}, Requested: ${quantity}`);
         }
         // 4. Get current price for snapshot update
-        const variant = await this.variantRepo.findById(itemWithCart.variantId);
-        const variantWithProduct = await this.variantRepo.findByIdWithProduct(itemWithCart.variantId);
         const currentPrice = variantWithProduct?.product?.adminListingPrice != null
             ? Number(variantWithProduct.product.adminListingPrice)
-            : variant?.price ?? itemWithCart.priceSnapshot;
+            : variantWithProduct.price ?? itemWithCart.priceSnapshot;
         // 5. Update quantity
         const item = await this.cartRepo.updateItemQuantity(itemId, quantity, currentPrice);
         // 6. Invalidate cache
@@ -137,5 +132,5 @@ export class CartService {
     }
 }
 // Export singleton instance with default repositories
-export const cartService = new CartService(cartRepository, variantRepository, inventoryRepository);
+export const cartService = new CartService(cartRepository, variantRepository);
 //# sourceMappingURL=cart.service.js.map

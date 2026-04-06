@@ -244,18 +244,74 @@ export class SearchService {
             return cached;
         }
 
-        const rows = await prisma.$queryRawUnsafe<Array<{ id: string; title: string; categoryName: string | null }>>(
-            `SELECT p."id", p."title", c."name" AS "categoryName"
-             FROM "products" p
-             LEFT JOIN "categories" c ON c."id" = p."category_id"
-             WHERE p."is_published" = true
-               AND p."deleted_by_admin" = false
-               AND p."title" ILIKE $1
-             ORDER BY p."title" ASC
-             LIMIT $2`,
-                        `${normalizedQ}%`,
-            safeLimit,
-        );
+                const containsPattern = `%${normalizedQ}%`;
+                const prefixPattern = `${normalizedQ}%`;
+                const fuzzyPrefix = normalizedQ.length >= 4 ? `${normalizedQ.slice(0, 3)}%` : null;
+
+                const rows = await prisma.$queryRawUnsafe<
+                        Array<{ id: string; title: string; categoryName: string | null }>
+                >(
+                        `SELECT
+                                p."id",
+                                p."title",
+                                c."name" AS "categoryName"
+                         FROM "products" p
+                         LEFT JOIN "categories" c ON c."id" = p."category_id"
+                         WHERE p."is_published" = true
+                             AND p."deleted_by_admin" = false
+                             AND p."admin_listing_price" IS NOT NULL
+                             AND (
+                                     p."title" ILIKE $1
+                                     OR p."title" ILIKE $2
+                                     OR c."name" ILIKE $2
+                                     OR c."slug" ILIKE $2
+                                     OR EXISTS (
+                                             SELECT 1
+                                             FROM "product_occasions" po
+                                             INNER JOIN "occasions" o ON o."id" = po."occasion_id"
+                                             WHERE po."product_id" = p."id"
+                                                 AND o."is_active" = true
+                                                 AND (o."name" ILIKE $2 OR o."slug" ILIKE $2)
+                                     )
+                                     OR (
+                                             $3::text IS NOT NULL
+                                             AND (
+                                                     p."title" ILIKE $3
+                                                     OR c."name" ILIKE $3
+                                                     OR c."slug" ILIKE $3
+                                                     OR EXISTS (
+                                                             SELECT 1
+                                                             FROM "product_occasions" po
+                                                             INNER JOIN "occasions" o ON o."id" = po."occasion_id"
+                                                             WHERE po."product_id" = p."id"
+                                                                 AND o."is_active" = true
+                                                                 AND (o."name" ILIKE $3 OR o."slug" ILIKE $3)
+                                                     )
+                                             )
+                                     )
+                             )
+                         ORDER BY
+                             CASE
+                                 WHEN p."title" ILIKE $1 THEN 0
+                                 WHEN c."name" ILIKE $1 THEN 1
+                                 WHEN EXISTS (
+                                         SELECT 1
+                                         FROM "product_occasions" po
+                                         INNER JOIN "occasions" o ON o."id" = po."occasion_id"
+                                         WHERE po."product_id" = p."id"
+                                             AND o."is_active" = true
+                                             AND (o."name" ILIKE $1 OR o."slug" ILIKE $1)
+                                 ) THEN 2
+                                 WHEN p."title" ILIKE $2 THEN 3
+                                 ELSE 4
+                             END,
+                             p."title" ASC
+                         LIMIT $4`,
+                        prefixPattern,
+                        containsPattern,
+                        fuzzyPrefix,
+                        safeLimit,
+                );
 
                 searchLogger.debug({ q: normalizedQ, count: rows.length }, 'autocomplete suggestions');
 

@@ -19,7 +19,7 @@ function setMemCache(key, data, ttlMs) {
     memCache.set(key, { data, expiresAt: Date.now() + ttlMs });
 }
 const DEFAULT_LIMIT = 20;
-const MAX_LIMIT = 100;
+const MAX_LIMIT = 20;
 function resolvePagination(params) {
     const pageRaw = Number(params?.page ?? 1);
     const limitRaw = Number(params?.limit ?? DEFAULT_LIMIT);

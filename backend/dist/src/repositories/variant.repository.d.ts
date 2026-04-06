@@ -23,6 +23,9 @@ export declare class VariantRepository {
         id: string;
         productId: string;
         price: number;
+        inventory: {
+            stock: number;
+        } | null;
         product: {
             id: string;
             sellerId: string;

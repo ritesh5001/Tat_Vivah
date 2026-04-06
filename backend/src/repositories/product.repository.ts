@@ -13,6 +13,69 @@ import type {
  * Handles database operations for products
  */
 export class ProductRepository {
+    private buildTextMatcher(keyword: string, matcher: 'contains' | 'startsWith' = 'contains') {
+        const normalized = keyword.trim();
+        if (!normalized) return null;
+
+        return {
+            [matcher]: normalized,
+            mode: 'insensitive' as const,
+        };
+    }
+
+    private buildSearchClauses(search?: string): any[] {
+        if (!search) return [];
+
+        const normalizedSearch = search.trim().replace(/\s+/g, ' ');
+        if (!normalizedSearch) return [];
+
+        const terms = normalizedSearch
+            .split(' ')
+            .map((term) => term.trim().toLowerCase())
+            .filter((term) => term.length > 0);
+
+        const containsTerms = Array.from(new Set([normalizedSearch, ...terms]))
+            .filter((term) => term.length >= 2)
+            .slice(0, 6);
+
+        // Prefix fallback helps with small spelling variations (e.g. "weding" -> "wed").
+        const prefixTerms = Array.from(
+            new Set(terms.filter((term) => term.length >= 4).map((term) => term.slice(0, 3))),
+        ).slice(0, 3);
+
+        const clauses: any[] = [];
+
+        const pushTermClauses = (term: string, matcher: 'contains' | 'startsWith') => {
+            const textMatcher = this.buildTextMatcher(term, matcher);
+            if (!textMatcher) return;
+
+            clauses.push({ title: textMatcher });
+            clauses.push({ description: textMatcher });
+            clauses.push({ category: { is: { name: textMatcher } } });
+            clauses.push({ category: { is: { slug: textMatcher } } });
+            clauses.push({
+                occasions: {
+                    some: {
+                        occasion: {
+                            isActive: true,
+                            OR: [{ name: textMatcher }, { slug: textMatcher }],
+                        },
+                    },
+                },
+            });
+        };
+
+        for (const term of containsTerms) {
+            pushTermClauses(term, 'contains');
+        }
+
+        for (const prefix of prefixTerms) {
+            pushTermClauses(prefix, 'startsWith');
+        }
+
+        return clauses;
+    }
+
     private resolvePagination(page?: number, limit?: number): { skip: number; take: number } {
         const pRaw = Number(page ?? 1);
         const lRaw = Number(limit ?? 20);
@@ -41,18 +104,14 @@ export class ProductRepository {
     }> {
         const { page = 1, limit = 20, categoryId, search, occasion } = filters;
         const { skip, take } = this.resolvePagination(page, Math.min(limit, 20));
+        const searchClauses = this.buildSearchClauses(search);
 
         const where: any = {
             status: 'APPROVED' as const,
             deletedByAdmin: false,
             adminListingPrice: { not: null },
             ...(categoryId && { categoryId }),
-            ...(search && {
-                OR: [
-                    { title: { contains: search, mode: 'insensitive' as const } },
-                    { description: { contains: search, mode: 'insensitive' as const } },
-                ],
-            }),
+            ...(searchClauses.length > 0 && { OR: searchClauses }),
         };
 
         // Use Prisma relational filtering for occasion slug

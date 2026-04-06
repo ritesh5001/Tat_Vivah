@@ -52,8 +52,10 @@ export class SearchService {
                 paramIndex++;
             }
             const whereClause = conditions.join(' AND ');
-            // Build ORDER BY
+            // Build ORDER BY and rank expression
             let orderBy;
+            let rankSelect = `ts_rank(p."search_vector", plainto_tsquery('english', $1)) AS rank`;
+            let joins = '';
             switch (sort) {
                 case 'price_asc':
                     orderBy = `COALESCE(p."admin_listing_price", p."seller_price") ASC`;
@@ -65,14 +67,20 @@ export class SearchService {
                     orderBy = `p."created_at" DESC`;
                     break;
                 case 'popularity':
-                    orderBy = `(
-                        (SELECT COUNT(*) FROM "order_items" oi
-                         INNER JOIN "product_variants" pv ON pv."id" = oi."variant_id"
-                         WHERE pv."product_id" = p."id")
-                        +
-                        (SELECT COUNT(*) FROM "wishlist_items" wi
-                         WHERE wi."product_id" = p."id")
-                    ) DESC`;
+                    joins = `
+                LEFT JOIN (
+                    SELECT pv."product_id" AS "productId", COUNT(*)::int AS "orderCount"
+                    FROM "order_items" oi
+                    INNER JOIN "product_variants" pv ON pv."id" = oi."variant_id"
+                    GROUP BY pv."product_id"
+                ) oic ON oic."productId" = p."id"
+                LEFT JOIN (
+                    SELECT wi."product_id" AS "productId", COUNT(*)::int AS "wishlistCount"
+                    FROM "wishlist_items" wi
+                    GROUP BY wi."product_id"
+                ) wic ON wic."productId" = p."id"`;
+                    rankSelect = `(COALESCE(oic."orderCount", 0) + COALESCE(wic."wishlistCount", 0))::float AS rank`;
+                    orderBy = `(COALESCE(oic."orderCount", 0) + COALESCE(wic."wishlistCount", 0)) DESC, p."created_at" DESC`;
                     break;
                 default: // 'relevance'
                     orderBy = `ts_rank(p."search_vector", plainto_tsquery('english', $1)) DESC`;
@@ -95,10 +103,11 @@ export class SearchService {
                     p."admin_listing_price" AS "adminListingPrice",
                     p."is_published" AS "isPublished",
                     p."created_at" AS "createdAt",
-                    ts_rank(p."search_vector", plainto_tsquery('english', $1)) AS rank,
+                    ${rankSelect},
                     json_build_object('id', c."id", 'name', c."name") AS category
                 FROM "products" p
                 LEFT JOIN "categories" c ON c."id" = p."category_id"
+                ${joins}
                 WHERE ${whereClause}
                 ORDER BY ${orderBy}
                 LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
@@ -155,14 +164,65 @@ export class SearchService {
         if (cached) {
             return cached;
         }
-        const rows = await prisma.$queryRawUnsafe(`SELECT p."id", p."title", c."name" AS "categoryName"
-             FROM "products" p
-             LEFT JOIN "categories" c ON c."id" = p."category_id"
-             WHERE p."is_published" = true
-               AND p."deleted_by_admin" = false
-               AND p."title" ILIKE $1
-             ORDER BY p."title" ASC
-             LIMIT $2`, `${normalizedQ}%`, safeLimit);
+        const containsPattern = `%${normalizedQ}%`;
+        const prefixPattern = `${normalizedQ}%`;
+        const fuzzyPrefix = normalizedQ.length >= 4 ? `${normalizedQ.slice(0, 3)}%` : null;
+        const rows = await prisma.$queryRawUnsafe(`SELECT
+                                p."id",
+                                p."title",
+                                c."name" AS "categoryName"
+                         FROM "products" p
+                         LEFT JOIN "categories" c ON c."id" = p."category_id"
+                         WHERE p."is_published" = true
+                             AND p."deleted_by_admin" = false
+                             AND p."admin_listing_price" IS NOT NULL
+                             AND (
+                                     p."title" ILIKE $1
+                                     OR p."title" ILIKE $2
+                                     OR c."name" ILIKE $2
+                                     OR c."slug" ILIKE $2
+                                     OR EXISTS (
+                                             SELECT 1
+                                             FROM "product_occasions" po
+                                             INNER JOIN "occasions" o ON o."id" = po."occasion_id"
+                                             WHERE po."product_id" = p."id"
+                                                 AND o."is_active" = true
+                                                 AND (o."name" ILIKE $2 OR o."slug" ILIKE $2)
+                                     )
+                                     OR (
+                                             $3::text IS NOT NULL
+                                             AND (
+                                                     p."title" ILIKE $3
+                                                     OR c."name" ILIKE $3
+                                                     OR c."slug" ILIKE $3
+                                                     OR EXISTS (
+                                                             SELECT 1
+                                                             FROM "product_occasions" po
+                                                             INNER JOIN "occasions" o ON o."id" = po."occasion_id"
+                                                             WHERE po."product_id" = p."id"
+                                                                 AND o."is_active" = true
+                                                                 AND (o."name" ILIKE $3 OR o."slug" ILIKE $3)
+                                                     )
+                                             )
+                                     )
+                             )
+                         ORDER BY
+                             CASE
+                                 WHEN p."title" ILIKE $1 THEN 0
+                                 WHEN c."name" ILIKE $1 THEN 1
+                                 WHEN EXISTS (
+                                         SELECT 1
+                                         FROM "product_occasions" po
+                                         INNER JOIN "occasions" o ON o."id" = po."occasion_id"
+                                         WHERE po."product_id" = p."id"
+                                             AND o."is_active" = true
+                                             AND (o."name" ILIKE $1 OR o."slug" ILIKE $1)
+                                 ) THEN 2
+                                 WHEN p."title" ILIKE $2 THEN 3
+                                 ELSE 4
+                             END,
+                             p."title" ASC
+                         LIMIT $4`, prefixPattern, containsPattern, fuzzyPrefix, safeLimit);
         searchLogger.debug({ q: normalizedQ, count: rows.length }, 'autocomplete suggestions');
         const suggestions = rows.map((r) => ({
             id: r.id,

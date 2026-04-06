@@ -10,6 +10,7 @@ import { otpRepository } from '../repositories/otp.repository.js';
 import { sendEmail } from '../notifications/email/resend.client.js';
 import { renderBrandedEmail } from '../notifications/email/templates/layout.js';
 import { OtpPurpose } from '@prisma/client';
+import { randomUUID } from 'crypto';
 /**
  * Auth Service
  * Contains all business logic for authentication
@@ -21,6 +22,7 @@ export class AuthService {
         this.repository = repository;
     }
     async issueTokens(user, userAgent, ipAddress) {
+        const sessionId = randomUUID();
         const accessToken = generateAccessToken({
             userId: user.id,
             email: user.email,
@@ -30,26 +32,23 @@ export class AuthService {
             isEmailVerified: user.isEmailVerified,
             isPhoneVerified: user.isPhoneVerified,
         });
+        const refreshToken = generateRefreshToken({
+            userId: user.id,
+            sessionId,
+            isEmailVerified: user.isEmailVerified,
+            isPhoneVerified: user.isPhoneVerified,
+        });
         const refreshTokenExpiryMs = ms(env.REFRESH_TOKEN_EXPIRY);
         const expiresAt = new Date(Date.now() + refreshTokenExpiryMs);
-        // Generate a temporary session ID to embed in the refresh token
-        // We create session with a placeholder, then update in one step
-        const session = await this.repository.createSession({
+        const hashedRefreshToken = await hashToken(refreshToken);
+        await this.repository.createSession({
+            sessionId,
             userId: user.id,
-            refreshToken: '', // placeholder
+            refreshToken: hashedRefreshToken,
             userAgent: userAgent ?? undefined,
             ipAddress: ipAddress ?? undefined,
             expiresAt,
         });
-        const refreshToken = generateRefreshToken({
-            userId: user.id,
-            sessionId: session.id,
-            isEmailVerified: user.isEmailVerified,
-            isPhoneVerified: user.isPhoneVerified,
-        });
-        // Hash and update the session in one call
-        const hashedRefreshToken = await hashToken(refreshToken);
-        await this.repository.updateSessionRefreshToken(session.id, hashedRefreshToken);
         return {
             user: {
                 id: user.id,

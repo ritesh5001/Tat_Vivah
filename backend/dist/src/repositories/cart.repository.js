@@ -21,14 +21,10 @@ export class CartRepository {
      * Find or create cart for user
      */
     async findOrCreateByUserId(userId) {
-        const existing = await prisma.cart.findUnique({
+        return prisma.cart.upsert({
             where: { userId },
-        });
-        if (existing) {
-            return existing;
-        }
-        return prisma.cart.create({
-            data: { userId },
+            update: {},
+            create: { userId },
         });
     }
     /**
@@ -103,16 +99,18 @@ export class CartRepository {
      * Uses batch lookups (2 queries) instead of 2N individual queries.
      */
     async getCartWithDetails(userId) {
-        const cart = await prisma.cart.findUnique({
+        const cart = await prisma.cart.upsert({
             where: { userId },
+            update: {},
+            create: { userId },
             include: {
                 items: {
                     orderBy: { createdAt: 'desc' },
                 },
             },
         });
-        if (!cart || cart.items.length === 0) {
-            return cart ? { ...cart, items: [] } : null;
+        if (cart.items.length === 0) {
+            return { ...cart, items: [] };
         }
         // Batch lookup — 2 queries total instead of 2N
         const productIds = [...new Set(cart.items.map((item) => item.productId))];

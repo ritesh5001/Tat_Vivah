@@ -33,8 +33,8 @@ const cardWidth = (width - spacing.lg * 2 - spacing.md) / 2;
 const fallbackImage =
   "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80";
 
-const DEBOUNCE_MS = 220;
-const SUGGEST_DEBOUNCE_MS = 160;
+const DEBOUNCE_MS = 140;
+const SUGGEST_DEBOUNCE_MS = 110;
 
 const SORT_OPTIONS: { value: SortOption | ""; label: string }[] = [
   { value: "", label: "Default" },
@@ -385,7 +385,7 @@ export default function SearchScreen() {
       <View style={styles.searchCard}>
         <View style={styles.searchRow}>
           <TextInput
-            placeholder="Search collections, styles..."
+            placeholder="Search product, occasion, category..."
             placeholderTextColor={colors.brownSoft}
             value={search}
             onChangeText={handleSearchChange}

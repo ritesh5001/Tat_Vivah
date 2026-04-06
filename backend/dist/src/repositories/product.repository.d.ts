@@ -4,6 +4,8 @@ import type { ProductEntity, ProductWithCategory, ProductWithDetails, CreateProd
  * Handles database operations for products
  */
 export declare class ProductRepository {
+    private buildTextMatcher;
+    private buildSearchClauses;
     private resolvePagination;
     private mapProductDecimals;
     /**

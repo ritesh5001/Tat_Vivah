@@ -94,7 +94,7 @@ export class ProductService {
         return {
             ...filters,
             page: Number.isFinite(pageRaw) && pageRaw > 0 ? Math.trunc(pageRaw) : 1,
-            limit: Math.min(50, Math.max(1, Number.isFinite(limitRaw) ? Math.trunc(limitRaw) : 20)),
+            limit: Math.min(20, Math.max(1, Number.isFinite(limitRaw) ? Math.trunc(limitRaw) : 20)),
             categoryId: this.normalizeTextFilter(filters.categoryId),
             search: this.normalizeTextFilter(filters.search),
             occasion: this.normalizeTextFilter(filters.occasion)?.toLowerCase(),
@@ -180,14 +180,14 @@ export class ProductService {
      * No caching (private data)
      */
     async listSellerProducts(sellerId, params) {
-        const page = params?.page ?? 1;
-        const limit = params?.limit ?? 20;
+        const page = Math.max(1, Math.trunc(params?.page ?? 1));
+        const limit = Math.min(20, Math.max(1, Math.trunc(params?.limit ?? 20)));
         const cacheKey = CACHE_KEYS.SELLER_PRODUCTS(sellerId, page, limit);
         const cached = await getFromCache(cacheKey);
         if (cached) {
             return cached;
         }
-        const products = await this.productRepo.findBySellerId(sellerId, params);
+        const products = await this.productRepo.findBySellerId(sellerId, { page, limit });
         const response = { products: products.map((product) => this.toSellerProduct(product)) };
         await setCache(cacheKey, response, 60);
         return response;
