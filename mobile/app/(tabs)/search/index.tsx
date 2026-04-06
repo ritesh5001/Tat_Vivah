@@ -520,9 +520,7 @@ export default function SearchScreen() {
         }
         keyExtractor={keyExtractor}
         numColumns={2}
-        estimatedItemSize={Math.round(cardWidth * 1.75)}
         drawDistance={Math.round(cardWidth * 3)}
-        columnWrapperStyle={styles.gridRow}
         renderItem={renderItem}
         contentContainerStyle={styles.gridContent}
         showsVerticalScrollIndicator={false}
@@ -542,10 +540,6 @@ export default function SearchScreen() {
             </View>
           ) : null
         }
-        removeClippedSubviews
-        initialNumToRender={2}
-        maxToRenderPerBatch={2}
-        windowSize={3}
       />
     </SafeAreaView>
   );

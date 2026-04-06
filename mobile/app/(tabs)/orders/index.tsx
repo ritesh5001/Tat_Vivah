@@ -262,16 +262,18 @@ export default function OrdersScreen() {
   const loadOrders = React.useCallback(async () => {
     if (!token) return;
 
-    const isCacheValid =
-      ordersScreenCache &&
-      ordersScreenCache.token === token &&
-      Date.now() - ordersScreenCache.cachedAt < ORDERS_CACHE_TTL_MS;
+    const cachedOrders = ordersScreenCache;
 
-    if (isCacheValid) {
-      setOrders(ordersScreenCache.orders);
-      setPaymentStatus(ordersScreenCache.paymentStatus);
-      setCancellationByOrder(ordersScreenCache.cancellationByOrder);
-      setReturnByOrder(ordersScreenCache.returnByOrder);
+    const isCacheValid =
+      cachedOrders !== null &&
+      cachedOrders.token === token &&
+      Date.now() - cachedOrders.cachedAt < ORDERS_CACHE_TTL_MS;
+
+    if (isCacheValid && cachedOrders) {
+      setOrders(cachedOrders.orders);
+      setPaymentStatus(cachedOrders.paymentStatus);
+      setCancellationByOrder(cachedOrders.cancellationByOrder);
+      setReturnByOrder(cachedOrders.returnByOrder);
       setLoading(false);
       setFetchError(null);
       return;

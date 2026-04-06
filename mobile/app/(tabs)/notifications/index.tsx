@@ -379,6 +379,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: spacing.lg,
   },
+  emptyCard: {
+    marginTop: spacing.lg,
+    marginHorizontal: spacing.lg,
+    padding: spacing.lg,
+    borderRadius: 0,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.surfaceElevated,
+    ...shadow.card,
+  },
   loadingText: {
     marginTop: spacing.sm,
     fontFamily: typography.sans,

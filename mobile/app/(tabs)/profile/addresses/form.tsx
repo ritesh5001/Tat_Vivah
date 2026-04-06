@@ -410,6 +410,10 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     borderRadius: 0,
     backgroundColor: colors.warmWhite,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    ...shadow.card,
+  },
   emptyContainer: {
     flex: 1,
     justifyContent: "center",
@@ -430,10 +434,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 18,
     marginBottom: spacing.md,
-  },
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    ...shadow.card,
   },
   fieldLabel: {
     fontFamily: typography.sans,

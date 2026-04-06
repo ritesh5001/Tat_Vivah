@@ -5,29 +5,53 @@ import { colors, spacing } from "../theme/tokens";
 // ---------------------------------------------------------------------------
 // Pulse animation hook (shared across all skeleton instances)
 // ---------------------------------------------------------------------------
+const sharedPulseOpacity = new Animated.Value(0.18);
+let sharedPulseLoop: Animated.CompositeAnimation | null = null;
+let sharedPulseUsers = 0;
+
+function startSharedPulseLoop() {
+  if (sharedPulseLoop) return;
+
+  sharedPulseLoop = Animated.loop(
+    Animated.sequence([
+      Animated.timing(sharedPulseOpacity, {
+        toValue: 0.42,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.timing(sharedPulseOpacity, {
+        toValue: 0.18,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+    ])
+  );
+
+  sharedPulseLoop.start();
+}
+
+function stopSharedPulseLoop() {
+  if (!sharedPulseLoop) return;
+  sharedPulseLoop.stop();
+  sharedPulseLoop = null;
+  sharedPulseOpacity.setValue(0.18);
+}
+
 function usePulse(): Animated.Value {
-  const opacity = React.useRef(new Animated.Value(0.18)).current;
-
   React.useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacity, {
-          toValue: 0.42,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacity, {
-          toValue: 0.18,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [opacity]);
+    sharedPulseUsers += 1;
+    startSharedPulseLoop();
 
-  return opacity;
+    return () => {
+      sharedPulseUsers -= 1;
+      if (sharedPulseUsers <= 0) {
+        sharedPulseUsers = 0;
+        stopSharedPulseLoop();
+      }
+    };
+  }, []);
+
+  return sharedPulseOpacity;
 }
 
 // ---------------------------------------------------------------------------
@@ -42,6 +66,9 @@ interface SkeletonBlockProps {
 
 export function SkeletonBlock(props: SkeletonBlockProps) {
   const w = props.width ?? "100%";
+  const isPercentWidth = typeof w === "string" && w.endsWith("%");
+  const normalizedWidth =
+    typeof w === "number" || w === "auto" || isPercentWidth ? w : "100%";
   const h = props.height ?? 12;
   const borderRadius = props.borderRadius ?? 0;
   const style = props.style;
@@ -50,7 +77,7 @@ export function SkeletonBlock(props: SkeletonBlockProps) {
     <Animated.View
       style={[
         {
-          width: w,
+          width: normalizedWidth as ViewStyle["width"],
           height: h,
           borderRadius,
           backgroundColor: colors.brown,
@@ -62,14 +89,17 @@ export function SkeletonBlock(props: SkeletonBlockProps) {
   );
 }
 
+type SkeletonProductCardProps = {
+  width?: number;
+};
+
 // ---------------------------------------------------------------------------
 // SkeletonProductCard — 2-column grid card (search screen)
 // ---------------------------------------------------------------------------
-export const SkeletonProductCard = React.memo(function SkeletonProductCard({
-  width: w,
-}: {
-  width?: number;
-}) {
+export const SkeletonProductCard = React.memo(function SkeletonProductCard(
+  props: SkeletonProductCardProps
+) {
+  const w = props.width;
   const opacity = usePulse();
   return (
     <View style={[styles.productCard, w != null && { width: w }]}>

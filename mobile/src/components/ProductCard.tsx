@@ -6,7 +6,6 @@ import {
   Text,
   View,
   useWindowDimensions,
-  type ImageSourcePropType,
 } from "react-native";
 import { colors, spacing, textStyles } from "../theme";
 import { CachedImage } from "./CachedImage";
@@ -35,9 +34,7 @@ function ProductCardBase({
   const { width } = useWindowDimensions();
   const cardWidth = Math.min(Math.max(width * 0.46, 160), 190);
 
-  const source: ImageSourcePropType = imageUri
-    ? { uri: imageUri }
-    : require("../../assets/icon.png");
+  const source = imageUri || require("../../assets/icon.png");
 
   return (
     <Pressable onPress={() => onPress?.(id)} style={[styles.card, { width: cardWidth }] }>
