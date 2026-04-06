@@ -137,10 +137,10 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 1,
     marginBottom: spacing.lg,
-    aspectRatio: 0.68,
   },
   imageWrap: {
-    flex: 3,
+    width: "100%",
+    aspectRatio: 3 / 4,
     backgroundColor: colors.surface,
     overflow: "hidden",
   },

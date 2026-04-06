@@ -11,7 +11,6 @@ export function MostLovedList() {
   const { data, isLoading, isError } = useProductsQuery({ page: 1, limit: 10, sort: "popular" });
   const { height } = useWindowDimensions();
   const feedWrapHeight = Math.max(520, Math.round(height * 0.78));
-  const imageHeight = Math.max(400, Math.round(feedWrapHeight * 0.82));
 
   const products = useMemo(() => data?.data ?? [], [data?.data]);
 
@@ -44,7 +43,7 @@ export function MostLovedList() {
         {products.map((item) => (
           <View key={item.id} style={styles.feedCard}>
             <View style={styles.imageWrap}>
-              <CachedImage source={item.images?.[0] ?? fallbackImage} style={[styles.feedImage, { height: imageHeight }]} />
+              <CachedImage source={item.images?.[0] ?? fallbackImage} style={styles.feedImage} />
               <Pressable style={styles.heartButton}>
                 <Feather name="heart" size={18} color={colors.white} />
               </Pressable>
@@ -89,7 +88,7 @@ const styles = StyleSheet.create({
   },
   feedImage: {
     width: "100%",
-    height: 460,
+    aspectRatio: 3 / 4,
   },
   heartButton: {
     position: "absolute",

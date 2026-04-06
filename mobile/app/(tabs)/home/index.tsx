@@ -267,11 +267,11 @@ export default function HomeScreen() {
   const categoryCardHeight = Math.round(categoryCardWidth * 1.34);
   const productCardGap = spacing.md;
   const productCardWidth = gridPageWidth;
-  const productCardHeight = Math.round(productCardWidth * 1.25);
+  const productCardHeight = Math.round(productCardWidth * (4 / 3));
   const bestsellerCardWidth = isPhone
     ? (gridPageWidth - productCardGap) / 2
     : productCardWidth;
-  const bestsellerCardHeight = Math.round(bestsellerCardWidth * 1.25);
+  const bestsellerCardHeight = Math.round(bestsellerCardWidth * (4 / 3));
   const testimonialCardGap = spacing.md;
   const testimonialCardWidth = Math.min(Math.max(gridPageWidth * 0.82, 260), 320);
   const testimonialCardStep = testimonialCardWidth + testimonialCardGap;

@@ -8,6 +8,7 @@ import {
   Modal,
 } from "react-native";
 import { FlashList } from "@shopify/flash-list";
+import { Ionicons } from "@expo/vector-icons";
 import { Image } from "../../../src/components/CompatImage";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { colors, spacing, typography, shadow } from "../../../src/theme/tokens";
@@ -124,6 +125,7 @@ export default function SearchScreen() {
   const [fetchError, setFetchError] = React.useState<string | null>(null);
   const [sortBy, setSortBy] = React.useState<SortOption | "">("");
   const [showSortSheet, setShowSortSheet] = React.useState(false);
+  const [showCategoryFilters, setShowCategoryFilters] = React.useState(true);
   const [suggestions, setSuggestions] = React.useState<SuggestionItem[]>([]);
   const [showSuggestions, setShowSuggestions] = React.useState(false);
 
@@ -372,18 +374,18 @@ export default function SearchScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <AppHeader variant="main" />
+      <AppHeader variant="sub" showBack={false} showMenu showSearch={false} showCart />
 
-      <View style={styles.headerBlock}>
-        <Text style={styles.title}>Marketplace</Text>
-        <Text style={styles.subtitle}>Premium curated catalog</Text>
-        <Text style={styles.subtitleCopy}>
-          Discover wedding-ready edits crafted with heritage silhouettes and modern luxury detailing.
-        </Text>
-      </View>
-
-      <View style={styles.searchCard}>
+      <View style={styles.topControls}>
         <View style={styles.searchRow}>
+          <Pressable
+            style={styles.iconControl}
+            onPress={() => setShowSortSheet(true)}
+            hitSlop={8}
+          >
+            <Ionicons name="swap-vertical-outline" size={18} color={colors.charcoal} />
+          </Pressable>
+
           <TextInput
             placeholder="Search product, occasion, category..."
             placeholderTextColor={colors.brownSoft}
@@ -398,7 +400,31 @@ export default function SearchScreen() {
           <Pressable style={styles.searchButton} onPress={handleSearch}>
             <Text style={styles.searchButtonText}>Search</Text>
           </Pressable>
+
+          <Pressable
+            style={[styles.iconControl, showCategoryFilters && styles.iconControlActive]}
+            onPress={() => setShowCategoryFilters((prev) => !prev)}
+            hitSlop={8}
+          >
+            <Ionicons name="funnel-outline" size={18} color={colors.charcoal} />
+          </Pressable>
         </View>
+
+        {showCategoryFilters ? (
+          <FlatList
+            data={categoryChips}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={categoryKeyExtractor}
+            contentContainerStyle={styles.categoryRow}
+            renderItem={renderCategoryItem}
+            initialNumToRender={6}
+            maxToRenderPerBatch={6}
+            windowSize={3}
+            updateCellsBatchingPeriod={24}
+            removeClippedSubviews
+          />
+        ) : null}
       </View>
 
       {/* Autocomplete suggestions */}
@@ -430,35 +456,6 @@ export default function SearchScreen() {
           ))}
         </View>
       )}
-
-      {/* Sort + Category Row */}
-      <View style={styles.sortCategoryWrap}>
-        <View style={styles.sortRow}>
-          <Pressable
-            style={styles.sortButtonWide}
-            onPress={() => setShowSortSheet(true)}
-          >
-            <Text style={styles.sortButtonText}>Sort</Text>
-          </Pressable>
-          <Pressable style={styles.sortButtonWide} onPress={() => setShowSortSheet(true)}>
-            <Text style={styles.sortButtonText}>Filter</Text>
-          </Pressable>
-        </View>
-
-        <FlatList
-          data={categoryChips}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          keyExtractor={categoryKeyExtractor}
-          contentContainerStyle={styles.categoryRow}
-          renderItem={renderCategoryItem}
-          initialNumToRender={6}
-          maxToRenderPerBatch={6}
-          windowSize={3}
-          updateCellsBatchingPeriod={24}
-          removeClippedSubviews
-        />
-      </View>
 
       {/* Sort bottom sheet */}
       <Modal
@@ -547,34 +544,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  headerBlock: {
-    marginTop: spacing.lg,
-    paddingHorizontal: spacing.lg,
-  },
-  title: {
-    fontFamily: typography.serif,
-    fontSize: 24,
-    color: colors.charcoal,
-  },
-  subtitle: {
-    marginTop: 2,
-    fontFamily: typography.sans,
-    fontSize: 12,
-    textTransform: "uppercase",
-    letterSpacing: 1.4,
-    color: colors.brownSoft,
-  },
-  subtitleCopy: {
-    marginTop: spacing.xs,
-    fontFamily: typography.sans,
-    fontSize: 12,
-    lineHeight: 18,
-    color: colors.brownSoft,
-  },
-  searchCard: {
-    marginTop: spacing.md,
+  topControls: {
+    marginTop: spacing.sm,
     marginHorizontal: spacing.lg,
-    padding: spacing.md,
+    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
     borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -583,7 +558,8 @@ const styles = StyleSheet.create({
   },
   searchRow: {
     flexDirection: "row",
-    gap: spacing.sm,
+    alignItems: "center",
+    gap: spacing.xs,
   },
   searchInput: {
     flex: 1,
@@ -591,9 +567,10 @@ const styles = StyleSheet.create({
     borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 10,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 9,
     fontFamily: typography.sans,
+    fontSize: 13,
     color: colors.charcoal,
   },
   searchButton: {
@@ -601,7 +578,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.gold,
     borderRadius: 0,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
+    minHeight: 38,
     justifyContent: "center",
   },
   searchButtonText: {
@@ -611,10 +589,22 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     color: colors.background,
   },
+  iconControl: {
+    width: 36,
+    height: 36,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.background,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  iconControlActive: {
+    borderColor: colors.gold,
+    backgroundColor: "rgba(184, 149, 108, 0.14)",
+  },
   categoryRow: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
     gap: spacing.sm,
   },
   categoryChip: {
@@ -655,7 +645,8 @@ const styles = StyleSheet.create({
     ...shadow.card,
   },
   productImage: {
-    height: 160,
+    width: "100%",
+    aspectRatio: 3 / 4,
     borderRadius: 0,
     backgroundColor: colors.surface,
   },
@@ -737,6 +728,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   suggestionsContainer: {
+    marginTop: spacing.xs,
     marginHorizontal: spacing.lg,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -767,31 +759,6 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.8,
     marginLeft: spacing.sm,
-  },
-  sortCategoryWrap: {
-    marginTop: spacing.md,
-  },
-  sortRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
-  },
-  sortButtonWide: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: colors.gold,
-    borderRadius: 0,
-    paddingVertical: spacing.sm,
-    alignItems: "center",
-    backgroundColor: colors.gold,
-  },
-  sortButtonText: {
-    fontFamily: typography.sansMedium,
-    fontSize: 11,
-    letterSpacing: 1.2,
-    textTransform: "uppercase",
-    color: colors.background,
   },
   sortOverlay: {
     flex: 1,

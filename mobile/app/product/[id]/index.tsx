@@ -301,7 +301,7 @@ const relatedCardStyles = StyleSheet.create({
   },
   image: {
     width: "100%",
-    height: 110,
+    aspectRatio: 3 / 4,
     borderRadius: 0,
     backgroundColor: colors.cream,
   },
@@ -376,7 +376,7 @@ export default function ProductDetailScreen() {
     ? WEB_BOTTOM_OFFSET
     : Math.max(insets.bottom, spacing.sm);
   const galleryWidth = Math.max(windowWidth - spacing.lg * 2, 260);
-  const galleryHeight = Math.round(galleryWidth * 1.25);
+  const galleryHeight = Math.round(galleryWidth * (4 / 3));
   const stickyActionHeight = 96;
   const stickyReserveSpace = stickyBottomOffset + stickyActionHeight + spacing.xl;
   const viewerWidth = Math.max(windowWidth, VIEWER_MIN_WIDTH);

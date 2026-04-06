@@ -41,7 +41,7 @@ function ProductCardBase({
       <View style={styles.imageWrap}>
         <CachedImage
           source={source}
-          style={[styles.image, { height: Math.round(cardWidth * 1.28) }]}
+          style={styles.image}
         />
 
         <Pressable
@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
   },
   image: {
     width: "100%",
-    height: 230,
+    aspectRatio: 3 / 4,
   },
   wishlistButton: {
     position: "absolute",

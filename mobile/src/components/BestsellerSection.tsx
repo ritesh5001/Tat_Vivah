@@ -139,7 +139,8 @@ const styles = StyleSheet.create({
     ...shadow.card,
   },
   image: {
-    height: 240,
+    width: "100%",
+    aspectRatio: 3 / 4,
     borderRadius: 0,
     backgroundColor: colors.cream,
   },

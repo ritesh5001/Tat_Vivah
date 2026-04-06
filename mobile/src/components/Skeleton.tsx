@@ -189,7 +189,8 @@ const styles = StyleSheet.create({
     borderColor: colors.borderSoft,
   },
   productImage: {
-    height: 160,
+    width: "100%",
+    aspectRatio: 3 / 4,
     borderRadius: 0,
     backgroundColor: colors.brown,
   },
