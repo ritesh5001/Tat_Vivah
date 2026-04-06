@@ -54,14 +54,21 @@ export function AppHeader({
   const shouldShowWishlist = showWishlist ?? false;
   const shouldShowCart = showCart ?? isMainHeader;
   const marqueeItems = React.useMemo(() => [...ANNOUNCEMENTS, ...ANNOUNCEMENTS], []);
+  const backFallbackRoute = "/home";
 
   const handleBack = React.useCallback(() => {
-    if (pathname === "/home") {
-      router.push("/home");
+    if (pathname === backFallbackRoute) {
+      router.replace(backFallbackRoute);
       return;
     }
-    router.back();
-  }, [pathname, router]);
+
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+
+    router.replace(backFallbackRoute);
+  }, [backFallbackRoute, pathname, router]);
 
   React.useEffect(() => {
     if (!isMainHeader || marqueeTrackWidth <= 0) return;
