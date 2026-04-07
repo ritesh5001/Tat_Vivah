@@ -90,12 +90,14 @@ export function createApp() {
     /** Called by server.ts after each integrity check run. */
     app.__setIntegrityReport = (report) => { lastIntegrityReport = report; };
     // Lightweight liveness probe for edge/load balancer checks.
-    app.get('/health/live', (_req, res) => {
+    const liveHealthHandler = (_req, res) => {
         res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
         res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
-    });
+    };
+    app.get('/health/live', liveHealthHandler);
+    app.get('/api/health/live', liveHealthHandler);
     // Enhanced health endpoint
-    app.get('/health', async (_req, res) => {
+    const healthHandler = async (_req, res) => {
         const checks = {};
         // DB connectivity
         try {
@@ -136,7 +138,9 @@ export function createApp() {
             timestamp: new Date().toISOString(),
             checks,
         });
-    });
+    };
+    app.get('/health', healthHandler);
+    app.get('/api/health', healthHandler);
     app.get('/', (_req, res) => {
         res.json({
             message: 'Welcome to TatVivah API',
