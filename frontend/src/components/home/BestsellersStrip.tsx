@@ -31,7 +31,7 @@ export function BestsellersStrip({ bestsellers }: Props) {
   if (bestsellers.length === 0) {
     return (
       <section id="bestsellers" className="border-t border-border-soft">
-        <div className="mx-auto max-w-460 px-3 py-16 sm:px-6 sm:py-20 lg:px-10">
+        <div className="mx-auto max-w-460 px-3 py-12 sm:px-6 sm:py-20 lg:px-10">
           <div className="mb-12 text-center">
             <p className="mb-4 text-xs font-medium uppercase tracking-[0.3em] text-gold">Most Loved</p>
             <h2 className="font-serif text-3xl font-light tracking-tight text-foreground sm:text-4xl">Bestselling Pieces</h2>
@@ -46,7 +46,7 @@ export function BestsellersStrip({ bestsellers }: Props) {
 
   return (
     <section id="bestsellers" className="border-t border-border-soft">
-      <div className="mx-auto max-w-460 px-3 py-16 sm:px-6 sm:py-20 lg:px-10">
+      <div className="mx-auto max-w-460 px-3 py-12 sm:px-6 sm:py-20 lg:px-10">
         <div className="mb-12 text-center">
           <p className="mb-4 text-xs font-medium uppercase tracking-[0.3em] text-gold">Most Loved</p>
           <h2 className="font-serif text-3xl font-light tracking-tight text-foreground sm:text-4xl">Bestselling Pieces</h2>

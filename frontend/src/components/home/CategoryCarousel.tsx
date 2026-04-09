@@ -30,7 +30,7 @@ export function CategoryCarousel({ initialCategories }: { initialCategories?: Ca
 
   return (
     <section id="categories" className="border-t border-border-soft bg-[#f3ede7] dark:bg-card">
-      <div className="mx-auto max-w-460 px-3 py-16 sm:px-6 sm:py-20 lg:px-10">
+      <div className="mx-auto max-w-460 px-3 py-12 sm:px-6 sm:py-20 lg:px-10">
         <div className="mb-12 text-center">
           <p className="mb-4 text-[11px] font-medium uppercase tracking-[0.34em] text-[#a07a63] dark:text-gold">
             Shop by Category

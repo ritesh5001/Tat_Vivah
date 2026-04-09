@@ -15,7 +15,7 @@ export function ProductShowcaseSection({
 
   return (
     <section id="product-showcase" className="border-t border-border-soft bg-cream/50 dark:bg-card/50">
-      <div className="mx-auto max-w-460 px-3 py-16 sm:px-6 sm:py-20 lg:px-10">
+      <div className="mx-auto max-w-460 px-3 py-12 sm:px-6 sm:py-20 lg:px-10">
         <div className="mb-10 text-center">
           <div>
             <p className="mb-2 text-xs font-medium uppercase tracking-[0.3em] text-gold">Our Picks</p>

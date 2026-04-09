@@ -144,7 +144,7 @@ function pickNewArrivals(products?: (MarketplaceCardProduct & { createdAt?: stri
 function NewArrivalsSection({ products }: { products: MarketplaceCardProduct[] }) {
   return (
     <section id="new" className="border-t border-border-soft bg-cream/50 dark:bg-card/50">
-      <div className="mx-auto max-w-460 px-3 py-16 sm:px-6 sm:py-20 lg:px-10">
+      <div className="mx-auto max-w-460 px-3 py-12 sm:px-6 sm:py-20 lg:px-10">
         <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
           <div className="space-y-6 px-0 sm:px-2">
             <p className="text-xs font-medium uppercase tracking-[0.3em] text-gold">
@@ -195,7 +195,7 @@ function NewArrivalsSection({ products }: { products: MarketplaceCardProduct[] }
 function GiftingSection() {
   return (
     <section id="gifting" className="border-t border-border-soft">
-      <div className="mx-auto max-w-6xl px-6 py-24">
+      <div className="mx-auto max-w-6xl px-6 py-16 sm:py-24">
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="border border-border-soft bg-card p-10 lg:col-span-2 lg:p-12">
             <p className="mb-4 text-xs font-medium uppercase tracking-[0.3em] text-gold">
@@ -260,7 +260,7 @@ function TrustSection() {
 
   return (
     <section className="border-t border-border-soft bg-cream/50 dark:bg-card/50">
-      <div className="mx-auto max-w-6xl px-6 py-12">
+      <div className="mx-auto max-w-6xl px-6 py-10 sm:py-12">
         <div className="grid grid-cols-3 gap-3 text-center sm:gap-6">
           {trustItems.map((item) => (
             <div key={item.title} className="px-1">
