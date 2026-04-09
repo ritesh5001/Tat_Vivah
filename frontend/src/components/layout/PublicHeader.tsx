@@ -105,6 +105,27 @@ export function PublicHeader() {
             </div>
 
             <Link
+              href="/search"
+              prefetch={false}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full text-foreground transition-colors duration-200 hover:bg-cream dark:hover:bg-brown/50"
+              aria-label="Search"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.6}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-4.5 w-4.5"
+              >
+                <circle cx="11" cy="11" r="7.5" />
+                <path d="m20 20-3.8-3.8" />
+              </svg>
+            </Link>
+
+            <Link
               href="/cart"
               prefetch={false}
               className="inline-flex h-9 w-9 items-center justify-center rounded-full text-foreground transition-colors duration-200 hover:bg-cream dark:hover:bg-brown/50"
