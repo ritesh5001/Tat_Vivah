@@ -2,6 +2,8 @@ import { ProductRepository, productRepository } from '../repositories/product.re
 import { VariantRepository, variantRepository } from '../repositories/variant.repository.js';
 import { InventoryRepository, inventoryRepository } from '../repositories/inventory.repository.js';
 import { CategoryRepository, categoryRepository } from '../repositories/category.repository.js';
+import { prisma } from '../config/db.js';
+import type { CouponType } from '@prisma/client';
 import {
     getFromCache,
     setCache,
@@ -26,8 +28,18 @@ import type {
     CreateVariantRequest,
     UpdateVariantRequest,
     PublicProductWithCategory,
+    PublicProductCouponPreview,
     PublicProductWithDetails,
 } from '../types/product.types.js';
+
+interface ActiveCouponCandidate {
+    code: string;
+    type: CouponType;
+    value: number;
+    maxDiscountAmount: number | null;
+    minOrderAmount: number;
+    sellerId: string | null;
+}
 
 /**
  * Product Service
@@ -47,7 +59,103 @@ export class ProductService {
         return Number(value ?? 0);
     }
 
-    private toPublicProduct(product: any): PublicProductWithCategory {
+    private roundMoney(value: number): number {
+        return Math.round(value * 100) / 100;
+    }
+
+    private calculateDiscountedPrice(price: number, coupon: ActiveCouponCandidate): number | null {
+        if (!Number.isFinite(price) || price <= 0) return null;
+        if (price < coupon.minOrderAmount) return null;
+
+        let discount = coupon.type === 'PERCENT' ? (price * coupon.value) / 100 : coupon.value;
+
+        if (coupon.maxDiscountAmount !== null) {
+            discount = Math.min(discount, coupon.maxDiscountAmount);
+        }
+
+        discount = Math.max(0, discount);
+        if (discount <= 0) return null;
+
+        const discountedPrice = Math.max(0, price - discount);
+        if (discountedPrice >= price) return null;
+        return this.roundMoney(discountedPrice);
+    }
+
+    private getBestCouponPreview(
+        price: number,
+        sellerId: string | null | undefined,
+        coupons: ActiveCouponCandidate[],
+    ): PublicProductCouponPreview | null {
+        if (!sellerId || !Number.isFinite(price) || price <= 0 || coupons.length === 0) {
+            return null;
+        }
+
+        let best: PublicProductCouponPreview | null = null;
+
+        for (const coupon of coupons) {
+            if (coupon.sellerId && coupon.sellerId !== sellerId) continue;
+
+            const discountedPrice = this.calculateDiscountedPrice(price, coupon);
+            if (discountedPrice === null) continue;
+
+            if (!best || discountedPrice < best.discountedPrice) {
+                best = {
+                    code: coupon.code,
+                    type: coupon.type,
+                    value: coupon.value,
+                    maxDiscountAmount: coupon.maxDiscountAmount,
+                    minOrderAmount: coupon.minOrderAmount,
+                    discountedPrice,
+                };
+            }
+        }
+
+        return best;
+    }
+
+    private async getActiveCouponsForSellers(sellerIds: string[]): Promise<ActiveCouponCandidate[]> {
+        if (sellerIds.length === 0) return [];
+
+        const uniqueSellerIds = Array.from(new Set(sellerIds.filter((id) => typeof id === 'string' && id.length > 0)));
+        if (uniqueSellerIds.length === 0) return [];
+
+        const now = new Date();
+        const coupons = await prisma.coupon.findMany({
+            where: {
+                isActive: true,
+                firstTimeUserOnly: false,
+                validFrom: { lte: now },
+                validUntil: { gte: now },
+                OR: [{ sellerId: null }, { sellerId: { in: uniqueSellerIds } }],
+            },
+            select: {
+                code: true,
+                type: true,
+                value: true,
+                maxDiscountAmount: true,
+                minOrderAmount: true,
+                sellerId: true,
+                usageLimit: true,
+                usedCount: true,
+            },
+            orderBy: [{ validUntil: 'asc' }, { createdAt: 'desc' }],
+        });
+
+        return coupons
+            .filter((coupon) => coupon.usageLimit === null || coupon.usedCount < coupon.usageLimit)
+            .map((coupon) => ({
+                code: coupon.code,
+                type: coupon.type,
+                value: this.toNumber(coupon.value),
+                maxDiscountAmount:
+                    coupon.maxDiscountAmount === null ? null : this.toNumber(coupon.maxDiscountAmount),
+                minOrderAmount: this.toNumber(coupon.minOrderAmount),
+                sellerId: coupon.sellerId,
+            }))
+            .filter((coupon) => coupon.value > 0);
+    }
+
+    private toPublicProduct(product: any, coupons: ActiveCouponCandidate[] = []): PublicProductWithCategory {
         const adminPrice = this.toNumber(product.adminListingPrice);
         return {
             id: product.id,
@@ -64,10 +172,11 @@ export class ProductService {
             adminPrice,
             salePrice: adminPrice,
             price: adminPrice,
+            activeCoupon: this.getBestCouponPreview(adminPrice, product.sellerId, coupons),
         };
     }
 
-    private toPublicProductDetail(product: any): PublicProductWithDetails {
+    private toPublicProductDetail(product: any, coupons: ActiveCouponCandidate[] = []): PublicProductWithDetails {
         const listingPrice = this.toNumber(product.adminListingPrice);
         return {
             id: product.id,
@@ -85,6 +194,7 @@ export class ProductService {
             adminPrice: listingPrice,
             salePrice: listingPrice,
             price: listingPrice,
+            activeCoupon: this.getBestCouponPreview(listingPrice, product.sellerId, coupons),
             variants: (product.variants ?? []).map((variant: any) => ({
                 id: variant.id,
                 sku: variant.sku,
@@ -155,9 +265,10 @@ export class ProductService {
         }
 
         const { products, total } = await this.productRepo.findPublished(normalizedFilters);
+        const coupons = await this.getActiveCouponsForSellers(products.map((product) => product.sellerId));
 
         const response: ProductListResponse = {
-            data: products.map((product) => this.toPublicProduct(product)),
+            data: products.map((product) => this.toPublicProduct(product, coupons)),
             pagination: {
                 page,
                 limit,
@@ -188,7 +299,8 @@ export class ProductService {
             throw ApiError.notFound('Product not found');
         }
 
-        const response: ProductDetailResponse = { product: this.toPublicProductDetail(product) };
+        const coupons = await this.getActiveCouponsForSellers([product.sellerId]);
+        const response: ProductDetailResponse = { product: this.toPublicProductDetail(product, coupons) };
 
         // Cache the result
         await setCache(cacheKey, response, 60);

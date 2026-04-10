@@ -25,6 +25,81 @@ export interface MarketplaceCardProduct {
   sellerPrice?: number | null;
   adminListingPrice?: number | null;
   minPrice?: number | null;
+  activeCoupon?: MarketplaceCardCouponPreview | null;
+  coupon?: MarketplaceCardCouponPreview | null;
+  couponPreview?: MarketplaceCardCouponPreview | null;
+  coupons?: MarketplaceCardCouponPreview[] | null;
+}
+
+type CouponKind = "PERCENT" | "FLAT";
+
+interface MarketplaceCardCouponPreview {
+  code?: string;
+  type?: CouponKind | string | null;
+  value?: number | null;
+  maxDiscountAmount?: number | null;
+  minOrderAmount?: number | null;
+  discountedPrice?: number | null;
+  finalPrice?: number | null;
+  isActive?: boolean | null;
+}
+
+const compactPrice = new Intl.NumberFormat("en-IN", {
+  maximumFractionDigits: 2,
+});
+
+function toNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function resolveCouponCandidates(product: MarketplaceCardProduct): MarketplaceCardCouponPreview[] {
+  const candidates: MarketplaceCardCouponPreview[] = [];
+
+  if (product.activeCoupon) candidates.push(product.activeCoupon);
+  if (product.coupon) candidates.push(product.coupon);
+  if (product.couponPreview) candidates.push(product.couponPreview);
+  if (Array.isArray(product.coupons)) candidates.push(...product.coupons);
+
+  return candidates.filter((coupon) => coupon && coupon.isActive !== false);
+}
+
+function resolveCouponPrice(product: MarketplaceCardProduct, displayPrice: number | null): number | null {
+  if (displayPrice === null || displayPrice <= 0) return null;
+
+  const candidates = resolveCouponCandidates(product);
+  let bestCouponPrice: number | null = null;
+
+  for (const coupon of candidates) {
+    const directDiscountedPrice = toNumber(coupon.discountedPrice) ?? toNumber(coupon.finalPrice);
+
+    if (directDiscountedPrice !== null && directDiscountedPrice > 0 && directDiscountedPrice < displayPrice) {
+      bestCouponPrice =
+        bestCouponPrice === null ? directDiscountedPrice : Math.min(bestCouponPrice, directDiscountedPrice);
+      continue;
+    }
+
+    const value = toNumber(coupon.value);
+    if (value === null || value <= 0) continue;
+
+    const minOrderAmount = toNumber(coupon.minOrderAmount) ?? 0;
+    if (displayPrice < minOrderAmount) continue;
+
+    const normalizedType = String(coupon.type ?? "").toUpperCase();
+    let discountAmount = normalizedType === "PERCENT" ? (displayPrice * value) / 100 : value;
+
+    const maxDiscountAmount = toNumber(coupon.maxDiscountAmount);
+    if (maxDiscountAmount !== null) {
+      discountAmount = Math.min(discountAmount, maxDiscountAmount);
+    }
+
+    const discountedPrice = Math.max(0, displayPrice - discountAmount);
+    if (discountedPrice < displayPrice) {
+      bestCouponPrice = bestCouponPrice === null ? discountedPrice : Math.min(bestCouponPrice, discountedPrice);
+    }
+  }
+
+  if (bestCouponPrice === null) return null;
+  return Math.round(bestCouponPrice * 100) / 100;
 }
 
 function resolvePrimaryPrice(product: MarketplaceCardProduct): number | null {
@@ -47,6 +122,7 @@ function resolveOriginalPrice(product: MarketplaceCardProduct, displayPrice: num
 export function MarketplaceProductCard({ product }: { product: MarketplaceCardProduct }) {
   const displayPrice = resolvePrimaryPrice(product);
   const originalPrice = resolveOriginalPrice(product, displayPrice);
+  const couponPrice = resolveCouponPrice(product, displayPrice);
 
   const discountPercentage =
     typeof displayPrice === "number" && typeof originalPrice === "number" && originalPrice > 0
@@ -80,21 +156,28 @@ export function MarketplaceProductCard({ product }: { product: MarketplaceCardPr
           {categoryLabel}
         </p>
         {typeof displayPrice === "number" ? (
-          <div className="flex items-baseline gap-2">
-            <span className="text-sm font-medium tracking-tight text-foreground">
-              {currency.format(displayPrice)}
-            </span>
-            {typeof originalPrice === "number" && (
-              <span className="text-xs text-muted-foreground/70 line-through">
-                {currency.format(originalPrice)}
+          <>
+            <div className="flex items-baseline gap-2">
+              <span className="text-sm font-medium tracking-tight text-foreground">
+                {currency.format(displayPrice)}
               </span>
+              {typeof originalPrice === "number" && (
+                <span className="text-xs text-muted-foreground/70 line-through">
+                  {currency.format(originalPrice)}
+                </span>
+              )}
+              {typeof discountPercentage === "number" && discountPercentage > 0 && (
+                <span className="text-[11px] font-semibold text-destructive">
+                  {discountPercentage}% OFF
+                </span>
+              )}
+            </div>
+            {typeof couponPrice === "number" && couponPrice < displayPrice && (
+              <p className="text-[12px] font-semibold text-emerald-700 dark:text-emerald-400">
+                Get it for {compactPrice.format(couponPrice)} with coupon
+              </p>
             )}
-            {typeof discountPercentage === "number" && discountPercentage > 0 && (
-              <span className="text-[11px] font-semibold text-destructive">
-                {discountPercentage}% OFF
-              </span>
-            )}
-          </div>
+          </>
         ) : (
           <p className="text-xs text-muted-foreground">Price on request</p>
         )}

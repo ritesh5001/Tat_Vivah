@@ -4,6 +4,91 @@ import { prisma } from '../config/db.js';
 import { CACHE_KEYS, getFromCache, invalidateCache, setCache } from '../utils/cache.util.js';
 const DEFAULT_LIMIT = 4;
 export class BestsellerService {
+    toNumber(value) {
+        if (typeof value === 'number')
+            return value;
+        return Number(value ?? 0);
+    }
+    roundMoney(value) {
+        return Math.round(value * 100) / 100;
+    }
+    calculateDiscountedPrice(price, coupon) {
+        if (!Number.isFinite(price) || price <= 0)
+            return null;
+        if (price < coupon.minOrderAmount)
+            return null;
+        let discount = coupon.type === 'PERCENT' ? (price * coupon.value) / 100 : coupon.value;
+        if (coupon.maxDiscountAmount !== null) {
+            discount = Math.min(discount, coupon.maxDiscountAmount);
+        }
+        discount = Math.max(0, discount);
+        if (discount <= 0)
+            return null;
+        const discountedPrice = Math.max(0, price - discount);
+        if (discountedPrice >= price)
+            return null;
+        return this.roundMoney(discountedPrice);
+    }
+    getBestCouponPreview(price, sellerId, coupons) {
+        let best = null;
+        for (const coupon of coupons) {
+            if (coupon.sellerId && coupon.sellerId !== sellerId)
+                continue;
+            const discountedPrice = this.calculateDiscountedPrice(price, coupon);
+            if (discountedPrice === null)
+                continue;
+            if (!best || discountedPrice < best.discountedPrice) {
+                best = {
+                    code: coupon.code,
+                    type: coupon.type,
+                    value: coupon.value,
+                    maxDiscountAmount: coupon.maxDiscountAmount,
+                    minOrderAmount: coupon.minOrderAmount,
+                    discountedPrice,
+                };
+            }
+        }
+        return best;
+    }
+    async getActiveCouponsForSellers(sellerIds) {
+        if (sellerIds.length === 0)
+            return [];
+        const uniqueSellerIds = Array.from(new Set(sellerIds.filter((id) => typeof id === 'string' && id.length > 0)));
+        if (uniqueSellerIds.length === 0)
+            return [];
+        const now = new Date();
+        const coupons = await prisma.coupon.findMany({
+            where: {
+                isActive: true,
+                firstTimeUserOnly: false,
+                validFrom: { lte: now },
+                validUntil: { gte: now },
+                OR: [{ sellerId: null }, { sellerId: { in: uniqueSellerIds } }],
+            },
+            select: {
+                code: true,
+                type: true,
+                value: true,
+                maxDiscountAmount: true,
+                minOrderAmount: true,
+                sellerId: true,
+                usageLimit: true,
+                usedCount: true,
+            },
+            orderBy: [{ validUntil: 'asc' }, { createdAt: 'desc' }],
+        });
+        return coupons
+            .filter((coupon) => coupon.usageLimit === null || coupon.usedCount < coupon.usageLimit)
+            .map((coupon) => ({
+            code: coupon.code,
+            type: coupon.type,
+            value: this.toNumber(coupon.value),
+            maxDiscountAmount: coupon.maxDiscountAmount === null ? null : this.toNumber(coupon.maxDiscountAmount),
+            minOrderAmount: this.toNumber(coupon.minOrderAmount),
+            sellerId: coupon.sellerId,
+        }))
+            .filter((coupon) => coupon.value > 0);
+    }
     async listPublic(limit = DEFAULT_LIMIT) {
         const cacheKey = CACHE_KEYS.BESTSELLERS_LIST;
         const cached = await getFromCache(cacheKey);
@@ -11,9 +96,11 @@ export class BestsellerService {
             return cached;
         }
         const items = await bestsellerRepository.listPublic(limit);
+        const coupons = await this.getActiveCouponsForSellers(items.map((item) => item.product.sellerId));
         const products = items.map((item) => {
             const sellerPrice = Number(item.product.sellerPrice ?? 0);
             const adminPrice = Number(item.product.adminListingPrice ?? item.product.sellerPrice ?? 0);
+            const activeCoupon = this.getBestCouponPreview(adminPrice, item.product.sellerId, coupons);
             return {
                 id: item.id,
                 productId: item.productId,
@@ -26,6 +113,7 @@ export class BestsellerService {
                 adminPrice,
                 salePrice: adminPrice,
                 minPrice: adminPrice,
+                activeCoupon,
             };
         });
         const response = { products };

@@ -16,6 +16,10 @@ export declare class ProductService {
     private readonly occasionSvc;
     constructor(productRepo: ProductRepository, variantRepo: VariantRepository, inventoryRepo: InventoryRepository, categoryRepo: CategoryRepository, occasionSvc: OccasionService);
     private toNumber;
+    private roundMoney;
+    private calculateDiscountedPrice;
+    private getBestCouponPreview;
+    private getActiveCouponsForSellers;
     private toPublicProduct;
     private toPublicProductDetail;
     private toSellerProduct;

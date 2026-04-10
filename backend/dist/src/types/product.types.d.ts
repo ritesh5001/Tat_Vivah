@@ -86,6 +86,14 @@ export interface PublicProductVariant {
     compareAtPrice: number | null;
     inventory: InventoryEntity | null;
 }
+export interface PublicProductCouponPreview {
+    code: string;
+    type: 'PERCENT' | 'FLAT';
+    value: number;
+    maxDiscountAmount: number | null;
+    minOrderAmount: number;
+    discountedPrice: number;
+}
 export interface PublicProductWithCategory {
     id: string;
     categoryId: string;
@@ -101,6 +109,7 @@ export interface PublicProductWithCategory {
     adminPrice: number;
     salePrice: number;
     price: number;
+    activeCoupon?: PublicProductCouponPreview | null;
 }
 export interface PublicProductWithDetails {
     id: string;
@@ -119,6 +128,7 @@ export interface PublicProductWithDetails {
     adminPrice: number;
     salePrice: number;
     price: number;
+    activeCoupon?: PublicProductCouponPreview | null;
 }
 /**
  * Create product request

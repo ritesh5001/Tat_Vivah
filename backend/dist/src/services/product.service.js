@@ -2,6 +2,7 @@ import { productRepository } from '../repositories/product.repository.js';
 import { variantRepository } from '../repositories/variant.repository.js';
 import { inventoryRepository } from '../repositories/inventory.repository.js';
 import { categoryRepository } from '../repositories/category.repository.js';
+import { prisma } from '../config/db.js';
 import { getFromCache, setCache, invalidateProductCaches, CACHE_KEYS, } from '../utils/cache.util.js';
 import { ApiError } from '../errors/ApiError.js';
 import { occasionService } from './occasion.service.js';
@@ -27,7 +28,90 @@ export class ProductService {
             return value;
         return Number(value ?? 0);
     }
-    toPublicProduct(product) {
+    roundMoney(value) {
+        return Math.round(value * 100) / 100;
+    }
+    calculateDiscountedPrice(price, coupon) {
+        if (!Number.isFinite(price) || price <= 0)
+            return null;
+        if (price < coupon.minOrderAmount)
+            return null;
+        let discount = coupon.type === 'PERCENT' ? (price * coupon.value) / 100 : coupon.value;
+        if (coupon.maxDiscountAmount !== null) {
+            discount = Math.min(discount, coupon.maxDiscountAmount);
+        }
+        discount = Math.max(0, discount);
+        if (discount <= 0)
+            return null;
+        const discountedPrice = Math.max(0, price - discount);
+        if (discountedPrice >= price)
+            return null;
+        return this.roundMoney(discountedPrice);
+    }
+    getBestCouponPreview(price, sellerId, coupons) {
+        if (!sellerId || !Number.isFinite(price) || price <= 0 || coupons.length === 0) {
+            return null;
+        }
+        let best = null;
+        for (const coupon of coupons) {
+            if (coupon.sellerId && coupon.sellerId !== sellerId)
+                continue;
+            const discountedPrice = this.calculateDiscountedPrice(price, coupon);
+            if (discountedPrice === null)
+                continue;
+            if (!best || discountedPrice < best.discountedPrice) {
+                best = {
+                    code: coupon.code,
+                    type: coupon.type,
+                    value: coupon.value,
+                    maxDiscountAmount: coupon.maxDiscountAmount,
+                    minOrderAmount: coupon.minOrderAmount,
+                    discountedPrice,
+                };
+            }
+        }
+        return best;
+    }
+    async getActiveCouponsForSellers(sellerIds) {
+        if (sellerIds.length === 0)
+            return [];
+        const uniqueSellerIds = Array.from(new Set(sellerIds.filter((id) => typeof id === 'string' && id.length > 0)));
+        if (uniqueSellerIds.length === 0)
+            return [];
+        const now = new Date();
+        const coupons = await prisma.coupon.findMany({
+            where: {
+                isActive: true,
+                firstTimeUserOnly: false,
+                validFrom: { lte: now },
+                validUntil: { gte: now },
+                OR: [{ sellerId: null }, { sellerId: { in: uniqueSellerIds } }],
+            },
+            select: {
+                code: true,
+                type: true,
+                value: true,
+                maxDiscountAmount: true,
+                minOrderAmount: true,
+                sellerId: true,
+                usageLimit: true,
+                usedCount: true,
+            },
+            orderBy: [{ validUntil: 'asc' }, { createdAt: 'desc' }],
+        });
+        return coupons
+            .filter((coupon) => coupon.usageLimit === null || coupon.usedCount < coupon.usageLimit)
+            .map((coupon) => ({
+            code: coupon.code,
+            type: coupon.type,
+            value: this.toNumber(coupon.value),
+            maxDiscountAmount: coupon.maxDiscountAmount === null ? null : this.toNumber(coupon.maxDiscountAmount),
+            minOrderAmount: this.toNumber(coupon.minOrderAmount),
+            sellerId: coupon.sellerId,
+        }))
+            .filter((coupon) => coupon.value > 0);
+    }
+    toPublicProduct(product, coupons = []) {
         const adminPrice = this.toNumber(product.adminListingPrice);
         return {
             id: product.id,
@@ -44,9 +128,10 @@ export class ProductService {
             adminPrice,
             salePrice: adminPrice,
             price: adminPrice,
+            activeCoupon: this.getBestCouponPreview(adminPrice, product.sellerId, coupons),
         };
     }
-    toPublicProductDetail(product) {
+    toPublicProductDetail(product, coupons = []) {
         const listingPrice = this.toNumber(product.adminListingPrice);
         return {
             id: product.id,
@@ -64,6 +149,7 @@ export class ProductService {
             adminPrice: listingPrice,
             salePrice: listingPrice,
             price: listingPrice,
+            activeCoupon: this.getBestCouponPreview(listingPrice, product.sellerId, coupons),
             variants: (product.variants ?? []).map((variant) => ({
                 id: variant.id,
                 sku: variant.sku,
@@ -119,8 +205,9 @@ export class ProductService {
             return cached;
         }
         const { products, total } = await this.productRepo.findPublished(normalizedFilters);
+        const coupons = await this.getActiveCouponsForSellers(products.map((product) => product.sellerId));
         const response = {
-            data: products.map((product) => this.toPublicProduct(product)),
+            data: products.map((product) => this.toPublicProduct(product, coupons)),
             pagination: {
                 page,
                 limit,
@@ -146,7 +233,8 @@ export class ProductService {
         if (!product) {
             throw ApiError.notFound('Product not found');
         }
-        const response = { product: this.toPublicProductDetail(product) };
+        const coupons = await this.getActiveCouponsForSellers([product.sellerId]);
+        const response = { product: this.toPublicProductDetail(product, coupons) };
         // Cache the result
         await setCache(cacheKey, response, 60);
         return response;

@@ -1,30 +1,31 @@
 import Link from "next/link";
-import Image from "next/image";
 import type { BestsellerProduct } from "@/services/bestsellers";
+import {
+  MarketplaceProductCard,
+  type MarketplaceCardProduct,
+} from "@/components/marketplace-product-card";
 
 type Props = {
   bestsellers: BestsellerProduct[];
 };
 
-const currency = new Intl.NumberFormat("en-IN", {
-  style: "currency",
-  currency: "INR",
-  maximumFractionDigits: 0,
-});
-
-function resolvePrimaryPrice(product: BestsellerProduct): number | null {
-  const value =
-    product.salePrice ??
-    product.adminPrice ??
-    product.regularPrice ??
-    product.minPrice;
-  return typeof value === "number" ? value : null;
-}
-
-function resolveOriginalPrice(product: BestsellerProduct, displayPrice: number | null): number | null {
-  if (typeof product.regularPrice !== "number") return null;
-  if (displayPrice === null) return null;
-  return product.regularPrice > displayPrice ? product.regularPrice : null;
+function toCardProduct(item: BestsellerProduct): MarketplaceCardProduct {
+  return {
+    id: item.productId,
+    productId: item.productId,
+    title: item.title,
+    image: item.image ?? null,
+    categoryName: item.categoryName ?? null,
+    regularPrice: item.regularPrice ?? null,
+    sellerPrice: item.sellerPrice ?? null,
+    adminPrice: item.adminPrice ?? null,
+    salePrice: item.salePrice ?? null,
+    minPrice: item.minPrice ?? null,
+    activeCoupon: item.activeCoupon ?? null,
+    coupon: item.coupon ?? null,
+    couponPreview: item.couponPreview ?? null,
+    coupons: item.coupons ?? null,
+  };
 }
 
 export function BestsellersStrip({ bestsellers }: Props) {
@@ -54,60 +55,13 @@ export function BestsellersStrip({ bestsellers }: Props) {
 
         <div className="flex gap-6 overflow-x-auto snap-x snap-mandatory scrollbar-hide sm:px-2" style={{ WebkitOverflowScrolling: "touch" }}>
           {bestsellers.map((item) => {
-            const displayPrice = resolvePrimaryPrice(item);
-            const originalPrice = resolveOriginalPrice(item, displayPrice);
-            const discountPercentage =
-              typeof displayPrice === "number" && typeof originalPrice === "number" && originalPrice > 0
-                ? Math.round(((originalPrice - displayPrice) / originalPrice) * 100)
-                : null;
-
             return (
-              <Link
+              <div
                 key={item.id}
-                href={`/product/${item.productId}`}
-                className="group block shrink-0 snap-start w-[calc(50%-12px)] md:w-[calc(33.333%-16px)] lg:w-[calc(25%-18px)]"
+                className="shrink-0 snap-start w-[calc(50%-12px)] md:w-[calc(33.333%-16px)] lg:w-[calc(25%-18px)]"
               >
-                <div className="relative overflow-hidden bg-cream dark:bg-brown/20 aspect-3/4">
-                  <Image
-                    src={item.image || "/images/product-placeholder.svg"}
-                    alt={item.title}
-                    fill
-                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
-                    className="object-cover transition-transform duration-500 group-hover:scale-105"
-                    loading="lazy"
-                    quality={60}
-                  />
-                </div>
-
-                <div className="mt-3 space-y-1">
-                  <h3 className="line-clamp-1 text-sm font-medium tracking-tight text-foreground transition-colors duration-300 group-hover:text-gold">
-                    {item.title}
-                  </h3>
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-                    {item.categoryName ?? "Collection"}
-                  </p>
-
-                  {typeof displayPrice === "number" ? (
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-sm font-medium tracking-tight text-foreground">
-                        {currency.format(displayPrice)}
-                      </span>
-                      {typeof originalPrice === "number" && (
-                        <span className="text-xs text-muted-foreground/70 line-through">
-                          {currency.format(originalPrice)}
-                        </span>
-                      )}
-                      {typeof discountPercentage === "number" && discountPercentage > 0 && (
-                        <span className="text-[11px] font-semibold text-destructive">
-                          {discountPercentage}% OFF
-                        </span>
-                      )}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">Price on request</p>
-                  )}
-                </div>
-              </Link>
+                <MarketplaceProductCard product={toCardProduct(item)} />
+              </div>
             );
           })}
         </div>

@@ -133,6 +133,7 @@ export class ProductRepository {
                 take,
                 select: {
                     id: true,
+                    sellerId: true,
                     sellerPrice: true,
                     categoryId: true,
                     title: true,

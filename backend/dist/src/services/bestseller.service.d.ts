@@ -1,4 +1,9 @@
 export declare class BestsellerService {
+    private toNumber;
+    private roundMoney;
+    private calculateDiscountedPrice;
+    private getBestCouponPreview;
+    private getActiveCouponsForSellers;
     listPublic(limit?: number): Promise<any>;
     listAdmin(): Promise<{
         bestsellers: {
