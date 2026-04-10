@@ -127,10 +127,13 @@ export function MarketplaceProductCard({ product }: { product: MarketplaceCardPr
 
   const imageSrc = product.images?.[0] ?? product.image ?? "/images/product-placeholder.svg";
   const categoryLabel = product.category?.name ?? product.categoryName ?? "Collection";
+  const hasDiscount = typeof discountPercentage === "number" && discountPercentage > 0;
 
   return (
-    <Link href={`/product/${product.id}`} className="group block">
-      {/* Image */}
+    <Link
+      href={`/product/${product.id}`}
+      className="group block overflow-hidden rounded-2xl border border-border-soft/80 bg-card/95 shadow-[0_6px_24px_rgba(17,12,8,0.08)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_38px_rgba(17,12,8,0.14)]"
+    >
       <div className="relative overflow-hidden bg-cream dark:bg-brown/20 aspect-3/4">
         <Image
           src={imageSrc}
@@ -141,41 +144,51 @@ export function MarketplaceProductCard({ product }: { product: MarketplaceCardPr
           loading="lazy"
           quality={60}
         />
+
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/18 via-transparent to-transparent opacity-70 transition-opacity duration-300 group-hover:opacity-85" />
+
+        <div className="absolute left-3 top-3">
+          <span className="inline-flex items-center rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-foreground/80 backdrop-blur-sm">
+            {categoryLabel}
+          </span>
+        </div>
+
+        {hasDiscount && (
+          <div className="absolute right-3 top-3">
+            <span className="inline-flex items-center rounded-full bg-amber-600 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-white shadow-sm">
+              {discountPercentage}% OFF
+            </span>
+          </div>
+        )}
       </div>
 
-      {/* Info */}
-      <div className="mt-3 space-y-1.5">
-        <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/90">
-          {categoryLabel}
-        </p>
-        <h3 className="line-clamp-2 min-h-[2.45rem] text-[1.02rem] font-medium leading-[1.2] tracking-tight text-foreground transition-colors duration-300 group-hover:text-gold">
+      <div className="space-y-2 px-3.5 pb-4 pt-3.5 sm:px-4 sm:pb-4.5">
+        <h3 className="line-clamp-2 min-h-[2.6rem] text-[1.04rem] font-semibold leading-[1.25] tracking-tight text-foreground transition-colors duration-300 group-hover:text-gold">
           {product.title}
         </h3>
+
         {typeof displayPrice === "number" ? (
           <>
-            <div className="flex items-baseline gap-2">
-              <span className="text-[1.15rem] font-semibold leading-none tracking-tight text-foreground">
+            <div className="flex flex-wrap items-end gap-x-2 gap-y-1">
+              <span className="text-[1.3rem] font-semibold leading-none tracking-tight text-foreground">
                 {currency.format(displayPrice)}
               </span>
               {typeof originalPrice === "number" && (
-                <span className="text-[12px] text-muted-foreground/80 line-through">
+                <span className="text-[0.98rem] leading-none text-muted-foreground/80 line-through">
                   {currency.format(originalPrice)}
                 </span>
               )}
-              {typeof discountPercentage === "number" && discountPercentage > 0 && (
-                <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-amber-700 dark:text-amber-400">
-                  {discountPercentage}% OFF
-                </span>
-              )}
             </div>
+
             {typeof couponPrice === "number" && couponPrice < displayPrice && (
-              <p className="inline-flex w-fit bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium leading-none text-amber-800 dark:bg-amber-500/20 dark:text-amber-300">
-                Get it for {currency.format(couponPrice)} with coupon
-              </p>
+              <div className="inline-flex w-fit items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300">
+                <span>Get it for {currency.format(couponPrice)}</span>
+                <span className="text-emerald-700/85 dark:text-emerald-300/85">with coupon</span>
+              </div>
             )}
           </>
         ) : (
-          <p className="text-xs text-muted-foreground">Price on request</p>
+          <p className="text-sm font-medium text-muted-foreground">Price on request</p>
         )}
       </div>
     </Link>
