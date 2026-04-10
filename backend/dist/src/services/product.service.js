@@ -113,6 +113,8 @@ export class ProductService {
     }
     toPublicProduct(product, coupons = []) {
         const adminPrice = this.toNumber(product.adminListingPrice);
+        const sellerPrice = this.toNumber(product.sellerPrice);
+        const regularPrice = sellerPrice > adminPrice ? sellerPrice : adminPrice;
         return {
             id: product.id,
             categoryId: product.categoryId,
@@ -124,7 +126,7 @@ export class ProductService {
             createdAt: product.createdAt,
             updatedAt: product.updatedAt,
             category: product.category,
-            regularPrice: adminPrice,
+            regularPrice,
             adminPrice,
             salePrice: adminPrice,
             price: adminPrice,
@@ -133,6 +135,8 @@ export class ProductService {
     }
     toPublicProductDetail(product, coupons = []) {
         const listingPrice = this.toNumber(product.adminListingPrice);
+        const sellerPrice = this.toNumber(product.sellerPrice);
+        const regularPrice = sellerPrice > listingPrice ? sellerPrice : listingPrice;
         return {
             id: product.id,
             sellerId: product.sellerId,
@@ -145,7 +149,7 @@ export class ProductService {
             createdAt: product.createdAt,
             updatedAt: product.updatedAt,
             category: product.category,
-            regularPrice: listingPrice,
+            regularPrice,
             adminPrice: listingPrice,
             salePrice: listingPrice,
             price: listingPrice,

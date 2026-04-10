@@ -44,10 +44,6 @@ interface MarketplaceCardCouponPreview {
   isActive?: boolean | null;
 }
 
-const compactPrice = new Intl.NumberFormat("en-IN", {
-  maximumFractionDigits: 2,
-});
-
 function toNumber(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
@@ -148,33 +144,33 @@ export function MarketplaceProductCard({ product }: { product: MarketplaceCardPr
       </div>
 
       {/* Info */}
-      <div className="mt-3 space-y-1">
-        <h3 className="line-clamp-1 text-sm font-medium tracking-tight text-foreground transition-colors duration-300 group-hover:text-gold">
-          {product.title}
-        </h3>
-        <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+      <div className="mt-3 space-y-1.5">
+        <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/90">
           {categoryLabel}
         </p>
+        <h3 className="line-clamp-2 min-h-[2.45rem] text-[1.02rem] font-medium leading-[1.2] tracking-tight text-foreground transition-colors duration-300 group-hover:text-gold">
+          {product.title}
+        </h3>
         {typeof displayPrice === "number" ? (
           <>
             <div className="flex items-baseline gap-2">
-              <span className="text-sm font-medium tracking-tight text-foreground">
+              <span className="text-[1.15rem] font-semibold leading-none tracking-tight text-foreground">
                 {currency.format(displayPrice)}
               </span>
               {typeof originalPrice === "number" && (
-                <span className="text-xs text-muted-foreground/70 line-through">
+                <span className="text-[12px] text-muted-foreground/80 line-through">
                   {currency.format(originalPrice)}
                 </span>
               )}
               {typeof discountPercentage === "number" && discountPercentage > 0 && (
-                <span className="text-[11px] font-semibold text-destructive">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-amber-700 dark:text-amber-400">
                   {discountPercentage}% OFF
                 </span>
               )}
             </div>
             {typeof couponPrice === "number" && couponPrice < displayPrice && (
-              <p className="text-[12px] font-semibold text-emerald-700 dark:text-emerald-400">
-                Get it for {compactPrice.format(couponPrice)} with coupon
+              <p className="inline-flex w-fit bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium leading-none text-amber-800 dark:bg-amber-500/20 dark:text-amber-300">
+                Get it for {currency.format(couponPrice)} with coupon
               </p>
             )}
           </>

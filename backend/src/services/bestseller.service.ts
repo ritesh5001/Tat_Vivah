@@ -126,6 +126,7 @@ export class BestsellerService {
         const products = items.map((item) => {
             const sellerPrice = Number(item.product.sellerPrice ?? 0);
             const adminPrice = Number(item.product.adminListingPrice ?? item.product.sellerPrice ?? 0);
+            const regularPrice = sellerPrice > adminPrice ? sellerPrice : adminPrice;
             const activeCoupon = this.getBestCouponPreview(adminPrice, item.product.sellerId, coupons);
             return {
                 id: item.id,
@@ -134,7 +135,7 @@ export class BestsellerService {
                 title: item.product.title,
                 image: item.product.images?.[0] ?? null,
                 categoryName: item.product.category?.name ?? null,
-                regularPrice: sellerPrice,
+                regularPrice,
                 sellerPrice,
                 adminPrice,
                 salePrice: adminPrice,
