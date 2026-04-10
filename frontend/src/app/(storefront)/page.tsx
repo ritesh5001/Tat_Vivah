@@ -7,6 +7,7 @@ import { ProductShowcaseSection } from "@/components/home/ProductShowcaseSection
 import { HeroStaticServer } from "@/components/home/HeroStaticServer";
 import { BestsellersStrip } from "@/components/home/BestsellersStrip";
 import { WeddingSectionBanner } from "@/components/home/WeddingSectionBanner";
+import { InfiniteProductShowcaseSection } from "@/components/home/InfiniteProductShowcaseSection";
 import { MarketplaceProductCard } from "@/components/marketplace-product-card";
 import { FeaturesMarquee } from "@/components/features-marquee";
 import { SectionReveal } from "@/components/motion/SectionReveal";
@@ -327,6 +328,9 @@ export default async function Home() {
         </SectionReveal>
         <SectionReveal>
           <FeaturesMarquee />
+        </SectionReveal>
+        <SectionReveal delayMs={20}>
+          <InfiniteProductShowcaseSection initialProducts={products?.data} />
         </SectionReveal>
         <SectionReveal delayMs={40}>
           <GiftingSection />

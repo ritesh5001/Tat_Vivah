@@ -5,6 +5,7 @@ import Link from "next/link";
 import { AnnouncementBar } from "@/components/announcement-bar";
 import { useAuth } from "@/hooks/use-auth";
 import { getRoleDashboardUrl } from "@/lib/subdomain";
+import { signOut } from "@/services/auth";
 
 const navLinks = [
   { href: "/", label: "Home" },
@@ -53,6 +54,12 @@ export function PublicHeader() {
       ? "My Account"
       : "Dashboard"
     : "Sign In";
+  const userAccountLinks = [
+    { href: "/user/dashboard", label: "Dashboard" },
+    { href: "/user/profile", label: "My Profile" },
+    { href: "/user/orders", label: "My Orders" },
+    { href: "/user/wishlist", label: "Wishlist" },
+  ];
 
   return (
     <header className="sticky top-0 z-30 flex flex-col border-b border-border-soft bg-background/95 backdrop-blur-sm">
@@ -209,13 +216,47 @@ export function PublicHeader() {
               </svg>
             </Link>
 
-            <Link
-              href={accountHref}
-              prefetch={false}
-              className="hidden items-center rounded-full bg-charcoal px-4 py-2 text-xs font-medium uppercase tracking-[0.12em] text-ivory transition-colors hover:bg-brown sm:inline-flex"
-            >
-              {loading ? "..." : accountLabel}
-            </Link>
+            {isSignedIn && role === "USER" && !loading ? (
+              <div className="group relative hidden sm:block">
+                <Link
+                  href={accountHref}
+                  prefetch={false}
+                  className="inline-flex items-center rounded-full bg-charcoal px-4 py-2 text-xs font-medium uppercase tracking-[0.12em] text-ivory transition-colors hover:bg-brown"
+                >
+                  {accountLabel}
+                </Link>
+
+                <div className="pointer-events-none absolute right-0 top-full z-40 w-52 pt-2 opacity-0 transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100">
+                  <div className="overflow-hidden border border-border-soft bg-background shadow-lg">
+                    {userAccountLinks.map((item) => (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        prefetch={false}
+                        className="block px-4 py-2.5 text-xs font-medium uppercase tracking-widest text-foreground transition-colors hover:bg-cream"
+                      >
+                        {item.label}
+                      </Link>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => signOut("/login?force=1")}
+                      className="block w-full border-t border-border-soft px-4 py-2.5 text-left text-xs font-medium uppercase tracking-widest text-foreground transition-colors hover:bg-cream"
+                    >
+                      Logout
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <Link
+                href={accountHref}
+                prefetch={false}
+                className="hidden items-center rounded-full bg-charcoal px-4 py-2 text-xs font-medium uppercase tracking-[0.12em] text-ivory transition-colors hover:bg-brown sm:inline-flex"
+              >
+                {loading ? "..." : accountLabel}
+              </Link>
+            )}
           </div>
         </div>
       </div>
