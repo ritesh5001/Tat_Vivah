@@ -50,18 +50,22 @@ export class BestsellerService {
         }
         return best;
     }
-    resolveMaxVariantCompareAt(product) {
-        if (!Array.isArray(product?.variants) || product.variants.length === 0) {
+    resolveCheapestVariant(variants) {
+        if (!Array.isArray(variants) || variants.length === 0) {
             return null;
         }
-        let maxValue = null;
-        for (const variant of product.variants) {
-            const compare = Number(variant?.compareAtPrice);
-            if (!Number.isFinite(compare) || compare <= 0)
+        let cheapest = null;
+        for (const variant of variants) {
+            const price = Number(variant?.price);
+            if (!Number.isFinite(price) || price <= 0)
                 continue;
-            maxValue = maxValue === null ? compare : Math.max(maxValue, compare);
+            const compareRaw = Number(variant?.compareAtPrice);
+            const compareAtPrice = Number.isFinite(compareRaw) && compareRaw > 0 ? compareRaw : null;
+            if (!cheapest || price < cheapest.price) {
+                cheapest = { price, compareAtPrice };
+            }
         }
-        return maxValue;
+        return cheapest;
     }
     async getActiveCouponsForSellers(sellerIds) {
         if (sellerIds.length === 0)
@@ -110,11 +114,11 @@ export class BestsellerService {
         const items = await bestsellerRepository.listPublic(limit);
         const coupons = await this.getActiveCouponsForSellers(items.map((item) => item.product.sellerId));
         const products = items.map((item) => {
-            const sellerPrice = Number(item.product.sellerPrice ?? 0);
-            const adminPrice = Number(item.product.adminListingPrice ?? item.product.sellerPrice ?? 0);
-            const maxVariantCompareAt = this.resolveMaxVariantCompareAt(item.product);
-            const regularPrice = Math.max(adminPrice, sellerPrice, maxVariantCompareAt ?? 0);
-            const activeCoupon = this.getBestCouponPreview(adminPrice, item.product.sellerId, coupons);
+            const cheapestVariant = this.resolveCheapestVariant(item.product.variants ?? []);
+            const fallbackSelling = Number(item.product.adminListingPrice ?? item.product.sellerPrice ?? 0);
+            const sellingPrice = cheapestVariant?.price ?? fallbackSelling;
+            const regularPrice = Math.max(sellingPrice, cheapestVariant?.compareAtPrice ?? 0);
+            const activeCoupon = this.getBestCouponPreview(sellingPrice, item.product.sellerId, coupons);
             return {
                 id: item.id,
                 productId: item.productId,
@@ -123,10 +127,10 @@ export class BestsellerService {
                 image: item.product.images?.[0] ?? null,
                 categoryName: item.product.category?.name ?? null,
                 regularPrice,
-                sellerPrice,
-                adminPrice,
-                salePrice: adminPrice,
-                minPrice: adminPrice,
+                sellerPrice: sellingPrice,
+                adminPrice: sellingPrice,
+                salePrice: sellingPrice,
+                minPrice: sellingPrice,
                 activeCoupon,
             };
         });

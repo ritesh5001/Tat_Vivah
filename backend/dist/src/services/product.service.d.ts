@@ -19,7 +19,9 @@ export declare class ProductService {
     private roundMoney;
     private calculateDiscountedPrice;
     private getBestCouponPreview;
-    private resolveMaxVariantCompareAt;
+    private resolveCheapestVariant;
+    private resolveListingPricing;
+    private resolveDetailPricing;
     private getActiveCouponsForSellers;
     private toPublicProduct;
     private toPublicProductDetail;

@@ -113,24 +113,47 @@ export class ProductService {
         return best;
     }
 
-    private resolveMaxVariantCompareAt(product: any): number | null {
-        const directValue = Number(product?.maxVariantCompareAt);
-        if (Number.isFinite(directValue) && directValue > 0) {
-            return directValue;
-        }
-
-        if (!Array.isArray(product?.variants) || product.variants.length === 0) {
+    private resolveCheapestVariant(variants: any[] | null | undefined): { price: number; compareAtPrice: number | null } | null {
+        if (!Array.isArray(variants) || variants.length === 0) {
             return null;
         }
 
-        let maxValue: number | null = null;
-        for (const variant of product.variants) {
-            const compare = Number(variant?.compareAtPrice);
-            if (!Number.isFinite(compare) || compare <= 0) continue;
-            maxValue = maxValue === null ? compare : Math.max(maxValue, compare);
+        let cheapest: { price: number; compareAtPrice: number | null } | null = null;
+        for (const variant of variants) {
+            const price = Number(variant?.price);
+            if (!Number.isFinite(price) || price <= 0) continue;
+
+            const compareRaw = Number(variant?.compareAtPrice);
+            const compareAtPrice = Number.isFinite(compareRaw) && compareRaw > 0 ? compareRaw : null;
+
+            if (!cheapest || price < cheapest.price) {
+                cheapest = { price, compareAtPrice };
+            }
         }
 
-        return maxValue;
+        return cheapest;
+    }
+
+    private resolveListingPricing(product: any): { sellingPrice: number; regularPrice: number } {
+        const variantPrice = Number(product?.cheapestVariantPrice);
+        const variantCompare = Number(product?.cheapestVariantCompareAt);
+
+        const fallbackSelling = Math.max(this.toNumber(product?.adminListingPrice), this.toNumber(product?.sellerPrice));
+        const sellingPrice = Number.isFinite(variantPrice) && variantPrice > 0 ? variantPrice : fallbackSelling;
+        const regularPrice = Math.max(
+            sellingPrice,
+            Number.isFinite(variantCompare) && variantCompare > 0 ? variantCompare : 0,
+        );
+
+        return { sellingPrice, regularPrice };
+    }
+
+    private resolveDetailPricing(product: any): { sellingPrice: number; regularPrice: number } {
+        const cheapest = this.resolveCheapestVariant(product?.variants ?? []);
+        const fallbackSelling = Math.max(this.toNumber(product?.adminListingPrice), this.toNumber(product?.sellerPrice));
+        const sellingPrice = cheapest?.price ?? fallbackSelling;
+        const regularPrice = Math.max(sellingPrice, cheapest?.compareAtPrice ?? 0);
+        return { sellingPrice, regularPrice };
     }
 
     private async getActiveCouponsForSellers(sellerIds: string[]): Promise<ActiveCouponCandidate[]> {
@@ -175,10 +198,7 @@ export class ProductService {
     }
 
     private toPublicProduct(product: any, coupons: ActiveCouponCandidate[] = []): PublicProductWithCategory {
-        const adminPrice = this.toNumber(product.adminListingPrice);
-        const sellerPrice = this.toNumber(product.sellerPrice);
-        const maxVariantCompareAt = this.resolveMaxVariantCompareAt(product);
-        const regularPrice = Math.max(adminPrice, sellerPrice, maxVariantCompareAt ?? 0);
+        const { sellingPrice, regularPrice } = this.resolveListingPricing(product);
         return {
             id: product.id,
             categoryId: product.categoryId,
@@ -191,18 +211,15 @@ export class ProductService {
             updatedAt: product.updatedAt,
             category: product.category,
             regularPrice,
-            adminPrice,
-            salePrice: adminPrice,
-            price: adminPrice,
-            activeCoupon: this.getBestCouponPreview(adminPrice, product.sellerId, coupons),
+            adminPrice: sellingPrice,
+            salePrice: sellingPrice,
+            price: sellingPrice,
+            activeCoupon: this.getBestCouponPreview(sellingPrice, product.sellerId, coupons),
         };
     }
 
     private toPublicProductDetail(product: any, coupons: ActiveCouponCandidate[] = []): PublicProductWithDetails {
-        const listingPrice = this.toNumber(product.adminListingPrice);
-        const sellerPrice = this.toNumber(product.sellerPrice);
-        const maxVariantCompareAt = this.resolveMaxVariantCompareAt(product);
-        const regularPrice = Math.max(listingPrice, sellerPrice, maxVariantCompareAt ?? 0);
+        const { sellingPrice, regularPrice } = this.resolveDetailPricing(product);
         return {
             id: product.id,
             sellerId: product.sellerId,
@@ -216,14 +233,14 @@ export class ProductService {
             updatedAt: product.updatedAt,
             category: product.category,
             regularPrice,
-            adminPrice: listingPrice,
-            salePrice: listingPrice,
-            price: listingPrice,
-            activeCoupon: this.getBestCouponPreview(listingPrice, product.sellerId, coupons),
+            adminPrice: sellingPrice,
+            salePrice: sellingPrice,
+            price: sellingPrice,
+            activeCoupon: this.getBestCouponPreview(sellingPrice, product.sellerId, coupons),
             variants: (product.variants ?? []).map((variant: any) => ({
                 id: variant.id,
                 sku: variant.sku,
-                price: listingPrice,
+                price: this.toNumber(variant.price),
                 compareAtPrice: variant.compareAtPrice ?? null,
                 inventory: variant.inventory ?? null,
             })),
@@ -291,32 +308,36 @@ export class ProductService {
 
         const { products, total } = await this.productRepo.findPublished(normalizedFilters);
         const productIds = products.map((product) => product.id);
-        const variantCompareMaxRows = productIds.length
-            ? await prisma.productVariant.groupBy({
-                by: ['productId'],
-                where: {
-                    productId: { in: productIds },
-                    compareAtPrice: { not: null },
-                },
-                _max: {
+        const cheapestVariantRows = productIds.length
+            ? await prisma.productVariant.findMany({
+                where: { productId: { in: productIds } },
+                orderBy: [{ productId: 'asc' }, { price: 'asc' }, { createdAt: 'asc' }],
+                distinct: ['productId'],
+                select: {
+                    productId: true,
+                    price: true,
                     compareAtPrice: true,
                 },
             })
             : [];
-        const variantCompareMaxMap = new Map(
-            variantCompareMaxRows.map((row) => [
+        const cheapestVariantMap = new Map(
+            cheapestVariantRows.map((row) => [
                 row.productId,
-                row._max.compareAtPrice === null ? null : Number(row._max.compareAtPrice),
+                {
+                    price: Number(row.price),
+                    compareAtPrice: row.compareAtPrice === null ? null : Number(row.compareAtPrice),
+                },
             ]),
         );
-        const productsWithVariantCompare = products.map((product) => ({
+        const productsWithVariantPrices = products.map((product) => ({
             ...product,
-            maxVariantCompareAt: variantCompareMaxMap.get(product.id) ?? null,
+            cheapestVariantPrice: cheapestVariantMap.get(product.id)?.price ?? null,
+            cheapestVariantCompareAt: cheapestVariantMap.get(product.id)?.compareAtPrice ?? null,
         }));
         const coupons = await this.getActiveCouponsForSellers(products.map((product) => product.sellerId));
 
         const response: ProductListResponse = {
-            data: productsWithVariantCompare.map((product) => this.toPublicProduct(product, coupons)),
+            data: productsWithVariantPrices.map((product) => this.toPublicProduct(product, coupons)),
             pagination: {
                 page,
                 limit,

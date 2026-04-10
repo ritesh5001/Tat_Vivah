@@ -195,6 +195,7 @@ export class ProductRepository {
                     select: {
                         id: true,
                         sku: true,
+                        price: true,
                         compareAtPrice: true,
                         inventory: true,
                     },
@@ -215,6 +216,7 @@ export class ProductRepository {
                     : Number(product.adminListingPrice),
             variants: (product.variants ?? []).map((variant) => ({
                 ...variant,
+                price: Number(variant.price),
                 compareAtPrice:
                     variant.compareAtPrice == null
                         ? null
