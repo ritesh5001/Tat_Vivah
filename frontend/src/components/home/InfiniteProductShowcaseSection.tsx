@@ -39,107 +39,120 @@ function mergeUniqueProducts(
   return merged;
 }
 
-function ProductCardSkeleton() {
-  return (
-    <div className="animate-pulse">
-      <div className="aspect-3/4 bg-cream dark:bg-brown/20" />
-      <div className="mt-3 space-y-2">
-        <div className="h-3 w-4/5 bg-cream dark:bg-brown/20" />
-        <div className="h-2.5 w-2/5 bg-cream dark:bg-brown/20" />
-        <div className="h-3 w-1/3 bg-cream dark:bg-brown/20" />
-      </div>
-    </div>
-  );
-}
-
 export function InfiniteProductShowcaseSection({
   initialProducts,
 }: {
   initialProducts?: MarketplaceCardProduct[];
 }) {
-  const initialVisibleProducts = React.useMemo(
+  const hasApi = Boolean(API_BASE_URL);
+  const initialLoadedProducts = React.useMemo(
     () => mergeUniqueProducts([], (initialProducts ?? []).slice(0, PAGE_SIZE)),
     [initialProducts]
   );
 
-  const [products, setProducts] = React.useState<MarketplaceCardProduct[]>(
-    initialVisibleProducts
+  const [products, setProducts] = React.useState<MarketplaceCardProduct[]>(initialLoadedProducts);
+  const [visibleCount, setVisibleCount] = React.useState(
+    Math.min(PAGE_SIZE, initialLoadedProducts.length)
   );
-  const [page, setPage] = React.useState(initialVisibleProducts.length > 0 ? 1 : 0);
-  const [isLoading, setIsLoading] = React.useState(false);
+  const [nextPage, setNextPage] = React.useState(initialLoadedProducts.length > 0 ? 2 : 1);
+  const [isPrefetching, setIsPrefetching] = React.useState(false);
   const [hasError, setHasError] = React.useState(false);
-  const [hasMore, setHasMore] = React.useState(
-    Boolean(API_BASE_URL) && initialVisibleProducts.length === PAGE_SIZE
-  );
+  const [hasMore, setHasMore] = React.useState(hasApi);
+  const [pendingReveal, setPendingReveal] = React.useState(false);
   const sentinelRef = React.useRef<HTMLDivElement | null>(null);
 
-  const loadPage = React.useCallback(
-    async (nextPage: number) => {
-      if (!API_BASE_URL || isLoading || !hasMore) return;
+  const prefetchNextPage = React.useCallback(async () => {
+    if (!API_BASE_URL || isPrefetching || !hasMore) return;
 
-      setIsLoading(true);
-      setHasError(false);
+    setIsPrefetching(true);
+    setHasError(false);
 
-      try {
-        const query = new URLSearchParams({
-          page: String(nextPage),
-          limit: String(PAGE_SIZE),
-          sort: "newest",
-        });
+    try {
+      const query = new URLSearchParams({
+        page: String(nextPage),
+        limit: String(PAGE_SIZE),
+        sort: "newest",
+      });
 
-        const response = await fetch(`${API_BASE_URL}/v1/products?${query.toString()}`, {
-          method: "GET",
-          cache: "no-store",
-        });
+      const response = await fetch(`${API_BASE_URL}/v1/products?${query.toString()}`, {
+        method: "GET",
+        cache: "no-store",
+      });
 
-        if (!response.ok) {
-          throw new Error("Unable to load products");
-        }
-
-        const payload = (await response.json()) as ProductListResponse;
-        const incoming = Array.isArray(payload.data) ? payload.data : [];
-        const totalPages = payload.pagination?.totalPages;
-
-        setProducts((previous) => mergeUniqueProducts(previous, incoming));
-        setPage(nextPage);
-
-        const canLoadMore =
-          typeof totalPages === "number"
-            ? nextPage < totalPages
-            : incoming.length === PAGE_SIZE;
-
-        setHasMore(canLoadMore && incoming.length > 0);
-      } catch {
-        setHasError(true);
-        setHasMore(false);
-      } finally {
-        setIsLoading(false);
+      if (!response.ok) {
+        throw new Error("Unable to load products");
       }
-    },
-    [hasMore, isLoading]
+
+      const payload = (await response.json()) as ProductListResponse;
+      const incoming = Array.isArray(payload.data) ? payload.data : [];
+      const totalPages = payload.pagination?.totalPages;
+
+      setProducts((previous) => mergeUniqueProducts(previous, incoming));
+      setNextPage((previous) => previous + 1);
+
+      const canLoadMore =
+        typeof totalPages === "number"
+          ? nextPage < totalPages
+          : incoming.length === PAGE_SIZE;
+
+      setHasMore(canLoadMore && incoming.length > 0);
+    } catch {
+      setHasError(true);
+      setHasMore(false);
+    } finally {
+      setIsPrefetching(false);
+    }
+  }, [hasMore, isPrefetching, nextPage]);
+
+  const displayedProducts = React.useMemo(
+    () => products.slice(0, visibleCount),
+    [products, visibleCount]
   );
 
   React.useEffect(() => {
     if (!API_BASE_URL) return;
-    if (initialVisibleProducts.length > 0) return;
+    if (initialLoadedProducts.length > 0) return;
 
-    setHasMore(true);
-    void loadPage(1);
-  }, [initialVisibleProducts.length, loadPage]);
+    void prefetchNextPage();
+  }, [initialLoadedProducts.length, prefetchNextPage]);
+
+  React.useEffect(() => {
+    if (visibleCount > 0) return;
+    if (products.length === 0) return;
+
+    setVisibleCount(Math.min(PAGE_SIZE, products.length));
+  }, [products.length, visibleCount]);
+
+  React.useEffect(() => {
+    if (!hasApi || !hasMore || isPrefetching) return;
+
+    const bufferedCount = products.length - visibleCount;
+    if (bufferedCount >= PAGE_SIZE) return;
+
+    void prefetchNextPage();
+  }, [hasApi, hasMore, isPrefetching, prefetchNextPage, products.length, visibleCount]);
 
   React.useEffect(() => {
     const node = sentinelRef.current;
-    if (!node || !hasMore) return;
+    if (!node) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
         const target = entries[0];
-        if (!target?.isIntersecting || isLoading) return;
-        void loadPage(page + 1);
+        if (!target?.isIntersecting) return;
+
+        if (visibleCount < products.length) {
+          setVisibleCount((previous) => Math.min(previous + PAGE_SIZE, products.length));
+          return;
+        }
+
+        if (hasMore) {
+          setPendingReveal(true);
+        }
       },
       {
         root: null,
-        rootMargin: "900px 0px",
+        rootMargin: "250px 0px",
         threshold: 0.01,
       }
     );
@@ -149,7 +162,21 @@ export function InfiniteProductShowcaseSection({
     return () => {
       observer.disconnect();
     };
-  }, [hasMore, isLoading, loadPage, page]);
+  }, [hasMore, products.length, visibleCount]);
+
+  React.useEffect(() => {
+    if (!pendingReveal) return;
+
+    if (visibleCount < products.length) {
+      setVisibleCount((previous) => Math.min(previous + PAGE_SIZE, products.length));
+      setPendingReveal(false);
+      return;
+    }
+
+    if (!hasMore && !isPrefetching) {
+      setPendingReveal(false);
+    }
+  }, [hasMore, isPrefetching, pendingReveal, products.length, visibleCount]);
 
   return (
     <section id="product-showcase-infinite" className="border-t border-border-soft bg-cream/50 dark:bg-card/50">
@@ -162,20 +189,15 @@ export function InfiniteProductShowcaseSection({
         </div>
 
         <div className="px-0 sm:px-2">
-          {products.length === 0 && !isLoading ? (
+          {displayedProducts.length === 0 && !isPrefetching ? (
             <div className="py-16 text-center">
               <p className="text-sm text-muted-foreground">No products available right now.</p>
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-3 lg:grid-cols-4">
-              {products.map((product) => (
+              {displayedProducts.map((product) => (
                 <MarketplaceProductCard key={product.id} product={product} />
               ))}
-
-              {isLoading &&
-                Array.from({ length: 4 }).map((_, index) => (
-                  <ProductCardSkeleton key={`product-skeleton-${index}`} />
-                ))}
             </div>
           )}
 
@@ -185,11 +207,20 @@ export function InfiniteProductShowcaseSection({
             <p className="mt-6 text-center text-xs text-muted-foreground" role="status">
               Could not load more products right now.
             </p>
+          ) : isPrefetching ? (
+            <div
+              className="mt-6 flex items-center justify-center gap-2 text-xs text-muted-foreground"
+              role="status"
+              aria-live="polite"
+            >
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-border-soft border-t-gold" />
+              <span>Loading next products...</span>
+            </div>
           ) : hasMore ? (
             <p className="mt-6 text-center text-xs text-muted-foreground" role="status">
-              Scroll to load more products
+              Scroll down to reveal more preloaded products
             </p>
-          ) : products.length > 0 ? (
+          ) : displayedProducts.length > 0 ? (
             <p className="mt-6 text-center text-xs text-muted-foreground" role="status">
               You&apos;ve reached the end of the showcase.
             </p>
