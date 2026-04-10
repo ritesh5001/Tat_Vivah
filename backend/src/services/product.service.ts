@@ -113,6 +113,26 @@ export class ProductService {
         return best;
     }
 
+    private resolveMaxVariantCompareAt(product: any): number | null {
+        const directValue = Number(product?.maxVariantCompareAt);
+        if (Number.isFinite(directValue) && directValue > 0) {
+            return directValue;
+        }
+
+        if (!Array.isArray(product?.variants) || product.variants.length === 0) {
+            return null;
+        }
+
+        let maxValue: number | null = null;
+        for (const variant of product.variants) {
+            const compare = Number(variant?.compareAtPrice);
+            if (!Number.isFinite(compare) || compare <= 0) continue;
+            maxValue = maxValue === null ? compare : Math.max(maxValue, compare);
+        }
+
+        return maxValue;
+    }
+
     private async getActiveCouponsForSellers(sellerIds: string[]): Promise<ActiveCouponCandidate[]> {
         if (sellerIds.length === 0) return [];
 
@@ -123,7 +143,6 @@ export class ProductService {
         const coupons = await prisma.coupon.findMany({
             where: {
                 isActive: true,
-                firstTimeUserOnly: false,
                 validFrom: { lte: now },
                 validUntil: { gte: now },
                 OR: [{ sellerId: null }, { sellerId: { in: uniqueSellerIds } }],
@@ -158,7 +177,8 @@ export class ProductService {
     private toPublicProduct(product: any, coupons: ActiveCouponCandidate[] = []): PublicProductWithCategory {
         const adminPrice = this.toNumber(product.adminListingPrice);
         const sellerPrice = this.toNumber(product.sellerPrice);
-        const regularPrice = sellerPrice > adminPrice ? sellerPrice : adminPrice;
+        const maxVariantCompareAt = this.resolveMaxVariantCompareAt(product);
+        const regularPrice = Math.max(adminPrice, sellerPrice, maxVariantCompareAt ?? 0);
         return {
             id: product.id,
             categoryId: product.categoryId,
@@ -181,7 +201,8 @@ export class ProductService {
     private toPublicProductDetail(product: any, coupons: ActiveCouponCandidate[] = []): PublicProductWithDetails {
         const listingPrice = this.toNumber(product.adminListingPrice);
         const sellerPrice = this.toNumber(product.sellerPrice);
-        const regularPrice = sellerPrice > listingPrice ? sellerPrice : listingPrice;
+        const maxVariantCompareAt = this.resolveMaxVariantCompareAt(product);
+        const regularPrice = Math.max(listingPrice, sellerPrice, maxVariantCompareAt ?? 0);
         return {
             id: product.id,
             sellerId: product.sellerId,
@@ -269,10 +290,33 @@ export class ProductService {
         }
 
         const { products, total } = await this.productRepo.findPublished(normalizedFilters);
+        const productIds = products.map((product) => product.id);
+        const variantCompareMaxRows = productIds.length
+            ? await prisma.productVariant.groupBy({
+                by: ['productId'],
+                where: {
+                    productId: { in: productIds },
+                    compareAtPrice: { not: null },
+                },
+                _max: {
+                    compareAtPrice: true,
+                },
+            })
+            : [];
+        const variantCompareMaxMap = new Map(
+            variantCompareMaxRows.map((row) => [
+                row.productId,
+                row._max.compareAtPrice === null ? null : Number(row._max.compareAtPrice),
+            ]),
+        );
+        const productsWithVariantCompare = products.map((product) => ({
+            ...product,
+            maxVariantCompareAt: variantCompareMaxMap.get(product.id) ?? null,
+        }));
         const coupons = await this.getActiveCouponsForSellers(products.map((product) => product.sellerId));
 
         const response: ProductListResponse = {
-            data: products.map((product) => this.toPublicProduct(product, coupons)),
+            data: productsWithVariantCompare.map((product) => this.toPublicProduct(product, coupons)),
             pagination: {
                 page,
                 limit,

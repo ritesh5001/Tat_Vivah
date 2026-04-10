@@ -3,6 +3,7 @@ export declare class BestsellerService {
     private roundMoney;
     private calculateDiscountedPrice;
     private getBestCouponPreview;
+    private resolveMaxVariantCompareAt;
     private getActiveCouponsForSellers;
     listPublic(limit?: number): Promise<any>;
     listAdmin(): Promise<{

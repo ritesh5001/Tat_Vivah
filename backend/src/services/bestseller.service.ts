@@ -72,6 +72,21 @@ export class BestsellerService {
         return best;
     }
 
+    private resolveMaxVariantCompareAt(product: any): number | null {
+        if (!Array.isArray(product?.variants) || product.variants.length === 0) {
+            return null;
+        }
+
+        let maxValue: number | null = null;
+        for (const variant of product.variants) {
+            const compare = Number(variant?.compareAtPrice);
+            if (!Number.isFinite(compare) || compare <= 0) continue;
+            maxValue = maxValue === null ? compare : Math.max(maxValue, compare);
+        }
+
+        return maxValue;
+    }
+
     private async getActiveCouponsForSellers(sellerIds: string[]): Promise<ActiveCouponCandidate[]> {
         if (sellerIds.length === 0) return [];
 
@@ -82,7 +97,6 @@ export class BestsellerService {
         const coupons = await prisma.coupon.findMany({
             where: {
                 isActive: true,
-                firstTimeUserOnly: false,
                 validFrom: { lte: now },
                 validUntil: { gte: now },
                 OR: [{ sellerId: null }, { sellerId: { in: uniqueSellerIds } }],
@@ -126,7 +140,8 @@ export class BestsellerService {
         const products = items.map((item) => {
             const sellerPrice = Number(item.product.sellerPrice ?? 0);
             const adminPrice = Number(item.product.adminListingPrice ?? item.product.sellerPrice ?? 0);
-            const regularPrice = sellerPrice > adminPrice ? sellerPrice : adminPrice;
+            const maxVariantCompareAt = this.resolveMaxVariantCompareAt(item.product);
+            const regularPrice = Math.max(adminPrice, sellerPrice, maxVariantCompareAt ?? 0);
             const activeCoupon = this.getBestCouponPreview(adminPrice, item.product.sellerId, coupons);
             return {
                 id: item.id,
