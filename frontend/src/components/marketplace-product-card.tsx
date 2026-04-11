@@ -187,7 +187,7 @@ export function MarketplaceProductCard({ product }: { product: MarketplaceCardPr
 
   return (
     <article
-      className="group block overflow-hidden rounded-2xl border border-border-soft/80 bg-card/95 shadow-[0_6px_24px_rgba(17,12,8,0.08)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_38px_rgba(17,12,8,0.14)]"
+      className="group block overflow-hidden rounded-xl border border-border-soft/80 bg-card/95 shadow-[0_6px_24px_rgba(17,12,8,0.08)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_38px_rgba(17,12,8,0.14)] sm:rounded-2xl"
     >
       <Link href={`/product/${product.id}`} className="block">
         <div className="relative overflow-hidden bg-cream dark:bg-brown/20 aspect-3/4">
@@ -203,15 +203,15 @@ export function MarketplaceProductCard({ product }: { product: MarketplaceCardPr
 
           <div className="pointer-events-none absolute inset-0 bg-linear-to-t from-black/18 via-transparent to-transparent opacity-70 transition-opacity duration-300 group-hover:opacity-85" />
 
-          <div className="absolute left-3 top-3">
-            <span className="inline-flex items-center rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-foreground/80 backdrop-blur-sm">
+          <div className="absolute left-2 top-2 sm:left-3 sm:top-3">
+            <span className="inline-flex items-center rounded-full bg-white/95 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.14em] text-foreground/80 backdrop-blur-sm sm:px-2.5 sm:py-1 sm:text-[10px] sm:tracking-[0.18em]">
               Trending
             </span>
           </div>
 
           {hasDiscount && (
-            <div className="absolute right-3 top-3">
-              <span className="inline-flex items-center rounded-full bg-amber-600 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-white shadow-sm">
+            <div className="absolute right-2 top-2 sm:right-3 sm:top-3">
+              <span className="inline-flex items-center rounded-full bg-amber-600 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em] text-white shadow-sm sm:px-2.5 sm:py-1 sm:text-[10px] sm:tracking-[0.12em]">
                 {discountPercentage}% OFF
               </span>
             </div>
@@ -219,43 +219,43 @@ export function MarketplaceProductCard({ product }: { product: MarketplaceCardPr
         </div>
       </Link>
 
-      <div className="space-y-2 px-3.5 pb-4 pt-3.5 sm:px-4 sm:pb-4.5">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/85">
+      <div className="space-y-1.5 px-3 pb-3 pt-3 sm:space-y-2 sm:px-4 sm:pb-4.5 sm:pt-3.5">
+        <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/85 sm:text-[10px] sm:tracking-[0.16em]">
           {categoryLabel}
         </p>
 
         <Link href={`/product/${product.id}`} className="block">
-        <h3 className="line-clamp-2 min-h-[2.6rem] text-[1.04rem] font-semibold leading-tight tracking-tight text-foreground transition-colors duration-300 group-hover:text-gold">
-          {product.title}
-        </h3>
+          <h3 className="line-clamp-2 min-h-[2.35rem] text-[0.96rem] font-semibold leading-tight tracking-tight text-foreground transition-colors duration-300 group-hover:text-gold sm:min-h-[2.6rem] sm:text-[1.04rem]">
+            {product.title}
+          </h3>
         </Link>
 
         {typeof displayPrice === "number" ? (
           <>
-            <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-              <span className="text-[2rem] font-semibold leading-none tracking-[-0.02em] text-foreground">
+            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 sm:gap-x-2.5">
+              <span className="text-[1.62rem] font-semibold leading-none tracking-[-0.015em] text-foreground sm:text-[2rem] sm:tracking-[-0.02em]">
                 {currency.format(displayPrice)}
               </span>
               {typeof originalPrice === "number" && (
-                <span className="text-[0.92rem] font-medium leading-none text-muted-foreground/80 line-through">
+                <span className="text-[0.86rem] font-medium leading-none text-muted-foreground/80 line-through sm:text-[0.92rem]">
                   {currency.format(originalPrice)}
                 </span>
               )}
               {hasDiscount && (
-                <span className="text-[0.82rem] font-semibold uppercase tracking-[0.12em] text-amber-700 dark:text-amber-300">
+                <span className="text-[0.78rem] font-semibold uppercase tracking-[0.1em] text-amber-700 dark:text-amber-300 sm:text-[0.82rem] sm:tracking-[0.12em]">
                   {discountPercentage}% OFF
                 </span>
               )}
             </div>
 
             {typeof couponPrice === "number" && couponPrice < displayPrice && (
-              <div className="inline-flex w-fit items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300">
+              <div className="inline-flex w-fit items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.05em] text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300 sm:px-2.5 sm:py-1 sm:text-[10px] sm:tracking-[0.06em]">
                 <span>Get it for {currency.format(couponPrice)}</span>
                 <span className="text-emerald-700/85 dark:text-emerald-300/85">with coupon</span>
               </div>
             )}
 
-            <p className="text-[11px] font-medium tracking-[0.02em] text-muted-foreground/90">
+            <p className="line-clamp-1 text-[10px] font-medium tracking-[0.02em] text-muted-foreground/90 sm:text-[11px]">
               <span className="font-semibold text-foreground/85">Available Sizes:</span>{" "}
               {formatSizesLabel(availableSizes)}
             </p>
@@ -263,7 +263,7 @@ export function MarketplaceProductCard({ product }: { product: MarketplaceCardPr
         ) : (
           <>
             <p className="text-sm font-medium text-muted-foreground">Price on request</p>
-            <p className="text-[11px] font-medium tracking-[0.02em] text-muted-foreground/90">
+            <p className="line-clamp-1 text-[10px] font-medium tracking-[0.02em] text-muted-foreground/90 sm:text-[11px]">
               <span className="font-semibold text-foreground/85">Available Sizes:</span> View options
             </p>
           </>
@@ -271,11 +271,11 @@ export function MarketplaceProductCard({ product }: { product: MarketplaceCardPr
 
         <Link
           href={`/product/${product.id}`}
-          className="relative isolate mt-2 inline-flex h-11 w-full items-center justify-center overflow-hidden rounded-xl bg-black px-4 text-sm font-semibold uppercase tracking-widest text-white transition-all duration-300 hover:bg-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/70 focus-visible:ring-offset-2"
+          className="relative isolate mt-1.5 inline-flex h-10 w-full items-center justify-center overflow-hidden rounded-lg bg-black px-3 text-[0.86rem] font-semibold uppercase tracking-[0.14em] text-white transition-all duration-300 hover:bg-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/70 focus-visible:ring-offset-2 sm:mt-2 sm:h-11 sm:rounded-xl sm:px-4 sm:text-sm sm:tracking-widest"
         >
           <motion.span
             aria-hidden
-            className="pointer-events-none absolute inset-y-0 -left-1/3 w-1/3 bg-white/35 blur-[2px]"
+            className="pointer-events-none absolute inset-y-0 -left-1/3 w-1/4 bg-white/22 blur-[2px] sm:w-1/3 sm:bg-white/35"
             animate={{ x: ["-140%", "420%"] }}
             transition={{ duration: 2.4, ease: "linear", repeat: Number.POSITIVE_INFINITY, repeatDelay: 0.5 }}
           />
