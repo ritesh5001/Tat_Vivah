@@ -1,5 +1,8 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
+import { motion } from "framer-motion";
 
 const currency = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -29,6 +32,9 @@ export interface MarketplaceCardProduct {
   coupon?: MarketplaceCardCouponPreview | null;
   couponPreview?: MarketplaceCardCouponPreview | null;
   coupons?: MarketplaceCardCouponPreview[] | null;
+  availableSizes?: string[] | null;
+  sizes?: string[] | string | null;
+  variants?: Array<{ sku?: string | null }> | null;
 }
 
 type CouponKind = "PERCENT" | "FLAT";
@@ -115,10 +121,60 @@ function resolveOriginalPrice(product: MarketplaceCardProduct, displayPrice: num
   return product.regularPrice > displayPrice ? product.regularPrice : null;
 }
 
+const SIZE_ORDER = ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "4XL", "5XL"] as const;
+
+function normalizeSizeToken(value: string): string | null {
+  const token = value.trim().toUpperCase();
+  if (!token) return null;
+  if (token === "ONE SIZE" || token === "FREE SIZE") return "FREE";
+  return token;
+}
+
+function resolveAvailableSizes(product: MarketplaceCardProduct): string[] {
+  const candidates: string[] = [];
+
+  if (Array.isArray(product.availableSizes)) {
+    candidates.push(...product.availableSizes);
+  }
+
+  if (Array.isArray(product.sizes)) {
+    candidates.push(...product.sizes);
+  } else if (typeof product.sizes === "string") {
+    candidates.push(...product.sizes.split(","));
+  }
+
+  if (Array.isArray(product.variants)) {
+    for (const variant of product.variants) {
+      const sku = typeof variant?.sku === "string" ? variant.sku : "";
+      const lastToken = sku.split("-").pop() ?? "";
+      if (lastToken) candidates.push(lastToken);
+    }
+  }
+
+  const unique = Array.from(new Set(candidates.map((value) => normalizeSizeToken(String(value) ?? "")).filter((value): value is string => Boolean(value))));
+
+  return unique.sort((a, b) => {
+    const ai = SIZE_ORDER.indexOf(a as (typeof SIZE_ORDER)[number]);
+    const bi = SIZE_ORDER.indexOf(b as (typeof SIZE_ORDER)[number]);
+    if (ai === -1 && bi === -1) return a.localeCompare(b);
+    if (ai === -1) return 1;
+    if (bi === -1) return -1;
+    return ai - bi;
+  });
+}
+
+function formatSizesLabel(sizes: string[]): string {
+  if (sizes.length === 0) return "View options";
+  const visible = sizes.slice(0, 4).join(", ");
+  const hidden = sizes.length - 4;
+  return hidden > 0 ? `${visible} +${hidden}` : visible;
+}
+
 export function MarketplaceProductCard({ product }: { product: MarketplaceCardProduct }) {
   const displayPrice = resolvePrimaryPrice(product);
   const originalPrice = resolveOriginalPrice(product, displayPrice);
   const couponPrice = resolveCouponPrice(product, displayPrice);
+  const availableSizes = resolveAvailableSizes(product);
 
   const discountPercentage =
     typeof displayPrice === "number" && typeof originalPrice === "number" && originalPrice > 0
@@ -130,52 +186,64 @@ export function MarketplaceProductCard({ product }: { product: MarketplaceCardPr
   const hasDiscount = typeof discountPercentage === "number" && discountPercentage > 0;
 
   return (
-    <Link
-      href={`/product/${product.id}`}
+    <article
       className="group block overflow-hidden rounded-2xl border border-border-soft/80 bg-card/95 shadow-[0_6px_24px_rgba(17,12,8,0.08)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_38px_rgba(17,12,8,0.14)]"
     >
-      <div className="relative overflow-hidden bg-cream dark:bg-brown/20 aspect-3/4">
-        <Image
-          src={imageSrc}
-          alt={product.title}
-          fill
-          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
-          className="object-cover transition-transform duration-500 group-hover:scale-105"
-          loading="lazy"
-          quality={60}
-        />
+      <Link href={`/product/${product.id}`} className="block">
+        <div className="relative overflow-hidden bg-cream dark:bg-brown/20 aspect-3/4">
+          <Image
+            src={imageSrc}
+            alt={product.title}
+            fill
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+            className="object-cover transition-transform duration-500 group-hover:scale-105"
+            loading="lazy"
+            quality={60}
+          />
 
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/18 via-transparent to-transparent opacity-70 transition-opacity duration-300 group-hover:opacity-85" />
+          <div className="pointer-events-none absolute inset-0 bg-linear-to-t from-black/18 via-transparent to-transparent opacity-70 transition-opacity duration-300 group-hover:opacity-85" />
 
-        <div className="absolute left-3 top-3">
-          <span className="inline-flex items-center rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-foreground/80 backdrop-blur-sm">
-            {categoryLabel}
-          </span>
-        </div>
-
-        {hasDiscount && (
-          <div className="absolute right-3 top-3">
-            <span className="inline-flex items-center rounded-full bg-amber-600 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-white shadow-sm">
-              {discountPercentage}% OFF
+          <div className="absolute left-3 top-3">
+            <span className="inline-flex items-center rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-foreground/80 backdrop-blur-sm">
+              Trending
             </span>
           </div>
-        )}
-      </div>
+
+          {hasDiscount && (
+            <div className="absolute right-3 top-3">
+              <span className="inline-flex items-center rounded-full bg-amber-600 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-white shadow-sm">
+                {discountPercentage}% OFF
+              </span>
+            </div>
+          )}
+        </div>
+      </Link>
 
       <div className="space-y-2 px-3.5 pb-4 pt-3.5 sm:px-4 sm:pb-4.5">
-        <h3 className="line-clamp-2 min-h-[2.6rem] text-[1.04rem] font-semibold leading-[1.25] tracking-tight text-foreground transition-colors duration-300 group-hover:text-gold">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/85">
+          {categoryLabel}
+        </p>
+
+        <Link href={`/product/${product.id}`} className="block">
+        <h3 className="line-clamp-2 min-h-[2.6rem] text-[1.04rem] font-semibold leading-tight tracking-tight text-foreground transition-colors duration-300 group-hover:text-gold">
           {product.title}
         </h3>
+        </Link>
 
         {typeof displayPrice === "number" ? (
           <>
-            <div className="flex flex-wrap items-end gap-x-2 gap-y-1">
-              <span className="text-[1.3rem] font-semibold leading-none tracking-tight text-foreground">
+            <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+              <span className="text-[2rem] font-semibold leading-none tracking-[-0.02em] text-foreground">
                 {currency.format(displayPrice)}
               </span>
               {typeof originalPrice === "number" && (
-                <span className="text-[0.98rem] leading-none text-muted-foreground/80 line-through">
+                <span className="text-[0.92rem] font-medium leading-none text-muted-foreground/80 line-through">
                   {currency.format(originalPrice)}
+                </span>
+              )}
+              {hasDiscount && (
+                <span className="text-[0.82rem] font-semibold uppercase tracking-[0.12em] text-amber-700 dark:text-amber-300">
+                  {discountPercentage}% OFF
                 </span>
               )}
             </div>
@@ -186,11 +254,40 @@ export function MarketplaceProductCard({ product }: { product: MarketplaceCardPr
                 <span className="text-emerald-700/85 dark:text-emerald-300/85">with coupon</span>
               </div>
             )}
+
+            <p className="text-[11px] font-medium tracking-[0.02em] text-muted-foreground/90">
+              <span className="font-semibold text-foreground/85">Available Sizes:</span>{" "}
+              {formatSizesLabel(availableSizes)}
+            </p>
           </>
         ) : (
-          <p className="text-sm font-medium text-muted-foreground">Price on request</p>
+          <>
+            <p className="text-sm font-medium text-muted-foreground">Price on request</p>
+            <p className="text-[11px] font-medium tracking-[0.02em] text-muted-foreground/90">
+              <span className="font-semibold text-foreground/85">Available Sizes:</span> View options
+            </p>
+          </>
         )}
+
+        <Link
+          href={`/product/${product.id}`}
+          className="relative isolate mt-2 inline-flex h-11 w-full items-center justify-center overflow-hidden rounded-xl bg-black px-4 text-sm font-semibold uppercase tracking-widest text-white transition-all duration-300 hover:bg-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/70 focus-visible:ring-offset-2"
+        >
+          <motion.span
+            aria-hidden
+            className="pointer-events-none absolute inset-y-0 -left-1/3 w-1/3 bg-white/35 blur-[2px]"
+            animate={{ x: ["-140%", "420%"] }}
+            transition={{ duration: 2.4, ease: "linear", repeat: Number.POSITIVE_INFINITY, repeatDelay: 0.5 }}
+          />
+          <motion.span
+            aria-hidden
+            className="pointer-events-none absolute inset-0 bg-white/5"
+            animate={{ opacity: [0.06, 0.14, 0.06] }}
+            transition={{ duration: 1.8, ease: "easeInOut", repeat: Number.POSITIVE_INFINITY }}
+          />
+          <span className="relative z-10">Add to Cart</span>
+        </Link>
       </div>
-    </Link>
+    </article>
   );
 }
