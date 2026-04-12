@@ -11,7 +11,7 @@ export default function ContactScreen() {
       sections={[
         {
           title: "Customer Support",
-          body: `Phone: ${companyInfo.supportPhoneDisplay}\nEmail: ${companyInfo.supportEmail}\nHours: ${companyInfo.supportHours}`,
+          body: `Phone: ${companyInfo.supportPhoneDisplay}\nSupport: ${companyInfo.supportEmail}\nOnboarding: ${companyInfo.onboardingEmail}\nRefunds: ${companyInfo.refundEmail}\nHours: ${companyInfo.supportHours}`,
         },
         {
           title: "Styling Concierge",

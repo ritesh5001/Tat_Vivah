@@ -137,7 +137,9 @@ export function Footer() {
       <View style={styles.contactBlock}>
         <Text style={styles.contactBrand}>TatVivah Trends</Text>
         <Text style={styles.contactPrimary}>{companyInfo.supportPhoneDisplay}</Text>
-        <Text style={styles.contactValue}>{companyInfo.supportEmail}</Text>
+        <Text style={styles.contactValue}>Support: {companyInfo.supportEmail}</Text>
+        <Text style={styles.contactValue}>Onboarding: {companyInfo.onboardingEmail}</Text>
+        <Text style={styles.contactValue}>Refunds: {companyInfo.refundEmail}</Text>
         <Text style={styles.contactHours}>{companyInfo.supportHours}</Text>
       </View>
 
@@ -151,7 +153,9 @@ export function Footer() {
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Support Concierge</Text>
             <Text style={styles.modalBody}>{companyInfo.supportPhoneDisplay}</Text>
-            <Text style={styles.modalBody}>{companyInfo.supportEmail}</Text>
+            <Text style={styles.modalBody}>Support: {companyInfo.supportEmail}</Text>
+            <Text style={styles.modalBody}>Onboarding: {companyInfo.onboardingEmail}</Text>
+            <Text style={styles.modalBody}>Refunds: {companyInfo.refundEmail}</Text>
             <Text style={styles.modalBody}>{companyInfo.supportHours}</Text>
 
             <View style={styles.modalActions}>

@@ -506,7 +506,7 @@ export default function CheckoutPage() {
                     <Label htmlFor="phone">Phone</Label>
                     <Input
                       id="phone"
-                      placeholder="+91 98765 43210"
+                      placeholder="+91 97696 59709"
                       value={shipping.phone}
                       onChange={(event) =>
                         setShipping((prev) => ({

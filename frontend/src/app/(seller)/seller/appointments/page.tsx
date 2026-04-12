@@ -139,6 +139,7 @@ export default function SellerAppointmentsPage() {
             appointments.map((appointment, index) => {
               const customer = appointment.user?.email || appointment.user?.phone || appointment.userId;
               const canManage = appointment.status !== "COMPLETED" && appointment.status !== "CANCELLED";
+              const canConfirm = appointment.status === "PENDING";
               const canJoin = isJoinActive(appointment, now);
 
               return (
@@ -195,7 +196,7 @@ export default function SellerAppointmentsPage() {
                       </a>
                       <Button
                         size="sm"
-                        disabled={!canManage || updatingId === appointment.id}
+                        disabled={!canManage || !canConfirm || updatingId === appointment.id}
                         onClick={() => handleStatusUpdate(appointment.id, "CONFIRMED")}
                       >
                         Confirm

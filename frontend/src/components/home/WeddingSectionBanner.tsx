@@ -12,7 +12,7 @@ export function WeddingSectionBanner() {
             fill
             className="object-cover"
             sizes="(max-width: 767px) 0px, 100vw"
-            quality={60}
+            quality={75}
           />
         </div>
 
@@ -23,7 +23,7 @@ export function WeddingSectionBanner() {
             fill
             className="object-cover"
             sizes="(max-width: 767px) 100vw, 0px"
-            quality={60}
+            quality={75}
           />
         </div>
 

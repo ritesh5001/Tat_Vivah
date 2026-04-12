@@ -358,7 +358,7 @@ export default async function MarketplacePage({
                         alt={occasion.name}
                         width={80}
                         height={80}
-                        quality={60}
+                        quality={75}
                         className="h-full w-full object-cover"
                         loading="lazy"
                       />

@@ -73,7 +73,7 @@ export function CategoryCarousel({ initialCategories }: { initialCategories?: Ca
                           alt={category.name}
                           fill
                           sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                          quality={60}
+                          quality={75}
                           loading="lazy"
                           draggable={false}
                           className="object-cover transition-transform duration-400 ease-out group-hover:scale-105"

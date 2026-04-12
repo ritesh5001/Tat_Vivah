@@ -5,7 +5,7 @@
 
 import { shipmentRepository } from '../repositories/shipment.repository.js';
 import { prisma } from '../config/db.js';
-import { emitShipmentShipped, emitShipmentDelivered } from '../events/order.events.js';
+import { emitShipmentCreated, emitShipmentShipped, emitShipmentDelivered } from '../events/order.events.js';
 import {
     CreateShipmentInput,
     TrackingResponse,
@@ -64,6 +64,8 @@ export class ShipmentService {
         // 5. Invalidate tracking cache
         // Now using actual cache key
         await this.invalidateTrackingCache(orderId);
+
+        await emitShipmentCreated(orderId, shipment.carrier, shipment.tracking_number);
 
         return this.mapToDTO(shipment);
     }

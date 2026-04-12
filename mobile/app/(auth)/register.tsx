@@ -106,7 +106,7 @@ export default function RegisterScreen() {
 
           <Text style={styles.label}>Phone</Text>
           <TextInput
-            placeholder="+91 98765 43210"
+            placeholder="+91 97696 59709"
             placeholderTextColor={colors.brownSoft}
             style={styles.input}
             value={phone}

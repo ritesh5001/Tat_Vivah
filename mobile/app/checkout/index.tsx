@@ -533,7 +533,7 @@ export default function CheckoutScreen() {
             <Text style={styles.label}>Phone</Text>
             <TextInput
               style={styles.input}
-              placeholder="+91 98765 43210"
+              placeholder="+91 97696 59709"
               placeholderTextColor={colors.brownSoft}
               keyboardType="phone-pad"
               value={shipping.phone}

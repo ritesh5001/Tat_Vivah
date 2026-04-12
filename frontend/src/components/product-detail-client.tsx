@@ -127,7 +127,15 @@ export default function ProductDetailClient({
     (variant) => variant.id === selectedVariantId
   );
   const salePrice = product.salePrice ?? product.adminPrice ?? product.price;
-  const compareAtPrice = selectedVariant?.compareAtPrice ?? null;
+  const compareAtPrice = selectedVariant?.compareAtPrice ?? product.regularPrice ?? null;
+  const hasDiscount =
+    typeof compareAtPrice === "number" &&
+    typeof salePrice === "number" &&
+    compareAtPrice > salePrice;
+  const savingsAmount = hasDiscount ? compareAtPrice - salePrice : 0;
+  const discountPercent = hasDiscount
+    ? Math.round(((compareAtPrice - salePrice) / compareAtPrice) * 100)
+    : 0;
 
   const handleAddToCart = async () => {
     if (!selectedVariant) {
@@ -308,13 +316,23 @@ export default function ProductDetailClient({
             <span className="font-serif text-3xl font-medium text-foreground sm:text-4xl">
               {typeof salePrice === "number" ? currency.format(salePrice) : "—"}
             </span>
-            {typeof compareAtPrice === "number" && typeof salePrice === "number" && compareAtPrice > salePrice && (
+            {hasDiscount && (
               <span className="text-sm text-muted-foreground line-through">
                 {currency.format(compareAtPrice)}
               </span>
             )}
+            {hasDiscount && (
+              <span className="rounded-full bg-[#d85025]/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#d85025]">
+                {discountPercent}% off
+              </span>
+            )}
             <span className="text-[10px] text-muted-foreground ml-2 uppercase tracking-wide">MRP (Inclusive of all taxes)</span>
           </div>
+          {hasDiscount && (
+            <p className="text-[11px] font-medium uppercase tracking-wide text-[#b03d19]">
+              You save {currency.format(savingsAmount)} + limited-time offer
+            </p>
+          )}
           <p className="text-[11px] text-muted-foreground uppercase tracking-widest pt-2">
             SKU ID- {selectedVariant?.sku ?? product.variants[0]?.sku ?? "N/A"}
           </p>
