@@ -129,6 +129,21 @@ export class AppointmentService {
                 endTime: true,
             },
         });
+        if (availabilityRows.length === 0) {
+            const hasAnyActiveAvailability = await prisma.sellerAvailability.findFirst({
+                where: {
+                    sellerId,
+                    isActive: true,
+                },
+                select: { id: true },
+            });
+            // Backward-compatibility fallback: if seller has not configured any
+            // availability yet, do not block customer booking.
+            if (!hasAnyActiveAvailability) {
+                return;
+            }
+            throw ApiError.badRequest('Requested time is outside seller availability');
+        }
         const isWithinAvailability = availabilityRows.some((slot) => {
             const start = timeToMinutes(slot.startTime);
             const end = timeToMinutes(slot.endTime);
