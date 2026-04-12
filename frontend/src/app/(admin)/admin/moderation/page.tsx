@@ -225,7 +225,12 @@ export default function AdminModerationPage() {
                         </span>
                       </td>
                       <td className="p-5">
-                        <Button size="sm" variant="outline" onClick={() => openPriceModal(product)}>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="whitespace-nowrap px-3 text-[10px]"
+                          onClick={() => openPriceModal(product)}
+                        >
                           Review & Approve
                         </Button>
                       </td>

@@ -359,6 +359,6 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|api|images|favicon\\.ico|logo\\.png|tatvivah-logo\\.svg|og\\.png|robots\\.txt|sitemap\\.xml).*)",
+    "/((?!_next/static|_next/image|api|images|favicon\\.ico|logo\\.png|logo-old\\.avif|tatvivah-logo\\.svg|og\\.png|robots\\.txt|sitemap\\.xml).*)",
   ],
 };

@@ -1,5 +1,6 @@
 import { LegalPageLayout } from "@/components/legal-page-layout";
 import { Metadata } from "next";
+import { SUPPORT_EMAIL } from "@/lib/site-config";
 
 export const metadata: Metadata = {
     title: "Privacy Policy | Tat Vivah",
@@ -68,7 +69,7 @@ export default function PrivacyPolicyPage() {
                     We will only retain your personal information for as long as necessary to fulfill the purposes we collected it for, including for the purposes of satisfying any legal, accounting, or reporting requirements.
                 </p>
                 <p>
-                    You have the right to request access to, correction of, or deletion of your personal data. To exercise these rights to remove your data from our database, please contact our Data Protection Officer at <strong>support@tatvivahtrends.com</strong>.
+                    You have the right to request access to, correction of, or deletion of your personal data. To exercise these rights to remove your data from our database, please contact our Data Protection Officer at <strong>{SUPPORT_EMAIL}</strong>.
                 </p>
             </section>
         </LegalPageLayout>

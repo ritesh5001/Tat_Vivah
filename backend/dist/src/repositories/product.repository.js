@@ -4,11 +4,63 @@ import { prisma } from '../config/db.js';
  * Handles database operations for products
  */
 export class ProductRepository {
+    buildTextMatcher(keyword, matcher = 'contains') {
+        const normalized = keyword.trim();
+        if (!normalized)
+            return null;
+        return {
+            [matcher]: normalized,
+            mode: 'insensitive',
+        };
+    }
+    buildSearchClauses(search) {
+        if (!search)
+            return [];
+        const normalizedSearch = search.trim().replace(/\s+/g, ' ');
+        if (!normalizedSearch)
+            return [];
+        const terms = normalizedSearch
+            .split(' ')
+            .map((term) => term.trim().toLowerCase())
+            .filter((term) => term.length > 0);
+        const containsTerms = Array.from(new Set([normalizedSearch, ...terms]))
+            .filter((term) => term.length >= 2)
+            .slice(0, 6);
+        // Prefix fallback helps with small spelling variations (e.g. "weding" -> "wed").
+        const prefixTerms = Array.from(new Set(terms.filter((term) => term.length >= 4).map((term) => term.slice(0, 3)))).slice(0, 3);
+        const clauses = [];
+        const pushTermClauses = (term, matcher) => {
+            const textMatcher = this.buildTextMatcher(term, matcher);
+            if (!textMatcher)
+                return;
+            clauses.push({ title: textMatcher });
+            clauses.push({ description: textMatcher });
+            clauses.push({ category: { is: { name: textMatcher } } });
+            clauses.push({ category: { is: { slug: textMatcher } } });
+            clauses.push({
+                occasions: {
+                    some: {
+                        occasion: {
+                            isActive: true,
+                            OR: [{ name: textMatcher }, { slug: textMatcher }],
+                        },
+                    },
+                },
+            });
+        };
+        for (const term of containsTerms) {
+            pushTermClauses(term, 'contains');
+        }
+        for (const prefix of prefixTerms) {
+            pushTermClauses(prefix, 'startsWith');
+        }
+        return clauses;
+    }
     resolvePagination(page, limit) {
         const pRaw = Number(page ?? 1);
         const lRaw = Number(limit ?? 20);
         const p = Number.isFinite(pRaw) && pRaw > 0 ? Math.trunc(pRaw) : 1;
-        const l = Math.min(100, Math.max(1, Number.isFinite(lRaw) ? Math.trunc(lRaw) : 20));
+        const l = Math.min(20, Math.max(1, Number.isFinite(lRaw) ? Math.trunc(lRaw) : 20));
         return { skip: (p - 1) * l, take: l };
     }
     mapProductDecimals(product) {
@@ -25,18 +77,14 @@ export class ProductRepository {
      */
     async findPublished(filters) {
         const { page = 1, limit = 20, categoryId, search, occasion } = filters;
-        const skip = (page - 1) * limit;
+        const { skip, take } = this.resolvePagination(page, Math.min(limit, 20));
+        const searchClauses = this.buildSearchClauses(search);
         const where = {
             status: 'APPROVED',
             deletedByAdmin: false,
             adminListingPrice: { not: null },
             ...(categoryId && { categoryId }),
-            ...(search && {
-                OR: [
-                    { title: { contains: search, mode: 'insensitive' } },
-                    { description: { contains: search, mode: 'insensitive' } },
-                ],
-            }),
+            ...(searchClauses.length > 0 && { OR: searchClauses }),
         };
         // Use Prisma relational filtering for occasion slug
         if (occasion) {
@@ -53,9 +101,28 @@ export class ProductRepository {
             prisma.product.findMany({
                 where,
                 skip,
-                take: limit,
-                include: {
-                    category: true,
+                take,
+                select: {
+                    id: true,
+                    sellerId: true,
+                    sellerPrice: true,
+                    categoryId: true,
+                    title: true,
+                    description: true,
+                    images: true,
+                    status: true,
+                    isPublished: true,
+                    createdAt: true,
+                    updatedAt: true,
+                    adminListingPrice: true,
+                    category: {
+                        select: {
+                            id: true,
+                            name: true,
+                            slug: true,
+                            isActive: true,
+                        },
+                    },
                 },
                 orderBy: { createdAt: 'desc' },
             }),
@@ -72,16 +139,56 @@ export class ProductRepository {
     async findPublishedById(id) {
         const product = await prisma.product.findFirst({
             where: { id, status: 'APPROVED', deletedByAdmin: false, adminListingPrice: { not: null } },
-            include: {
-                category: true,
+            select: {
+                id: true,
+                sellerId: true,
+                sellerPrice: true,
+                categoryId: true,
+                title: true,
+                description: true,
+                images: true,
+                status: true,
+                isPublished: true,
+                createdAt: true,
+                updatedAt: true,
+                adminListingPrice: true,
+                category: {
+                    select: {
+                        id: true,
+                        name: true,
+                        slug: true,
+                        isActive: true,
+                    },
+                },
                 variants: {
-                    include: {
+                    select: {
+                        id: true,
+                        sku: true,
+                        price: true,
+                        compareAtPrice: true,
                         inventory: true,
                     },
                 },
             },
         });
-        return product ? this.mapProductDecimals(product) : null;
+        if (!product) {
+            return null;
+        }
+        const mapped = {
+            ...product,
+            sellerPrice: Number(product.sellerPrice),
+            adminListingPrice: product.adminListingPrice == null
+                ? null
+                : Number(product.adminListingPrice),
+            variants: (product.variants ?? []).map((variant) => ({
+                ...variant,
+                price: Number(variant.price),
+                compareAtPrice: variant.compareAtPrice == null
+                    ? null
+                    : Number(variant.compareAtPrice),
+            })),
+        };
+        return mapped;
     }
     /**
      * Find all products for a seller

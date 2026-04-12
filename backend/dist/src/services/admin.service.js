@@ -305,9 +305,8 @@ export class AdminService {
         if (Object.keys(updatePayload).length > 0) {
             await productRepository.update(productId, updatePayload);
         }
-        const variantUpdates = [];
-        if (payload.variants && payload.variants.length > 0) {
-            for (const variantInput of payload.variants) {
+        const variantUpdates = payload.variants && payload.variants.length > 0
+            ? await Promise.all(payload.variants.map(async (variantInput) => {
                 const variant = await variantRepository.findById(variantInput.id);
                 if (!variant || variant.productId !== productId) {
                     throw ApiError.badRequest('One or more variant updates are invalid');
@@ -325,12 +324,14 @@ export class AdminService {
                 if (variantInput.stock !== undefined) {
                     await inventoryRepository.updateStock(variantInput.id, variantInput.stock);
                 }
-                variantUpdates.push(variantInput.id);
-            }
-        }
-        await invalidateProductCaches(productId);
-        await invalidateCache(CACHE_KEYS.ADMIN_STATS);
-        await invalidateCacheByPattern('admin:profit:*');
+                return variantInput.id;
+            }))
+            : [];
+        await Promise.allSettled([
+            invalidateProductCaches(productId),
+            invalidateCache(CACHE_KEYS.ADMIN_STATS),
+            invalidateCacheByPattern('admin:profit:*'),
+        ]);
         const refreshed = await this.adminRepo.findProductById(productId);
         if (!refreshed) {
             throw ApiError.internal('Unable to reload product after updates');

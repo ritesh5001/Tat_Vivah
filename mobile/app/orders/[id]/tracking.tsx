@@ -9,6 +9,7 @@ import {
   type AppStateStatus,
 } from "react-native";
 import { useLocalSearchParams, usePathname, useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import {
   getOrderTracking,
@@ -23,6 +24,7 @@ import { useToast } from "../../../src/providers/ToastProvider";
 import { useAuth } from "../../../src/hooks/useAuth";
 import { impactLight } from "../../../src/utils/haptics";
 import { AppText as Text, ScreenContainer as SafeAreaView } from "../../../src/components";
+import { getBottomBarTotalHeight } from "../../../src/components/GlobalBottomBar";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -67,6 +69,7 @@ export default function TrackingScreen() {
   const { id: orderId } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const pathname = usePathname();
+  const insets = useSafeAreaInsets();
   const { session, isLoading: authLoading } = useAuth();
   const token = session?.accessToken ?? null;
   const { showToast } = useToast();
@@ -220,6 +223,11 @@ export default function TrackingScreen() {
   const shipment = tracking?.shipments?.[0] ?? null;
   const shipmentStatus: ShipmentStatus = shipment?.status ?? "CREATED";
   const isDelivered = shipmentStatus === "DELIVERED";
+  const bottomBarOffset = React.useMemo(
+    () => getBottomBarTotalHeight(insets.bottom),
+    [insets.bottom]
+  );
+  const trackingBottomReserve = bottomBarOffset + spacing.lg;
   const timestamps: Partial<Record<ShipmentStatus, string | null>> = {
     CREATED: tracking?.shipments?.length
       ? shipment?.events?.find((e) => e.status === "CREATED")?.createdAt ?? null
@@ -257,7 +265,7 @@ export default function TrackingScreen() {
         </View>
       ) : (
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: trackingBottomReserve }]}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -419,7 +427,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gold,
     borderWidth: 1,
     borderColor: colors.gold,
-    borderRadius: radius.md,
+    borderRadius: 0,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
   },
@@ -439,7 +447,7 @@ const styles = StyleSheet.create({
   card: {
     marginBottom: spacing.md,
     padding: spacing.lg,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -479,7 +487,7 @@ const styles = StyleSheet.create({
   },
   deliveredBanner: {
     backgroundColor: "rgba(184, 149, 108, 0.14)",
-    borderRadius: radius.lg,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.gold,
     paddingVertical: spacing.md,

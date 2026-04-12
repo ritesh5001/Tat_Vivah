@@ -104,6 +104,15 @@ export interface PublicProductVariant {
     inventory: InventoryEntity | null;
 }
 
+export interface PublicProductCouponPreview {
+    code: string;
+    type: 'PERCENT' | 'FLAT';
+    value: number;
+    maxDiscountAmount: number | null;
+    minOrderAmount: number;
+    discountedPrice: number;
+}
+
 export interface PublicProductWithCategory {
     id: string;
     categoryId: string;
@@ -119,6 +128,7 @@ export interface PublicProductWithCategory {
     adminPrice: number;
     salePrice: number;
     price: number;
+    activeCoupon?: PublicProductCouponPreview | null;
 }
 
 export interface PublicProductWithDetails {
@@ -138,6 +148,7 @@ export interface PublicProductWithDetails {
     adminPrice: number;
     salePrice: number;
     price: number;
+    activeCoupon?: PublicProductCouponPreview | null;
 }
 
 // ============================================================================

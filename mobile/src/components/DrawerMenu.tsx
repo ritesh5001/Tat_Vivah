@@ -136,7 +136,7 @@ const styles = StyleSheet.create({
   linkButton: {
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 12,
+    borderRadius: 0,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
     backgroundColor: colors.white,
@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
   accordionRow: {
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 12,
+    borderRadius: 0,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
     backgroundColor: colors.white,

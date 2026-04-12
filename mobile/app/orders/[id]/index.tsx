@@ -9,6 +9,7 @@ import {
   FlatList,
 } from "react-native";
 import { useLocalSearchParams, usePathname, useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import {
   getBuyerOrderDetail,
@@ -25,6 +26,7 @@ import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
 import { DeliveredShimmer } from "../../../src/components/DeliveredShimmer";
 import { impactLight } from "../../../src/utils/haptics";
 import { AppText as Text, ScreenContainer as SafeAreaView } from "../../../src/components";
+import { getBottomBarTotalHeight } from "../../../src/components/GlobalBottomBar";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -110,6 +112,7 @@ function normalizeStatusForTimeline(status: string) {
 export default function OrderDetailScreen() {
   const router = useRouter();
   const pathname = usePathname();
+  const insets = useSafeAreaInsets();
   const { id: orderId } = useLocalSearchParams<{ id: string }>();
   const { session, isLoading: authLoading } = useAuth();
   const token = session?.accessToken ?? null;
@@ -230,6 +233,11 @@ export default function OrderDetailScreen() {
     typeof order?.grandTotal === "number" && order.grandTotal > 0
       ? order.grandTotal
       : order?.totalAmount ?? 0;
+  const bottomBarOffset = React.useMemo(
+    () => getBottomBarTotalHeight(insets.bottom),
+    [insets.bottom]
+  );
+  const detailBottomReserve = bottomBarOffset + spacing.lg;
 
   // ---- Loading ----
   if (loading && !order) {
@@ -288,7 +296,7 @@ export default function OrderDetailScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: detailBottomReserve }]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -502,7 +510,7 @@ const styles = StyleSheet.create({
   // Warning
   warningBanner: {
     backgroundColor: "rgba(184, 149, 108, 0.14)",
-    borderRadius: radius.md,
+    borderRadius: 0,
     padding: spacing.md,
     marginBottom: spacing.md,
     borderWidth: 1,
@@ -518,7 +526,7 @@ const styles = StyleSheet.create({
   cancelledBanner: {
     marginBottom: spacing.md,
     padding: spacing.md,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -539,7 +547,7 @@ const styles = StyleSheet.create({
   timelineCard: {
     marginBottom: spacing.md,
     padding: spacing.lg,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -557,7 +565,7 @@ const styles = StyleSheet.create({
   timelineDot: {
     width: 10,
     height: 10,
-    borderRadius: 5,
+    borderRadius: 0,
     backgroundColor: colors.borderSoft,
   },
   timelineDotActive: {
@@ -578,7 +586,7 @@ const styles = StyleSheet.create({
   card: {
     marginBottom: spacing.md,
     padding: spacing.lg,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -687,7 +695,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gold,
     borderWidth: 1,
     borderColor: colors.gold,
-    borderRadius: radius.md,
+    borderRadius: 0,
     paddingVertical: 14,
     alignItems: "center",
   },
@@ -709,7 +717,7 @@ const styles = StyleSheet.create({
   centerCard: {
     margin: spacing.lg,
     padding: spacing.xl,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,

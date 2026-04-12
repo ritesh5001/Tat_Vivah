@@ -5,46 +5,41 @@ import { cn } from "@/lib/utils";
 
 const storageKey = "tatvivah-theme";
 
-type ThemeMode = "light" | "dark";
-
-function applyTheme(theme: ThemeMode) {
-  const root = document.documentElement;
-  if (theme === "dark") {
-    root.classList.add("dark");
-  } else {
-    root.classList.remove("dark");
-  }
-  root.style.colorScheme = theme;
-}
-
 export function ThemeToggle({ className }: { className?: string }) {
-  const [theme, setTheme] = React.useState<ThemeMode>("light");
+  const [mounted, setMounted] = React.useState(false);
+  const [isDark, setIsDark] = React.useState(false);
 
   React.useEffect(() => {
-    const stored = window.localStorage.getItem(storageKey) as ThemeMode | null;
-    const initial = stored ?? "light";
-    setTheme(initial);
-    applyTheme(initial);
+    setMounted(true);
+    const root = document.documentElement;
+    const stored = window.localStorage.getItem(storageKey);
+    const nextIsDark = stored === "dark";
+    setIsDark(nextIsDark);
+    root.classList.toggle("dark", nextIsDark);
+    root.style.colorScheme = nextIsDark ? "dark" : "light";
   }, []);
 
-  const toggle = () => {
-    const next = theme === "dark" ? "light" : "dark";
-    setTheme(next);
-    window.localStorage.setItem(storageKey, next);
-    applyTheme(next);
-  };
+  const toggleTheme = React.useCallback(() => {
+    const root = document.documentElement;
+    const nextIsDark = !isDark;
+    setIsDark(nextIsDark);
+    window.localStorage.setItem(storageKey, nextIsDark ? "dark" : "light");
+    root.classList.toggle("dark", nextIsDark);
+    root.style.colorScheme = nextIsDark ? "dark" : "light";
+  }, [isDark]);
 
   return (
     <button
       type="button"
-      onClick={toggle}
       className={cn(
         "h-9 w-9 flex items-center justify-center border border-border-soft bg-card text-muted-foreground transition-all duration-300 hover:bg-cream hover:text-foreground dark:hover:bg-brown/50",
         className
       )}
-      aria-label="Toggle theme"
+      aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+      title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+      onClick={toggleTheme}
     >
-      {theme === "dark" ? (
+      {mounted && isDark ? (
         <svg
           aria-hidden
           viewBox="0 0 24 24"
@@ -69,7 +64,14 @@ export function ThemeToggle({ className }: { className?: string }) {
           strokeLinejoin="round"
         >
           <circle cx="12" cy="12" r="4" />
-          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+          <path d="M12 2v2" />
+          <path d="M12 20v2" />
+          <path d="m4.93 4.93 1.41 1.41" />
+          <path d="m17.66 17.66 1.41 1.41" />
+          <path d="M2 12h2" />
+          <path d="M20 12h2" />
+          <path d="m6.34 17.66-1.41 1.41" />
+          <path d="m19.07 4.93-1.41 1.41" />
         </svg>
       )}
     </button>

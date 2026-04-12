@@ -1,6 +1,5 @@
 import { CartRepository, cartRepository } from '../repositories/cart.repository.js';
 import { VariantRepository, variantRepository } from '../repositories/variant.repository.js';
-import { InventoryRepository, inventoryRepository } from '../repositories/inventory.repository.js';
 import {
     getFromCache,
     setCache,
@@ -22,8 +21,7 @@ import type {
 export class CartService {
     constructor(
         private readonly cartRepo: CartRepository,
-        private readonly variantRepo: VariantRepository,
-        private readonly inventoryRepo: InventoryRepository
+        private readonly variantRepo: VariantRepository
     ) { }
 
     /**
@@ -36,9 +34,6 @@ export class CartService {
         if (cached) {
             return cached;
         }
-
-        // Ensure cart exists
-        await this.cartRepo.findOrCreateByUserId(userId);
 
         // Get cart with details
         const cart = await this.cartRepo.getCartWithDetails(userId);
@@ -80,8 +75,7 @@ export class CartService {
         }
 
         // 3. Check stock availability
-        const inventory = await this.inventoryRepo.findByVariantId(data.variantId);
-        const availableStock = inventory?.stock ?? 0;
+        const availableStock = variant.inventory?.stock ?? 0;
 
         if (data.quantity > availableStock) {
             throw ApiError.badRequest(
@@ -127,9 +121,12 @@ export class CartService {
             throw ApiError.forbidden('You do not have permission to update this item');
         }
 
-        // 3. Check stock availability
-        const inventory = await this.inventoryRepo.findByVariantId(itemWithCart.variantId);
-        const availableStock = inventory?.stock ?? 0;
+        // 3. Check stock availability + pricing in a single variant lookup
+        const variantWithProduct = await this.variantRepo.findByIdWithProduct(itemWithCart.variantId);
+        if (!variantWithProduct) {
+            throw ApiError.notFound('Variant not found');
+        }
+        const availableStock = variantWithProduct.inventory?.stock ?? 0;
 
         if (quantity > availableStock) {
             throw ApiError.badRequest(
@@ -138,12 +135,10 @@ export class CartService {
         }
 
         // 4. Get current price for snapshot update
-        const variant = await this.variantRepo.findById(itemWithCart.variantId);
-        const variantWithProduct = await this.variantRepo.findByIdWithProduct(itemWithCart.variantId);
         const currentPrice =
             variantWithProduct?.product?.adminListingPrice != null
                 ? Number(variantWithProduct.product.adminListingPrice)
-                : variant?.price ?? itemWithCart.priceSnapshot;
+            : variantWithProduct.price ?? itemWithCart.priceSnapshot;
 
         // 5. Update quantity
         const item = await this.cartRepo.updateItemQuantity(itemId, quantity, currentPrice);
@@ -187,6 +182,5 @@ export class CartService {
 // Export singleton instance with default repositories
 export const cartService = new CartService(
     cartRepository,
-    variantRepository,
-    inventoryRepository
+    variantRepository
 );

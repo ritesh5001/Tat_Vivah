@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { WishlistHeartButton } from "@/components/wishlist-heart-button";
+import { motion } from "framer-motion";
 
 const currency = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -28,6 +28,80 @@ export interface MarketplaceCardProduct {
   sellerPrice?: number | null;
   adminListingPrice?: number | null;
   minPrice?: number | null;
+  activeCoupon?: MarketplaceCardCouponPreview | null;
+  coupon?: MarketplaceCardCouponPreview | null;
+  couponPreview?: MarketplaceCardCouponPreview | null;
+  coupons?: MarketplaceCardCouponPreview[] | null;
+  availableSizes?: string[] | null;
+  sizes?: string[] | string | null;
+  variants?: Array<{ sku?: string | null }> | null;
+}
+
+type CouponKind = "PERCENT" | "FLAT";
+
+interface MarketplaceCardCouponPreview {
+  code?: string;
+  type?: CouponKind | string | null;
+  value?: number | null;
+  maxDiscountAmount?: number | null;
+  minOrderAmount?: number | null;
+  discountedPrice?: number | null;
+  finalPrice?: number | null;
+  isActive?: boolean | null;
+}
+
+function toNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function resolveCouponCandidates(product: MarketplaceCardProduct): MarketplaceCardCouponPreview[] {
+  const candidates: MarketplaceCardCouponPreview[] = [];
+
+  if (product.activeCoupon) candidates.push(product.activeCoupon);
+  if (product.coupon) candidates.push(product.coupon);
+  if (product.couponPreview) candidates.push(product.couponPreview);
+  if (Array.isArray(product.coupons)) candidates.push(...product.coupons);
+
+  return candidates.filter((coupon) => coupon && coupon.isActive !== false);
+}
+
+function resolveCouponPrice(product: MarketplaceCardProduct, displayPrice: number | null): number | null {
+  if (displayPrice === null || displayPrice <= 0) return null;
+
+  const candidates = resolveCouponCandidates(product);
+  let bestCouponPrice: number | null = null;
+
+  for (const coupon of candidates) {
+    const directDiscountedPrice = toNumber(coupon.discountedPrice) ?? toNumber(coupon.finalPrice);
+
+    if (directDiscountedPrice !== null && directDiscountedPrice > 0 && directDiscountedPrice < displayPrice) {
+      bestCouponPrice =
+        bestCouponPrice === null ? directDiscountedPrice : Math.min(bestCouponPrice, directDiscountedPrice);
+      continue;
+    }
+
+    const value = toNumber(coupon.value);
+    if (value === null || value <= 0) continue;
+
+    const minOrderAmount = toNumber(coupon.minOrderAmount) ?? 0;
+    if (displayPrice < minOrderAmount) continue;
+
+    const normalizedType = String(coupon.type ?? "").toUpperCase();
+    let discountAmount = normalizedType === "PERCENT" ? (displayPrice * value) / 100 : value;
+
+    const maxDiscountAmount = toNumber(coupon.maxDiscountAmount);
+    if (maxDiscountAmount !== null) {
+      discountAmount = Math.min(discountAmount, maxDiscountAmount);
+    }
+
+    const discountedPrice = Math.max(0, displayPrice - discountAmount);
+    if (discountedPrice < displayPrice) {
+      bestCouponPrice = bestCouponPrice === null ? discountedPrice : Math.min(bestCouponPrice, discountedPrice);
+    }
+  }
+
+  if (bestCouponPrice === null) return null;
+  return Math.round(bestCouponPrice * 100) / 100;
 }
 
 function resolvePrimaryPrice(product: MarketplaceCardProduct): number | null {
@@ -47,9 +121,60 @@ function resolveOriginalPrice(product: MarketplaceCardProduct, displayPrice: num
   return product.regularPrice > displayPrice ? product.regularPrice : null;
 }
 
+const SIZE_ORDER = ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "4XL", "5XL"] as const;
+
+function normalizeSizeToken(value: string): string | null {
+  const token = value.trim().toUpperCase();
+  if (!token) return null;
+  if (token === "ONE SIZE" || token === "FREE SIZE") return "FREE";
+  return token;
+}
+
+function resolveAvailableSizes(product: MarketplaceCardProduct): string[] {
+  const candidates: string[] = [];
+
+  if (Array.isArray(product.availableSizes)) {
+    candidates.push(...product.availableSizes);
+  }
+
+  if (Array.isArray(product.sizes)) {
+    candidates.push(...product.sizes);
+  } else if (typeof product.sizes === "string") {
+    candidates.push(...product.sizes.split(","));
+  }
+
+  if (Array.isArray(product.variants)) {
+    for (const variant of product.variants) {
+      const sku = typeof variant?.sku === "string" ? variant.sku : "";
+      const lastToken = sku.split("-").pop() ?? "";
+      if (lastToken) candidates.push(lastToken);
+    }
+  }
+
+  const unique = Array.from(new Set(candidates.map((value) => normalizeSizeToken(String(value) ?? "")).filter((value): value is string => Boolean(value))));
+
+  return unique.sort((a, b) => {
+    const ai = SIZE_ORDER.indexOf(a as (typeof SIZE_ORDER)[number]);
+    const bi = SIZE_ORDER.indexOf(b as (typeof SIZE_ORDER)[number]);
+    if (ai === -1 && bi === -1) return a.localeCompare(b);
+    if (ai === -1) return 1;
+    if (bi === -1) return -1;
+    return ai - bi;
+  });
+}
+
+function formatSizesLabel(sizes: string[]): string {
+  if (sizes.length === 0) return "View options";
+  const visible = sizes.slice(0, 4).join(", ");
+  const hidden = sizes.length - 4;
+  return hidden > 0 ? `${visible} +${hidden}` : visible;
+}
+
 export function MarketplaceProductCard({ product }: { product: MarketplaceCardProduct }) {
   const displayPrice = resolvePrimaryPrice(product);
   const originalPrice = resolveOriginalPrice(product, displayPrice);
+  const couponPrice = resolveCouponPrice(product, displayPrice);
+  const availableSizes = resolveAvailableSizes(product);
 
   const discountPercentage =
     typeof displayPrice === "number" && typeof originalPrice === "number" && originalPrice > 0
@@ -58,58 +183,111 @@ export function MarketplaceProductCard({ product }: { product: MarketplaceCardPr
 
   const imageSrc = product.images?.[0] ?? product.image ?? "/images/product-placeholder.svg";
   const categoryLabel = product.category?.name ?? product.categoryName ?? "Collection";
-  const wishlistId = product.productId ?? product.id;
+  const hasDiscount = typeof discountPercentage === "number" && discountPercentage > 0;
 
   return (
-    <Link href={`/product/${product.id}`} className="group block">
-      {/* Image */}
-      <div className="relative overflow-hidden bg-cream dark:bg-brown/20 aspect-3/4">
-        <Image
-          src={imageSrc}
-          alt={product.title}
-          fill
-          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
-          className="object-cover transition-transform duration-500 group-hover:scale-105"
-          loading="lazy"
-          quality={75}
-        />
+    <article
+      className="group block overflow-hidden rounded-xl border border-border-soft/80 bg-card/95 shadow-[0_6px_24px_rgba(17,12,8,0.08)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_38px_rgba(17,12,8,0.14)] sm:rounded-2xl"
+    >
+      <Link href={`/product/${product.id}`} className="block">
+        <div className="relative overflow-hidden bg-cream dark:bg-brown/20 aspect-3/4">
+          <Image
+            src={imageSrc}
+            alt={product.title}
+            fill
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+            className="object-cover transition-transform duration-500 group-hover:scale-105"
+            loading="lazy"
+            quality={60}
+          />
 
-        {/* Heart — top right */}
-        <WishlistHeartButton
-          productId={wishlistId}
-          size={18}
-          className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center bg-white/80 dark:bg-card/80 backdrop-blur-sm text-muted-foreground shadow-sm transition-all duration-300 hover:text-destructive"
-        />
-      </div>
+          <div className="pointer-events-none absolute inset-0 bg-linear-to-t from-black/18 via-transparent to-transparent opacity-70 transition-opacity duration-300 group-hover:opacity-85" />
 
-      {/* Info */}
-      <div className="mt-3 space-y-1">
-        <h3 className="line-clamp-1 text-sm font-medium tracking-tight text-foreground transition-colors duration-300 group-hover:text-gold">
-          {product.title}
-        </h3>
-        <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-          {categoryLabel}
-        </p>
-        {typeof displayPrice === "number" ? (
-          <div className="flex items-baseline gap-2">
-            <span className="text-sm font-medium tracking-tight text-foreground">
-              {currency.format(displayPrice)}
+          <div className="absolute left-2 top-2 sm:left-3 sm:top-3">
+            <span className="inline-flex items-center rounded-full bg-white/95 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.14em] text-foreground/80 backdrop-blur-sm sm:px-2.5 sm:py-1 sm:text-[10px] sm:tracking-[0.18em]">
+              Trending
             </span>
-            {typeof originalPrice === "number" && (
-              <span className="text-xs text-muted-foreground/70 line-through">
-                {currency.format(originalPrice)}
-              </span>
-            )}
-            {typeof discountPercentage === "number" && discountPercentage > 0 && (
-              <span className="text-[11px] font-semibold text-destructive">
+          </div>
+
+          {hasDiscount && (
+            <div className="absolute right-2 top-2 sm:right-3 sm:top-3">
+              <span className="inline-flex items-center rounded-full bg-amber-600 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em] text-white shadow-sm sm:px-2.5 sm:py-1 sm:text-[10px] sm:tracking-[0.12em]">
                 {discountPercentage}% OFF
               </span>
+            </div>
+          )}
+        </div>
+      </Link>
+
+      <div className="space-y-1.5 px-3 pb-3 pt-3 sm:space-y-2 sm:px-4 sm:pb-4.5 sm:pt-3.5">
+        <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/85 sm:text-[10px] sm:tracking-[0.16em]">
+          {categoryLabel}
+        </p>
+
+        <Link href={`/product/${product.id}`} className="block">
+          <h3 className="line-clamp-2 min-h-[2.35rem] text-[0.96rem] font-semibold leading-tight tracking-tight text-foreground transition-colors duration-300 group-hover:text-gold sm:min-h-[2.6rem] sm:text-[1.04rem]">
+            {product.title}
+          </h3>
+        </Link>
+
+        {typeof displayPrice === "number" ? (
+          <>
+            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 sm:gap-x-2.5">
+              <span className="text-[1.62rem] font-semibold leading-none tracking-[-0.015em] text-foreground sm:text-[2rem] sm:tracking-[-0.02em]">
+                {currency.format(displayPrice)}
+              </span>
+              {typeof originalPrice === "number" && (
+                <span className="text-[0.86rem] font-medium leading-none text-muted-foreground/80 line-through sm:text-[0.92rem]">
+                  {currency.format(originalPrice)}
+                </span>
+              )}
+              {hasDiscount && (
+                <span className="text-[0.78rem] font-semibold uppercase tracking-[0.1em] text-amber-700 dark:text-amber-300 sm:text-[0.82rem] sm:tracking-[0.12em]">
+                  {discountPercentage}% OFF
+                </span>
+              )}
+            </div>
+
+            {typeof couponPrice === "number" && couponPrice < displayPrice && (
+              <div className="inline-flex w-fit items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.05em] text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300 sm:px-2.5 sm:py-1 sm:text-[10px] sm:tracking-[0.06em]">
+                <span>Get it for {currency.format(couponPrice)}</span>
+                <span className="text-emerald-700/85 dark:text-emerald-300/85">with coupon</span>
+              </div>
             )}
-          </div>
+
+            <p className="line-clamp-1 text-[10px] font-medium tracking-[0.02em] text-muted-foreground/90 sm:text-[11px]">
+              <span className="font-semibold text-foreground/85">Available Sizes:</span>{" "}
+              {formatSizesLabel(availableSizes)}
+            </p>
+          </>
         ) : (
-          <p className="text-xs text-muted-foreground">Price on request</p>
+          <>
+            <p className="text-sm font-medium text-muted-foreground">Price on request</p>
+            <p className="line-clamp-1 text-[10px] font-medium tracking-[0.02em] text-muted-foreground/90 sm:text-[11px]">
+              <span className="font-semibold text-foreground/85">Available Sizes:</span> View options
+            </p>
+          </>
         )}
+
+        <Link
+          href={`/product/${product.id}`}
+          className="relative isolate mt-1.5 inline-flex h-10 w-full items-center justify-center overflow-hidden rounded-lg bg-black px-3 text-[0.86rem] font-semibold uppercase tracking-[0.14em] text-white transition-all duration-300 hover:bg-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/70 focus-visible:ring-offset-2 sm:mt-2 sm:h-11 sm:rounded-xl sm:px-4 sm:text-sm sm:tracking-widest"
+        >
+          <motion.span
+            aria-hidden
+            className="pointer-events-none absolute inset-y-0 -left-1/3 w-1/4 bg-white/22 blur-[2px] sm:w-1/3 sm:bg-white/35"
+            animate={{ x: ["-140%", "420%"] }}
+            transition={{ duration: 2.4, ease: "linear", repeat: Number.POSITIVE_INFINITY, repeatDelay: 0.5 }}
+          />
+          <motion.span
+            aria-hidden
+            className="pointer-events-none absolute inset-0 bg-white/5"
+            animate={{ opacity: [0.06, 0.14, 0.06] }}
+            transition={{ duration: 1.8, ease: "easeInOut", repeat: Number.POSITIVE_INFINITY }}
+          />
+          <span className="relative z-10">Add to Cart</span>
+        </Link>
       </div>
-    </Link>
+    </article>
   );
 }

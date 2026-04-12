@@ -2,6 +2,8 @@ import { ProductRepository, productRepository } from '../repositories/product.re
 import { VariantRepository, variantRepository } from '../repositories/variant.repository.js';
 import { InventoryRepository, inventoryRepository } from '../repositories/inventory.repository.js';
 import { CategoryRepository, categoryRepository } from '../repositories/category.repository.js';
+import { prisma } from '../config/db.js';
+import type { CouponType } from '@prisma/client';
 import {
     getFromCache,
     setCache,
@@ -26,8 +28,18 @@ import type {
     CreateVariantRequest,
     UpdateVariantRequest,
     PublicProductWithCategory,
+    PublicProductCouponPreview,
     PublicProductWithDetails,
 } from '../types/product.types.js';
+
+interface ActiveCouponCandidate {
+    code: string;
+    type: CouponType;
+    value: number;
+    maxDiscountAmount: number | null;
+    minOrderAmount: number;
+    sellerId: string | null;
+}
 
 /**
  * Product Service
@@ -47,8 +59,146 @@ export class ProductService {
         return Number(value ?? 0);
     }
 
-    private toPublicProduct(product: any): PublicProductWithCategory {
-        const adminPrice = this.toNumber(product.adminListingPrice);
+    private roundMoney(value: number): number {
+        return Math.round(value * 100) / 100;
+    }
+
+    private calculateDiscountedPrice(price: number, coupon: ActiveCouponCandidate): number | null {
+        if (!Number.isFinite(price) || price <= 0) return null;
+        if (price < coupon.minOrderAmount) return null;
+
+        let discount = coupon.type === 'PERCENT' ? (price * coupon.value) / 100 : coupon.value;
+
+        if (coupon.maxDiscountAmount !== null) {
+            discount = Math.min(discount, coupon.maxDiscountAmount);
+        }
+
+        discount = Math.max(0, discount);
+        if (discount <= 0) return null;
+
+        const discountedPrice = Math.max(0, price - discount);
+        if (discountedPrice >= price) return null;
+        return this.roundMoney(discountedPrice);
+    }
+
+    private getBestCouponPreview(
+        price: number,
+        sellerId: string | null | undefined,
+        coupons: ActiveCouponCandidate[],
+    ): PublicProductCouponPreview | null {
+        if (!sellerId || !Number.isFinite(price) || price <= 0 || coupons.length === 0) {
+            return null;
+        }
+
+        let best: PublicProductCouponPreview | null = null;
+
+        for (const coupon of coupons) {
+            if (coupon.sellerId && coupon.sellerId !== sellerId) continue;
+
+            const discountedPrice = this.calculateDiscountedPrice(price, coupon);
+            if (discountedPrice === null) continue;
+
+            if (!best || discountedPrice < best.discountedPrice) {
+                best = {
+                    code: coupon.code,
+                    type: coupon.type,
+                    value: coupon.value,
+                    maxDiscountAmount: coupon.maxDiscountAmount,
+                    minOrderAmount: coupon.minOrderAmount,
+                    discountedPrice,
+                };
+            }
+        }
+
+        return best;
+    }
+
+    private resolveCheapestVariant(variants: any[] | null | undefined): { price: number; compareAtPrice: number | null } | null {
+        if (!Array.isArray(variants) || variants.length === 0) {
+            return null;
+        }
+
+        let cheapest: { price: number; compareAtPrice: number | null } | null = null;
+        for (const variant of variants) {
+            const price = Number(variant?.price);
+            if (!Number.isFinite(price) || price <= 0) continue;
+
+            const compareRaw = Number(variant?.compareAtPrice);
+            const compareAtPrice = Number.isFinite(compareRaw) && compareRaw > 0 ? compareRaw : null;
+
+            if (!cheapest || price < cheapest.price) {
+                cheapest = { price, compareAtPrice };
+            }
+        }
+
+        return cheapest;
+    }
+
+    private resolveListingPricing(product: any): { sellingPrice: number; regularPrice: number } {
+        const variantPrice = Number(product?.cheapestVariantPrice);
+        const variantCompare = Number(product?.cheapestVariantCompareAt);
+
+        const fallbackSelling = Math.max(this.toNumber(product?.adminListingPrice), this.toNumber(product?.sellerPrice));
+        const sellingPrice = Number.isFinite(variantPrice) && variantPrice > 0 ? variantPrice : fallbackSelling;
+        const regularPrice = Math.max(
+            sellingPrice,
+            Number.isFinite(variantCompare) && variantCompare > 0 ? variantCompare : 0,
+        );
+
+        return { sellingPrice, regularPrice };
+    }
+
+    private resolveDetailPricing(product: any): { sellingPrice: number; regularPrice: number } {
+        const cheapest = this.resolveCheapestVariant(product?.variants ?? []);
+        const fallbackSelling = Math.max(this.toNumber(product?.adminListingPrice), this.toNumber(product?.sellerPrice));
+        const sellingPrice = cheapest?.price ?? fallbackSelling;
+        const regularPrice = Math.max(sellingPrice, cheapest?.compareAtPrice ?? 0);
+        return { sellingPrice, regularPrice };
+    }
+
+    private async getActiveCouponsForSellers(sellerIds: string[]): Promise<ActiveCouponCandidate[]> {
+        if (sellerIds.length === 0) return [];
+
+        const uniqueSellerIds = Array.from(new Set(sellerIds.filter((id) => typeof id === 'string' && id.length > 0)));
+        if (uniqueSellerIds.length === 0) return [];
+
+        const now = new Date();
+        const coupons = await prisma.coupon.findMany({
+            where: {
+                isActive: true,
+                validFrom: { lte: now },
+                validUntil: { gte: now },
+                OR: [{ sellerId: null }, { sellerId: { in: uniqueSellerIds } }],
+            },
+            select: {
+                code: true,
+                type: true,
+                value: true,
+                maxDiscountAmount: true,
+                minOrderAmount: true,
+                sellerId: true,
+                usageLimit: true,
+                usedCount: true,
+            },
+            orderBy: [{ validUntil: 'asc' }, { createdAt: 'desc' }],
+        });
+
+        return coupons
+            .filter((coupon) => coupon.usageLimit === null || coupon.usedCount < coupon.usageLimit)
+            .map((coupon) => ({
+                code: coupon.code,
+                type: coupon.type,
+                value: this.toNumber(coupon.value),
+                maxDiscountAmount:
+                    coupon.maxDiscountAmount === null ? null : this.toNumber(coupon.maxDiscountAmount),
+                minOrderAmount: this.toNumber(coupon.minOrderAmount),
+                sellerId: coupon.sellerId,
+            }))
+            .filter((coupon) => coupon.value > 0);
+    }
+
+    private toPublicProduct(product: any, coupons: ActiveCouponCandidate[] = []): PublicProductWithCategory {
+        const { sellingPrice, regularPrice } = this.resolveListingPricing(product);
         return {
             id: product.id,
             categoryId: product.categoryId,
@@ -60,15 +210,16 @@ export class ProductService {
             createdAt: product.createdAt,
             updatedAt: product.updatedAt,
             category: product.category,
-            regularPrice: adminPrice,
-            adminPrice,
-            salePrice: adminPrice,
-            price: adminPrice,
+            regularPrice,
+            adminPrice: sellingPrice,
+            salePrice: sellingPrice,
+            price: sellingPrice,
+            activeCoupon: this.getBestCouponPreview(sellingPrice, product.sellerId, coupons),
         };
     }
 
-    private toPublicProductDetail(product: any): PublicProductWithDetails {
-        const listingPrice = this.toNumber(product.adminListingPrice);
+    private toPublicProductDetail(product: any, coupons: ActiveCouponCandidate[] = []): PublicProductWithDetails {
+        const { sellingPrice, regularPrice } = this.resolveDetailPricing(product);
         return {
             id: product.id,
             sellerId: product.sellerId,
@@ -81,14 +232,15 @@ export class ProductService {
             createdAt: product.createdAt,
             updatedAt: product.updatedAt,
             category: product.category,
-            regularPrice: listingPrice,
-            adminPrice: listingPrice,
-            salePrice: listingPrice,
-            price: listingPrice,
+            regularPrice,
+            adminPrice: sellingPrice,
+            salePrice: sellingPrice,
+            price: sellingPrice,
+            activeCoupon: this.getBestCouponPreview(sellingPrice, product.sellerId, coupons),
             variants: (product.variants ?? []).map((variant: any) => ({
                 id: variant.id,
                 sku: variant.sku,
-                price: listingPrice,
+                price: this.toNumber(variant.price),
                 compareAtPrice: variant.compareAtPrice ?? null,
                 inventory: variant.inventory ?? null,
             })),
@@ -106,6 +258,26 @@ export class ProductService {
         };
     }
 
+    private normalizeTextFilter(value?: string): string | undefined {
+        if (!value) return undefined;
+        const normalized = value.trim().replace(/\s+/g, ' ');
+        return normalized.length > 0 ? normalized : undefined;
+    }
+
+    private normalizeListFilters(filters: ProductQueryFilters): ProductQueryFilters {
+        const pageRaw = Number(filters.page ?? 1);
+        const limitRaw = Number(filters.limit ?? 20);
+
+        return {
+            ...filters,
+            page: Number.isFinite(pageRaw) && pageRaw > 0 ? Math.trunc(pageRaw) : 1,
+            limit: Math.min(20, Math.max(1, Number.isFinite(limitRaw) ? Math.trunc(limitRaw) : 20)),
+            categoryId: this.normalizeTextFilter(filters.categoryId),
+            search: this.normalizeTextFilter(filters.search),
+            occasion: this.normalizeTextFilter(filters.occasion)?.toLowerCase(),
+        };
+    }
+
     // =========================================================================
     // PUBLIC METHODS (Buyer)
     // =========================================================================
@@ -115,22 +287,57 @@ export class ProductService {
      * Uses Redis caching
      */
     async listProducts(filters: ProductQueryFilters): Promise<ProductListResponse> {
-        const page = filters.page ?? 1;
-        const limit = filters.limit ?? 20;
+        const normalizedFilters = this.normalizeListFilters(filters);
+        const page = normalizedFilters.page ?? 1;
+        const limit = normalizedFilters.limit ?? 20;
         const cacheKey =
-            !filters.categoryId && !filters.search && !filters.occasion && page === 1 && limit === 20
+            !normalizedFilters.categoryId && !normalizedFilters.search && !normalizedFilters.occasion && page === 1 && limit === 20
                 ? CACHE_KEYS.PRODUCTS_LIST
-                : CACHE_KEYS.PRODUCTS_LIST_FILTERED(page, limit, filters.categoryId, filters.search, filters.occasion);
+                : CACHE_KEYS.PRODUCTS_LIST_FILTERED(
+                    page,
+                    limit,
+                    normalizedFilters.categoryId,
+                    normalizedFilters.search,
+                    normalizedFilters.occasion,
+                );
 
         const cached = await getFromCache<ProductListResponse>(cacheKey);
         if (cached) {
             return cached;
         }
 
-        const { products, total } = await this.productRepo.findPublished(filters);
+        const { products, total } = await this.productRepo.findPublished(normalizedFilters);
+        const productIds = products.map((product) => product.id);
+        const cheapestVariantRows = productIds.length
+            ? await prisma.productVariant.findMany({
+                where: { productId: { in: productIds } },
+                orderBy: [{ productId: 'asc' }, { price: 'asc' }, { createdAt: 'asc' }],
+                distinct: ['productId'],
+                select: {
+                    productId: true,
+                    price: true,
+                    compareAtPrice: true,
+                },
+            })
+            : [];
+        const cheapestVariantMap = new Map(
+            cheapestVariantRows.map((row) => [
+                row.productId,
+                {
+                    price: Number(row.price),
+                    compareAtPrice: row.compareAtPrice === null ? null : Number(row.compareAtPrice),
+                },
+            ]),
+        );
+        const productsWithVariantPrices = products.map((product) => ({
+            ...product,
+            cheapestVariantPrice: cheapestVariantMap.get(product.id)?.price ?? null,
+            cheapestVariantCompareAt: cheapestVariantMap.get(product.id)?.compareAtPrice ?? null,
+        }));
+        const coupons = await this.getActiveCouponsForSellers(products.map((product) => product.sellerId));
 
         const response: ProductListResponse = {
-            data: products.map((product) => this.toPublicProduct(product)),
+            data: productsWithVariantPrices.map((product) => this.toPublicProduct(product, coupons)),
             pagination: {
                 page,
                 limit,
@@ -139,7 +346,7 @@ export class ProductService {
             },
         };
 
-        await setCache(cacheKey, response, 60);
+        await setCache(cacheKey, response, page === 1 ? 120 : 90);
 
         return response;
     }
@@ -161,7 +368,8 @@ export class ProductService {
             throw ApiError.notFound('Product not found');
         }
 
-        const response: ProductDetailResponse = { product: this.toPublicProductDetail(product) };
+        const coupons = await this.getActiveCouponsForSellers([product.sellerId]);
+        const response: ProductDetailResponse = { product: this.toPublicProductDetail(product, coupons) };
 
         // Cache the result
         await setCache(cacheKey, response, 60);
@@ -210,15 +418,15 @@ export class ProductService {
         sellerId: string,
         params?: { page?: number; limit?: number }
     ): Promise<SellerProductListResponse> {
-        const page = params?.page ?? 1;
-        const limit = params?.limit ?? 20;
+        const page = Math.max(1, Math.trunc(params?.page ?? 1));
+        const limit = Math.min(20, Math.max(1, Math.trunc(params?.limit ?? 20)));
         const cacheKey = CACHE_KEYS.SELLER_PRODUCTS(sellerId, page, limit);
         const cached = await getFromCache<SellerProductListResponse>(cacheKey);
         if (cached) {
             return cached;
         }
 
-        const products = await this.productRepo.findBySellerId(sellerId, params);
+        const products = await this.productRepo.findBySellerId(sellerId, { page, limit });
         const response = { products: products.map((product) => this.toSellerProduct(product)) };
         await setCache(cacheKey, response, 60);
         return response;

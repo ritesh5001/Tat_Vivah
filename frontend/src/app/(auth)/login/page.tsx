@@ -3,7 +3,6 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
 import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,7 +17,6 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { loginUser, persistAuthCookies } from "@/services/auth";
 import { toast } from "sonner";
-import { heroContainerVariants, heroItemVariants } from "@/lib/motion.config";
 import {
   getSubdomain,
   SUBDOMAIN_ALLOWED_ROLES,
@@ -126,12 +124,8 @@ export default function LoginPage() {
         const portalLabel =
           subdomain === "main" ? "customer" : subdomain;
         const correctUrl = getCorrectLoginUrl(role);
-        toast.error(
-          `This portal is for ${portalLabel} accounts only. Redirecting you to the correct login page.`
-        );
-        setTimeout(() => {
-          window.location.assign(correctUrl);
-        }, 2000);
+        toast.error(`This portal is for ${portalLabel} accounts only. Redirecting...`);
+        window.location.replace(correctUrl);
         return;
       }
 
@@ -146,16 +140,16 @@ export default function LoginPage() {
         USER: "/user/dashboard",
       };
 
-      router.push(redirectMap[role] ?? "/");
+      router.replace(redirectMap[role] ?? "/");
     } catch (error) {
       console.error("Login error:", error);
       const message = error instanceof Error ? error.message : "Invalid credentials";
       if (message.toLowerCase().includes("verification")) {
         toast.error("Please verify your email to continue.");
         if (identifier.includes("@")) {
-          router.push(`/verify-otp?email=${encodeURIComponent(identifier)}`);
+          router.replace(`/verify-otp?email=${encodeURIComponent(identifier)}`);
         } else {
-          router.push("/verify-otp");
+          router.replace("/verify-otp");
         }
       } else {
         toast.error(message);
@@ -169,55 +163,33 @@ export default function LoginPage() {
     <div className="min-h-[calc(100vh-160px)] bg-background">
       <div className="mx-auto flex min-h-[calc(100vh-160px)] max-w-6xl flex-col items-center justify-center gap-16 px-6 py-16 lg:flex-row lg:gap-24">
         {/* Left Section - Editorial */}
-        <motion.div
-          initial="hidden"
-          animate="visible"
-          variants={heroContainerVariants}
-          className="flex-1 max-w-md lg:max-w-lg"
-        >
-          <motion.p
-            variants={heroItemVariants}
-            className="text-xs font-medium uppercase tracking-[0.3em] text-gold mb-6"
-          >
+        <div className="flex-1 max-w-md lg:max-w-lg">
+          <p className="text-xs font-medium uppercase tracking-[0.3em] text-gold mb-6">
             {content.eyebrow}
-          </motion.p>
+          </p>
 
-          <motion.h1
-            variants={heroItemVariants}
-            className="font-serif text-4xl font-light tracking-tight text-foreground sm:text-5xl lg:text-6xl mb-6"
-          >
+          <h1 className="font-serif text-4xl font-light tracking-tight text-foreground sm:text-5xl lg:text-6xl mb-6">
             {content.headingLine1}
             <br />
             <span className="italic">{content.headingLine2}</span>
-          </motion.h1>
+          </h1>
 
-          <motion.p
-            variants={heroItemVariants}
-            className="text-base leading-relaxed text-muted-foreground mb-8"
-          >
+          <p className="text-base leading-relaxed text-muted-foreground mb-8">
             {content.description}
-          </motion.p>
+          </p>
 
-          <motion.div
-            variants={heroItemVariants}
-            className="flex items-center gap-4 text-xs text-muted-foreground"
-          >
+          <div className="flex items-center gap-4 text-xs text-muted-foreground">
             {content.features.map((feature) => (
               <span key={feature} className="flex items-center gap-2">
                 <span className="h-1 w-1 rounded-full bg-gold" />
                 {feature}
               </span>
             ))}
-          </motion.div>
-        </motion.div>
+          </div>
+        </div>
 
         {/* Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
-          className="w-full max-w-md"
-        >
+        <div className="w-full max-w-md">
           <Card className="border-border-soft">
             <CardHeader className="space-y-3 pb-6">
               <CardTitle className="font-serif text-2xl font-normal">
@@ -314,7 +286,7 @@ export default function LoginPage() {
               )}
             </CardContent>
           </Card>
-        </motion.div>
+        </div>
       </div>
     </div>
   );

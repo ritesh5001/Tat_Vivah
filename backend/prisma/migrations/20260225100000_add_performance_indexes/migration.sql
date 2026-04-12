@@ -83,7 +83,12 @@ CREATE INDEX "refunds_status_idx" ON "refunds"("status");
 CREATE INDEX "refunds_created_at_idx" ON "refunds"("created_at");
 
 -- CreateIndex
-CREATE INDEX "return_requests_created_at_idx" ON "return_requests"("created_at");
+DO $$
+BEGIN
+	IF to_regclass('public.return_requests') IS NOT NULL THEN
+		CREATE INDEX IF NOT EXISTS "return_requests_created_at_idx" ON "return_requests"("created_at");
+	END IF;
+END $$;
 
 -- CreateIndex
 CREATE INDEX "reviews_created_at_idx" ON "reviews"("created_at");

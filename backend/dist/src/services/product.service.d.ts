@@ -16,9 +16,18 @@ export declare class ProductService {
     private readonly occasionSvc;
     constructor(productRepo: ProductRepository, variantRepo: VariantRepository, inventoryRepo: InventoryRepository, categoryRepo: CategoryRepository, occasionSvc: OccasionService);
     private toNumber;
+    private roundMoney;
+    private calculateDiscountedPrice;
+    private getBestCouponPreview;
+    private resolveCheapestVariant;
+    private resolveListingPricing;
+    private resolveDetailPricing;
+    private getActiveCouponsForSellers;
     private toPublicProduct;
     private toPublicProductDetail;
     private toSellerProduct;
+    private normalizeTextFilter;
+    private normalizeListFilters;
     /**
      * List published products with pagination
      * Uses Redis caching

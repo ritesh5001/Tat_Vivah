@@ -10,6 +10,8 @@ export interface CartItemDetails {
     id: string;
     title: string;
     sellerId: string;
+    sellerPrice?: number;
+    adminListingPrice?: number | null;
   };
   variant?: {
     id: string;
@@ -141,7 +143,57 @@ export async function checkout(
       couponCode?: string | null;
       discountAmount?: number;
     };
+    payment?: {
+      paymentId: string;
+      orderId: string;
+      amount: number;
+      currency: string;
+      key: string;
+      provider: string;
+    } | null;
+    paymentInitError?: string;
   }>("/v1/checkout", {
+    method: "POST",
+    body: payload ?? {},
+    token,
+  });
+}
+
+export async function checkoutWithPayment(
+  payload?: {
+    shippingName?: string;
+    shippingPhone?: string;
+    shippingEmail?: string;
+    shippingAddressLine1?: string;
+    shippingAddressLine2?: string;
+    shippingCity?: string;
+    shippingPincode?: string;
+    shippingNotes?: string;
+    couponCode?: string;
+  },
+  token?: string | null
+) {
+  return apiRequest<{
+    message: string;
+    order: {
+      id: string;
+      totalAmount: number;
+      subTotalAmount: number;
+      totalTaxAmount: number;
+      grandTotal: number;
+      couponCode?: string | null;
+      discountAmount?: number;
+    };
+    payment?: {
+      paymentId: string;
+      orderId: string;
+      amount: number;
+      currency: string;
+      key: string;
+      provider: string;
+    } | null;
+    paymentInitError?: string;
+  }>("/v1/checkout?withPayment=1", {
     method: "POST",
     body: payload ?? {},
     token,

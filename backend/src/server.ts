@@ -6,12 +6,34 @@ import { paymentService } from './services/payment.service.js';
 import { logger } from './config/logger.js';
 import { runInventoryIntegrityCheck } from './jobs/inventoryIntegrity.js';
 import { hashPassword } from './utils/password.util.js';
+import { reelRepository } from './repositories/reel.repository.js';
 
 /** How often to run the stale-order cleanup (10 minutes). */
 const STALE_ORDER_INTERVAL_MS = 10 * 60 * 1000;
 
 /** How often to run the inventory integrity check (10 minutes). */
 const INTEGRITY_CHECK_INTERVAL_MS = 10 * 60 * 1000;
+
+/** How often to flush buffered reel views (1 minute). */
+const REEL_VIEW_FLUSH_INTERVAL_MS = 60 * 1000;
+
+/** Max random jitter added to recurring job intervals (up to 1 minute). */
+const JOB_JITTER_MAX_MS = 60 * 1000;
+const WARMUP_REQUEST_TIMEOUT_MS = 8000;
+
+function withIntervalJitter(baseMs: number): number {
+    const jitter = Math.floor(Math.random() * JOB_JITTER_MAX_MS);
+    return baseMs + jitter;
+}
+
+function shouldRunBackgroundJobs(): boolean {
+    if (typeof env.RUN_BACKGROUND_JOBS === 'boolean') {
+        return env.RUN_BACKGROUND_JOBS;
+    }
+
+    const pm2Instance = process.env['NODE_APP_INSTANCE'];
+    return !pm2Instance || pm2Instance === '0';
+}
 
 /** Guard: only execute shutdown sequence once. */
 let isShuttingDown = false;
@@ -54,6 +76,26 @@ async function ensureSuperAdminAccount(): Promise<void> {
     logger.info({ email: SUPER_ADMIN_EMAIL }, 'Super admin account ensured at startup');
 }
 
+async function pingWarmupEndpoint(): Promise<void> {
+    if (!env.BACKEND_WARMUP_URL) return;
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), WARMUP_REQUEST_TIMEOUT_MS);
+
+    try {
+        const response = await fetch(env.BACKEND_WARMUP_URL, {
+            method: 'GET',
+            headers: { 'user-agent': 'tatvivah-backend-warmup/1.0' },
+            signal: controller.signal,
+        });
+        logger.debug({ status: response.status, url: env.BACKEND_WARMUP_URL }, 'Warmup ping completed');
+    } catch (err) {
+        logger.warn({ err, url: env.BACKEND_WARMUP_URL }, 'Warmup ping failed');
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
 /**
  * Start the server
  */
@@ -74,48 +116,105 @@ async function bootstrap(): Promise<void> {
             logger.info({ port: env.PORT, env: env.NODE_ENV }, `Server running on port ${env.PORT}`);
         });
 
-        // ---- Stale-order cleanup (runs every 10 min) ----
-        const staleOrderTimer = setInterval(async () => {
+        // Tune HTTP socket behavior for higher throughput and fewer reconnects.
+        server.keepAliveTimeout = env.KEEP_ALIVE_TIMEOUT_MS;
+        server.headersTimeout = env.HEADERS_TIMEOUT_MS;
+        server.requestTimeout = env.REQUEST_TIMEOUT_MS;
+        server.maxRequestsPerSocket = env.MAX_REQUESTS_PER_SOCKET;
+        server.on('connection', (socket) => {
+            socket.setNoDelay(true);
+            socket.setKeepAlive(true);
+        });
+
+        const runBackgroundJobs = shouldRunBackgroundJobs();
+
+        let staleOrderTimer: NodeJS.Timeout | null = null;
+        let integrityTimer: NodeJS.Timeout | null = null;
+        let reelViewFlushTimer: NodeJS.Timeout | null = null;
+        let warmupTimer: NodeJS.Timeout | null = null;
+
+        if (runBackgroundJobs) {
+            // ---- Stale-order cleanup (runs every 10 min) ----
+            staleOrderTimer = setInterval(async () => {
+                try {
+                    const result = await paymentService.cancelStaleOrders();
+                    (app as any).__setLastStaleCleanup(new Date());
+                    if (result.cancelled > 0) {
+                        logger.info({ cancelled: result.cancelled, total: result.total }, 'Stale order cleanup completed');
+                    }
+                } catch (err) {
+                    logger.error({ err }, 'Stale order cleanup error');
+                }
+            }, withIntervalJitter(STALE_ORDER_INTERVAL_MS));
+
+            // ---- Inventory integrity check (runs every 10 min) ----
+            integrityTimer = setInterval(async () => {
+                try {
+                    const report = await runInventoryIntegrityCheck();
+                    (app as any).__setIntegrityReport(report);
+                } catch (err) {
+                    logger.error({ err }, 'Inventory integrity check error');
+                }
+            }, withIntervalJitter(INTEGRITY_CHECK_INTERVAL_MS));
+        }
+
+        let reelFlushInProgress = false;
+
+        const flushReelViews = async (reason: 'startup' | 'interval' | 'shutdown') => {
+            if (reelFlushInProgress) {
+                return;
+            }
+
+            reelFlushInProgress = true;
             try {
-                const result = await paymentService.cancelStaleOrders();
-                (app as any).__setLastStaleCleanup(new Date());
-                if (result.cancelled > 0) {
-                    logger.info({ cancelled: result.cancelled, total: result.total }, 'Stale order cleanup completed');
+                const result = await reelRepository.flushReelViews();
+                if (result.flushed > 0) {
+                    logger.info({ reason, flushed: result.flushed }, 'Buffered reel views flushed');
                 }
             } catch (err) {
-                logger.error({ err }, 'Stale order cleanup error');
+                logger.error({ err, reason }, 'Reel view flush error');
+            } finally {
+                reelFlushInProgress = false;
             }
-        }, STALE_ORDER_INTERVAL_MS);
+        };
 
-        // ---- Inventory integrity check (runs every 10 min) ----
-        const integrityTimer = setInterval(async () => {
-            try {
-                const report = await runInventoryIntegrityCheck();
-                (app as any).__setIntegrityReport(report);
-            } catch (err) {
-                logger.error({ err }, 'Inventory integrity check error');
-            }
-        }, INTEGRITY_CHECK_INTERVAL_MS);
+        if (runBackgroundJobs) {
+            // ---- Reel view buffer flush (runs every 1 min) ----
+            reelViewFlushTimer = setInterval(() => {
+                void flushReelViews('interval');
+            }, withIntervalJitter(REEL_VIEW_FLUSH_INTERVAL_MS));
 
-        // Run both once on startup (after a short delay to let connections settle)
-        setTimeout(async () => {
-            try {
-                const result = await paymentService.cancelStaleOrders();
-                (app as any).__setLastStaleCleanup(new Date());
-                if (result.cancelled > 0) {
-                    logger.info({ cancelled: result.cancelled }, 'Initial stale order cleanup completed');
+            warmupTimer = env.BACKEND_WARMUP_URL
+                ? setInterval(() => {
+                    void pingWarmupEndpoint();
+                }, Math.max(60_000, env.BACKEND_WARMUP_INTERVAL_MS))
+                : null;
+
+            // Run both once on startup (after a short delay to let connections settle)
+            setTimeout(async () => {
+                try {
+                    const result = await paymentService.cancelStaleOrders();
+                    (app as any).__setLastStaleCleanup(new Date());
+                    if (result.cancelled > 0) {
+                        logger.info({ cancelled: result.cancelled }, 'Initial stale order cleanup completed');
+                    }
+                } catch (err) {
+                    logger.error({ err }, 'Initial stale order cleanup error');
                 }
-            } catch (err) {
-                logger.error({ err }, 'Initial stale order cleanup error');
-            }
 
-            try {
-                const report = await runInventoryIntegrityCheck();
-                (app as any).__setIntegrityReport(report);
-            } catch (err) {
-                logger.error({ err }, 'Initial integrity check error');
-            }
-        }, 5000);
+                try {
+                    const report = await runInventoryIntegrityCheck();
+                    (app as any).__setIntegrityReport(report);
+                } catch (err) {
+                    logger.error({ err }, 'Initial integrity check error');
+                }
+
+                await flushReelViews('startup');
+                await pingWarmupEndpoint();
+            }, 5000);
+        } else {
+            logger.info({ instance: process.env['NODE_APP_INSTANCE'] }, 'Background jobs disabled on this instance');
+        }
 
         // ------------------------------------------------------------------
         // Graceful shutdown
@@ -127,11 +226,14 @@ async function bootstrap(): Promise<void> {
 
             logger.info({ signal }, 'Shutting down gracefully…');
 
-            clearInterval(staleOrderTimer);
-            clearInterval(integrityTimer);
+            if (staleOrderTimer) clearInterval(staleOrderTimer);
+            if (integrityTimer) clearInterval(integrityTimer);
+            if (reelViewFlushTimer) clearInterval(reelViewFlushTimer);
+            if (warmupTimer) clearInterval(warmupTimer);
 
             server.close(async () => {
                 logger.info('HTTP server closed');
+                await flushReelViews('shutdown');
                 await closeQueueResources().catch(() => {});
                 await disconnectDatabase();
                 process.exit(0);

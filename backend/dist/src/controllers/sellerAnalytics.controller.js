@@ -16,6 +16,7 @@ class SellerAnalyticsController {
                 return;
             }
             const data = await sellerAnalyticsService.getSummary(sellerId, startDate, endDate);
+            res.set('Cache-Control', 'private, max-age=30, stale-while-revalidate=120');
             res.json({ success: true, data });
         }
         catch (error) {
@@ -28,6 +29,7 @@ class SellerAnalyticsController {
             const sellerId = req.user.userId;
             const interval = req.query.interval || 'daily';
             const data = await sellerAnalyticsService.getRevenueChart(sellerId, interval);
+            res.set('Cache-Control', 'private, max-age=30, stale-while-revalidate=120');
             res.json({ success: true, data });
         }
         catch (error) {
@@ -40,6 +42,7 @@ class SellerAnalyticsController {
             const sellerId = req.user.userId;
             const limit = req.query.limit ? Number(req.query.limit) : 10;
             const data = await sellerAnalyticsService.getTopProducts(sellerId, limit);
+            res.set('Cache-Control', 'private, max-age=30, stale-while-revalidate=120');
             res.json({ success: true, data });
         }
         catch (error) {
@@ -51,6 +54,7 @@ class SellerAnalyticsController {
         try {
             const sellerId = req.user.userId;
             const data = await sellerAnalyticsService.getInventoryHealth(sellerId);
+            res.set('Cache-Control', 'private, max-age=30, stale-while-revalidate=120');
             res.json({ success: true, data });
         }
         catch (error) {
@@ -64,6 +68,7 @@ class SellerAnalyticsController {
             const startDate = req.query.startDate ? new Date(req.query.startDate) : undefined;
             const endDate = req.query.endDate ? new Date(req.query.endDate) : undefined;
             const data = await sellerAnalyticsService.getRefundImpact(sellerId, startDate, endDate);
+            res.set('Cache-Control', 'private, max-age=30, stale-while-revalidate=120');
             res.json({ success: true, data });
         }
         catch (error) {

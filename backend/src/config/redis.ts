@@ -123,6 +123,14 @@ export const redis = {
 
         return result as unknown as T;
     },
+
+    async hincrby(key: string, field: string, increment: number): Promise<number> {
+        return safe(() => redisClient.hincrby(key, field, increment), 0);
+    },
+
+    async hgetall(key: string): Promise<Record<string, string>> {
+        return safe(() => redisClient.hgetall(key), {} as Record<string, string>);
+    },
 };
 
 export async function checkRedisConnection(): Promise<boolean> {

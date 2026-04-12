@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
   },
   emptyCard: {
     padding: spacing.lg,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: colors.warmWhite,

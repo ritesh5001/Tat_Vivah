@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import compression from 'compression';
+import { env } from './config/env.js';
 import { errorMiddleware } from './middlewares/error.middleware.js';
 import { register, httpRequestDuration } from './config/metrics.js';
 import { prisma } from './config/db.js';
@@ -19,11 +20,23 @@ import { openApiSpec } from "./docs/openapi.js";
  */
 export function createApp() {
     const app = express();
+    app.disable('x-powered-by');
+    app.set('trust proxy', env.TRUST_PROXY);
+    app.set('etag', 'strong');
     // =========================================================================
     // GLOBAL MIDDLEWARE
     // =========================================================================
-    // Gzip / Brotli compression for all responses (reduces payload ~70%)
-    app.use(compression());
+    // Gzip compression tuned for API payloads while skipping tiny responses.
+    app.use(compression({
+        level: 6,
+        threshold: 1024,
+        filter: (req, res) => {
+            if (req.headers['x-no-compression']) {
+                return false;
+            }
+            return compression.filter(req, res);
+        },
+    }));
     // Parse JSON bodies
     app.use(express.json());
     // Parse URL-encoded bodies
@@ -35,6 +48,7 @@ export function createApp() {
             ? corsOrigin.split(',').map(o => o.trim())
             : true, // `true` reflects the request origin (safer than '*' with credentials)
         credentials: true,
+        maxAge: 86400,
     }));
     // =========================================================================
     // DOCUMENTATION
@@ -61,6 +75,7 @@ export function createApp() {
     app.get('/metrics', async (_req, res) => {
         try {
             res.set('Content-Type', register.contentType);
+            res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
             res.end(await register.metrics());
         }
         catch (err) {
@@ -74,8 +89,15 @@ export function createApp() {
     app.__setLastStaleCleanup = (date) => { lastStaleCleanupAt = date; };
     /** Called by server.ts after each integrity check run. */
     app.__setIntegrityReport = (report) => { lastIntegrityReport = report; };
+    // Lightweight liveness probe for edge/load balancer checks.
+    const liveHealthHandler = (_req, res) => {
+        res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+    };
+    app.get('/health/live', liveHealthHandler);
+    app.get('/api/health/live', liveHealthHandler);
     // Enhanced health endpoint
-    app.get('/health', async (_req, res) => {
+    const healthHandler = async (_req, res) => {
         const checks = {};
         // DB connectivity
         try {
@@ -110,12 +132,15 @@ export function createApp() {
             : null;
         const overallOk = checks.db?.status === 'ok'
             && checks.redis?.status === 'ok';
+        res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
         res.status(overallOk ? 200 : 503).json({
             status: overallOk ? 'ok' : 'degraded',
             timestamp: new Date().toISOString(),
             checks,
         });
-    });
+    };
+    app.get('/health', healthHandler);
+    app.get('/api/health', healthHandler);
     app.get('/', (_req, res) => {
         res.json({
             message: 'Welcome to TatVivah API',

@@ -1,4 +1,5 @@
 import { renderBrandedEmail } from './layout.js';
+import { portalLinks } from './portal-links.js';
 export function orderPlacedTemplate(data) {
     return {
         subject: `Order Confirmed #${data.orderId}`,
@@ -16,7 +17,7 @@ export function orderPlacedTemplate(data) {
                 { label: 'Total Amount', value: `INR ${Number(data.totalAmount).toLocaleString('en-IN')}` },
             ],
             ctaLabel: 'Track Orders',
-            ctaUrl: 'https://tatvivahtrends.com/user/orders',
+            ctaUrl: portalLinks.userOrders,
             accentText: 'Please keep this confirmation for your records.',
         }),
     };

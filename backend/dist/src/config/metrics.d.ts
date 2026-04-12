@@ -14,7 +14,7 @@ export declare const paymentSuccessTotal: client.Counter<string>;
 export declare const paymentFailTotal: client.Counter<string>;
 export declare const staleCancelTotal: client.Counter<string>;
 export declare const integrityMismatchTotal: client.Counter<"severity">;
-export declare const httpRequestDuration: client.Histogram<"route" | "method" | "status">;
+export declare const httpRequestDuration: client.Histogram<"status" | "route" | "method">;
 export declare const wishlistAddTotal: client.Counter<string>;
 export declare const wishlistRemoveTotal: client.Counter<string>;
 export declare const searchQueryTotal: client.Counter<string>;

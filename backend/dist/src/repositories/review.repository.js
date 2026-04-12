@@ -1,9 +1,13 @@
 import { prisma } from '../config/db.js';
 export class ReviewRepository {
-    async findAll() {
+    async findAll(params) {
+        const pagination = {
+            ...(params?.skip !== undefined ? { skip: params.skip } : {}),
+            take: params?.take ?? 100,
+        };
         return prisma.review.findMany({
             orderBy: { createdAt: 'desc' },
-            take: 100,
+            ...pagination,
             include: {
                 product: { select: { id: true, title: true } },
                 user: {

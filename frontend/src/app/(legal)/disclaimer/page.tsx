@@ -1,5 +1,6 @@
 import { LegalPageLayout } from "@/components/legal-page-layout";
 import { Metadata } from "next";
+import { SITE_URL } from "@/lib/site-config";
 
 export const metadata: Metadata = {
     title: "Disclaimer | Tat Vivah",
@@ -14,6 +15,14 @@ const SECTIONS = [
     { id: "limitation-of-damages", title: "Limitation of Damages" },
 ];
 
+const SITE_HOST = (() => {
+    try {
+        return new URL(SITE_URL).host;
+    } catch {
+        return SITE_URL;
+    }
+})();
+
 export default function DisclaimerPage() {
     return (
         <LegalPageLayout
@@ -24,7 +33,7 @@ export default function DisclaimerPage() {
             <section id="general-information">
                 <h2>General Information</h2>
                 <p>
-                    The information provided by Tat Vivah ("we," "us," or "our") on tatvivahtrends.com (the "Site") is for general informational purposes only. All information on the Site is provided in good faith, however, we make no representation or warranty of any kind, express or implied, regarding the accuracy, adequacy, validity, reliability, availability, or completeness of any information on the Site.
+                    The information provided by Tat Vivah ("we," "us," or "our") on {SITE_HOST} (the "Site") is for general informational purposes only. All information on the Site is provided in good faith, however, we make no representation or warranty of any kind, express or implied, regarding the accuracy, adequacy, validity, reliability, availability, or completeness of any information on the Site.
                 </p>
             </section>
 

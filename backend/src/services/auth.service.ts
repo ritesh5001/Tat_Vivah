@@ -19,8 +19,10 @@ import { otpService, type SignupOtpPayload } from './otp.service.js';
 import { generateOtpCode, hashOtp } from '../utils/otp.util.js';
 import { otpRepository } from '../repositories/otp.repository.js';
 import { sendEmail } from '../notifications/email/resend.client.js';
+import { renderBrandedEmail } from '../notifications/email/templates/layout.js';
 import { OtpPurpose } from '@prisma/client';
 import type { Role, UserStatus } from '@prisma/client';
+import { randomUUID } from 'crypto';
 
 
 /**
@@ -44,6 +46,8 @@ export class AuthService {
         userAgent?: string,
         ipAddress?: string
     ): Promise<LoginResponse> {
+        const sessionId = randomUUID();
+
         const accessToken = generateAccessToken({
             userId: user.id,
             email: user.email,
@@ -54,29 +58,25 @@ export class AuthService {
             isPhoneVerified: user.isPhoneVerified,
         });
 
-        const refreshTokenExpiryMs = ms(env.REFRESH_TOKEN_EXPIRY as StringValue);
-        const expiresAt = new Date(Date.now() + refreshTokenExpiryMs);
-
-        // Generate a temporary session ID to embed in the refresh token
-        // We create session with a placeholder, then update in one step
-        const session = await this.repository.createSession({
-            userId: user.id,
-            refreshToken: '', // placeholder
-            userAgent: userAgent ?? undefined,
-            ipAddress: ipAddress ?? undefined,
-            expiresAt,
-        });
-
         const refreshToken = generateRefreshToken({
             userId: user.id,
-            sessionId: session.id,
+            sessionId,
             isEmailVerified: user.isEmailVerified,
             isPhoneVerified: user.isPhoneVerified,
         });
 
-        // Hash and update the session in one call
+        const refreshTokenExpiryMs = ms(env.REFRESH_TOKEN_EXPIRY as StringValue);
+        const expiresAt = new Date(Date.now() + refreshTokenExpiryMs);
         const hashedRefreshToken = await hashToken(refreshToken);
-        await this.repository.updateSessionRefreshToken(session.id, hashedRefreshToken);
+
+        await this.repository.createSession({
+            sessionId,
+            userId: user.id,
+            refreshToken: hashedRefreshToken,
+            userAgent: userAgent ?? undefined,
+            ipAddress: ipAddress ?? undefined,
+            expiresAt,
+        });
 
         return {
             user: {
@@ -534,15 +534,17 @@ export class AuthService {
             expiresAt,
         });
 
-        const html = `
-            <div style="font-family:Arial,sans-serif; line-height:1.6;">
-                <h2>Reset your TatVivah password</h2>
-                <p>Your password-reset OTP is:</p>
-                <p style="font-size:24px; font-weight:bold; letter-spacing:4px;">${code}</p>
-                <p>This OTP expires in ${AuthService.PASSWORD_RESET_EXPIRY_MINUTES} minutes.</p>
-                <p>If you did not request this, please ignore this email.</p>
-            </div>
-        `;
+        const html = renderBrandedEmail({
+            preheader: 'Your password reset verification code for TatVivah.',
+            eyebrow: 'Password Recovery',
+            title: 'Reset Your Password',
+            message: [
+                'Use the one-time code below to reset your TatVivah account password.',
+                `This code expires in ${AuthService.PASSWORD_RESET_EXPIRY_MINUTES} minutes and can only be used once.`,
+            ],
+            details: [{ label: 'Reset Code', value: code }],
+            accentText: 'If you did not request this reset, you can safely ignore this email.',
+        });
 
         await sendEmail(email, 'Reset your TatVivah password', html);
 

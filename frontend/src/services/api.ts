@@ -1,3 +1,6 @@
+import { COOKIE_ATTRIBUTES_SUFFIX } from "@/lib/site-config";
+import { reportApiActivity } from "@/lib/navigation-feedback";
+
 type ApiRequestOptions = Omit<RequestInit, "body"> & {
   body?: unknown;
   token?: string | null;
@@ -6,6 +9,13 @@ type ApiRequestOptions = Omit<RequestInit, "body"> & {
 };
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+
+export const swrConfig = {
+  dedupingInterval: 5000,
+  revalidateOnFocus: false,
+  revalidateOnReconnect: false,
+  errorRetryCount: 2,
+} as const;
 
 function getAuthToken(): string | null {
   if (typeof document === "undefined") {
@@ -27,15 +37,27 @@ function getErrorMessage(data: any, fallback: string) {
   return data?.error?.message ?? data?.message ?? fallback;
 }
 
-const isProd = process.env.NODE_ENV === "production";
-const cookieDomain = isProd ? "; domain=.tatvivahtrends.com; SameSite=Lax; Secure" : "";
+function normalizeMethod(method?: string) {
+  return method?.toUpperCase() ?? "GET";
+}
+
+function isMutationMethod(method: string) {
+  return method !== "GET" && method !== "HEAD" && method !== "OPTIONS";
+}
+
+function getActivityLabel(method: string) {
+  if (method === "DELETE") return "Removing item";
+  if (method === "PATCH" || method === "PUT") return "Applying your changes";
+  if (method === "POST") return "Submitting your request";
+  return "Processing your request";
+}
 
 function clearAuthCookies() {
   if (typeof document === "undefined") return;
-  document.cookie = `tatvivah_access=; path=/; max-age=0${cookieDomain}`;
-  document.cookie = `tatvivah_refresh=; path=/; max-age=0${cookieDomain}`;
-  document.cookie = `tatvivah_role=; path=/; max-age=0${cookieDomain}`;
-  document.cookie = `tatvivah_user=; path=/; max-age=0${cookieDomain}`;
+  document.cookie = `tatvivah_access=; path=/; max-age=0${COOKIE_ATTRIBUTES_SUFFIX}`;
+  document.cookie = `tatvivah_refresh=; path=/; max-age=0${COOKIE_ATTRIBUTES_SUFFIX}`;
+  document.cookie = `tatvivah_role=; path=/; max-age=0${COOKIE_ATTRIBUTES_SUFFIX}`;
+  document.cookie = `tatvivah_user=; path=/; max-age=0${COOKIE_ATTRIBUTES_SUFFIX}`;
   window.dispatchEvent(new Event("tatvivah-auth"));
 }
 
@@ -67,9 +89,9 @@ async function silentRefresh(): Promise<string | null> {
       if (!data?.accessToken) return null;
 
       // Persist new tokens
-      document.cookie = `tatvivah_access=${data.accessToken}; path=/; max-age=86400${cookieDomain}`;
+      document.cookie = `tatvivah_access=${data.accessToken}; path=/; max-age=86400${COOKIE_ATTRIBUTES_SUFFIX}`;
       if (data.refreshToken) {
-        document.cookie = `tatvivah_refresh=${data.refreshToken}; path=/; max-age=604800${cookieDomain}`;
+        document.cookie = `tatvivah_refresh=${data.refreshToken}; path=/; max-age=604800${COOKIE_ATTRIBUTES_SUFFIX}`;
       }
 
       return data.accessToken as string;
@@ -92,6 +114,9 @@ export async function apiRequest<T>(
   }
 
   const { body, token, headers, _isRetry, ...rest } = options;
+  const method = normalizeMethod(rest.method);
+  const shouldTrackActivity =
+    typeof window !== "undefined" && isMutationMethod(method) && !_isRetry;
   const authToken = token ?? getAuthToken();
 
   const finalHeaders: HeadersInit = {
@@ -100,29 +125,48 @@ export async function apiRequest<T>(
     ...(headers ?? {}),
   };
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...rest,
-    headers: finalHeaders,
-    body: body ? JSON.stringify(body) : undefined,
-  });
-
-  const data = await response.json().catch(() => null);
-
-  if (!response.ok) {
-    // On 401, attempt a silent token refresh before giving up
-    if (response.status === 401 && !_isRetry && !token) {
-      const newToken = await silentRefresh();
-      if (newToken) {
-        // Retry the original request with the fresh token
-        return apiRequest<T>(path, { ...options, token: newToken, _isRetry: true });
-      }
-      // Refresh failed — clear session
-      clearAuthCookies();
-    } else if (response.status === 401 || response.status === 403) {
-      clearAuthCookies();
-    }
-    throw new Error(getErrorMessage(data, "Request failed"));
+  if (shouldTrackActivity) {
+    reportApiActivity({
+      type: "start",
+      method,
+      path,
+      label: getActivityLabel(method),
+    });
   }
 
-  return data as T;
+  try {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      ...rest,
+      headers: finalHeaders,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+
+    const data = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      // On 401, attempt a silent token refresh before giving up
+      if (response.status === 401 && !_isRetry && !token) {
+        const newToken = await silentRefresh();
+        if (newToken) {
+          // Retry the original request with the fresh token
+          return apiRequest<T>(path, { ...options, token: newToken, _isRetry: true });
+        }
+        // Refresh failed — clear session
+        clearAuthCookies();
+      } else if (response.status === 401 || response.status === 403) {
+        clearAuthCookies();
+      }
+      throw new Error(getErrorMessage(data, "Request failed"));
+    }
+
+    return data as T;
+  } finally {
+    if (shouldTrackActivity) {
+      reportApiActivity({
+        type: "end",
+        method,
+        path,
+      });
+    }
+  }
 }

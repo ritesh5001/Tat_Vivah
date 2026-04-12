@@ -1,6 +1,5 @@
 import * as React from "react";
 import {
-  InteractionManager,
   View,
   StyleSheet,
   FlatList,
@@ -8,9 +7,11 @@ import {
   Dimensions,
   Modal,
 } from "react-native";
+import { FlashList } from "@shopify/flash-list";
+import { Ionicons } from "@expo/vector-icons";
 import { Image } from "../../../src/components/CompatImage";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
+import { colors, spacing, typography, shadow } from "../../../src/theme/tokens";
 import { getCategories } from "../../../src/services/catalog";
 import {
   getProductsAndCache,
@@ -33,8 +34,8 @@ const cardWidth = (width - spacing.lg * 2 - spacing.md) / 2;
 const fallbackImage =
   "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80";
 
-const DEBOUNCE_MS = 220;
-const SUGGEST_DEBOUNCE_MS = 160;
+const DEBOUNCE_MS = 140;
+const SUGGEST_DEBOUNCE_MS = 110;
 
 const SORT_OPTIONS: { value: SortOption | ""; label: string }[] = [
   { value: "", label: "Default" },
@@ -124,6 +125,7 @@ export default function SearchScreen() {
   const [fetchError, setFetchError] = React.useState<string | null>(null);
   const [sortBy, setSortBy] = React.useState<SortOption | "">("");
   const [showSortSheet, setShowSortSheet] = React.useState(false);
+  const [showCategoryFilters, setShowCategoryFilters] = React.useState(true);
   const [suggestions, setSuggestions] = React.useState<SuggestionItem[]>([]);
   const [showSuggestions, setShowSuggestions] = React.useState(false);
 
@@ -323,9 +325,7 @@ export default function SearchScreen() {
 
   const handleProductPress = React.useCallback(
     (id: string) => {
-      InteractionManager.runAfterInteractions(() => {
-        router.push({ pathname: "/product/[id]", params: { id } });
-      });
+      router.push({ pathname: "/product/[id]", params: { id } });
     },
     [router]
   );
@@ -374,20 +374,20 @@ export default function SearchScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <AppHeader variant="main" />
+      <AppHeader variant="sub" showBack={false} showMenu showSearch={false} showCart />
 
-      <View style={styles.headerBlock}>
-        <Text style={styles.title}>Marketplace</Text>
-        <Text style={styles.subtitle}>Premium curated catalog</Text>
-        <Text style={styles.subtitleCopy}>
-          Discover wedding-ready edits crafted with heritage silhouettes and modern luxury detailing.
-        </Text>
-      </View>
-
-      <View style={styles.searchCard}>
+      <View style={styles.topControls}>
         <View style={styles.searchRow}>
+          <Pressable
+            style={styles.iconControl}
+            onPress={() => setShowSortSheet(true)}
+            hitSlop={8}
+          >
+            <Ionicons name="swap-vertical-outline" size={18} color={colors.charcoal} />
+          </Pressable>
+
           <TextInput
-            placeholder="Search collections, styles..."
+            placeholder="Search product, occasion, category..."
             placeholderTextColor={colors.brownSoft}
             value={search}
             onChangeText={handleSearchChange}
@@ -400,7 +400,31 @@ export default function SearchScreen() {
           <Pressable style={styles.searchButton} onPress={handleSearch}>
             <Text style={styles.searchButtonText}>Search</Text>
           </Pressable>
+
+          <Pressable
+            style={[styles.iconControl, showCategoryFilters && styles.iconControlActive]}
+            onPress={() => setShowCategoryFilters((prev) => !prev)}
+            hitSlop={8}
+          >
+            <Ionicons name="funnel-outline" size={18} color={colors.charcoal} />
+          </Pressable>
         </View>
+
+        {showCategoryFilters ? (
+          <FlatList
+            data={categoryChips}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={categoryKeyExtractor}
+            contentContainerStyle={styles.categoryRow}
+            renderItem={renderCategoryItem}
+            initialNumToRender={6}
+            maxToRenderPerBatch={6}
+            windowSize={3}
+            updateCellsBatchingPeriod={24}
+            removeClippedSubviews
+          />
+        ) : null}
       </View>
 
       {/* Autocomplete suggestions */}
@@ -432,30 +456,6 @@ export default function SearchScreen() {
           ))}
         </View>
       )}
-
-      {/* Sort + Category Row */}
-      <View style={styles.sortCategoryWrap}>
-        <View style={styles.sortRow}>
-          <Pressable
-            style={styles.sortButtonWide}
-            onPress={() => setShowSortSheet(true)}
-          >
-            <Text style={styles.sortButtonText}>Sort</Text>
-          </Pressable>
-          <Pressable style={styles.sortButtonWide} onPress={() => setShowSortSheet(true)}>
-            <Text style={styles.sortButtonText}>Filter</Text>
-          </Pressable>
-        </View>
-
-        <FlatList
-          data={categoryChips}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          keyExtractor={categoryKeyExtractor}
-          contentContainerStyle={styles.categoryRow}
-          renderItem={renderCategoryItem}
-        />
-      </View>
 
       {/* Sort bottom sheet */}
       <Modal
@@ -506,7 +506,7 @@ export default function SearchScreen() {
         </View>
       ) : null}
 
-      <FlatList
+      <FlashList
         data={
           (loading ? skeletons : products) as (
             ProductSummary | { id: string; skeleton: true }
@@ -514,7 +514,7 @@ export default function SearchScreen() {
         }
         keyExtractor={keyExtractor}
         numColumns={2}
-        columnWrapperStyle={styles.gridRow}
+        drawDistance={Math.round(cardWidth * 3)}
         renderItem={renderItem}
         contentContainerStyle={styles.gridContent}
         showsVerticalScrollIndicator={false}
@@ -534,10 +534,6 @@ export default function SearchScreen() {
             </View>
           ) : null
         }
-        initialNumToRender={6}
-        maxToRenderPerBatch={6}
-        windowSize={5}
-        removeClippedSubviews
       />
     </SafeAreaView>
   );
@@ -548,35 +544,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  headerBlock: {
-    marginTop: spacing.lg,
-    paddingHorizontal: spacing.lg,
-  },
-  title: {
-    fontFamily: typography.serif,
-    fontSize: 24,
-    color: colors.charcoal,
-  },
-  subtitle: {
-    marginTop: 2,
-    fontFamily: typography.sans,
-    fontSize: 12,
-    textTransform: "uppercase",
-    letterSpacing: 1.4,
-    color: colors.brownSoft,
-  },
-  subtitleCopy: {
-    marginTop: spacing.xs,
-    fontFamily: typography.sans,
-    fontSize: 12,
-    lineHeight: 18,
-    color: colors.brownSoft,
-  },
-  searchCard: {
-    marginTop: spacing.md,
+  topControls: {
+    marginTop: spacing.sm,
     marginHorizontal: spacing.lg,
-    padding: spacing.md,
-    borderRadius: radius.lg,
+    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: colors.surfaceElevated,
@@ -584,25 +558,28 @@ const styles = StyleSheet.create({
   },
   searchRow: {
     flexDirection: "row",
-    gap: spacing.sm,
+    alignItems: "center",
+    gap: spacing.xs,
   },
   searchInput: {
     flex: 1,
     backgroundColor: colors.background,
-    borderRadius: radius.md,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 10,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 9,
     fontFamily: typography.sans,
+    fontSize: 13,
     color: colors.charcoal,
   },
   searchButton: {
     backgroundColor: colors.gold,
     borderWidth: 1,
     borderColor: colors.gold,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.lg,
+    borderRadius: 0,
+    paddingHorizontal: spacing.md,
+    minHeight: 38,
     justifyContent: "center",
   },
   searchButtonText: {
@@ -612,10 +589,22 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     color: colors.background,
   },
+  iconControl: {
+    width: 36,
+    height: 36,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.background,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  iconControlActive: {
+    borderColor: colors.gold,
+    backgroundColor: "rgba(184, 149, 108, 0.14)",
+  },
   categoryRow: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
     gap: spacing.sm,
   },
   categoryChip: {
@@ -623,7 +612,7 @@ const styles = StyleSheet.create({
     borderColor: colors.borderSoft,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderRadius: 20,
+    borderRadius: 0,
     backgroundColor: colors.surface,
   },
   categoryChipActive: {
@@ -649,15 +638,16 @@ const styles = StyleSheet.create({
     width: cardWidth,
     marginBottom: spacing.md,
     padding: spacing.md,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     ...shadow.card,
   },
   productImage: {
-    height: 160,
-    borderRadius: radius.md,
+    width: "100%",
+    aspectRatio: 3 / 4,
+    borderRadius: 0,
     backgroundColor: colors.surface,
   },
   productTitle: {
@@ -674,14 +664,14 @@ const styles = StyleSheet.create({
   },
   skeletonLine: {
     height: 12,
-    borderRadius: 6,
+    borderRadius: 0,
     backgroundColor: colors.cream,
     marginTop: spacing.sm,
   },
   skeletonLineShort: {
     height: 12,
     width: "60%",
-    borderRadius: 6,
+    borderRadius: 0,
     backgroundColor: colors.cream,
     marginTop: spacing.xs,
   },
@@ -698,7 +688,7 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.lg,
     marginBottom: spacing.md,
     padding: spacing.lg,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: colors.surfaceElevated,
@@ -722,7 +712,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gold,
     borderWidth: 1,
     borderColor: colors.gold,
-    borderRadius: radius.md,
+    borderRadius: 0,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
   },
@@ -738,10 +728,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   suggestionsContainer: {
+    marginTop: spacing.xs,
     marginHorizontal: spacing.lg,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    borderRadius: radius.md,
+    borderRadius: 0,
     backgroundColor: colors.surfaceElevated,
     ...shadow.card,
     maxHeight: 220,
@@ -769,31 +760,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     marginLeft: spacing.sm,
   },
-  sortCategoryWrap: {
-    marginTop: spacing.md,
-  },
-  sortRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
-  },
-  sortButtonWide: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: colors.gold,
-    borderRadius: radius.md,
-    paddingVertical: spacing.sm,
-    alignItems: "center",
-    backgroundColor: colors.gold,
-  },
-  sortButtonText: {
-    fontFamily: typography.sansMedium,
-    fontSize: 11,
-    letterSpacing: 1.2,
-    textTransform: "uppercase",
-    color: colors.background,
-  },
   sortOverlay: {
     flex: 1,
     justifyContent: "flex-end",
@@ -801,8 +767,8 @@ const styles = StyleSheet.create({
   },
   sortSheet: {
     backgroundColor: colors.surfaceElevated,
-    borderTopLeftRadius: radius.lg,
-    borderTopRightRadius: radius.lg,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
     paddingVertical: spacing.lg,
     paddingHorizontal: spacing.lg,
   },
@@ -819,7 +785,7 @@ const styles = StyleSheet.create({
   },
   sortSheetOptionActive: {
     backgroundColor: "rgba(184, 149, 108, 0.14)",
-    borderRadius: radius.sm,
+    borderRadius: 0,
     marginHorizontal: -spacing.sm,
     paddingHorizontal: spacing.sm,
   },

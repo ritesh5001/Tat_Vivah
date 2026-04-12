@@ -40,6 +40,7 @@ export class OrderController {
                 ...(startDate ? { startDate } : {}),
                 ...(endDate ? { endDate } : {}),
             });
+            res.set('Cache-Control', 'private, max-age=15, stale-while-revalidate=45');
             res.json(result);
         } catch (error) {
             next(error);
@@ -55,6 +56,7 @@ export class OrderController {
             const userId = req.user!.userId;
             const orderId = req.params.id as string;
             const result = await orderService.getBuyerOrder(orderId, userId);
+            res.set('Cache-Control', 'private, max-age=15, stale-while-revalidate=45');
             res.json(result);
         } catch (error) {
             next(error);
@@ -113,6 +115,7 @@ export class OrderController {
                 ...(startDate ? { startDate } : {}),
                 ...(endDate ? { endDate } : {}),
             });
+            res.set('Cache-Control', 'private, max-age=15, stale-while-revalidate=45');
             res.json(result);
         } catch (error) {
             next(error);
@@ -128,6 +131,7 @@ export class OrderController {
             const sellerId = req.user!.userId;
             const orderId = req.params.id as string;
             const result = await orderService.getSellerOrder(orderId, sellerId);
+            res.set('Cache-Control', 'private, max-age=15, stale-while-revalidate=45');
             res.json(result);
         } catch (error) {
             next(error);

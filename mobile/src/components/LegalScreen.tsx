@@ -72,7 +72,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
   },
   card: {
-    borderRadius: radius.lg,
+    borderRadius: 0,
     padding: spacing.lg,
     backgroundColor: colors.warmWhite,
     borderWidth: 1,
@@ -106,7 +106,7 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    borderRadius: 16,
+    borderRadius: 0,
     paddingHorizontal: spacing.md,
     paddingVertical: 6,
     backgroundColor: colors.warmWhite,

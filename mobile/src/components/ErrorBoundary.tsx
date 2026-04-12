@@ -62,7 +62,7 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: colors.warmWhite,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     padding: spacing.lg,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -86,7 +86,7 @@ const styles = StyleSheet.create({
   },
   button: {
     backgroundColor: colors.charcoal,
-    borderRadius: radius.md,
+    borderRadius: 0,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
   },

@@ -15,8 +15,8 @@ export declare class ReturnService {
             orderItemId: string;
         }[];
     } & {
-        reason: string;
         status: import(".prisma/client").$Enums.ReturnStatus;
+        reason: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
@@ -44,8 +44,8 @@ export declare class ReturnService {
                 orderItemId: string;
             }[];
         } & {
-            reason: string;
             status: import(".prisma/client").$Enums.ReturnStatus;
+            reason: string;
             id: string;
             createdAt: Date;
             updatedAt: Date;
@@ -81,8 +81,8 @@ export declare class ReturnService {
             orderItemId: string;
         })[];
     } & {
-        reason: string;
         status: import(".prisma/client").$Enums.ReturnStatus;
+        reason: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
@@ -124,8 +124,8 @@ export declare class ReturnService {
                 orderItemId: string;
             }[];
         } & {
-            reason: string;
             status: import(".prisma/client").$Enums.ReturnStatus;
+            reason: string;
             id: string;
             createdAt: Date;
             updatedAt: Date;

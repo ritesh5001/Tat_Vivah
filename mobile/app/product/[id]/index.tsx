@@ -5,7 +5,8 @@ import {
   ScrollView,
   Pressable,
   FlatList,
-  Dimensions,
+  Platform,
+  useWindowDimensions,
   Alert,
   Modal,
   type ListRenderItemInfo,
@@ -43,9 +44,11 @@ import {
 } from "../../../src/components";
 import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
 import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
+import { WishlistIcon } from "../../../src/components/WishlistIcon";
 import { impactMedium, impactLight, notifySuccess } from "../../../src/utils/haptics";
 import { AppHeader } from "../../../src/components/AppHeader";
 import { useQuery } from "@tanstack/react-query";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
   runOnJS,
   useAnimatedStyle,
@@ -63,9 +66,7 @@ import {
 // Constants
 // ---------------------------------------------------------------------------
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const IMAGE_WIDTH = SCREEN_WIDTH - spacing.lg * 2;
-const IMAGE_HEIGHT = Math.round(IMAGE_WIDTH * 1.25);
+const VIEWER_MIN_WIDTH = 1;
 
 const fallbackImage =
   "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80";
@@ -86,13 +87,17 @@ const MAX_REVIEW_IMAGE_BYTES = 2 * 1024 * 1024;
 /** Single gallery image with full-width paging. */
 const GalleryImage = React.memo(function GalleryImage({
   uri,
+  width,
+  height,
 }: {
   uri: string;
+  width: number;
+  height: number;
 }) {
   return (
     <Image
       source={{ uri }}
-      style={galleryStyles.image}
+      style={[galleryStyles.image, { width, height }]}
       contentFit="contain"
       transition={200}
       cachePolicy="memory-disk"
@@ -102,9 +107,7 @@ const GalleryImage = React.memo(function GalleryImage({
 
 const galleryStyles = StyleSheet.create({
   image: {
-    width: IMAGE_WIDTH,
-    height: IMAGE_HEIGHT,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     backgroundColor: colors.cream,
   },
 });
@@ -206,13 +209,13 @@ const ZoomableModalImage = React.memo(function ZoomableModalImage({
 
 const viewerStyles = StyleSheet.create({
   itemWrap: {
-    width: SCREEN_WIDTH,
+    width: "100%",
     height: "100%",
     alignItems: "center",
     justifyContent: "center",
   },
   image: {
-    width: SCREEN_WIDTH,
+    width: "100%",
     height: "100%",
   },
 });
@@ -292,14 +295,14 @@ const relatedCardStyles = StyleSheet.create({
     width: 150,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    borderRadius: radius.md,
+    borderRadius: 0,
     padding: spacing.sm,
     backgroundColor: colors.background,
   },
   image: {
     width: "100%",
-    height: 110,
-    borderRadius: radius.sm,
+    aspectRatio: 3 / 4,
+    borderRadius: 0,
     backgroundColor: colors.cream,
   },
   title: {
@@ -337,6 +340,8 @@ function renderStars(avg: number): string {
 
 export default function ProductDetailScreen() {
   const router = useRouter();
+  const { width: windowWidth } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
   const productId = typeof params.id === "string" ? params.id : "";
   const { session } = useAuth();
@@ -365,6 +370,16 @@ export default function ProductDetailScreen() {
 
   const [relatedProducts, setRelatedProducts] = React.useState<ProductSummary[]>([]);
   const [loadingRelated, setLoadingRelated] = React.useState(false);
+
+  const WEB_BOTTOM_OFFSET = 16;
+  const stickyBottomOffset = Platform.OS === "web"
+    ? WEB_BOTTOM_OFFSET
+    : Math.max(insets.bottom, spacing.sm);
+  const galleryWidth = Math.max(windowWidth - spacing.lg * 2, 260);
+  const galleryHeight = Math.round(galleryWidth * (4 / 3));
+  const stickyActionHeight = 96;
+  const stickyReserveSpace = stickyBottomOffset + stickyActionHeight + spacing.xl;
+  const viewerWidth = Math.max(windowWidth, VIEWER_MIN_WIDTH);
 
   const [galleryIndex, setGalleryIndex] = React.useState(0);
   const [isViewerVisible, setIsViewerVisible] = React.useState(false);
@@ -525,6 +540,46 @@ export default function ProductDetailScreen() {
     }
   }, [token, isConnected, product, fallbackVariant, outOfStock, addToCart, router, showToast]);
 
+  const handleBuyNow = React.useCallback(async () => {
+    if (!token) {
+      showToast("Please sign in to continue", "info");
+      router.push("/login");
+      return;
+    }
+    if (!isConnected) {
+      showToast("You're offline. Please check your connection.", "error");
+      return;
+    }
+    if (!product || !fallbackVariant) {
+      showToast(
+        product?.variants?.length
+          ? "Select a variant to continue"
+          : "Variants are not available for this item",
+        "info"
+      );
+      return;
+    }
+    if (outOfStock) {
+      showToast("This variant is out of stock", "info");
+      return;
+    }
+
+    setAdding(true);
+    try {
+      await addToCart({
+        productId: product.id,
+        variantId: fallbackVariant.id,
+        quantity: 1,
+      });
+      impactMedium();
+      router.push("/checkout");
+    } catch {
+      // CartProvider handles toast messaging
+    } finally {
+      if (mountedRef.current) setAdding(false);
+    }
+  }, [token, isConnected, product, fallbackVariant, outOfStock, addToCart, router, showToast]);
+
   const handlePickReviewImages = React.useCallback(async () => {
     if (reviewImages.length >= MAX_REVIEW_IMAGES) {
       setReviewError(`Maximum ${MAX_REVIEW_IMAGES} images allowed.`);
@@ -651,10 +706,10 @@ export default function ProductDetailScreen() {
   const handleGalleryScroll = React.useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       const offset = e.nativeEvent.contentOffset.x;
-      const idx = Math.round(offset / IMAGE_WIDTH);
+      const idx = Math.round(offset / galleryWidth);
       setGalleryIndex(idx);
     },
-    []
+    [galleryWidth]
   );
 
   const openImageViewer = React.useCallback((index: number) => {
@@ -675,10 +730,10 @@ export default function ProductDetailScreen() {
   const renderGalleryItem = React.useCallback(
     ({ item, index }: ListRenderItemInfo<string>) => (
       <Pressable onPress={() => openImageViewer(index)}>
-        <GalleryImage uri={item} />
+        <GalleryImage uri={item} width={galleryWidth} height={galleryHeight} />
       </Pressable>
     ),
-    [openImageViewer]
+    [galleryHeight, galleryWidth, openImageViewer]
   );
 
   const renderViewerItem = React.useCallback(
@@ -727,8 +782,8 @@ export default function ProductDetailScreen() {
         <AppHeader showMenu showBack showWishlist showCart />
         <ScrollView contentContainerStyle={styles.container}>
           <SkeletonBlock
-            width={IMAGE_WIDTH}
-            height={IMAGE_HEIGHT}
+            width={galleryWidth}
+            height={galleryHeight}
             borderRadius={radius.lg}
             style={{ marginHorizontal: spacing.lg, marginTop: spacing.md }}
           />
@@ -760,7 +815,12 @@ export default function ProductDetailScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <AppHeader showMenu showBack showWishlist showCart />
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={[styles.container, { paddingBottom: stickyReserveSpace }]}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        showsVerticalScrollIndicator={false}
+      >
         {/* ---- Image gallery with paging dots ---- */}
         <View style={styles.galleryFrame}>
           <FlatList
@@ -768,15 +828,15 @@ export default function ProductDetailScreen() {
             keyExtractor={galleryKeyExtractor}
             horizontal
             pagingEnabled
-            snapToInterval={IMAGE_WIDTH}
+            snapToInterval={galleryWidth}
             decelerationRate="fast"
             showsHorizontalScrollIndicator={false}
             onScroll={handleGalleryScroll}
             scrollEventThrottle={16}
             contentContainerStyle={styles.galleryContainer}
             getItemLayout={(_data, index) => ({
-              length: IMAGE_WIDTH,
-              offset: IMAGE_WIDTH * index,
+              length: galleryWidth,
+              offset: galleryWidth * index,
               index,
             })}
             renderItem={renderGalleryItem}
@@ -804,15 +864,41 @@ export default function ProductDetailScreen() {
 
         {/* ---- Details card ---- */}
         <View style={styles.detailsCard}>
+          <Text style={styles.categoryLabel}>
+            {product.category?.name ?? "Curated Collection"}
+          </Text>
+
+          <View style={styles.titleRow}>
+            <Text style={styles.productTitle}>{product.title}</Text>
+            <Pressable
+              onPress={() => {
+                if (!token) {
+                  router.push("/login");
+                  return;
+                }
+                impactLight();
+                toggleWishlist(product.id);
+              }}
+              disabled={!product || wishlistMutatingIds.has(product?.id ?? "")}
+              style={styles.wishlistInlineButton}
+              hitSlop={8}
+            >
+              <WishlistIcon
+                size={22}
+                color={isWishlisted(product.id) ? "#E8453C" : colors.charcoal}
+                filled={isWishlisted(product.id)}
+              />
+            </Pressable>
+          </View>
+
           <View style={styles.detailsTopRow}>
-            <Text style={styles.categoryLabel}>
-              {product.category?.name ?? "Curated Collection"}
-            </Text>
             <View style={styles.detailsBadge}>
               <Text style={styles.detailsBadgeText}>Luxury Edit</Text>
             </View>
+            <Text style={styles.skuText}>
+              SKU ID- {fallbackVariant?.sku ?? "N/A"}
+            </Text>
           </View>
-          <Text style={styles.productTitle}>{product.title}</Text>
 
           {/* Average rating */}
           {reviews.length > 0 && (
@@ -832,7 +918,7 @@ export default function ProductDetailScreen() {
 
           {/* Price */}
           <View style={styles.priceRow}>
-            <Text style={styles.priceLabel}>Price</Text>
+            <Text style={styles.priceLabel}>MRP (Inclusive of all taxes)</Text>
             <View style={styles.priceValues}>
               <Text style={styles.priceValue}>
                 {selectedVariant ? currency.format(selectedVariant.price) : "—"}
@@ -864,7 +950,7 @@ export default function ProductDetailScreen() {
 
           {/* Variant selector */}
           <View style={styles.variantRow}>
-            <Text style={styles.variantLabel}>Select Variant</Text>
+            <Text style={styles.variantLabel}>Select Size</Text>
             <View style={styles.variantWrap}>
               {product.variants?.length ? (
                 product.variants.map((variant: ProductVariant) => {
@@ -889,7 +975,7 @@ export default function ProductDetailScreen() {
                           variantOOS && styles.variantChipTextDisabled,
                         ]}
                       >
-                        {variant.sku}
+                        {variant.sku.split("-").pop() || variant.sku}
                       </Text>
                     </Pressable>
                   );
@@ -898,56 +984,6 @@ export default function ProductDetailScreen() {
                 <Text style={styles.mutedText}>Variants coming soon.</Text>
               )}
             </View>
-          </View>
-
-          {/* Add to cart + Wishlist row */}
-          <View style={styles.actionRow}>
-            <AnimatedPressable
-              style={[
-                styles.primaryButton,
-                styles.primaryAction,
-                (outOfStock || adding) && styles.buttonDisabled,
-              ]}
-              onPress={handleAddToCart}
-              disabled={outOfStock || adding}
-              hitSlop={10}
-            >
-              {adding ? (
-                <TatvivahLoader size="sm" color={colors.background} />
-              ) : (
-                <Text style={styles.primaryButtonText}>
-                  {!selectedVariant
-                    ? "Select variant"
-                    : outOfStock
-                      ? "Out of stock"
-                      : "Add to cart"}
-                </Text>
-              )}
-            </AnimatedPressable>
-
-            {/* Wishlist heart */}
-            <Pressable
-              onPress={() => {
-                if (!token) {
-                  router.push("/login");
-                  return;
-                }
-                if (product) {
-                  impactLight();
-                  toggleWishlist(product.id);
-                }
-              }}
-              disabled={!product || wishlistMutatingIds.has(product?.id ?? "")}
-              style={[
-                styles.wishlistButton,
-                product && isWishlisted(product.id) && styles.wishlistButtonActive,
-              ]}
-              hitSlop={8}
-            >
-              <Text style={{ fontSize: 22 }}>
-                {product && isWishlisted(product.id) ? "❤️" : "🤍"}
-              </Text>
-            </Pressable>
           </View>
 
           {showViewCart && (
@@ -1093,6 +1129,63 @@ export default function ProductDetailScreen() {
         </View>
       </ScrollView>
 
+      <View
+        style={[
+          styles.stickyActionShell,
+          {
+            bottom: Platform.OS === "web" ? 0 : stickyBottomOffset,
+            paddingBottom: Platform.OS === "web"
+              ? spacing.md
+              : Math.max(insets.bottom, spacing.xs),
+          },
+        ]}
+      >
+        <View style={styles.actionRow}>
+          <View style={{ flex: 1 }}>
+            <AnimatedPressable
+              style={[
+                styles.ctaButtonBase,
+                styles.addToCartButton,
+                (outOfStock || adding) && styles.buttonDisabled,
+              ]}
+              onPress={handleAddToCart}
+              disabled={outOfStock || adding}
+              hitSlop={10}
+            >
+              {adding ? (
+                <TatvivahLoader size="sm" color={colors.charcoal} />
+              ) : (
+                <Text style={[styles.ctaButtonText, styles.addToCartButtonText]}>
+                  {!selectedVariant
+                    ? "Select variant"
+                    : outOfStock
+                      ? "Out of stock"
+                      : "Add to cart"}
+                </Text>
+              )}
+            </AnimatedPressable>
+          </View>
+
+          <View style={{ flex: 1 }}>
+            <AnimatedPressable
+              style={[
+                styles.ctaButtonBase,
+                styles.buyNowButton,
+                (outOfStock || adding) && styles.buttonDisabled,
+              ]}
+              onPress={handleBuyNow}
+              disabled={outOfStock || adding}
+            >
+              {adding ? (
+                <TatvivahLoader size="sm" color={colors.background} />
+              ) : (
+                <Text style={styles.ctaButtonText}>Buy now</Text>
+              )}
+            </AnimatedPressable>
+          </View>
+        </View>
+      </View>
+
       <Modal
         visible={isViewerVisible}
         transparent
@@ -1100,7 +1193,10 @@ export default function ProductDetailScreen() {
         onRequestClose={closeImageViewer}
       >
         <View style={styles.viewerOverlay}>
-          <Pressable style={styles.viewerCloseButton} onPress={closeImageViewer}>
+          <Pressable
+            style={[styles.viewerCloseButton, { top: insets.top + spacing.md }]}
+            onPress={closeImageViewer}
+          >
             <Text style={styles.viewerCloseText}>Close</Text>
           </Pressable>
 
@@ -1113,13 +1209,13 @@ export default function ProductDetailScreen() {
             renderItem={renderViewerItem}
             showsHorizontalScrollIndicator={false}
             getItemLayout={(_data, index) => ({
-              length: SCREEN_WIDTH,
-              offset: SCREEN_WIDTH * index,
+              length: viewerWidth,
+              offset: viewerWidth * index,
               index,
             })}
             onMomentumScrollEnd={(e) => {
               const next = Math.round(
-                e.nativeEvent.contentOffset.x / SCREEN_WIDTH
+                e.nativeEvent.contentOffset.x / viewerWidth
               );
               setViewerIndex(next);
             }}
@@ -1164,7 +1260,7 @@ const styles = StyleSheet.create({
     right: spacing.lg,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 0,
     backgroundColor: "rgba(44, 40, 37, 0.65)",
   },
   galleryIndexText: {
@@ -1183,14 +1279,14 @@ const styles = StyleSheet.create({
   dot: {
     width: 6,
     height: 6,
-    borderRadius: 3,
+    borderRadius: 0,
     backgroundColor: colors.borderSoft,
   },
   dotActive: {
     backgroundColor: colors.gold,
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: 0,
   },
 
   // Details
@@ -1198,17 +1294,22 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     marginHorizontal: spacing.lg,
     padding: spacing.lg,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surfaceElevated,
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    ...shadow.card,
+    borderRadius: 0,
+    backgroundColor: colors.background,
+  },
+  titleRow: {
+    marginTop: spacing.xs,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: spacing.sm,
   },
   detailsTopRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: spacing.sm,
+    marginTop: spacing.xs,
   },
   categoryLabel: {
     fontFamily: typography.sans,
@@ -1220,7 +1321,7 @@ const styles = StyleSheet.create({
   detailsBadge: {
     paddingHorizontal: spacing.sm,
     paddingVertical: 4,
-    borderRadius: 999,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.gold,
     backgroundColor: "rgba(196, 167, 108, 0.12)",
@@ -1233,10 +1334,20 @@ const styles = StyleSheet.create({
     letterSpacing: 1.1,
   },
   productTitle: {
-    marginTop: spacing.xs,
     fontFamily: typography.serif,
-    fontSize: 22,
+    flex: 1,
+    fontSize: 26,
     color: colors.charcoal,
+    lineHeight: 30,
+  },
+  wishlistInlineButton: {
+    width: 44,
+    height: 44,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.surfaceElevated,
+    alignItems: "center",
+    justifyContent: "center",
   },
   ratingRow: {
     flexDirection: "row",
@@ -1262,13 +1373,16 @@ const styles = StyleSheet.create({
   },
   priceRow: {
     marginTop: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderSoft,
+    paddingBottom: spacing.md,
   },
   priceLabel: {
     fontFamily: typography.sans,
-    fontSize: 11,
+    fontSize: 10,
     color: colors.brownSoft,
     textTransform: "uppercase",
-    letterSpacing: 1.2,
+    letterSpacing: 0.8,
   },
   priceValues: {
     flexDirection: "row",
@@ -1278,7 +1392,7 @@ const styles = StyleSheet.create({
   },
   priceValue: {
     fontFamily: typography.serif,
-    fontSize: 20,
+    fontSize: 34,
     color: colors.charcoal,
   },
   comparePrice: {
@@ -1319,7 +1433,7 @@ const styles = StyleSheet.create({
     borderColor: colors.borderSoft,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderRadius: 20,
+    borderRadius: 0,
     backgroundColor: colors.warmWhite,
   },
   variantChipActive: {
@@ -1346,33 +1460,58 @@ const styles = StyleSheet.create({
   primaryButton: {
     marginTop: spacing.lg,
     backgroundColor: colors.gold,
-    borderRadius: radius.md,
+    borderRadius: 0,
     paddingVertical: 14,
     alignItems: "center",
   },
   actionRow: {
-    marginTop: spacing.sm,
     flexDirection: "row",
-    gap: 12,
+    gap: spacing.sm,
     alignItems: "center",
+    width: "100%",
   },
-  primaryAction: {
+  ctaButtonBase: {
     flex: 1,
+    minHeight: 50,
     marginTop: 0,
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 0,
+  },
+  addToCartButton: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.gold,
+  },
+  addToCartButtonText: {
+    color: colors.charcoal,
   },
   primaryButtonText: {
     fontFamily: typography.sansMedium,
     fontSize: 12,
-    letterSpacing: 1.4,
+    letterSpacing: 1.2,
     textTransform: "uppercase",
     color: colors.background,
+  },
+  ctaButtonText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 12,
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+    color: colors.background,
+  },
+  buyNowButton: {
+    backgroundColor: colors.gold,
+    borderWidth: 1,
+    borderColor: colors.gold,
   },
   secondaryButton: {
     marginTop: spacing.md,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     paddingVertical: 12,
-    borderRadius: radius.md,
+    borderRadius: 0,
     alignItems: "center",
   },
   secondaryButtonText: {
@@ -1385,10 +1524,26 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     opacity: 0.5,
   },
+  stickyActionShell: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    zIndex: 12,
+    elevation: 12,
+    paddingTop: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    borderTopWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.surfaceElevated,
+    shadowColor: colors.charcoal,
+    shadowOpacity: 0.06,
+    shadowOffset: { width: 0, height: -4 },
+    shadowRadius: 10,
+  },
   wishlistButton: {
     width: 52,
     height: 52,
-    borderRadius: radius.md,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: colors.surface,
@@ -1398,6 +1553,13 @@ const styles = StyleSheet.create({
   wishlistButtonActive: {
     borderColor: "#E8453C",
     backgroundColor: "#3B1E22",
+  },
+  skuText: {
+    fontFamily: typography.sans,
+    fontSize: 10,
+    letterSpacing: 0.9,
+    textTransform: "uppercase",
+    color: colors.brownSoft,
   },
   loaderOverlay: {
     position: "absolute",
@@ -1422,7 +1584,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xl,
     marginHorizontal: spacing.lg,
     padding: spacing.lg,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -1467,7 +1629,7 @@ const styles = StyleSheet.create({
     minHeight: 80,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    borderRadius: radius.md,
+    borderRadius: 0,
     padding: spacing.sm,
     fontFamily: typography.sans,
     fontSize: 12,
@@ -1485,7 +1647,7 @@ const styles = StyleSheet.create({
   reviewImagePreviewWrap: {
     width: 56,
     height: 56,
-    borderRadius: radius.sm,
+    borderRadius: 0,
     overflow: "hidden",
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -1513,7 +1675,7 @@ const styles = StyleSheet.create({
   reviewImageAddBtn: {
     width: 56,
     height: 56,
-    borderRadius: radius.sm,
+    borderRadius: 0,
     borderWidth: 1,
     borderStyle: "dashed",
     borderColor: colors.borderSoft,
@@ -1561,7 +1723,7 @@ const styles = StyleSheet.create({
   reviewImageThumb: {
     width: 48,
     height: 48,
-    borderRadius: radius.sm,
+    borderRadius: 0,
     backgroundColor: colors.cream,
   },
   reviewDate: {
@@ -1589,7 +1751,7 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.lg,
     marginBottom: spacing.xl,
     padding: spacing.lg,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -1604,14 +1766,14 @@ const styles = StyleSheet.create({
     width: 150,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    borderRadius: radius.md,
+    borderRadius: 0,
     padding: spacing.sm,
     backgroundColor: colors.background,
   },
   relatedImage: {
     width: "100%",
     height: 110,
-    borderRadius: radius.sm,
+    borderRadius: 0,
     backgroundColor: colors.cream,
   },
   relatedTitle: {
@@ -1635,7 +1797,7 @@ const styles = StyleSheet.create({
   centerCard: {
     margin: spacing.lg,
     padding: spacing.xl,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     backgroundColor: colors.warmWhite,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -1659,7 +1821,7 @@ const styles = StyleSheet.create({
     zIndex: 2,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.35)",
-    borderRadius: radius.pill,
+    borderRadius: 0,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     backgroundColor: "rgba(0,0,0,0.45)",

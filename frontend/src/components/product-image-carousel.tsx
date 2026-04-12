@@ -40,10 +40,10 @@ export default function ProductImageCarousel({
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.7, ease: [0.25, 0.1, 0.25, 1] }}
-      className="flex flex-col gap-4 lg:flex-row"
+      className="flex min-w-0 max-w-full flex-col gap-4 overflow-x-clip lg:flex-row"
     >
       {safeImages.length > 1 && (
-        <div className="order-2 flex gap-3 overflow-x-auto lg:order-1 lg:max-h-185 lg:w-20 lg:flex-col lg:overflow-y-auto lg:overflow-x-hidden">
+        <div className="order-2 flex max-w-full gap-3 overflow-x-auto pb-1 lg:order-1 lg:max-h-185 lg:w-20 lg:flex-col lg:overflow-y-auto lg:overflow-x-hidden lg:pb-0">
           {safeImages.map((image, index) => {
             const isActive = index === activeIndex;
             return (
@@ -73,7 +73,7 @@ export default function ProductImageCarousel({
       )}
 
       {/* Main Image */}
-      <div className="order-1 relative flex-1 lg:order-2">
+      <div className="order-1 relative min-w-0 flex-1 lg:order-2">
         <div className="relative overflow-hidden border border-border-soft bg-card">
           <AnimatePresence mode="wait">
             <motion.div

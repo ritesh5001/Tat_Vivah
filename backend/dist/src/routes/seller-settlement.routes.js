@@ -7,7 +7,16 @@ router.use(authorize('SELLER', 'ADMIN', 'SUPER_ADMIN'));
 router.get('/', async (req, res, next) => {
     try {
         const sellerId = req.user.id;
-        const settlements = await settlementRepository.findSettlementsBySellerId(sellerId);
+        const rawSettlements = await settlementRepository.findSettlementsBySellerId(sellerId);
+        // Hide admin price and commission from sellers by adjusting gross to be Seller Gross
+        const settlements = rawSettlements.map(s => {
+            const { commissionAmount, ...rest } = s;
+            return {
+                ...rest,
+                grossAmount: s.grossAmount - s.commissionAmount,
+                commissionAmount: 0 // Strip commission amount
+            };
+        });
         res.json({
             success: true,
             data: settlements

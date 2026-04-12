@@ -3,6 +3,7 @@ import { ApiError } from '../errors/ApiError.js';
 import { compressReelVideo } from '../jobs/reel-compression.job.js';
 import type {
     CreateReelRequest,
+    UpdateReelRequest,
     ReelQueryFilters,
     ReelListResponse,
     PublicReelListResponse,
@@ -37,6 +38,7 @@ export class ReelService {
             videoUrl: data.videoUrl,
             thumbnailUrl: data.thumbnailUrl,
             caption: data.caption,
+            category: data.category,
             productId: data.productId,
         });
 
@@ -66,6 +68,50 @@ export class ReelService {
                 totalPages: Math.ceil(total / limit),
             },
         };
+    }
+
+    async updateSellerReel(reelId: string, sellerId: string, data: UpdateReelRequest) {
+        const reel = await this.reelRepo.findByIdAndSeller(reelId, sellerId);
+        if (!reel) {
+            throw ApiError.notFound('Reel not found or you do not have permission');
+        }
+
+        if (data.productId) {
+            const ownsProduct = await this.reelRepo.existsProduct(data.productId, sellerId);
+            if (!ownsProduct) {
+                throw ApiError.forbidden('Product does not belong to you');
+            }
+        }
+
+        const updateData: {
+            caption?: string | null;
+            category?: 'MENS' | 'KIDS';
+            productId?: string | null;
+            status?: 'PENDING' | 'APPROVED' | 'REJECTED';
+        } = {
+            status: 'PENDING',
+        };
+
+        if (data.caption !== undefined) {
+            const trimmedCaption = data.caption.trim();
+            updateData.caption = trimmedCaption.length > 0 ? trimmedCaption : null;
+        }
+
+        if (data.category !== undefined) {
+            updateData.category = data.category;
+        }
+
+        if (data.productId !== undefined) {
+            updateData.productId = data.productId;
+        }
+
+        const updated = await this.reelRepo.updateSellerFields(reelId, updateData);
+
+        if (reel.status === 'APPROVED') {
+            await invalidateCacheByPattern('reels:public:*');
+        }
+
+        return { message: 'Reel updated and sent for approval', reel: updated };
     }
 
     async deleteSellerReel(reelId: string, sellerId: string) {
@@ -150,7 +196,7 @@ export class ReelService {
     async listPublicReels(filters: ReelQueryFilters): Promise<PublicReelListResponse> {
         const page = filters.page ?? 1;
         const limit = filters.limit ?? 20;
-        const cacheKey = CACHE_KEYS.REELS_PUBLIC(page, limit);
+        const cacheKey = CACHE_KEYS.REELS_PUBLIC(page, limit, filters.category);
         const cached = await getFromCache<PublicReelListResponse>(cacheKey);
         if (cached) {
             return cached;

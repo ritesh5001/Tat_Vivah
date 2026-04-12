@@ -17,6 +17,7 @@ export declare class ReelEngagementRepository {
         updatedAt: Date;
         productId: string | null;
         sellerId: string;
+        category: import(".prisma/client", { with: { "resolution-mode": "require" } }).$Enums.ReelCategory;
         videoUrl: string;
         thumbnailUrl: string | null;
         caption: string | null;
@@ -35,6 +36,7 @@ export declare class ReelEngagementRepository {
         updatedAt: Date;
         productId: string | null;
         sellerId: string;
+        category: import(".prisma/client", { with: { "resolution-mode": "require" } }).$Enums.ReelCategory;
         videoUrl: string;
         thumbnailUrl: string | null;
         caption: string | null;
@@ -57,6 +59,7 @@ export declare class ReelEngagementRepository {
         updatedAt: Date;
         productId: string | null;
         sellerId: string;
+        category: import(".prisma/client", { with: { "resolution-mode": "require" } }).$Enums.ReelCategory;
         videoUrl: string;
         thumbnailUrl: string | null;
         caption: string | null;

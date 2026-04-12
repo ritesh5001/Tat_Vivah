@@ -262,16 +262,18 @@ export default function OrdersScreen() {
   const loadOrders = React.useCallback(async () => {
     if (!token) return;
 
-    const isCacheValid =
-      ordersScreenCache &&
-      ordersScreenCache.token === token &&
-      Date.now() - ordersScreenCache.cachedAt < ORDERS_CACHE_TTL_MS;
+    const cachedOrders = ordersScreenCache;
 
-    if (isCacheValid) {
-      setOrders(ordersScreenCache.orders);
-      setPaymentStatus(ordersScreenCache.paymentStatus);
-      setCancellationByOrder(ordersScreenCache.cancellationByOrder);
-      setReturnByOrder(ordersScreenCache.returnByOrder);
+    const isCacheValid =
+      cachedOrders !== null &&
+      cachedOrders.token === token &&
+      Date.now() - cachedOrders.cachedAt < ORDERS_CACHE_TTL_MS;
+
+    if (isCacheValid && cachedOrders) {
+      setOrders(cachedOrders.orders);
+      setPaymentStatus(cachedOrders.paymentStatus);
+      setCancellationByOrder(cachedOrders.cancellationByOrder);
+      setReturnByOrder(cachedOrders.returnByOrder);
       setLoading(false);
       setFetchError(null);
       return;
@@ -828,7 +830,7 @@ const styles = StyleSheet.create({
   orderCard: {
     marginBottom: spacing.md,
     padding: spacing.lg,
-    borderRadius: radius.xl,
+    borderRadius: 0,
     backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -857,14 +859,14 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: spacing.sm,
     paddingVertical: 6,
-    borderRadius: 999,
+    borderRadius: 0,
     borderWidth: 1,
     backgroundColor: colors.surface,
   },
   statusDot: {
     width: 6,
     height: 6,
-    borderRadius: 3,
+    borderRadius: 0,
   },
   orderMeta: {
     marginTop: spacing.xs,
@@ -893,7 +895,7 @@ const styles = StyleSheet.create({
   trackLink: {
     paddingHorizontal: spacing.sm,
     paddingVertical: 6,
-    borderRadius: 16,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: colors.surface,
@@ -908,7 +910,7 @@ const styles = StyleSheet.create({
   loadingCard: {
     margin: spacing.lg,
     padding: spacing.lg,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -923,7 +925,7 @@ const styles = StyleSheet.create({
   emptyCard: {
     margin: spacing.lg,
     padding: spacing.xl,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -953,7 +955,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gold,
     borderWidth: 1,
     borderColor: colors.gold,
-    borderRadius: radius.md,
+    borderRadius: 0,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
     alignItems: "center",
@@ -969,7 +971,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    borderRadius: radius.md,
+    borderRadius: 0,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
     alignItems: "center",
@@ -986,7 +988,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gold,
     borderWidth: 1,
     borderColor: colors.gold,
-    borderRadius: radius.md,
+    borderRadius: 0,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
     alignItems: "center",
@@ -1001,7 +1003,7 @@ const styles = StyleSheet.create({
   retryPaymentButton: {
     marginTop: spacing.sm,
     backgroundColor: colors.gold,
-    borderRadius: radius.md,
+    borderRadius: 0,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
     alignItems: "center" as const,
@@ -1020,7 +1022,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    borderRadius: radius.md,
+    borderRadius: 0,
     paddingVertical: spacing.xs,
     alignItems: "center",
     backgroundColor: colors.surface,
@@ -1036,7 +1038,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     borderWidth: 1,
     borderColor: colors.gold,
-    borderRadius: radius.md,
+    borderRadius: 0,
     paddingVertical: spacing.xs,
     alignItems: "center",
     backgroundColor: "rgba(184, 149, 108, 0.14)",
@@ -1056,7 +1058,7 @@ const styles = StyleSheet.create({
   },
   modalCard: {
     backgroundColor: colors.surfaceElevated,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     padding: spacing.lg,
@@ -1078,7 +1080,7 @@ const styles = StyleSheet.create({
     minHeight: 110,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    borderRadius: radius.md,
+    borderRadius: 0,
     padding: spacing.sm,
     textAlignVertical: "top",
     fontFamily: typography.sans,
@@ -1094,7 +1096,7 @@ const styles = StyleSheet.create({
   modalCancelButton: {
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    borderRadius: radius.md,
+    borderRadius: 0,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     alignItems: "center",
@@ -1107,7 +1109,7 @@ const styles = StyleSheet.create({
   },
   modalConfirmButton: {
     backgroundColor: colors.gold,
-    borderRadius: radius.md,
+    borderRadius: 0,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     alignItems: "center",

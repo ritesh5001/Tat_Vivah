@@ -11,6 +11,7 @@ export interface Reel {
   videoUrl: string;
   thumbnailUrl: string | null;
   caption: string | null;
+  category: "MENS" | "KIDS";
   status: "PENDING" | "APPROVED" | "REJECTED";
   views: number;
   likes: number;
@@ -47,15 +48,30 @@ export interface CreateReelPayload {
   videoUrl: string;
   thumbnailUrl?: string;
   caption?: string;
+  category?: "MENS" | "KIDS";
   productId?: string;
+}
+
+export interface UpdateReelPayload {
+  caption?: string;
+  category?: "MENS" | "KIDS";
+  productId?: string | null;
 }
 
 // ============================================================================
 // SELLER APIs
 // ============================================================================
 
-export async function listSellerReels(token?: string | null) {
-  return apiRequest<ReelListResponse>("/v1/seller/reels", {
+export async function listSellerReels(
+  params?: { page?: number; limit?: number; category?: string },
+  token?: string | null
+) {
+  const searchParams = new URLSearchParams();
+  if (params?.page) searchParams.set("page", String(params.page));
+  if (params?.limit) searchParams.set("limit", String(params.limit));
+  if (params?.category) searchParams.set("category", params.category);
+  const qs = searchParams.toString();
+  return apiRequest<ReelListResponse>(`/v1/seller/reels${qs ? `?${qs}` : ""}`, {
     method: "GET",
     token,
   });
@@ -82,18 +98,31 @@ export async function deleteSellerReel(
   });
 }
 
+export async function updateSellerReel(
+  reelId: string,
+  payload: UpdateReelPayload,
+  token?: string | null
+) {
+  return apiRequest<{ message: string; reel: Reel }>(`/v1/seller/reels/${reelId}`, {
+    method: "PATCH",
+    body: payload,
+    token,
+  });
+}
+
 // ============================================================================
 // ADMIN APIs
 // ============================================================================
 
 export async function listAdminReels(
-  params?: { status?: string; page?: number; limit?: number },
+  params?: { status?: string; page?: number; limit?: number; category?: string },
   token?: string | null
 ) {
   const searchParams = new URLSearchParams();
   if (params?.status) searchParams.set("status", params.status);
   if (params?.page) searchParams.set("page", String(params.page));
   if (params?.limit) searchParams.set("limit", String(params.limit));
+  if (params?.category) searchParams.set("category", params.category);
   const qs = searchParams.toString();
   return apiRequest<ReelListResponse>(`/v1/admin/reels${qs ? `?${qs}` : ""}`, {
     method: "GET",
@@ -127,12 +156,13 @@ export async function deleteReelAdmin(reelId: string, token?: string | null) {
 // ============================================================================
 
 export async function listPublicReels(
-  params?: { page?: number; limit?: number },
+  params?: { page?: number; limit?: number; category?: string },
   token?: string | null
 ) {
   const searchParams = new URLSearchParams();
   if (params?.page) searchParams.set("page", String(params.page));
   if (params?.limit) searchParams.set("limit", String(params.limit));
+  if (params?.category) searchParams.set("category", params.category);
   const qs = searchParams.toString();
   return apiRequest<ReelListResponse>(`/v1/reels${qs ? `?${qs}` : ""}`, {
     method: "GET",

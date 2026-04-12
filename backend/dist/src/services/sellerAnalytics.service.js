@@ -40,15 +40,20 @@ class SellerAnalyticsService {
         if (endDate)
             createdAtFilter.lte = endDate;
         const hasDate = Object.keys(createdAtFilter).length > 0;
+        const orderDateFilter = hasDate ? { createdAt: createdAtFilter } : {};
+        const sellerOrderFilter = {
+            items: { some: { sellerId } },
+            ...orderDateFilter,
+        };
         // Exclude cancelled orders from revenue / units / order-count
         const activeStatusFilter = {
             order: {
                 status: { notIn: [OrderStatus.CANCELLED] },
-                ...(hasDate ? { createdAt: createdAtFilter } : {}),
+                ...orderDateFilter,
             },
         };
         // ── Batch 1: aggregates ──────────────────────────────────────────
-        const [settlementAgg, orderItemAgg, distinctOrders] = await Promise.all([
+        const [settlementAgg, orderItemAgg, groupedOrderStatus] = await Promise.all([
             prisma.sellerSettlement.aggregate({
                 where: {
                     sellerId,
@@ -61,18 +66,19 @@ class SellerAnalyticsService {
                 where: { sellerId, ...activeStatusFilter },
                 _sum: { quantity: true },
             }),
-            prisma.orderItem.findMany({
-                where: { sellerId, ...activeStatusFilter },
-                select: { orderId: true },
-                distinct: ['orderId'],
+            prisma.order.groupBy({
+                by: ['status'],
+                where: sellerOrderFilter,
+                _count: { _all: true },
             }),
         ]);
-        const orderIds = distinctOrders.map((o) => o.orderId);
-        const totalOrders = orderIds.length;
+        const statusCountMap = new Map(groupedOrderStatus.map((row) => [row.status, row._count._all]));
+        const totalOrders = Array.from(statusCountMap.values()).reduce((sum, count) => sum + count, 0);
         const totalRevenue = settlementAgg._sum.grossAmount ?? 0;
         const netRevenue = settlementAgg._sum.netAmount ?? 0;
         const unitsSold = orderItemAgg._sum.quantity ?? 0;
-        const aov = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+        const activeOrders = totalOrders - (statusCountMap.get(OrderStatus.CANCELLED) ?? 0);
+        const aov = activeOrders > 0 ? totalRevenue / activeOrders : 0;
         if (totalOrders === 0) {
             const empty = {
                 totalRevenue: 0,
@@ -89,25 +95,24 @@ class SellerAnalyticsService {
             return empty;
         }
         // ── Batch 2: refunds, statuses, returns ─────────────────────────
-        const [refundAgg, orders, returnCount] = await Promise.all([
+        const [refundAgg, returnCount] = await Promise.all([
             prisma.refund.aggregate({
-                where: { orderId: { in: orderIds }, status: RefundStatus.SUCCESS },
+                where: {
+                    status: RefundStatus.SUCCESS,
+                    order: sellerOrderFilter,
+                },
                 _sum: { amount: true },
-            }),
-            prisma.order.findMany({
-                where: { id: { in: orderIds } },
-                select: { status: true },
             }),
             prisma.returnRequest.count({
                 where: {
-                    orderId: { in: orderIds },
                     status: { in: [ReturnStatus.APPROVED, ReturnStatus.REFUNDED] },
+                    order: sellerOrderFilter,
                 },
             }),
         ]);
         const refundAmountRupees = (refundAgg._sum.amount ?? 0) / 100;
-        const delivered = orders.filter((o) => o.status === OrderStatus.DELIVERED).length;
-        const cancelled = orders.filter((o) => o.status === OrderStatus.CANCELLED).length;
+        const delivered = statusCountMap.get(OrderStatus.DELIVERED) ?? 0;
+        const cancelled = statusCountMap.get(OrderStatus.CANCELLED) ?? 0;
         const returnRate = delivered > 0 ? (returnCount / delivered) * 100 : 0;
         const cancellationRate = totalOrders > 0 ? (cancelled / totalOrders) * 100 : 0;
         const result = {
@@ -161,7 +166,8 @@ class SellerAnalyticsService {
     }
     // ── 3. Top Products ──────────────────────────────────────────────────
     async getTopProducts(sellerId, limit = 10) {
-        const cacheKey = `seller:analytics:top-products:${sellerId}:${limit}`;
+        const safeLimit = Math.min(20, Math.max(1, Math.trunc(limit || 10)));
+        const cacheKey = `seller:analytics:top-products:${sellerId}:${safeLimit}`;
         const cached = await getFromCache(cacheKey);
         if (cached)
             return cached;
@@ -173,7 +179,7 @@ class SellerAnalyticsService {
             },
             _sum: { quantity: true, totalAmount: true },
             orderBy: { _sum: { quantity: 'desc' } },
-            take: limit,
+            take: safeLimit,
         });
         if (productAggs.length === 0) {
             await setCache(cacheKey, [], CACHE_TTL);
@@ -226,14 +232,21 @@ class SellerAnalyticsService {
             return cached;
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        const [variants, fastMovingAggs] = await Promise.all([
-            prisma.productVariant.findMany({
-                where: { product: { sellerId } },
-                take: 5000,
-                include: {
-                    inventory: true,
-                    product: { select: { id: true, title: true, images: true } },
+        const [lowStockCount, outOfStockCount, totalVariants, fastMovingAggs] = await Promise.all([
+            prisma.productVariant.count({
+                where: {
+                    product: { sellerId },
+                    inventory: { stock: { gt: 0, lt: 10 } },
                 },
+            }),
+            prisma.productVariant.count({
+                where: {
+                    product: { sellerId },
+                    inventory: { stock: 0 },
+                },
+            }),
+            prisma.productVariant.count({
+                where: { product: { sellerId } },
             }),
             prisma.orderItem.groupBy({
                 by: ['productId'],
@@ -249,16 +262,6 @@ class SellerAnalyticsService {
                 take: 10,
             }),
         ]);
-        const totalVariants = variants.length;
-        const lowStockSet = new Set();
-        const outOfStockSet = new Set();
-        for (const v of variants) {
-            const stock = v.inventory?.stock ?? 0;
-            if (stock === 0)
-                outOfStockSet.add(v.productId);
-            else if (stock < 10)
-                lowStockSet.add(v.productId);
-        }
         // Build fast mover detail map
         const fmProductIds = fastMovingAggs.map((f) => f.productId);
         const fmProducts = fmProductIds.length > 0
@@ -269,8 +272,8 @@ class SellerAnalyticsService {
             : [];
         const fmMap = new Map(fmProducts.map((p) => [p.id, p]));
         const result = {
-            lowStockProducts: lowStockSet.size,
-            outOfStockProducts: outOfStockSet.size,
+            lowStockProducts: lowStockCount,
+            outOfStockProducts: outOfStockCount,
             totalVariants,
             fastMovingProducts: fastMovingAggs
                 .filter((f) => (f._sum.quantity ?? 0) >= 5)
@@ -296,38 +299,39 @@ class SellerAnalyticsService {
         if (endDate)
             createdAtFilter.lte = endDate;
         const hasDate = Object.keys(createdAtFilter).length > 0;
-        const orderDateWhere = hasDate ? { order: { createdAt: createdAtFilter } } : {};
-        const distinctOrders = await prisma.orderItem.findMany({
-            where: { sellerId, ...orderDateWhere },
-            select: { orderId: true },
-            distinct: ['orderId'],
-        });
-        const orderIds = distinctOrders.map((o) => o.orderId);
-        if (orderIds.length === 0) {
-            const empty = { totalRefunds: 0, refundRevenueImpact: 0, mostReturnedProducts: [] };
-            await setCache(cacheKey, empty, CACHE_TTL);
-            return empty;
-        }
+        const orderDateFilter = hasDate ? { createdAt: createdAtFilter } : {};
+        const sellerOrderFilter = {
+            items: { some: { sellerId } },
+            ...orderDateFilter,
+        };
+        const mostReturnedQuery = `
+            SELECT oi.product_id AS "productId",
+                   p.title,
+                   COUNT(DISTINCT ri.return_request_id) AS "returnCount",
+                   COALESCE(SUM(ri.quantity * oi.price_snapshot), 0)::float AS "refundAmount"
+            FROM return_items ri
+            JOIN order_items oi ON ri.order_item_id = oi.id
+            JOIN orders o ON o.id = oi.order_id
+            JOIN products p ON oi.product_id = p.id
+            WHERE oi.seller_id = $1
+              ${hasDate ? 'AND o.created_at >= $2 AND o.created_at <= $3' : ''}
+            GROUP BY oi.product_id, p.title
+            ORDER BY "returnCount" DESC
+            LIMIT 10
+        `;
+        const mostReturnedParams = hasDate
+            ? [sellerId, createdAtFilter.gte ?? new Date('1970-01-01T00:00:00Z'), createdAtFilter.lte ?? new Date()]
+            : [sellerId];
         const [refundAgg, mostReturned] = await Promise.all([
             prisma.refund.aggregate({
-                where: { orderId: { in: orderIds }, status: RefundStatus.SUCCESS },
+                where: {
+                    status: RefundStatus.SUCCESS,
+                    order: sellerOrderFilter,
+                },
                 _sum: { amount: true },
                 _count: true,
             }),
-            prisma.$queryRaw `
-                SELECT oi.product_id  AS "productId",
-                       p.title,
-                       COUNT(DISTINCT ri.return_request_id)        AS "returnCount",
-                       COALESCE(SUM(ri.quantity * oi.price_snapshot), 0)::float AS "refundAmount"
-                FROM return_items ri
-                JOIN order_items oi ON ri.order_item_id = oi.id
-                JOIN products    p  ON oi.product_id    = p.id
-                WHERE oi.seller_id = ${sellerId}
-                  AND oi.order_id IN (${Prisma.join(orderIds)})
-                GROUP BY oi.product_id, p.title
-                ORDER BY "returnCount" DESC
-                LIMIT 10
-            `,
+            prisma.$queryRawUnsafe(mostReturnedQuery, ...mostReturnedParams),
         ]);
         const result = {
             totalRefunds: refundAgg._count,

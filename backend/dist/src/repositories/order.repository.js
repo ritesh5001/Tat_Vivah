@@ -1,6 +1,6 @@
 import { prisma } from '../config/db.js';
 const DEFAULT_LIMIT = 20;
-const MAX_LIMIT = 100;
+const MAX_LIMIT = 20;
 function resolvePagination(page, limit) {
     const pRaw = Number(page ?? 1);
     const lRaw = Number(limit ?? DEFAULT_LIMIT);

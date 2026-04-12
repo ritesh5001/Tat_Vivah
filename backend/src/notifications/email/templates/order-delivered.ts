@@ -1,5 +1,6 @@
 import { EmailTemplateResult } from '../../types.js';
 import { renderBrandedEmail } from './layout.js';
+import { portalLinks } from './portal-links.js';
 
 export function orderDeliveredTemplate(data: { orderId: string }): EmailTemplateResult {
     return {
@@ -14,7 +15,7 @@ export function orderDeliveredTemplate(data: { orderId: string }): EmailTemplate
             ],
             details: [{ label: 'Order ID', value: data.orderId }],
             ctaLabel: 'View Order',
-            ctaUrl: 'https://tatvivahtrends.com/user/orders',
+            ctaUrl: portalLinks.userOrders,
             accentText: 'If anything is incorrect with this delivery, please contact support promptly.',
         }),
     };

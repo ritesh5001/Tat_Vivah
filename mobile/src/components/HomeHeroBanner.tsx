@@ -1,13 +1,22 @@
 import * as React from "react";
-import { FlatList, Pressable, StyleSheet, View, useWindowDimensions } from "react-native";
+import {
+  FlatList,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  Pressable,
+  StyleSheet,
+  View,
+  useWindowDimensions,
+} from "react-native";
+import Svg, { Defs, LinearGradient as SvgLinearGradient, Rect, Stop } from "react-native-svg";
 import { CachedImage } from "./CachedImage";
 import { images } from "../data/images";
 import { spacing, typography } from "../theme/tokens";
 import { AppText as Text } from "./AppText";
 
-interface HomeHeroBannerProps {
+type HomeHeroBannerProps = {
   onPress?: () => void;
-}
+};
 
 type HeroSlide = {
   id: string;
@@ -30,39 +39,78 @@ const HERO_SLIDES: HeroSlide[] = [
     image: images.hero.mobile[1],
     eyebrow: "Made for Celebrations",
     title: "Wedding to Reception",
-    subtitle: "One destination for sherwanis, Indo-western layers, and complete occasion styling.",
+    subtitle: "Layered and statement-ready pieces designed for every event of your big week.",
   },
   {
     id: "hero-3",
     image: images.hero.mobile[2],
-    eyebrow: "Luxury Edit",
+    eyebrow: "Tailored With Precision",
     title: "Refined Menswear Stories",
     subtitle: "Real craftsmanship, rich textures, and premium silhouettes curated for modern grooms.",
   },
   {
     id: "hero-4",
-    image: images.hero.mobile[4],
+    image: images.hero.mobile[3],
     eyebrow: "TatVivah Exclusive",
     title: "The Grand Festive Drop",
     subtitle: "Statement looks with comfort-first tailoring so you can celebrate all day with confidence.",
   },
 ];
 
+function BannerWineFade() {
+  return (
+    <View style={styles.bannerWineFade}>
+      <Svg width="100%" height="100%" preserveAspectRatio="none">
+        <Defs>
+          <SvgLinearGradient id="hero-wine-fade" x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0%" stopColor="#4A2515" stopOpacity="0" />
+            <Stop offset="52%" stopColor="#4A2515" stopOpacity="0.06" />
+            <Stop offset="76%" stopColor="#4A2515" stopOpacity="0.28" />
+            <Stop offset="100%" stopColor="#4A2515" stopOpacity="0.72" />
+          </SvgLinearGradient>
+        </Defs>
+        <Rect x="0" y="0" width="100%" height="100%" fill="url(#hero-wine-fade)" />
+      </Svg>
+    </View>
+  );
+}
+
 export function HomeHeroBanner({ onPress }: HomeHeroBannerProps) {
-  const { width } = useWindowDimensions();
-  const sliderRef = React.useRef<FlatList<HeroSlide> | null>(null);
+  const { width: windowWidth } = useWindowDimensions();
+  const [bannerWidth, setBannerWidth] = React.useState(windowWidth);
   const [activeIndex, setActiveIndex] = React.useState(0);
+  const isDraggingRef = React.useRef(false);
+
+  const sliderRef = React.useRef<FlatList<HeroSlide> | null>(null);
   const activeIndexRef = React.useRef(0);
+
+  React.useEffect(() => {
+    setBannerWidth(windowWidth);
+  }, [windowWidth]);
 
   React.useEffect(() => {
     activeIndexRef.current = activeIndex;
   }, [activeIndex]);
 
+  const handleScroll = React.useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      if (!bannerWidth) return;
+      const index = Math.round(event.nativeEvent.contentOffset.x / bannerWidth);
+      const bounded = Math.max(0, Math.min(HERO_SLIDES.length - 1, index));
+      if (bounded !== activeIndexRef.current) {
+        activeIndexRef.current = bounded;
+        setActiveIndex(bounded);
+      }
+    },
+    [bannerWidth]
+  );
+
   React.useEffect(() => {
     const interval = setInterval(() => {
+      if (!bannerWidth || isDraggingRef.current) return;
       const nextIndex = (activeIndexRef.current + 1) % HERO_SLIDES.length;
       sliderRef.current?.scrollToOffset({
-        offset: nextIndex * width,
+        offset: nextIndex * bannerWidth,
         animated: true,
       });
       activeIndexRef.current = nextIndex;
@@ -70,21 +118,43 @@ export function HomeHeroBanner({ onPress }: HomeHeroBannerProps) {
     }, 4200);
 
     return () => clearInterval(interval);
-  }, [width]);
+  }, [bannerWidth]);
 
   return (
-    <View style={styles.heroCard}>
+    <View
+      style={[styles.heroCard, { height: bannerWidth }]}
+      onLayout={(event) => {
+        const nextWidth = Math.round(event.nativeEvent.layout.width);
+        if (nextWidth > 0 && nextWidth !== bannerWidth) {
+          setBannerWidth(nextWidth);
+        }
+      }}
+    >
       <FlatList
         ref={sliderRef}
         data={HERO_SLIDES}
-        keyExtractor={(item) => item.id}
         horizontal
+        scrollEnabled
+        nestedScrollEnabled
+        directionalLockEnabled
         pagingEnabled
         showsHorizontalScrollIndicator={false}
+        keyExtractor={(item) => item.id}
+        style={[styles.slider, { height: bannerWidth }]}
+        contentContainerStyle={[styles.sliderContent, { height: bannerWidth }]}
+        snapToInterval={bannerWidth}
+        snapToAlignment="start"
+        decelerationRate="fast"
+        getItemLayout={(_, index) => ({
+          length: bannerWidth,
+          offset: bannerWidth * index,
+          index,
+        })}
         renderItem={({ item }) => (
-          <Pressable style={[styles.slide, { width }]} onPress={onPress}>
+          <Pressable style={[styles.slide, { width: bannerWidth, height: bannerWidth }]} onPress={onPress}>
             <CachedImage source={item.image} style={styles.heroImage} contentFit="cover" />
             <View style={styles.heroOverlay} />
+            <BannerWineFade />
             <View style={styles.heroContent}>
               <Text style={styles.eyebrow}>{item.eyebrow}</Text>
               <Text style={styles.title}>{item.title}</Text>
@@ -92,10 +162,21 @@ export function HomeHeroBanner({ onPress }: HomeHeroBannerProps) {
             </View>
           </Pressable>
         )}
-        onMomentumScrollEnd={(event) => {
-          const index = Math.round(event.nativeEvent.contentOffset.x / width);
-          setActiveIndex(index);
+        onScroll={handleScroll}
+        onScrollBeginDrag={() => {
+          isDraggingRef.current = true;
         }}
+        onScrollEndDrag={() => {
+          isDraggingRef.current = false;
+        }}
+        onMomentumScrollEnd={(event) => {
+          isDraggingRef.current = false;
+          handleScroll(event);
+        }}
+        onMomentumScrollBegin={() => {
+          isDraggingRef.current = true;
+        }}
+        scrollEventThrottle={16}
       />
 
       <View style={styles.paginationWrap}>
@@ -112,33 +193,42 @@ export function HomeHeroBanner({ onPress }: HomeHeroBannerProps) {
 
 const styles = StyleSheet.create({
   heroCard: {
-    height: 368,
+    width: "100%",
     borderRadius: 0,
     overflow: "hidden",
     borderWidth: 0,
-    backgroundColor: "#1E1A17",
+    backgroundColor: "#F4EFE7",
     justifyContent: "flex-end",
   },
+  slider: {
+    width: "100%",
+  },
+  sliderContent: {
+    width: "100%",
+  },
   slide: {
-    height: "100%",
+    position: "relative",
   },
   heroImage: {
-    ...StyleSheet.absoluteFillObject,
     width: "100%",
     height: "100%",
   },
   heroOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(30, 26, 23, 0.36)",
+    backgroundColor: "rgba(30, 26, 23, 0.16)",
+  },
+  bannerWineFade: {
+    ...StyleSheet.absoluteFillObject,
   },
   heroContent: {
     position: "absolute",
     left: 0,
     right: 0,
     bottom: 0,
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xl,
     gap: spacing.xs,
+    backgroundColor: "transparent",
   },
   eyebrow: {
     fontFamily: typography.sansMedium,
@@ -149,14 +239,14 @@ const styles = StyleSheet.create({
   },
   title: {
     fontFamily: typography.serif,
-    fontSize: 18,
-    lineHeight: 22,
+    fontSize: 24,
+    lineHeight: 28,
     color: "#FFFBF2",
   },
   subtitle: {
     fontFamily: typography.sans,
-    fontSize: 11,
-    lineHeight: 15,
+    fontSize: 12,
+    lineHeight: 17,
     color: "#F2E7D4",
   },
   paginationWrap: {
@@ -170,12 +260,12 @@ const styles = StyleSheet.create({
   paginationDot: {
     width: 8,
     height: 8,
-    borderRadius: 999,
+    borderRadius: 0,
     backgroundColor: "rgba(255,255,255,0.38)",
   },
   paginationDotActive: {
     width: 20,
-    borderRadius: 999,
+    borderRadius: 0,
     backgroundColor: "#E2B866",
   },
 });

@@ -18,8 +18,8 @@ export class OrderService {
      * Uses Redis caching
      */
     async listBuyerOrders(userId, params) {
-        const page = params?.page ?? 1;
-        const limit = params?.limit ?? 20;
+        const page = Math.max(1, Math.trunc(params?.page ?? 1));
+        const limit = Math.min(20, Math.max(1, Math.trunc(params?.limit ?? 20)));
         const startKey = params?.startDate?.toISOString() ?? '_';
         const endKey = params?.endDate?.toISOString() ?? '_';
         const cacheKey = `${CACHE_KEYS.BUYER_ORDERS(userId)}:${page}:${limit}:${startKey}:${endKey}`;
@@ -28,7 +28,7 @@ export class OrderService {
         if (cached) {
             return cached;
         }
-        const orders = await this.orderRepo.findByUserId(userId, params);
+        const orders = await this.orderRepo.findByUserId(userId, { ...params, page, limit });
         const response = { orders };
         // Cache the result
         await setCache(cacheKey, response);
@@ -61,7 +61,9 @@ export class OrderService {
      * No caching (frequently changing data)
      */
     async listSellerOrders(sellerId, params) {
-        const orderItems = await this.orderRepo.findBySellerId(sellerId, params);
+        const page = Math.max(1, Math.trunc(params?.page ?? 1));
+        const limit = Math.min(20, Math.max(1, Math.trunc(params?.limit ?? 20)));
+        const orderItems = await this.orderRepo.findBySellerId(sellerId, { ...params, page, limit });
         return { orderItems };
     }
     /**

@@ -37,6 +37,7 @@ export declare class AuthRepository {
      * Create a new login session
      */
     createSession(data: {
+        sessionId?: string;
         userId: string;
         refreshToken: string;
         userAgent?: string | undefined;

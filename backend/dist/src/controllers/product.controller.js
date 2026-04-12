@@ -40,6 +40,7 @@ export class ProductController {
         try {
             const filters = productQuerySchema.parse(req.query);
             const result = await this.service.listProducts(filters);
+            res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=120');
             res.status(200).json(result);
         }
         catch (error) {
@@ -62,6 +63,7 @@ export class ProductController {
                 throw ApiError.badRequest('Product ID is required');
             }
             const result = await this.service.getProductById(id);
+            res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=180');
             res.status(200).json(result);
         }
         catch (error) {

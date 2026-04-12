@@ -95,6 +95,12 @@ export const redis = {
             : await safe(() => (withScores ? redisClient.zrange(key, start, stop, 'WITHSCORES') : redisClient.zrange(key, start, stop)), []);
         return result;
     },
+    async hincrby(key, field, increment) {
+        return safe(() => redisClient.hincrby(key, field, increment), 0);
+    },
+    async hgetall(key) {
+        return safe(() => redisClient.hgetall(key), {});
+    },
 };
 export async function checkRedisConnection() {
     const pong = await redis.ping();

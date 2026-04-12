@@ -1,5 +1,6 @@
 import { EmailTemplateResult } from '../../types.js';
 import { renderBrandedEmail } from './layout.js';
+import { portalLinks } from './portal-links.js';
 
 export function orderShippedTemplate(data: { orderId: string, trackingNumber: string, carrier: string }): EmailTemplateResult {
     return {
@@ -18,7 +19,7 @@ export function orderShippedTemplate(data: { orderId: string, trackingNumber: st
                 { label: 'Tracking Number', value: data.trackingNumber },
             ],
             ctaLabel: 'View Order Status',
-            ctaUrl: 'https://tatvivahtrends.com/user/orders',
+            ctaUrl: portalLinks.userOrders,
         }),
     };
 }

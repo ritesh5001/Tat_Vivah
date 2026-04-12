@@ -62,6 +62,7 @@ export class VariantRepository {
         id: string;
         productId: string;
         price: number;
+        inventory: { stock: number } | null;
         product: {
             id: string;
             sellerId: string;
@@ -76,6 +77,11 @@ export class VariantRepository {
                 id: true,
                 productId: true,
                 price: true,
+                inventory: {
+                    select: {
+                        stock: true,
+                    },
+                },
                 product: {
                     select: {
                         id: true,

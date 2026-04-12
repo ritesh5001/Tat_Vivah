@@ -40,7 +40,7 @@ export const CACHE_KEYS = {
     RECOMMENDATIONS: (userId: string) => `recommendations:${userId}`,
 
     // Reels domain
-    REELS_PUBLIC: (page: number, limit: number) => `reels:public:${page}:${limit}`,
+    REELS_PUBLIC: (page: number, limit: number, category?: string) => `reels:public:${page}:${limit}:${category ?? '_'}`,
 
     // Admin domain
     ADMIN_STATS: 'admin:stats',
@@ -111,22 +111,22 @@ export async function invalidateCacheByPattern(pattern: string): Promise<void> {
  * Used after product mutations
  */
 export async function invalidateProductCaches(productId?: string): Promise<void> {
-    const keysToInvalidate: string[] = [
-        CACHE_KEYS.PRODUCTS_LIST,
+    const tasks: Promise<void>[] = [
+        invalidateCache(CACHE_KEYS.PRODUCTS_LIST),
+        invalidateCacheByPattern('products:list:*'),
+        invalidateCacheByPattern('products:seller:*'),
+        invalidateCacheByPattern('search:*'),
     ];
 
     if (productId) {
-        keysToInvalidate.push(CACHE_KEYS.PRODUCT_DETAIL(productId));
+        tasks.push(
+            invalidateCache(CACHE_KEYS.PRODUCT_DETAIL(productId)),
+            invalidateCacheByPattern(`reviews:${productId}:*`),
+            invalidateCacheByPattern(`search:related:${productId}:*`),
+        );
     }
 
-    await invalidateCache(...keysToInvalidate);
-    await invalidateCacheByPattern('products:list:*');
-    await invalidateCacheByPattern('products:seller:*');
-    await invalidateCacheByPattern('search:*');
-    if (productId) {
-        await invalidateCacheByPattern(`reviews:${productId}:*`);
-        await invalidateCacheByPattern(`search:related:${productId}:*`);
-    }
+    await Promise.allSettled(tasks);
 }
 
 /**

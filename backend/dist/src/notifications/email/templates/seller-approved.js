@@ -1,4 +1,5 @@
 import { renderBrandedEmail } from './layout.js';
+import { portalLinks } from './portal-links.js';
 export function sellerApprovedTemplate(data) {
     return {
         subject: 'Your TatVivah seller account is approved',
@@ -12,7 +13,7 @@ export function sellerApprovedTemplate(data) {
             ],
             details: data.sellerEmail ? [{ label: 'Approved Account', value: data.sellerEmail }] : [],
             ctaLabel: 'Go To Seller Dashboard',
-            ctaUrl: 'https://seller.tatvivahtrends.com/seller/dashboard',
+            ctaUrl: portalLinks.sellerDashboard,
         }),
     };
 }

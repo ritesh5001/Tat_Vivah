@@ -1,4 +1,5 @@
 import { prisma } from '../config/db.js';
+import { redis } from '../config/redis.js';
 const productSelect = {
     id: true,
     title: true,
@@ -15,10 +16,12 @@ const sellerSelect = {
     },
 };
 export class ReelRepository {
+    reelViewsBufferKey = 'reel:views:buffer';
     async create(data) {
         return prisma.reel.create({
             data: {
                 sellerId: data.sellerId,
+                category: data.category ?? 'MENS',
                 videoUrl: data.videoUrl,
                 thumbnailUrl: data.thumbnailUrl ?? null,
                 caption: data.caption ?? null,
@@ -42,9 +45,12 @@ export class ReelRepository {
         });
     }
     async findBySeller(sellerId, filters) {
-        const { page = 1, limit = 20 } = filters;
+        const { page = 1, limit = 20, category } = filters;
         const skip = (page - 1) * limit;
-        const where = { sellerId };
+        const where = {
+            sellerId,
+            ...(category && { category }),
+        };
         const [reels, total] = await Promise.all([
             prisma.reel.findMany({
                 where,
@@ -58,10 +64,11 @@ export class ReelRepository {
         return { reels, total };
     }
     async findAllAdmin(filters) {
-        const { page = 1, limit = 20, status } = filters;
+        const { page = 1, limit = 20, status, category } = filters;
         const skip = (page - 1) * limit;
         const where = {
             ...(status && { status }),
+            ...(category && { category }),
         };
         const [reels, total] = await Promise.all([
             prisma.reel.findMany({
@@ -79,9 +86,12 @@ export class ReelRepository {
         return { reels, total };
     }
     async findPublished(filters) {
-        const { page = 1, limit = 20 } = filters;
+        const { page = 1, limit = 20, category } = filters;
         const skip = (page - 1) * limit;
-        const where = { status: 'APPROVED' };
+        const where = {
+            status: 'APPROVED',
+            ...(category && { category }),
+        };
         const [reels, total] = await Promise.all([
             prisma.reel.findMany({
                 where,
@@ -112,11 +122,34 @@ export class ReelRepository {
             data: { status },
         });
     }
-    async incrementViews(id) {
+    async updateSellerFields(id, data) {
         return prisma.reel.update({
             where: { id },
-            data: { views: { increment: 1 } },
+            data,
+            include: { product: { select: productSelect } },
         });
+    }
+    async incrementViews(id) {
+        await redis.hincrby(this.reelViewsBufferKey, id, 1);
+    }
+    async flushReelViews() {
+        const buffer = await redis.hgetall(this.reelViewsBufferKey);
+        const entries = Object.entries(buffer);
+        if (entries.length === 0) {
+            return { flushed: 0 };
+        }
+        for (const [reelId, count] of entries) {
+            const increment = Number(count);
+            if (!Number.isFinite(increment) || increment <= 0) {
+                continue;
+            }
+            await prisma.reel.updateMany({
+                where: { id: reelId },
+                data: { views: { increment: Math.trunc(increment) } },
+            });
+        }
+        await redis.del(this.reelViewsBufferKey);
+        return { flushed: entries.length };
     }
     async delete(id) {
         return prisma.reel.delete({ where: { id } });

@@ -23,6 +23,7 @@ export class ReelService {
             videoUrl: data.videoUrl,
             thumbnailUrl: data.thumbnailUrl,
             caption: data.caption,
+            category: data.category,
             productId: data.productId,
         });
         await invalidateCacheByPattern('reels:public:*');
@@ -47,6 +48,36 @@ export class ReelService {
                 totalPages: Math.ceil(total / limit),
             },
         };
+    }
+    async updateSellerReel(reelId, sellerId, data) {
+        const reel = await this.reelRepo.findByIdAndSeller(reelId, sellerId);
+        if (!reel) {
+            throw ApiError.notFound('Reel not found or you do not have permission');
+        }
+        if (data.productId) {
+            const ownsProduct = await this.reelRepo.existsProduct(data.productId, sellerId);
+            if (!ownsProduct) {
+                throw ApiError.forbidden('Product does not belong to you');
+            }
+        }
+        const updateData = {
+            status: 'PENDING',
+        };
+        if (data.caption !== undefined) {
+            const trimmedCaption = data.caption.trim();
+            updateData.caption = trimmedCaption.length > 0 ? trimmedCaption : null;
+        }
+        if (data.category !== undefined) {
+            updateData.category = data.category;
+        }
+        if (data.productId !== undefined) {
+            updateData.productId = data.productId;
+        }
+        const updated = await this.reelRepo.updateSellerFields(reelId, updateData);
+        if (reel.status === 'APPROVED') {
+            await invalidateCacheByPattern('reels:public:*');
+        }
+        return { message: 'Reel updated and sent for approval', reel: updated };
     }
     async deleteSellerReel(reelId, sellerId) {
         const reel = await this.reelRepo.findByIdAndSeller(reelId, sellerId);
@@ -118,7 +149,7 @@ export class ReelService {
     async listPublicReels(filters) {
         const page = filters.page ?? 1;
         const limit = filters.limit ?? 20;
-        const cacheKey = CACHE_KEYS.REELS_PUBLIC(page, limit);
+        const cacheKey = CACHE_KEYS.REELS_PUBLIC(page, limit, filters.category);
         const cached = await getFromCache(cacheKey);
         if (cached) {
             return cached;

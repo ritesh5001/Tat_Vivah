@@ -2,7 +2,7 @@ import React from "react";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { Linking, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { colors, spacing, typography, textStyles, radius } from "../theme";
+import { colors, spacing, typography, textStyles } from "../theme";
 import { companyInfo } from "../data/company";
 
 const accordionSections = ["CATEGORIES", "SUPPORT", "QUICK LINKS", "OUR POLICIES"] as const;
@@ -135,10 +135,10 @@ export function Footer() {
       </View>
 
       <View style={styles.contactBlock}>
-        <Text style={styles.contactText}>TatVivah Menswear</Text>
-        <Text style={styles.contactText}>{companyInfo.supportPhoneDisplay}</Text>
-        <Text style={styles.contactText}>{companyInfo.supportEmail}</Text>
-        <Text style={styles.contactText}>{companyInfo.supportHours}</Text>
+        <Text style={styles.contactBrand}>TatVivah Trends</Text>
+        <Text style={styles.contactPrimary}>{companyInfo.supportPhoneDisplay}</Text>
+        <Text style={styles.contactValue}>{companyInfo.supportEmail}</Text>
+        <Text style={styles.contactHours}>{companyInfo.supportHours}</Text>
       </View>
 
       <Modal
@@ -189,10 +189,10 @@ const styles = StyleSheet.create({
   footer: {
     marginTop: spacing.xl,
     backgroundColor: colors.headerBrown,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
+    paddingTop: spacing.lg,
     paddingBottom: spacing.xl,
   },
   footerTitle: {
@@ -206,7 +206,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     borderWidth: 1,
     borderColor: "#9D7B70",
-    borderRadius: 999,
+    borderRadius: 0,
     overflow: "hidden",
     alignItems: "center",
     backgroundColor: "#6A3422",
@@ -269,7 +269,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     borderWidth: 1,
     borderColor: "#A68375",
-    borderRadius: radius.pill,
+    borderRadius: 0,
     paddingVertical: spacing.sm,
     backgroundColor: "rgba(255,255,255,0.05)",
   },
@@ -284,12 +284,36 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
     borderTopWidth: 1,
     borderTopColor: "#7F5548",
-    gap: 4,
+    gap: 2,
   },
-  contactText: {
+  contactBrand: {
+    fontFamily: typography.bodyMedium,
+    fontSize: 15,
+    color: "#F7ECE8",
+    letterSpacing: 0.2,
+    marginBottom: 2,
+  },
+  contactPrimary: {
+    fontFamily: typography.bodyMedium,
+    fontSize: 16,
+    color: "#FFF3EE",
+    letterSpacing: 0.2,
+    lineHeight: 24,
+  },
+  contactValue: {
     fontFamily: typography.body,
-    fontSize: 13,
+    fontSize: 12,
     color: "#F5E6E1",
+    lineHeight: 20,
+    letterSpacing: 0.15,
+  },
+  contactHours: {
+    fontFamily: typography.body,
+    fontSize: 12,
+    color: "#E8D4CC",
+    lineHeight: 20,
+    letterSpacing: 0.15,
+    marginTop: 1,
   },
   modalOverlay: {
     flex: 1,
@@ -298,7 +322,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   modalCard: {
-    borderRadius: radius.lg,
+    borderRadius: 0,
     padding: spacing.lg,
     backgroundColor: "#5B2E21",
     borderWidth: 1,
@@ -316,6 +340,7 @@ const styles = StyleSheet.create({
     fontFamily: typography.body,
     fontSize: 13,
     color: "#F5E6E1",
+    lineHeight: 20,
   },
   modalActions: {
     marginTop: spacing.md,
@@ -326,7 +351,7 @@ const styles = StyleSheet.create({
     flex: 1,
     borderWidth: 1,
     borderColor: "#B89588",
-    borderRadius: radius.pill,
+    borderRadius: 0,
     paddingVertical: spacing.sm,
     alignItems: "center",
     backgroundColor: "rgba(255,255,255,0.06)",
@@ -349,10 +374,11 @@ const styles = StyleSheet.create({
     color: "#EAD7D0",
   },
   disclaimerText: {
-    marginTop: spacing.md,
+    marginTop: spacing.lg,
     fontFamily: typography.body,
-    fontSize: 12,
-    color: "#DABEB4",
-    lineHeight: 18,
+    fontSize: 13,
+    color: "#E3CCC3",
+    lineHeight: 24,
+    letterSpacing: 0.1,
   },
 });

@@ -55,7 +55,10 @@ export declare class ReviewService {
     /**
      * List all reviews for admin (includes hidden)
      */
-    listReviews(): Promise<{
+    listReviews(params?: {
+        page?: number;
+        limit?: number;
+    }): Promise<{
         reviews: {
             id: any;
             rating: any;

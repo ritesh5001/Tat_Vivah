@@ -6,7 +6,6 @@ import {
   Text,
   View,
   useWindowDimensions,
-  type ImageSourcePropType,
 } from "react-native";
 import { colors, spacing, textStyles } from "../theme";
 import { CachedImage } from "./CachedImage";
@@ -35,16 +34,14 @@ function ProductCardBase({
   const { width } = useWindowDimensions();
   const cardWidth = Math.min(Math.max(width * 0.46, 160), 190);
 
-  const source: ImageSourcePropType = imageUri
-    ? { uri: imageUri }
-    : require("../../assets/icon.png");
+  const source = imageUri || require("../../assets/icon.png");
 
   return (
     <Pressable onPress={() => onPress?.(id)} style={[styles.card, { width: cardWidth }] }>
       <View style={styles.imageWrap}>
         <CachedImage
           source={source}
-          style={[styles.image, { height: Math.round(cardWidth * 1.28) }]}
+          style={styles.image}
         />
 
         <Pressable
@@ -75,7 +72,7 @@ const styles = StyleSheet.create({
     width: 180,
   },
   imageWrap: {
-    borderRadius: 16,
+    borderRadius: 0,
     overflow: "hidden",
     borderWidth: 1,
     borderColor: colors.border,
@@ -83,7 +80,7 @@ const styles = StyleSheet.create({
   },
   image: {
     width: "100%",
-    height: 230,
+    aspectRatio: 3 / 4,
   },
   wishlistButton: {
     position: "absolute",
@@ -91,7 +88,7 @@ const styles = StyleSheet.create({
     right: spacing.sm,
     width: 30,
     height: 30,
-    borderRadius: 15,
+    borderRadius: 0,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.white,

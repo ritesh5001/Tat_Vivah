@@ -1,6 +1,5 @@
 import * as React from "react";
 import {
-  InteractionManager,
   View,
   StyleSheet,
   Pressable,
@@ -10,7 +9,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Image } from "../../../src/components/CompatImage";
 import { FlashList } from "@shopify/flash-list";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
+import { colors, spacing, typography, shadow } from "../../../src/theme/tokens";
 import { AppHeader } from "../../../src/components/AppHeader";
 import { getCategories, type Category } from "../../../src/services/catalog";
 import {
@@ -65,6 +64,9 @@ export default function MarketplaceScreen() {
       return current < total ? current + 1 : undefined;
     },
     initialPageParam: 1,
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 20,
+    refetchOnMount: false,
   });
 
   const products = React.useMemo<ProductItem[]>(
@@ -96,38 +98,39 @@ export default function MarketplaceScreen() {
 
   const handleProductPress = React.useCallback(
     (product: ProductItem) => {
-      InteractionManager.runAfterInteractions(() => {
-        router.push(`/product/${product.id}`);
-      });
+      router.push(`/product/${product.id}`);
     },
     [router]
   );
 
   const renderItem = React.useCallback(
     ({ item }: { item: ProductItem; index: number }) => (
-      <Pressable style={styles.luxuryCard} onPress={() => handleProductPress(item)}>
+      <Pressable style={styles.marketplaceCard} onPress={() => handleProductPress(item)}>
         <Image
           source={item.images?.[0] ? { uri: item.images[0] } : { uri: fallbackImage }}
-          style={styles.luxuryImage}
+          style={styles.marketplaceImage}
           contentFit="cover"
           transition={220}
           cachePolicy="memory-disk"
         />
-        <View style={styles.luxuryOverlay} />
-        <View style={styles.luxuryInfo}>
-          <Text style={styles.luxuryCategory}>
-            {item.category?.name ?? "Tatvivah Curated"}
-          </Text>
-          <Text style={styles.luxuryTitle} numberOfLines={2}>
+        <View style={styles.marketplaceInfo}>
+          <Text numberOfLines={1} style={styles.marketplaceTitle}>
             {item.title}
           </Text>
-          <View style={styles.luxuryBottomRow}>
-            <Text style={styles.luxuryPrice}>
+          <Text numberOfLines={1} style={styles.marketplaceCategory}>
+            {item.category?.name ?? "Collection"}
+          </Text>
+          <View style={styles.marketplacePriceRow}>
+            <Text style={styles.marketplacePrice}>
               {formatPrice(item.salePrice ?? item.adminPrice ?? item.price ?? item.sellerPrice)}
             </Text>
-            <View style={styles.luxuryCtaPill}>
-              <Text style={styles.luxuryCtaText}>Explore</Text>
-            </View>
+            {typeof item.regularPrice === "number" &&
+            typeof (item.salePrice ?? item.adminPrice ?? item.price ?? item.sellerPrice) === "number" &&
+            item.regularPrice > Number(item.salePrice ?? item.adminPrice ?? item.price ?? item.sellerPrice) ? (
+              <Text style={styles.marketplacePriceStrike}>
+                {formatPrice(item.regularPrice)}
+              </Text>
+            ) : null}
           </View>
         </View>
       </Pressable>
@@ -211,10 +214,11 @@ export default function MarketplaceScreen() {
       <FlashList
         data={products}
         keyExtractor={(item) => item.id}
-        numColumns={1}
+        numColumns={2}
         contentContainerStyle={styles.container}
-        
+        drawDistance={420}
         renderItem={renderItem}
+        removeClippedSubviews
         ListHeaderComponent={ListHeader}
         ListEmptyComponent={
           productsQuery.isLoading ? (
@@ -296,7 +300,7 @@ const styles = StyleSheet.create({
   searchCard: {
     marginTop: spacing.md,
     padding: spacing.md,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: colors.surfaceElevated,
@@ -309,7 +313,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderBottomColor: colors.borderSoft,
     borderColor: colors.borderSoft,
-    borderRadius: radius.md,
+    borderRadius: 0,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     backgroundColor: colors.background,
@@ -319,7 +323,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gold,
     borderWidth: 1,
     borderColor: colors.gold,
-    borderRadius: radius.md,
+    borderRadius: 0,
     paddingVertical: spacing.sm,
     alignItems: "center",
   },
@@ -341,7 +345,7 @@ const styles = StyleSheet.create({
     borderColor: colors.borderSoft,
     backgroundColor: colors.gold,
     paddingVertical: 10,
-    borderRadius: radius.md,
+    borderRadius: 0,
     alignItems: "center",
   },
   sortText: {
@@ -358,7 +362,7 @@ const styles = StyleSheet.create({
     marginRight: spacing.sm,
     paddingHorizontal: spacing.md,
     paddingVertical: 8,
-    borderRadius: 20,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: colors.surfaceElevated,
@@ -377,85 +381,59 @@ const styles = StyleSheet.create({
   filterTextActive: {
     color: colors.background,
   },
-  luxuryCard: {
-    width: "100%",
-    borderRadius: 14,
+  marketplaceCard: {
+    flex: 1,
+    borderRadius: 0,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
-    backgroundColor: colors.charcoal,
-    shadowColor: colors.brown,
-    shadowOpacity: 0.4,
-    shadowOffset: { width: 0, height: 8 },
-    shadowRadius: 24,
-    elevation: 5,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.surfaceElevated,
+    ...shadow.card,
     marginBottom: spacing.lg,
   },
-  luxuryImage: {
+  marketplaceImage: {
     width: "100%",
     aspectRatio: 0.75,
     backgroundColor: colors.surface,
   },
-  luxuryOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.18)",
+  marketplaceInfo: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
   },
-  luxuryInfo: {
-    position: "absolute",
-    left: spacing.md,
-    right: spacing.md,
-    bottom: spacing.md,
-    padding: spacing.md,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.25)",
-    backgroundColor: "rgba(15, 12, 9, 0.78)",
+  marketplaceTitle: {
+    fontFamily: typography.sansMedium,
+    fontSize: 13,
+    color: colors.charcoal,
   },
-  luxuryCategory: {
+  marketplaceCategory: {
+    marginTop: 4,
     fontFamily: typography.sans,
     fontSize: 10,
-    letterSpacing: 1.6,
+    letterSpacing: 1.1,
     textTransform: "uppercase",
-    color: colors.gold,
-    fontWeight: "400",
+    color: colors.brownSoft,
   },
-  luxuryTitle: {
-    marginTop: spacing.xs,
-    fontFamily: typography.serif,
-    fontSize: 22,
-    color: colors.background,
-    fontWeight: "600",
-  },
-  luxuryBottomRow: {
-    marginTop: spacing.sm,
+  marketplacePriceRow: {
+    marginTop: 6,
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    gap: spacing.xs,
   },
-  luxuryPrice: {
-    fontFamily: typography.serif,
-    fontSize: 17,
-    color: colors.background,
-  },
-  luxuryCtaPill: {
-    borderWidth: 1,
-    borderColor: "rgba(246, 238, 226, 0.28)",
-    borderRadius: 16,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
-    backgroundColor: "rgba(232,220,197,0.95)",
-  },
-  luxuryCtaText: {
+  marketplacePrice: {
     fontFamily: typography.sansMedium,
-    fontSize: 10,
-    letterSpacing: 1.2,
-    textTransform: "uppercase",
+    fontSize: 12,
     color: colors.charcoal,
+  },
+  marketplacePriceStrike: {
+    fontFamily: typography.sans,
+    fontSize: 10,
+    color: colors.brownSoft,
+    textDecorationLine: "line-through",
   },
   emptyCard: {
     marginTop: spacing.lg,
     padding: spacing.lg,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     backgroundColor: colors.charcoal,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -479,7 +457,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(184, 149, 108, 0.2)",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.16)",
-    borderRadius: radius.md,
+    borderRadius: 0,
     paddingVertical: spacing.sm,
     alignItems: "center",
   },

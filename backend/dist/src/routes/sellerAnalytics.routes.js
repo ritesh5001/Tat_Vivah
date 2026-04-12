@@ -9,13 +9,13 @@ import { redis } from '../config/redis.js';
  * Base path: /v1/seller/analytics
  *
  * All endpoints require authenticated SELLER role.
- * Rate-limited to 30 requests per minute per user.
+ * Rate-limited per endpoint to reduce cross-endpoint contention.
  */
 export const sellerAnalyticsRouter = Router();
 // ── Global guards ────────────────────────────────────────────────────────
 sellerAnalyticsRouter.use(authenticate);
 sellerAnalyticsRouter.use(authorize('SELLER'));
-// ── Rate limiter (Redis sliding window, 30 req / 60 s) ──────────────────
+// ── Rate limiter (per-endpoint fixed window, 60 req / 60 s) ──────────────
 sellerAnalyticsRouter.use(async (req, res, next) => {
     try {
         const userId = req.user?.userId;
@@ -23,13 +23,16 @@ sellerAnalyticsRouter.use(async (req, res, next) => {
             next();
             return;
         }
-        const key = `ratelimit:seller-analytics:${userId}`;
+        const limit = 60;
+        const endpoint = req.path.replace(/\//g, ':') || 'root';
+        const key = `ratelimit:seller-analytics:${userId}:${endpoint}`;
         const count = await redis.incr(key);
         if (count === 1)
             await redis.expire(key, 60);
-        res.setHeader('X-RateLimit-Limit', '30');
-        res.setHeader('X-RateLimit-Remaining', String(Math.max(0, 30 - count)));
-        if (count > 30) {
+        res.setHeader('X-RateLimit-Limit', String(limit));
+        res.setHeader('X-RateLimit-Remaining', String(Math.max(0, limit - count)));
+        if (count > limit) {
+            res.setHeader('Retry-After', '60');
             res.status(429).json({
                 success: false,
                 error: { message: 'Too many analytics requests. Please try again in a minute.' },

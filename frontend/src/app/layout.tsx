@@ -1,9 +1,9 @@
-import type { Metadata } from "next";
-import { Inter, Cormorant_Garamond } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { Inter } from "next/font/google";
+import { Suspense } from "react";
 import "./globals.css";
-import { PublicLayoutShell } from "@/components/layout/PublicLayoutShell";
-import { Toaster } from "@/components/ui/sonner";
-import { SessionGuard } from "@/components/SessionGuard";
+import { SITE_URL } from "@/lib/site-config";
+import { NavigationProgress } from "@/components/navigation/NavigationProgress";
 
 /**
  * Inter - Body text, UI elements
@@ -12,17 +12,7 @@ import { SessionGuard } from "@/components/SessionGuard";
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
-  display: "swap",
-});
-
-/**
- * Cormorant Garamond - Display headings
- * Elegant, editorial, luxury feel
- */
-const cormorant = Cormorant_Garamond({
-  variable: "--font-cormorant",
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600"],
+  weight: ["400", "600"],
   display: "swap",
 });
 
@@ -37,7 +27,7 @@ const API_ORIGIN = (() => {
 })();
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://tatvivahtrends.com"),
+  metadataBase: new URL(SITE_URL),
   title: {
     default: "TatVivah | Best Ethnic Wear for Men in India | Sherwani, Kurta, Indo Western",
     template: "%s | TatVivah",
@@ -59,7 +49,7 @@ export const metadata: Metadata = {
     description:
       "Shop the best ethnic wear for men in India. Explore premium sherwani, kurta sets, Indo-Western outfits, wedding wear, festive outfits and groom collections from top designers.",
     siteName: "TatVivah",
-    url: "https://tatvivahtrends.com",
+    url: SITE_URL,
     images: [
       {
         url: "/logo.png",
@@ -80,11 +70,11 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/logo.png" },
-      { url: "/tatvivah-logo.svg", type: "image/svg+xml" }
+      { url: "/tatvivah-logo.svg", type: "image/svg+xml" },
+      { url: "/favicon-64.png", type: "image/png", sizes: "64x64" },
     ],
-    shortcut: "/logo.png",
-    apple: "/logo.png",
+    shortcut: "/favicon-64.png",
+    apple: "/apple-touch-icon.png",
   },
   robots: {
     index: true,
@@ -97,9 +87,12 @@ export const metadata: Metadata = {
       "max-snippet": -1,
     },
   },
+};
+
+export const viewport: Viewport = {
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#faf9f6" },
-    { media: "(prefers-color-scheme: dark)", color: "#1a1818" }
+    { media: "(prefers-color-scheme: dark)", color: "#1a1818" },
   ],
 };
 
@@ -118,18 +111,21 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `(() => {
   try {
-    const stored = localStorage.getItem('tatvivah-theme');
-    const theme = stored ?? 'light';
-    if (theme === 'dark') document.documentElement.classList.add('dark');
-    else document.documentElement.classList.remove('dark');
-    document.documentElement.style.colorScheme = theme;
+    const key = 'tatvivah-theme';
+    const stored = localStorage.getItem(key);
+    const isDark = stored === 'dark';
+    if (!stored) {
+      localStorage.setItem(key, 'light');
+    }
+    document.documentElement.classList.toggle('dark', isDark);
+    document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
   } catch (_) {}
 })();`,
           }}
         />
       </head>
       <body
-        className={`${inter.variable} ${cormorant.variable} min-h-screen bg-background text-foreground antialiased`}
+        className={`${inter.variable} min-h-screen bg-background text-foreground antialiased`}
       >
         <script
           type="application/ld+json"
@@ -138,21 +134,22 @@ export default function RootLayout({
               "@context": "https://schema.org",
               "@type": "WebSite",
               name: "TatVivah",
-              url: "https://tatvivahtrends.com",
+              url: SITE_URL,
               potentialAction: {
                 "@type": "SearchAction",
                 target: {
                   "@type": "EntryPoint",
-                  urlTemplate: "https://tatvivahtrends.com/marketplace?search={search_term_string}"
+                  urlTemplate: `${SITE_URL}/marketplace?search={search_term_string}`
                 },
                 "query-input": "required name=search_term_string"
               }
             })
           }}
         />
-        <Toaster />
-        <SessionGuard />
-        <PublicLayoutShell>{children}</PublicLayoutShell>
+        {children}
+        <Suspense fallback={null}>
+          <NavigationProgress />
+        </Suspense>
       </body>
     </html>
   );

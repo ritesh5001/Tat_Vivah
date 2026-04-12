@@ -1,4 +1,5 @@
 import { renderBrandedEmail } from './layout.js';
+import { portalLinks } from './portal-links.js';
 export function sellerProductApprovedTemplate(meta) {
     const productTitle = meta?.productTitle ?? 'your product';
     return {
@@ -13,7 +14,7 @@ export function sellerProductApprovedTemplate(meta) {
             ],
             details: [{ label: 'Product', value: productTitle }],
             ctaLabel: 'Manage Products',
-            ctaUrl: 'https://seller.tatvivahtrends.com/seller/products',
+            ctaUrl: portalLinks.sellerProducts,
         }),
     };
 }

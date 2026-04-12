@@ -55,6 +55,11 @@ export class VariantRepository {
                 id: true,
                 productId: true,
                 price: true,
+                inventory: {
+                    select: {
+                        stock: true,
+                    },
+                },
                 product: {
                     select: {
                         id: true,

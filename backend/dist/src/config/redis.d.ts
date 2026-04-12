@@ -19,6 +19,8 @@ export declare const redis: {
     }): Promise<number>;
     zremrangebyrank(key: string, start: number, stop: number): Promise<number>;
     zrange<T = string[]>(key: string, start: number, stop: number, options?: ZRangeOptions): Promise<T>;
+    hincrby(key: string, field: string, increment: number): Promise<number>;
+    hgetall(key: string): Promise<Record<string, string>>;
 };
 export declare function checkRedisConnection(): Promise<boolean>;
 export {};

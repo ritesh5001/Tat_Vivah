@@ -1,6 +1,5 @@
 import Link from "next/link";
-
-const MAIN_DOMAIN = "https://tatvivahtrends.com";
+import { SITE_URL } from "@/lib/site-config";
 
 export function SellerFooter() {
   return (
@@ -23,7 +22,7 @@ export function SellerFooter() {
             Profile
           </Link>
           <a
-            href={`${MAIN_DOMAIN}/contact`}
+            href={`${SITE_URL}/contact`}
             target="_blank"
             rel="noopener noreferrer"
             className="text-[11px] uppercase tracking-[0.14em] text-foreground transition-colors hover:text-gold"

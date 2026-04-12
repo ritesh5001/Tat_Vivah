@@ -1,11 +1,10 @@
 
 import { paymentRepository } from '../repositories/payment.repository.js';
-import { orderRepository } from '../repositories/order.repository.js';
 import { PaymentProvider, PaymentStatus, PaymentEventType, OrderStatus } from '@prisma/client';
 import { prisma } from '../config/db.js';
 import { ApiError } from '../errors/ApiError.js';
 import { razorpayService } from './razorpay.service.js';
-import { isRazorpayConfigured, razorpayClient } from './razorpay.client.js';
+import { getRazorpayKeyId, isRazorpayConfigured, razorpayClient } from './razorpay.client.js';
 import { emitPaymentSuccess, emitPaymentFailed } from '../events/order.events.js';
 import { paymentLogger } from '../config/logger.js';
 import { paymentSuccessTotal, staleCancelTotal, refundSuccessTotal } from '../config/metrics.js';
@@ -39,6 +38,31 @@ function isTransactionStartTimeout(error: unknown): boolean {
 }
 
 export class PaymentService {
+
+    private async findOrderForPayment(userId: string, orderId: string): Promise<{
+        id: string;
+        userId: string;
+        status: OrderStatus;
+        createdAt: Date;
+        totalAmount: number;
+        grandTotal: number | null;
+        subTotalAmount: number | null;
+        totalTaxAmount: number | null;
+    } | null> {
+        return prisma.order.findFirst({
+            where: { id: orderId, userId },
+            select: {
+                id: true,
+                userId: true,
+                status: true,
+                createdAt: true,
+                totalAmount: true,
+                grandTotal: true,
+                subTotalAmount: true,
+                totalTaxAmount: true,
+            },
+        });
+    }
 
     private resolvePayableAmount(order: {
         totalAmount: number;
@@ -186,7 +210,10 @@ export class PaymentService {
 
     async initiatePayment(userId: string, orderId: string, provider: PaymentProvider) {
         // 1. Validate Order
-        const order = await orderRepository.findByIdAndUserId(orderId, userId);
+        const [order, existingPayment] = await Promise.all([
+            this.findOrderForPayment(userId, orderId),
+            paymentRepository.findPaymentByOrderId(orderId),
+        ]);
         if (!order) {
             throw new ApiError(404, 'Order not found or access denied');
         }
@@ -202,7 +229,6 @@ export class PaymentService {
         }
 
         // Check for existing successful payment
-        const existingPayment = await paymentRepository.findPaymentByOrderId(orderId);
         if (existingPayment && existingPayment.status === PaymentStatus.SUCCESS) {
             throw new ApiError(400, 'Order already paid');
         }
@@ -222,6 +248,24 @@ export class PaymentService {
         // Create Payment Record (INITIATED) — reuse row on retry
         let payment;
         if (existingPayment) {
+            // Fast path: reuse an existing INITIATED payment with active provider order.
+            if (
+                provider === PaymentProvider.RAZORPAY &&
+                existingPayment.status === PaymentStatus.INITIATED &&
+                existingPayment.provider === provider &&
+                existingPayment.providerOrderId &&
+                roundMoney(existingPayment.amount) === roundMoney(payableAmount)
+            ) {
+                return {
+                    paymentId: existingPayment.id,
+                    orderId: existingPayment.providerOrderId,
+                    amount: Math.round(payableAmount * 100),
+                    currency: existingPayment.currency,
+                    key: getRazorpayKeyId(),
+                    provider: 'RAZORPAY',
+                };
+            }
+
             payment = await prisma.payment.update({
                 where: { id: existingPayment.id },
                 data: {
@@ -292,7 +336,7 @@ export class PaymentService {
     // ------------------------------------------------------------------
 
     async retryPayment(userId: string, orderId: string) {
-        const order = await orderRepository.findByIdAndUserId(orderId, userId);
+        const order = await this.findOrderForPayment(userId, orderId);
         if (!order) {
             throw new ApiError(404, 'Order not found or access denied');
         }

@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { getSuggestions, type SuggestionItem } from "@/services/search";
+import { startNavigationFeedback } from "@/lib/navigation-feedback";
 
 interface SearchAutocompleteProps {
   defaultValue?: string;
@@ -35,6 +36,10 @@ export function SearchAutocomplete({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  React.useEffect(() => {
+    router.prefetch("/marketplace");
+  }, [router]);
 
   const fetchSuggestions = React.useCallback(async (q: string) => {
     if (q.length < 2) {
@@ -73,6 +78,7 @@ export function SearchAutocomplete({
       const params = new URLSearchParams(searchParams.toString());
       params.set("search", term);
       params.delete("page");
+      startNavigationFeedback();
       router.push(`/marketplace?${params.toString()}`);
     },
     [query, router, searchParams]

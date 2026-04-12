@@ -1,4 +1,5 @@
 import { renderBrandedEmail } from './layout.js';
+import { portalLinks } from './portal-links.js';
 export function sellerNewOrderTemplate(data) {
     return {
         subject: `New Order Received #${data.orderId}`,
@@ -15,7 +16,7 @@ export function sellerNewOrderTemplate(data) {
                 { label: 'Items', value: data.itemsCount },
             ],
             ctaLabel: 'Open Seller Orders',
-            ctaUrl: 'https://seller.tatvivahtrends.com/seller/orders',
+            ctaUrl: portalLinks.sellerOrders,
         }),
     };
 }

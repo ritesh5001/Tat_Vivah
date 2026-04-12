@@ -1,6 +1,3 @@
-"use client";
-
-import React from "react";
 import {
     Truck,
     RotateCcw,
@@ -42,8 +39,8 @@ const features = [
     },
 ];
 
-// Duplicate for infinite loop properties
-const allFeatures = [...features, ...features, ...features, ...features];
+// Duplicate once for seamless loop while keeping DOM size low.
+const allFeatures = [...features, ...features];
 
 export function FeaturesMarquee() {
     return (
@@ -66,23 +63,6 @@ export function FeaturesMarquee() {
                     );
                 })}
             </div>
-
-            <style jsx>{`
-        @keyframes features-scroll {
-          from {
-            transform: translateX(0);
-          }
-          to {
-            transform: translateX(-50%);
-          }
-        }
-        .animate-features-scroll {
-          animation: features-scroll 40s linear infinite;
-        }
-        .animate-features-scroll:hover {
-          animation-play-state: paused;
-        }
-      `}</style>
         </section>
     );
 }

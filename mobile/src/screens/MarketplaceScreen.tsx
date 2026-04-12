@@ -269,7 +269,7 @@ const styles = StyleSheet.create({
   searchCard: {
     marginTop: spacing.lg,
     padding: spacing.md,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: colors.warmWhite,
@@ -278,7 +278,7 @@ const styles = StyleSheet.create({
   searchInput: {
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    borderRadius: radius.md,
+    borderRadius: 0,
     paddingHorizontal: spacing.md,
     paddingVertical: 10,
     fontFamily: typography.sans,
@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
   searchButton: {
     backgroundColor: colors.charcoal,
     paddingVertical: 10,
-    borderRadius: radius.md,
+    borderRadius: 0,
     alignItems: "center",
   },
   searchButtonText: {
@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    borderRadius: 18,
+    borderRadius: 0,
     marginRight: spacing.sm,
     backgroundColor: colors.warmWhite,
   },
@@ -325,7 +325,7 @@ const styles = StyleSheet.create({
   },
   emptyCard: {
     padding: spacing.lg,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: colors.warmWhite,
@@ -348,7 +348,7 @@ const styles = StyleSheet.create({
   pageButton: {
     flex: 1,
     paddingVertical: 10,
-    borderRadius: radius.md,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     alignItems: "center",

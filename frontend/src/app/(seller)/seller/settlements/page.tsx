@@ -151,16 +151,14 @@ export default function SellerSettlementsPage() {
   // ── Aggregates ────────────────────────────────────────────────────────
   const totals = React.useMemo(() => {
     let gross = 0;
-    let commission = 0;
     let fee = 0;
     let net = 0;
     for (const s of settlements) {
       gross += s.grossAmount;
-      commission += s.commissionAmount;
       fee += s.platformFee;
       net += s.netAmount;
     }
-    return { gross, commission, fee, net };
+    return { gross, fee, net };
   }, [settlements]);
 
   // ── Render ────────────────────────────────────────────────────────────
@@ -181,19 +179,15 @@ export default function SellerSettlementsPage() {
             Financial Overview
           </h1>
           <p className="max-w-lg text-sm leading-relaxed text-muted-foreground">
-            Track your earnings, commissions, platform fees, and net payouts
+            Track your earnings, platform fees, and net payouts
             across all fulfilled orders.
           </p>
         </div>
 
         {/* KPI Cards */}
-        <section className="grid gap-px bg-border-soft sm:grid-cols-2 lg:grid-cols-4 overflow-hidden">
+        <section className="grid gap-px bg-border-soft sm:grid-cols-2 lg:grid-cols-3 overflow-hidden">
           {[
             { label: "Gross Sales", value: currency.format(totals.gross) },
-            {
-              label: "Commission Deducted",
-              value: currency.format(totals.commission),
-            },
             { label: "Platform Fee", value: currency.format(totals.fee) },
             { label: "Net Payout", value: currency.format(totals.net) },
           ].map((stat, i) => (
@@ -256,14 +250,13 @@ export default function SellerSettlementsPage() {
         <div className="border border-border-soft bg-card overflow-x-auto">
           {/* Table head */}
           <div className="border-b border-border-soft">
-            <div className="grid grid-cols-[1.4fr_1fr_1fr_1fr_1fr_0.8fr_0.8fr] gap-4 px-6 py-3">
+            <div className="grid grid-cols-[1.4fr_1fr_1fr_1.5fr_0.8fr_0.8fr] gap-4 px-6 py-3">
               {[
                 { key: null, label: "Order" },
                 {
                   key: "grossAmount" as const,
                   label: "Gross",
                 },
-                { key: null, label: "Commission" },
                 { key: null, label: "Platform Fee" },
                 {
                   key: "netAmount" as const,
@@ -329,7 +322,7 @@ export default function SellerSettlementsPage() {
                       delay: i * 0.02,
                       duration: 0.3,
                     }}
-                    className="grid grid-cols-[1.4fr_1fr_1fr_1fr_1fr_0.8fr_0.8fr] gap-4 border-b border-border-soft px-6 py-4 hover:bg-cream/40 dark:hover:bg-brown/10 transition-colors text-sm"
+                    className="grid grid-cols-[1.4fr_1fr_1fr_1.5fr_0.8fr_0.8fr] gap-4 border-b border-border-soft px-6 py-4 hover:bg-cream/40 dark:hover:bg-brown/10 transition-colors text-sm"
                   >
                     {/* Order */}
                     <div className="space-y-0.5 min-w-0">
@@ -347,10 +340,7 @@ export default function SellerSettlementsPage() {
                       {currency.format(s.grossAmount)}
                     </p>
 
-                    {/* Commission */}
-                    <p className="tabular-nums text-muted-foreground self-center">
-                      −{currency.format(s.commissionAmount)}
-                    </p>
+
 
                     {/* Platform Fee */}
                     <p className="tabular-nums text-muted-foreground self-center">
@@ -427,7 +417,7 @@ export default function SellerSettlementsPage() {
             </span>
             <span className="flex items-center gap-2">
               <span className="h-1 w-1 bg-gold" />
-              Net = Gross − Commission − Platform Fee
+              Net = Gross − Platform Fee
             </span>
           </div>
         </section>

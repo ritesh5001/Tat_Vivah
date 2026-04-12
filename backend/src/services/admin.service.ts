@@ -428,9 +428,8 @@ export class AdminService {
             await productRepository.update(productId, updatePayload);
         }
 
-        const variantUpdates: string[] = [];
-        if (payload.variants && payload.variants.length > 0) {
-            for (const variantInput of payload.variants) {
+        const variantUpdates: string[] = payload.variants && payload.variants.length > 0
+            ? await Promise.all(payload.variants.map(async (variantInput) => {
                 const variant = await variantRepository.findById(variantInput.id);
                 if (!variant || variant.productId !== productId) {
                     throw ApiError.badRequest('One or more variant updates are invalid');
@@ -452,13 +451,15 @@ export class AdminService {
                     await inventoryRepository.updateStock(variantInput.id, variantInput.stock);
                 }
 
-                variantUpdates.push(variantInput.id);
-            }
-        }
+                return variantInput.id;
+            }))
+            : [];
 
-        await invalidateProductCaches(productId);
-        await invalidateCache(CACHE_KEYS.ADMIN_STATS);
-        await invalidateCacheByPattern('admin:profit:*');
+        await Promise.allSettled([
+            invalidateProductCaches(productId),
+            invalidateCache(CACHE_KEYS.ADMIN_STATS),
+            invalidateCacheByPattern('admin:profit:*'),
+        ]);
 
         const refreshed = await this.adminRepo.findProductById(productId);
         if (!refreshed) {

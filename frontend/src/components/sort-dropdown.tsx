@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
+import { startNavigationFeedback } from "@/lib/navigation-feedback";
 
 const SORT_OPTIONS = [
   { value: "", label: "Default" },
@@ -26,6 +27,7 @@ export function SortDropdown() {
         params.delete("sort");
       }
       params.delete("page"); // reset page on sort change
+      startNavigationFeedback();
       router.push(`/marketplace?${params.toString()}`);
     },
     [router, searchParams]

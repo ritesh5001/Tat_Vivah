@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 import type { MetadataRoute } from "next";
+import { SITE_URL } from "@/lib/site-config";
 
 export default async function robots(): Promise<MetadataRoute.Robots> {
     const headersList = await headers();
@@ -24,6 +25,6 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
                 disallow: ["/admin", "/seller", "/api"],
             },
         ],
-        sitemap: "https://tatvivahtrends.com/sitemap.xml",
+        sitemap: `${SITE_URL}/sitemap.xml`,
     };
 }

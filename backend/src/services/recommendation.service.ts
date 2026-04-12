@@ -127,23 +127,25 @@ export class RecommendationService {
             }
         }
 
-        const purchasedProducts = purchasedProductIds.size
-            ? await prisma.product.findMany({
-                where: { id: { in: Array.from(purchasedProductIds) } },
-                select: { categoryId: true },
-            })
-            : [];
+        const [purchasedProducts, recentlyViewedProducts] = await Promise.all([
+            purchasedProductIds.size
+                ? prisma.product.findMany({
+                    where: { id: { in: Array.from(purchasedProductIds) } },
+                    select: { categoryId: true },
+                })
+                : Promise.resolve([]),
+
+            recentlyViewedIds.length
+                ? prisma.product.findMany({
+                    where: { id: { in: recentlyViewedIds } },
+                    select: { id: true, categoryId: true },
+                })
+                : Promise.resolve([]),
+        ]);
 
         for (const product of purchasedProducts) {
             bumpFrequency(categoryFrequency, product.categoryId, 5);
         }
-
-        const recentlyViewedProducts = recentlyViewedIds.length
-            ? await prisma.product.findMany({
-                where: { id: { in: recentlyViewedIds } },
-                select: { id: true, categoryId: true },
-            })
-            : [];
 
         const recentlyViewedCategoryByProduct = new Map(recentlyViewedProducts.map((p) => [p.id, p.categoryId]));
         for (const productId of recentlyViewedIds) {
