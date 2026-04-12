@@ -1,9 +1,16 @@
 import type { NextConfig } from "next";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const configDir = path.dirname(fileURLToPath(import.meta.url));
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   compress: true,
   generateEtags: true,
+  turbopack: {
+    root: configDir,
+  },
 
   /* ──────────────────────────────────────────────────────────────────────── */
   /*  IMAGE OPTIMISATION                                                    */
@@ -11,6 +18,7 @@ const nextConfig: NextConfig = {
   images: {
     // Serve modern formats — AVIF first, WebP fallback
     formats: ["image/avif", "image/webp"],
+    qualities: [60, 75],
 
     // Responsive breakpoints matching actual layout needs
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048],

@@ -27,7 +27,7 @@ function OccasionCard({ occasion, mode = "carousel" }: { occasion: Occasion; mod
             alt={occasion.name}
             fill
             sizes="(max-width: 767px) 20vw, (max-width: 1023px) 14vw, 10vw"
-            quality={60}
+            quality={75}
             loading="lazy"
             draggable={false}
             className="object-cover transition-transform duration-300 ease-out group-hover:scale-105"
@@ -41,7 +41,7 @@ function OccasionCard({ occasion, mode = "carousel" }: { occasion: Occasion; mod
                 alt={occasion.name}
                 fill
                 sizes="(max-width: 767px) 20vw, (max-width: 1023px) 14vw, 10vw"
-                quality={60}
+                quality={75}
                 loading="lazy"
                 draggable={false}
                 className="object-cover transition-transform duration-300 ease-out group-hover:scale-105"

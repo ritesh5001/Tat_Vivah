@@ -198,7 +198,7 @@ export function MarketplaceProductCard({ product }: { product: MarketplaceCardPr
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
             className="object-cover transition-transform duration-500 group-hover:scale-105"
             loading="lazy"
-            quality={60}
+            quality={75}
           />
 
           <div className="pointer-events-none absolute inset-0 bg-linear-to-t from-black/18 via-transparent to-transparent opacity-70 transition-opacity duration-300 group-hover:opacity-85" />

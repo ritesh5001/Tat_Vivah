@@ -64,7 +64,7 @@ export default function ProductImageCarousel({
                   height={80}
                   className="h-full w-full object-contain p-1 bg-card"
                   loading="lazy"
-                  quality={60}
+                  quality={75}
                 />
               </button>
             );

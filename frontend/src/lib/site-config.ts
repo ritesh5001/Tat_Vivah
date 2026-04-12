@@ -32,11 +32,19 @@ export const SELLER_PORTAL_URL = normalizeOrigin(
   SITE_URL
 );
 
-export const SUPPORT_EMAIL = (process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? "support@localhost")
+export const SUPPORT_EMAIL = (process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? "support@tatvivahtrends.com")
   .trim();
-export const SELLER_SUPPORT_EMAIL = (process.env.NEXT_PUBLIC_SELLER_SUPPORT_EMAIL ?? "seller@localhost")
+export const ONBOARDING_EMAIL = (process.env.NEXT_PUBLIC_ONBOARDING_EMAIL ?? "onboarding@tatvivahtrends.com")
   .trim();
-export const PARTNERSHIP_EMAIL = (process.env.NEXT_PUBLIC_PARTNERSHIP_EMAIL ?? "partnerships@localhost")
+export const REFUND_EMAIL = (process.env.NEXT_PUBLIC_REFUND_EMAIL ?? "refund@tatvivahtrends.com")
+  .trim();
+export const SELLER_SUPPORT_EMAIL = (process.env.NEXT_PUBLIC_SELLER_SUPPORT_EMAIL ?? "onboarding@tatvivahtrends.com")
+  .trim();
+export const PARTNERSHIP_EMAIL = (process.env.NEXT_PUBLIC_PARTNERSHIP_EMAIL ?? "onboarding@tatvivahtrends.com")
+  .trim();
+export const SUPPORT_PHONE_DISPLAY = (process.env.NEXT_PUBLIC_SUPPORT_PHONE_DISPLAY ?? "+91-9769659709")
+  .trim();
+export const SUPPORT_PHONE_DIAL = (process.env.NEXT_PUBLIC_SUPPORT_PHONE_DIAL ?? "+919769659709")
   .trim();
 
 const explicitCookieDomain = (process.env.NEXT_PUBLIC_COOKIE_DOMAIN ?? "")

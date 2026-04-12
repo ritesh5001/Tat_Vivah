@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { ONBOARDING_EMAIL, REFUND_EMAIL, SUPPORT_EMAIL, SUPPORT_PHONE_DISPLAY } from "@/lib/site-config";
 
 const policyLinks = [
   { label: "Terms & Conditions", href: "/terms" },
@@ -52,6 +53,12 @@ export function PublicFooter() {
             <p className="max-w-xl border-l-[3px] border-gold pl-4 text-[15px] italic leading-7 text-muted-foreground max-sm:border-l-0 max-sm:border-t-2 max-sm:border-gold max-sm:pl-0 max-sm:pt-3">
               &ldquo;Elegance Woven in Tradition.&rdquo; At TatVivah, we bring curated ethnic wear and handcrafted wedding fashion for modern celebrations rooted in heritage.
             </p>
+            <div className="mt-5 space-y-1 text-sm text-foreground/90">
+              <p><span className="font-semibold">Phone:</span> {SUPPORT_PHONE_DISPLAY}</p>
+              <p><span className="font-semibold">Support:</span> <a className="text-gold hover:underline" href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a></p>
+              <p><span className="font-semibold">Onboarding:</span> <a className="text-gold hover:underline" href={`mailto:${ONBOARDING_EMAIL}`}>{ONBOARDING_EMAIL}</a></p>
+              <p><span className="font-semibold">Refunds:</span> <a className="text-gold hover:underline" href={`mailto:${REFUND_EMAIL}`}>{REFUND_EMAIL}</a></p>
+            </div>
           </div>
 
           {accordionSections.map((section) => (

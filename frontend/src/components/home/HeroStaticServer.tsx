@@ -116,7 +116,7 @@ export function HeroStaticServer() {
                     fill
                     className="object-cover"
                     sizes="100vw"
-                    quality={60}
+                    quality={75}
                     priority={index === 0}
                     fetchPriority={index === 0 ? "high" : "auto"}
                     loading={index === 0 ? "eager" : "lazy"}
@@ -130,7 +130,7 @@ export function HeroStaticServer() {
                     fill
                     className="object-cover"
                     sizes="100vw"
-                    quality={60}
+                    quality={75}
                     priority={index === 0}
                     fetchPriority={index === 0 ? "high" : "auto"}
                     loading={index === 0 ? "eager" : "lazy"}
