@@ -41,6 +41,9 @@ const envSchema = z.object({
     // Public portal URLs (used in email CTA links)
     FRONTEND_BASE_URL: z.string().url('FRONTEND_BASE_URL must be a valid URL').optional(),
     SELLER_BASE_URL: z.string().url('SELLER_BASE_URL must be a valid URL').optional(),
+    FRONTEND_REVALIDATE_URL: z.string().url('FRONTEND_REVALIDATE_URL must be a valid URL').optional(),
+    FRONTEND_REVALIDATE_SECRET: z.string().min(1, 'FRONTEND_REVALIDATE_SECRET cannot be empty').optional(),
+    LIVE_EVENTS_CHANNEL: z.string().default('tatvivah:live-events'),
     // Redis
     REDIS_URL: z.string().url('REDIS_URL must be a valid URL').optional(),
     // Legacy Upstash vars retained as optional for backwards compatibility

@@ -10,6 +10,8 @@ import { paymentSuccessTotal, staleCancelTotal, refundSuccessTotal } from '../co
 import { recordPaymentFailure } from '../monitoring/alerts.js';
 import { generateInvoiceNumber } from '../utils/invoice.util.js';
 import { commissionService } from './commission.service.js';
+import { dispatchFreshness } from '../live/freshness.service.js';
+import { CACHE_TAGS, orderTag } from '../live/cache-tags.js';
 /** Maximum age (ms) of a PLACED order eligible for payment retry. */
 const STALE_ORDER_TTL_MS = 30 * 60 * 1000; // 30 minutes
 const DEFAULT_SHIPPING_FEE_INR = 180;
@@ -395,6 +397,18 @@ export class PaymentService {
         await commissionService.calculateAndStoreSellerSettlement(orderId);
         // Trigger Notifications (event-driven, idempotent, best-effort)
         await emitPaymentSuccess(orderId);
+        await dispatchFreshness({
+            type: 'payment.updated',
+            entityId: orderId,
+            tags: [
+                CACHE_TAGS.payments,
+                CACHE_TAGS.orders,
+                CACHE_TAGS.userOrders,
+                CACHE_TAGS.sellerOrders,
+                orderTag(orderId),
+            ],
+            audience: { allAuthenticated: true },
+        });
     }
     // ------------------------------------------------------------------
     // Shared failure handler — marks payment FAILED + releases inventory
@@ -421,6 +435,17 @@ export class PaymentService {
         // Notify buyer about payment failure (event-driven, idempotent, best-effort)
         if (payment.orderId) {
             await emitPaymentFailed(payment.orderId);
+            await dispatchFreshness({
+                type: 'payment.updated',
+                entityId: payment.orderId,
+                tags: [
+                    CACHE_TAGS.payments,
+                    CACHE_TAGS.orders,
+                    CACHE_TAGS.userOrders,
+                    orderTag(payment.orderId),
+                ],
+                audience: { allAuthenticated: true },
+            });
         }
         recordPaymentFailure();
         paymentLogger.warn({

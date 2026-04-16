@@ -3,9 +3,15 @@ import cors from 'cors';
 import compression from 'compression';
 import { env } from './config/env.js';
 import { errorMiddleware } from './middlewares/error.middleware.js';
-import { register, httpRequestDuration } from './config/metrics.js';
+import {
+    register,
+    httpRequestDuration,
+    hotEndpointDurationMs,
+    hotEndpointSlowTotal,
+} from './config/metrics.js';
 import { prisma } from './config/db.js';
 import { checkRedisConnection } from './config/redis.js';
+import { logger } from './config/logger.js';
 import type { IntegrityReport } from './jobs/inventoryIntegrity.js';
 import {
     authRouter,
@@ -39,6 +45,7 @@ import {
     wishlistRouter,
     searchRouter,
     personalizationRouter,
+    liveRouter,
     sellerAnalyticsRouter,
     reelRouter,
     sellerReelRouter,
@@ -48,6 +55,20 @@ import {
 import { searchController } from './controllers/search.controller.js';
 import { apiReference } from "@scalar/express-api-reference";
 import { openApiSpec } from "./docs/openapi.js";
+
+const HOT_ENDPOINT_SLOW_THRESHOLD_MS = 400;
+
+function resolveHotEndpoint(path: string): string | null {
+    if (path === '/v1/products') return '/v1/products';
+    if (/^\/v1\/products\/[^/]+$/.test(path)) return '/v1/products/:id';
+    if (path === '/v1/search' || path.startsWith('/v1/search/')) return '/v1/search';
+    if (path === '/v1/orders' || /^\/v1\/orders\/[^/]+$/.test(path)) return '/v1/orders';
+    if (path === '/v1/seller/products') return '/v1/seller/products';
+    if (path === '/v1/seller/orders' || /^\/v1\/seller\/orders\/[^/]+$/.test(path)) return '/v1/seller/orders';
+    if (path === '/v1/admin/products' || /^\/v1\/admin\/products\/.+/.test(path)) return '/v1/admin/products';
+    if (path === '/v1/imagekit/auth') return '/v1/imagekit/auth';
+    return null;
+}
 
 /**
  * Create and configure Express application
@@ -111,10 +132,34 @@ export function createApp(): Application {
     // Request duration tracking middleware
     app.use((req, res, next) => {
         const end = httpRequestDuration.startTimer();
+        const startedAt = process.hrtime.bigint();
+        const hotEndpoint = resolveHotEndpoint(req.path);
+
         res.on('finish', () => {
             // Use route pattern if available, otherwise path
             const route = (req.route?.path as string) ?? req.path;
             end({ method: req.method, route, status: String(res.statusCode) });
+
+            if (!hotEndpoint) return;
+
+            const elapsedMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
+            hotEndpointDurationMs.observe(
+                { endpoint: hotEndpoint, method: req.method, status: String(res.statusCode) },
+                elapsedMs,
+            );
+
+            if (elapsedMs >= HOT_ENDPOINT_SLOW_THRESHOLD_MS) {
+                hotEndpointSlowTotal.inc({ endpoint: hotEndpoint, method: req.method });
+                logger.warn(
+                    {
+                        endpoint: hotEndpoint,
+                        method: req.method,
+                        status: res.statusCode,
+                        durationMs: Math.round(elapsedMs),
+                    },
+                    'hot_endpoint_slow_request',
+                );
+            }
         });
         next();
     });
@@ -289,6 +334,7 @@ export function createApp(): Application {
     // Search & Personalization
     app.use('/v1/search', searchRouter);
     app.use('/v1/personalization', personalizationRouter);
+    app.use('/v1/live', liveRouter);
 
     // Seller Analytics
     app.use('/v1/seller/analytics', sellerAnalyticsRouter);

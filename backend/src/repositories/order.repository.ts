@@ -69,6 +69,31 @@ export class OrderRepository {
             include: {
                 items: true,
                 movements: true,
+                payment: {
+                    select: {
+                        status: true,
+                    },
+                },
+                cancellationRequest: {
+                    select: {
+                        status: true,
+                    },
+                },
+                returnRequests: {
+                    select: {
+                        status: true,
+                    },
+                    orderBy: { createdAt: 'desc' },
+                    take: 1,
+                },
+                shipments: {
+                    select: {
+                        status: true,
+                        created_at: true,
+                    },
+                    orderBy: { created_at: 'desc' },
+                    take: 1,
+                },
             },
         });
 
@@ -82,6 +107,10 @@ export class OrderRepository {
         return {
             ...order,
             items: itemsWithDetails,
+            paymentStatus: order.payment?.status ?? null,
+            cancellationStatus: order.cancellationRequest?.status ?? null,
+            returnStatus: order.returnRequests[0]?.status ?? null,
+            shipmentStatus: order.shipments[0]?.status ?? null,
         };
     }
 
@@ -108,11 +137,25 @@ export class OrderRepository {
             },
             include: {
                 items: true,
+                payment: {
+                    select: {
+                        status: true,
+                    },
+                },
                 cancellationRequest: {
                     select: {
                         id: true,
                         status: true,
                     },
+                },
+                returnRequests: {
+                    select: {
+                        id: true,
+                        status: true,
+                        createdAt: true,
+                    },
+                    orderBy: { createdAt: 'desc' },
+                    take: 1,
                 },
                 shipments: {
                     select: {
@@ -120,6 +163,7 @@ export class OrderRepository {
                         created_at: true,
                     },
                     orderBy: { created_at: 'desc' },
+                    take: 1,
                 },
             },
             orderBy: { createdAt: 'desc' },
@@ -128,12 +172,14 @@ export class OrderRepository {
         });
 
         return orders.map((order) => {
-            const hasShipped = order.shipments.some((shipment) => shipment.status === 'SHIPPED');
             const latestShipmentStatus = order.shipments[0]?.status ?? null;
 
             return {
                 ...order,
-                shipmentStatus: hasShipped ? 'SHIPPED' : latestShipmentStatus,
+                paymentStatus: order.payment?.status ?? null,
+                cancellationStatus: order.cancellationRequest?.status ?? null,
+                returnStatus: order.returnRequests[0]?.status ?? null,
+                shipmentStatus: latestShipmentStatus,
             } as OrderWithItems;
         });
     }
@@ -166,6 +212,14 @@ export class OrderRepository {
                         id: true,
                         status: true,
                         createdAt: true,
+                        shipments: {
+                            select: {
+                                status: true,
+                                created_at: true,
+                            },
+                            orderBy: { created_at: 'desc' },
+                            take: 1,
+                        },
                         cancellationRequest: {
                             select: {
                                 id: true,
@@ -214,6 +268,10 @@ export class OrderRepository {
 
         return orderItems.map((item) => ({
             ...item,
+            order: {
+                ...item.order,
+                shipmentStatus: item.order.shipments[0]?.status ?? null,
+            },
             productTitle: productMap.get(item.productId),
             variantSku: variantMap.get(item.variantId),
         }));

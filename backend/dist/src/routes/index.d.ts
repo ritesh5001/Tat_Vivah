@@ -32,6 +32,7 @@ export { notificationRouter } from './notification.routes.js';
 export { wishlistRouter } from './wishlist.routes.js';
 export { searchRouter } from './search.routes.js';
 export { personalizationRouter } from './personalization.routes.js';
+export { liveRouter } from './live.routes.js';
 export { sellerAnalyticsRouter } from './sellerAnalytics.routes.js';
 export { reelRouter } from './reel.routes.js';
 export { sellerReelRouter } from './seller-reel.routes.js';

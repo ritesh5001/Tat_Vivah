@@ -3,6 +3,7 @@ import Link from "next/link";
 import { MarketplaceProductCard, type MarketplaceCardProduct } from "@/components/marketplace-product-card";
 import { Button } from "@/components/ui/button";
 import { SITE_URL } from "@/lib/site-config";
+import { CACHE_TAGS } from "@/lib/cache-tags";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 const SEARCH_PAGE_SIZE = 12;
@@ -88,7 +89,7 @@ async function fetchSearchResults(query: string, page: number): Promise<{
     params.set("limit", String(SEARCH_PAGE_SIZE));
 
     const response = await fetch(`${API_BASE_URL}/v1/search?${params.toString()}`, {
-      next: { revalidate: 30 },
+      next: { tags: [CACHE_TAGS.search, CACHE_TAGS.products] },
     });
 
     if (!response.ok) {

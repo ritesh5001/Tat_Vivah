@@ -11,6 +11,7 @@
     "dev": "npm run dev:api",
     "dev:api": "tsx watch src/server.ts",
     "dev:worker": "tsx watch src/worker.ts",
+    "prebuild": "prisma generate",
     "build": "tsc",
     "prestart": "prisma generate",
     "start": "npm run start:api",
@@ -34,10 +35,21 @@
     "verify:razorpay": "tsx scripts/verify-razorpay.ts",
     "verify:cancellation-race": "tsx scripts/simulate-cancellation-race.ts",
     "verify:return-race": "tsx scripts/simulate-return-race.ts",
+    "verify:all": "tsx scripts/verify-all.ts"
+    "verify:all": "tsx scripts/verify-all.ts"
+    "verify:all": "tsx scripts/verify-all.ts"
+    "verify:all": "tsx scripts/verify-all.ts"
+    "verify:all": "tsx scripts/verify-all.ts"
+    "verify:all": "tsx scripts/verify-all.ts"
+    "verify:all": "tsx scripts/verify-all.ts"
+    "verify:all": "tsx scripts/verify-all.ts"
+    "verify:all": "tsx scripts/verify-all.ts"
+    "verify:all": "tsx scripts/verify-all.ts"
+    "verify:all": "tsx scripts/verify-all.ts"
+    "verify:all": "tsx scripts/verify-all.ts"
     "verify:refund-race": "tsx scripts/simulate-refund-race.ts",
     "verify:commission-race": "tsx scripts/simulate-commission-race.ts",
     "verify:coupon-race": "tsx scripts/simulate-coupon-race.ts",
-    "verify:all": "tsx scripts/verify-all.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

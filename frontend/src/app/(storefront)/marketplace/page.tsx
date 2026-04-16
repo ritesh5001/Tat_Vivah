@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { MarketplaceProductCard } from "@/components/marketplace-product-card";
 import { SITE_URL } from "@/lib/site-config";
+import { CACHE_TAGS, collectionTag, occasionTag } from "@/lib/cache-tags";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
@@ -52,7 +53,7 @@ async function fetchCategories() {
     return [] as CategoryItem[];
   }
   const response = await fetch(`${API_BASE_URL}/v1/categories`, {
-    next: { revalidate: 120 },
+    next: { tags: [CACHE_TAGS.categories] },
   });
   if (!response.ok) {
     return [] as CategoryItem[];
@@ -66,7 +67,7 @@ async function fetchOccasions() {
     return [] as OccasionItem[];
   }
   const response = await fetch(`${API_BASE_URL}/v1/occasions`, {
-    next: { revalidate: 120 },
+    next: { tags: [CACHE_TAGS.occasions] },
   });
   if (!response.ok) {
     return [] as OccasionItem[];
@@ -79,6 +80,7 @@ async function fetchProducts(params: {
   page: number;
   limit: number;
   categoryId?: string;
+  categorySlug?: string;
   occasion?: string;
   search?: string;
   sort?: string;
@@ -94,8 +96,17 @@ async function fetchProducts(params: {
   if (params.search) query.set("search", params.search);
   if (params.sort) query.set("sort", params.sort);
 
+  const tags = [
+    CACHE_TAGS.products,
+    CACHE_TAGS.search,
+    CACHE_TAGS.categories,
+    CACHE_TAGS.occasions,
+    params.categorySlug ? collectionTag(params.categorySlug) : null,
+    params.occasion ? occasionTag(params.occasion) : null,
+  ].filter((tag): tag is string => Boolean(tag));
+
   const response = await fetch(`${API_BASE_URL}/v1/products?${query.toString()}`, {
-    next: { revalidate: 60 },
+    next: { tags },
   });
   if (!response.ok) {
     return { data: [], pagination: { page: params.page, limit: params.limit, total: 0, totalPages: 1 } };
@@ -195,6 +206,7 @@ export default async function MarketplacePage({
     page,
     limit: 9,
     categoryId: selectedCategoryId,
+    categorySlug: selectedCategoryById?.slug ?? selectedCategoryBySlug?.slug ?? categorySlugParam,
     occasion: occasionSlug,
     search,
     sort,

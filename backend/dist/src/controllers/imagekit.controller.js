@@ -19,6 +19,7 @@ export class ImagekitController {
                 urlEndpoint,
             });
             const authParams = imagekit.getAuthenticationParameters();
+            res.set('Cache-Control', 'no-store');
             res.status(200).json(authParams);
         }
         catch (error) {

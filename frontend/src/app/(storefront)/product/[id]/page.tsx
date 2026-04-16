@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { unstable_cache } from "next/cache";
 import ProductDetailClient from "@/components/product-detail-client";
 import { ProductDetailDeferredSections } from "@/components/product-detail-deferred-sections";
 import ProductImageCarousel from "@/components/product-image-carousel";
 import { SITE_URL } from "@/lib/site-config";
+import { CACHE_TAGS, productTag } from "@/lib/cache-tags";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
@@ -14,19 +14,13 @@ async function fetchProduct(id: string) {
   }
   const response = await fetch(`${API_BASE_URL}/v1/products/${id}`, {
     cache: "force-cache",
-    next: { revalidate: 300, tags: [`product:${id}`] },
+    next: { tags: [CACHE_TAGS.products, productTag(id)] },
   });
   if (!response.ok) {
     return null;
   }
   return response.json();
 }
-
-const getCachedProduct = unstable_cache(
-  async (id: string) => fetchProduct(id),
-  ["product-detail-cache"],
-  { revalidate: 300 }
-);
 
 /* ── Dynamic SEO metadata ── */
 export async function generateMetadata({
@@ -35,7 +29,7 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const resolvedParams = await params;
-  const data = await getCachedProduct(resolvedParams.id);
+  const data = await fetchProduct(resolvedParams.id);
   const product = data?.product;
 
   if (!product) {
@@ -83,7 +77,7 @@ export default async function ProductDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const resolvedParams = await params;
-  const data = await getCachedProduct(resolvedParams.id);
+  const data = await fetchProduct(resolvedParams.id);
   const product = data?.product;
   const images = product?.images?.length
     ? product.images

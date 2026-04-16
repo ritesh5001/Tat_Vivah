@@ -6,6 +6,8 @@ import {
     CACHE_KEYS,
 } from '../utils/cache.util.js';
 import { ApiError } from '../errors/ApiError.js';
+import { dispatchFreshness } from '../live/freshness.service.js';
+import { CACHE_TAGS, occasionTag } from '../live/cache-tags.js';
 
 /**
  * Occasion Service
@@ -71,6 +73,11 @@ export class OccasionService {
         const created = await this.repository.create({ ...input, slug });
 
         await invalidateCache(CACHE_KEYS.OCCASIONS_LIST);
+        await dispatchFreshness({
+            type: 'catalog.updated',
+            tags: [CACHE_TAGS.occasions, CACHE_TAGS.products, CACHE_TAGS.search, occasionTag(slug)],
+            audience: { allAuthenticated: true },
+        });
         return created;
     }
 
@@ -102,6 +109,17 @@ export class OccasionService {
         });
 
         await invalidateCache(CACHE_KEYS.OCCASIONS_LIST);
+        await dispatchFreshness({
+            type: 'catalog.updated',
+            tags: [
+                CACHE_TAGS.occasions,
+                CACHE_TAGS.products,
+                CACHE_TAGS.search,
+                occasionTag(updated.slug),
+                ...(occasion.slug ? [occasionTag(occasion.slug)] : []),
+            ],
+            audience: { allAuthenticated: true },
+        });
         return updated;
     }
 
@@ -121,6 +139,16 @@ export class OccasionService {
 
         await this.repository.delete(id);
         await invalidateCache(CACHE_KEYS.OCCASIONS_LIST);
+        await dispatchFreshness({
+            type: 'catalog.updated',
+            tags: [
+                CACHE_TAGS.occasions,
+                CACHE_TAGS.products,
+                CACHE_TAGS.search,
+                occasionTag(occasion.slug),
+            ],
+            audience: { allAuthenticated: true },
+        });
     }
 
     /**
@@ -137,6 +165,11 @@ export class OccasionService {
         });
 
         await invalidateCache(CACHE_KEYS.OCCASIONS_LIST);
+        await dispatchFreshness({
+            type: 'catalog.updated',
+            tags: [CACHE_TAGS.occasions, CACHE_TAGS.products, CACHE_TAGS.search, occasionTag(updated.slug)],
+            audience: { allAuthenticated: true },
+        });
         return updated;
     }
 

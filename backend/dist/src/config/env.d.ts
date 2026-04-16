@@ -20,6 +20,9 @@ declare const envSchema: z.ZodObject<{
     REFRESH_TOKEN_EXPIRY: z.ZodDefault<z.ZodString>;
     FRONTEND_BASE_URL: z.ZodOptional<z.ZodString>;
     SELLER_BASE_URL: z.ZodOptional<z.ZodString>;
+    FRONTEND_REVALIDATE_URL: z.ZodOptional<z.ZodString>;
+    FRONTEND_REVALIDATE_SECRET: z.ZodOptional<z.ZodString>;
+    LIVE_EVENTS_CHANNEL: z.ZodDefault<z.ZodString>;
     REDIS_URL: z.ZodOptional<z.ZodString>;
     UPSTASH_REDIS_REST_URL: z.ZodOptional<z.ZodString>;
     UPSTASH_REDIS_REST_TOKEN: z.ZodOptional<z.ZodString>;
@@ -45,12 +48,15 @@ declare const envSchema: z.ZodObject<{
     JWT_REFRESH_SECRET: string;
     ACCESS_TOKEN_EXPIRY: string;
     REFRESH_TOKEN_EXPIRY: string;
+    LIVE_EVENTS_CHANNEL: string;
     RESEND_API_KEY: string;
     EMAIL_FROM: string;
     RUN_BACKGROUND_JOBS?: boolean | undefined;
     BACKEND_WARMUP_URL?: string | undefined;
     FRONTEND_BASE_URL?: string | undefined;
     SELLER_BASE_URL?: string | undefined;
+    FRONTEND_REVALIDATE_URL?: string | undefined;
+    FRONTEND_REVALIDATE_SECRET?: string | undefined;
     REDIS_URL?: string | undefined;
     UPSTASH_REDIS_REST_URL?: string | undefined;
     UPSTASH_REDIS_REST_TOKEN?: string | undefined;
@@ -80,6 +86,9 @@ declare const envSchema: z.ZodObject<{
     REFRESH_TOKEN_EXPIRY?: string | undefined;
     FRONTEND_BASE_URL?: string | undefined;
     SELLER_BASE_URL?: string | undefined;
+    FRONTEND_REVALIDATE_URL?: string | undefined;
+    FRONTEND_REVALIDATE_SECRET?: string | undefined;
+    LIVE_EVENTS_CHANNEL?: string | undefined;
     REDIS_URL?: string | undefined;
     UPSTASH_REDIS_REST_URL?: string | undefined;
     UPSTASH_REDIS_REST_TOKEN?: string | undefined;

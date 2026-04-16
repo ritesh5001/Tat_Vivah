@@ -16,6 +16,7 @@ import type { CategoryListResponse } from "@/services/catalog";
 import type { BestsellerProduct } from "@/services/bestsellers";
 import type { Occasion } from "@/services/occasions";
 import { SITE_URL } from "@/lib/site-config";
+import { CACHE_TAGS } from "@/lib/cache-tags";
 
 export const metadata: Metadata = {
   title:
@@ -111,12 +112,12 @@ const faqJsonLd = {
 
 const API_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
-async function fetchHomeData<T>(path: string): Promise<T | null> {
+async function fetchHomeData<T>(path: string, tags: string[]): Promise<T | null> {
   if (!API_URL) return null;
 
   try {
     const response = await fetch(`${API_URL}${path}`, {
-      next: { revalidate: 60 },
+      next: { tags },
     });
 
     if (!response.ok) {
@@ -286,10 +287,10 @@ function TrustSection() {
 
 export default async function Home() {
   const [categories, bestsellers, products, occasions] = await Promise.all([
-    fetchHomeData<CategoryListResponse>("/v1/categories"),
-    fetchHomeData<{ products: BestsellerProduct[] }>("/v1/bestsellers?limit=4"),
-    fetchHomeData<{ data: (MarketplaceCardProduct & { createdAt?: string })[] }>("/v1/products?limit=10"),
-    fetchHomeData<{ occasions: Occasion[] }>("/v1/occasions"),
+    fetchHomeData<CategoryListResponse>("/v1/categories", [CACHE_TAGS.categories]),
+    fetchHomeData<{ products: BestsellerProduct[] }>("/v1/bestsellers?limit=4", [CACHE_TAGS.products]),
+    fetchHomeData<{ data: (MarketplaceCardProduct & { createdAt?: string })[] }>("/v1/products?limit=10", [CACHE_TAGS.products]),
+    fetchHomeData<{ occasions: Occasion[] }>("/v1/occasions", [CACHE_TAGS.occasions]),
   ]);
 
   const bestsellersProducts = bestsellers?.products ?? [];

@@ -8,6 +8,8 @@ import { inventoryReserveAttemptTotal, checkoutSuccessTotal, checkoutFailTotal, 
 import { recordReserveAttempt, recordReserveFailure } from '../monitoring/alerts.js';
 import { couponService } from './coupon.service.js';
 import { Prisma } from '@prisma/client';
+import { dispatchFreshness } from '../live/freshness.service.js';
+import { CACHE_TAGS, orderTag, productTag } from '../live/cache-tags.js';
 const round2 = (value) => value.toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
 const MAX_CHECKOUT_ITEMS = 20;
 /**
@@ -323,6 +325,22 @@ export class CheckoutService {
         // Trigger Notifications (event-driven, idempotent, best-effort)
         void emitOrderPlaced(order.id).catch((error) => {
             checkoutLogger.error({ orderId: order.id, error }, 'Failed to emit order placed event');
+        });
+        void dispatchFreshness({
+            type: 'order.updated',
+            entityId: order.id,
+            tags: [
+                CACHE_TAGS.orders,
+                CACHE_TAGS.userOrders,
+                CACHE_TAGS.sellerOrders,
+                CACHE_TAGS.products,
+                CACHE_TAGS.search,
+                orderTag(order.id),
+                ...productIdsToInvalidate.map((productId) => productTag(productId)),
+            ],
+            audience: { allAuthenticated: true },
+        }).catch((error) => {
+            checkoutLogger.warn({ orderId: order.id, error }, 'checkout_freshness_dispatch_failed');
         });
         checkoutSuccessTotal.inc();
         checkoutLogger.info({
