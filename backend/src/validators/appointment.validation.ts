@@ -27,9 +27,16 @@ function normalizeDateInput(value: string): string | null {
   const compact = raw.replace(/\s+/g, '');
   const ddMmmYyyyMatch = compact.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/);
   if (ddMmmYyyyMatch) {
-    const day = Number(ddMmmYyyyMatch[1]);
-    const month = monthMap[ddMmmYyyyMatch[2].toLowerCase()];
-    const year = Number(ddMmmYyyyMatch[3]);
+    const dayPart = ddMmmYyyyMatch[1];
+    const monthPart = ddMmmYyyyMatch[2];
+    const yearPart = ddMmmYyyyMatch[3];
+    if (!dayPart || !monthPart || !yearPart) {
+      return null;
+    }
+
+    const day = Number(dayPart);
+    const month = monthMap[monthPart.toLowerCase()];
+    const year = Number(yearPart);
     if (!month || day < 1 || day > 31) {
       return null;
     }
@@ -52,7 +59,11 @@ function normalizeTimeInput(value: string): string | null {
 
   const hour12 = Number(amPmMatch[1]);
   const minute = Number(amPmMatch[2]);
-  const meridiem = amPmMatch[3].toUpperCase();
+  const meridiemPart = amPmMatch[3];
+  if (!meridiemPart) {
+    return null;
+  }
+  const meridiem = meridiemPart.toUpperCase();
 
   if (hour12 < 1 || hour12 > 12 || minute < 0 || minute > 59) {
     return null;

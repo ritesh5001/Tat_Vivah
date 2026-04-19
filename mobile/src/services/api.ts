@@ -9,13 +9,32 @@ import {
 // ---------------------------------------------------------------------------
 // Environment
 // ---------------------------------------------------------------------------
-const RAW_BASE_URL =
+const PROD_BASE_URL_RAW =
   process.env.BACKEND_URL?.trim() ||
   process.env.EXPO_PUBLIC_API_BASE_URL?.trim() ||
   "https://tat-vivah-multi-vendor-ecom.onrender.com";
 
+const LOCAL_BASE_URL_RAW =
+  process.env.LOCAL_BACKEND_URL?.trim() ||
+  process.env.EXPO_PUBLIC_LOCAL_BACKEND_URL?.trim() ||
+  "http://localhost:5000";
+
+export const PRODUCTION_API_BASE_URL = PROD_BASE_URL_RAW.replace(/\/+$/, "");
+export const LOCAL_API_BASE_URL = LOCAL_BASE_URL_RAW.replace(/\/+$/, "");
+
+const RAW_BASE_URL = __DEV__ ? LOCAL_API_BASE_URL : PRODUCTION_API_BASE_URL;
+
 /** Base URL with any trailing slashes stripped. */
 export const API_BASE_URL = RAW_BASE_URL.replace(/\/+$/, "");
+
+if (__DEV__) {
+  // Helps verify whether app is currently pointed to local or production API.
+  console.log("[mobile-api] base", {
+    apiBaseUrl: API_BASE_URL,
+    localBaseUrl: LOCAL_API_BASE_URL,
+    productionBaseUrl: PRODUCTION_API_BASE_URL,
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Session-expired callback (registered by AuthProvider on mount)

@@ -87,7 +87,7 @@ export default function AdminProductsPage() {
   const [editImages, setEditImages] = React.useState<string[]>([]);
   const [uploadingEditImages, setUploadingEditImages] = React.useState(false);
   const [variantEditValues, setVariantEditValues] = React.useState<
-    Record<string, { price: string; compareAtPrice: string; stock: string }>
+    Record<string, { color: string; images: string; price: string; compareAtPrice: string; stock: string }>
   >({});
   const [isSavingEdit, setIsSavingEdit] = React.useState(false);
 
@@ -225,9 +225,11 @@ export default function AdminProductsPage() {
         : []
     );
 
-    const variantState: Record<string, { price: string; compareAtPrice: string; stock: string }> = {};
+    const variantState: Record<string, { color: string; images: string; price: string; compareAtPrice: string; stock: string }> = {};
     (product.variants ?? []).forEach((variant: any) => {
       variantState[variant.id] = {
+        color: variant.color ?? "",
+        images: Array.isArray(variant.images) ? variant.images.join(",") : "",
         price: variant.price != null ? String(variant.price) : "",
         compareAtPrice:
           variant.compareAtPrice != null ? String(variant.compareAtPrice) : "",
@@ -262,12 +264,14 @@ export default function AdminProductsPage() {
 
   const handleVariantFieldChange = (
     variantId: string,
-    field: "price" | "compareAtPrice" | "stock",
+    field: "color" | "images" | "price" | "compareAtPrice" | "stock",
     value: string
   ) => {
     setVariantEditValues((prev) => ({
       ...prev,
       [variantId]: {
+        color: prev[variantId]?.color ?? "",
+        images: prev[variantId]?.images ?? "",
         price: prev[variantId]?.price ?? "",
         compareAtPrice: prev[variantId]?.compareAtPrice ?? "",
         stock: prev[variantId]?.stock ?? "",
@@ -388,6 +392,19 @@ export default function AdminProductsPage() {
     for (const [variantId, fields] of Object.entries(variantEditValues)) {
       const entry: AdminProductVariantUpdatePayload = { id: variantId };
       let touched = false;
+
+      if (fields.color.trim()) {
+        entry.color = fields.color.trim();
+        touched = true;
+      }
+
+      if (fields.images.trim()) {
+        entry.images = fields.images
+          .split(",")
+          .map((value) => value.trim())
+          .filter(Boolean);
+        touched = true;
+      }
 
       if (fields.price.trim()) {
         const priceValue = Number(fields.price);
@@ -1132,7 +1149,42 @@ export default function AdminProductsPage() {
                           <p className="text-sm font-medium text-foreground">
                             SKU: {variant.sku}
                           </p>
-                          <div className="mt-3 grid gap-3 md:grid-cols-3">
+                          <div className="mt-3 grid gap-3 md:grid-cols-2">
+                            <label className="flex flex-col gap-2 text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                              Color
+                              <Input
+                                value={
+                                  variantEditValues[variant.id]?.color ??
+                                  (variant.color ?? "")
+                                }
+                                onChange={(event) =>
+                                  handleVariantFieldChange(
+                                    variant.id,
+                                    "color",
+                                    event.target.value
+                                  )
+                                }
+                              />
+                            </label>
+                            <label className="flex flex-col gap-2 text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                              Variant Images
+                              <Input
+                                value={
+                                  variantEditValues[variant.id]?.images ??
+                                  (Array.isArray(variant.images)
+                                    ? variant.images.join(",")
+                                    : "")
+                                }
+                                onChange={(event) =>
+                                  handleVariantFieldChange(
+                                    variant.id,
+                                    "images",
+                                    event.target.value
+                                  )
+                                }
+                                placeholder="Comma separated URLs"
+                              />
+                            </label>
                             <label className="flex flex-col gap-2 text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
                               Price
                               <Input
@@ -1152,6 +1204,8 @@ export default function AdminProductsPage() {
                                 }
                               />
                             </label>
+                          </div>
+                          <div className="mt-3 grid gap-3 md:grid-cols-3">
                             <label className="flex flex-col gap-2 text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
                               Compare at
                               <Input

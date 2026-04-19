@@ -22,6 +22,8 @@ export interface SellerProduct {
   };
   variants: Array<{
     id: string;
+    color?: string | null;
+    images?: string[];
     sku: string;
     price: number;
     compareAtPrice?: number | null;
@@ -46,6 +48,8 @@ export interface CreateProductPayload {
 }
 
 export interface CreateVariantPayload {
+  color?: string;
+  images?: string[];
   sku: string;
   price: number;
   compareAtPrice?: number;
@@ -53,6 +57,8 @@ export interface CreateVariantPayload {
 }
 
 export interface UpdateVariantPayload {
+  color?: string | null;
+  images?: string[];
   price?: number;
   compareAtPrice?: number | null;
 }

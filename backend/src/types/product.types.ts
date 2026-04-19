@@ -54,6 +54,8 @@ export interface ProductEntity {
 export interface ProductVariantEntity {
     id: string;
     productId: string;
+    color: string | null;
+    images: string[];
     sku: string;
     price: number;
     compareAtPrice: number | null;
@@ -98,6 +100,8 @@ export interface ProductWithCategory extends ProductEntity {
 
 export interface PublicProductVariant {
     id: string;
+    color: string | null;
+    images: string[];
     sku: string;
     price: number;
     compareAtPrice: number | null;
@@ -185,6 +189,8 @@ export interface UpdateProductRequest {
  * Create variant request
  */
 export interface CreateVariantRequest {
+    color?: string | undefined;
+    images?: string[] | undefined;
     sku: string;
     price: number;
     compareAtPrice?: number | undefined;
@@ -195,6 +201,8 @@ export interface CreateVariantRequest {
  * Update variant request
  */
 export interface UpdateVariantRequest {
+    color?: string | null | undefined;
+    images?: string[] | undefined;
     price?: number | undefined;
     compareAtPrice?: number | null | undefined;
 }

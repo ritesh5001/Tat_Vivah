@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { unstable_cache } from "next/cache";
-import ProductDetailClient from "@/components/product-detail-client";
+import ProductDetailMain from "@/components/product-detail-main";
 import { ProductDetailDeferredSections } from "@/components/product-detail-deferred-sections";
-import ProductImageCarousel from "@/components/product-image-carousel";
 import { SITE_URL } from "@/lib/site-config";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
@@ -85,9 +84,6 @@ export default async function ProductDetailPage({
   const resolvedParams = await params;
   const data = await getCachedProduct(resolvedParams.id);
   const product = data?.product;
-  const images = product?.images?.length
-    ? product.images
-    : ["/images/product-placeholder.svg"];
 
   /* ── Product JSON-LD structured data ── */
   const productJsonLd = product
@@ -157,15 +153,10 @@ export default async function ProductDetailPage({
 
       <div className="mx-auto flex max-w-7xl flex-col gap-12 px-4 py-10 sm:gap-16 sm:px-6 sm:py-14 lg:gap-20 lg:py-20">
         {/* Main Product Section */}
-        <section className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:gap-12">
-          <div className="min-w-0 max-w-full">
-            <ProductImageCarousel images={images} title={product?.title} />
-          </div>
-          {product ? (
-            <div className="min-w-0 max-w-full">
-              <ProductDetailClient product={product} />
-            </div>
-          ) : (
+        {product ? (
+          <ProductDetailMain product={product} />
+        ) : (
+          <section className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:gap-12">
             <div className="flex flex-col justify-center space-y-6 py-12">
               <p className="text-[11px] font-medium uppercase tracking-[0.25em] text-gold">
                 Product Unavailable
@@ -177,8 +168,8 @@ export default async function ProductDetailPage({
                 Please return to the marketplace and try another listing.
               </p>
             </div>
-          )}
-        </section>
+          </section>
+        )}
         <ProductDetailDeferredSections productId={resolvedParams.id} />
 
         {/* Collections & Occasions Links */}

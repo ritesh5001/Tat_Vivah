@@ -436,6 +436,12 @@ export class AdminService {
                 }
 
                 const variantPayload: UpdateVariantRequest = {};
+                if (variantInput.color !== undefined) {
+                    variantPayload.color = variantInput.color;
+                }
+                if (variantInput.images !== undefined) {
+                    variantPayload.images = variantInput.images;
+                }
                 if (variantInput.price !== undefined) {
                     variantPayload.price = variantInput.price;
                 }

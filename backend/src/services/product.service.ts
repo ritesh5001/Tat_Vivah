@@ -239,6 +239,8 @@ export class ProductService {
             activeCoupon: this.getBestCouponPreview(sellingPrice, product.sellerId, coupons),
             variants: (product.variants ?? []).map((variant: any) => ({
                 id: variant.id,
+                color: variant.color ?? null,
+                images: variant.images ?? [],
                 sku: variant.sku,
                 price: this.toNumber(variant.price),
                 compareAtPrice: variant.compareAtPrice ?? null,
@@ -507,10 +509,18 @@ export class ProductService {
             throw ApiError.forbidden('You do not have permission to add variants to this product');
         }
 
+        if (product.deletedByAdmin) {
+            throw ApiError.badRequest('Variants cannot be added to a product removed by admin');
+        }
+
+        if (product.status !== 'APPROVED') {
+            throw ApiError.badRequest('Add variants after admin approval');
+        }
+
         // Check SKU uniqueness
-        const skuExists = await this.variantRepo.skuExists(productId, data.sku);
+        const skuExists = await this.variantRepo.skuExists(productId, data.sku, data.color);
         if (skuExists) {
-            throw ApiError.conflict('SKU already exists for this product');
+            throw ApiError.conflict('This size/SKU already exists for the selected color');
         }
 
         const variant = await this.variantRepo.create(productId, data);
@@ -542,6 +552,14 @@ export class ProductService {
             throw ApiError.forbidden('You do not have permission to update this variant');
         }
 
+        if (variantWithProduct.product.deletedByAdmin) {
+            throw ApiError.badRequest('Cannot update variants for products removed by admin');
+        }
+
+        if (variantWithProduct.product.status !== 'APPROVED') {
+            throw ApiError.badRequest('Variants can only be updated for approved products');
+        }
+
         const variant = await this.variantRepo.update(variantId, data);
 
         // Invalidate caches
@@ -569,6 +587,14 @@ export class ProductService {
 
         if (variantWithProduct.product.sellerId !== sellerId) {
             throw ApiError.forbidden('You do not have permission to update this variant\'s stock');
+        }
+
+        if (variantWithProduct.product.deletedByAdmin) {
+            throw ApiError.badRequest('Cannot update stock for products removed by admin');
+        }
+
+        if (variantWithProduct.product.status !== 'APPROVED') {
+            throw ApiError.badRequest('Stock can only be updated for approved products');
         }
 
         const inventory = await this.inventoryRepo.updateStock(variantId, stock);

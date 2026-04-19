@@ -96,6 +96,8 @@ export interface AdminProduct {
     approvedById?: string | null;
     variants?: Array<{
         id: string;
+        color: string | null;
+        images: string[];
         sku: string;
         price: number;
         compareAtPrice: number | null;
@@ -431,6 +433,8 @@ export class AdminRepository {
             approvedById: product.approvedById,
             variants: product.variants.map((variant) => ({
                 id: variant.id,
+                color: variant.color,
+                images: variant.images,
                 sku: variant.sku,
                 price: variant.price,
                 compareAtPrice: variant.compareAtPrice,
@@ -504,6 +508,8 @@ export class AdminRepository {
             approvedById: product.approvedById,
             variants: product.variants.map((variant) => ({
                 id: variant.id,
+                color: variant.color,
+                images: variant.images,
                 sku: variant.sku,
                 price: variant.price,
                 compareAtPrice: variant.compareAtPrice,
@@ -548,6 +554,10 @@ export class AdminRepository {
                         occasionId: true,
                     },
                 },
+                variants: {
+                    include: { inventory: true },
+                    orderBy: { createdAt: 'asc' },
+                },
             },
             orderBy: { createdAt: 'desc' },
             skip,
@@ -573,6 +583,15 @@ export class AdminRepository {
             rejectionReason: product.rejectionReason,
             approvedAt: product.approvedAt,
             approvedById: product.approvedById,
+            variants: product.variants.map((variant) => ({
+                id: variant.id,
+                color: variant.color,
+                images: variant.images,
+                sku: variant.sku,
+                price: variant.price,
+                compareAtPrice: variant.compareAtPrice,
+                stock: variant.inventory?.stock ?? 0,
+            })),
             isPublished: product.isPublished,
             deletedByAdmin: product.deletedByAdmin,
             deletedByAdminAt: product.deletedByAdminAt,

@@ -272,6 +272,8 @@ model Bestseller {
 model ProductVariant {
   id             String     @id @default(cuid())
   productId      String     @map("product_id")
+  color          String?
+  images         String[]   @default([])
   sku            String
   price          Float
   compareAtPrice Float?     @map("compare_at_price")
@@ -280,7 +282,7 @@ model ProductVariant {
   inventory      Inventory?
   product        Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
 
-  @@unique([productId, sku])
+  @@unique([productId, color, sku])
   @@index([productId])
   @@map("product_variants")
 }

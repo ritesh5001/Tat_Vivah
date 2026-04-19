@@ -6,7 +6,13 @@ import axios, {
   type InternalAxiosRequestConfig,
 } from "axios";
 import { jwtDecode } from "jwt-decode";
-import { API_BASE_URL, ApiError, triggerSessionExpired } from "./api";
+import {
+  API_BASE_URL,
+  ApiError,
+  LOCAL_API_BASE_URL,
+  PRODUCTION_API_BASE_URL,
+  triggerSessionExpired,
+} from "./api";
 import { clearSession, getAccessToken, loadSession, updateTokens } from "../storage/auth";
 
 const REFRESH_THRESHOLD_SECONDS = 60;
@@ -31,11 +37,26 @@ async function attemptTokenRefresh(): Promise<string | null> {
       const session = await loadSession();
       if (!session?.refreshToken) return null;
 
-      const response = await axios.post(
-        `${API_BASE_URL}/v1/auth/refresh`,
-        { refreshToken: session.refreshToken },
-        { headers: { "Content-Type": "application/json", Accept: "application/json" } }
-      );
+      const refreshBaseUrls =
+        __DEV__ && API_BASE_URL !== PRODUCTION_API_BASE_URL
+          ? [API_BASE_URL, PRODUCTION_API_BASE_URL]
+          : [API_BASE_URL];
+
+      let response: Awaited<ReturnType<typeof axios.post>> | null = null;
+      for (const baseUrl of refreshBaseUrls) {
+        try {
+          response = await axios.post(
+            `${baseUrl}/v1/auth/refresh`,
+            { refreshToken: session.refreshToken },
+            { headers: { "Content-Type": "application/json", Accept: "application/json" } }
+          );
+          break;
+        } catch {
+          response = null;
+        }
+      }
+
+      if (!response) return null;
 
       const body = response.data as { accessToken?: string; refreshToken?: string } | null;
       if (!body?.accessToken || !body?.refreshToken) return null;
@@ -69,6 +90,22 @@ export function toApiError(err: unknown): ApiError {
     return new ApiError(status, msg);
   }
   return new ApiError(0, err instanceof Error ? err.message : "Request failed");
+}
+
+function isNetworkFailure(err: unknown): boolean {
+  if (!isAxiosError(err)) return false;
+  return !err.response;
+}
+
+function shouldFallbackToProduction(config: AxiosRequestConfig, err: unknown): boolean {
+  if (!__DEV__) return false;
+  if (!isNetworkFailure(err)) return false;
+
+  const currentBase = (config.baseURL ?? API_BASE_URL).replace(/\/+$/, "");
+  if (currentBase === PRODUCTION_API_BASE_URL) return false;
+
+  const marker = config as AxiosRequestConfig & { _usedProdFallback?: boolean };
+  return !marker._usedProdFallback;
 }
 
 function createClient(): AxiosInstance {
@@ -136,6 +173,28 @@ export async function apiRequest<T>(config: AxiosRequestConfig): Promise<T> {
     const response = await apiClient.request<T>(config);
     return response.data as T;
   } catch (err) {
+    if (shouldFallbackToProduction(config, err)) {
+      if (__DEV__) {
+        console.warn("[mobile-api] local request failed, retrying on production", {
+          url: config.url,
+          localBase: config.baseURL ?? API_BASE_URL,
+          productionBase: PRODUCTION_API_BASE_URL,
+        });
+      }
+      const retryConfig = {
+        ...config,
+        baseURL: PRODUCTION_API_BASE_URL,
+        _usedProdFallback: true,
+      } as AxiosRequestConfig & { _usedProdFallback?: boolean };
+
+      try {
+        const response = await apiClient.request<T>(retryConfig);
+        return response.data as T;
+      } catch (retryErr) {
+        throw toApiError(retryErr);
+      }
+    }
+
     throw toApiError(err);
   }
 }
