@@ -34,6 +34,17 @@ export const productSetPriceSchema = z.object({
 
 const adminVariantUpdateSchema = z.object({
     id: z.string().min(1, 'Variant ID is required'),
+    color: z
+        .string({ invalid_type_error: 'Color must be a string' })
+        .trim()
+        .min(1, 'Color must be at least 1 character')
+        .max(50, 'Color must be at most 50 characters')
+        .nullable()
+        .optional(),
+    images: z
+        .array(z.string().url('Variant image must be a valid URL'))
+        .max(8, 'Maximum 8 variant images allowed')
+        .optional(),
     price: z
         .number({ invalid_type_error: 'Variant price must be a number' })
         .positive('Variant price must be positive')
@@ -49,6 +60,8 @@ const adminVariantUpdateSchema = z.object({
         .optional(),
 }).refine(
     (value) =>
+        value.color !== undefined ||
+        value.images !== undefined ||
         value.price !== undefined ||
         value.compareAtPrice !== undefined ||
         value.stock !== undefined,

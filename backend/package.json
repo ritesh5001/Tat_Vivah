@@ -18,6 +18,7 @@
     "start:api": "node dist/server.js",
     "start:worker": "node dist/worker.js",
     "prisma:generate": "prisma generate",
+    "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:validate": "prisma validate",
     "typecheck": "tsc --noEmit",
     "test:auth": "tsx scripts/verify-auth.ts",
@@ -46,6 +47,7 @@
     "verify:stress": "tsx scripts/stress-test-all-domains.ts"
   },
   "prisma": {
+    "schema": "prisma/schema.prisma",
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {

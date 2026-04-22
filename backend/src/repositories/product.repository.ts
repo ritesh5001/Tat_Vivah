@@ -198,6 +198,8 @@ export class ProductRepository {
                 variants: {
                     select: {
                         id: true,
+                        color: true,
+                        images: true,
                         sku: true,
                         price: true,
                         compareAtPrice: true,

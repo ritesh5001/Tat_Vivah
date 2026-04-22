@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { ArrowLeftRight, ChevronDown, CircleHelp, Eye, Truck } from "lucide-react";
@@ -15,6 +14,8 @@ import { upsertCheckoutSnapshotItem } from "@/lib/checkout-snapshot";
 
 interface Variant {
   id: string;
+  color?: string | null;
+  images?: string[];
   sku: string;
   price: number;
   compareAtPrice?: number | null;
@@ -30,6 +31,7 @@ interface ProductDetailClientProps {
     description?: string | null;
     category?: { name: string } | null;
     sellerId?: string;
+    images?: string[];
     price?: number;
     regularPrice?: number;
     sellerPrice?: number;
@@ -37,6 +39,7 @@ interface ProductDetailClientProps {
     salePrice?: number;
     variants: Variant[];
   };
+  onVariantImagesChange?: (images: string[]) => void;
 }
 
 const currency = new Intl.NumberFormat("en-IN", {
@@ -45,10 +48,71 @@ const currency = new Intl.NumberFormat("en-IN", {
   maximumFractionDigits: 0,
 });
 
+const colorClassMap: Record<string, string> = {
+  white: "#ffffff",
+  black: "#111111",
+  navy: "#0f172a",
+  blue: "#1d4ed8",
+  beige: "#f5f5dc",
+  cream: "#F8F1E5",
+  grey: "#71717a",
+  gray: "#71717a",
+  maroon: "#7f1d1d",
+  green: "#15803d",
+};
+
+function normalizeColor(value?: string | null): string {
+  return (value ?? "").trim().toLowerCase();
+}
+
+function variantColorLabel(variant: Variant): string {
+  return variant.color?.trim() || "Default";
+}
+
+function sizeLabelFromSku(variant: Variant): string {
+  const parts = variant.sku.split("-").map((part) => part.trim()).filter(Boolean);
+  if (parts.length > 1) return parts[parts.length - 1] ?? variant.sku;
+  return variant.sku;
+}
+
+function fallbackHexFromText(input: string): string {
+  let hash = 0;
+  for (let i = 0; i < input.length; i += 1) {
+    hash = input.charCodeAt(i) + ((hash << 5) - hash);
+  }
+
+  const hue = Math.abs(hash % 360);
+  return `hsl(${hue} 55% 55%)`;
+}
+
+function swatchColorFromLabel(label: string): string {
+  const normalized = normalizeColor(label);
+  if (!normalized) return "#71717a";
+
+  if (colorClassMap[normalized]) {
+    return colorClassMap[normalized];
+  }
+
+  // Accept named CSS colors and hex/rgb/hsl values provided by seller input.
+  if (
+    /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(normalized) ||
+    /^rgb\(/i.test(normalized) ||
+    /^hsl\(/i.test(normalized) ||
+    /^[a-z][a-z\s-]*$/i.test(normalized)
+  ) {
+    return normalized;
+  }
+
+  return fallbackHexFromText(normalized);
+}
+
 export default function ProductDetailClient({
   product,
+  onVariantImagesChange,
 }: ProductDetailClientProps) {
   const router = useRouter();
+  const [selectedColor, setSelectedColor] = React.useState("");
+  const [selectedPreviewIndex, setSelectedPreviewIndex] = React.useState(0);
   const [selectedVariantId, setSelectedVariantId] = React.useState(
     product.variants?.[0]?.id ?? ""
   );
@@ -100,6 +164,42 @@ export default function ProductDetailClient({
     router.prefetch("/checkout");
   }, [router]);
 
+  const colorOptions = React.useMemo(() => {
+    const map = new Map<string, string>();
+    for (const variant of product.variants ?? []) {
+      const label = variantColorLabel(variant);
+      const key = normalizeColor(label);
+      if (!map.has(key)) {
+        map.set(key, label);
+      }
+    }
+    return Array.from(map.entries()).map(([key, label]) => ({ key, label }));
+  }, [product.variants]);
+
+  React.useEffect(() => {
+    const selectedVariant = product.variants.find((variant) => variant.id === selectedVariantId);
+    if (selectedVariant) {
+      setSelectedColor(normalizeColor(variantColorLabel(selectedVariant)));
+      return;
+    }
+
+    const first = product.variants[0];
+    if (first) {
+      setSelectedVariantId(first.id);
+      setSelectedColor(normalizeColor(variantColorLabel(first)));
+      return;
+    }
+
+    setSelectedColor("");
+  }, [product.variants, selectedVariantId]);
+
+  const variantsForColor = React.useMemo(() => {
+    if (!selectedColor) return product.variants;
+    return product.variants.filter(
+      (variant) => normalizeColor(variantColorLabel(variant)) === selectedColor
+    );
+  }, [product.variants, selectedColor]);
+
   const handleToggleWishlist = async () => {
     const hasToken = document.cookie.match(/(?:^|; )tatvivah_access=([^;]*)/);
     if (!hasToken) {
@@ -126,8 +226,30 @@ export default function ProductDetailClient({
   const selectedVariant = product.variants.find(
     (variant) => variant.id === selectedVariantId
   );
-  const salePrice = product.salePrice ?? product.adminPrice ?? product.price;
+  const salePrice = selectedVariant?.price ?? product.salePrice ?? product.adminPrice ?? product.price;
   const compareAtPrice = selectedVariant?.compareAtPrice ?? product.regularPrice ?? null;
+  const selectedVariantImages =
+    selectedVariant?.images?.length
+      ? selectedVariant.images
+      : product.images?.length
+        ? product.images
+        : [];
+
+  React.useEffect(() => {
+    setSelectedPreviewIndex(0);
+  }, [selectedVariantId]);
+
+  React.useEffect(() => {
+    if (!onVariantImagesChange) return;
+
+    const nextImages = selectedVariantImages.length
+      ? selectedVariantImages
+      : product.images?.length
+        ? product.images
+        : ["/images/product-placeholder.svg"];
+
+    onVariantImagesChange(nextImages);
+  }, [onVariantImagesChange, product.images, selectedVariantImages]);
   const hasDiscount =
     typeof compareAtPrice === "number" &&
     typeof salePrice === "number" &&
@@ -344,17 +466,67 @@ export default function ProductDetailClient({
             SELECT COLOUR
           </p>
           <div className="flex flex-wrap gap-4 mt-2">
-            {/* Mock colors matching typical variants - assuming the backend currently uses unified SKUs without explicit color attributes */}
-            {['bg-stone-500', 'bg-slate-900', 'bg-zinc-800', 'bg-amber-950'].map((colorClass, idx) => (
+            {colorOptions.length === 0 ? (
+              <span className="text-sm text-muted-foreground">Color options coming soon</span>
+            ) : (
+              colorOptions.map((color) => {
+                const active = color.key === selectedColor;
+                const swatchColor = swatchColorFromLabel(color.label);
+                return (
               <button
-                key={idx}
+                key={color.key}
                 type="button"
-                className={`flex h-12 w-12 items-center justify-center rounded-full border-[1.5px] ${idx === 0 ? 'border-gold p-0.5' : 'border-transparent'} hover:opacity-80 transition-all`}
+                onClick={() => {
+                  setSelectedColor(color.key);
+                  const firstVariantForColor = product.variants.find(
+                    (variant) => normalizeColor(variantColorLabel(variant)) === color.key
+                  );
+                  if (firstVariantForColor) {
+                    setSelectedVariantId(firstVariantForColor.id);
+                  }
+                }}
+                className={`flex w-[72px] flex-col items-center gap-2 transition-all hover:opacity-90 ${active ? 'text-foreground' : 'text-muted-foreground'}`}
+                title={color.label}
               >
-                <div className={`h-full w-full rounded-full ${colorClass}`} />
+                <div
+                  className={`h-9 w-9 rounded-full border sm:h-10 sm:w-10 lg:h-11 lg:w-11 ${active ? 'border-gold ring-2 ring-gold/25' : 'border-border-soft'}`}
+                  style={{ backgroundColor: swatchColor }}
+                />
+                <span className={`w-full text-center text-[10px] font-medium uppercase tracking-[0.12em] leading-tight sm:text-[11px] ${active ? 'text-foreground' : 'text-muted-foreground'}`}>
+                  {color.label}
+                </span>
               </button>
-            ))}
+                );
+              })
+            )}
           </div>
+          {selectedVariantImages.length > 0 && (
+            <div className="flex flex-wrap gap-2 pt-2">
+              {selectedVariantImages.slice(0, 4).map((image, index) => (
+                <button
+                  key={`${image}-${index}`}
+                  type="button"
+                  onClick={() => {
+                    setSelectedPreviewIndex(index);
+                    if (!onVariantImagesChange) return;
+
+                    const prioritizedImages = [
+                      selectedVariantImages[index],
+                      ...selectedVariantImages.filter((_, i) => i !== index),
+                    ].filter(Boolean) as string[];
+
+                    if (prioritizedImages.length > 0) {
+                      onVariantImagesChange(prioritizedImages);
+                    }
+                  }}
+                  className={`h-14 w-14 overflow-hidden border ${selectedPreviewIndex === index ? "border-gold" : "border-border-soft"}`}
+                  aria-label={`Preview variant image ${index + 1}`}
+                >
+                  <img src={image} alt={`Variant preview ${index + 1}`} className="h-full w-full object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* 4. Size Selection */}
@@ -370,10 +542,10 @@ export default function ProductDetailClient({
           </div>
 
           <div className="flex flex-wrap gap-2.5 mt-2">
-            {product.variants.length === 0 ? (
+            {variantsForColor.length === 0 ? (
               <span className="text-sm text-muted-foreground">Variants coming soon</span>
             ) : (
-              product.variants.map((variant, idx) => (
+              variantsForColor.map((variant, idx) => (
                 <motion.button
                   key={variant.id}
                   type="button"
@@ -386,7 +558,7 @@ export default function ProductDetailClient({
                       : "border border-border-soft text-muted-foreground hover:border-gold/50 hover:text-foreground"
                     }`}
                 >
-                  {variant.sku.split('-').pop() || variant.sku}
+                  {sizeLabelFromSku(variant)}
                   {/* Stock Badge - Mocked for matching design visually */}
                   {(idx === 6 || idx === 8) && (
                     <span className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 bg-[#d85025] text-white text-[9px] font-semibold px-2 py-0.5 rounded-sm shadow-sm whitespace-nowrap z-10 tracking-widest">

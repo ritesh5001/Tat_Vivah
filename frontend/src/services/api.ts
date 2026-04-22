@@ -8,7 +8,12 @@ type ApiRequestOptions = Omit<RequestInit, "body"> & {
   _isRetry?: boolean;
 };
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL?.trim() ||
+  (process.env.NODE_ENV === "development" ? "http://localhost:5000" : "");
+
+const DEV_FALLBACK_API_BASE_URL = "http://localhost:5000";
+const API_REQUEST_TIMEOUT_MS = 15000;
 
 export const swrConfig = {
   dedupingInterval: 5000,
@@ -105,6 +110,42 @@ async function silentRefresh(): Promise<string | null> {
   return _refreshPromise;
 }
 
+function isNetworkError(error: unknown): boolean {
+  return error instanceof TypeError || (error as { name?: string })?.name === "AbortError";
+}
+
+function withTimeout(signal: AbortSignal | null | undefined, timeoutMs: number): AbortSignal {
+  const controller = new AbortController();
+
+  const timeout = setTimeout(() => {
+    controller.abort();
+  }, timeoutMs);
+
+  if (signal) {
+    if (signal.aborted) {
+      controller.abort();
+    } else {
+      signal.addEventListener(
+        "abort",
+        () => {
+          controller.abort();
+        },
+        { once: true }
+      );
+    }
+  }
+
+  controller.signal.addEventListener(
+    "abort",
+    () => {
+      clearTimeout(timeout);
+    },
+    { once: true }
+  );
+
+  return controller.signal;
+}
+
 export async function apiRequest<T>(
   path: string,
   options: ApiRequestOptions = {}
@@ -135,31 +176,61 @@ export async function apiRequest<T>(
   }
 
   try {
-    const response = await fetch(`${API_BASE_URL}${path}`, {
-      ...rest,
-      headers: finalHeaders,
-      body: body ? JSON.stringify(body) : undefined,
-    });
-
-    const data = await response.json().catch(() => null);
-
-    if (!response.ok) {
-      // On 401, attempt a silent token refresh before giving up
-      if (response.status === 401 && !_isRetry && !token) {
-        const newToken = await silentRefresh();
-        if (newToken) {
-          // Retry the original request with the fresh token
-          return apiRequest<T>(path, { ...options, token: newToken, _isRetry: true });
-        }
-        // Refresh failed — clear session
-        clearAuthCookies();
-      } else if (response.status === 401 || response.status === 403) {
-        clearAuthCookies();
-      }
-      throw new Error(getErrorMessage(data, "Request failed"));
+    const baseUrls = [API_BASE_URL];
+    if (
+      process.env.NODE_ENV === "development" &&
+      API_BASE_URL !== DEV_FALLBACK_API_BASE_URL
+    ) {
+      baseUrls.push(DEV_FALLBACK_API_BASE_URL);
     }
 
-    return data as T;
+    let lastError: Error | null = null;
+
+    for (const baseUrl of baseUrls) {
+      try {
+        const response = await fetch(`${baseUrl}${path}`, {
+          ...rest,
+          headers: finalHeaders,
+          body: body ? JSON.stringify(body) : undefined,
+          signal: withTimeout(rest.signal ?? null, API_REQUEST_TIMEOUT_MS),
+        });
+
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok) {
+          // On 401, attempt a silent token refresh before giving up
+          if (response.status === 401 && !_isRetry && !token) {
+            const newToken = await silentRefresh();
+            if (newToken) {
+              // Retry the original request with the fresh token
+              return apiRequest<T>(path, { ...options, token: newToken, _isRetry: true });
+            }
+            // Refresh failed — clear session
+            clearAuthCookies();
+          } else if (response.status === 401 || response.status === 403) {
+            clearAuthCookies();
+          }
+          throw new Error(getErrorMessage(data, "Request failed"));
+        }
+
+        return data as T;
+      } catch (error) {
+        if (!isNetworkError(error)) {
+          throw error;
+        }
+
+        lastError =
+          error instanceof Error
+            ? error
+            : new Error("Network request failed");
+      }
+    }
+
+    if (lastError?.name === "AbortError") {
+      throw new Error("Request timed out. Please check backend/API URL and try again.");
+    }
+
+    throw new Error("Unable to reach API. Please check backend server and API base URL.");
   } finally {
     if (shouldTrackActivity) {
       reportApiActivity({

@@ -21,6 +21,8 @@ export interface AdminProduct {
   approvedById?: string | null;
   variants?: Array<{
     id: string;
+    color?: string | null;
+    images?: string[];
     sku: string;
     price: number;
     compareAtPrice?: number | null;
@@ -42,6 +44,8 @@ export interface AdminProduct {
 
 export interface AdminProductVariantUpdatePayload {
   id: string;
+  color?: string | null;
+  images?: string[];
   price?: number;
   compareAtPrice?: number | null;
   stock?: number;

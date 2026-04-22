@@ -5,6 +5,18 @@ import { z } from 'zod';
  * POST /v1/seller/products/:id/variants
  */
 export const createVariantSchema = z.object({
+    color: z
+        .string()
+        .trim()
+        .min(1, 'Color must be at least 1 character')
+        .max(50, 'Color must be at most 50 characters')
+        .optional(),
+
+    images: z
+        .array(z.string().url('Variant image must be a valid URL'))
+        .max(8, 'Maximum 8 variant images allowed')
+        .optional(),
+
     sku: z
         .string()
         .min(1, 'SKU is required')
@@ -34,6 +46,19 @@ export type CreateVariantInput = z.infer<typeof createVariantSchema>;
  * PUT /v1/seller/variants/:id
  */
 export const updateVariantSchema = z.object({
+    color: z
+        .string()
+        .trim()
+        .min(1, 'Color must be at least 1 character')
+        .max(50, 'Color must be at most 50 characters')
+        .nullable()
+        .optional(),
+
+    images: z
+        .array(z.string().url('Variant image must be a valid URL'))
+        .max(8, 'Maximum 8 variant images allowed')
+        .optional(),
+
     price: z
         .number()
         .positive('Price must be positive')

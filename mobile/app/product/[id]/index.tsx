@@ -334,6 +334,64 @@ function renderStars(avg: number): string {
   return "★".repeat(full) + "☆".repeat(5 - full);
 }
 
+function normalizeColor(value?: string | null): string {
+  return (value ?? "").trim().toLowerCase();
+}
+
+const colorHexMap: Record<string, string> = {
+  white: "#ffffff",
+  black: "#111111",
+  navy: "#0f172a",
+  blue: "#1d4ed8",
+  beige: "#f5f5dc",
+  cream: "#F8F1E5",
+  grey: "#71717a",
+  gray: "#71717a",
+  maroon: "#7f1d1d",
+  green: "#15803d",
+  yellow: "#facc15",
+  red: "#dc2626",
+};
+
+function fallbackColorFromText(input: string): string {
+  let hash = 0;
+  for (let i = 0; i < input.length; i += 1) {
+    hash = input.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const hue = Math.abs(hash % 360);
+  return `hsl(${hue}, 55%, 55%)`;
+}
+
+function swatchColorFromLabel(label: string): string {
+  const normalized = normalizeColor(label);
+  if (!normalized) return "#71717a";
+
+  if (colorHexMap[normalized]) {
+    return colorHexMap[normalized];
+  }
+
+  if (
+    /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(normalized) ||
+    /^rgb\(/i.test(normalized) ||
+    /^hsl\(/i.test(normalized) ||
+    /^[a-z][a-z\s-]*$/i.test(normalized)
+  ) {
+    return normalized;
+  }
+
+  return fallbackColorFromText(normalized);
+}
+
+function getVariantColorLabel(variant: ProductVariant): string {
+  return variant.color?.trim() || "Default";
+}
+
+function getVariantSizeLabel(variant: ProductVariant): string {
+  const parts = variant.sku.split("-").map((part) => part.trim()).filter(Boolean);
+  if (parts.length > 1) return parts[parts.length - 1] ?? variant.sku;
+  return variant.sku;
+}
+
 // ---------------------------------------------------------------------------
 // Main screen
 // ---------------------------------------------------------------------------
@@ -355,6 +413,7 @@ export default function ProductDetailScreen() {
   // ---- State ----
   const [product, setProduct] = React.useState<ProductDetail | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const [selectedColor, setSelectedColor] = React.useState<string>("");
   const [selectedVariantId, setSelectedVariantId] = React.useState<string | null>(null);
   const [adding, setAdding] = React.useState(false);
   const [showViewCart, setShowViewCart] = React.useState(false);
@@ -380,6 +439,7 @@ export default function ProductDetailScreen() {
   const stickyActionHeight = 96;
   const stickyReserveSpace = stickyBottomOffset + stickyActionHeight + spacing.xl;
   const viewerWidth = Math.max(windowWidth, VIEWER_MIN_WIDTH);
+  const isCompactLayout = windowWidth < 380;
 
   const [galleryIndex, setGalleryIndex] = React.useState(0);
   const [isViewerVisible, setIsViewerVisible] = React.useState(false);
@@ -412,6 +472,9 @@ export default function ProductDetailScreen() {
     if (!product?.id) return;
     setGalleryIndex(0);
     setSelectedVariantId(product.variants?.[0]?.id ?? null);
+    if (product.variants?.[0]) {
+      setSelectedColor(normalizeColor(getVariantColorLabel(product.variants[0])));
+    }
   }, [product?.id, product?.variants]);
 
   // ---- Track recently viewed (fire-and-forget) ----
@@ -483,8 +546,42 @@ export default function ProductDetailScreen() {
   const selectedVariant = product?.variants?.find(
     (v: ProductVariant) => v.id === selectedVariantId
   );
-  const fallbackVariant = selectedVariant ?? product?.variants?.[0] ?? null;
-  const images = product?.images?.length ? product.images : [fallbackImage];
+  const colorOptions = React.useMemo(() => {
+    const variants = product?.variants ?? [];
+    const map = new Map<string, string>();
+    for (const variant of variants) {
+      const label = getVariantColorLabel(variant);
+      const key = normalizeColor(label);
+      if (!map.has(key)) {
+        map.set(key, label);
+      }
+    }
+    return Array.from(map.entries()).map(([key, label]) => ({ key, label }));
+  }, [product?.variants]);
+
+  const variantsForColor = React.useMemo(() => {
+    const variants = product?.variants ?? [];
+    if (!selectedColor) return variants;
+    return variants.filter((variant) => normalizeColor(getVariantColorLabel(variant)) === selectedColor);
+  }, [product?.variants, selectedColor]);
+
+  const fallbackVariant = selectedVariant ?? variantsForColor[0] ?? product?.variants?.[0] ?? null;
+  const salePrice = fallbackVariant?.price ?? null;
+  const compareAtPrice = fallbackVariant?.compareAtPrice ?? null;
+  const hasDiscount =
+    typeof salePrice === "number" &&
+    typeof compareAtPrice === "number" &&
+    compareAtPrice > salePrice;
+  const savingsAmount = hasDiscount ? compareAtPrice - salePrice : 0;
+  const discountPercent = hasDiscount
+    ? Math.round(((compareAtPrice - salePrice) / compareAtPrice) * 100)
+    : 0;
+  const images =
+    fallbackVariant?.images?.length
+      ? fallbackVariant.images
+      : product?.images?.length
+        ? product.images
+        : [fallbackImage];
   const avgRating = computeAvgRating(reviews);
   // Duplicate‐prevention: backend prevents via unique constraint; we hide the form
   // if any review matches the logged-in user's ID (review.user object may only
@@ -921,15 +1018,24 @@ export default function ProductDetailScreen() {
             <Text style={styles.priceLabel}>MRP (Inclusive of all taxes)</Text>
             <View style={styles.priceValues}>
               <Text style={styles.priceValue}>
-                {selectedVariant ? currency.format(selectedVariant.price) : "—"}
+                {typeof salePrice === "number" ? currency.format(salePrice) : "—"}
               </Text>
-              {selectedVariant?.compareAtPrice != null &&
-                selectedVariant.compareAtPrice > selectedVariant.price && (
+              {hasDiscount && (
                   <Text style={styles.comparePrice}>
-                    {currency.format(selectedVariant.compareAtPrice)}
+                    {currency.format(compareAtPrice)}
                   </Text>
                 )}
+              {hasDiscount ? (
+                <View style={styles.discountPill}>
+                  <Text style={styles.discountPillText}>{discountPercent}% OFF</Text>
+                </View>
+              ) : null}
             </View>
+            {hasDiscount ? (
+              <Text style={styles.savingsText}>
+                You save {currency.format(savingsAmount)} + limited-time offer
+              </Text>
+            ) : null}
           </View>
 
           {/* Stock indicator */}
@@ -950,10 +1056,61 @@ export default function ProductDetailScreen() {
 
           {/* Variant selector */}
           <View style={styles.variantRow}>
+            <Text style={styles.variantLabel}>Select Color</Text>
+            <View style={styles.variantWrap}>
+              {colorOptions.length ? (
+                colorOptions.map((color) => {
+                  const active = selectedColor === color.key;
+                  const swatchSize = isCompactLayout ? 26 : 30;
+                  return (
+                    <Pressable
+                      key={color.key}
+                      style={[
+                        styles.colorOption,
+                        active && styles.colorOptionActive,
+                      ]}
+                      onPress={() => {
+                        setSelectedColor(color.key);
+                        const firstVariant = (product?.variants ?? []).find(
+                          (variant) => normalizeColor(getVariantColorLabel(variant)) === color.key,
+                        );
+                        if (firstVariant) {
+                          setSelectedVariantId(firstVariant.id);
+                        }
+                      }}
+                    >
+                      <View
+                        style={[
+                          styles.colorSwatch,
+                          {
+                            width: swatchSize,
+                            height: swatchSize,
+                            backgroundColor: swatchColorFromLabel(color.label),
+                          },
+                        ]}
+                      />
+                      <Text
+                        style={[
+                          styles.colorOptionText,
+                          active && styles.colorOptionTextActive,
+                        ]}
+                      >
+                        {color.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })
+              ) : (
+                <Text style={styles.mutedText}>Colors coming soon.</Text>
+              )}
+            </View>
+          </View>
+
+          <View style={styles.variantRow}>
             <Text style={styles.variantLabel}>Select Size</Text>
             <View style={styles.variantWrap}>
-              {product.variants?.length ? (
-                product.variants.map((variant: ProductVariant) => {
+              {variantsForColor.length ? (
+                variantsForColor.map((variant: ProductVariant) => {
                   const active = variant.id === selectedVariantId;
                   const variantOOS =
                     variant.inventory != null && variant.inventory.stock <= 0;
@@ -975,7 +1132,7 @@ export default function ProductDetailScreen() {
                           variantOOS && styles.variantChipTextDisabled,
                         ]}
                       >
-                        {variant.sku.split("-").pop() || variant.sku}
+                        {getVariantSizeLabel(variant)}
                       </Text>
                     </Pressable>
                   );
@@ -1401,6 +1558,28 @@ const styles = StyleSheet.create({
     color: colors.brownSoft,
     textDecorationLine: "line-through",
   },
+  discountPill: {
+    borderWidth: 1,
+    borderColor: colors.gold,
+    backgroundColor: "rgba(196, 167, 108, 0.12)",
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 2,
+  },
+  discountPillText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 10,
+    color: colors.gold,
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+  },
+  savingsText: {
+    marginTop: spacing.xs,
+    fontFamily: typography.sans,
+    fontSize: 11,
+    color: colors.gold,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
   stockText: {
     marginTop: spacing.xs,
     fontFamily: typography.sans,
@@ -1454,6 +1633,33 @@ const styles = StyleSheet.create({
   variantChipTextDisabled: {
     color: colors.brownSoft,
     textDecorationLine: "line-through",
+  },
+  colorOption: {
+    width: 72,
+    alignItems: "center",
+    gap: 6,
+  },
+  colorOptionActive: {
+    opacity: 1,
+  },
+  colorSwatch: {
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    borderRadius: 999,
+  },
+  colorOptionText: {
+    fontFamily: typography.sans,
+    fontSize: 10,
+    color: colors.brownSoft,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    width: "100%",
+    textAlign: "center",
+    lineHeight: 12,
+  },
+  colorOptionTextActive: {
+    color: colors.charcoal,
+    fontFamily: typography.sansMedium,
   },
 
   // Buttons
