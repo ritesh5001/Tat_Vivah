@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import ProductDetailMain from "@/components/product-detail-main";
 import ProductDetailClient from "@/components/product-detail-client";
 import { ProductDetailDeferredSections } from "@/components/product-detail-deferred-sections";
 import { SITE_URL } from "@/lib/site-config";
