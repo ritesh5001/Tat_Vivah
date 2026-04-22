@@ -32,6 +32,7 @@ const envSchema = z.object({
 
     // Database
     DATABASE_URL: z.string().url('DATABASE_URL must be a valid URL'),
+    DATABASE_URL_DIRECT: z.string().url('DATABASE_URL_DIRECT must be a valid URL').optional(),
 
     // JWT Secrets
     JWT_ACCESS_SECRET: z.string().min(32, 'JWT_ACCESS_SECRET must be at least 32 characters'),

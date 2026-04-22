@@ -26,6 +26,21 @@ export function errorMiddleware(
     // Log error for debugging (in production, use proper logging)
     console.error('[Error]:', err);
 
+    const prismaError = err as Error & { code?: string; meta?: Record<string, unknown> };
+    if (prismaError.code === 'P1001') {
+        const response: ErrorResponse = {
+            success: false,
+            error: {
+                message: 'Database temporarily unavailable',
+                statusCode: 503,
+                ...(prismaError.meta && { details: prismaError.meta }),
+            },
+        };
+
+        res.status(503).json(response);
+        return;
+    }
+
     // Handle ApiError (operational errors)
     if (err instanceof ApiError) {
         const response: ErrorResponse = {

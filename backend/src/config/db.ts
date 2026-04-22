@@ -20,9 +20,10 @@ function getIntEnv(name: string, fallback: number, min: number, max: number): nu
     return n;
 }
 
-function buildPrismaDatabaseUrl(rawUrl: string): string {
+function buildPrismaDatabaseUrl(rawUrl: string, directUrl?: string): string {
     try {
-        const parsed = new URL(rawUrl);
+        const sourceUrl = directUrl ?? rawUrl;
+        const parsed = new URL(sourceUrl);
         const isPooledHost = parsed.hostname.includes('-pooler.');
 
         const pooledConnectionLimit = getIntEnv('DB_POOL_CONNECTION_LIMIT', 10, 1, 100);
@@ -30,6 +31,13 @@ function buildPrismaDatabaseUrl(rawUrl: string): string {
         const directConnectionLimit = getIntEnv('DB_DIRECT_CONNECTION_LIMIT', 5, 1, 100);
 
         if (isPooledHost) {
+            // If we only have the pooled Neon endpoint, Prisma can still connect more
+            // reliably through the direct host. Prefer it unless an explicit direct
+            // URL has already been supplied.
+            if (!directUrl) {
+                parsed.hostname = parsed.hostname.replace('-pooler.', '.');
+            }
+
             parsed.searchParams.set('pgbouncer', 'true');
             parsed.searchParams.set('connection_limit', String(pooledConnectionLimit));
             parsed.searchParams.set('pool_timeout', String(pooledPoolTimeout));
@@ -49,7 +57,7 @@ function buildPrismaDatabaseUrl(rawUrl: string): string {
 function createPrismaClient() {
     const client = new PrismaClient({
         datasources: {
-            db: { url: buildPrismaDatabaseUrl(env.DATABASE_URL) },
+            db: { url: buildPrismaDatabaseUrl(env.DATABASE_URL, env.DATABASE_URL_DIRECT) },
         },
         log: env.NODE_ENV === 'development'
             ? [{ emit: 'stdout', level: 'query' }]
@@ -81,7 +89,10 @@ if (env.NODE_ENV !== 'production') {
 
 // @ts-expect-error — Prisma's $on('error') is loosely typed at runtime
 prisma.$on('error', (e: { message?: string }) => {
-    if (e.message?.includes('Closed')) {
+    if (
+        e.message?.includes('Closed') ||
+        e.message?.includes("Can't reach database server")
+    ) {
         // Intentionally silent — Prisma reconnects automatically
         return;
     }
