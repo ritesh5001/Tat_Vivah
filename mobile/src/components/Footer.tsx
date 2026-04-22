@@ -30,8 +30,10 @@ const sectionLinks: Record<FooterSection, { label: string; route?: string; onPre
   "OUR POLICIES": [
     { label: "Privacy Policy", route: "/privacy-policy" },
     { label: "Terms & Conditions", route: "/terms" },
-    { label: "Return Policy", route: "/return-policy" },
+    { label: "Return & Refund Policy", route: "/return-policy" },
     { label: "Refund Policy", route: "/refund-policy" },
+    { label: "Shipping & Delivery Policy", route: "/shipping-policy" },
+    { label: "Vendor Agreement", route: "/vendor-agreement" },
   ],
 };
 

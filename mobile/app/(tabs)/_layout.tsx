@@ -196,6 +196,18 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="shipping-policy"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="vendor-agreement"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
         name="terms"
         options={{
           href: null,

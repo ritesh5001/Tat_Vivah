@@ -5,10 +5,10 @@ import { ONBOARDING_EMAIL, REFUND_EMAIL, SUPPORT_EMAIL, SUPPORT_PHONE_DISPLAY } 
 const policyLinks = [
   { label: "Terms & Conditions", href: "/terms" },
   { label: "Privacy Policy", href: "/privacy" },
+  { label: "Return & Refund Policy", href: "/return-policy" },
   { label: "Refund Policy", href: "/refund-policy" },
   { label: "Shipping Policy", href: "/shipping-policy" },
-  { label: "Return Policy", href: "/return-policy" },
-  { label: "Seller Terms", href: "/seller-terms" },
+  { label: "Vendor Agreement", href: "/vendor-agreement" },
   { label: "Disclaimer", href: "/disclaimer" },
 ];
 
