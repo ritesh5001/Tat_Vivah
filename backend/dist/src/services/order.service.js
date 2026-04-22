@@ -1,5 +1,4 @@
 import { orderRepository } from '../repositories/order.repository.js';
-import { getFromCache, setCache, CACHE_KEYS, } from '../utils/cache.util.js';
 import { ApiError } from '../errors/ApiError.js';
 /**
  * Order Service
@@ -20,38 +19,19 @@ export class OrderService {
     async listBuyerOrders(userId, params) {
         const page = Math.max(1, Math.trunc(params?.page ?? 1));
         const limit = Math.min(20, Math.max(1, Math.trunc(params?.limit ?? 20)));
-        const startKey = params?.startDate?.toISOString() ?? '_';
-        const endKey = params?.endDate?.toISOString() ?? '_';
-        const cacheKey = `${CACHE_KEYS.BUYER_ORDERS(userId)}:${page}:${limit}:${startKey}:${endKey}`;
-        // Try cache first
-        const cached = await getFromCache(cacheKey);
-        if (cached) {
-            return cached;
-        }
         const orders = await this.orderRepo.findByUserId(userId, { ...params, page, limit });
-        const response = { orders };
-        // Cache the result
-        await setCache(cacheKey, response);
-        return response;
+        return { orders };
     }
     /**
      * Get buyer's order detail
      * Uses Redis caching
      */
     async getBuyerOrder(orderId, userId) {
-        // Try cache first
-        const cached = await getFromCache(CACHE_KEYS.ORDER_DETAIL(orderId));
-        if (cached && cached.order.userId === userId) {
-            return cached;
-        }
         const order = await this.orderRepo.findByIdAndUserId(orderId, userId);
         if (!order) {
             throw ApiError.notFound('Order not found');
         }
-        const response = { order };
-        // Cache the result
-        await setCache(CACHE_KEYS.ORDER_DETAIL(orderId), response);
-        return response;
+        return { order };
     }
     // =========================================================================
     // SELLER METHODS

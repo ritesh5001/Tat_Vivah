@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { MarketplaceProductCard } from "@/components/marketplace-product-card";
 import { Card, CardContent } from "@/components/ui/card";
 import { SITE_URL } from "@/lib/site-config";
+import { CACHE_TAGS, occasionTag } from "@/lib/cache-tags";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
@@ -12,7 +13,7 @@ type OccasionItem = { id: string; name: string; slug: string; isActive: boolean;
 async function fetchOccasions() {
     if (!API_BASE_URL) return [] as OccasionItem[];
     const response = await fetch(`${API_BASE_URL}/v1/occasions`, {
-        next: { revalidate: 3600 },
+        next: { tags: [CACHE_TAGS.occasions] },
     });
     if (!response.ok) return [] as OccasionItem[];
     const data = await response.json();
@@ -23,7 +24,7 @@ async function fetchProducts(occasionSlug: string, limit: number = 20) {
     if (!API_BASE_URL) return [];
     const query = new URLSearchParams({ occasion: occasionSlug, limit: String(limit) });
     const response = await fetch(`${API_BASE_URL}/v1/products?${query.toString()}`, {
-        next: { revalidate: 3600 },
+        next: { tags: [CACHE_TAGS.products, occasionTag(occasionSlug)] },
     });
     if (!response.ok) return [];
     const data = await response.json();

@@ -27,16 +27,14 @@ function normalizeDateInput(value: string): string | null {
   const compact = raw.replace(/\s+/g, '');
   const ddMmmYyyyMatch = compact.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/);
   if (ddMmmYyyyMatch) {
-    const dayPart = ddMmmYyyyMatch[1];
-    const monthPart = ddMmmYyyyMatch[2];
-    const yearPart = ddMmmYyyyMatch[3];
-    if (!dayPart || !monthPart || !yearPart) {
+    const [, dayText, monthText, yearText] = ddMmmYyyyMatch;
+    if (!dayText || !monthText || !yearText) {
       return null;
     }
 
-    const day = Number(dayPart);
-    const month = monthMap[monthPart.toLowerCase()];
-    const year = Number(yearPart);
+    const day = Number(dayText);
+    const month = monthMap[monthText.toLowerCase()];
+    const year = Number(yearText);
     if (!month || day < 1 || day > 31) {
       return null;
     }
@@ -57,13 +55,14 @@ function normalizeTimeInput(value: string): string | null {
     return null;
   }
 
-  const hour12 = Number(amPmMatch[1]);
-  const minute = Number(amPmMatch[2]);
-  const meridiemPart = amPmMatch[3];
-  if (!meridiemPart) {
+  const [, hourText, minuteText, meridiemText] = amPmMatch;
+  if (!hourText || !minuteText || !meridiemText) {
     return null;
   }
-  const meridiem = meridiemPart.toUpperCase();
+
+  const hour12 = Number(hourText);
+  const minute = Number(minuteText);
+  const meridiem = meridiemText.toUpperCase();
 
   if (hour12 < 1 || hour12 > 12 || minute < 0 || minute > 59) {
     return null;

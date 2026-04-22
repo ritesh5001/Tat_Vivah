@@ -52,4 +52,6 @@ export declare const couponAppliedTotal: client.Counter<string>;
 export declare const couponRejectedTotal: client.Counter<string>;
 export declare const couponUsageExhaustedTotal: client.Counter<string>;
 export declare const couponDiscountAmountTotal: client.Counter<string>;
+export declare const hotEndpointDurationMs: client.Histogram<"status" | "method" | "endpoint">;
+export declare const hotEndpointSlowTotal: client.Counter<"method" | "endpoint">;
 //# sourceMappingURL=metrics.d.ts.map

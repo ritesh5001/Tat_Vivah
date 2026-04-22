@@ -11,6 +11,7 @@
     "dev": "npm run dev:api",
     "dev:api": "tsx watch src/server.ts",
     "dev:worker": "tsx watch src/worker.ts",
+    "prebuild": "prisma generate",
     "build": "tsc",
     "prestart": "prisma generate",
     "start": "npm run start:api",
@@ -33,12 +34,17 @@
     "verify:admin": "tsx scripts/verify-admin.ts",
     "verify:notifications": "tsx scripts/verify-notifications.ts",
     "verify:razorpay": "tsx scripts/verify-razorpay.ts",
+    "verify:openapi": "tsx scripts/verify-openapi.ts",
+    "verify:reviews": "tsx scripts/verify-reviews.ts",
+    "verify:live-notification": "tsx scripts/live-test-notification.ts",
+    "verify:checkout": "tsx scripts/simulate-checkout.ts",
     "verify:cancellation-race": "tsx scripts/simulate-cancellation-race.ts",
     "verify:return-race": "tsx scripts/simulate-return-race.ts",
+    "verify:all": "tsx scripts/verify-all.ts",
     "verify:refund-race": "tsx scripts/simulate-refund-race.ts",
     "verify:commission-race": "tsx scripts/simulate-commission-race.ts",
     "verify:coupon-race": "tsx scripts/simulate-coupon-race.ts",
-    "verify:all": "tsx scripts/verify-all.ts"
+    "verify:stress": "tsx scripts/stress-test-all-domains.ts"
   },
   "prisma": {
     "schema": "prisma/schema.prisma",

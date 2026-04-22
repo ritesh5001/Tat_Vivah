@@ -1,8 +1,6 @@
 import { CartRepository, cartRepository } from '../repositories/cart.repository.js';
 import { VariantRepository, variantRepository } from '../repositories/variant.repository.js';
 import {
-    getFromCache,
-    setCache,
     invalidateCache,
     CACHE_KEYS,
 } from '../utils/cache.util.js';
@@ -29,24 +27,13 @@ export class CartService {
      * Uses Redis caching
      */
     async getCart(userId: string): Promise<CartResponse> {
-        // Try cache first
-        const cached = await getFromCache<CartResponse>(CACHE_KEYS.CART(userId));
-        if (cached) {
-            return cached;
-        }
-
         // Get cart with details
         const cart = await this.cartRepo.getCartWithDetails(userId);
         if (!cart) {
             throw ApiError.internal('Failed to create cart');
         }
 
-        const response: CartResponse = { cart };
-
-        // Cache the result
-        await setCache(CACHE_KEYS.CART(userId), response);
-
-        return response;
+        return { cart };
     }
 
     /**

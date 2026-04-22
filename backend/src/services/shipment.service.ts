@@ -15,7 +15,9 @@ import {
 } from '../types/shipment.types.js';
 import { ShipmentStatus, OrderStatus } from '@prisma/client';
 import { ApiError } from '../errors/ApiError.js';
-import { getFromCache, setCache, invalidateCache, CACHE_KEYS } from '../utils/cache.util.js';
+import { invalidateCache, CACHE_KEYS } from '../utils/cache.util.js';
+import { dispatchFreshness } from '../live/freshness.service.js';
+import { CACHE_TAGS, orderTag } from '../live/cache-tags.js';
 
 export class ShipmentService {
 
@@ -66,6 +68,18 @@ export class ShipmentService {
         await this.invalidateTrackingCache(orderId);
 
         await emitShipmentCreated(orderId, shipment.carrier, shipment.tracking_number);
+        await dispatchFreshness({
+            type: 'shipment.updated',
+            entityId: orderId,
+            tags: [
+                CACHE_TAGS.shipments,
+                CACHE_TAGS.orders,
+                CACHE_TAGS.sellerOrders,
+                CACHE_TAGS.userOrders,
+                orderTag(orderId),
+            ],
+            audience: { allAuthenticated: true },
+        });
 
         return this.mapToDTO(shipment);
     }
@@ -122,6 +136,19 @@ export class ShipmentService {
             await emitShipmentDelivered(shipment.order_id);
         }
 
+        await dispatchFreshness({
+            type: 'shipment.updated',
+            entityId: shipment.order_id,
+            tags: [
+                CACHE_TAGS.shipments,
+                CACHE_TAGS.orders,
+                CACHE_TAGS.sellerOrders,
+                CACHE_TAGS.userOrders,
+                orderTag(shipment.order_id),
+            ],
+            audience: { allAuthenticated: true },
+        });
+
         return this.mapToDTO(updated);
     }
 
@@ -158,6 +185,19 @@ export class ShipmentService {
         // Sync order status
         await this.checkAndSyncOrderStatus(shipment.order_id);
 
+        await dispatchFreshness({
+            type: 'shipment.updated',
+            entityId: shipment.order_id,
+            tags: [
+                CACHE_TAGS.shipments,
+                CACHE_TAGS.orders,
+                CACHE_TAGS.sellerOrders,
+                CACHE_TAGS.userOrders,
+                orderTag(shipment.order_id),
+            ],
+            audience: { allAuthenticated: true },
+        });
+
         return this.mapToDTO(updated);
     }
 
@@ -180,22 +220,13 @@ export class ShipmentService {
             throw new ApiError(403, 'Unauthorized to view tracking for this order');
         }
 
-        // Provide cached response if available
-        const cacheKey = CACHE_KEYS.TRACKING(orderId);
-        const cached = await getFromCache<TrackingResponse>(cacheKey);
-        if (cached) return cached;
-
         const shipments = await shipmentRepository.findByOrderId(orderId);
 
-        const response = {
+        return {
             orderId,
             status: order.status,
             shipments: shipments.map(this.mapToTrackingDTO)
         };
-
-        await setCache(cacheKey, response, 600); // 10 min TTL
-
-        return response;
     }
 
     /**

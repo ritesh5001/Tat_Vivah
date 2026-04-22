@@ -12,6 +12,8 @@ import {
 } from '../utils/cache.util.js';
 import { ApiError } from '../errors/ApiError.js';
 import { OccasionService, occasionService } from './occasion.service.js';
+import { dispatchFreshness } from '../live/freshness.service.js';
+import { CACHE_TAGS, productTag } from '../live/cache-tags.js';
 import type {
     ProductQueryFilters,
     ProductListResponse,
@@ -280,6 +282,23 @@ export class ProductService {
         };
     }
 
+    private async publishProductFreshness(type: 'product.updated' | 'inventory.updated', productId: string): Promise<void> {
+        await dispatchFreshness({
+            type,
+            entityId: productId,
+            tags: [
+                CACHE_TAGS.products,
+                CACHE_TAGS.search,
+                CACHE_TAGS.categories,
+                CACHE_TAGS.occasions,
+                CACHE_TAGS.sellerProducts,
+                CACHE_TAGS.adminProducts,
+                productTag(productId),
+            ],
+            audience: { allAuthenticated: true },
+        });
+    }
+
     // =========================================================================
     // PUBLIC METHODS (Buyer)
     // =========================================================================
@@ -309,37 +328,10 @@ export class ProductService {
         }
 
         const { products, total } = await this.productRepo.findPublished(normalizedFilters);
-        const productIds = products.map((product) => product.id);
-        const cheapestVariantRows = productIds.length
-            ? await prisma.productVariant.findMany({
-                where: { productId: { in: productIds } },
-                orderBy: [{ productId: 'asc' }, { price: 'asc' }, { createdAt: 'asc' }],
-                distinct: ['productId'],
-                select: {
-                    productId: true,
-                    price: true,
-                    compareAtPrice: true,
-                },
-            })
-            : [];
-        const cheapestVariantMap = new Map(
-            cheapestVariantRows.map((row) => [
-                row.productId,
-                {
-                    price: Number(row.price),
-                    compareAtPrice: row.compareAtPrice === null ? null : Number(row.compareAtPrice),
-                },
-            ]),
-        );
-        const productsWithVariantPrices = products.map((product) => ({
-            ...product,
-            cheapestVariantPrice: cheapestVariantMap.get(product.id)?.price ?? null,
-            cheapestVariantCompareAt: cheapestVariantMap.get(product.id)?.compareAtPrice ?? null,
-        }));
         const coupons = await this.getActiveCouponsForSellers(products.map((product) => product.sellerId));
 
         const response: ProductListResponse = {
-            data: productsWithVariantPrices.map((product) => this.toPublicProduct(product, coupons)),
+            data: products.map((product) => this.toPublicProduct(product, coupons)),
             pagination: {
                 page,
                 limit,
@@ -405,6 +397,7 @@ export class ProductService {
 
         // Invalidate product list cache
         await invalidateProductCaches();
+        await this.publishProductFreshness('product.updated', product.id);
 
         return {
             message: 'Product submitted for approval',
@@ -422,16 +415,8 @@ export class ProductService {
     ): Promise<SellerProductListResponse> {
         const page = Math.max(1, Math.trunc(params?.page ?? 1));
         const limit = Math.min(20, Math.max(1, Math.trunc(params?.limit ?? 20)));
-        const cacheKey = CACHE_KEYS.SELLER_PRODUCTS(sellerId, page, limit);
-        const cached = await getFromCache<SellerProductListResponse>(cacheKey);
-        if (cached) {
-            return cached;
-        }
-
         const products = await this.productRepo.findBySellerId(sellerId, { page, limit });
-        const response = { products: products.map((product) => this.toSellerProduct(product)) };
-        await setCache(cacheKey, response, 60);
-        return response;
+        return { products: products.map((product) => this.toSellerProduct(product)) };
     }
 
     /**
@@ -465,6 +450,7 @@ export class ProductService {
 
         // Invalidate caches
         await invalidateProductCaches(productId);
+        await this.publishProductFreshness('product.updated', productId);
 
         return {
             message: 'Product updated successfully',
@@ -489,6 +475,7 @@ export class ProductService {
 
         // Invalidate caches
         await invalidateProductCaches(productId);
+        await this.publishProductFreshness('product.updated', productId);
 
         return {
             message: 'Product deleted successfully',
@@ -527,6 +514,7 @@ export class ProductService {
 
         // Invalidate caches
         await invalidateProductCaches(productId);
+        await this.publishProductFreshness('inventory.updated', productId);
 
         return {
             message: 'Variant created successfully',
@@ -564,6 +552,7 @@ export class ProductService {
 
         // Invalidate caches
         await invalidateProductCaches(variantWithProduct.productId);
+        await this.publishProductFreshness('inventory.updated', variantWithProduct.productId);
 
         return {
             message: 'Variant updated successfully',
@@ -601,6 +590,7 @@ export class ProductService {
 
         // Invalidate caches
         await invalidateProductCaches(variantWithProduct.productId);
+        await this.publishProductFreshness('inventory.updated', variantWithProduct.productId);
 
         return {
             message: 'Stock updated successfully',

@@ -284,3 +284,18 @@ export const couponDiscountAmountTotal = new client.Counter({
     name: 'coupon_discount_amount_total',
     help: 'Total coupon discount amount applied (INR)',
 });
+
+// ── Hot Endpoint Performance ───────────────────────────────────────
+
+export const hotEndpointDurationMs = new client.Histogram({
+    name: 'hot_endpoint_duration_ms',
+    help: 'Duration in milliseconds for high-traffic endpoints',
+    labelNames: ['endpoint', 'method', 'status'] as const,
+    buckets: [20, 50, 75, 100, 150, 200, 300, 500, 1000, 2000, 5000],
+});
+
+export const hotEndpointSlowTotal = new client.Counter({
+    name: 'hot_endpoint_slow_total',
+    help: 'Total slow requests observed on high-traffic endpoints',
+    labelNames: ['endpoint', 'method'] as const,
+});

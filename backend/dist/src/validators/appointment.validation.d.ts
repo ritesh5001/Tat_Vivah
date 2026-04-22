@@ -2,8 +2,8 @@ import { z } from 'zod';
 export declare const createAppointmentSchema: z.ZodObject<{
     sellerId: z.ZodString;
     productId: z.ZodOptional<z.ZodString>;
-    date: z.ZodString;
-    time: z.ZodString;
+    date: z.ZodEffects<z.ZodString, string, string>;
+    time: z.ZodEffects<z.ZodString, string, string>;
     notes: z.ZodOptional<z.ZodString>;
 }, "strip", z.ZodTypeAny, {
     date: string;
@@ -30,8 +30,8 @@ export declare const updateAppointmentStatusSchema: z.ZodObject<{
 }>;
 export declare const rescheduleAppointmentSchema: z.ZodObject<{
     appointmentId: z.ZodString;
-    date: z.ZodString;
-    time: z.ZodString;
+    date: z.ZodEffects<z.ZodString, string, string>;
+    time: z.ZodEffects<z.ZodString, string, string>;
 }, "strip", z.ZodTypeAny, {
     date: string;
     time: string;

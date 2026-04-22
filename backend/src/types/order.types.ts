@@ -84,6 +84,9 @@ export interface OrderWithItems extends OrderEntity {
         id: string;
         status: string;
     } | null;
+    paymentStatus?: string | null;
+    cancellationStatus?: string | null;
+    returnStatus?: string | null;
     shipmentStatus?: string | null;
 }
 
@@ -93,6 +96,10 @@ export interface OrderWithItems extends OrderEntity {
 export interface OrderWithDetails extends OrderEntity {
     items: OrderItemWithProduct[];
     movements?: InventoryMovementEntity[];
+    paymentStatus?: string | null;
+    cancellationStatus?: string | null;
+    returnStatus?: string | null;
+    shipmentStatus?: string | null;
 }
 
 /**
@@ -117,6 +124,7 @@ export interface SellerOrderItem extends OrderItemEntity {
             reason: string;
             createdAt: Date;
         } | null;
+        shipmentStatus?: string | null;
         shippingName?: string | null;
         shippingPhone?: string | null;
         shippingEmail?: string | null;

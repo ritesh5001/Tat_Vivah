@@ -106,6 +106,7 @@ export class ProductController {
             const page = this.parsePositiveInt(req.query['page'], 1);
             const limit = this.parsePositiveInt(req.query['limit'], 20);
             const result = await this.service.listSellerProducts(req.user.userId, { page, limit });
+            res.set('Cache-Control', 'no-store');
             res.status(200).json(result);
         }
         catch (error) {

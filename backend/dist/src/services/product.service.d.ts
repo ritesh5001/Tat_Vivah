@@ -28,6 +28,7 @@ export declare class ProductService {
     private toSellerProduct;
     private normalizeTextFilter;
     private normalizeListFilters;
+    private publishProductFreshness;
     /**
      * List published products with pagination
      * Uses Redis caching

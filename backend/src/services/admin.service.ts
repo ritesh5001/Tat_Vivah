@@ -32,6 +32,8 @@ import { notificationService } from '../notifications/notification.service.js';
 import { bestsellerService } from './bestseller.service.js';
 import { occasionService } from './occasion.service.js';
 import { calculateMargin } from '../utils/pricing.util.js';
+import { dispatchFreshness } from '../live/freshness.service.js';
+import { CACHE_TAGS, orderTag, productTag } from '../live/cache-tags.js';
 import type {
     UpdateProductRequest,
     UpdateVariantRequest,
@@ -219,6 +221,19 @@ export class AdminService {
             }),
         ]);
 
+        await dispatchFreshness({
+            type: 'product.updated',
+            entityId: productId,
+            tags: [
+                CACHE_TAGS.products,
+                CACHE_TAGS.search,
+                CACHE_TAGS.sellerProducts,
+                CACHE_TAGS.adminProducts,
+                productTag(productId),
+            ],
+            audience: { allAuthenticated: true },
+        });
+
         return {
             message: 'Product approved',
             product: updatedProduct,
@@ -273,6 +288,19 @@ export class AdminService {
             }),
         ]);
 
+        await dispatchFreshness({
+            type: 'product.updated',
+            entityId: productId,
+            tags: [
+                CACHE_TAGS.products,
+                CACHE_TAGS.search,
+                CACHE_TAGS.sellerProducts,
+                CACHE_TAGS.adminProducts,
+                productTag(productId),
+            ],
+            audience: { allAuthenticated: true },
+        });
+
         return {
             message: 'Product rejected',
             product: updatedProduct,
@@ -308,6 +336,19 @@ export class AdminService {
                 reason: reason ?? 'Deleted by admin',
             }),
         ]);
+
+        await dispatchFreshness({
+            type: 'product.updated',
+            entityId: productId,
+            tags: [
+                CACHE_TAGS.products,
+                CACHE_TAGS.search,
+                CACHE_TAGS.sellerProducts,
+                CACHE_TAGS.adminProducts,
+                productTag(productId),
+            ],
+            audience: { allAuthenticated: true },
+        });
 
         return {
             message: 'Product deleted by admin',
@@ -361,6 +402,19 @@ export class AdminService {
                 marginPercentage: percentage,
             }),
         ]);
+
+        await dispatchFreshness({
+            type: 'product.updated',
+            entityId: productId,
+            tags: [
+                CACHE_TAGS.products,
+                CACHE_TAGS.search,
+                CACHE_TAGS.sellerProducts,
+                CACHE_TAGS.adminProducts,
+                productTag(productId),
+            ],
+            audience: { allAuthenticated: true },
+        });
 
         return {
             sellerPrice,
@@ -467,6 +521,19 @@ export class AdminService {
             invalidateCacheByPattern('admin:profit:*'),
         ]);
 
+        await dispatchFreshness({
+            type: 'product.updated',
+            entityId: productId,
+            tags: [
+                CACHE_TAGS.products,
+                CACHE_TAGS.search,
+                CACHE_TAGS.sellerProducts,
+                CACHE_TAGS.adminProducts,
+                productTag(productId),
+            ],
+            audience: { allAuthenticated: true },
+        });
+
         const refreshed = await this.adminRepo.findProductById(productId);
         if (!refreshed) {
             throw ApiError.internal('Unable to reload product after updates');
@@ -572,6 +639,13 @@ export class AdminService {
             }),
         ]);
 
+        await dispatchFreshness({
+            type: 'order.updated',
+            entityId: orderId,
+            tags: [CACHE_TAGS.orders, CACHE_TAGS.userOrders, CACHE_TAGS.sellerOrders, orderTag(orderId)],
+            audience: { allAuthenticated: true },
+        });
+
         return {
             message: 'Order cancelled successfully',
             order: updatedOrder,
@@ -618,6 +692,13 @@ export class AdminService {
                 bypassedPayment: true,
             }),
         ]);
+
+        await dispatchFreshness({
+            type: 'order.updated',
+            entityId: orderId,
+            tags: [CACHE_TAGS.orders, CACHE_TAGS.userOrders, CACHE_TAGS.sellerOrders, orderTag(orderId)],
+            audience: { allAuthenticated: true },
+        });
 
         return {
             message: 'Order force-confirmed (payment bypassed)',

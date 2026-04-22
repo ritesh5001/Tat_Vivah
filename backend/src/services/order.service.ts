@@ -1,9 +1,4 @@
 import { OrderRepository, orderRepository } from '../repositories/order.repository.js';
-import {
-    getFromCache,
-    setCache,
-    CACHE_KEYS,
-} from '../utils/cache.util.js';
 import { ApiError } from '../errors/ApiError.js';
 import type {
     BuyerOrderListResponse,
@@ -33,23 +28,8 @@ export class OrderService {
     ): Promise<BuyerOrderListResponse> {
         const page = Math.max(1, Math.trunc(params?.page ?? 1));
         const limit = Math.min(20, Math.max(1, Math.trunc(params?.limit ?? 20)));
-        const startKey = params?.startDate?.toISOString() ?? '_';
-        const endKey = params?.endDate?.toISOString() ?? '_';
-        const cacheKey = `${CACHE_KEYS.BUYER_ORDERS(userId)}:${page}:${limit}:${startKey}:${endKey}`;
-
-        // Try cache first
-        const cached = await getFromCache<BuyerOrderListResponse>(cacheKey);
-        if (cached) {
-            return cached;
-        }
-
         const orders = await this.orderRepo.findByUserId(userId, { ...params, page, limit });
-        const response: BuyerOrderListResponse = { orders };
-
-        // Cache the result
-        await setCache(cacheKey, response);
-
-        return response;
+        return { orders };
     }
 
     /**
@@ -57,25 +37,12 @@ export class OrderService {
      * Uses Redis caching
      */
     async getBuyerOrder(orderId: string, userId: string): Promise<BuyerOrderDetailResponse> {
-        // Try cache first
-        const cached = await getFromCache<BuyerOrderDetailResponse>(
-            CACHE_KEYS.ORDER_DETAIL(orderId)
-        );
-        if (cached && cached.order.userId === userId) {
-            return cached;
-        }
-
         const order = await this.orderRepo.findByIdAndUserId(orderId, userId);
         if (!order) {
             throw ApiError.notFound('Order not found');
         }
 
-        const response: BuyerOrderDetailResponse = { order };
-
-        // Cache the result
-        await setCache(CACHE_KEYS.ORDER_DETAIL(orderId), response);
-
-        return response;
+        return { order };
     }
 
     // =========================================================================

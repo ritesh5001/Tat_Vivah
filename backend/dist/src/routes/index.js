@@ -40,6 +40,7 @@ export { wishlistRouter } from './wishlist.routes.js';
 // Search & Personalization
 export { searchRouter } from './search.routes.js';
 export { personalizationRouter } from './personalization.routes.js';
+export { liveRouter } from './live.routes.js';
 // Seller Analytics
 export { sellerAnalyticsRouter } from './sellerAnalytics.routes.js';
 // Reels

@@ -4,58 +4,6 @@ import { prisma } from '../config/db.js';
  * Handles database operations for products
  */
 export class ProductRepository {
-    buildTextMatcher(keyword, matcher = 'contains') {
-        const normalized = keyword.trim();
-        if (!normalized)
-            return null;
-        return {
-            [matcher]: normalized,
-            mode: 'insensitive',
-        };
-    }
-    buildSearchClauses(search) {
-        if (!search)
-            return [];
-        const normalizedSearch = search.trim().replace(/\s+/g, ' ');
-        if (!normalizedSearch)
-            return [];
-        const terms = normalizedSearch
-            .split(' ')
-            .map((term) => term.trim().toLowerCase())
-            .filter((term) => term.length > 0);
-        const containsTerms = Array.from(new Set([normalizedSearch, ...terms]))
-            .filter((term) => term.length >= 2)
-            .slice(0, 6);
-        // Prefix fallback helps with small spelling variations (e.g. "weding" -> "wed").
-        const prefixTerms = Array.from(new Set(terms.filter((term) => term.length >= 4).map((term) => term.slice(0, 3)))).slice(0, 3);
-        const clauses = [];
-        const pushTermClauses = (term, matcher) => {
-            const textMatcher = this.buildTextMatcher(term, matcher);
-            if (!textMatcher)
-                return;
-            clauses.push({ title: textMatcher });
-            clauses.push({ description: textMatcher });
-            clauses.push({ category: { is: { name: textMatcher } } });
-            clauses.push({ category: { is: { slug: textMatcher } } });
-            clauses.push({
-                occasions: {
-                    some: {
-                        occasion: {
-                            isActive: true,
-                            OR: [{ name: textMatcher }, { slug: textMatcher }],
-                        },
-                    },
-                },
-            });
-        };
-        for (const term of containsTerms) {
-            pushTermClauses(term, 'contains');
-        }
-        for (const prefix of prefixTerms) {
-            pushTermClauses(prefix, 'startsWith');
-        }
-        return clauses;
-    }
     resolvePagination(page, limit) {
         const pRaw = Number(page ?? 1);
         const lRaw = Number(limit ?? 20);
@@ -78,59 +26,119 @@ export class ProductRepository {
     async findPublished(filters) {
         const { page = 1, limit = 20, categoryId, search, occasion } = filters;
         const { skip, take } = this.resolvePagination(page, Math.min(limit, 20));
-        const searchClauses = this.buildSearchClauses(search);
-        const where = {
-            status: 'APPROVED',
-            deletedByAdmin: false,
-            adminListingPrice: { not: null },
-            ...(categoryId && { categoryId }),
-            ...(searchClauses.length > 0 && { OR: searchClauses }),
-        };
-        // Use Prisma relational filtering for occasion slug
-        if (occasion) {
-            where.occasions = {
-                some: {
-                    occasion: {
-                        slug: occasion,
-                        isActive: true,
-                    },
-                },
-            };
+        const conditions = [
+            `p."status" = 'APPROVED'`,
+            `p."deleted_by_admin" = false`,
+            `p."admin_listing_price" IS NOT NULL`,
+        ];
+        const params = [];
+        let paramIndex = 1;
+        if (categoryId) {
+            conditions.push(`p."category_id" = $${paramIndex}`);
+            params.push(categoryId);
+            paramIndex += 1;
         }
-        const [products, total] = await Promise.all([
-            prisma.product.findMany({
-                where,
-                skip,
-                take,
-                select: {
-                    id: true,
-                    sellerId: true,
-                    sellerPrice: true,
-                    categoryId: true,
-                    title: true,
-                    description: true,
-                    images: true,
-                    status: true,
-                    isPublished: true,
-                    createdAt: true,
-                    updatedAt: true,
-                    adminListingPrice: true,
-                    category: {
-                        select: {
-                            id: true,
-                            name: true,
-                            slug: true,
-                            isActive: true,
-                        },
-                    },
-                },
-                orderBy: { createdAt: 'desc' },
-            }),
-            prisma.product.count({ where }),
+        if (search && search.trim().length > 0) {
+            const pattern = `%${search.trim()}%`;
+            conditions.push(`(
+                p."title" ILIKE $${paramIndex}
+                OR p."description" ILIKE $${paramIndex}
+                OR c."name" ILIKE $${paramIndex}
+                OR c."slug" ILIKE $${paramIndex}
+                OR EXISTS (
+                    SELECT 1
+                    FROM "product_occasions" po
+                    INNER JOIN "occasions" o ON o."id" = po."occasion_id"
+                    WHERE po."product_id" = p."id"
+                      AND o."is_active" = true
+                      AND (o."name" ILIKE $${paramIndex} OR o."slug" ILIKE $${paramIndex})
+                )
+            )`);
+            params.push(pattern);
+            paramIndex += 1;
+        }
+        if (occasion) {
+            conditions.push(`EXISTS (
+                SELECT 1
+                FROM "product_occasions" po
+                INNER JOIN "occasions" o ON o."id" = po."occasion_id"
+                WHERE po."product_id" = p."id"
+                  AND o."is_active" = true
+                  AND o."slug" = $${paramIndex}
+            )`);
+            params.push(occasion);
+            paramIndex += 1;
+        }
+        const whereClause = conditions.join(' AND ');
+        const countQuery = `
+            SELECT COUNT(*)::int AS total
+            FROM "products" p
+            LEFT JOIN "categories" c ON c."id" = p."category_id"
+            WHERE ${whereClause}
+        `;
+        const dataQuery = `
+            SELECT
+                p."id",
+                p."seller_id" AS "sellerId",
+                p."category_id" AS "categoryId",
+                p."title",
+                p."description",
+                p."images",
+                p."seller_price" AS "sellerPrice",
+                p."admin_listing_price" AS "adminListingPrice",
+                p."price_approved_at" AS "priceApprovedAt",
+                p."price_approved_by_id" AS "priceApprovedById",
+                p."status",
+                p."rejection_reason" AS "rejectionReason",
+                p."approved_at" AS "approvedAt",
+                p."approved_by_id" AS "approvedById",
+                p."is_published" AS "isPublished",
+                p."deleted_by_admin" AS "deletedByAdmin",
+                p."deleted_by_admin_at" AS "deletedByAdminAt",
+                p."deleted_by_admin_reason" AS "deletedByAdminReason",
+                p."created_at" AS "createdAt",
+                p."updated_at" AS "updatedAt",
+                cv."price" AS "cheapestVariantPrice",
+                cv."compare_at_price" AS "cheapestVariantCompareAt",
+                json_build_object(
+                    'id', c."id",
+                    'name', c."name",
+                    'slug', c."slug",
+                    'isActive', c."is_active"
+                ) AS "category"
+            FROM "products" p
+            LEFT JOIN "categories" c ON c."id" = p."category_id"
+            LEFT JOIN LATERAL (
+                SELECT pv."price", pv."compare_at_price"
+                FROM "product_variants" pv
+                WHERE pv."product_id" = p."id"
+                ORDER BY pv."price" ASC, pv."created_at" ASC
+                LIMIT 1
+            ) cv ON true
+            WHERE ${whereClause}
+            ORDER BY p."created_at" DESC
+            LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+        `;
+        const [countRows, rows] = await Promise.all([
+            prisma.$queryRawUnsafe(countQuery, ...params),
+            prisma.$queryRawUnsafe(dataQuery, ...params, take, skip),
         ]);
+        const products = rows.map((product) => ({
+            ...product,
+            sellerPrice: Number(product.sellerPrice),
+            adminListingPrice: product.adminListingPrice == null
+                ? null
+                : Number(product.adminListingPrice),
+            cheapestVariantPrice: product.cheapestVariantPrice == null
+                ? null
+                : Number(product.cheapestVariantPrice),
+            cheapestVariantCompareAt: product.cheapestVariantCompareAt == null
+                ? null
+                : Number(product.cheapestVariantCompareAt),
+        }));
         return {
-            products: products.map((product) => this.mapProductDecimals(product)),
-            total,
+            products: products,
+            total: countRows[0]?.total ?? 0,
         };
     }
     /**
