@@ -71,7 +71,11 @@ async function initializeRedisPubSub() {
         redisBacked = false;
         publisher = null;
         subscriber = null;
-        logger.warn({ error }, 'live_event_redis_unavailable');
+        logger.warn({
+            error: error instanceof Error
+                ? { name: error.name, message: error.message }
+                : String(error),
+        }, 'live_event_redis_unavailable');
     }
 }
 void initializeRedisPubSub();

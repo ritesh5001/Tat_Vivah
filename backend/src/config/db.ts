@@ -59,7 +59,7 @@ function createPrismaClient() {
         datasources: {
             db: { url: buildPrismaDatabaseUrl(env.DATABASE_URL, env.DATABASE_URL_DIRECT) },
         },
-        log: env.NODE_ENV === 'development'
+        log: env.NODE_ENV === 'development' && env.PRISMA_LOG_QUERIES
             ? [{ emit: 'stdout', level: 'query' }]
             : [],
     });

@@ -13,6 +13,7 @@ declare const envSchema: z.ZodObject<{
     RUN_BACKGROUND_JOBS: z.ZodEffects<z.ZodOptional<z.ZodString>, boolean | undefined, string | undefined>;
     BACKEND_WARMUP_URL: z.ZodOptional<z.ZodString>;
     BACKEND_WARMUP_INTERVAL_MS: z.ZodEffects<z.ZodDefault<z.ZodString>, number, string | undefined>;
+    PRISMA_LOG_QUERIES: z.ZodEffects<z.ZodDefault<z.ZodString>, boolean, string | undefined>;
     DATABASE_URL: z.ZodString;
     DATABASE_URL_DIRECT: z.ZodOptional<z.ZodString>;
     JWT_ACCESS_SECRET: z.ZodString;
@@ -44,6 +45,7 @@ declare const envSchema: z.ZodObject<{
     REQUEST_TIMEOUT_MS: number;
     MAX_REQUESTS_PER_SOCKET: number;
     BACKEND_WARMUP_INTERVAL_MS: number;
+    PRISMA_LOG_QUERIES: boolean;
     DATABASE_URL: string;
     JWT_ACCESS_SECRET: string;
     JWT_REFRESH_SECRET: string;
@@ -84,6 +86,7 @@ declare const envSchema: z.ZodObject<{
     RUN_BACKGROUND_JOBS?: string | undefined;
     BACKEND_WARMUP_URL?: string | undefined;
     BACKEND_WARMUP_INTERVAL_MS?: string | undefined;
+    PRISMA_LOG_QUERIES?: string | undefined;
     DATABASE_URL_DIRECT?: string | undefined;
     ACCESS_TOKEN_EXPIRY?: string | undefined;
     REFRESH_TOKEN_EXPIRY?: string | undefined;
