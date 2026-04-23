@@ -1,15 +1,30 @@
 import { Redis as IORedis } from 'ioredis';
 import { env } from './env.js';
 const redisUrl = env.REDIS_URL || 'redis://127.0.0.1:6379';
+function isUpstashQuotaError(err) {
+    if (!err || typeof err !== 'object')
+        return false;
+    const message = String(err.message ?? '').toLowerCase();
+    return message.includes('max requests limit exceeded');
+}
 const redisClient = new IORedis(redisUrl, {
     lazyConnect: true,
     maxRetriesPerRequest: 1,
     enableOfflineQueue: false,
     connectTimeout: 2000,
+    retryStrategy: (times) => {
+        if (times >= 2)
+            return null;
+        return Math.min(times * 500, 1000);
+    },
+    reconnectOnError: (err) => !isUpstashQuotaError(err),
 });
 let connectAttempted = false;
 let redisAvailable = false;
+let redisDisabledByQuota = false;
 async function ensureConnected() {
+    if (redisDisabledByQuota)
+        return false;
     if (redisAvailable)
         return true;
     if (connectAttempted && redisClient.status !== 'ready')
@@ -27,8 +42,12 @@ async function ensureConnected() {
         return false;
     }
 }
-redisClient.on('error', () => {
+redisClient.on('error', (err) => {
     redisAvailable = false;
+    if (isUpstashQuotaError(err)) {
+        redisDisabledByQuota = true;
+        redisClient.disconnect(false);
+    }
 });
 async function safe(fn, fallback) {
     try {
