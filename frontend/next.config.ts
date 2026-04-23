@@ -8,6 +8,7 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   compress: true,
   generateEtags: true,
+  outputFileTracingRoot: configDir,
   turbopack: {
     root: configDir,
   },
