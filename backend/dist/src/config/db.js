@@ -19,19 +19,16 @@ function getIntEnv(name, fallback, min, max) {
 }
 function buildPrismaDatabaseUrl(rawUrl, directUrl) {
     try {
-        const sourceUrl = directUrl ?? rawUrl;
+        // Keep DATABASE_URL host untouched unless an explicit DATABASE_URL_DIRECT
+        // is provided. Auto-rewriting Neon "-pooler" hosts to direct endpoints
+        // can break connectivity in managed environments.
+        const sourceUrl = directUrl ? directUrl : rawUrl;
         const parsed = new URL(sourceUrl);
         const isPooledHost = parsed.hostname.includes('-pooler.');
         const pooledConnectionLimit = getIntEnv('DB_POOL_CONNECTION_LIMIT', 10, 1, 100);
         const pooledPoolTimeout = getIntEnv('DB_POOL_TIMEOUT', 15, 1, 120);
         const directConnectionLimit = getIntEnv('DB_DIRECT_CONNECTION_LIMIT', 5, 1, 100);
         if (isPooledHost) {
-            // If we only have the pooled Neon endpoint, Prisma can still connect more
-            // reliably through the direct host. Prefer it unless an explicit direct
-            // URL has already been supplied.
-            if (!directUrl) {
-                parsed.hostname = parsed.hostname.replace('-pooler.', '.');
-            }
             parsed.searchParams.set('pgbouncer', 'true');
             parsed.searchParams.set('connection_limit', String(pooledConnectionLimit));
             parsed.searchParams.set('pool_timeout', String(pooledPoolTimeout));

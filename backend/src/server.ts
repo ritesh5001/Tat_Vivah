@@ -20,6 +20,8 @@ const REEL_VIEW_FLUSH_INTERVAL_MS = 60 * 1000;
 /** Max random jitter added to recurring job intervals (up to 1 minute). */
 const JOB_JITTER_MAX_MS = 60 * 1000;
 const WARMUP_REQUEST_TIMEOUT_MS = 8000;
+const DB_CONNECT_MAX_ATTEMPTS = 5;
+const DB_CONNECT_BACKOFF_MS = 2500;
 
 function withIntervalJitter(baseMs: number): number {
     const jitter = Math.floor(Math.random() * JOB_JITTER_MAX_MS);
@@ -33,6 +35,42 @@ function shouldRunBackgroundJobs(): boolean {
 
     const pm2Instance = process.env['NODE_APP_INSTANCE'];
     return !pm2Instance || pm2Instance === '0';
+}
+
+function wait(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function connectDatabaseWithRetry(): Promise<void> {
+    let attempt = 1;
+    let lastError: unknown;
+
+    while (attempt <= DB_CONNECT_MAX_ATTEMPTS) {
+        try {
+            await prisma.$connect();
+            return;
+        } catch (err) {
+            lastError = err;
+            const isLastAttempt = attempt === DB_CONNECT_MAX_ATTEMPTS;
+            logger.warn(
+                {
+                    attempt,
+                    maxAttempts: DB_CONNECT_MAX_ATTEMPTS,
+                    error:
+                        err instanceof Error
+                            ? { name: err.name, message: err.message }
+                            : String(err),
+                },
+                isLastAttempt ? 'Database connect retries exhausted' : 'Database connect failed, retrying',
+            );
+
+            if (isLastAttempt) break;
+            await wait(DB_CONNECT_BACKOFF_MS * attempt);
+            attempt += 1;
+        }
+    }
+
+    throw lastError;
 }
 
 /** Guard: only execute shutdown sequence once. */
@@ -102,7 +140,7 @@ async function pingWarmupEndpoint(): Promise<void> {
 async function bootstrap(): Promise<void> {
     try {
         // Verify database connection
-        await prisma.$connect();
+        await connectDatabaseWithRetry();
         logger.info('Database connected successfully');
 
         // Ensure hardcoded super admin always exists in every environment
