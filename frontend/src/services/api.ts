@@ -38,8 +38,32 @@ function getRefreshToken(): string | null {
   return match ? decodeURIComponent(match[1]) : null;
 }
 
-function getErrorMessage(data: any, fallback: string) {
-  return data?.error?.message ?? data?.message ?? fallback;
+function getErrorMessage(data: unknown, fallback: string) {
+  const payload =
+    data && typeof data === "object" ? (data as Record<string, unknown>) : null;
+  const error =
+    payload?.error && typeof payload.error === "object"
+      ? (payload.error as Record<string, unknown>)
+      : null;
+  const apiMessage =
+    (typeof error?.message === "string" ? error.message : undefined) ??
+    (typeof payload?.message === "string" ? payload.message : undefined);
+  const details =
+    error?.details && typeof error.details === "object"
+      ? (error.details as Record<string, unknown>)
+      : null;
+
+  if (details) {
+    const firstDetail = Object.values(details).find(
+      (value): value is string => typeof value === "string" && value.trim().length > 0
+    );
+
+    if (firstDetail) {
+      return firstDetail;
+    }
+  }
+
+  return apiMessage ?? fallback;
 }
 
 function normalizeMethod(method?: string) {

@@ -376,22 +376,55 @@ export default function SellerProductsClient({
   };
 
   const handleAddVariant = async (productId: string) => {
-    if (!variantForm.sku || !variantForm.price) {
-      toast.error("Enter SKU and price.");
+    const sku = variantForm.sku.trim();
+    const color = variantForm.color.trim();
+    const price = Number(variantForm.price);
+    const compareAtPrice = variantForm.compareAtPrice.trim()
+      ? Number(variantForm.compareAtPrice)
+      : undefined;
+    const initialStock = variantForm.initialStock.trim()
+      ? Number(variantForm.initialStock)
+      : 0;
+
+    if (!sku) {
+      toast.error("Enter a size/SKU before saving the variant.");
       return;
     }
+
+    if (!Number.isFinite(price) || price <= 0) {
+      toast.error("Enter a valid variant price.");
+      return;
+    }
+
+    if (
+      compareAtPrice !== undefined &&
+      (!Number.isFinite(compareAtPrice) || compareAtPrice <= 0)
+    ) {
+      toast.error("Enter a valid compare-at price.");
+      return;
+    }
+
+    if (
+      compareAtPrice !== undefined &&
+      compareAtPrice <= price
+    ) {
+      toast.error("Compare-at price must be greater than the selling price.");
+      return;
+    }
+
+    if (!Number.isInteger(initialStock) || initialStock < 0) {
+      toast.error("Enter a valid initial stock quantity.");
+      return;
+    }
+
     try {
       const result = await addVariantToProduct(productId, {
-        color: variantForm.color.trim() || undefined,
+        color: color || undefined,
         images: variantForm.images.map((image) => image.url),
-        sku: variantForm.sku,
-        price: Number(variantForm.price),
-        compareAtPrice: variantForm.compareAtPrice
-          ? Number(variantForm.compareAtPrice)
-          : undefined,
-        initialStock: variantForm.initialStock
-          ? Number(variantForm.initialStock)
-          : undefined,
+        sku,
+        price,
+        compareAtPrice,
+        initialStock,
       });
       toast.success("Variant added.");
       setVariantForm({
@@ -1392,61 +1425,88 @@ export default function SellerProductsClient({
                       </div>
                       {activeProductId === product.id && (
                         <div className="grid gap-3 sm:grid-cols-2">
-                          <Input
-                            placeholder="Color"
-                            value={variantForm.color}
-                            onChange={(event) =>
-                              setVariantForm((prev) => ({
-                                ...prev,
-                                color: event.target.value,
-                              }))
-                            }
-                            disabled={product.deletedByAdmin}
-                          />
-                          <Input
-                            placeholder="SKU"
-                            value={variantForm.sku}
-                            onChange={(event) =>
-                              setVariantForm((prev) => ({
-                                ...prev,
-                                sku: event.target.value,
-                              }))
-                            }
-                            disabled={product.deletedByAdmin}
-                          />
-                          <Input
-                            placeholder="Price"
-                            value={variantForm.price}
-                            onChange={(event) =>
-                              setVariantForm((prev) => ({
-                                ...prev,
-                                price: event.target.value,
-                              }))
-                            }
-                            disabled={product.deletedByAdmin}
-                          />
-                          <Input
-                            placeholder="Compare at"
-                            value={variantForm.compareAtPrice}
-                            onChange={(event) =>
-                              setVariantForm((prev) => ({
-                                ...prev,
-                                compareAtPrice: event.target.value,
-                              }))
-                            }
-                            disabled={product.deletedByAdmin}
-                          />
-                          <Input
-                            placeholder="Initial stock"
-                            value={variantForm.initialStock}
-                            onChange={(event) =>
-                              setVariantForm((prev) => ({
-                                ...prev,
-                                initialStock: event.target.value,
-                              }))
-                            }
-                            disabled={product.deletedByAdmin}
-                          />
+                          <div className="space-y-1">
+                            <Label className="text-xs">Color</Label>
+                            <Input
+                              placeholder="Color (e.g. Red)"
+                              value={variantForm.color}
+                              onChange={(event) =>
+                                setVariantForm((prev) => ({
+                                  ...prev,
+                                  color: event.target.value,
+                                }))
+                              }
+                              disabled={product.deletedByAdmin}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Size / SKU</Label>
+                            <Input
+                              placeholder="Size / SKU (e.g. M, 42, KURTA-RED-M)"
+                              value={variantForm.sku}
+                              onChange={(event) =>
+                                setVariantForm((prev) => ({
+                                  ...prev,
+                                  sku: event.target.value,
+                                }))
+                              }
+                              disabled={product.deletedByAdmin}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Price</Label>
+                            <Input
+                              type="number"
+                              inputMode="decimal"
+                              min="0"
+                              step="0.01"
+                              placeholder="Selling price"
+                              value={variantForm.price}
+                              onChange={(event) =>
+                                setVariantForm((prev) => ({
+                                  ...prev,
+                                  price: event.target.value,
+                                }))
+                              }
+                              disabled={product.deletedByAdmin}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Compare At</Label>
+                            <Input
+                              type="number"
+                              inputMode="decimal"
+                              min="0"
+                              step="0.01"
+                              placeholder="MRP / compare-at price"
+                              value={variantForm.compareAtPrice}
+                              onChange={(event) =>
+                                setVariantForm((prev) => ({
+                                  ...prev,
+                                  compareAtPrice: event.target.value,
+                                }))
+                              }
+                              disabled={product.deletedByAdmin}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Initial Stock</Label>
+                            <Input
+                              type="number"
+                              inputMode="numeric"
+                              min="0"
+                              step="1"
+                              placeholder="Initial stock"
+                              value={variantForm.initialStock}
+                              onChange={(event) =>
+                                setVariantForm((prev) => ({
+                                  ...prev,
+                                  initialStock: event.target.value,
+                                }))
+                              }
+                              disabled={product.deletedByAdmin}
+                            />
+                          </div>
                           <div className="sm:col-span-2 space-y-2">
                             <p className="text-xs text-muted-foreground">Variant Images</p>
                             <div className="flex flex-wrap gap-2">
@@ -1499,7 +1559,9 @@ export default function SellerProductsClient({
                           <Button
                             className="sm:col-span-2"
                             onClick={() => handleAddVariant(product.id)}
-                            disabled={product.deletedByAdmin}
+                            disabled={
+                              product.deletedByAdmin || uploadingVariantFormImages
+                            }
                           >
                             Save Variant
                           </Button>
