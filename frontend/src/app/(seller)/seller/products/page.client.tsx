@@ -41,6 +41,8 @@ const IMAGEKIT_URL_ENDPOINT = process.env.NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT;
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 const UPLOAD_PARALLELISM = 3;
 
+type UploadedImage = { url: string; fileId: string; name: string };
+
 export interface SellerProductsInitialData {
   categories: Array<{ id: string; name: string }>;
   occasions: Occasion[];
@@ -130,15 +132,15 @@ export default function SellerProductsClient({
   });
   const [showCreateModal, setShowCreateModal] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
-  const [images, setImages] = React.useState<
-    Array<{ url: string; fileId: string; name: string }>
-  >([]);
+  const [images, setImages] = React.useState<UploadedImage[]>([]);
   const [uploadingImages, setUploadingImages] = React.useState(false);
   const [variantForm, setVariantForm] = React.useState({
+    color: "",
     sku: "",
     price: "",
     compareAtPrice: "",
     initialStock: "",
+    images: [] as UploadedImage[],
   });
   const [activeProductId, setActiveProductId] = React.useState<string | null>(
     null
@@ -160,7 +162,20 @@ export default function SellerProductsClient({
     Record<string, boolean>
   >({});
   const [variantEdits, setVariantEdits] = React.useState<
-    Record<string, { price: string; compareAtPrice: string }>
+    Record<
+      string,
+      {
+        price: string;
+        compareAtPrice: string;
+        color: string;
+        images: string[];
+      }
+    >
+  >({});
+  const [uploadingVariantFormImages, setUploadingVariantFormImages] =
+    React.useState(false);
+  const [uploadingVariantImages, setUploadingVariantImages] = React.useState<
+    Record<string, boolean>
   >({});
 
   // Product media state
@@ -367,6 +382,8 @@ export default function SellerProductsClient({
     }
     try {
       const result = await addVariantToProduct(productId, {
+        color: variantForm.color.trim() || undefined,
+        images: variantForm.images.map((image) => image.url),
         sku: variantForm.sku,
         price: Number(variantForm.price),
         compareAtPrice: variantForm.compareAtPrice
@@ -377,7 +394,14 @@ export default function SellerProductsClient({
           : undefined,
       });
       toast.success("Variant added.");
-      setVariantForm({ sku: "", price: "", compareAtPrice: "", initialStock: "" });
+      setVariantForm({
+        color: "",
+        sku: "",
+        price: "",
+        compareAtPrice: "",
+        initialStock: "",
+        images: [],
+      });
       setActiveProductId(null);
       setProducts((prev) =>
         prev.map((product) =>
@@ -477,6 +501,8 @@ export default function SellerProductsClient({
         compareAtPrice:
           prev[variant.id]?.compareAtPrice ??
           String(variant.compareAtPrice ?? ""),
+        color: prev[variant.id]?.color ?? String(variant.color ?? ""),
+        images: prev[variant.id]?.images ?? [...(variant.images ?? [])],
       },
     }));
   };
@@ -504,6 +530,8 @@ export default function SellerProductsClient({
       const result = await updateVariant(variantId, {
         price,
         compareAtPrice: compareAt,
+        color: edit.color.trim() || null,
+        images: edit.images ?? [],
       });
       toast.success("Variant updated.");
       setVariantEditsOpen((prev) => ({ ...prev, [variantId]: false }));
@@ -516,6 +544,8 @@ export default function SellerProductsClient({
                 ...variant,
                 price: result.variant.price,
                 compareAtPrice: result.variant.compareAtPrice ?? null,
+                color: result.variant.color ?? null,
+                images: result.variant.images ?? [],
               }
               : variant
           ),
@@ -601,6 +631,147 @@ export default function SellerProductsClient({
 
   const handleRemoveImage = (fileId: string) => {
     setImages((prev) => prev.filter((image) => image.fileId !== fileId));
+  };
+
+  const handleUploadVariantFormImages = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const files = Array.from(event.target.files ?? []);
+    if (!files.length) return;
+    if (!imagekit) {
+      const missing = getMissingImageKitConfig();
+      toast.error(
+        missing.length
+          ? `Missing env: ${missing.join(", ")}`
+          : "ImageKit is not configured."
+      );
+      return;
+    }
+
+    const remaining = 5 - variantForm.images.length;
+    if (remaining <= 0) {
+      toast.error("You can upload up to 5 variant images.");
+      return;
+    }
+
+    setUploadingVariantFormImages(true);
+    try {
+      const authResponse = await fetch(`${API_BASE_URL}/v1/imagekit/auth`);
+      if (!authResponse.ok) {
+        toast.error("ImageKit auth failed.");
+        return;
+      }
+
+      const authData = (await authResponse.json()) as {
+        signature: string;
+        token: string;
+        expire: number;
+      };
+
+      const uploaded = await runWithConcurrency(
+        files.slice(0, remaining),
+        UPLOAD_PARALLELISM,
+        async (file) => {
+          const compressedFile = await compressImageForUpload(file);
+          const result = await imagekit.upload({
+            file: compressedFile,
+            fileName: compressedFile.name,
+            folder: "/tatvivah/variants",
+            useUniqueFileName: true,
+            signature: authData.signature,
+            token: authData.token,
+            expire: authData.expire,
+          });
+
+          return { url: result.url, fileId: result.fileId, name: result.name };
+        }
+      );
+
+      setVariantForm((prev) => ({
+        ...prev,
+        images: [...prev.images, ...uploaded],
+      }));
+      toast.success("Variant images uploaded.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Image upload failed");
+    } finally {
+      setUploadingVariantFormImages(false);
+      event.target.value = "";
+    }
+  };
+
+  const handleUploadVariantImages = async (
+    variantId: string,
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const files = Array.from(event.target.files ?? []);
+    if (!files.length) return;
+    if (!imagekit) {
+      const missing = getMissingImageKitConfig();
+      toast.error(
+        missing.length
+          ? `Missing env: ${missing.join(", ")}`
+          : "ImageKit is not configured."
+      );
+      return;
+    }
+
+    const existingImages = variantEdits[variantId]?.images ?? [];
+    const remaining = 5 - existingImages.length;
+    if (remaining <= 0) {
+      toast.error("You can upload up to 5 variant images.");
+      return;
+    }
+
+    setUploadingVariantImages((prev) => ({ ...prev, [variantId]: true }));
+    try {
+      const authResponse = await fetch(`${API_BASE_URL}/v1/imagekit/auth`);
+      if (!authResponse.ok) {
+        toast.error("ImageKit auth failed.");
+        return;
+      }
+
+      const authData = (await authResponse.json()) as {
+        signature: string;
+        token: string;
+        expire: number;
+      };
+
+      const uploaded = await runWithConcurrency(
+        files.slice(0, remaining),
+        UPLOAD_PARALLELISM,
+        async (file) => {
+          const compressedFile = await compressImageForUpload(file);
+          const result = await imagekit.upload({
+            file: compressedFile,
+            fileName: compressedFile.name,
+            folder: "/tatvivah/variants",
+            useUniqueFileName: true,
+            signature: authData.signature,
+            token: authData.token,
+            expire: authData.expire,
+          });
+
+          return result.url;
+        }
+      );
+
+      setVariantEdits((prev) => ({
+        ...prev,
+        [variantId]: {
+          price: prev[variantId]?.price ?? "",
+          compareAtPrice: prev[variantId]?.compareAtPrice ?? "",
+          color: prev[variantId]?.color ?? "",
+          images: [...(prev[variantId]?.images ?? []), ...uploaded],
+        },
+      }));
+      toast.success("Variant images uploaded.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Image upload failed");
+    } finally {
+      setUploadingVariantImages((prev) => ({ ...prev, [variantId]: false }));
+      event.target.value = "";
+    }
   };
 
   const handleUploadMediaForProduct = async (
@@ -985,6 +1156,9 @@ export default function SellerProductsClient({
                                 <p className="font-medium text-foreground">
                                   {variant.sku}
                                 </p>
+                                {variant.color ? (
+                                  <p className="text-xs text-muted-foreground">Color: {variant.color}</p>
+                                ) : null}
                                 <p className="text-xs text-muted-foreground">
                                   Stock: {variant.inventory?.stock ?? 0}
                                   {(variant.inventory?.stock ?? 0) === 0 ? (
@@ -1016,8 +1190,45 @@ export default function SellerProductsClient({
                               </div>
                             </div>
 
+                            {variant.images?.length ? (
+                              <div className="flex flex-wrap gap-2 border-t border-border-soft pt-3">
+                                {variant.images.slice(0, 5).map((imageUrl: string) => (
+                                  <div
+                                    key={imageUrl}
+                                    className="h-14 w-14 overflow-hidden border border-border-soft"
+                                  >
+                                    <img
+                                      src={imageUrl}
+                                      alt={`${variant.sku} variant`}
+                                      className="h-full w-full object-cover"
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                            ) : null}
+
                             {variantEditsOpen[variant.id] ? (
                               <div className="grid gap-3 sm:grid-cols-3 pt-4 border-t border-border-soft">
+                                <div className="space-y-1 sm:col-span-3">
+                                  <Label className="text-xs">Color</Label>
+                                  <Input
+                                    value={variantEdits[variant.id]?.color ?? ""}
+                                    onChange={(event) =>
+                                      setVariantEdits((prev) => ({
+                                        ...prev,
+                                        [variant.id]: {
+                                          price: prev[variant.id]?.price ?? "",
+                                          compareAtPrice:
+                                            prev[variant.id]?.compareAtPrice ?? "",
+                                          color: event.target.value,
+                                          images: prev[variant.id]?.images ?? [],
+                                        },
+                                      }))
+                                    }
+                                    placeholder="Color (e.g. Wine, Navy Blue)"
+                                    disabled={product.deletedByAdmin}
+                                  />
+                                </div>
                                 <div className="space-y-1">
                                   <Label className="text-xs">Price</Label>
                                   <Input
@@ -1029,6 +1240,8 @@ export default function SellerProductsClient({
                                           price: event.target.value,
                                           compareAtPrice:
                                             prev[variant.id]?.compareAtPrice ?? "",
+                                          color: prev[variant.id]?.color ?? "",
+                                          images: prev[variant.id]?.images ?? [],
                                         },
                                       }))
                                     }
@@ -1049,6 +1262,8 @@ export default function SellerProductsClient({
                                         [variant.id]: {
                                           price: prev[variant.id]?.price ?? "",
                                           compareAtPrice: event.target.value,
+                                          color: prev[variant.id]?.color ?? "",
+                                          images: prev[variant.id]?.images ?? [],
                                         },
                                       }))
                                     }
@@ -1072,6 +1287,63 @@ export default function SellerProductsClient({
                                     placeholder="Stock"
                                     disabled={product.deletedByAdmin}
                                   />
+                                </div>
+                                <div className="sm:col-span-3 space-y-2">
+                                  <Label className="text-xs">Variant Images</Label>
+                                  <div className="flex flex-wrap gap-2">
+                                    {(variantEdits[variant.id]?.images ?? []).map((imageUrl) => (
+                                      <div
+                                        key={`${variant.id}-${imageUrl}`}
+                                        className="relative h-14 w-14 overflow-hidden border border-border-soft group"
+                                      >
+                                        <img
+                                          src={imageUrl}
+                                          alt={`${variant.sku} image`}
+                                          className="h-full w-full object-cover"
+                                        />
+                                        <button
+                                          type="button"
+                                          className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity"
+                                          onClick={() =>
+                                            setVariantEdits((prev) => ({
+                                              ...prev,
+                                              [variant.id]: {
+                                                price: prev[variant.id]?.price ?? "",
+                                                compareAtPrice:
+                                                  prev[variant.id]?.compareAtPrice ?? "",
+                                                color: prev[variant.id]?.color ?? "",
+                                                images: (prev[variant.id]?.images ?? []).filter(
+                                                  (img) => img !== imageUrl
+                                                ),
+                                              },
+                                            }))
+                                          }
+                                        >
+                                          <X className="h-3.5 w-3.5 text-white" />
+                                        </button>
+                                      </div>
+                                    ))}
+                                    <label className="h-14 w-14 flex items-center justify-center border border-dashed border-border-soft text-muted-foreground hover:text-foreground cursor-pointer transition-colors">
+                                      {uploadingVariantImages[variant.id] ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                      ) : (
+                                        <span className="text-lg">+</span>
+                                      )}
+                                      <input
+                                        type="file"
+                                        accept="image/*"
+                                        className="hidden"
+                                        multiple
+                                        onChange={(event) =>
+                                          handleUploadVariantImages(variant.id, event)
+                                        }
+                                        disabled={
+                                          uploadingVariantImages[variant.id] ||
+                                          product.deletedByAdmin
+                                        }
+                                      />
+                                    </label>
+                                  </div>
                                 </div>
                                 <div className="sm:col-span-3 flex flex-wrap gap-2 pt-2">
                                   <Button
@@ -1121,6 +1393,17 @@ export default function SellerProductsClient({
                       {activeProductId === product.id && (
                         <div className="grid gap-3 sm:grid-cols-2">
                           <Input
+                            placeholder="Color"
+                            value={variantForm.color}
+                            onChange={(event) =>
+                              setVariantForm((prev) => ({
+                                ...prev,
+                                color: event.target.value,
+                              }))
+                            }
+                            disabled={product.deletedByAdmin}
+                          />
+                          <Input
                             placeholder="SKU"
                             value={variantForm.sku}
                             onChange={(event) =>
@@ -1164,6 +1447,55 @@ export default function SellerProductsClient({
                             }
                             disabled={product.deletedByAdmin}
                           />
+                          <div className="sm:col-span-2 space-y-2">
+                            <p className="text-xs text-muted-foreground">Variant Images</p>
+                            <div className="flex flex-wrap gap-2">
+                              {variantForm.images.map((image) => (
+                                <div
+                                  key={image.fileId}
+                                  className="relative h-14 w-14 overflow-hidden border border-border-soft group"
+                                >
+                                  <img
+                                    src={image.url}
+                                    alt="Variant preview"
+                                    className="h-full w-full object-cover"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setVariantForm((prev) => ({
+                                        ...prev,
+                                        images: prev.images.filter(
+                                          (entry) => entry.fileId !== image.fileId
+                                        ),
+                                      }))
+                                    }
+                                    className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  >
+                                    <X className="h-3.5 w-3.5 text-white" />
+                                  </button>
+                                </div>
+                              ))}
+                              <label className="h-14 w-14 flex items-center justify-center border border-dashed border-border-soft text-muted-foreground hover:text-foreground cursor-pointer transition-colors">
+                                {uploadingVariantFormImages ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <span className="text-lg">+</span>
+                                )}
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  multiple
+                                  onChange={handleUploadVariantFormImages}
+                                  disabled={
+                                    uploadingVariantFormImages ||
+                                    product.deletedByAdmin
+                                  }
+                                />
+                              </label>
+                            </div>
+                          </div>
                           <Button
                             className="sm:col-span-2"
                             onClick={() => handleAddVariant(product.id)}
