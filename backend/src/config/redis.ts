@@ -1,12 +1,13 @@
 import { Redis as IORedis } from 'ioredis';
 import { env } from './env.js';
+import { resolveRedisUrl } from './redis-url.js';
 
 type ZRangeOptions = {
     rev?: boolean;
     withScores?: boolean;
 };
 
-const redisUrl = env.REDIS_URL || 'redis://127.0.0.1:6379';
+const redisUrl = resolveRedisUrl(env.REDIS_URL) || 'redis://127.0.0.1:6379';
 
 function isUpstashQuotaError(err: unknown): boolean {
     if (!err || typeof err !== 'object') return false;

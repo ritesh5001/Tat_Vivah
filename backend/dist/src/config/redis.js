@@ -1,6 +1,7 @@
 import { Redis as IORedis } from 'ioredis';
 import { env } from './env.js';
-const redisUrl = env.REDIS_URL || 'redis://127.0.0.1:6379';
+import { resolveRedisUrl } from './redis-url.js';
+const redisUrl = resolveRedisUrl(env.REDIS_URL) || 'redis://127.0.0.1:6379';
 function isUpstashQuotaError(err) {
     if (!err || typeof err !== 'object')
         return false;

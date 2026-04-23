@@ -3,6 +3,7 @@ import { Redis as IORedis } from 'ioredis';
 import type { Role } from '@prisma/client';
 import { env } from '../config/env.js';
 import { logger } from '../config/logger.js';
+import { resolveRedisUrl } from '../config/redis-url.js';
 
 export type DashboardEventType =
     | 'product.updated'
@@ -58,12 +59,14 @@ function emitLocal(event: LiveDashboardEvent): void {
 }
 
 async function initializeRedisPubSub(): Promise<void> {
-    if (!env.REDIS_URL || redisBacked || redisDisabledByQuota) {
+    const redisUrl = resolveRedisUrl(env.REDIS_URL);
+
+    if (!redisUrl || redisBacked || redisDisabledByQuota) {
         return;
     }
 
     try {
-        publisher = new IORedis(env.REDIS_URL, {
+        publisher = new IORedis(redisUrl, {
             lazyConnect: true,
             maxRetriesPerRequest: 1,
             enableOfflineQueue: false,
@@ -72,7 +75,7 @@ async function initializeRedisPubSub(): Promise<void> {
             reconnectOnError: (err) => !isUpstashQuotaError(err),
         });
 
-        subscriber = new IORedis(env.REDIS_URL, {
+        subscriber = new IORedis(redisUrl, {
             lazyConnect: true,
             maxRetriesPerRequest: 1,
             enableOfflineQueue: false,

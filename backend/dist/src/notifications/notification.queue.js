@@ -1,6 +1,7 @@
 import { Queue } from 'bullmq';
 import { Redis } from 'ioredis';
 import { env } from '../config/env.js';
+import { resolveRedisUrl } from '../config/redis-url.js';
 let redisConnection = null;
 let queueInstance = null;
 let queueDisabled = false;
@@ -32,7 +33,8 @@ function disableQueue(reason, err) {
     }
 }
 function getOrCreateRedisConnection() {
-    if (!env.REDIS_URL) {
+    const redisUrl = resolveRedisUrl(env.REDIS_URL);
+    if (!redisUrl) {
         return null;
     }
     if (queueDisabled) {
@@ -40,7 +42,7 @@ function getOrCreateRedisConnection() {
     }
     if (!redisConnection) {
         // BullMQ requires a dedicated Redis connection with maxRetriesPerRequest set to null
-        redisConnection = new Redis(env.REDIS_URL, {
+        redisConnection = new Redis(redisUrl, {
             lazyConnect: true,
             maxRetriesPerRequest: null,
             enableOfflineQueue: false,

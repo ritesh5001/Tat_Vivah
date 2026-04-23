@@ -2,6 +2,7 @@ import { EventEmitter } from 'node:events';
 import { Redis as IORedis } from 'ioredis';
 import { env } from '../config/env.js';
 import { logger } from '../config/logger.js';
+import { resolveRedisUrl } from '../config/redis-url.js';
 const emitter = new EventEmitter();
 const EMIT_EVENT_NAME = 'dashboard-event';
 let publisher = null;
@@ -29,11 +30,12 @@ function emitLocal(event) {
     emitter.emit(EMIT_EVENT_NAME, event);
 }
 async function initializeRedisPubSub() {
-    if (!env.REDIS_URL || redisBacked || redisDisabledByQuota) {
+    const redisUrl = resolveRedisUrl(env.REDIS_URL);
+    if (!redisUrl || redisBacked || redisDisabledByQuota) {
         return;
     }
     try {
-        publisher = new IORedis(env.REDIS_URL, {
+        publisher = new IORedis(redisUrl, {
             lazyConnect: true,
             maxRetriesPerRequest: 1,
             enableOfflineQueue: false,
@@ -41,7 +43,7 @@ async function initializeRedisPubSub() {
             retryStrategy: (times) => (times >= 2 ? null : Math.min(times * 500, 1000)),
             reconnectOnError: (err) => !isUpstashQuotaError(err),
         });
-        subscriber = new IORedis(env.REDIS_URL, {
+        subscriber = new IORedis(redisUrl, {
             lazyConnect: true,
             maxRetriesPerRequest: 1,
             enableOfflineQueue: false,
