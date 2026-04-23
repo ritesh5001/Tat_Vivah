@@ -185,6 +185,9 @@ export class ProductService {
             activeCoupon: this.getBestCouponPreview(sellingPrice, product.sellerId, coupons),
             variants: (product.variants ?? []).map((variant) => ({
                 id: variant.id,
+                size: variant.size ?? 'Default',
+                color: variant.color ?? null,
+                images: variant.images ?? [],
                 sku: variant.sku,
                 price: this.toNumber(variant.price),
                 compareAtPrice: variant.compareAtPrice ?? null,
@@ -194,12 +197,80 @@ export class ProductService {
     }
     toSellerProduct(product) {
         return {
-            ...product,
+            id: product.id,
+            sellerId: product.sellerId,
+            categoryId: product.categoryId,
+            title: product.title,
+            description: product.description ?? null,
+            images: product.images ?? [],
             sellerPrice: this.toNumber(product.sellerPrice),
-            adminListingPrice: product.adminListingPrice === null || product.adminListingPrice === undefined
-                ? null
-                : this.toNumber(product.adminListingPrice),
+            status: product.status,
+            rejectionReason: product.rejectionReason ?? null,
+            approvedAt: product.approvedAt ?? null,
+            approvedById: product.approvedById ?? null,
+            isPublished: Boolean(product.isPublished),
+            deletedByAdmin: Boolean(product.deletedByAdmin),
+            deletedByAdminAt: product.deletedByAdminAt ?? null,
+            deletedByAdminReason: product.deletedByAdminReason ?? null,
+            createdAt: product.createdAt,
+            updatedAt: product.updatedAt,
+            category: product.category,
+            occasionIds: product.occasionIds ?? [],
+            variants: (product.variants ?? []).map((variant) => ({
+                id: variant.id,
+                size: variant.size ?? 'Default',
+                color: variant.color ?? null,
+                images: variant.images ?? [],
+                sku: variant.sku,
+                sellerPrice: this.toNumber(variant.sellerPrice),
+                compareAtPrice: variant.compareAtPrice == null ? null : this.toNumber(variant.compareAtPrice),
+                status: variant.status,
+                rejectionReason: variant.rejectionReason ?? null,
+                approvedAt: variant.approvedAt ?? null,
+                inventory: variant.inventory ?? null,
+            })),
         };
+    }
+    validateCreateVariantPayload(data) {
+        if (!data.size?.trim()) {
+            throw ApiError.badRequest('Variant size is required');
+        }
+        if (!data.sku?.trim()) {
+            throw ApiError.badRequest('Variant SKU is required');
+        }
+        if (!Number.isFinite(data.sellerPrice) || data.sellerPrice <= 0) {
+            throw ApiError.badRequest('Variant seller price must be positive');
+        }
+        if (data.compareAtPrice !== undefined &&
+            data.compareAtPrice !== null &&
+            data.compareAtPrice <= data.sellerPrice) {
+            throw ApiError.badRequest('Compare-at price must be greater than seller price');
+        }
+    }
+    validateUpdateVariantPayload(data, current) {
+        const nextSellerPrice = data.sellerPrice ?? current.sellerPrice;
+        const nextAdminListingPrice = data.adminListingPrice !== undefined ? data.adminListingPrice : current.adminListingPrice;
+        if (!Number.isFinite(nextSellerPrice) || nextSellerPrice <= 0) {
+            throw ApiError.badRequest('Variant seller price must be positive');
+        }
+        const effectivePrice = nextAdminListingPrice ?? nextSellerPrice;
+        if (data.compareAtPrice !== undefined &&
+            data.compareAtPrice !== null &&
+            data.compareAtPrice <= effectivePrice) {
+            throw ApiError.badRequest('Compare-at price must be greater than effective selling price');
+        }
+    }
+    async ensureProductVariantUniqueness(productId, data, excludeId) {
+        const [skuExists, comboExists] = await Promise.all([
+            this.variantRepo.skuExists(productId, data.sku, excludeId),
+            this.variantRepo.variantCombinationExists(productId, data.size, data.color, excludeId),
+        ]);
+        if (skuExists) {
+            throw ApiError.conflict('This SKU already exists for the product');
+        }
+        if (comboExists) {
+            throw ApiError.conflict('This size/color combination already exists for the product');
+        }
     }
     normalizeTextFilter(value) {
         if (!value)
@@ -300,6 +371,26 @@ export class ProductService {
         if (!categoryExists) {
             throw ApiError.badRequest('Invalid category ID');
         }
+        if (!Array.isArray(data.variants) || data.variants.length === 0) {
+            throw ApiError.badRequest('At least one variant is required');
+        }
+        for (const variant of data.variants) {
+            this.validateCreateVariantPayload(variant);
+        }
+        const seenSkus = new Set();
+        const seenCombos = new Set();
+        for (const variant of data.variants) {
+            const skuKey = variant.sku.trim().toLowerCase();
+            const comboKey = `${variant.size.trim().toLowerCase()}::${(variant.color ?? '').trim().toLowerCase()}`;
+            if (seenSkus.has(skuKey)) {
+                throw ApiError.conflict('Duplicate SKUs are not allowed in the same product');
+            }
+            if (seenCombos.has(comboKey)) {
+                throw ApiError.conflict('Duplicate size/color combinations are not allowed in the same product');
+            }
+            seenSkus.add(skuKey);
+            seenCombos.add(comboKey);
+        }
         const product = await this.productRepo.create(sellerId, data);
         // Sync occasion associations if provided
         if (data.occasionIds && data.occasionIds.length > 0) {
@@ -308,9 +399,13 @@ export class ProductService {
         // Invalidate product list cache
         await invalidateProductCaches();
         await this.publishProductFreshness('product.updated', product.id);
+        const productWithDetails = await this.productRepo.findByIdWithDetails(product.id);
+        if (!productWithDetails) {
+            throw ApiError.internal('Unable to reload product after creation');
+        }
         return {
             message: 'Product submitted for approval',
-            product: this.toSellerProduct(product),
+            product: this.toSellerProduct(productWithDetails),
         };
     }
     /**
@@ -339,7 +434,7 @@ export class ProductService {
                 throw ApiError.badRequest('Invalid category ID');
             }
         }
-        const product = await this.productRepo.update(productId, data);
+        await this.productRepo.update(productId, data);
         // Sync occasion associations if provided
         if (data.occasionIds !== undefined) {
             await this.occasionSvc.syncProductOccasions(productId, data.occasionIds ?? []);
@@ -347,9 +442,13 @@ export class ProductService {
         // Invalidate caches
         await invalidateProductCaches(productId);
         await this.publishProductFreshness('product.updated', productId);
+        const productWithDetails = await this.productRepo.findByIdWithDetails(productId);
+        if (!productWithDetails) {
+            throw ApiError.internal('Unable to reload product after update');
+        }
         return {
             message: 'Product updated successfully',
-            product: this.toSellerProduct(product),
+            product: this.toSellerProduct(productWithDetails),
         };
     }
     /**
@@ -378,12 +477,17 @@ export class ProductService {
         if (!product) {
             throw ApiError.forbidden('You do not have permission to add variants to this product');
         }
-        // Check SKU uniqueness
-        const skuExists = await this.variantRepo.skuExists(productId, data.sku);
-        if (skuExists) {
-            throw ApiError.conflict('SKU already exists for this product');
+        if (product.deletedByAdmin) {
+            throw ApiError.badRequest('Variants cannot be added to a product removed by admin');
         }
+        this.validateCreateVariantPayload(data);
+        await this.ensureProductVariantUniqueness(productId, {
+            size: data.size,
+            color: data.color,
+            sku: data.sku,
+        });
         const variant = await this.variantRepo.create(productId, data);
+        await this.productRepo.syncVariantSummary(productId);
         // Invalidate caches
         await invalidateProductCaches(productId);
         await this.publishProductFreshness('inventory.updated', productId);
@@ -404,7 +508,26 @@ export class ProductService {
         if (variantWithProduct.product.sellerId !== sellerId) {
             throw ApiError.forbidden('You do not have permission to update this variant');
         }
-        const variant = await this.variantRepo.update(variantId, data);
+        if (variantWithProduct.product.deletedByAdmin) {
+            throw ApiError.badRequest('Cannot update variants for products removed by admin');
+        }
+        this.validateUpdateVariantPayload(data, {
+            sellerPrice: variantWithProduct.sellerPrice,
+            adminListingPrice: variantWithProduct.adminListingPrice,
+        });
+        const nextSize = data.size ?? variantWithProduct.size;
+        const nextColor = data.color !== undefined ? data.color : variantWithProduct.color;
+        const nextSku = data.sku ?? variantWithProduct.sku;
+        await this.ensureProductVariantUniqueness(variantWithProduct.productId, { size: nextSize, color: nextColor, sku: nextSku }, variantId);
+        const variant = await this.variantRepo.update(variantId, {
+            ...data,
+            adminListingPrice: null,
+            status: 'PENDING',
+            rejectionReason: null,
+            approvedAt: null,
+            approvedById: null,
+        });
+        await this.productRepo.syncVariantSummary(variantWithProduct.productId);
         // Invalidate caches
         await invalidateProductCaches(variantWithProduct.productId);
         await this.publishProductFreshness('inventory.updated', variantWithProduct.productId);
@@ -424,6 +547,9 @@ export class ProductService {
         }
         if (variantWithProduct.product.sellerId !== sellerId) {
             throw ApiError.forbidden('You do not have permission to update this variant\'s stock');
+        }
+        if (variantWithProduct.product.deletedByAdmin) {
+            throw ApiError.badRequest('Cannot update stock for products removed by admin');
         }
         const inventory = await this.inventoryRepo.updateStock(variantId, stock);
         // Invalidate caches

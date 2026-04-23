@@ -192,7 +192,17 @@ export class AdminRepository {
     async findPendingProducts(params) {
         const { skip, take } = resolvePagination(params);
         const products = await prisma.product.findMany({
-            where: { status: 'PENDING', deletedByAdmin: false },
+            where: {
+                deletedByAdmin: false,
+                OR: [
+                    { status: 'PENDING' },
+                    {
+                        variants: {
+                            some: { status: 'PENDING' },
+                        },
+                    },
+                ],
+            },
             include: {
                 seller: {
                     select: {
@@ -241,9 +251,17 @@ export class AdminRepository {
             approvedById: product.approvedById,
             variants: product.variants.map((variant) => ({
                 id: variant.id,
+                size: variant.size,
+                color: variant.color,
+                images: variant.images,
                 sku: variant.sku,
-                price: variant.price,
-                compareAtPrice: variant.compareAtPrice,
+                sellerPrice: Number(variant.sellerPrice),
+                adminListingPrice: variant.adminListingPrice == null ? null : Number(variant.adminListingPrice),
+                price: Number(variant.price),
+                compareAtPrice: variant.compareAtPrice == null ? null : Number(variant.compareAtPrice),
+                status: variant.status,
+                rejectionReason: variant.rejectionReason,
+                approvedAt: variant.approvedAt,
                 stock: variant.inventory?.stock ?? 0,
             })),
             isPublished: product.isPublished,
@@ -312,9 +330,17 @@ export class AdminRepository {
             approvedById: product.approvedById,
             variants: product.variants.map((variant) => ({
                 id: variant.id,
+                size: variant.size,
+                color: variant.color,
+                images: variant.images,
                 sku: variant.sku,
-                price: variant.price,
-                compareAtPrice: variant.compareAtPrice,
+                sellerPrice: Number(variant.sellerPrice),
+                adminListingPrice: variant.adminListingPrice == null ? null : Number(variant.adminListingPrice),
+                price: Number(variant.price),
+                compareAtPrice: variant.compareAtPrice == null ? null : Number(variant.compareAtPrice),
+                status: variant.status,
+                rejectionReason: variant.rejectionReason,
+                approvedAt: variant.approvedAt,
                 stock: variant.inventory?.stock ?? 0,
             })),
             isPublished: product.isPublished,
@@ -355,6 +381,10 @@ export class AdminRepository {
                         occasionId: true,
                     },
                 },
+                variants: {
+                    include: { inventory: true },
+                    orderBy: { createdAt: 'asc' },
+                },
             },
             orderBy: { createdAt: 'desc' },
             skip,
@@ -379,6 +409,21 @@ export class AdminRepository {
             rejectionReason: product.rejectionReason,
             approvedAt: product.approvedAt,
             approvedById: product.approvedById,
+            variants: product.variants.map((variant) => ({
+                id: variant.id,
+                size: variant.size,
+                color: variant.color,
+                images: variant.images,
+                sku: variant.sku,
+                sellerPrice: Number(variant.sellerPrice),
+                adminListingPrice: variant.adminListingPrice == null ? null : Number(variant.adminListingPrice),
+                price: Number(variant.price),
+                compareAtPrice: variant.compareAtPrice == null ? null : Number(variant.compareAtPrice),
+                status: variant.status,
+                rejectionReason: variant.rejectionReason,
+                approvedAt: variant.approvedAt,
+                stock: variant.inventory?.stock ?? 0,
+            })),
             isPublished: product.isPublished,
             deletedByAdmin: product.deletedByAdmin,
             deletedByAdminAt: product.deletedByAdminAt,

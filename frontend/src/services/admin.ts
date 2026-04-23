@@ -21,11 +21,17 @@ export interface AdminProduct {
   approvedById?: string | null;
   variants?: Array<{
     id: string;
+    size: string;
     color?: string | null;
     images?: string[];
     sku: string;
+    sellerPrice: number;
+    adminListingPrice?: number | null;
     price: number;
     compareAtPrice?: number | null;
+    status: "PENDING" | "APPROVED" | "REJECTED";
+    rejectionReason?: string | null;
+    approvedAt?: string | null;
     stock?: number;
   }>;
   isPublished: boolean;
@@ -44,10 +50,15 @@ export interface AdminProduct {
 
 export interface AdminProductVariantUpdatePayload {
   id: string;
+  size?: string;
   color?: string | null;
+  sku?: string;
   images?: string[];
-  price?: number;
+  sellerPrice?: number;
+  adminListingPrice?: number | null;
   compareAtPrice?: number | null;
+  status?: "PENDING" | "APPROVED" | "REJECTED";
+  rejectionReason?: string | null;
   stock?: number;
 }
 
@@ -58,7 +69,6 @@ export interface AdminProductUpdatePayload {
   images?: string[];
   isPublished?: boolean;
   occasionIds?: string[];
-  sellerPrice?: number;
   variants?: AdminProductVariantUpdatePayload[];
 }
 

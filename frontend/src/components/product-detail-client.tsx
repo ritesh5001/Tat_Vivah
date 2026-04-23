@@ -14,6 +14,7 @@ import { upsertCheckoutSnapshotItem } from "@/lib/checkout-snapshot";
 
 interface Variant {
   id: string;
+  size: string;
   color?: string | null;
   images?: string[];
   sku: string;
@@ -67,12 +68,6 @@ function normalizeColor(value?: string | null): string {
 
 function variantColorLabel(variant: Variant): string {
   return variant.color?.trim() || "Default";
-}
-
-function sizeLabelFromSku(variant: Variant): string {
-  const parts = variant.sku.split("-").map((part) => part.trim()).filter(Boolean);
-  if (parts.length > 1) return parts[parts.length - 1] ?? variant.sku;
-  return variant.sku;
 }
 
 function fallbackHexFromText(input: string): string {
@@ -558,7 +553,7 @@ export default function ProductDetailClient({
                       : "border border-border-soft text-muted-foreground hover:border-gold/50 hover:text-foreground"
                     }`}
                 >
-                  {sizeLabelFromSku(variant)}
+                  {variant.size || "Default"}
                   {/* Stock Badge - Mocked for matching design visually */}
                   {(idx === 6 || idx === 8) && (
                     <span className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 bg-[#d85025] text-white text-[9px] font-semibold px-2 py-0.5 rounded-sm shadow-sm whitespace-nowrap z-10 tracking-widest">

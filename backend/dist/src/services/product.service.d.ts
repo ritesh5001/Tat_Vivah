@@ -26,6 +26,9 @@ export declare class ProductService {
     private toPublicProduct;
     private toPublicProductDetail;
     private toSellerProduct;
+    private validateCreateVariantPayload;
+    private validateUpdateVariantPayload;
+    private ensureProductVariantUniqueness;
     private normalizeTextFilter;
     private normalizeListFilters;
     private publishProductFreshness;

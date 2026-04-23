@@ -75,22 +75,44 @@ export class CheckoutService {
                 select: { user_id: true, state: true },
             }),
         ]);
+        const variants = await prisma.productVariant.findMany({
+            where: { id: { in: [...new Set(cart.items.map((item) => item.variantId))] } },
+            select: {
+                id: true,
+                sellerPrice: true,
+                adminListingPrice: true,
+                price: true,
+                status: true,
+            },
+        });
         const taxRateMap = new Map(productTaxRates.map((p) => [p.id, p.taxRate ?? 0]));
         const sellerStateMap = new Map(sellerProfiles.map((s) => [s.user_id, s.state ?? '']));
+        const variantMap = new Map(variants.map((variant) => [
+            variant.id,
+            {
+                sellerPrice: Number(variant.sellerPrice),
+                adminListingPrice: variant.adminListingPrice == null ? null : Number(variant.adminListingPrice),
+                price: Number(variant.price),
+                status: variant.status,
+            },
+        ]));
         for (const item of cart.items) {
             const availableStock = item.variant?.inventory?.stock ?? 0;
             if (!item.product || !item.variant) {
                 validationErrors.push(`Product or variant not found for item ${item.id}`);
                 continue;
             }
-            const adminListingPriceRaw = item.product.adminListingPrice;
-            const sellerPriceRaw = item.product.sellerPrice;
-            if (adminListingPriceRaw === null || adminListingPriceRaw === undefined) {
-                validationErrors.push(`Pricing is pending approval for ${item.product.title}`);
+            const variantPricing = variantMap.get(item.variantId);
+            if (!variantPricing) {
+                validationErrors.push(`Pricing could not be resolved for ${item.product.title}`);
                 continue;
             }
-            const adminListingPrice = Number(adminListingPriceRaw);
-            const sellerPrice = Number(sellerPriceRaw ?? adminListingPriceRaw);
+            if (variantPricing.status !== 'APPROVED') {
+                validationErrors.push(`Selected variant is pending approval for ${item.product.title}`);
+                continue;
+            }
+            const adminListingPrice = variantPricing.price;
+            const sellerPrice = variantPricing.sellerPrice;
             const margin = adminListingPrice - sellerPrice;
             if (margin < 0) {
                 validationErrors.push(`Invalid pricing state for ${item.product.title}`);

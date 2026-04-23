@@ -6,6 +6,7 @@ import ProductImageCarousel from "@/components/product-image-carousel";
 
 interface Variant {
   id: string;
+  size: string;
   color?: string | null;
   images?: string[];
   sku: string;

@@ -241,6 +241,7 @@ export class ProductService {
             activeCoupon: this.getBestCouponPreview(sellingPrice, product.sellerId, coupons),
             variants: (product.variants ?? []).map((variant: any) => ({
                 id: variant.id,
+                size: variant.size ?? 'Default',
                 color: variant.color ?? null,
                 images: variant.images ?? [],
                 sku: variant.sku,
@@ -253,13 +254,92 @@ export class ProductService {
 
     private toSellerProduct(product: any): any {
         return {
-            ...product,
+            id: product.id,
+            sellerId: product.sellerId,
+            categoryId: product.categoryId,
+            title: product.title,
+            description: product.description ?? null,
+            images: product.images ?? [],
             sellerPrice: this.toNumber(product.sellerPrice),
-            adminListingPrice:
-                product.adminListingPrice === null || product.adminListingPrice === undefined
-                    ? null
-                    : this.toNumber(product.adminListingPrice),
+            status: product.status,
+            rejectionReason: product.rejectionReason ?? null,
+            approvedAt: product.approvedAt ?? null,
+            approvedById: product.approvedById ?? null,
+            isPublished: Boolean(product.isPublished),
+            deletedByAdmin: Boolean(product.deletedByAdmin),
+            deletedByAdminAt: product.deletedByAdminAt ?? null,
+            deletedByAdminReason: product.deletedByAdminReason ?? null,
+            createdAt: product.createdAt,
+            updatedAt: product.updatedAt,
+            category: product.category,
+            occasionIds: product.occasionIds ?? [],
+            variants: (product.variants ?? []).map((variant: any) => ({
+                id: variant.id,
+                size: variant.size ?? 'Default',
+                color: variant.color ?? null,
+                images: variant.images ?? [],
+                sku: variant.sku,
+                sellerPrice: this.toNumber(variant.sellerPrice),
+                compareAtPrice: variant.compareAtPrice == null ? null : this.toNumber(variant.compareAtPrice),
+                status: variant.status,
+                rejectionReason: variant.rejectionReason ?? null,
+                approvedAt: variant.approvedAt ?? null,
+                inventory: variant.inventory ?? null,
+            })),
         };
+    }
+
+    private validateCreateVariantPayload(data: CreateVariantRequest): void {
+        if (!data.size?.trim()) {
+            throw ApiError.badRequest('Variant size is required');
+        }
+        if (!data.sku?.trim()) {
+            throw ApiError.badRequest('Variant SKU is required');
+        }
+        if (!Number.isFinite(data.sellerPrice) || data.sellerPrice <= 0) {
+            throw ApiError.badRequest('Variant seller price must be positive');
+        }
+        if (
+            data.compareAtPrice !== undefined &&
+            data.compareAtPrice !== null &&
+            data.compareAtPrice <= data.sellerPrice
+        ) {
+            throw ApiError.badRequest('Compare-at price must be greater than seller price');
+        }
+    }
+
+    private validateUpdateVariantPayload(data: UpdateVariantRequest, current: { sellerPrice: number; adminListingPrice: number | null }): void {
+        const nextSellerPrice = data.sellerPrice ?? current.sellerPrice;
+        const nextAdminListingPrice =
+            data.adminListingPrice !== undefined ? data.adminListingPrice : current.adminListingPrice;
+
+        if (!Number.isFinite(nextSellerPrice) || nextSellerPrice <= 0) {
+            throw ApiError.badRequest('Variant seller price must be positive');
+        }
+
+        const effectivePrice = nextAdminListingPrice ?? nextSellerPrice;
+        if (
+            data.compareAtPrice !== undefined &&
+            data.compareAtPrice !== null &&
+            data.compareAtPrice <= effectivePrice
+        ) {
+            throw ApiError.badRequest('Compare-at price must be greater than effective selling price');
+        }
+    }
+
+    private async ensureProductVariantUniqueness(productId: string, data: { size: string; color?: string | null | undefined; sku: string }, excludeId?: string): Promise<void> {
+        const [skuExists, comboExists] = await Promise.all([
+            this.variantRepo.skuExists(productId, data.sku, excludeId),
+            this.variantRepo.variantCombinationExists(productId, data.size, data.color, excludeId),
+        ]);
+
+        if (skuExists) {
+            throw ApiError.conflict('This SKU already exists for the product');
+        }
+
+        if (comboExists) {
+            throw ApiError.conflict('This size/color combination already exists for the product');
+        }
     }
 
     private normalizeTextFilter(value?: string): string | undefined {
@@ -388,6 +468,29 @@ export class ProductService {
             throw ApiError.badRequest('Invalid category ID');
         }
 
+        if (!Array.isArray(data.variants) || data.variants.length === 0) {
+            throw ApiError.badRequest('At least one variant is required');
+        }
+
+        for (const variant of data.variants) {
+            this.validateCreateVariantPayload(variant);
+        }
+
+        const seenSkus = new Set<string>();
+        const seenCombos = new Set<string>();
+        for (const variant of data.variants) {
+            const skuKey = variant.sku.trim().toLowerCase();
+            const comboKey = `${variant.size.trim().toLowerCase()}::${(variant.color ?? '').trim().toLowerCase()}`;
+            if (seenSkus.has(skuKey)) {
+                throw ApiError.conflict('Duplicate SKUs are not allowed in the same product');
+            }
+            if (seenCombos.has(comboKey)) {
+                throw ApiError.conflict('Duplicate size/color combinations are not allowed in the same product');
+            }
+            seenSkus.add(skuKey);
+            seenCombos.add(comboKey);
+        }
+
         const product = await this.productRepo.create(sellerId, data);
 
         // Sync occasion associations if provided
@@ -399,9 +502,14 @@ export class ProductService {
         await invalidateProductCaches();
         await this.publishProductFreshness('product.updated', product.id);
 
+        const productWithDetails = await this.productRepo.findByIdWithDetails(product.id);
+        if (!productWithDetails) {
+            throw ApiError.internal('Unable to reload product after creation');
+        }
+
         return {
             message: 'Product submitted for approval',
-            product: this.toSellerProduct(product),
+            product: this.toSellerProduct(productWithDetails),
         };
     }
 
@@ -441,7 +549,7 @@ export class ProductService {
             }
         }
 
-        const product = await this.productRepo.update(productId, data);
+        await this.productRepo.update(productId, data);
 
         // Sync occasion associations if provided
         if (data.occasionIds !== undefined) {
@@ -452,9 +560,14 @@ export class ProductService {
         await invalidateProductCaches(productId);
         await this.publishProductFreshness('product.updated', productId);
 
+        const productWithDetails = await this.productRepo.findByIdWithDetails(productId);
+        if (!productWithDetails) {
+            throw ApiError.internal('Unable to reload product after update');
+        }
+
         return {
             message: 'Product updated successfully',
-            product: this.toSellerProduct(product),
+            product: this.toSellerProduct(productWithDetails),
         };
     }
 
@@ -500,17 +613,15 @@ export class ProductService {
             throw ApiError.badRequest('Variants cannot be added to a product removed by admin');
         }
 
-        if (product.status !== 'APPROVED') {
-            throw ApiError.badRequest('Add variants after admin approval');
-        }
-
-        // Check SKU uniqueness
-        const skuExists = await this.variantRepo.skuExists(productId, data.sku, data.color);
-        if (skuExists) {
-            throw ApiError.conflict('This size/SKU already exists for the selected color');
-        }
+        this.validateCreateVariantPayload(data);
+        await this.ensureProductVariantUniqueness(productId, {
+            size: data.size,
+            color: data.color,
+            sku: data.sku,
+        });
 
         const variant = await this.variantRepo.create(productId, data);
+        await this.productRepo.syncVariantSummary(productId);
 
         // Invalidate caches
         await invalidateProductCaches(productId);
@@ -544,11 +655,29 @@ export class ProductService {
             throw ApiError.badRequest('Cannot update variants for products removed by admin');
         }
 
-        if (variantWithProduct.product.status !== 'APPROVED') {
-            throw ApiError.badRequest('Variants can only be updated for approved products');
-        }
+        this.validateUpdateVariantPayload(data, {
+            sellerPrice: variantWithProduct.sellerPrice,
+            adminListingPrice: variantWithProduct.adminListingPrice,
+        });
 
-        const variant = await this.variantRepo.update(variantId, data);
+        const nextSize = data.size ?? variantWithProduct.size;
+        const nextColor = data.color !== undefined ? data.color : variantWithProduct.color;
+        const nextSku = data.sku ?? variantWithProduct.sku;
+        await this.ensureProductVariantUniqueness(
+            variantWithProduct.productId,
+            { size: nextSize, color: nextColor, sku: nextSku },
+            variantId
+        );
+
+        const variant = await this.variantRepo.update(variantId, {
+            ...data,
+            adminListingPrice: null,
+            status: 'PENDING',
+            rejectionReason: null,
+            approvedAt: null,
+            approvedById: null,
+        });
+        await this.productRepo.syncVariantSummary(variantWithProduct.productId);
 
         // Invalidate caches
         await invalidateProductCaches(variantWithProduct.productId);
@@ -580,10 +709,6 @@ export class ProductService {
 
         if (variantWithProduct.product.deletedByAdmin) {
             throw ApiError.badRequest('Cannot update stock for products removed by admin');
-        }
-
-        if (variantWithProduct.product.status !== 'APPROVED') {
-            throw ApiError.badRequest('Stock can only be updated for approved products');
         }
 
         const inventory = await this.inventoryRepo.updateStock(variantId, stock);

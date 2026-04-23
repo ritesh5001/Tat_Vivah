@@ -6,6 +6,19 @@ import { ApiError } from '../errors/ApiError.js';
 export function errorMiddleware(err, _req, res, _next) {
     // Log error for debugging (in production, use proper logging)
     console.error('[Error]:', err);
+    const prismaError = err;
+    if (prismaError.code === 'P1001') {
+        const response = {
+            success: false,
+            error: {
+                message: 'Database temporarily unavailable',
+                statusCode: 503,
+                ...(prismaError.meta && { details: prismaError.meta }),
+            },
+        };
+        res.status(503).json(response);
+        return;
+    }
     // Handle ApiError (operational errors)
     if (err instanceof ApiError) {
         const response = {

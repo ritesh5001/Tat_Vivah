@@ -5,6 +5,7 @@ export type ProductImage = string;
 
 export interface ProductVariant {
   id: string;
+  size: string;
   color?: string | null;
   images?: string[];
   sku: string;

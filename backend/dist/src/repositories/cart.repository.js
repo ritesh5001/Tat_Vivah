@@ -118,14 +118,16 @@ export class CartRepository {
         const [products, variants] = await Promise.all([
             prisma.product.findMany({
                 where: { id: { in: productIds } },
-                select: { id: true, title: true, sellerId: true, adminListingPrice: true, sellerPrice: true },
+                select: { id: true, title: true, sellerId: true },
             }),
             prisma.productVariant.findMany({
                 where: { id: { in: variantIds } },
                 select: {
                     id: true,
+                    size: true,
                     sku: true,
                     price: true,
+                    compareAtPrice: true,
                     inventory: { select: { stock: true } },
                 },
             }),
@@ -138,20 +140,13 @@ export class CartRepository {
             return {
                 ...item,
                 product: product
-                    ? {
-                        ...product,
-                        sellerPrice: Number(product.sellerPrice),
-                        adminListingPrice: product.adminListingPrice == null
-                            ? null
-                            : Number(product.adminListingPrice),
-                    }
+                    ? { ...product }
                     : undefined,
                 variant: variant
                     ? {
                         ...variant,
-                        price: product?.adminListingPrice != null
-                            ? Number(product.adminListingPrice)
-                            : variant.price,
+                        price: Number(variant.price),
+                        compareAtPrice: variant.compareAtPrice == null ? null : Number(variant.compareAtPrice),
                     }
                     : undefined,
             };

@@ -536,6 +536,17 @@ export class ReturnService {
             const returnReq = await tx.returnRequest.findUnique({
                 where: { id: returnId },
                 include: {
+                    items: {
+                        include: {
+                            orderItem: {
+                                select: {
+                                    sellerId: true,
+                                    quantity: true,
+                                    sellerPriceSnapshot: true,
+                                },
+                            },
+                        },
+                    },
                     order: {
                         select: {
                             id: true,
@@ -583,13 +594,21 @@ export class ReturnService {
             if (locked.refundAmount && locked.refundAmount > 0) {
                 const settlements = await tx.sellerSettlement.findMany({
                     where: { orderId: locked.orderId },
-                    select: { id: true, grossAmount: true, netAmount: true, commissionAmount: true, platformFee: true },
+                    select: { id: true, sellerId: true, grossAmount: true, netAmount: true, commissionAmount: true, platformFee: true },
                 });
 
-                let remainingRefund = locked.refundAmount;
+                const sellerRefundMap = new Map<string, number>();
+                for (const returnItem of returnReq.items) {
+                    const sellerId = returnItem.orderItem.sellerId;
+                    const sellerRefund =
+                        (returnItem.orderItem.sellerPriceSnapshot ?? 0) * returnItem.quantity;
+                    sellerRefundMap.set(sellerId, (sellerRefundMap.get(sellerId) ?? 0) + sellerRefund);
+                }
+
                 for (const s of settlements) {
-                    if (remainingRefund <= 0) break;
-                    const deduction = Math.min(remainingRefund, s.grossAmount);
+                    const targetRefund = sellerRefundMap.get(s.sellerId) ?? 0;
+                    if (targetRefund <= 0) continue;
+                    const deduction = Math.min(targetRefund, s.grossAmount);
                     const ratio = s.grossAmount > 0 ? (s.grossAmount - deduction) / s.grossAmount : 0;
                     await tx.sellerSettlement.update({
                         where: { id: s.id },
@@ -599,7 +618,6 @@ export class ReturnService {
                             netAmount: Math.round(s.netAmount * ratio * 100) / 100,
                         },
                     });
-                    remainingRefund -= deduction;
                 }
             }
 

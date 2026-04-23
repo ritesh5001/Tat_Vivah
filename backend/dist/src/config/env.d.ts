@@ -14,6 +14,7 @@ declare const envSchema: z.ZodObject<{
     BACKEND_WARMUP_URL: z.ZodOptional<z.ZodString>;
     BACKEND_WARMUP_INTERVAL_MS: z.ZodEffects<z.ZodDefault<z.ZodString>, number, string | undefined>;
     DATABASE_URL: z.ZodString;
+    DATABASE_URL_DIRECT: z.ZodOptional<z.ZodString>;
     JWT_ACCESS_SECRET: z.ZodString;
     JWT_REFRESH_SECRET: z.ZodString;
     ACCESS_TOKEN_EXPIRY: z.ZodDefault<z.ZodString>;
@@ -53,6 +54,7 @@ declare const envSchema: z.ZodObject<{
     EMAIL_FROM: string;
     RUN_BACKGROUND_JOBS?: boolean | undefined;
     BACKEND_WARMUP_URL?: string | undefined;
+    DATABASE_URL_DIRECT?: string | undefined;
     FRONTEND_BASE_URL?: string | undefined;
     SELLER_BASE_URL?: string | undefined;
     FRONTEND_REVALIDATE_URL?: string | undefined;
@@ -82,6 +84,7 @@ declare const envSchema: z.ZodObject<{
     RUN_BACKGROUND_JOBS?: string | undefined;
     BACKEND_WARMUP_URL?: string | undefined;
     BACKEND_WARMUP_INTERVAL_MS?: string | undefined;
+    DATABASE_URL_DIRECT?: string | undefined;
     ACCESS_TOKEN_EXPIRY?: string | undefined;
     REFRESH_TOKEN_EXPIRY?: string | undefined;
     FRONTEND_BASE_URL?: string | undefined;

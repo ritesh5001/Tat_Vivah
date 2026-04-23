@@ -42,9 +42,17 @@ export interface AdminProduct {
     approvedById?: string | null;
     variants?: Array<{
         id: string;
+        size: string;
+        color: string | null;
+        images: string[];
         sku: string;
+        sellerPrice: number;
+        adminListingPrice: number | null;
         price: number;
         compareAtPrice: number | null;
+        status: ProductModerationStatusType;
+        rejectionReason?: string | null;
+        approvedAt?: Date | null;
         stock: number;
     }>;
     isPublished: boolean;

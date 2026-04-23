@@ -110,8 +110,8 @@ export default function CartPage() {
   const regularSubtotal = items.reduce(
     (sum, item) =>
       sum +
-      (typeof item.product?.sellerPrice === "number"
-        ? item.product.sellerPrice
+      (typeof item.variant?.compareAtPrice === "number"
+        ? item.variant.compareAtPrice
         : item.priceSnapshot) *
         item.quantity,
     0
@@ -185,8 +185,8 @@ export default function CartPage() {
                   const salePrice =
                     typeof item.priceSnapshot === "number" ? item.priceSnapshot : 0;
                   const regularPrice =
-                    typeof item.product?.sellerPrice === "number"
-                      ? item.product.sellerPrice
+                    typeof item.variant?.compareAtPrice === "number"
+                      ? item.variant.compareAtPrice
                       : null;
 
                   return (
@@ -217,7 +217,7 @@ export default function CartPage() {
                             {item.product?.title ?? "Item"}
                           </h3>
                           <p className="text-xs text-muted-foreground">
-                            Variant · {item.variant?.sku ?? "—"}
+                            Variant · {item.variant?.size ?? "Default"} · {item.variant?.sku ?? "—"}
                           </p>
                         </div>
 

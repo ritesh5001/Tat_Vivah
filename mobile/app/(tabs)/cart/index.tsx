@@ -99,8 +99,14 @@ export default function CartScreen() {
                 {item.product?.title ?? "Item"}
               </Text>
               <Text style={styles.itemMeta}>
-                Variant · {item.variant?.sku ?? "—"}
+                Variant · {item.variant?.size ?? "Default"} · {item.variant?.sku ?? "—"}
               </Text>
+              {typeof item.variant?.compareAtPrice === "number" &&
+              item.variant.compareAtPrice > item.priceSnapshot ? (
+                <Text style={styles.itemMeta}>
+                  MRP {currency.format(item.variant.compareAtPrice)}
+                </Text>
+              ) : null}
               <Text style={styles.itemPrice}>
                 {currency.format(item.priceSnapshot)}
               </Text>

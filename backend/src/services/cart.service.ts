@@ -52,13 +52,8 @@ export class CartService {
             throw ApiError.badRequest('Variant does not belong to specified product');
         }
 
-        if (variant.product.deletedByAdmin || variant.product.status !== 'APPROVED') {
+        if (variant.product.deletedByAdmin || variant.product.status !== 'APPROVED' || variant.status !== 'APPROVED') {
             throw ApiError.badRequest('This product is not available for purchase');
-        }
-
-        const adminListingPrice = variant.product.adminListingPrice;
-        if (adminListingPrice === null || adminListingPrice === undefined) {
-            throw ApiError.badRequest('This product is pending price approval');
         }
 
         // 3. Check stock availability
@@ -76,7 +71,7 @@ export class CartService {
         // 5. Add/update item with price snapshot
         const item = await this.cartRepo.addItem(cart.id, {
             ...data,
-            priceSnapshot: Number(adminListingPrice),
+            priceSnapshot: Number(variant.price),
         });
 
         // 6. Invalidate cache
@@ -122,10 +117,11 @@ export class CartService {
         }
 
         // 4. Get current price for snapshot update
-        const currentPrice =
-            variantWithProduct?.product?.adminListingPrice != null
-                ? Number(variantWithProduct.product.adminListingPrice)
-            : variantWithProduct.price ?? itemWithCart.priceSnapshot;
+        if (variantWithProduct.product.deletedByAdmin || variantWithProduct.product.status !== 'APPROVED' || variantWithProduct.status !== 'APPROVED') {
+            throw ApiError.badRequest('This product is not available for purchase');
+        }
+
+        const currentPrice = variantWithProduct.price ?? itemWithCart.priceSnapshot;
 
         // 5. Update quantity
         const item = await this.cartRepo.updateItemQuantity(itemId, quantity, currentPrice);

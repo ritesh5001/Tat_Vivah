@@ -17,6 +17,7 @@ import {
   createSellerProduct,
   deleteSellerProduct,
   listSellerProducts,
+  type CreateVariantPayload,
   updateSellerProduct,
   updateVariant,
   updateVariantStock,
@@ -42,6 +43,89 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 const UPLOAD_PARALLELISM = 3;
 
 type UploadedImage = { url: string; fileId: string; name: string };
+type DraftVariant = {
+  id: string;
+  size: string;
+  color: string;
+  sku: string;
+  sellerPrice: string;
+  compareAtPrice: string;
+  initialStock: string;
+  images: UploadedImage[];
+};
+
+function createDraftVariant(): DraftVariant {
+  return {
+    id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    size: "",
+    color: "",
+    sku: "",
+    sellerPrice: "",
+    compareAtPrice: "",
+    initialStock: "",
+    images: [],
+  };
+}
+
+function variantCombinationKey(size: string, color?: string | null): string {
+  return `${size.trim().toLowerCase()}::${(color ?? "").trim().toLowerCase()}`;
+}
+
+function parseVariantInput(
+  input: {
+    size: string;
+    color: string;
+    sku: string;
+    sellerPrice: string;
+    compareAtPrice: string;
+    initialStock: string;
+  },
+  contextLabel: string
+): Omit<CreateVariantPayload, "images"> {
+  const size = input.size.trim();
+  const sku = input.sku.trim();
+  const color = input.color.trim();
+  const sellerPrice = Number(input.sellerPrice);
+  const compareAtPrice = input.compareAtPrice.trim()
+    ? Number(input.compareAtPrice)
+    : undefined;
+  const initialStock = input.initialStock.trim()
+    ? Number(input.initialStock)
+    : 0;
+
+  if (!size) {
+    throw new Error(`${contextLabel}: size is required.`);
+  }
+  if (!sku) {
+    throw new Error(`${contextLabel}: SKU is required.`);
+  }
+  if (!Number.isFinite(sellerPrice) || sellerPrice <= 0) {
+    throw new Error(`${contextLabel}: enter a valid seller price.`);
+  }
+  if (
+    compareAtPrice !== undefined &&
+    (!Number.isFinite(compareAtPrice) || compareAtPrice <= 0)
+  ) {
+    throw new Error(`${contextLabel}: enter a valid compare-at price.`);
+  }
+  if (compareAtPrice !== undefined && compareAtPrice <= sellerPrice) {
+    throw new Error(
+      `${contextLabel}: compare-at price must be greater than the selling price.`
+    );
+  }
+  if (!Number.isInteger(initialStock) || initialStock < 0) {
+    throw new Error(`${contextLabel}: enter a valid initial stock quantity.`);
+  }
+
+  return {
+    size,
+    color: color || undefined,
+    sku,
+    sellerPrice,
+    compareAtPrice,
+    initialStock,
+  };
+}
 
 export interface SellerProductsInitialData {
   categories: Array<{ id: string; name: string }>;
@@ -124,20 +208,22 @@ export default function SellerProductsClient({
   const [form, setForm] = React.useState({
     categoryId: "",
     title: "",
-    sellerPrice: "",
-    compareAtPrice: "",
     description: "",
     isPublished: false,
     occasionIds: [] as string[],
   });
+  const [createVariants, setCreateVariants] = React.useState<DraftVariant[]>([
+    createDraftVariant(),
+  ]);
   const [showCreateModal, setShowCreateModal] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [images, setImages] = React.useState<UploadedImage[]>([]);
   const [uploadingImages, setUploadingImages] = React.useState(false);
   const [variantForm, setVariantForm] = React.useState({
+    size: "",
     color: "",
     sku: "",
-    price: "",
+    sellerPrice: "",
     compareAtPrice: "",
     initialStock: "",
     images: [] as UploadedImage[],
@@ -165,7 +251,9 @@ export default function SellerProductsClient({
     Record<
       string,
       {
-        price: string;
+        size: string;
+        sku: string;
+        sellerPrice: string;
         compareAtPrice: string;
         color: string;
         images: string[];
@@ -181,6 +269,53 @@ export default function SellerProductsClient({
   // Product media state
   const [productMedia, setProductMedia] = React.useState<Record<string, ProductMedia[]>>({});
   const [uploadingMedia, setUploadingMedia] = React.useState(false);
+
+  const updateCreateVariant = React.useCallback(
+    (draftId: string, patch: Partial<DraftVariant>) => {
+      setCreateVariants((prev) =>
+        prev.map((variant) =>
+          variant.id === draftId ? { ...variant, ...patch } : variant
+        )
+      );
+    },
+    []
+  );
+
+  const removeCreateVariant = React.useCallback((draftId: string) => {
+    setCreateVariants((prev) =>
+      prev.length > 1
+        ? prev.filter((variant) => variant.id !== draftId)
+        : prev
+    );
+  }, []);
+
+  const updateVariantEditState = React.useCallback(
+    (
+      variantId: string,
+      patch: Partial<{
+        size: string;
+        sku: string;
+        sellerPrice: string;
+        compareAtPrice: string;
+        color: string;
+        images: string[];
+      }>
+    ) => {
+      setVariantEdits((prev) => ({
+        ...prev,
+        [variantId]: {
+          size: prev[variantId]?.size ?? "",
+          sku: prev[variantId]?.sku ?? "",
+          sellerPrice: prev[variantId]?.sellerPrice ?? "",
+          compareAtPrice: prev[variantId]?.compareAtPrice ?? "",
+          color: prev[variantId]?.color ?? "",
+          images: prev[variantId]?.images ?? [],
+          ...patch,
+        },
+      }));
+    },
+    []
+  );
 
   const fetchSellerProductsData = React.useCallback(async () => {
     const results = await Promise.allSettled([
@@ -273,80 +408,66 @@ export default function SellerProductsClient({
 
   const handleCreateProduct = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!form.categoryId || !form.title || !form.sellerPrice) {
-      toast.error("Select a category, title, and seller price.");
-      return;
-    }
-    const sellerPriceValue = Number(form.sellerPrice);
-    if (Number.isNaN(sellerPriceValue) || sellerPriceValue <= 0) {
-      toast.error("Enter a valid seller price.");
-      return;
-    }
-    const compareAtPriceValue = form.compareAtPrice
-      ? Number(form.compareAtPrice)
-      : undefined;
-    if (
-      compareAtPriceValue !== undefined &&
-      (Number.isNaN(compareAtPriceValue) || compareAtPriceValue <= 0)
-    ) {
-      toast.error("Enter a valid compare-at price (MRP).");
-      return;
-    }
-    if (
-      compareAtPriceValue !== undefined &&
-      compareAtPriceValue <= sellerPriceValue
-    ) {
-      toast.error("Compare-at price (MRP) must be greater than seller price.");
+    if (!form.categoryId || !form.title.trim()) {
+      toast.error("Select a category and enter a title.");
       return;
     }
     if (images.length < 1) {
       toast.error("Add at least one product image.");
       return;
     }
+
+    if (createVariants.length < 1) {
+      toast.error("Add at least one variant.");
+      return;
+    }
+
     try {
+      const seenSkus = new Set<string>();
+      const seenCombinations = new Set<string>();
+      const variants = createVariants.map((variant, index) => {
+        const parsed = parseVariantInput(
+          variant,
+          `Variant ${index + 1}`
+        );
+        const normalizedSku = parsed.sku.toLowerCase();
+        if (seenSkus.has(normalizedSku)) {
+          throw new Error(`Variant ${index + 1}: SKU must be unique.`);
+        }
+        seenSkus.add(normalizedSku);
+
+        const combinationKey = variantCombinationKey(parsed.size, parsed.color);
+        if (seenCombinations.has(combinationKey)) {
+          throw new Error(
+            `Variant ${index + 1}: duplicate size and color combination.`
+          );
+        }
+        seenCombinations.add(combinationKey);
+
+        return {
+          ...parsed,
+          images: variant.images.map((image) => image.url),
+        };
+      });
+
       const result = await createSellerProduct({
         categoryId: form.categoryId,
-        title: form.title,
-        sellerPrice: sellerPriceValue,
+        title: form.title.trim(),
         description: form.description || undefined,
         images: images.map((image) => image.url),
         occasionIds: form.occasionIds.length > 0 ? form.occasionIds : undefined,
+        variants,
       });
-
-      let createdVariant: {
-        id: string;
-        sku: string;
-        price: number;
-        compareAtPrice?: number | null;
-        inventory?: { stock: number } | null;
-      } | null = null;
-
-      if (compareAtPriceValue !== undefined) {
-        try {
-          const variantResult = await addVariantToProduct(result.product.id, {
-            sku: `MRP-${Date.now()}`,
-            price: sellerPriceValue,
-            compareAtPrice: compareAtPriceValue,
-            initialStock: 0,
-          });
-          createdVariant = variantResult.variant;
-        } catch {
-          toast.warning(
-            "Product created, but MRP setup variant could not be auto-created. You can add it from Add Variant."
-          );
-        }
-      }
 
       toast.success("Your product has been submitted for price and approval.");
       setForm({
         categoryId: "",
         title: "",
-        sellerPrice: "",
-        compareAtPrice: "",
         description: "",
         isPublished: false,
         occasionIds: [],
       });
+      setCreateVariants([createDraftVariant()]);
       setImages([]);
       setShowCreateModal(false);
 
@@ -354,8 +475,6 @@ export default function SellerProductsClient({
         {
           ...result.product,
           category: categories.find((c) => c.id === form.categoryId) ?? null,
-          variants: createdVariant ? [createdVariant] : [],
-          images: images.map((image) => image.url),
         },
         ...prev,
       ]);
@@ -376,61 +495,18 @@ export default function SellerProductsClient({
   };
 
   const handleAddVariant = async (productId: string) => {
-    const sku = variantForm.sku.trim();
-    const color = variantForm.color.trim();
-    const price = Number(variantForm.price);
-    const compareAtPrice = variantForm.compareAtPrice.trim()
-      ? Number(variantForm.compareAtPrice)
-      : undefined;
-    const initialStock = variantForm.initialStock.trim()
-      ? Number(variantForm.initialStock)
-      : 0;
-
-    if (!sku) {
-      toast.error("Enter a size/SKU before saving the variant.");
-      return;
-    }
-
-    if (!Number.isFinite(price) || price <= 0) {
-      toast.error("Enter a valid variant price.");
-      return;
-    }
-
-    if (
-      compareAtPrice !== undefined &&
-      (!Number.isFinite(compareAtPrice) || compareAtPrice <= 0)
-    ) {
-      toast.error("Enter a valid compare-at price.");
-      return;
-    }
-
-    if (
-      compareAtPrice !== undefined &&
-      compareAtPrice <= price
-    ) {
-      toast.error("Compare-at price must be greater than the selling price.");
-      return;
-    }
-
-    if (!Number.isInteger(initialStock) || initialStock < 0) {
-      toast.error("Enter a valid initial stock quantity.");
-      return;
-    }
-
     try {
+      const parsed = parseVariantInput(variantForm, "Variant");
       const result = await addVariantToProduct(productId, {
-        color: color || undefined,
+        ...parsed,
         images: variantForm.images.map((image) => image.url),
-        sku,
-        price,
-        compareAtPrice,
-        initialStock,
       });
       toast.success("Variant added.");
       setVariantForm({
+        size: "",
         color: "",
         sku: "",
-        price: "",
+        sellerPrice: "",
         compareAtPrice: "",
         initialStock: "",
         images: [],
@@ -530,7 +606,10 @@ export default function SellerProductsClient({
     setVariantEdits((prev) => ({
       ...prev,
       [variant.id]: {
-        price: prev[variant.id]?.price ?? String(variant.price ?? ""),
+        size: prev[variant.id]?.size ?? String(variant.size ?? ""),
+        sku: prev[variant.id]?.sku ?? String(variant.sku ?? ""),
+        sellerPrice:
+          prev[variant.id]?.sellerPrice ?? String(variant.sellerPrice ?? ""),
         compareAtPrice:
           prev[variant.id]?.compareAtPrice ??
           String(variant.compareAtPrice ?? ""),
@@ -542,16 +621,24 @@ export default function SellerProductsClient({
 
   const handleVariantUpdate = async (variantId: string) => {
     const edit = variantEdits[variantId];
-    if (!edit?.price) {
-      toast.error("Enter a price.");
+    if (!edit?.size.trim()) {
+      toast.error("Enter a size.");
       return;
     }
-    const price = Number(edit.price);
+    if (!edit?.sku.trim()) {
+      toast.error("Enter a SKU.");
+      return;
+    }
+    if (!edit?.sellerPrice) {
+      toast.error("Enter a seller price.");
+      return;
+    }
+    const sellerPrice = Number(edit.sellerPrice);
     const compareAt = edit.compareAtPrice
       ? Number(edit.compareAtPrice)
       : null;
-    if (Number.isNaN(price)) {
-      toast.error("Enter a valid price.");
+    if (Number.isNaN(sellerPrice) || sellerPrice <= 0) {
+      toast.error("Enter a valid seller price.");
       return;
     }
     if (compareAt !== null && Number.isNaN(compareAt)) {
@@ -561,7 +648,9 @@ export default function SellerProductsClient({
 
     try {
       const result = await updateVariant(variantId, {
-        price,
+        size: edit.size.trim(),
+        sku: edit.sku.trim(),
+        sellerPrice,
         compareAtPrice: compareAt,
         color: edit.color.trim() || null,
         images: edit.images ?? [],
@@ -575,7 +664,9 @@ export default function SellerProductsClient({
             variant.id === variantId
               ? {
                 ...variant,
-                price: result.variant.price,
+                size: result.variant.size,
+                sku: result.variant.sku,
+                sellerPrice: result.variant.sellerPrice,
                 compareAtPrice: result.variant.compareAtPrice ?? null,
                 color: result.variant.color ?? null,
                 images: result.variant.images ?? [],
@@ -792,7 +883,9 @@ export default function SellerProductsClient({
       setVariantEdits((prev) => ({
         ...prev,
         [variantId]: {
-          price: prev[variantId]?.price ?? "",
+          size: prev[variantId]?.size ?? "",
+          sku: prev[variantId]?.sku ?? "",
+          sellerPrice: prev[variantId]?.sellerPrice ?? "",
           compareAtPrice: prev[variantId]?.compareAtPrice ?? "",
           color: prev[variantId]?.color ?? "",
           images: [...(prev[variantId]?.images ?? []), ...uploaded],
@@ -1187,10 +1280,18 @@ export default function SellerProductsClient({
                             <div className="flex items-center justify-between gap-4">
                               <div>
                                 <p className="font-medium text-foreground">
-                                  {variant.sku}
+                                  {variant.size || "Default"} · {variant.sku}
                                 </p>
                                 {variant.color ? (
                                   <p className="text-xs text-muted-foreground">Color: {variant.color}</p>
+                                ) : null}
+                                <p className="text-xs text-muted-foreground">
+                                  Status: {variant.status}
+                                </p>
+                                {variant.rejectionReason ? (
+                                  <p className="text-xs text-[#7A5656]">
+                                    Reason: {variant.rejectionReason}
+                                  </p>
                                 ) : null}
                                 <p className="text-xs text-muted-foreground">
                                   Stock: {variant.inventory?.stock ?? 0}
@@ -1207,7 +1308,7 @@ export default function SellerProductsClient({
                               </div>
                               <div className="flex items-center gap-3">
                                 <p className="font-serif text-lg font-light text-foreground">
-                                  {currency.format(variant.price)}
+                                  {currency.format(Number(variant.sellerPrice ?? 0))}
                                 </p>
                                 <Button
                                   size="sm"
@@ -1242,43 +1343,55 @@ export default function SellerProductsClient({
 
                             {variantEditsOpen[variant.id] ? (
                               <div className="grid gap-3 sm:grid-cols-3 pt-4 border-t border-border-soft">
+                                <div className="space-y-1">
+                                  <Label className="text-xs">Size</Label>
+                                  <Input
+                                    value={variantEdits[variant.id]?.size ?? ""}
+                                    onChange={(event) =>
+                                      updateVariantEditState(variant.id, {
+                                        size: event.target.value,
+                                      })
+                                    }
+                                    placeholder="Size"
+                                    disabled={product.deletedByAdmin}
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <Label className="text-xs">SKU</Label>
+                                  <Input
+                                    value={variantEdits[variant.id]?.sku ?? ""}
+                                    onChange={(event) =>
+                                      updateVariantEditState(variant.id, {
+                                        sku: event.target.value,
+                                      })
+                                    }
+                                    placeholder="SKU"
+                                    disabled={product.deletedByAdmin}
+                                  />
+                                </div>
                                 <div className="space-y-1 sm:col-span-3">
                                   <Label className="text-xs">Color</Label>
                                   <Input
                                     value={variantEdits[variant.id]?.color ?? ""}
                                     onChange={(event) =>
-                                      setVariantEdits((prev) => ({
-                                        ...prev,
-                                        [variant.id]: {
-                                          price: prev[variant.id]?.price ?? "",
-                                          compareAtPrice:
-                                            prev[variant.id]?.compareAtPrice ?? "",
-                                          color: event.target.value,
-                                          images: prev[variant.id]?.images ?? [],
-                                        },
-                                      }))
+                                      updateVariantEditState(variant.id, {
+                                        color: event.target.value,
+                                      })
                                     }
                                     placeholder="Color (e.g. Wine, Navy Blue)"
                                     disabled={product.deletedByAdmin}
                                   />
                                 </div>
                                 <div className="space-y-1">
-                                  <Label className="text-xs">Price</Label>
+                                  <Label className="text-xs">Seller Price</Label>
                                   <Input
-                                    value={variantEdits[variant.id]?.price ?? ""}
+                                    value={variantEdits[variant.id]?.sellerPrice ?? ""}
                                     onChange={(event) =>
-                                      setVariantEdits((prev) => ({
-                                        ...prev,
-                                        [variant.id]: {
-                                          price: event.target.value,
-                                          compareAtPrice:
-                                            prev[variant.id]?.compareAtPrice ?? "",
-                                          color: prev[variant.id]?.color ?? "",
-                                          images: prev[variant.id]?.images ?? [],
-                                        },
-                                      }))
+                                      updateVariantEditState(variant.id, {
+                                        sellerPrice: event.target.value,
+                                      })
                                     }
-                                    placeholder="Price"
+                                    placeholder="Seller price"
                                     disabled={product.deletedByAdmin}
                                   />
                                 </div>
@@ -1290,15 +1403,9 @@ export default function SellerProductsClient({
                                       ""
                                     }
                                     onChange={(event) =>
-                                      setVariantEdits((prev) => ({
-                                        ...prev,
-                                        [variant.id]: {
-                                          price: prev[variant.id]?.price ?? "",
-                                          compareAtPrice: event.target.value,
-                                          color: prev[variant.id]?.color ?? "",
-                                          images: prev[variant.id]?.images ?? [],
-                                        },
-                                      }))
+                                      updateVariantEditState(variant.id, {
+                                        compareAtPrice: event.target.value,
+                                      })
                                     }
                                     placeholder="Compare at"
                                     disabled={product.deletedByAdmin}
@@ -1338,18 +1445,11 @@ export default function SellerProductsClient({
                                           type="button"
                                           className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity"
                                           onClick={() =>
-                                            setVariantEdits((prev) => ({
-                                              ...prev,
-                                              [variant.id]: {
-                                                price: prev[variant.id]?.price ?? "",
-                                                compareAtPrice:
-                                                  prev[variant.id]?.compareAtPrice ?? "",
-                                                color: prev[variant.id]?.color ?? "",
-                                                images: (prev[variant.id]?.images ?? []).filter(
-                                                  (img) => img !== imageUrl
-                                                ),
-                                              },
-                                            }))
+                                            updateVariantEditState(variant.id, {
+                                              images: (variantEdits[variant.id]?.images ?? []).filter(
+                                                (img) => img !== imageUrl
+                                              ),
+                                            })
                                           }
                                         >
                                           <X className="h-3.5 w-3.5 text-white" />
@@ -1426,6 +1526,20 @@ export default function SellerProductsClient({
                       {activeProductId === product.id && (
                         <div className="grid gap-3 sm:grid-cols-2">
                           <div className="space-y-1">
+                            <Label className="text-xs">Size</Label>
+                            <Input
+                              placeholder="Size (e.g. M, 42)"
+                              value={variantForm.size}
+                              onChange={(event) =>
+                                setVariantForm((prev) => ({
+                                  ...prev,
+                                  size: event.target.value,
+                                }))
+                              }
+                              disabled={product.deletedByAdmin}
+                            />
+                          </div>
+                          <div className="space-y-1">
                             <Label className="text-xs">Color</Label>
                             <Input
                               placeholder="Color (e.g. Red)"
@@ -1440,9 +1554,9 @@ export default function SellerProductsClient({
                             />
                           </div>
                           <div className="space-y-1">
-                            <Label className="text-xs">Size / SKU</Label>
+                            <Label className="text-xs">SKU</Label>
                             <Input
-                              placeholder="Size / SKU (e.g. M, 42, KURTA-RED-M)"
+                              placeholder="SKU (e.g. KURTA-RED-M)"
                               value={variantForm.sku}
                               onChange={(event) =>
                                 setVariantForm((prev) => ({
@@ -1454,18 +1568,18 @@ export default function SellerProductsClient({
                             />
                           </div>
                           <div className="space-y-1">
-                            <Label className="text-xs">Price</Label>
+                            <Label className="text-xs">Seller Price</Label>
                             <Input
                               type="number"
                               inputMode="decimal"
                               min="0"
                               step="0.01"
-                              placeholder="Selling price"
-                              value={variantForm.price}
+                              placeholder="Seller price"
+                              value={variantForm.sellerPrice}
                               onChange={(event) =>
                                 setVariantForm((prev) => ({
                                   ...prev,
-                                  price: event.target.value,
+                                  sellerPrice: event.target.value,
                                 }))
                               }
                               disabled={product.deletedByAdmin}
@@ -1641,32 +1755,6 @@ export default function SellerProductsClient({
                       placeholder="Premium linen kurta"
                     />
                   </div>
-                  <div className="space-y-2 sm:col-span-2">
-                    <Label>Seller Price</Label>
-                    <Input
-                      type="number"
-                      min="1"
-                      step="0.01"
-                      value={form.sellerPrice}
-                      onChange={(event) =>
-                        setForm((prev) => ({ ...prev, sellerPrice: event.target.value }))
-                      }
-                      placeholder="Enter your selling price"
-                    />
-                  </div>
-                  <div className="space-y-2 sm:col-span-2">
-                    <Label>Compare-at Price (MRP)</Label>
-                    <Input
-                      type="number"
-                      min="1"
-                      step="0.01"
-                      value={form.compareAtPrice}
-                      onChange={(event) =>
-                        setForm((prev) => ({ ...prev, compareAtPrice: event.target.value }))
-                      }
-                      placeholder="Enter MRP"
-                    />
-                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label>Description</Label>
@@ -1715,6 +1803,135 @@ export default function SellerProductsClient({
                 <p className="text-sm text-muted-foreground">
                   New products are submitted for admin approval before going live.
                 </p>
+
+                <div className="space-y-4 border border-border-soft p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label>Variants</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Add at least one size or color variant with seller and compare-at prices.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setCreateVariants((prev) => [...prev, createDraftVariant()])
+                      }
+                    >
+                      Add Variant
+                    </Button>
+                  </div>
+
+                  <div className="space-y-4">
+                    {createVariants.map((variant, index) => (
+                      <div
+                        key={variant.id}
+                        className="space-y-3 border border-dashed border-border-soft p-4"
+                      >
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                            Variant {index + 1}
+                          </p>
+                          {createVariants.length > 1 ? (
+                            <button
+                              type="button"
+                              onClick={() => removeCreateVariant(variant.id)}
+                              className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+                            >
+                              Remove
+                            </button>
+                          ) : null}
+                        </div>
+
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Size</Label>
+                            <Input
+                              value={variant.size}
+                              onChange={(event) =>
+                                updateCreateVariant(variant.id, {
+                                  size: event.target.value,
+                                })
+                              }
+                              placeholder="M, 42, XL"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Color</Label>
+                            <Input
+                              value={variant.color}
+                              onChange={(event) =>
+                                updateCreateVariant(variant.id, {
+                                  color: event.target.value,
+                                })
+                              }
+                              placeholder="Wine, Navy Blue"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">SKU</Label>
+                            <Input
+                              value={variant.sku}
+                              onChange={(event) =>
+                                updateCreateVariant(variant.id, {
+                                  sku: event.target.value,
+                                })
+                              }
+                              placeholder="KURTA-NAVY-M"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Initial Stock</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="1"
+                              value={variant.initialStock}
+                              onChange={(event) =>
+                                updateCreateVariant(variant.id, {
+                                  initialStock: event.target.value,
+                                })
+                              }
+                              placeholder="0"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Seller Price</Label>
+                            <Input
+                              type="number"
+                              min="1"
+                              step="0.01"
+                              value={variant.sellerPrice}
+                              onChange={(event) =>
+                                updateCreateVariant(variant.id, {
+                                  sellerPrice: event.target.value,
+                                })
+                              }
+                              placeholder="Seller price"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Compare-at Price</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={variant.compareAtPrice}
+                              onChange={(event) =>
+                                updateCreateVariant(variant.id, {
+                                  compareAtPrice: event.target.value,
+                                })
+                              }
+                              placeholder="MRP"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
 
                 {/* Image Upload */}
                 <div className="space-y-4">

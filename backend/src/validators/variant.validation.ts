@@ -5,6 +5,12 @@ import { z } from 'zod';
  * POST /v1/seller/products/:id/variants
  */
 export const createVariantSchema = z.object({
+    size: z
+        .string()
+        .trim()
+        .min(1, 'Size must be at least 1 character')
+        .max(50, 'Size must be at most 50 characters'),
+
     color: z
         .string()
         .trim()
@@ -19,12 +25,13 @@ export const createVariantSchema = z.object({
 
     sku: z
         .string()
+        .trim()
         .min(1, 'SKU is required')
         .max(100, 'SKU must be at most 100 characters'),
 
-    price: z
+    sellerPrice: z
         .number()
-        .positive('Price must be positive'),
+        .positive('Seller price must be positive'),
 
     compareAtPrice: z
         .number()
@@ -46,6 +53,13 @@ export type CreateVariantInput = z.infer<typeof createVariantSchema>;
  * PUT /v1/seller/variants/:id
  */
 export const updateVariantSchema = z.object({
+    size: z
+        .string()
+        .trim()
+        .min(1, 'Size must be at least 1 character')
+        .max(50, 'Size must be at most 50 characters')
+        .optional(),
+
     color: z
         .string()
         .trim()
@@ -54,14 +68,21 @@ export const updateVariantSchema = z.object({
         .nullable()
         .optional(),
 
+    sku: z
+        .string()
+        .trim()
+        .min(1, 'SKU is required')
+        .max(100, 'SKU must be at most 100 characters')
+        .optional(),
+
     images: z
         .array(z.string().url('Variant image must be a valid URL'))
         .max(8, 'Maximum 8 variant images allowed')
         .optional(),
 
-    price: z
+    sellerPrice: z
         .number()
-        .positive('Price must be positive')
+        .positive('Seller price must be positive')
         .optional(),
 
     compareAtPrice: z

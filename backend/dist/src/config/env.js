@@ -32,6 +32,7 @@ const envSchema = z.object({
     BACKEND_WARMUP_INTERVAL_MS: z.string().default('240000').transform(Number),
     // Database
     DATABASE_URL: z.string().url('DATABASE_URL must be a valid URL'),
+    DATABASE_URL_DIRECT: z.string().url('DATABASE_URL_DIRECT must be a valid URL').optional(),
     // JWT Secrets
     JWT_ACCESS_SECRET: z.string().min(32, 'JWT_ACCESS_SECRET must be at least 32 characters'),
     JWT_REFRESH_SECRET: z.string().min(32, 'JWT_REFRESH_SECRET must be at least 32 characters'),

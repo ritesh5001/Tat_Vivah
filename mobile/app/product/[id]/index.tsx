@@ -387,9 +387,7 @@ function getVariantColorLabel(variant: ProductVariant): string {
 }
 
 function getVariantSizeLabel(variant: ProductVariant): string {
-  const parts = variant.sku.split("-").map((part) => part.trim()).filter(Boolean);
-  if (parts.length > 1) return parts[parts.length - 1] ?? variant.sku;
-  return variant.sku;
+  return variant.size?.trim() || "Default";
 }
 
 // ---------------------------------------------------------------------------

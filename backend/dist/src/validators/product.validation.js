@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { createVariantSchema } from './variant.validation.js';
 /**
  * Create Product Validation Schema
  * POST /v1/seller/products
@@ -11,9 +12,6 @@ export const createProductSchema = z.object({
         .string()
         .min(3, 'Title must be at least 3 characters')
         .max(255, 'Title must be at most 255 characters'),
-    sellerPrice: z
-        .number({ invalid_type_error: 'Seller price must be a number' })
-        .positive('Seller price must be positive'),
     description: z
         .string()
         .max(2000, 'Description must be at most 2000 characters')
@@ -30,6 +28,9 @@ export const createProductSchema = z.object({
     occasionIds: z
         .array(z.string().min(1))
         .optional(),
+    variants: z
+        .array(createVariantSchema)
+        .min(1, 'At least one variant is required'),
 });
 /**
  * Update Product Validation Schema

@@ -1,4 +1,3 @@
-import { Prisma } from '@prisma/client';
 import { prisma } from '../config/db.js';
 import type {
     ProductVariantEntity,
@@ -12,76 +11,25 @@ import type {
  * Handles database operations for product variants
  */
 export class VariantRepository {
-        private async repairLegacySkuConstraintIfNeeded(): Promise<void> {
-                // Safety net for environments where old unique(product_id, sku) still exists.
-                await prisma.$executeRawUnsafe(`
-        DO $$
-        DECLARE r RECORD;
-        BEGIN
-            FOR r IN
-                SELECT c.conname
-                FROM pg_constraint c
-                JOIN pg_class t ON t.oid = c.conrelid
-                JOIN pg_namespace n ON n.oid = t.relnamespace
-                WHERE n.nspname = 'public'
-                    AND t.relname = 'product_variants'
-                    AND c.contype = 'u'
-                    AND array_length(c.conkey, 1) = 2
-                    AND (
-                        SELECT array_agg(a.attname ORDER BY a.attname)
-                        FROM unnest(c.conkey) AS k(attnum)
-                        JOIN pg_attribute a
-                          ON a.attrelid = t.oid
-                         AND a.attnum = k.attnum
-                    ) = ARRAY['product_id', 'sku']::text[]
-            LOOP
-                EXECUTE format('ALTER TABLE public.product_variants DROP CONSTRAINT %I', r.conname);
-            END LOOP;
-        END $$;
-        `);
+    private normalizeColor(color?: string | null): string | null {
+        return color?.trim() ? color.trim() : null;
+    }
 
-        await prisma.$executeRawUnsafe(`
-DO $$
-DECLARE r RECORD;
-BEGIN
-    FOR r IN
-        SELECT i.relname AS index_name
-        FROM pg_index ix
-        JOIN pg_class t ON t.oid = ix.indrelid
-        JOIN pg_namespace n ON n.oid = t.relnamespace
-        JOIN pg_class i ON i.oid = ix.indexrelid
-        LEFT JOIN pg_constraint c ON c.conindid = ix.indexrelid
-        WHERE n.nspname = 'public'
-            AND t.relname = 'product_variants'
-            AND ix.indisunique = true
-            AND ix.indnkeyatts = 2
-            AND c.oid IS NULL
-            AND (
-                pg_get_indexdef(i.oid) ILIKE '%(product_id, sku)%'
-                OR pg_get_indexdef(i.oid) ILIKE '%(sku, product_id)%'
-            )
-    LOOP
-        EXECUTE format('DROP INDEX IF EXISTS public.%I', r.index_name);
-    END LOOP;
-END $$;
-`);
+    private normalizeSize(size?: string | null): string {
+        const trimmed = size?.trim();
+        return trimmed && trimmed.length > 0 ? trimmed : 'Default';
+    }
 
-                await prisma.$executeRawUnsafe(`
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1
-        FROM pg_constraint
-        WHERE conname = 'product_variants_product_id_color_sku_key'
-            AND conrelid = 'public.product_variants'::regclass
-    ) THEN
-        ALTER TABLE public.product_variants
-        ADD CONSTRAINT product_variants_product_id_color_sku_key
-        UNIQUE (product_id, color, sku);
-    END IF;
-END $$;
-`);
-        }
+    private resolveEffectivePrice(input: {
+        sellerPrice?: number | undefined;
+        adminListingPrice?: number | null | undefined;
+        current?: { sellerPrice: number; adminListingPrice: number | null } | undefined;
+    }): number {
+        const sellerPrice = input.sellerPrice ?? input.current?.sellerPrice ?? 0;
+        const adminListingPrice =
+            input.adminListingPrice !== undefined ? input.adminListingPrice : input.current?.adminListingPrice ?? null;
+        return adminListingPrice ?? sellerPrice;
+    }
 
     /**
      * Create a variant with initial inventory
@@ -89,11 +37,18 @@ END $$;
     async create(productId: string, data: CreateVariantRequest): Promise<VariantWithInventory> {
         const payload = {
             productId,
-            color: data.color?.trim() ? data.color.trim() : null,
+            size: this.normalizeSize(data.size),
+            color: this.normalizeColor(data.color),
             images: data.images ?? [],
-            sku: data.sku,
-            price: data.price,
+            sku: data.sku.trim(),
+            sellerPrice: data.sellerPrice,
+            adminListingPrice: null,
+            price: data.sellerPrice,
             compareAtPrice: data.compareAtPrice ?? null,
+            status: 'PENDING' as const,
+            rejectionReason: null,
+            approvedAt: null,
+            approvedById: null,
             inventory: {
                 create: {
                     stock: data.initialStock ?? 0,
@@ -101,57 +56,58 @@ END $$;
             },
         };
 
-        try {
-            const variant = await prisma.productVariant.create({
-                data: payload,
-                include: {
-                    inventory: true,
-                },
-            });
-            return variant as VariantWithInventory;
-        } catch (error) {
-            const isLegacySkuConstraintError =
-                error instanceof Prisma.PrismaClientKnownRequestError &&
-                error.code === 'P2002' &&
-                Array.isArray(error.meta?.target) &&
-                error.meta.target.includes('product_id') &&
-                error.meta.target.includes('sku');
-
-            if (!isLegacySkuConstraintError) {
-                throw error;
-            }
-
-            await this.repairLegacySkuConstraintIfNeeded();
-
-            const retriedVariant = await prisma.productVariant.create({
-                data: payload,
-                include: {
-                    inventory: true,
-                },
-            });
-            return retriedVariant as VariantWithInventory;
-        }
+        const variant = await prisma.productVariant.create({
+            data: payload,
+            include: {
+                inventory: true,
+            },
+        });
+        return {
+            ...variant,
+            sellerPrice: Number(variant.sellerPrice),
+            adminListingPrice: variant.adminListingPrice == null ? null : Number(variant.adminListingPrice),
+            price: Number(variant.price),
+            compareAtPrice: variant.compareAtPrice == null ? null : Number(variant.compareAtPrice),
+        } as VariantWithInventory;
     }
 
     /**
      * Find variant by ID
      */
     async findById(id: string): Promise<ProductVariantEntity | null> {
-        return prisma.productVariant.findUnique({
+        const variant = await prisma.productVariant.findUnique({
             where: { id },
         });
+        return variant
+            ? ({
+                  ...variant,
+                  sellerPrice: Number(variant.sellerPrice),
+                  adminListingPrice: variant.adminListingPrice == null ? null : Number(variant.adminListingPrice),
+                  price: Number(variant.price),
+                  compareAtPrice: variant.compareAtPrice == null ? null : Number(variant.compareAtPrice),
+              } as ProductVariantEntity)
+            : null;
     }
 
     /**
      * Find variant by ID with inventory
      */
     async findByIdWithInventory(id: string): Promise<VariantWithInventory | null> {
-        return prisma.productVariant.findUnique({
+        const variant = await prisma.productVariant.findUnique({
             where: { id },
             include: {
                 inventory: true,
             },
         });
+        return variant
+            ? ({
+                  ...variant,
+                  sellerPrice: Number(variant.sellerPrice),
+                  adminListingPrice: variant.adminListingPrice == null ? null : Number(variant.adminListingPrice),
+                  price: Number(variant.price),
+                  compareAtPrice: variant.compareAtPrice == null ? null : Number(variant.compareAtPrice),
+              } as VariantWithInventory)
+            : null;
     }
 
     /**
@@ -160,9 +116,15 @@ END $$;
     async findByIdWithProduct(id: string): Promise<{
         id: string;
         productId: string;
+        size: string;
         color: string | null;
         images: string[];
+        sku: string;
+        sellerPrice: number;
+        adminListingPrice: number | null;
         price: number;
+        status: string;
+        compareAtPrice: number | null;
         inventory: { stock: number } | null;
         product: {
             id: string;
@@ -177,9 +139,15 @@ END $$;
             select: {
                 id: true,
                 productId: true,
+                size: true,
                 color: true,
                 images: true,
+                sku: true,
+                sellerPrice: true,
+                adminListingPrice: true,
                 price: true,
+                status: true,
+                compareAtPrice: true,
                 inventory: {
                     select: {
                         stock: true,
@@ -203,12 +171,14 @@ END $$;
 
         return {
             ...variant,
+            sellerPrice: Number(variant.sellerPrice),
+            adminListingPrice: variant.adminListingPrice == null ? null : Number(variant.adminListingPrice),
+            price: Number(variant.price),
+            compareAtPrice: variant.compareAtPrice == null ? null : Number(variant.compareAtPrice),
             product: {
                 ...variant.product,
                 adminListingPrice:
-                    variant.product.adminListingPrice == null
-                        ? null
-                        : Number(variant.product.adminListingPrice),
+                    variant.product.adminListingPrice == null ? null : Number(variant.product.adminListingPrice),
             },
         };
     }
@@ -217,27 +187,88 @@ END $$;
      * Update a variant
      */
     async update(id: string, data: UpdateVariantRequest): Promise<ProductVariantEntity> {
-        return prisma.productVariant.update({
+        const current = await prisma.productVariant.findUnique({
             where: { id },
-            data: {
-                ...(data.color !== undefined && { color: data.color?.trim() ? data.color.trim() : null }),
-                ...(data.images !== undefined && { images: data.images }),
-                ...(data.price !== undefined && { price: data.price }),
-                ...(data.compareAtPrice !== undefined && { compareAtPrice: data.compareAtPrice }),
+            select: {
+                sellerPrice: true,
+                adminListingPrice: true,
             },
         });
+
+        if (!current) {
+            throw new Error(`Variant ${id} not found`);
+        }
+
+        const nextPrice = this.resolveEffectivePrice({
+            sellerPrice: data.sellerPrice,
+            adminListingPrice: data.adminListingPrice,
+            current: {
+                sellerPrice: Number(current.sellerPrice),
+                adminListingPrice: current.adminListingPrice == null ? null : Number(current.adminListingPrice),
+            },
+        });
+
+        const variant = await prisma.productVariant.update({
+            where: { id },
+            data: {
+                ...(data.size !== undefined && { size: this.normalizeSize(data.size) }),
+                ...(data.color !== undefined && { color: this.normalizeColor(data.color) }),
+                ...(data.sku !== undefined && { sku: data.sku.trim() }),
+                ...(data.images !== undefined && { images: data.images }),
+                ...(data.sellerPrice !== undefined && { sellerPrice: data.sellerPrice }),
+                ...(data.adminListingPrice !== undefined && { adminListingPrice: data.adminListingPrice }),
+                ...(data.compareAtPrice !== undefined && { compareAtPrice: data.compareAtPrice }),
+                ...(data.status !== undefined && { status: data.status }),
+                ...(data.rejectionReason !== undefined && { rejectionReason: data.rejectionReason }),
+                ...(data.approvedAt !== undefined && { approvedAt: data.approvedAt }),
+                ...(data.approvedById !== undefined && { approvedById: data.approvedById }),
+                price: nextPrice,
+            },
+        });
+
+        return {
+            ...variant,
+            sellerPrice: Number(variant.sellerPrice),
+            adminListingPrice: variant.adminListingPrice == null ? null : Number(variant.adminListingPrice),
+            price: Number(variant.price),
+            compareAtPrice: variant.compareAtPrice == null ? null : Number(variant.compareAtPrice),
+        } as ProductVariantEntity;
     }
 
     /**
      * Check if SKU exists
      */
-    async skuExists(productId: string, sku: string, color?: string | null): Promise<boolean> {
-        const normalizedColor = color?.trim() ? color.trim() : null;
+    async skuExists(productId: string, sku: string, excludeId?: string): Promise<boolean> {
+        const variant = await prisma.productVariant.findFirst({
+            where: {
+                productId,
+                sku: sku.trim(),
+                ...(excludeId ? { id: { not: excludeId } } : {}),
+            },
+            select: { id: true },
+        });
+        return variant !== null;
+    }
+
+    /**
+     * Check if a size/color combination already exists.
+     */
+    async variantCombinationExists(
+        productId: string,
+        size: string,
+        color?: string | null,
+        excludeId?: string
+    ): Promise<boolean> {
+        const normalizedColor = this.normalizeColor(color);
+        const normalizedSize = this.normalizeSize(size);
 
         const variant = await prisma.productVariant.findFirst({
             where: {
                 productId,
-                sku,
+                size: {
+                    equals: normalizedSize,
+                    mode: 'insensitive',
+                },
                 color:
                     normalizedColor === null
                         ? null
@@ -245,9 +276,11 @@ END $$;
                               equals: normalizedColor,
                               mode: 'insensitive',
                           },
+                ...(excludeId ? { id: { not: excludeId } } : {}),
             },
             select: { id: true },
         });
+
         return variant !== null;
     }
 }

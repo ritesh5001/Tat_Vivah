@@ -42,7 +42,16 @@ async function attemptTokenRefresh(): Promise<string | null> {
           ? [API_BASE_URL, PRODUCTION_API_BASE_URL]
           : [API_BASE_URL];
 
-      let response: Awaited<ReturnType<typeof axios.post>> | null = null;
+      let response:
+        | Awaited<
+            ReturnType<
+              typeof axios.post<{
+                accessToken?: string;
+                refreshToken?: string;
+              }>
+            >
+          >
+        | null = null;
       for (const baseUrl of refreshBaseUrls) {
         try {
           response = await axios.post(
@@ -58,7 +67,7 @@ async function attemptTokenRefresh(): Promise<string | null> {
 
       if (!response) return null;
 
-      const body = response.data as { accessToken?: string; refreshToken?: string } | null;
+      const body = response.data ?? null;
       if (!body?.accessToken || !body?.refreshToken) return null;
 
       await updateTokens(body.accessToken, body.refreshToken);

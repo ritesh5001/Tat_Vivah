@@ -194,17 +194,29 @@ export class AdminService {
             throw ApiError.badRequest('Deleted products cannot be approved');
         }
 
-        if (product.status === 'APPROVED') {
+        const pendingVariants = (product.variants ?? []).filter((variant) => variant.status === 'PENDING');
+        if (pendingVariants.length === 0 && product.status === 'APPROVED') {
             throw ApiError.badRequest('Product is already approved');
         }
 
-        // Update moderation status
-        await this.adminRepo.updateProductModeration(productId, 'APPROVED', actorId);
-        const updatedProduct = await this.adminRepo.applyProductApprovalDecision(
-            productId,
-            actorId,
-            'APPROVED'
+        const approvedAt = new Date();
+        await Promise.all(
+            pendingVariants.map((variant) =>
+                variantRepository.update(variant.id, {
+                    status: 'APPROVED',
+                    rejectionReason: null,
+                    approvedAt,
+                    approvedById: actorId,
+                })
+            )
         );
+
+        await this.adminRepo.updateProductModeration(productId, 'APPROVED', actorId);
+        await productRepository.syncVariantSummary(productId);
+        const updatedProduct = await this.adminRepo.findProductById(productId);
+        if (!updatedProduct) {
+            throw ApiError.internal('Unable to reload product after approval');
+        }
 
         // Fire side-effects in parallel
         await Promise.all([
@@ -262,14 +274,27 @@ export class AdminService {
             throw ApiError.badRequest('Rejection reason is required');
         }
 
-        // Update moderation status
-        await this.adminRepo.updateProductModeration(productId, 'REJECTED', actorId, reason.trim());
-        const updatedProduct = await this.adminRepo.applyProductApprovalDecision(
-            productId,
-            actorId,
-            'REJECTED',
-            reason.trim()
+        const pendingOrApprovedVariants = (product.variants ?? []).filter(
+            (variant) => variant.status === 'PENDING'
         );
+        await Promise.all(
+            pendingOrApprovedVariants.map((variant) =>
+                variantRepository.update(variant.id, {
+                    status: 'REJECTED',
+                    rejectionReason: reason.trim(),
+                    approvedAt: null,
+                    approvedById: actorId,
+                    adminListingPrice: null,
+                })
+            )
+        );
+
+        await this.adminRepo.updateProductModeration(productId, 'REJECTED', actorId, reason.trim());
+        await productRepository.syncVariantSummary(productId);
+        const updatedProduct = await this.adminRepo.findProductById(productId);
+        if (!updatedProduct) {
+            throw ApiError.internal('Unable to reload product after rejection');
+        }
 
         // Fire side-effects in parallel
         await Promise.all([
@@ -380,12 +405,27 @@ export class AdminService {
             throw ApiError.badRequest('Admin listing price must be greater than or equal to seller price');
         }
 
-        if (product.status !== 'APPROVED') {
-            await this.adminRepo.updateProductModeration(productId, 'APPROVED', actorId);
-            await this.adminRepo.applyProductApprovalDecision(productId, actorId, 'APPROVED');
+        const now = new Date();
+        const variants = product.variants ?? [];
+        for (const variant of variants) {
+            if (adminListingPrice < Number(variant.sellerPrice ?? sellerPrice)) {
+                throw ApiError.badRequest(`Admin listing price must be greater than or equal to seller price for variant ${variant.sku}`);
+            }
         }
 
-        await this.adminRepo.setProductListingPrice(productId, adminListingPrice, actorId);
+        await Promise.all(
+            variants.map((variant) =>
+                variantRepository.update(variant.id, {
+                    adminListingPrice,
+                    status: 'APPROVED',
+                    rejectionReason: null,
+                    approvedAt: now,
+                    approvedById: actorId,
+                })
+            )
+        );
+        await this.adminRepo.updateProductModeration(productId, 'APPROVED', actorId);
+        await productRepository.syncVariantSummary(productId);
 
         const { margin, percentage } = calculateMargin(sellerPrice, adminListingPrice);
 
@@ -464,10 +504,6 @@ export class AdminService {
             updatePayload.images = payload.images;
             updatedFields.push('images');
         }
-        if (payload.sellerPrice !== undefined) {
-            updatePayload.sellerPrice = payload.sellerPrice;
-            updatedFields.push('sellerPrice');
-        }
         if (payload.isPublished !== undefined) {
             updatePayload.isPublished = payload.isPublished;
             updatedFields.push('isPublished');
@@ -490,17 +526,61 @@ export class AdminService {
                 }
 
                 const variantPayload: UpdateVariantRequest = {};
+                if (variantInput.size !== undefined) {
+                    variantPayload.size = variantInput.size;
+                }
                 if (variantInput.color !== undefined) {
                     variantPayload.color = variantInput.color;
+                }
+                if (variantInput.sku !== undefined) {
+                    variantPayload.sku = variantInput.sku;
                 }
                 if (variantInput.images !== undefined) {
                     variantPayload.images = variantInput.images;
                 }
-                if (variantInput.price !== undefined) {
-                    variantPayload.price = variantInput.price;
+                if (variantInput.sellerPrice !== undefined) {
+                    variantPayload.sellerPrice = variantInput.sellerPrice;
+                }
+                if (variantInput.adminListingPrice !== undefined) {
+                    variantPayload.adminListingPrice = variantInput.adminListingPrice;
                 }
                 if (variantInput.compareAtPrice !== undefined) {
                     variantPayload.compareAtPrice = variantInput.compareAtPrice;
+                }
+                if (variantInput.status !== undefined) {
+                    variantPayload.status = variantInput.status;
+                    variantPayload.rejectionReason =
+                        variantInput.status === 'REJECTED'
+                            ? variantInput.rejectionReason ?? 'Rejected by admin'
+                            : null;
+                    variantPayload.approvedAt = variantInput.status === 'APPROVED' ? new Date() : null;
+                    variantPayload.approvedById = actorId;
+                }
+
+                const nextSellerPrice = variantInput.sellerPrice ?? Number(variant.sellerPrice);
+                const nextAdminListingPrice =
+                    variantInput.adminListingPrice !== undefined
+                        ? variantInput.adminListingPrice
+                        : variant.adminListingPrice;
+                if (
+                    nextAdminListingPrice !== null &&
+                    nextAdminListingPrice !== undefined &&
+                    nextAdminListingPrice < nextSellerPrice
+                ) {
+                    throw ApiError.badRequest(`Admin listing price cannot be lower than seller price for variant ${variant.sku}`);
+                }
+
+                const effectivePrice = nextAdminListingPrice ?? nextSellerPrice;
+                const nextCompareAt =
+                    variantInput.compareAtPrice !== undefined
+                        ? variantInput.compareAtPrice
+                        : variant.compareAtPrice;
+                if (
+                    nextCompareAt !== null &&
+                    nextCompareAt !== undefined &&
+                    nextCompareAt <= effectivePrice
+                ) {
+                    throw ApiError.badRequest(`Compare-at price must be greater than effective selling price for variant ${variant.sku}`);
                 }
 
                 if (Object.keys(variantPayload).length > 0) {
@@ -514,6 +594,8 @@ export class AdminService {
                 return variantInput.id;
             }))
             : [];
+
+        await productRepository.syncVariantSummary(productId);
 
         await Promise.allSettled([
             invalidateProductCaches(productId),

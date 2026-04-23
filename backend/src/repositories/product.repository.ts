@@ -8,6 +8,8 @@ import type {
     ProductQueryFilters,
 } from '../types/product.types.js';
 
+type ProductTx = typeof prisma;
+
 /**
  * Product Repository
  * Handles database operations for products
@@ -21,15 +23,103 @@ export class ProductRepository {
         return { skip: (p - 1) * l, take: l };
     }
 
-    private mapProductDecimals<T extends { sellerPrice: unknown; adminListingPrice: unknown }>(product: T): Omit<T, 'sellerPrice' | 'adminListingPrice'> & { sellerPrice: number; adminListingPrice: number | null } {
+    private mapProductDecimals<T extends { sellerPrice: unknown; adminListingPrice: unknown }>(
+        product: T
+    ): Omit<T, 'sellerPrice' | 'adminListingPrice'> & { sellerPrice: number; adminListingPrice: number | null } {
         return {
             ...product,
             sellerPrice: Number(product.sellerPrice),
-            adminListingPrice:
-                product.adminListingPrice == null
-                    ? null
-                    : Number(product.adminListingPrice),
+            adminListingPrice: product.adminListingPrice == null ? null : Number(product.adminListingPrice),
         };
+    }
+
+    private mapVariantFields<T extends {
+        sellerPrice: unknown;
+        adminListingPrice: unknown;
+        price: unknown;
+        compareAtPrice: unknown;
+    }>(variant: T) {
+        return {
+            ...variant,
+            sellerPrice: Number(variant.sellerPrice),
+            adminListingPrice: variant.adminListingPrice == null ? null : Number(variant.adminListingPrice),
+            price: Number(variant.price),
+            compareAtPrice: variant.compareAtPrice == null ? null : Number(variant.compareAtPrice),
+        };
+    }
+
+    private mapProductWithVariants<T extends {
+        sellerPrice: unknown;
+        adminListingPrice: unknown;
+        variants?: Array<{
+            sellerPrice: unknown;
+            adminListingPrice: unknown;
+            price: unknown;
+            compareAtPrice: unknown;
+        }>;
+    }>(product: T) {
+        return {
+            ...this.mapProductDecimals(product),
+            variants: (product.variants ?? []).map((variant) => this.mapVariantFields(variant)),
+        };
+    }
+
+    async syncVariantSummary(productId: string, tx: ProductTx = prisma): Promise<ProductEntity> {
+        const product = await tx.product.findUnique({
+            where: { id: productId },
+            select: {
+                id: true,
+                deletedByAdmin: true,
+                variants: {
+                    select: {
+                        id: true,
+                        sellerPrice: true,
+                        adminListingPrice: true,
+                        status: true,
+                        rejectionReason: true,
+                        approvedAt: true,
+                        approvedById: true,
+                        createdAt: true,
+                        price: true,
+                    },
+                    orderBy: [{ price: 'asc' }, { createdAt: 'asc' }],
+                },
+            },
+        });
+
+        if (!product) {
+            throw new Error(`Product ${productId} not found while syncing variant summary`);
+        }
+
+        const approvedVariants = product.variants.filter((variant) => variant.status === 'APPROVED');
+        const pendingVariants = product.variants.filter((variant) => variant.status === 'PENDING');
+        const rejectedVariants = product.variants.filter((variant) => variant.status === 'REJECTED');
+
+        const summarySource = approvedVariants[0] ?? pendingVariants[0] ?? rejectedVariants[0] ?? null;
+        const nextStatus =
+            approvedVariants.length > 0 ? 'APPROVED' : pendingVariants.length > 0 ? 'PENDING' : 'REJECTED';
+        const rejectionReason =
+            nextStatus === 'REJECTED' ? rejectedVariants[0]?.rejectionReason ?? null : null;
+
+        const updated = await tx.product.update({
+            where: { id: productId },
+            data: {
+                sellerPrice: summarySource?.sellerPrice ?? 0,
+                adminListingPrice:
+                    approvedVariants.length > 0 ? approvedVariants[0]?.adminListingPrice ?? null : null,
+                priceApprovedAt:
+                    approvedVariants.length > 0 ? approvedVariants[0]?.approvedAt ?? null : null,
+                priceApprovedById:
+                    approvedVariants.length > 0 ? approvedVariants[0]?.approvedById ?? null : null,
+                status: product.deletedByAdmin ? 'REJECTED' : nextStatus,
+                rejectionReason: product.deletedByAdmin ? rejectionReason : rejectionReason,
+                approvedAt: approvedVariants.length > 0 ? approvedVariants[0]?.approvedAt ?? null : null,
+                approvedById: approvedVariants.length > 0 ? approvedVariants[0]?.approvedById ?? null : null,
+                isPublished: !product.deletedByAdmin && approvedVariants.length > 0,
+            },
+        });
+
+        return this.mapProductDecimals(updated) as ProductEntity;
     }
 
     /**
@@ -44,7 +134,12 @@ export class ProductRepository {
         const conditions: string[] = [
             `p."status" = 'APPROVED'`,
             `p."deleted_by_admin" = false`,
-            `p."admin_listing_price" IS NOT NULL`,
+            `EXISTS (
+                SELECT 1
+                FROM "product_variants" pv_pub
+                WHERE pv_pub."product_id" = p."id"
+                  AND pv_pub."status" = 'APPROVED'
+            )`,
         ];
         const params: unknown[] = [];
         let paramIndex = 1;
@@ -132,6 +227,7 @@ export class ProductRepository {
                 SELECT pv."price", pv."compare_at_price"
                 FROM "product_variants" pv
                 WHERE pv."product_id" = p."id"
+                  AND pv."status" = 'APPROVED'
                 ORDER BY pv."price" ASC, pv."created_at" ASC
                 LIMIT 1
             ) cv ON true
@@ -148,18 +244,10 @@ export class ProductRepository {
         const products = rows.map((product) => ({
             ...product,
             sellerPrice: Number(product.sellerPrice),
-            adminListingPrice:
-                product.adminListingPrice == null
-                    ? null
-                    : Number(product.adminListingPrice),
-            cheapestVariantPrice:
-                product.cheapestVariantPrice == null
-                    ? null
-                    : Number(product.cheapestVariantPrice),
+            adminListingPrice: product.adminListingPrice == null ? null : Number(product.adminListingPrice),
+            cheapestVariantPrice: product.cheapestVariantPrice == null ? null : Number(product.cheapestVariantPrice),
             cheapestVariantCompareAt:
-                product.cheapestVariantCompareAt == null
-                    ? null
-                    : Number(product.cheapestVariantCompareAt),
+                product.cheapestVariantCompareAt == null ? null : Number(product.cheapestVariantCompareAt),
         }));
 
         return {
@@ -173,7 +261,16 @@ export class ProductRepository {
      */
     async findPublishedById(id: string): Promise<ProductWithDetails | null> {
         const product = await prisma.product.findFirst({
-            where: { id, status: 'APPROVED', deletedByAdmin: false, adminListingPrice: { not: null } },
+            where: {
+                id,
+                status: 'APPROVED',
+                deletedByAdmin: false,
+                variants: {
+                    some: {
+                        status: 'APPROVED',
+                    },
+                },
+            },
             select: {
                 id: true,
                 sellerId: true,
@@ -196,15 +293,26 @@ export class ProductRepository {
                     },
                 },
                 variants: {
+                    where: { status: 'APPROVED' },
                     select: {
                         id: true,
+                        size: true,
                         color: true,
                         images: true,
                         sku: true,
+                        sellerPrice: true,
+                        adminListingPrice: true,
                         price: true,
                         compareAtPrice: true,
+                        status: true,
+                        rejectionReason: true,
+                        approvedAt: true,
+                        approvedById: true,
+                        createdAt: true,
+                        updatedAt: true,
                         inventory: true,
                     },
+                    orderBy: [{ price: 'asc' }, { createdAt: 'asc' }],
                 },
             },
         });
@@ -213,24 +321,7 @@ export class ProductRepository {
             return null;
         }
 
-        const mapped = {
-            ...product,
-            sellerPrice: Number(product.sellerPrice),
-            adminListingPrice:
-                product.adminListingPrice == null
-                    ? null
-                    : Number(product.adminListingPrice),
-            variants: (product.variants ?? []).map((variant) => ({
-                ...variant,
-                price: Number(variant.price),
-                compareAtPrice:
-                    variant.compareAtPrice == null
-                        ? null
-                        : Number(variant.compareAtPrice),
-            })),
-        };
-
-        return mapped as ProductWithDetails;
+        return this.mapProductWithVariants(product) as ProductWithDetails;
     }
 
     /**
@@ -246,6 +337,7 @@ export class ProductRepository {
                     include: {
                         inventory: true,
                     },
+                    orderBy: [{ createdAt: 'asc' }],
                 },
             },
             orderBy: { createdAt: 'desc' },
@@ -253,7 +345,7 @@ export class ProductRepository {
             take,
         });
 
-        return products.map((product) => this.mapProductDecimals(product)) as ProductWithDetails[];
+        return products.map((product) => this.mapProductWithVariants(product)) as ProductWithDetails[];
     }
 
     /**
@@ -264,7 +356,7 @@ export class ProductRepository {
             where: { id, sellerId },
         });
 
-        return product ? this.mapProductDecimals(product) as ProductEntity : null;
+        return product ? (this.mapProductDecimals(product) as ProductEntity) : null;
     }
 
     /**
@@ -279,24 +371,28 @@ export class ProductRepository {
                     include: {
                         inventory: true,
                     },
+                    orderBy: [{ createdAt: 'asc' }],
                 },
             },
         });
 
-        return product ? this.mapProductDecimals(product) as ProductWithDetails : null;
+        return product ? (this.mapProductWithVariants(product) as ProductWithDetails) : null;
     }
 
     /**
-     * Create a new product
+     * Create a new product with inline variants
      */
     async create(sellerId: string, data: CreateProductRequest): Promise<ProductEntity> {
+        const sortedVariants = [...data.variants].sort((a, b) => a.sellerPrice - b.sellerPrice);
+        const cheapest = sortedVariants[0];
+
         const product = await prisma.product.create({
             data: {
                 sellerId,
                 categoryId: data.categoryId,
                 title: data.title,
                 description: data.description ?? null,
-                sellerPrice: data.sellerPrice,
+                sellerPrice: cheapest?.sellerPrice ?? 0,
                 adminListingPrice: null,
                 priceApprovedAt: null,
                 priceApprovedById: null,
@@ -306,6 +402,24 @@ export class ProductRepository {
                 approvedAt: null,
                 approvedById: null,
                 isPublished: false,
+                variants: {
+                    create: data.variants.map((variant) => ({
+                        size: variant.size,
+                        color: variant.color?.trim() ? variant.color.trim() : null,
+                        images: variant.images ?? [],
+                        sku: variant.sku,
+                        sellerPrice: variant.sellerPrice,
+                        adminListingPrice: null,
+                        price: variant.sellerPrice,
+                        compareAtPrice: variant.compareAtPrice ?? null,
+                        status: 'PENDING',
+                        inventory: {
+                            create: {
+                                stock: variant.initialStock ?? 0,
+                            },
+                        },
+                    })),
+                },
             },
         });
 

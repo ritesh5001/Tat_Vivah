@@ -34,6 +34,12 @@ export const productSetPriceSchema = z.object({
 
 const adminVariantUpdateSchema = z.object({
     id: z.string().min(1, 'Variant ID is required'),
+    size: z
+        .string({ invalid_type_error: 'Size must be a string' })
+        .trim()
+        .min(1, 'Size must be at least 1 character')
+        .max(50, 'Size must be at most 50 characters')
+        .optional(),
     color: z
         .string({ invalid_type_error: 'Color must be a string' })
         .trim()
@@ -41,16 +47,33 @@ const adminVariantUpdateSchema = z.object({
         .max(50, 'Color must be at most 50 characters')
         .nullable()
         .optional(),
+    sku: z
+        .string({ invalid_type_error: 'SKU must be a string' })
+        .trim()
+        .min(1, 'SKU must be at least 1 character')
+        .max(100, 'SKU must be at most 100 characters')
+        .optional(),
     images: z
         .array(z.string().url('Variant image must be a valid URL'))
         .max(8, 'Maximum 8 variant images allowed')
         .optional(),
-    price: z
-        .number({ invalid_type_error: 'Variant price must be a number' })
-        .positive('Variant price must be positive')
+    sellerPrice: z
+        .number({ invalid_type_error: 'Variant seller price must be a number' })
+        .positive('Variant seller price must be positive')
+        .optional(),
+    adminListingPrice: z
+        .number({ invalid_type_error: 'Variant admin listing price must be a number' })
+        .positive('Variant admin listing price must be positive')
         .optional(),
     compareAtPrice: z
         .number({ invalid_type_error: 'Compare-at price must be a number' })
+        .nullable()
+        .optional(),
+    status: z.enum(['PENDING', 'APPROVED', 'REJECTED']).optional(),
+    rejectionReason: z
+        .string({ invalid_type_error: 'Rejection reason must be a string' })
+        .trim()
+        .max(500, 'Rejection reason must be at most 500 characters')
         .nullable()
         .optional(),
     stock: z
@@ -60,10 +83,15 @@ const adminVariantUpdateSchema = z.object({
         .optional(),
 }).refine(
     (value) =>
+        value.size !== undefined ||
         value.color !== undefined ||
+        value.sku !== undefined ||
         value.images !== undefined ||
-        value.price !== undefined ||
+        value.sellerPrice !== undefined ||
+        value.adminListingPrice !== undefined ||
         value.compareAtPrice !== undefined ||
+        value.status !== undefined ||
+        value.rejectionReason !== undefined ||
         value.stock !== undefined,
     {
         message: 'Provide at least one field to update per variant',

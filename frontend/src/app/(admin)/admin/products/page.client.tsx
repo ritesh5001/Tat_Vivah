@@ -120,13 +120,23 @@ export default function AdminProductsClient({
     occasionIds: [] as string[],
     title: "",
     description: "",
-    sellerPrice: "",
     isPublished: false,
   });
   const [editImages, setEditImages] = React.useState<string[]>([]);
   const [uploadingEditImages, setUploadingEditImages] = React.useState(false);
   const [variantEditValues, setVariantEditValues] = React.useState<
-    Record<string, { price: string; compareAtPrice: string; stock: string }>
+    Record<
+      string,
+      {
+        size: string;
+        sku: string;
+        sellerPrice: string;
+        adminListingPrice: string;
+        compareAtPrice: string;
+        stock: string;
+        status: "PENDING" | "APPROVED" | "REJECTED";
+      }
+    >
   >({});
   const [isSavingEdit, setIsSavingEdit] = React.useState(false);
 
@@ -258,7 +268,6 @@ export default function AdminProductsClient({
       occasionIds: [],
       title: "",
       description: "",
-      sellerPrice: "",
       isPublished: false,
     });
     setEditImages([]);
@@ -276,8 +285,6 @@ export default function AdminProductsClient({
       occasionIds: existingOccasionIds,
       title: product.title ?? "",
       description: product.description ?? "",
-      sellerPrice:
-        product.sellerPrice != null ? String(product.sellerPrice) : "",
       isPublished: Boolean(product.isPublished),
     });
     setEditImages(
@@ -286,16 +293,35 @@ export default function AdminProductsClient({
         : []
     );
 
-    const variantState: Record<string, { price: string; compareAtPrice: string; stock: string }> = {};
+    const variantState: Record<
+      string,
+      {
+        size: string;
+        sku: string;
+        sellerPrice: string;
+        adminListingPrice: string;
+        compareAtPrice: string;
+        stock: string;
+        status: "PENDING" | "APPROVED" | "REJECTED";
+      }
+    > = {};
     (product.variants ?? []).forEach((variant: any) => {
       variantState[variant.id] = {
-        price: variant.price != null ? String(variant.price) : "",
+        size: variant.size != null ? String(variant.size) : "",
+        sku: variant.sku != null ? String(variant.sku) : "",
+        sellerPrice:
+          variant.sellerPrice != null ? String(variant.sellerPrice) : "",
+        adminListingPrice:
+          variant.adminListingPrice != null
+            ? String(variant.adminListingPrice)
+            : "",
         compareAtPrice:
           variant.compareAtPrice != null ? String(variant.compareAtPrice) : "",
         stock:
           variant.stock != null
             ? String(variant.stock)
             : "",
+        status: variant.status ?? "PENDING",
       };
     });
     setVariantEditValues(variantState);
@@ -323,15 +349,26 @@ export default function AdminProductsClient({
 
   const handleVariantFieldChange = (
     variantId: string,
-    field: "price" | "compareAtPrice" | "stock",
+    field:
+      | "size"
+      | "sku"
+      | "sellerPrice"
+      | "adminListingPrice"
+      | "compareAtPrice"
+      | "stock"
+      | "status",
     value: string
   ) => {
     setVariantEditValues((prev) => ({
       ...prev,
       [variantId]: {
-        price: prev[variantId]?.price ?? "",
+        size: prev[variantId]?.size ?? "",
+        sku: prev[variantId]?.sku ?? "",
+        sellerPrice: prev[variantId]?.sellerPrice ?? "",
+        adminListingPrice: prev[variantId]?.adminListingPrice ?? "",
         compareAtPrice: prev[variantId]?.compareAtPrice ?? "",
         stock: prev[variantId]?.stock ?? "",
+        status: prev[variantId]?.status ?? "PENDING",
         [field]: value,
       },
     }));
@@ -443,27 +480,41 @@ export default function AdminProductsClient({
       occasionIds: editForm.occasionIds,
     };
 
-    if (editForm.sellerPrice.trim()) {
-      const sellerPriceValue = Number(editForm.sellerPrice);
-      if (Number.isNaN(sellerPriceValue) || sellerPriceValue <= 0) {
-        toast.error("Enter a valid seller price.");
-        return;
-      }
-      payload.sellerPrice = sellerPriceValue;
-    }
-
     const variantPayloads: AdminProductVariantUpdatePayload[] = [];
     for (const [variantId, fields] of Object.entries(variantEditValues)) {
       const entry: AdminProductVariantUpdatePayload = { id: variantId };
       let touched = false;
 
-      if (fields.price.trim()) {
-        const priceValue = Number(fields.price);
-        if (Number.isNaN(priceValue) || priceValue <= 0) {
-          toast.error("Enter a valid variant price.");
+      if (fields.size.trim()) {
+        entry.size = fields.size.trim();
+        touched = true;
+      }
+
+      if (fields.sku.trim()) {
+        entry.sku = fields.sku.trim();
+        touched = true;
+      }
+
+      if (fields.sellerPrice.trim()) {
+        const sellerPriceValue = Number(fields.sellerPrice);
+        if (Number.isNaN(sellerPriceValue) || sellerPriceValue <= 0) {
+          toast.error("Enter a valid seller price.");
           return;
         }
-        entry.price = priceValue;
+        entry.sellerPrice = sellerPriceValue;
+        touched = true;
+      }
+
+      if (fields.adminListingPrice.trim()) {
+        const adminPriceValue = Number(fields.adminListingPrice);
+        if (Number.isNaN(adminPriceValue) || adminPriceValue < 0) {
+          toast.error("Enter a valid admin listing price.");
+          return;
+        }
+        entry.adminListingPrice = adminPriceValue;
+        touched = true;
+      } else {
+        entry.adminListingPrice = null;
         touched = true;
       }
 
@@ -490,6 +541,9 @@ export default function AdminProductsClient({
         entry.stock = stockValue;
         touched = true;
       }
+
+      entry.status = fields.status;
+      touched = true;
 
       if (touched) {
         variantPayloads.push(entry);
@@ -1007,7 +1061,7 @@ export default function AdminProductsClient({
               </div>
 
               <div className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-4 md:grid-cols-1">
                   <label className="flex flex-col gap-2 text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
                     Category
                     <select
@@ -1027,22 +1081,6 @@ export default function AdminProductsClient({
                         </option>
                       ))}
                     </select>
-                  </label>
-                  <label className="flex flex-col gap-2 text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
-                    Seller Price
-                    <Input
-                      type="number"
-                      min="1"
-                      step="0.01"
-                      placeholder="Seller price"
-                      value={editForm.sellerPrice}
-                      onChange={(event) =>
-                        setEditForm((prev) => ({
-                          ...prev,
-                          sellerPrice: event.target.value,
-                        }))
-                      }
-                    />
                   </label>
                 </div>
 
@@ -1198,23 +1236,99 @@ export default function AdminProductsClient({
                           className="rounded border border-border-soft p-3"
                         >
                           <p className="text-sm font-medium text-foreground">
-                            SKU: {variant.sku}
+                            {variant.size ?? "Default"} · {variant.sku}
                           </p>
                           <div className="mt-3 grid gap-3 md:grid-cols-3">
                             <label className="flex flex-col gap-2 text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
-                              Price
+                              Size
+                              <Input
+                                value={
+                                  variantEditValues[variant.id]?.size ??
+                                  (variant.size != null ? String(variant.size) : "")
+                                }
+                                onChange={(event) =>
+                                  handleVariantFieldChange(
+                                    variant.id,
+                                    "size",
+                                    event.target.value
+                                  )
+                                }
+                              />
+                            </label>
+                            <label className="flex flex-col gap-2 text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                              SKU
+                              <Input
+                                value={
+                                  variantEditValues[variant.id]?.sku ??
+                                  (variant.sku != null ? String(variant.sku) : "")
+                                }
+                                onChange={(event) =>
+                                  handleVariantFieldChange(
+                                    variant.id,
+                                    "sku",
+                                    event.target.value
+                                  )
+                                }
+                              />
+                            </label>
+                            <label className="flex flex-col gap-2 text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                              Status
+                              <select
+                                value={
+                                  variantEditValues[variant.id]?.status ??
+                                  (variant.status ?? "PENDING")
+                                }
+                                onChange={(event) =>
+                                  handleVariantFieldChange(
+                                    variant.id,
+                                    "status",
+                                    event.target.value
+                                  )
+                                }
+                                className="border border-border-soft bg-card px-3 py-2 text-sm text-foreground focus-visible:ring-2 focus-visible:ring-gold/40"
+                              >
+                                <option value="PENDING">Pending</option>
+                                <option value="APPROVED">Approved</option>
+                                <option value="REJECTED">Rejected</option>
+                              </select>
+                            </label>
+                            <label className="flex flex-col gap-2 text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                              Seller Price
                               <Input
                                 type="number"
                                 min="1"
                                 step="0.01"
                                 value={
-                                  variantEditValues[variant.id]?.price ??
-                                  (variant.price != null ? String(variant.price) : "")
+                                  variantEditValues[variant.id]?.sellerPrice ??
+                                  (variant.sellerPrice != null
+                                    ? String(variant.sellerPrice)
+                                    : "")
                                 }
                                 onChange={(event) =>
                                   handleVariantFieldChange(
                                     variant.id,
-                                    "price",
+                                    "sellerPrice",
+                                    event.target.value
+                                  )
+                                }
+                              />
+                            </label>
+                            <label className="flex flex-col gap-2 text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                              Admin Price
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={
+                                  variantEditValues[variant.id]?.adminListingPrice ??
+                                  (variant.adminListingPrice != null
+                                    ? String(variant.adminListingPrice)
+                                    : "")
+                                }
+                                onChange={(event) =>
+                                  handleVariantFieldChange(
+                                    variant.id,
+                                    "adminListingPrice",
                                     event.target.value
                                   )
                                 }

@@ -42,27 +42,62 @@ export declare const adminProductUpdateSchema: z.ZodObject<{
     sellerPrice: z.ZodOptional<z.ZodNumber>;
     variants: z.ZodOptional<z.ZodArray<z.ZodEffects<z.ZodObject<{
         id: z.ZodString;
-        price: z.ZodOptional<z.ZodNumber>;
+        size: z.ZodOptional<z.ZodString>;
+        color: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        sku: z.ZodOptional<z.ZodString>;
+        images: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+        sellerPrice: z.ZodOptional<z.ZodNumber>;
+        adminListingPrice: z.ZodOptional<z.ZodNumber>;
         compareAtPrice: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+        status: z.ZodOptional<z.ZodEnum<["PENDING", "APPROVED", "REJECTED"]>>;
+        rejectionReason: z.ZodOptional<z.ZodNullable<z.ZodString>>;
         stock: z.ZodOptional<z.ZodNumber>;
     }, "strip", z.ZodTypeAny, {
         id: string;
-        price?: number | undefined;
+        status?: "PENDING" | "APPROVED" | "REJECTED" | undefined;
+        sellerPrice?: number | undefined;
+        adminListingPrice?: number | undefined;
+        rejectionReason?: string | null | undefined;
+        images?: string[] | undefined;
+        size?: string | undefined;
+        color?: string | null | undefined;
+        sku?: string | undefined;
         compareAtPrice?: number | null | undefined;
         stock?: number | undefined;
     }, {
         id: string;
-        price?: number | undefined;
+        status?: "PENDING" | "APPROVED" | "REJECTED" | undefined;
+        sellerPrice?: number | undefined;
+        adminListingPrice?: number | undefined;
+        rejectionReason?: string | null | undefined;
+        images?: string[] | undefined;
+        size?: string | undefined;
+        color?: string | null | undefined;
+        sku?: string | undefined;
         compareAtPrice?: number | null | undefined;
         stock?: number | undefined;
     }>, {
         id: string;
-        price?: number | undefined;
+        status?: "PENDING" | "APPROVED" | "REJECTED" | undefined;
+        sellerPrice?: number | undefined;
+        adminListingPrice?: number | undefined;
+        rejectionReason?: string | null | undefined;
+        images?: string[] | undefined;
+        size?: string | undefined;
+        color?: string | null | undefined;
+        sku?: string | undefined;
         compareAtPrice?: number | null | undefined;
         stock?: number | undefined;
     }, {
         id: string;
-        price?: number | undefined;
+        status?: "PENDING" | "APPROVED" | "REJECTED" | undefined;
+        sellerPrice?: number | undefined;
+        adminListingPrice?: number | undefined;
+        rejectionReason?: string | null | undefined;
+        images?: string[] | undefined;
+        size?: string | undefined;
+        color?: string | null | undefined;
+        sku?: string | undefined;
         compareAtPrice?: number | null | undefined;
         stock?: number | undefined;
     }>, "many">>;
@@ -75,7 +110,14 @@ export declare const adminProductUpdateSchema: z.ZodObject<{
     images?: string[] | undefined;
     variants?: {
         id: string;
-        price?: number | undefined;
+        status?: "PENDING" | "APPROVED" | "REJECTED" | undefined;
+        sellerPrice?: number | undefined;
+        adminListingPrice?: number | undefined;
+        rejectionReason?: string | null | undefined;
+        images?: string[] | undefined;
+        size?: string | undefined;
+        color?: string | null | undefined;
+        sku?: string | undefined;
         compareAtPrice?: number | null | undefined;
         stock?: number | undefined;
     }[] | undefined;
@@ -89,7 +131,14 @@ export declare const adminProductUpdateSchema: z.ZodObject<{
     images?: string[] | undefined;
     variants?: {
         id: string;
-        price?: number | undefined;
+        status?: "PENDING" | "APPROVED" | "REJECTED" | undefined;
+        sellerPrice?: number | undefined;
+        adminListingPrice?: number | undefined;
+        rejectionReason?: string | null | undefined;
+        images?: string[] | undefined;
+        size?: string | undefined;
+        color?: string | null | undefined;
+        sku?: string | undefined;
         compareAtPrice?: number | null | undefined;
         stock?: number | undefined;
     }[] | undefined;

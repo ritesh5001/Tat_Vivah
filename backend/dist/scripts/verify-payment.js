@@ -48,8 +48,12 @@ async function verifyPayment() {
                 adminListingPrice: 1200,
                 variants: {
                     create: {
+                        size: 'Default',
                         sku: `SKU_${Date.now()}`,
-                        price: 1000,
+                        sellerPrice: 1000,
+                        adminListingPrice: 1200,
+                        price: 1200,
+                        status: 'APPROVED',
                         inventory: { create: { stock: 10 } }
                     }
                 }

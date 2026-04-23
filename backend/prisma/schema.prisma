@@ -30,6 +30,7 @@ model User {
   product_moderation           ProductModeration[]
   products                     Product[]               @relation("SellerProducts")
   priceApprovedProducts        Product[]               @relation("PriceApprovedBy")
+  reviewedProductVariants      ProductVariant[]        @relation("VariantReviewedBy")
   qaAdminProfile               QaAdminProfile?
   seller_profiles              seller_profiles?
   shipments                    shipments[]
@@ -272,18 +273,30 @@ model Bestseller {
 model ProductVariant {
   id             String     @id @default(cuid())
   productId      String     @map("product_id")
+  size           String     @default("Default")
   color          String?
   images         String[]   @default([])
   sku            String
+  sellerPrice    Float      @map("seller_price")
+  adminListingPrice Float?  @map("admin_listing_price")
   price          Float
   compareAtPrice Float?     @map("compare_at_price")
+  status         ProductStatus @default(PENDING)
+  rejectionReason String?   @map("rejection_reason")
+  approvedAt     DateTime?  @map("approved_at")
+  approvedById   String?    @map("approved_by_id")
   createdAt      DateTime   @default(now()) @map("created_at")
   updatedAt      DateTime   @updatedAt @map("updated_at")
   inventory      Inventory?
   product        Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  approvedBy     User?      @relation("VariantReviewedBy", fields: [approvedById], references: [id])
 
-  @@unique([productId, color, sku])
+  @@unique([productId, sku])
   @@index([productId])
+  @@index([productId, size, color])
+  @@index([status])
+  @@index([approvedById])
+  @@index([productId, status])
   @@map("product_variants")
 }
 

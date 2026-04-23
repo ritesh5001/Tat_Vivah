@@ -96,11 +96,17 @@ export interface AdminProduct {
     approvedById?: string | null;
     variants?: Array<{
         id: string;
+        size: string;
         color: string | null;
         images: string[];
         sku: string;
+        sellerPrice: number;
+        adminListingPrice: number | null;
         price: number;
         compareAtPrice: number | null;
+        status: ProductModerationStatusType;
+        rejectionReason?: string | null;
+        approvedAt?: Date | null;
         stock: number;
     }>;
     isPublished: boolean;
@@ -383,7 +389,17 @@ export class AdminRepository {
     async findPendingProducts(params?: PaginationParams): Promise<AdminProduct[]> {
         const { skip, take } = resolvePagination(params);
         const products = await prisma.product.findMany({
-            where: { status: 'PENDING', deletedByAdmin: false },
+            where: {
+                deletedByAdmin: false,
+                OR: [
+                    { status: 'PENDING' },
+                    {
+                        variants: {
+                            some: { status: 'PENDING' },
+                        },
+                    },
+                ],
+            },
             include: {
                 seller: {
                     select: {
@@ -433,11 +449,17 @@ export class AdminRepository {
             approvedById: product.approvedById,
             variants: product.variants.map((variant) => ({
                 id: variant.id,
+                size: variant.size,
                 color: variant.color,
                 images: variant.images,
                 sku: variant.sku,
-                price: variant.price,
-                compareAtPrice: variant.compareAtPrice,
+                sellerPrice: Number(variant.sellerPrice),
+                adminListingPrice: variant.adminListingPrice == null ? null : Number(variant.adminListingPrice),
+                price: Number(variant.price),
+                compareAtPrice: variant.compareAtPrice == null ? null : Number(variant.compareAtPrice),
+                status: variant.status,
+                rejectionReason: variant.rejectionReason,
+                approvedAt: variant.approvedAt,
                 stock: variant.inventory?.stock ?? 0,
             })),
             isPublished: product.isPublished,
@@ -508,11 +530,17 @@ export class AdminRepository {
             approvedById: product.approvedById,
             variants: product.variants.map((variant) => ({
                 id: variant.id,
+                size: variant.size,
                 color: variant.color,
                 images: variant.images,
                 sku: variant.sku,
-                price: variant.price,
-                compareAtPrice: variant.compareAtPrice,
+                sellerPrice: Number(variant.sellerPrice),
+                adminListingPrice: variant.adminListingPrice == null ? null : Number(variant.adminListingPrice),
+                price: Number(variant.price),
+                compareAtPrice: variant.compareAtPrice == null ? null : Number(variant.compareAtPrice),
+                status: variant.status,
+                rejectionReason: variant.rejectionReason,
+                approvedAt: variant.approvedAt,
                 stock: variant.inventory?.stock ?? 0,
             })),
             isPublished: product.isPublished,
@@ -585,11 +613,17 @@ export class AdminRepository {
             approvedById: product.approvedById,
             variants: product.variants.map((variant) => ({
                 id: variant.id,
+                size: variant.size,
                 color: variant.color,
                 images: variant.images,
                 sku: variant.sku,
-                price: variant.price,
-                compareAtPrice: variant.compareAtPrice,
+                sellerPrice: Number(variant.sellerPrice),
+                adminListingPrice: variant.adminListingPrice == null ? null : Number(variant.adminListingPrice),
+                price: Number(variant.price),
+                compareAtPrice: variant.compareAtPrice == null ? null : Number(variant.compareAtPrice),
+                status: variant.status,
+                rejectionReason: variant.rejectionReason,
+                approvedAt: variant.approvedAt,
                 stock: variant.inventory?.stock ?? 0,
             })),
             isPublished: product.isPublished,

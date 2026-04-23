@@ -76,11 +76,7 @@ class CommissionService {
 
         for (const item of order.items) {
             const current = sellerItemsMap.get(item.sellerId) ?? { grossAmount: 0 };
-            const itemGross =
-                item.taxableAmount +
-                item.cgstAmount +
-                item.sgstAmount +
-                item.igstAmount;
+            const itemGross = item.sellerPriceSnapshot * item.quantity;
             current.grossAmount += itemGross;
             sellerItemsMap.set(item.sellerId, current);
         }

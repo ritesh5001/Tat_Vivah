@@ -4,18 +4,27 @@ import { z } from 'zod';
  * POST /v1/seller/products/:id/variants
  */
 export declare const createVariantSchema: z.ZodObject<{
+    size: z.ZodString;
+    color: z.ZodOptional<z.ZodString>;
+    images: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
     sku: z.ZodString;
-    price: z.ZodNumber;
+    sellerPrice: z.ZodNumber;
     compareAtPrice: z.ZodOptional<z.ZodNumber>;
     initialStock: z.ZodDefault<z.ZodOptional<z.ZodNumber>>;
 }, "strip", z.ZodTypeAny, {
+    sellerPrice: number;
+    size: string;
     sku: string;
-    price: number;
     initialStock: number;
+    images?: string[] | undefined;
+    color?: string | undefined;
     compareAtPrice?: number | undefined;
 }, {
+    sellerPrice: number;
+    size: string;
     sku: string;
-    price: number;
+    images?: string[] | undefined;
+    color?: string | undefined;
     compareAtPrice?: number | undefined;
     initialStock?: number | undefined;
 }>;
@@ -25,13 +34,25 @@ export type CreateVariantInput = z.infer<typeof createVariantSchema>;
  * PUT /v1/seller/variants/:id
  */
 export declare const updateVariantSchema: z.ZodObject<{
-    price: z.ZodOptional<z.ZodNumber>;
+    size: z.ZodOptional<z.ZodString>;
+    color: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    sku: z.ZodOptional<z.ZodString>;
+    images: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+    sellerPrice: z.ZodOptional<z.ZodNumber>;
     compareAtPrice: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
 }, "strip", z.ZodTypeAny, {
-    price?: number | undefined;
+    sellerPrice?: number | undefined;
+    images?: string[] | undefined;
+    size?: string | undefined;
+    color?: string | null | undefined;
+    sku?: string | undefined;
     compareAtPrice?: number | null | undefined;
 }, {
-    price?: number | undefined;
+    sellerPrice?: number | undefined;
+    images?: string[] | undefined;
+    size?: string | undefined;
+    color?: string | null | undefined;
+    sku?: string | undefined;
     compareAtPrice?: number | null | undefined;
 }>;
 export type UpdateVariantInput = z.infer<typeof updateVariantSchema>;

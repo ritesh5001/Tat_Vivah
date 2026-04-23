@@ -10,13 +10,13 @@ export interface CartItemDetails {
     id: string;
     title: string;
     sellerId: string;
-    sellerPrice?: number;
-    adminListingPrice?: number | null;
   };
   variant?: {
     id: string;
+    size: string;
     sku: string;
     price: number;
+    compareAtPrice?: number | null;
     inventory?: {
       stock: number;
     } | null;

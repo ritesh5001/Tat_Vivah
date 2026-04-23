@@ -5,9 +5,6 @@ export interface SellerProduct {
   title: string;
   description?: string | null;
   sellerPrice?: number;
-  adminListingPrice?: number | null;
-  priceApprovedAt?: string | null;
-  priceApprovedById?: string | null;
   status?: "PENDING" | "APPROVED" | "REJECTED";
   rejectionReason?: string | null;
   approvedAt?: string | null;
@@ -22,11 +19,15 @@ export interface SellerProduct {
   };
   variants: Array<{
     id: string;
+    size: string;
     color?: string | null;
     images?: string[];
     sku: string;
-    price: number;
+    sellerPrice: number;
     compareAtPrice?: number | null;
+    status: "PENDING" | "APPROVED" | "REJECTED";
+    rejectionReason?: string | null;
+    approvedAt?: string | null;
     inventory?: {
       stock: number;
     } | null;
@@ -40,26 +41,29 @@ export interface SellerProductListResponse {
 export interface CreateProductPayload {
   categoryId: string;
   title: string;
-  sellerPrice: number;
   description?: string;
   isPublished?: boolean;
   images?: string[];
   occasionIds?: string[];
+  variants: CreateVariantPayload[];
 }
 
 export interface CreateVariantPayload {
+  size: string;
   color?: string;
   images?: string[];
   sku: string;
-  price: number;
+  sellerPrice: number;
   compareAtPrice?: number;
   initialStock?: number;
 }
 
 export interface UpdateVariantPayload {
+  size?: string;
   color?: string | null;
+  sku?: string;
   images?: string[];
-  price?: number;
+  sellerPrice?: number;
   compareAtPrice?: number | null;
 }
 

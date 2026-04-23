@@ -54,11 +54,18 @@ export interface ProductEntity {
 export interface ProductVariantEntity {
     id: string;
     productId: string;
+    size: string;
     color: string | null;
     images: string[];
     sku: string;
+    sellerPrice: number;
+    adminListingPrice: number | null;
     price: number;
     compareAtPrice: number | null;
+    status: 'PENDING' | 'APPROVED' | 'REJECTED';
+    rejectionReason: string | null;
+    approvedAt: Date | null;
+    approvedById: string | null;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -100,6 +107,7 @@ export interface ProductWithCategory extends ProductEntity {
 
 export interface PublicProductVariant {
     id: string;
+    size: string;
     color: string | null;
     images: string[];
     sku: string;
@@ -155,6 +163,25 @@ export interface PublicProductWithDetails {
     activeCoupon?: PublicProductCouponPreview | null;
 }
 
+export interface SellerProductVariant {
+    id: string;
+    size: string;
+    color: string | null;
+    images: string[];
+    sku: string;
+    sellerPrice: number;
+    compareAtPrice: number | null;
+    status: 'PENDING' | 'APPROVED' | 'REJECTED';
+    rejectionReason: string | null;
+    approvedAt: Date | null;
+    inventory: InventoryEntity | null;
+}
+
+export interface SellerProductWithDetails extends Omit<ProductEntity, 'adminListingPrice' | 'priceApprovedAt' | 'priceApprovedById'> {
+    category: CategoryEntity;
+    variants: SellerProductVariant[];
+}
+
 // ============================================================================
 // REQUEST TYPES
 // ============================================================================
@@ -165,11 +192,11 @@ export interface PublicProductWithDetails {
 export interface CreateProductRequest {
     categoryId: string;
     title: string;
-    sellerPrice: number;
     description?: string | undefined;
     isPublished?: boolean | undefined;
     images?: string[] | undefined;
     occasionIds?: string[] | undefined;
+    variants: CreateVariantRequest[];
 }
 
 /**
@@ -189,10 +216,11 @@ export interface UpdateProductRequest {
  * Create variant request
  */
 export interface CreateVariantRequest {
+    size: string;
     color?: string | undefined;
     images?: string[] | undefined;
     sku: string;
-    price: number;
+    sellerPrice: number;
     compareAtPrice?: number | undefined;
     initialStock?: number | undefined;
 }
@@ -201,10 +229,17 @@ export interface CreateVariantRequest {
  * Update variant request
  */
 export interface UpdateVariantRequest {
+    size?: string | undefined;
     color?: string | null | undefined;
+    sku?: string | undefined;
     images?: string[] | undefined;
-    price?: number | undefined;
+    sellerPrice?: number | undefined;
+    adminListingPrice?: number | null | undefined;
     compareAtPrice?: number | null | undefined;
+    status?: 'PENDING' | 'APPROVED' | 'REJECTED' | undefined;
+    rejectionReason?: string | null | undefined;
+    approvedAt?: Date | null | undefined;
+    approvedById?: string | null | undefined;
 }
 
 /**
@@ -265,7 +300,7 @@ export interface ProductDetailResponse {
  * Seller product list response
  */
 export interface SellerProductListResponse {
-    products: ProductWithDetails[];
+    products: SellerProductWithDetails[];
 }
 
 /**
@@ -273,7 +308,7 @@ export interface SellerProductListResponse {
  */
 export interface ProductCreateResponse {
     message: string;
-    product: ProductEntity;
+    product: SellerProductWithDetails;
 }
 
 /**
@@ -281,7 +316,7 @@ export interface ProductCreateResponse {
  */
 export interface ProductUpdateResponse {
     message: string;
-    product: ProductEntity;
+    product: SellerProductWithDetails;
 }
 
 /**
