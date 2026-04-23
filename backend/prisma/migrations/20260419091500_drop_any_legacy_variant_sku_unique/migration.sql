@@ -13,7 +13,7 @@ BEGIN
       AND c.contype = 'u'
       AND array_length(c.conkey, 1) = 2
       AND (
-        SELECT array_agg(a.attname ORDER BY a.attname)
+        SELECT array_agg(a.attname::text ORDER BY a.attname::text)
         FROM unnest(c.conkey) AS k(attnum)
         JOIN pg_attribute a
           ON a.attrelid = t.oid
