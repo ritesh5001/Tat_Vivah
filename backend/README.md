@@ -12,12 +12,15 @@ Multi-vendor e-commerce backend built with Express, Prisma, and PostgreSQL.
 npx prisma migrate deploy
 ```
 
-If migration fails due to schema drift:
+If migration fails due to schema drift, do not use `prisma db push` on databases with existing production data.
+Use:
 
 ```bash
-npx prisma db push
 npx prisma generate
+npx prisma migrate status
 ```
+
+Then resolve migration history with `prisma migrate resolve` only for explicitly reviewed migrations.
 
 ### Run Concurrency Test
 

@@ -17,6 +17,7 @@
     "start": "npm run start:api",
     "start:api": "node dist/server.js",
     "start:worker": "node dist/worker.js",
+    "start:render": "npm run prisma:migrate:deploy && npm run start:api",
     "prisma:generate": "prisma generate",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:validate": "prisma validate",
