@@ -12,6 +12,13 @@ import {
 } from '../utils/cache.util.js';
 import { ApiError } from '../errors/ApiError.js';
 import { OccasionService, occasionService } from './occasion.service.js';
+import {
+    applyColorScopedImages,
+    buildColorScopedImageUpdates,
+    normalizeVariantColorKey,
+    resolveColorScopedGallery,
+    sanitizeVariantImages,
+} from './color-variant-images.service.js';
 import { dispatchFreshness } from '../live/freshness.service.js';
 import { CACHE_TAGS, productTag } from '../live/cache-tags.js';
 import type {
@@ -379,6 +386,33 @@ export class ProductService {
         });
     }
 
+    private async syncProductColorImages(productId: string): Promise<void> {
+        const product = await this.productRepo.findByIdWithDetails(productId);
+        if (!product) {
+            throw ApiError.notFound('Product not found');
+        }
+
+        const updates = buildColorScopedImageUpdates(
+            (product.variants ?? []).map((variant) => ({
+                id: variant.id,
+                color: variant.color ?? null,
+                images: variant.images ?? [],
+            }))
+        );
+
+        if (updates.length === 0) {
+            return;
+        }
+
+        await Promise.all(
+            updates.map((variant) =>
+                this.variantRepo.update(variant.id, {
+                    images: variant.images,
+                })
+            )
+        );
+    }
+
     // =========================================================================
     // PUBLIC METHODS (Buyer)
     // =========================================================================
@@ -462,23 +496,40 @@ export class ProductService {
         sellerId: string,
         data: CreateProductRequest
     ): Promise<ProductCreateResponse> {
+        const normalizedVariants: CreateVariantRequest[] = applyColorScopedImages(
+            (data.variants ?? []).map((variant, index) => ({
+                ...variant,
+                id: `create-${index}`,
+                color: variant.color ?? null,
+                images: variant.images ?? [],
+            }))
+        ).map(({ id: _id, ...variant }) => ({
+            size: variant.size,
+            color: variant.color ?? undefined,
+            images: variant.images,
+            sku: variant.sku,
+            sellerPrice: variant.sellerPrice,
+            compareAtPrice: variant.compareAtPrice,
+            initialStock: variant.initialStock,
+        }));
+
         // Validate category exists
         const categoryExists = await this.categoryRepo.existsAndActive(data.categoryId);
         if (!categoryExists) {
             throw ApiError.badRequest('Invalid category ID');
         }
 
-        if (!Array.isArray(data.variants) || data.variants.length === 0) {
+        if (!Array.isArray(normalizedVariants) || normalizedVariants.length === 0) {
             throw ApiError.badRequest('At least one variant is required');
         }
 
-        for (const variant of data.variants) {
+        for (const variant of normalizedVariants) {
             this.validateCreateVariantPayload(variant);
         }
 
         const seenSkus = new Set<string>();
         const seenCombos = new Set<string>();
-        for (const variant of data.variants) {
+        for (const variant of normalizedVariants) {
             const skuKey = variant.sku.trim().toLowerCase();
             const comboKey = `${variant.size.trim().toLowerCase()}::${(variant.color ?? '').trim().toLowerCase()}`;
             if (seenSkus.has(skuKey)) {
@@ -491,7 +542,10 @@ export class ProductService {
             seenCombos.add(comboKey);
         }
 
-        const product = await this.productRepo.create(sellerId, data);
+        const product = await this.productRepo.create(sellerId, {
+            ...data,
+            variants: normalizedVariants,
+        });
 
         // Sync occasion associations if provided
         if (data.occasionIds && data.occasionIds.length > 0) {
@@ -620,7 +674,21 @@ export class ProductService {
             sku: data.sku,
         });
 
-        const variant = await this.variantRepo.create(productId, data);
+        const productWithDetails = await this.productRepo.findByIdWithDetails(productId);
+        if (!productWithDetails) {
+            throw ApiError.notFound('Product not found');
+        }
+
+        const resolvedImages =
+            data.images !== undefined
+                ? sanitizeVariantImages(data.images)
+                : resolveColorScopedGallery(productWithDetails.variants ?? [], data.color);
+
+        const variant = await this.variantRepo.create(productId, {
+            ...data,
+            images: resolvedImages,
+        });
+        await this.syncProductColorImages(productId);
         await this.productRepo.syncVariantSummary(productId);
 
         // Invalidate caches
@@ -669,14 +737,40 @@ export class ProductService {
             variantId
         );
 
+        const productWithDetails = await this.productRepo.findByIdWithDetails(variantWithProduct.productId);
+        if (!productWithDetails) {
+            throw ApiError.notFound('Product not found');
+        }
+
+        const siblingVariants = (productWithDetails.variants ?? []).filter((variant) => variant.id !== variantId);
+        const currentColorKey = normalizeVariantColorKey(variantWithProduct.color);
+        const nextColorKey = normalizeVariantColorKey(nextColor);
+        const inferredImages =
+            data.images !== undefined
+                ? sanitizeVariantImages(data.images)
+                : (() => {
+                    const inherited = resolveColorScopedGallery(siblingVariants, nextColor);
+                    if (inherited.length > 0) {
+                        return inherited;
+                    }
+
+                    if (currentColorKey === nextColorKey) {
+                        return sanitizeVariantImages(variantWithProduct.images);
+                    }
+
+                    return [];
+                })();
+
         const variant = await this.variantRepo.update(variantId, {
             ...data,
+            images: inferredImages,
             adminListingPrice: null,
             status: 'PENDING',
             rejectionReason: null,
             approvedAt: null,
             approvedById: null,
         });
+        await this.syncProductColorImages(variantWithProduct.productId);
         await this.productRepo.syncVariantSummary(variantWithProduct.productId);
 
         // Invalidate caches

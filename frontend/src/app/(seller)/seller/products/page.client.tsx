@@ -71,6 +71,38 @@ function variantCombinationKey(size: string, color?: string | null): string {
   return `${size.trim().toLowerCase()}::${(color ?? "").trim().toLowerCase()}`;
 }
 
+function normalizeColorKey(color?: string | null): string {
+  const normalized = color?.trim().toLowerCase();
+  return normalized && normalized.length > 0 ? normalized : "__no_color__";
+}
+
+function getDisplayColorLabel(color?: string | null): string {
+  const trimmed = color?.trim();
+  return trimmed && trimmed.length > 0 ? trimmed : "Default";
+}
+
+function getColorImageMapFromVariants(
+  variants: Array<{ color?: string | null; images?: string[] | UploadedImage[] }>
+): Record<string, string[]> {
+  const next: Record<string, string[]> = {};
+
+  for (const variant of variants) {
+    if (!variant.color?.trim()) continue;
+    const key = normalizeColorKey(variant.color);
+    if (next[key]?.length) continue;
+
+    const images = (variant.images ?? [])
+      .map((image) => (typeof image === "string" ? image : image?.url))
+      .filter((image): image is string => typeof image === "string" && image.trim().length > 0);
+
+    if (images.length > 0) {
+      next[key] = images;
+    }
+  }
+
+  return next;
+}
+
 function parseVariantInput(
   input: {
     size: string;
@@ -215,6 +247,9 @@ export default function SellerProductsClient({
   const [createVariants, setCreateVariants] = React.useState<DraftVariant[]>([
     createDraftVariant(),
   ]);
+  const [createColorImages, setCreateColorImages] = React.useState<
+    Record<string, UploadedImage[]>
+  >({});
   const [showCreateModal, setShowCreateModal] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [images, setImages] = React.useState<UploadedImage[]>([]);
@@ -262,7 +297,10 @@ export default function SellerProductsClient({
   >({});
   const [uploadingVariantFormImages, setUploadingVariantFormImages] =
     React.useState(false);
-  const [uploadingVariantImages, setUploadingVariantImages] = React.useState<
+  const [productColorImages, setProductColorImages] = React.useState<
+    Record<string, Record<string, string[]>>
+  >({});
+  const [uploadingProductColorImages, setUploadingProductColorImages] = React.useState<
     Record<string, boolean>
   >({});
 
@@ -446,7 +484,9 @@ export default function SellerProductsClient({
 
         return {
           ...parsed,
-          images: variant.images.map((image) => image.url),
+          images:
+            createColorImages[normalizeColorKey(parsed.color)]?.map((image) => image.url) ??
+            [],
         };
       });
 
@@ -468,6 +508,7 @@ export default function SellerProductsClient({
         occasionIds: [],
       });
       setCreateVariants([createDraftVariant()]);
+      setCreateColorImages({});
       setImages([]);
       setShowCreateModal(false);
 
@@ -499,7 +540,6 @@ export default function SellerProductsClient({
       const parsed = parseVariantInput(variantForm, "Variant");
       const result = await addVariantToProduct(productId, {
         ...parsed,
-        images: variantForm.images.map((image) => image.url),
       });
       toast.success("Variant added.");
       setVariantForm({
@@ -522,6 +562,7 @@ export default function SellerProductsClient({
             : product
         )
       );
+      await mutate();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Variant failed");
     }
@@ -536,6 +577,10 @@ export default function SellerProductsClient({
       isPublished: Boolean(product.isPublished),
       occasionIds: product.occasionIds ?? [],
     });
+    setProductColorImages((prev) => ({
+      ...prev,
+      [product.id]: getColorImageMapFromVariants(product.variants ?? []),
+    }));
   };
 
   const handleSaveProduct = async () => {
@@ -647,13 +692,21 @@ export default function SellerProductsClient({
     }
 
     try {
+      const colorValue = edit.color.trim() || null;
+      const ownerProduct = products.find((product: any) =>
+        (product.variants ?? []).some((variant: any) => variant.id === variantId)
+      );
+      const colorImages =
+        ownerProduct
+          ? productColorImages[ownerProduct.id]?.[normalizeColorKey(colorValue)] ?? []
+          : [];
       const result = await updateVariant(variantId, {
         size: edit.size.trim(),
         sku: edit.sku.trim(),
         sellerPrice,
         compareAtPrice: compareAt,
-        color: edit.color.trim() || null,
-        images: edit.images ?? [],
+        color: colorValue,
+        images: colorImages,
       });
       toast.success("Variant updated.");
       setVariantEditsOpen((prev) => ({ ...prev, [variantId]: false }));
@@ -675,6 +728,7 @@ export default function SellerProductsClient({
           ),
         }))
       );
+      await mutate();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Update failed");
     }
@@ -757,10 +811,12 @@ export default function SellerProductsClient({
     setImages((prev) => prev.filter((image) => image.fileId !== fileId));
   };
 
-  const handleUploadVariantFormImages = async (
+  const handleUploadCreateColorImages = async (
+    colorLabel: string,
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
     const files = Array.from(event.target.files ?? []);
+    const colorKey = normalizeColorKey(colorLabel);
     if (!files.length) return;
     if (!imagekit) {
       const missing = getMissingImageKitConfig();
@@ -772,9 +828,11 @@ export default function SellerProductsClient({
       return;
     }
 
-    const remaining = 5 - variantForm.images.length;
+    const existing = createColorImages[colorKey] ?? [];
+    const remaining = 5 - existing.length;
     if (remaining <= 0) {
-      toast.error("You can upload up to 5 variant images.");
+      toast.error("You can upload up to 5 color images.");
+      event.target.value = "";
       return;
     }
 
@@ -811,11 +869,11 @@ export default function SellerProductsClient({
         }
       );
 
-      setVariantForm((prev) => ({
+      setCreateColorImages((prev) => ({
         ...prev,
-        images: [...prev.images, ...uploaded],
+        [colorKey]: [...(prev[colorKey] ?? []), ...uploaded],
       }));
-      toast.success("Variant images uploaded.");
+      toast.success(`Images uploaded for ${getDisplayColorLabel(colorLabel)}.`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Image upload failed");
     } finally {
@@ -824,11 +882,13 @@ export default function SellerProductsClient({
     }
   };
 
-  const handleUploadVariantImages = async (
-    variantId: string,
+  const handleUploadProductColorImages = async (
+    productId: string,
+    colorLabel: string,
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
     const files = Array.from(event.target.files ?? []);
+    const colorKey = normalizeColorKey(colorLabel);
     if (!files.length) return;
     if (!imagekit) {
       const missing = getMissingImageKitConfig();
@@ -840,14 +900,18 @@ export default function SellerProductsClient({
       return;
     }
 
-    const existingImages = variantEdits[variantId]?.images ?? [];
-    const remaining = 5 - existingImages.length;
+    const existing = productColorImages[productId]?.[colorKey] ?? [];
+    const remaining = 5 - existing.length;
     if (remaining <= 0) {
-      toast.error("You can upload up to 5 variant images.");
+      toast.error("You can upload up to 5 color images.");
+      event.target.value = "";
       return;
     }
 
-    setUploadingVariantImages((prev) => ({ ...prev, [variantId]: true }));
+    setUploadingProductColorImages((prev) => ({
+      ...prev,
+      [`${productId}:${colorKey}`]: true,
+    }));
     try {
       const authResponse = await fetch(`${API_BASE_URL}/v1/imagekit/auth`);
       if (!authResponse.ok) {
@@ -880,23 +944,67 @@ export default function SellerProductsClient({
         }
       );
 
-      setVariantEdits((prev) => ({
+      setProductColorImages((prev) => ({
         ...prev,
-        [variantId]: {
-          size: prev[variantId]?.size ?? "",
-          sku: prev[variantId]?.sku ?? "",
-          sellerPrice: prev[variantId]?.sellerPrice ?? "",
-          compareAtPrice: prev[variantId]?.compareAtPrice ?? "",
-          color: prev[variantId]?.color ?? "",
-          images: [...(prev[variantId]?.images ?? []), ...uploaded],
+        [productId]: {
+          ...(prev[productId] ?? {}),
+          [colorKey]: [...((prev[productId] ?? {})[colorKey] ?? []), ...uploaded],
         },
       }));
-      toast.success("Variant images uploaded.");
+      toast.success(`Images uploaded for ${getDisplayColorLabel(colorLabel)}.`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Image upload failed");
     } finally {
-      setUploadingVariantImages((prev) => ({ ...prev, [variantId]: false }));
+      setUploadingProductColorImages((prev) => ({
+        ...prev,
+        [`${productId}:${colorKey}`]: false,
+      }));
       event.target.value = "";
+    }
+  };
+
+  const handleSaveProductColorImages = async (product: any, colorLabel: string) => {
+    const colorKey = normalizeColorKey(colorLabel);
+    const colorImages = productColorImages[product.id]?.[colorKey] ?? [];
+    const matchingVariants = (product.variants ?? []).filter((variant: any) => {
+      const currentColor = variantEdits[variant.id]?.color ?? String(variant.color ?? "");
+      return normalizeColorKey(currentColor) === colorKey;
+    });
+
+    if (matchingVariants.length === 0) {
+      toast.error("Add a variant for this color first.");
+      return;
+    }
+
+    try {
+      await Promise.all(
+        matchingVariants.map((variant: any) => {
+          const edit = variantEdits[variant.id];
+          const size = edit?.size ?? String(variant.size ?? "");
+          const sku = edit?.sku ?? String(variant.sku ?? "");
+          const sellerPrice = Number(edit?.sellerPrice ?? variant.sellerPrice ?? 0);
+          const compareAtRaw = edit?.compareAtPrice ?? variant.compareAtPrice;
+          const compareAtPrice =
+            compareAtRaw === null || compareAtRaw === undefined || compareAtRaw === ""
+              ? null
+              : Number(compareAtRaw);
+          const color = (edit?.color ?? String(variant.color ?? "")).trim() || null;
+
+          return updateVariant(variant.id, {
+            size,
+            sku,
+            sellerPrice,
+            compareAtPrice,
+            color,
+            images: colorImages,
+          });
+        })
+      );
+
+      toast.success(`Saved shared images for ${getDisplayColorLabel(colorLabel)}.`);
+      await mutate();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to save color images");
     }
   };
 
@@ -980,6 +1088,29 @@ export default function SellerProductsClient({
     });
   }, [products, searchQuery]);
 
+  const createColorGroups = React.useMemo(
+    () =>
+      Array.from(
+        createVariants.reduce(
+          (map, variant) => {
+            if (!variant.color.trim()) {
+              return map;
+            }
+            const key = normalizeColorKey(variant.color);
+            if (!map.has(key)) {
+              map.set(key, {
+                key,
+                label: getDisplayColorLabel(variant.color),
+              });
+            }
+            return map;
+          },
+          new Map<string, { key: string; label: string }>()
+        ).values()
+      ),
+    [createVariants]
+  );
+
   return (
     <div className="min-h-[calc(100vh-160px)] bg-background">
       <motion.div
@@ -1044,7 +1175,31 @@ export default function SellerProductsClient({
             </div>
           ) : (
             <div className="grid gap-6 md:grid-cols-2">
-              {filteredProducts.map((product: any, index: number) => (
+              {filteredProducts.map((product: any, index: number) => {
+                const sellerColorGroups = Array.from(
+                  (product.variants ?? []).reduce(
+                    (
+                      map: Map<string, { key: string; label: string }>,
+                      variant: any
+                    ) => {
+                      const currentColor = variantEdits[variant.id]?.color ?? String(variant.color ?? "");
+                      if (!currentColor.trim()) {
+                        return map;
+                      }
+                      const key = normalizeColorKey(currentColor);
+                      if (!map.has(key)) {
+                        map.set(key, {
+                          key,
+                          label: getDisplayColorLabel(currentColor),
+                        });
+                      }
+                      return map;
+                    },
+                    new Map<string, { key: string; label: string }>()
+                  ).values()
+                );
+
+                return (
                 <motion.div
                   key={product.id}
                   initial={{ opacity: 0, y: 8 }}
@@ -1218,6 +1373,89 @@ export default function SellerProductsClient({
                           Save Changes
                         </Button>
 
+                        {sellerColorGroups.length > 0 ? (
+                          <div className="mt-6 space-y-3 border-t border-border-soft pt-4">
+                            <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                              Color Galleries
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Images are shared across all sizes of the same color.
+                            </p>
+                            {sellerColorGroups.map((colorGroup) => (
+                              <div
+                                key={`${product.id}-${colorGroup.key}`}
+                                className="space-y-2 border border-border-soft p-3"
+                              >
+                                <div className="flex items-center justify-between gap-3">
+                                  <p className="text-xs font-medium uppercase tracking-[0.14em] text-foreground">
+                                    {colorGroup.label}
+                                  </p>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleSaveProductColorImages(product, colorGroup.label)}
+                                    disabled={product.deletedByAdmin}
+                                  >
+                                    Save Color Images
+                                  </Button>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                  {(productColorImages[product.id]?.[colorGroup.key] ?? []).map((imageUrl) => (
+                                    <div
+                                      key={`${colorGroup.key}-${imageUrl}`}
+                                      className="relative h-14 w-14 overflow-hidden border border-border-soft group"
+                                    >
+                                      <img
+                                        src={imageUrl}
+                                        alt={`${colorGroup.label} gallery`}
+                                        className="h-full w-full object-cover"
+                                      />
+                                      <button
+                                        type="button"
+                                        className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 transition-opacity group-hover:opacity-100"
+                                        onClick={() =>
+                                          setProductColorImages((prev) => ({
+                                            ...prev,
+                                            [product.id]: {
+                                              ...(prev[product.id] ?? {}),
+                                              [colorGroup.key]: (prev[product.id]?.[colorGroup.key] ?? []).filter(
+                                                (img) => img !== imageUrl
+                                              ),
+                                            },
+                                          }))
+                                        }
+                                      >
+                                        <X className="h-3.5 w-3.5 text-white" />
+                                      </button>
+                                    </div>
+                                  ))}
+                                  <label className="flex h-14 w-14 cursor-pointer items-center justify-center border border-dashed border-border-soft text-muted-foreground transition-colors hover:text-foreground">
+                                    {uploadingProductColorImages[`${product.id}:${colorGroup.key}`] ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <span className="text-lg">+</span>
+                                    )}
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      className="hidden"
+                                      multiple
+                                      onChange={(event) =>
+                                        handleUploadProductColorImages(product.id, colorGroup.label, event)
+                                      }
+                                      disabled={
+                                        uploadingProductColorImages[`${product.id}:${colorGroup.key}`] ||
+                                        product.deletedByAdmin
+                                      }
+                                    />
+                                  </label>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
+
                         {/* Product Media Management */}
                         <div className="mt-6 space-y-3 pt-4 border-t border-border-soft">
                           <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
@@ -1324,23 +1562,6 @@ export default function SellerProductsClient({
                               </div>
                             </div>
 
-                            {variant.images?.length ? (
-                              <div className="flex flex-wrap gap-2 border-t border-border-soft pt-3">
-                                {variant.images.slice(0, 5).map((imageUrl: string) => (
-                                  <div
-                                    key={imageUrl}
-                                    className="h-14 w-14 overflow-hidden border border-border-soft"
-                                  >
-                                    <img
-                                      src={imageUrl}
-                                      alt={`${variant.sku} variant`}
-                                      className="h-full w-full object-cover"
-                                    />
-                                  </div>
-                                ))}
-                              </div>
-                            ) : null}
-
                             {variantEditsOpen[variant.id] ? (
                               <div className="grid gap-3 sm:grid-cols-3 pt-4 border-t border-border-soft">
                                 <div className="space-y-1">
@@ -1427,56 +1648,6 @@ export default function SellerProductsClient({
                                     placeholder="Stock"
                                     disabled={product.deletedByAdmin}
                                   />
-                                </div>
-                                <div className="sm:col-span-3 space-y-2">
-                                  <Label className="text-xs">Variant Images</Label>
-                                  <div className="flex flex-wrap gap-2">
-                                    {(variantEdits[variant.id]?.images ?? []).map((imageUrl) => (
-                                      <div
-                                        key={`${variant.id}-${imageUrl}`}
-                                        className="relative h-14 w-14 overflow-hidden border border-border-soft group"
-                                      >
-                                        <img
-                                          src={imageUrl}
-                                          alt={`${variant.sku} image`}
-                                          className="h-full w-full object-cover"
-                                        />
-                                        <button
-                                          type="button"
-                                          className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity"
-                                          onClick={() =>
-                                            updateVariantEditState(variant.id, {
-                                              images: (variantEdits[variant.id]?.images ?? []).filter(
-                                                (img) => img !== imageUrl
-                                              ),
-                                            })
-                                          }
-                                        >
-                                          <X className="h-3.5 w-3.5 text-white" />
-                                        </button>
-                                      </div>
-                                    ))}
-                                    <label className="h-14 w-14 flex items-center justify-center border border-dashed border-border-soft text-muted-foreground hover:text-foreground cursor-pointer transition-colors">
-                                      {uploadingVariantImages[variant.id] ? (
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                      ) : (
-                                        <span className="text-lg">+</span>
-                                      )}
-                                      <input
-                                        type="file"
-                                        accept="image/*"
-                                        className="hidden"
-                                        multiple
-                                        onChange={(event) =>
-                                          handleUploadVariantImages(variant.id, event)
-                                        }
-                                        disabled={
-                                          uploadingVariantImages[variant.id] ||
-                                          product.deletedByAdmin
-                                        }
-                                      />
-                                    </label>
-                                  </div>
                                 </div>
                                 <div className="sm:col-span-3 flex flex-wrap gap-2 pt-2">
                                   <Button
@@ -1622,53 +1793,9 @@ export default function SellerProductsClient({
                             />
                           </div>
                           <div className="sm:col-span-2 space-y-2">
-                            <p className="text-xs text-muted-foreground">Variant Images</p>
-                            <div className="flex flex-wrap gap-2">
-                              {variantForm.images.map((image) => (
-                                <div
-                                  key={image.fileId}
-                                  className="relative h-14 w-14 overflow-hidden border border-border-soft group"
-                                >
-                                  <img
-                                    src={image.url}
-                                    alt="Variant preview"
-                                    className="h-full w-full object-cover"
-                                  />
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setVariantForm((prev) => ({
-                                        ...prev,
-                                        images: prev.images.filter(
-                                          (entry) => entry.fileId !== image.fileId
-                                        ),
-                                      }))
-                                    }
-                                    className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity"
-                                  >
-                                    <X className="h-3.5 w-3.5 text-white" />
-                                  </button>
-                                </div>
-                              ))}
-                              <label className="h-14 w-14 flex items-center justify-center border border-dashed border-border-soft text-muted-foreground hover:text-foreground cursor-pointer transition-colors">
-                                {uploadingVariantFormImages ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <span className="text-lg">+</span>
-                                )}
-                                <input
-                                  type="file"
-                                  accept="image/*"
-                                  className="hidden"
-                                  multiple
-                                  onChange={handleUploadVariantFormImages}
-                                  disabled={
-                                    uploadingVariantFormImages ||
-                                    product.deletedByAdmin
-                                  }
-                                />
-                              </label>
-                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              Size variants inherit images from their color gallery. Add the size first, then save images in the color gallery section above.
+                            </p>
                           </div>
                           <Button
                             className="sm:col-span-2"
@@ -1684,7 +1811,8 @@ export default function SellerProductsClient({
                     </div>
                   </div>
                 </motion.div>
-              ))}
+                );
+              })}
             </div>
           )}
         </section>
@@ -1931,6 +2059,84 @@ export default function SellerProductsClient({
                       </div>
                     ))}
                   </div>
+                </div>
+
+                <div className="space-y-4 border border-border-soft p-4">
+                  <div className="space-y-1">
+                    <Label>Color Galleries</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Upload one shared image set for each color. All sizes under that color will use the same gallery.
+                    </p>
+                  </div>
+                  {createColorGroups.length > 0 ? (
+                    <div className="space-y-3">
+                      {createColorGroups.map((colorGroup) => (
+                        <div
+                          key={colorGroup.key}
+                          className="space-y-2 border border-dashed border-border-soft p-3"
+                        >
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs font-medium uppercase tracking-[0.14em] text-foreground">
+                              {colorGroup.label}
+                            </p>
+                            <span className="text-xs text-muted-foreground">
+                              {(createColorImages[colorGroup.key] ?? []).length}/5 uploaded
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {(createColorImages[colorGroup.key] ?? []).map((image) => (
+                              <div
+                                key={image.fileId}
+                                className="group relative overflow-hidden border border-border-soft"
+                              >
+                                <img
+                                  src={image.url}
+                                  alt={`${colorGroup.label} preview`}
+                                  className="h-20 w-20 object-cover"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setCreateColorImages((prev) => ({
+                                      ...prev,
+                                      [colorGroup.key]: (prev[colorGroup.key] ?? []).filter(
+                                        (entry) => entry.fileId !== image.fileId
+                                      ),
+                                    }))
+                                  }
+                                  className="absolute right-2 top-2 rounded-full bg-charcoal/60 p-1 text-ivory opacity-0 transition group-hover:opacity-100"
+                                  aria-label="Remove color image"
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </div>
+                            ))}
+                            <label className="flex h-20 w-20 cursor-pointer items-center justify-center border border-dashed border-border-soft text-muted-foreground transition hover:text-foreground">
+                              {uploadingVariantFormImages ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <span className="text-lg">+</span>
+                              )}
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                multiple
+                                onChange={(event) =>
+                                  handleUploadCreateColorImages(colorGroup.label, event)
+                                }
+                                disabled={uploadingVariantFormImages}
+                              />
+                            </label>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      Add colors in the variant rows to manage shared galleries.
+                    </p>
+                  )}
                 </div>
 
                 {/* Image Upload */}

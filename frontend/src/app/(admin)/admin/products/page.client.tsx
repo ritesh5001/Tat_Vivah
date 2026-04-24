@@ -91,6 +91,35 @@ const formatTimestamp = (value?: string | null) => {
   });
 };
 
+const normalizeColorKey = (color?: string | null) => {
+  const normalized = color?.trim().toLowerCase();
+  return normalized && normalized.length > 0 ? normalized : "__no_color__";
+};
+
+const getDisplayColorLabel = (color?: string | null) => {
+  const trimmed = color?.trim();
+  return trimmed && trimmed.length > 0 ? trimmed : "Default";
+};
+
+const getColorImageMapFromVariants = (
+  variants: Array<{ color?: string | null; images?: string[] }>
+) => {
+  const next: Record<string, { label: string; images: string[] }> = {};
+
+  for (const variant of variants) {
+    if (!variant.color?.trim()) continue;
+    const key = normalizeColorKey(variant.color);
+    if (next[key]) continue;
+
+    next[key] = {
+      label: getDisplayColorLabel(variant.color),
+      images: (variant.images ?? []).filter((image) => typeof image === "string" && image.trim().length > 0),
+    };
+  }
+
+  return next;
+};
+
 export default function AdminProductsClient({
   initialData,
 }: {
@@ -123,7 +152,13 @@ export default function AdminProductsClient({
     isPublished: false,
   });
   const [editImages, setEditImages] = React.useState<string[]>([]);
+  const [editColorImages, setEditColorImages] = React.useState<
+    Record<string, { label: string; images: string[] }>
+  >({});
   const [uploadingEditImages, setUploadingEditImages] = React.useState(false);
+  const [uploadingEditColorImages, setUploadingEditColorImages] = React.useState<
+    Record<string, boolean>
+  >({});
   const [variantEditValues, setVariantEditValues] = React.useState<
     Record<
       string,
@@ -271,6 +306,7 @@ export default function AdminProductsClient({
       isPublished: false,
     });
     setEditImages([]);
+    setEditColorImages({});
     setVariantEditValues({});
   };
 
@@ -292,6 +328,7 @@ export default function AdminProductsClient({
         ? [...product.images]
         : []
     );
+    setEditColorImages(getColorImageMapFromVariants(product.variants ?? []));
 
     const variantState: Record<
       string,
@@ -456,6 +493,94 @@ export default function AdminProductsClient({
     }
   };
 
+  const handleUploadEditColorImages = async (
+    colorKey: string,
+    colorLabel: string,
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const inputElement = event.currentTarget;
+    const files = Array.from(inputElement.files ?? []);
+    if (!files.length) {
+      inputElement.value = "";
+      return;
+    }
+    if (!imagekit) {
+      inputElement.value = "";
+      const missing = getMissingImageKitConfig();
+      toast.error(
+        missing.length
+          ? `Missing env: ${missing.join(", ")}`
+          : "ImageKit is not configured."
+      );
+      return;
+    }
+
+    const currentCount = editColorImages[colorKey]?.images?.length ?? 0;
+    const remaining = 5 - currentCount;
+    if (remaining <= 0) {
+      inputElement.value = "";
+      toast.error("You can upload up to 5 images.");
+      return;
+    }
+
+    setUploadingEditColorImages((prev) => ({ ...prev, [colorKey]: true }));
+    try {
+      const authResponse = await fetch(`${API_BASE_URL}/v1/imagekit/auth`);
+      if (!authResponse.ok) {
+        const authData = await authResponse.json().catch(() => null);
+        const authMessage = authData?.message ?? "ImageKit auth failed.";
+        toast.error(authMessage);
+        return;
+      }
+
+      const authData = (await authResponse.json()) as {
+        signature: string;
+        token: string;
+        expire: number;
+      };
+
+      const uploadedUrls = await runWithConcurrency(
+        files.slice(0, remaining),
+        UPLOAD_PARALLELISM,
+        async (file) => {
+          const compressedFile = await compressImageForUpload(file);
+          const result = await imagekit.upload({
+            file: compressedFile,
+            fileName: compressedFile.name,
+            folder: "/tatvivah/variants",
+            useUniqueFileName: true,
+            signature: authData.signature,
+            token: authData.token,
+            expire: authData.expire,
+          });
+
+          return result.url;
+        }
+      );
+
+      setEditColorImages((prev) => ({
+        ...prev,
+        [colorKey]: {
+          label: colorLabel,
+          images: [...(prev[colorKey]?.images ?? []), ...uploadedUrls],
+        },
+      }));
+      toast.success(`Images uploaded for ${colorLabel}.`);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : (error as any)?.response?.data?.message ??
+          (error as any)?.response?.message ??
+          (error as any)?.message ??
+          "Image upload failed";
+      toast.error(message);
+    } finally {
+      setUploadingEditColorImages((prev) => ({ ...prev, [colorKey]: false }));
+      inputElement.value = "";
+    }
+  };
+
   const handleSaveEdit = async () => {
     if (!editingProduct) return;
 
@@ -482,6 +607,9 @@ export default function AdminProductsClient({
 
     const variantPayloads: AdminProductVariantUpdatePayload[] = [];
     for (const [variantId, fields] of Object.entries(variantEditValues)) {
+      const sourceVariant = (editingProduct.variants ?? []).find(
+        (variant: any) => variant.id === variantId
+      );
       const entry: AdminProductVariantUpdatePayload = { id: variantId };
       let touched = false;
 
@@ -543,6 +671,10 @@ export default function AdminProductsClient({
       }
 
       entry.status = fields.status;
+      touched = true;
+
+      const colorKey = normalizeColorKey(sourceVariant?.color ?? null);
+      entry.images = editColorImages[colorKey]?.images ?? [];
       touched = true;
 
       if (touched) {
@@ -1223,6 +1355,86 @@ export default function AdminProductsClient({
                     <p className="text-xs text-muted-foreground">Uploading images…</p>
                   )}
                 </div>
+
+                {Object.keys(editColorImages).length > 0 ? (
+                  <div className="space-y-3">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                      Color Galleries
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Each color uses one shared gallery across all its sizes.
+                    </p>
+                    <div className="space-y-3">
+                      {Object.entries(editColorImages).map(([colorKey, colorGroup]) => (
+                        <div
+                          key={colorKey}
+                          className="space-y-2 rounded border border-border-soft p-3"
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-xs font-medium uppercase tracking-[0.14em] text-foreground">
+                              {colorGroup.label}
+                            </p>
+                            <span className="text-xs text-muted-foreground">
+                              {colorGroup.images.length}/5 uploaded
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {colorGroup.images.map((imageUrl) => (
+                              <div
+                                key={`${colorKey}-${imageUrl}`}
+                                className="relative h-14 w-14 overflow-hidden border border-border-soft group"
+                              >
+                                <img
+                                  src={imageUrl}
+                                  alt={`${colorGroup.label} gallery`}
+                                  className="h-full w-full object-cover"
+                                />
+                                <button
+                                  type="button"
+                                  className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 transition-opacity group-hover:opacity-100"
+                                  onClick={() =>
+                                    setEditColorImages((prev) => ({
+                                      ...prev,
+                                      [colorKey]: {
+                                        ...prev[colorKey],
+                                        images: (prev[colorKey]?.images ?? []).filter(
+                                          (image) => image !== imageUrl
+                                        ),
+                                      },
+                                    }))
+                                  }
+                                >
+                                  <X className="h-3.5 w-3.5 text-white" />
+                                </button>
+                              </div>
+                            ))}
+                            <label className="flex h-14 w-14 cursor-pointer items-center justify-center border border-dashed border-border-soft text-muted-foreground transition hover:text-foreground">
+                              {uploadingEditColorImages[colorKey] ? (
+                                <span className="text-xs">...</span>
+                              ) : (
+                                <span className="text-lg">+</span>
+                              )}
+                              <input
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                className="hidden"
+                                onChange={(event) =>
+                                  handleUploadEditColorImages(
+                                    colorKey,
+                                    colorGroup.label,
+                                    event
+                                  )
+                                }
+                                disabled={uploadingEditColorImages[colorKey]}
+                              />
+                            </label>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
 
                 {(editingProduct.variants ?? []).length > 0 ? (
                   <div className="space-y-3">

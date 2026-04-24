@@ -574,9 +574,11 @@ export default function ProductDetailScreen() {
   const discountPercent = hasDiscount
     ? Math.round(((compareAtPrice - salePrice) / compareAtPrice) * 100)
     : 0;
+  const colorScopedImages =
+    variantsForColor.find((variant) => Array.isArray(variant.images) && variant.images.length > 0)?.images ?? [];
   const images =
-    fallbackVariant?.images?.length
-      ? fallbackVariant.images
+    colorScopedImages.length
+      ? colorScopedImages
       : product?.images?.length
         ? product.images
         : [fallbackImage];
@@ -589,6 +591,10 @@ export default function ProductDetailScreen() {
     Boolean(userId && reviews.length > 0 && reviews.some((r) => r.userId === userId));
   const outOfStock =
     fallbackVariant?.inventory != null && fallbackVariant.inventory.stock <= 0;
+
+  React.useEffect(() => {
+    setGalleryIndex(0);
+  }, [selectedColor, product?.id]);
 
   // ---- Handlers ----
   const handleAddToCart = React.useCallback(async () => {

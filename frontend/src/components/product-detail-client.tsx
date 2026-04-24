@@ -107,7 +107,6 @@ export default function ProductDetailClient({
 }: ProductDetailClientProps) {
   const router = useRouter();
   const [selectedColor, setSelectedColor] = React.useState("");
-  const [selectedPreviewIndex, setSelectedPreviewIndex] = React.useState(0);
   const [selectedVariantId, setSelectedVariantId] = React.useState(
     product.variants?.[0]?.id ?? ""
   );
@@ -223,28 +222,24 @@ export default function ProductDetailClient({
   );
   const salePrice = selectedVariant?.price ?? product.salePrice ?? product.adminPrice ?? product.price;
   const compareAtPrice = selectedVariant?.compareAtPrice ?? product.regularPrice ?? null;
-  const selectedVariantImages =
-    selectedVariant?.images?.length
-      ? selectedVariant.images
-      : product.images?.length
-        ? product.images
-        : [];
-
-  React.useEffect(() => {
-    setSelectedPreviewIndex(0);
-  }, [selectedVariantId]);
+  const selectedColorImages = React.useMemo(
+    () =>
+      variantsForColor.find((variant) => Array.isArray(variant.images) && variant.images.length > 0)?.images ??
+      (product.images?.length ? product.images : []),
+    [product.images, variantsForColor]
+  );
 
   React.useEffect(() => {
     if (!onVariantImagesChange) return;
 
-    const nextImages = selectedVariantImages.length
-      ? selectedVariantImages
+    const nextImages = selectedColorImages.length
+      ? selectedColorImages
       : product.images?.length
         ? product.images
         : ["/images/product-placeholder.svg"];
 
     onVariantImagesChange(nextImages);
-  }, [onVariantImagesChange, product.images, selectedVariantImages]);
+  }, [onVariantImagesChange, product.images, selectedColorImages]);
   const hasDiscount =
     typeof compareAtPrice === "number" &&
     typeof salePrice === "number" &&
@@ -495,33 +490,6 @@ export default function ProductDetailClient({
               })
             )}
           </div>
-          {selectedVariantImages.length > 0 && (
-            <div className="flex flex-wrap gap-2 pt-2">
-              {selectedVariantImages.slice(0, 4).map((image, index) => (
-                <button
-                  key={`${image}-${index}`}
-                  type="button"
-                  onClick={() => {
-                    setSelectedPreviewIndex(index);
-                    if (!onVariantImagesChange) return;
-
-                    const prioritizedImages = [
-                      selectedVariantImages[index],
-                      ...selectedVariantImages.filter((_, i) => i !== index),
-                    ].filter(Boolean) as string[];
-
-                    if (prioritizedImages.length > 0) {
-                      onVariantImagesChange(prioritizedImages);
-                    }
-                  }}
-                  className={`h-14 w-14 overflow-hidden border ${selectedPreviewIndex === index ? "border-gold" : "border-border-soft"}`}
-                  aria-label={`Preview variant image ${index + 1}`}
-                >
-                  <img src={image} alt={`Variant preview ${index + 1}`} className="h-full w-full object-cover" />
-                </button>
-              ))}
-            </div>
-          )}
         </div>
 
         {/* 4. Size Selection */}

@@ -46,6 +46,7 @@
     "verify:refund-race": "tsx scripts/simulate-refund-race.ts",
     "verify:commission-race": "tsx scripts/simulate-commission-race.ts",
     "verify:coupon-race": "tsx scripts/simulate-coupon-race.ts",
+    "normalize:color-images": "tsx scripts/normalize-color-variant-images.ts",
     "verify:stress": "tsx scripts/stress-test-all-domains.ts"
   },
   "prisma": {
