@@ -1037,7 +1037,7 @@ export default function AdminProductsClient({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-charcoal/50 p-4"
+            className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-charcoal/50 p-3 sm:p-4"
             onClick={closeEditModal}
           >
             <motion.div
@@ -1046,7 +1046,7 @@ export default function AdminProductsClient({
               exit={{ opacity: 0, y: 10, scale: 0.98 }}
               transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
               onClick={(event) => event.stopPropagation()}
-              className="w-full max-w-3xl space-y-6 border border-border-soft bg-card p-6"
+              className="my-3 max-h-[calc(100vh-1.5rem)] w-full max-w-3xl overflow-y-auto border border-border-soft bg-card p-6 shadow-xl sm:my-4 sm:max-h-[calc(100vh-2rem)]"
             >
               <div className="space-y-1">
                 <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-gold">
