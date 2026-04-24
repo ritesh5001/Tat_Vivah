@@ -43,6 +43,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 const UPLOAD_PARALLELISM = 3;
 
 type UploadedImage = { url: string; fileId: string; name: string };
+type ColorGroup = { key: string; label: string };
 type DraftVariant = {
   id: string;
   size: string;
@@ -1089,7 +1090,7 @@ export default function SellerProductsClient({
   }, [products, searchQuery]);
 
   const createColorGroups = React.useMemo(
-    () =>
+    (): ColorGroup[] =>
       Array.from(
         createVariants.reduce(
           (map, variant) => {
@@ -1105,7 +1106,7 @@ export default function SellerProductsClient({
             }
             return map;
           },
-          new Map<string, { key: string; label: string }>()
+          new Map<string, ColorGroup>()
         ).values()
       ),
     [createVariants]
@@ -1176,10 +1177,10 @@ export default function SellerProductsClient({
           ) : (
             <div className="grid gap-6 md:grid-cols-2">
               {filteredProducts.map((product: any, index: number) => {
-                const sellerColorGroups = Array.from(
+                const sellerColorGroups: ColorGroup[] = Array.from(
                   (product.variants ?? []).reduce(
                     (
-                      map: Map<string, { key: string; label: string }>,
+                      map: Map<string, ColorGroup>,
                       variant: any
                     ) => {
                       const currentColor = variantEdits[variant.id]?.color ?? String(variant.color ?? "");
@@ -1195,7 +1196,7 @@ export default function SellerProductsClient({
                       }
                       return map;
                     },
-                    new Map<string, { key: string; label: string }>()
+                    new Map<string, ColorGroup>()
                   ).values()
                 );
 
