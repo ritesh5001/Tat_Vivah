@@ -6,7 +6,7 @@ import { Search, X } from "lucide-react";
 import ImageKit from "imagekit-javascript";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { deleteProduct, getAllProducts, setProductPrice, updateProductDetails } from "@/services/admin";
+import { deleteProduct, getAllProducts, updateProductDetails } from "@/services/admin";
 import type {
   AdminProductUpdatePayload,
   AdminProductVariantUpdatePayload,
@@ -137,7 +137,9 @@ export default function AdminProductsClient({
   const [searchQuery, setSearchQuery] = React.useState("");
   const [categoryFilter, setCategoryFilter] = React.useState("all");
   const [selectedProduct, setSelectedProduct] = React.useState<any | null>(null);
-  const [adminPriceInput, setAdminPriceInput] = React.useState("");
+  const [approvalVariantPrices, setApprovalVariantPrices] = React.useState<
+    Record<string, string>
+  >({});
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
   const [bulkReason, setBulkReason] = React.useState("");
   const [showReasonModal, setShowReasonModal] = React.useState(false);
@@ -261,39 +263,68 @@ export default function AdminProductsClient({
 
   const openApproveModal = (product: any) => {
     setSelectedProduct(product);
-    const initialPrice =
-      product.adminListingPrice != null
-        ? String(product.adminListingPrice)
-        : product.sellerPrice != null
-          ? String(product.sellerPrice)
-          : "";
-    setAdminPriceInput(initialPrice);
+    const priceState: Record<string, string> = {};
+    (product.variants ?? []).forEach((variant: any) => {
+      priceState[variant.id] =
+        variant.adminListingPrice != null
+          ? String(variant.adminListingPrice)
+          : variant.sellerPrice != null
+            ? String(variant.sellerPrice)
+            : product.sellerPrice != null
+              ? String(product.sellerPrice)
+              : "";
+    });
+    setApprovalVariantPrices(priceState);
   };
 
   const submitApproval = async () => {
     if (!selectedProduct) return;
-    const nextPrice = Number(adminPriceInput);
-    if (Number.isNaN(nextPrice) || nextPrice <= 0) {
-      toast.error("Enter a valid admin listing price.");
+    if (!Array.isArray(selectedProduct.variants) || selectedProduct.variants.length === 0) {
+      toast.error("This product has no variants to approve.");
       return;
     }
-    const sellerPrice = Number(selectedProduct.sellerPrice ?? 0);
-    if (sellerPrice > 0 && nextPrice < sellerPrice) {
-      toast.error("Admin listing price cannot be lower than seller price.");
-      return;
+    const variantPayloads: AdminProductVariantUpdatePayload[] = [];
+
+    for (const variant of selectedProduct.variants ?? []) {
+      const priceInput = approvalVariantPrices[variant.id] ?? "";
+      const nextPrice = Number(priceInput);
+      const sellerPrice = Number(variant.sellerPrice ?? selectedProduct.sellerPrice ?? 0);
+
+      if (Number.isNaN(nextPrice) || nextPrice <= 0) {
+        toast.error(`Enter a valid admin listing price for SKU ${variant.sku}.`);
+        return;
+      }
+
+      if (sellerPrice > 0 && nextPrice < sellerPrice) {
+        toast.error(`Admin listing price cannot be lower than seller price for SKU ${variant.sku}.`);
+        return;
+      }
+
+      variantPayloads.push({
+        id: variant.id,
+        adminListingPrice: nextPrice,
+        status: "APPROVED",
+      });
     }
 
     try {
-      await setProductPrice(selectedProduct.id, nextPrice);
+      await updateProductDetails(selectedProduct.id, {
+        variants: variantPayloads,
+      });
       toast.success("Product approved successfully.");
       setSelectedProduct(null);
-      setAdminPriceInput("");
+      setApprovalVariantPrices({});
       await mutate();
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Unable to approve product"
       );
     }
+  };
+
+  const closeApproveModal = () => {
+    setSelectedProduct(null);
+    setApprovalVariantPrices({});
   };
 
   const resetEditModalState = () => {
@@ -1047,7 +1078,7 @@ export default function AdminProductsClient({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-center justify-center bg-charcoal/50 p-4"
-            onClick={() => setSelectedProduct(null)}
+            onClick={closeApproveModal}
           >
             <motion.div
               initial={{ opacity: 0, y: 12, scale: 0.98 }}
@@ -1069,28 +1100,49 @@ export default function AdminProductsClient({
                 </p>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                  Admin listing price
+                  Admin listing price per variant
                 </p>
-                <Input
-                  type="number"
-                  min="1"
-                  step="0.01"
-                  value={adminPriceInput}
-                  onChange={(event) => setAdminPriceInput(event.target.value)}
-                  placeholder="Enter admin listing price"
-                />
+                <div className="max-h-72 space-y-3 overflow-y-auto pr-1">
+                  {(selectedProduct.variants ?? []).map((variant: any) => (
+                    <div
+                      key={variant.id}
+                      className="space-y-2 rounded border border-border-soft p-3"
+                    >
+                      <p className="text-xs text-muted-foreground">
+                        {variant.color ? `${variant.color} · ` : ""}
+                        {variant.size ?? "Default"} · {variant.sku}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Seller price: {Number(variant.sellerPrice ?? 0) || "—"}
+                      </p>
+                      <Input
+                        type="number"
+                        min="1"
+                        step="0.01"
+                        value={approvalVariantPrices[variant.id] ?? ""}
+                        onChange={(event) =>
+                          setApprovalVariantPrices((prev) => ({
+                            ...prev,
+                            [variant.id]: event.target.value,
+                          }))
+                        }
+                        placeholder="Enter admin listing price"
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <div className="flex flex-wrap gap-3">
                 <Button size="sm" onClick={submitApproval}>
-                  Approve & Set Price
+                  Approve & Set Variant Prices
                 </Button>
                 <Button
                   size="sm"
                   variant="ghost"
-                  onClick={() => setSelectedProduct(null)}
+                  onClick={closeApproveModal}
                 >
                   Close
                 </Button>
