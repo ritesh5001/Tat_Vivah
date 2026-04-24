@@ -4,6 +4,18 @@ Multi-vendor e-commerce backend built with Express, Prisma, and PostgreSQL.
 
 ---
 
+## Render Deployment
+
+Use migration-safe commands in Render:
+
+- Build Command: `npm install && npm run build:render`
+- Start Command: `npm run start:render`
+- Health Check Path: `/health/live`
+
+Do not run `npm run start:render` as the build command. It starts a long-running server process and Render will terminate it during build.
+
+---
+
 ## Cancellation Engine Verification
 
 ### Apply Migration
