@@ -467,13 +467,26 @@ export default function ProductDetailScreen() {
   }, [productQuery.isLoading, productQuery.data]);
 
   React.useEffect(() => {
-    if (!product?.id) return;
-    setGalleryIndex(0);
-    setSelectedVariantId(product.variants?.[0]?.id ?? null);
-    if (product.variants?.[0]) {
-      setSelectedColor(normalizeColor(getVariantColorLabel(product.variants[0])));
+    const variants = product?.variants ?? [];
+    const currentVariant = variants.find((variant) => variant.id === selectedVariantId);
+
+    if (currentVariant) {
+      const nextColor = normalizeColor(getVariantColorLabel(currentVariant));
+      setSelectedColor((previousColor) => (
+        previousColor === nextColor ? previousColor : nextColor
+      ));
+      return;
     }
-  }, [product?.id, product?.variants]);
+
+    const firstVariant = variants[0];
+    if (firstVariant) {
+      setSelectedVariantId(firstVariant.id);
+      setSelectedColor(normalizeColor(getVariantColorLabel(firstVariant)));
+      return;
+    }
+
+    setSelectedColor("");
+  }, [product?.variants, selectedVariantId]);
 
   // ---- Track recently viewed (fire-and-forget) ----
   React.useEffect(() => {
@@ -574,11 +587,30 @@ export default function ProductDetailScreen() {
   const discountPercent = hasDiscount
     ? Math.round(((compareAtPrice - salePrice) / compareAtPrice) * 100)
     : 0;
-  const colorScopedImages =
-    variantsForColor.find((variant) => Array.isArray(variant.images) && variant.images.length > 0)?.images ?? [];
+  const selectedColorImages = React.useMemo(() => {
+    const selectedVariantImages =
+      selectedVariant?.images?.filter(
+        (image): image is string => typeof image === "string" && image.trim().length > 0
+      ) ?? [];
+
+    if (selectedVariantImages.length > 0) {
+      return selectedVariantImages;
+    }
+
+    const firstColorImageSet =
+      variantsForColor.find(
+        (variant) => Array.isArray(variant.images) && variant.images.length > 0
+      )?.images ?? [];
+
+    return firstColorImageSet.length > 0
+      ? firstColorImageSet
+      : product?.images?.length
+        ? product.images
+        : [];
+  }, [product?.images, selectedVariant, variantsForColor]);
   const images =
-    colorScopedImages.length
-      ? colorScopedImages
+    selectedColorImages.length
+      ? selectedColorImages
       : product?.images?.length
         ? product.images
         : [fallbackImage];
@@ -1043,7 +1075,7 @@ export default function ProductDetailScreen() {
           </View>
 
           {/* Stock indicator */}
-          {selectedVariant?.inventory != null && (
+          {fallbackVariant?.inventory != null && (
             <Text
               style={[
                 styles.stockText,
@@ -1052,8 +1084,8 @@ export default function ProductDetailScreen() {
             >
               {outOfStock
                 ? "Out of stock"
-                : selectedVariant.inventory.stock <= 5
-                  ? `Only ${selectedVariant.inventory.stock} left`
+                : fallbackVariant.inventory.stock <= 5
+                  ? `Only ${fallbackVariant.inventory.stock} left`
                   : "In stock"}
             </Text>
           )}
