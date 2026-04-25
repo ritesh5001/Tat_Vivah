@@ -74,6 +74,12 @@ function isTabRoute(pathname: string): boolean {
 
 /** Routes where the bottom bar should be hidden (focused flows with their own CTA). */
 const HIDDEN_ROUTE_PREFIXES = [
+  "/login",
+  "/register",
+  "/forgot-password",
+  "/request-otp",
+  "/verify-otp",
+  "/reset-password",
   "/product",
   "/checkout",
 ];
