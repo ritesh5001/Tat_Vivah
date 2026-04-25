@@ -62,6 +62,12 @@ async function verifyProduct() {
         LOG.error("Seller product response leaked admin price", sellerVariants[0]);
         process.exit(1);
     }
+    const navyVariantsAfterCreate = sellerVariants.filter((variant) => variant.color === "Navy");
+    if (navyVariantsAfterCreate.length !== 2 ||
+        navyVariantsAfterCreate.some((variant) => variant.images?.[0] !== "https://example.com/variant-m.jpg")) {
+        LOG.error("Same-color variants did not normalize to one shared gallery", sellerVariants);
+        process.exit(1);
+    }
     LOG.success(`Product created with ${sellerVariants.length} seller-managed variants`);
     LOG.step("4. Admin Reviews Variants");
     const adminToken = await ensureAdminToken();
@@ -116,6 +122,10 @@ async function verifyProduct() {
         LOG.error("Seller failed to add new variant", addVariantRes);
         process.exit(1);
     }
+    if (addVariantRes.data?.variant?.images?.[0] !== "https://example.com/variant-m.jpg") {
+        LOG.error("New size did not inherit the shared color gallery", addVariantRes.data?.variant);
+        process.exit(1);
+    }
     const detailAfterAddRes = await request(`/v1/products/${productId}`);
     const publicVariantsAfterAdd = detailAfterAddRes.data?.product?.variants ?? [];
     if (publicVariantsAfterAdd.some((variant) => variant.id === pendingVariantId)) {
@@ -134,6 +144,14 @@ async function verifyProduct() {
     }, sellerToken);
     if (repricingRes.status !== 200) {
         LOG.error("Seller variant repricing failed", repricingRes);
+        process.exit(1);
+    }
+    const sellerProductsAfterReprice = await request("/v1/seller/products", "GET", undefined, sellerToken);
+    const sellerProductAfterReprice = sellerProductsAfterReprice.data?.products?.find((item) => item.id === productId);
+    const navyVariantsAfterReprice = sellerProductAfterReprice?.variants?.filter((variant) => variant.color === "Navy") ?? [];
+    if (navyVariantsAfterReprice.length < 2 ||
+        navyVariantsAfterReprice.some((variant) => variant.images?.[0] !== "https://example.com/variant-m.jpg")) {
+        LOG.error("Same-color gallery drifted after seller variant update", navyVariantsAfterReprice);
         process.exit(1);
     }
     const detailAfterRepriceRes = await request(`/v1/products/${productId}`);

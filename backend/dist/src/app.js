@@ -7,7 +7,7 @@ import { register, httpRequestDuration, hotEndpointDurationMs, hotEndpointSlowTo
 import { prisma } from './config/db.js';
 import { checkRedisConnection } from './config/redis.js';
 import { logger } from './config/logger.js';
-import { authRouter, sellerRouter, categoryRouter, productRouter, sellerProductRouter, productMediaRouter, imagekitRouter, bestsellerRouter, cartRouter, checkoutRouter, couponRouter, orderRouter, sellerOrderRouter, appointmentRouter, cancellationRouter, returnRouter, paymentRouter, webhookRouter, sellerSettlementRouter, adminRouter, 
+import { authRouter, sellerRouter, categoryRouter, productRouter, sellerProductRouter, productMediaRouter, imagekitRouter, bestsellerRouter, tryOnRouter, cartRouter, checkoutRouter, couponRouter, orderRouter, sellerOrderRouter, appointmentRouter, cancellationRouter, returnRouter, paymentRouter, webhookRouter, sellerSettlementRouter, adminRouter, 
 // Shipping imports
 shipmentRouter, sellerShipmentRouter, adminShipmentRouter, adminNotificationRouter, reviewRouter, addressRouter, notificationRouter, wishlistRouter, searchRouter, personalizationRouter, liveRouter, sellerAnalyticsRouter, reelRouter, sellerReelRouter, adminReelRouter, occasionRouter, } from './routes/index.js';
 import { searchController } from './controllers/search.controller.js';
@@ -195,6 +195,7 @@ export function createApp() {
     app.use('/v1/seller/products', productMediaRouter);
     app.use('/v1/imagekit', imagekitRouter);
     app.use('/v1/bestsellers', bestsellerRouter);
+    app.use('/v1/try-on', tryOnRouter);
     // Address management
     app.use('/v1/addresses', addressRouter);
     // Cart & Orders domain

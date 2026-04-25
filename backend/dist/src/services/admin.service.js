@@ -13,6 +13,7 @@ import { getFromCache, setCache, CACHE_KEYS, invalidateCache, invalidateCacheByP
 import { notificationService } from '../notifications/notification.service.js';
 import { bestsellerService } from './bestseller.service.js';
 import { occasionService } from './occasion.service.js';
+import { applyColorScopedImages, arraysEqual, normalizeVariantColorKey, resolveColorScopedGallery, sanitizeVariantImages, } from './color-variant-images.service.js';
 import { calculateMargin } from '../utils/pricing.util.js';
 import { dispatchFreshness } from '../live/freshness.service.js';
 import { CACHE_TAGS, orderTag, productTag } from '../live/cache-tags.js';
@@ -384,13 +385,43 @@ export class AdminService {
         if (Object.keys(updatePayload).length > 0) {
             await productRepository.update(productId, updatePayload);
         }
-        const variantUpdates = payload.variants && payload.variants.length > 0
-            ? await Promise.all(payload.variants.map(async (variantInput) => {
+        const workingVariants = (product.variants ?? []).map((variant) => ({
+            id: variant.id,
+            size: variant.size ?? 'Default',
+            color: variant.color ?? null,
+            images: sanitizeVariantImages(variant.images ?? []),
+            sku: variant.sku,
+            sellerPrice: Number(variant.sellerPrice ?? 0),
+            adminListingPrice: variant.adminListingPrice == null ? null : Number(variant.adminListingPrice),
+            compareAtPrice: variant.compareAtPrice == null ? null : Number(variant.compareAtPrice),
+            status: variant.status,
+        }));
+        const variantUpdates = [];
+        if (payload.variants && payload.variants.length > 0) {
+            for (const variantInput of payload.variants) {
                 const variant = await variantRepository.findById(variantInput.id);
                 if (!variant || variant.productId !== productId) {
                     throw ApiError.badRequest('One or more variant updates are invalid');
                 }
-                const variantPayload = {};
+                const workingVariant = workingVariants.find((entry) => entry.id === variantInput.id);
+                const currentColor = workingVariant?.color ?? variant.color ?? null;
+                const nextColor = variantInput.color !== undefined ? variantInput.color : currentColor;
+                const siblingVariants = workingVariants.filter((entry) => entry.id !== variantInput.id);
+                const inferredImages = variantInput.images !== undefined
+                    ? sanitizeVariantImages(variantInput.images)
+                    : (() => {
+                        const inherited = resolveColorScopedGallery(siblingVariants, nextColor);
+                        if (inherited.length > 0) {
+                            return inherited;
+                        }
+                        if (normalizeVariantColorKey(currentColor) === normalizeVariantColorKey(nextColor)) {
+                            return sanitizeVariantImages(workingVariant?.images ?? variant.images);
+                        }
+                        return [];
+                    })();
+                const variantPayload = {
+                    images: inferredImages,
+                };
                 if (variantInput.size !== undefined) {
                     variantPayload.size = variantInput.size;
                 }
@@ -399,9 +430,6 @@ export class AdminService {
                 }
                 if (variantInput.sku !== undefined) {
                     variantPayload.sku = variantInput.sku;
-                }
-                if (variantInput.images !== undefined) {
-                    variantPayload.images = variantInput.images;
                 }
                 if (variantInput.sellerPrice !== undefined) {
                     variantPayload.sellerPrice = variantInput.sellerPrice;
@@ -439,15 +467,47 @@ export class AdminService {
                     nextCompareAt <= effectivePrice) {
                     throw ApiError.badRequest(`Compare-at price must be greater than effective selling price for variant ${variant.sku}`);
                 }
-                if (Object.keys(variantPayload).length > 0) {
-                    await variantRepository.update(variantInput.id, variantPayload);
-                }
+                await variantRepository.update(variantInput.id, variantPayload);
                 if (variantInput.stock !== undefined) {
                     await inventoryRepository.updateStock(variantInput.id, variantInput.stock);
                 }
-                return variantInput.id;
-            }))
-            : [];
+                const workingIndex = workingVariants.findIndex((entry) => entry.id === variantInput.id);
+                if (workingIndex >= 0) {
+                    const currentWorking = workingVariants[workingIndex];
+                    if (!currentWorking) {
+                        throw ApiError.badRequest('One or more variant updates are invalid');
+                    }
+                    workingVariants[workingIndex] = {
+                        ...currentWorking,
+                        id: currentWorking.id,
+                        size: variantInput.size ?? currentWorking.size,
+                        color: nextColor ?? null,
+                        images: inferredImages,
+                        sku: variantInput.sku ?? currentWorking.sku,
+                        sellerPrice: variantInput.sellerPrice ?? currentWorking.sellerPrice,
+                        adminListingPrice: variantInput.adminListingPrice !== undefined
+                            ? variantInput.adminListingPrice
+                            : currentWorking.adminListingPrice,
+                        compareAtPrice: variantInput.compareAtPrice !== undefined
+                            ? variantInput.compareAtPrice
+                            : currentWorking.compareAtPrice,
+                        status: variantInput.status ?? currentWorking.status,
+                    };
+                }
+                variantUpdates.push(variantInput.id);
+            }
+            const normalizedVariants = applyColorScopedImages(workingVariants);
+            for (const normalizedVariant of normalizedVariants) {
+                const currentVariant = workingVariants.find((entry) => entry.id === normalizedVariant.id);
+                if (!currentVariant || arraysEqual(currentVariant.images, normalizedVariant.images)) {
+                    continue;
+                }
+                await variantRepository.update(normalizedVariant.id, {
+                    images: normalizedVariant.images,
+                });
+                currentVariant.images = normalizedVariant.images;
+            }
+        }
         await productRepository.syncVariantSummary(productId);
         await Promise.allSettled([
             invalidateProductCaches(productId),

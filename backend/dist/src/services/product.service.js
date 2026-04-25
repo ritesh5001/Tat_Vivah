@@ -6,6 +6,7 @@ import { prisma } from '../config/db.js';
 import { getFromCache, setCache, invalidateProductCaches, CACHE_KEYS, } from '../utils/cache.util.js';
 import { ApiError } from '../errors/ApiError.js';
 import { occasionService } from './occasion.service.js';
+import { normalizeVariantColorKey, resolveColorScopedGallery, sanitizeVariantImages, } from './color-variant-images.service.js';
 import { dispatchFreshness } from '../live/freshness.service.js';
 import { CACHE_TAGS, productTag } from '../live/cache-tags.js';
 /**
@@ -366,20 +367,29 @@ export class ProductService {
      * Create a new product (seller only)
      */
     async createProduct(sellerId, data) {
+        const normalizedVariants = (data.variants ?? []).map((variant) => ({
+            size: variant.size,
+            color: variant.color ?? undefined,
+            images: sanitizeVariantImages(variant.images),
+            sku: variant.sku,
+            sellerPrice: variant.sellerPrice,
+            compareAtPrice: variant.compareAtPrice,
+            initialStock: variant.initialStock,
+        }));
         // Validate category exists
         const categoryExists = await this.categoryRepo.existsAndActive(data.categoryId);
         if (!categoryExists) {
             throw ApiError.badRequest('Invalid category ID');
         }
-        if (!Array.isArray(data.variants) || data.variants.length === 0) {
+        if (!Array.isArray(normalizedVariants) || normalizedVariants.length === 0) {
             throw ApiError.badRequest('At least one variant is required');
         }
-        for (const variant of data.variants) {
+        for (const variant of normalizedVariants) {
             this.validateCreateVariantPayload(variant);
         }
         const seenSkus = new Set();
         const seenCombos = new Set();
-        for (const variant of data.variants) {
+        for (const variant of normalizedVariants) {
             const skuKey = variant.sku.trim().toLowerCase();
             const comboKey = `${variant.size.trim().toLowerCase()}::${(variant.color ?? '').trim().toLowerCase()}`;
             if (seenSkus.has(skuKey)) {
@@ -391,7 +401,10 @@ export class ProductService {
             seenSkus.add(skuKey);
             seenCombos.add(comboKey);
         }
-        const product = await this.productRepo.create(sellerId, data);
+        const product = await this.productRepo.create(sellerId, {
+            ...data,
+            variants: normalizedVariants,
+        });
         // Sync occasion associations if provided
         if (data.occasionIds && data.occasionIds.length > 0) {
             await this.occasionSvc.syncProductOccasions(product.id, data.occasionIds);
@@ -486,7 +499,17 @@ export class ProductService {
             color: data.color,
             sku: data.sku,
         });
-        const variant = await this.variantRepo.create(productId, data);
+        const productWithDetails = await this.productRepo.findByIdWithDetails(productId);
+        if (!productWithDetails) {
+            throw ApiError.notFound('Product not found');
+        }
+        const resolvedImages = data.images !== undefined
+            ? sanitizeVariantImages(data.images)
+            : resolveColorScopedGallery(productWithDetails.variants ?? [], data.color);
+        const variant = await this.variantRepo.create(productId, {
+            ...data,
+            images: resolvedImages,
+        });
         await this.productRepo.syncVariantSummary(productId);
         // Invalidate caches
         await invalidateProductCaches(productId);
@@ -519,8 +542,28 @@ export class ProductService {
         const nextColor = data.color !== undefined ? data.color : variantWithProduct.color;
         const nextSku = data.sku ?? variantWithProduct.sku;
         await this.ensureProductVariantUniqueness(variantWithProduct.productId, { size: nextSize, color: nextColor, sku: nextSku }, variantId);
+        const productWithDetails = await this.productRepo.findByIdWithDetails(variantWithProduct.productId);
+        if (!productWithDetails) {
+            throw ApiError.notFound('Product not found');
+        }
+        const siblingVariants = (productWithDetails.variants ?? []).filter((variant) => variant.id !== variantId);
+        const currentColorKey = normalizeVariantColorKey(variantWithProduct.color);
+        const nextColorKey = normalizeVariantColorKey(nextColor);
+        const inferredImages = data.images !== undefined
+            ? sanitizeVariantImages(data.images)
+            : (() => {
+                const inherited = resolveColorScopedGallery(siblingVariants, nextColor);
+                if (inherited.length > 0) {
+                    return inherited;
+                }
+                if (currentColorKey === nextColorKey) {
+                    return sanitizeVariantImages(variantWithProduct.images);
+                }
+                return [];
+            })();
         const variant = await this.variantRepo.update(variantId, {
             ...data,
+            images: inferredImages,
             adminListingPrice: null,
             status: 'PENDING',
             rejectionReason: null,

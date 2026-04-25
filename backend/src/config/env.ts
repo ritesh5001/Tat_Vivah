@@ -68,6 +68,12 @@ const envSchema = z.object({
     IMAGEKIT_PRIVATE_KEY: z.string().optional(),
     IMAGEKIT_URL_ENDPOINT: z.string().optional(),
 
+    // FASHN virtual try-on
+    FASHN_API_KEY: z.string().optional(),
+    FASHN_TRYON_MODEL: z.enum(['tryon-max', 'tryon-v1.6']).default('tryon-max'),
+    FASHN_POLL_INTERVAL_MS: z.string().default('3000').transform(Number),
+    FASHN_POLL_TIMEOUT_MS: z.string().default('115000').transform(Number),
+
     // Razorpay
     RAZORPAY_KEY_ID: z.string().optional(),
     RAZORPAY_KEY_SECRET: z.string().optional(),

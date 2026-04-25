@@ -33,6 +33,10 @@ declare const envSchema: z.ZodObject<{
     IMAGEKIT_PUBLIC_KEY: z.ZodOptional<z.ZodString>;
     IMAGEKIT_PRIVATE_KEY: z.ZodOptional<z.ZodString>;
     IMAGEKIT_URL_ENDPOINT: z.ZodOptional<z.ZodString>;
+    FASHN_API_KEY: z.ZodOptional<z.ZodString>;
+    FASHN_TRYON_MODEL: z.ZodDefault<z.ZodEnum<["tryon-max", "tryon-v1.6"]>>;
+    FASHN_POLL_INTERVAL_MS: z.ZodEffects<z.ZodDefault<z.ZodString>, number, string | undefined>;
+    FASHN_POLL_TIMEOUT_MS: z.ZodEffects<z.ZodDefault<z.ZodString>, number, string | undefined>;
     RAZORPAY_KEY_ID: z.ZodOptional<z.ZodString>;
     RAZORPAY_KEY_SECRET: z.ZodOptional<z.ZodString>;
     RAZORPAY_WEBHOOK_SECRET: z.ZodOptional<z.ZodString>;
@@ -54,6 +58,9 @@ declare const envSchema: z.ZodObject<{
     LIVE_EVENTS_CHANNEL: string;
     RESEND_API_KEY: string;
     EMAIL_FROM: string;
+    FASHN_TRYON_MODEL: "tryon-max" | "tryon-v1.6";
+    FASHN_POLL_INTERVAL_MS: number;
+    FASHN_POLL_TIMEOUT_MS: number;
     RUN_BACKGROUND_JOBS?: boolean | undefined;
     BACKEND_WARMUP_URL?: string | undefined;
     DATABASE_URL_DIRECT?: string | undefined;
@@ -67,6 +74,7 @@ declare const envSchema: z.ZodObject<{
     IMAGEKIT_PUBLIC_KEY?: string | undefined;
     IMAGEKIT_PRIVATE_KEY?: string | undefined;
     IMAGEKIT_URL_ENDPOINT?: string | undefined;
+    FASHN_API_KEY?: string | undefined;
     RAZORPAY_KEY_ID?: string | undefined;
     RAZORPAY_KEY_SECRET?: string | undefined;
     RAZORPAY_WEBHOOK_SECRET?: string | undefined;
@@ -101,6 +109,10 @@ declare const envSchema: z.ZodObject<{
     IMAGEKIT_PUBLIC_KEY?: string | undefined;
     IMAGEKIT_PRIVATE_KEY?: string | undefined;
     IMAGEKIT_URL_ENDPOINT?: string | undefined;
+    FASHN_API_KEY?: string | undefined;
+    FASHN_TRYON_MODEL?: "tryon-max" | "tryon-v1.6" | undefined;
+    FASHN_POLL_INTERVAL_MS?: string | undefined;
+    FASHN_POLL_TIMEOUT_MS?: string | undefined;
     RAZORPAY_KEY_ID?: string | undefined;
     RAZORPAY_KEY_SECRET?: string | undefined;
     RAZORPAY_WEBHOOK_SECRET?: string | undefined;

@@ -22,6 +22,7 @@ import {
     productMediaRouter,
     imagekitRouter,
     bestsellerRouter,
+    tryOnRouter,
     cartRouter,
     checkoutRouter,
     couponRouter,
@@ -263,6 +264,7 @@ export function createApp(): Application {
     app.use('/v1/seller/products', productMediaRouter);
     app.use('/v1/imagekit', imagekitRouter);
     app.use('/v1/bestsellers', bestsellerRouter);
+    app.use('/v1/try-on', tryOnRouter);
 
     // Address management
     app.use('/v1/addresses', addressRouter);

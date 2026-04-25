@@ -45,6 +45,14 @@
         }
       ],
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow TatVivah to select a photo for virtual try-on and product reviews.",
+          "cameraPermission": "Allow TatVivah to take a photo for virtual try-on.",
+          "microphonePermission": "Allow TatVivah to record audio when capturing media."
+        }
+      ],
+      [
         "expo-build-properties",
         {
           "android": {
