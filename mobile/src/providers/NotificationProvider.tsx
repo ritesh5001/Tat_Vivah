@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useRouter } from "expo-router";
-import { AppState, type AppStateStatus } from "react-native";
+import { AppState, Platform, type AppStateStatus } from "react-native";
 import Constants from "expo-constants";
 import { useAuth } from "../hooks/useAuth";
 import { useToast } from "./ToastProvider";
@@ -72,6 +72,7 @@ export function NotificationProvider({
   const router = useRouter();
   const { showToast } = useToast();
   const isExpoGo = Constants.appOwnership === "expo";
+  const supportsNativePush = Platform.OS !== "web" && !isExpoGo;
 
   const [unreadCount, setUnreadCount] = React.useState(0);
   const mountedRef = React.useRef(true);
@@ -104,7 +105,7 @@ export function NotificationProvider({
       return;
     }
 
-    if (isExpoGo) {
+    if (!supportsNativePush) {
       refreshUnreadCount();
       return;
     }
@@ -133,11 +134,11 @@ export function NotificationProvider({
     return () => {
       cancelled = true;
     };
-  }, [token, refreshUnreadCount, isExpoGo]);
+  }, [token, refreshUnreadCount, supportsNativePush]);
 
   // ---- Foreground listener: toast + increment badge ----
   React.useEffect(() => {
-    if (!token || isExpoGo) return;
+    if (!token || !supportsNativePush) return;
 
     let subscription: { remove: () => void } | null = null;
     let active = true;
@@ -159,11 +160,11 @@ export function NotificationProvider({
       active = false;
       subscription?.remove();
     };
-  }, [token, isExpoGo, showToast, incrementUnread]);
+  }, [token, supportsNativePush, showToast, incrementUnread]);
 
   // ---- Tap / response listener: deep link ----
   React.useEffect(() => {
-    if (!token || isExpoGo) return;
+    if (!token || !supportsNativePush) return;
 
     let subscription: { remove: () => void } | null = null;
     let active = true;
@@ -186,7 +187,7 @@ export function NotificationProvider({
       active = false;
       subscription?.remove();
     };
-  }, [token, isExpoGo, router]);
+  }, [token, supportsNativePush, router]);
 
   // ---- Refresh count when app comes to foreground ----
   React.useEffect(() => {
