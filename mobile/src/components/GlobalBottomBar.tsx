@@ -23,6 +23,7 @@ const TAB_ROUTE_PREFIXES = [
   "/home",
   "/marketplace",
   "/reels",
+  "/try-buy",
   "/search",
   "/profile",
   "/cart",
@@ -54,9 +55,9 @@ const NAV_ITEMS: NavItem[] = [
     icon: (color) => <Ionicons name="play-circle-outline" size={22} color={color} />,
   },
   {
-    label: "Search",
-    path: "/search",
-    icon: (color) => <Ionicons name="search-outline" size={22} color={color} />,
+    label: "Try & Buy",
+    path: "/try-buy",
+    icon: (color) => <Ionicons name="sparkles-outline" size={22} color={color} />,
   },
   {
     label: "Profile",

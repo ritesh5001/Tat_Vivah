@@ -123,12 +123,12 @@ export default function TabsLayout() {
         listeners={tabListeners}
       />
       <Tabs.Screen
-        name="search/index"
+        name="try-buy/index"
         options={{
-          title: "Search",
+          title: "Try & Buy",
           tabBarIcon: ({ color, size, focused }) => (
             <TabIconScale focused={focused}>
-              <Ionicons name="search-outline" color={color} size={size} />
+              <Ionicons name="sparkles-outline" color={color} size={size} />
             </TabIconScale>
           ),
         }}
@@ -147,6 +147,12 @@ export default function TabsLayout() {
         listeners={tabListeners}
       />
 
+      <Tabs.Screen
+        name="search/index"
+        options={{
+          href: null,
+        }}
+      />
       <Tabs.Screen
         name="cart/index"
         options={{
