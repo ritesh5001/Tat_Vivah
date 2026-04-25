@@ -541,6 +541,7 @@ export default function SellerProductsClient({
       const parsed = parseVariantInput(variantForm, "Variant");
       const result = await addVariantToProduct(productId, {
         ...parsed,
+        images: variantForm.images.map((image) => image.url),
       });
       toast.success("Variant added.");
       setVariantForm({
@@ -810,6 +811,74 @@ export default function SellerProductsClient({
 
   const handleRemoveImage = (fileId: string) => {
     setImages((prev) => prev.filter((image) => image.fileId !== fileId));
+  };
+
+  const handleUploadVariantFormImages = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const files = Array.from(event.target.files ?? []);
+    if (!files.length) return;
+    if (!imagekit) {
+      const missing = getMissingImageKitConfig();
+      toast.error(
+        missing.length
+          ? `Missing env: ${missing.join(", ")}`
+          : "ImageKit is not configured."
+      );
+      return;
+    }
+
+    const remaining = 5 - variantForm.images.length;
+    if (remaining <= 0) {
+      toast.error("You can upload up to 5 variant images.");
+      event.target.value = "";
+      return;
+    }
+
+    setUploadingVariantFormImages(true);
+    try {
+      const authResponse = await fetch(`${API_BASE_URL}/v1/imagekit/auth`);
+      if (!authResponse.ok) {
+        toast.error("ImageKit auth failed.");
+        return;
+      }
+
+      const authData = (await authResponse.json()) as {
+        signature: string;
+        token: string;
+        expire: number;
+      };
+
+      const uploaded = await runWithConcurrency(
+        files.slice(0, remaining),
+        UPLOAD_PARALLELISM,
+        async (file) => {
+          const compressedFile = await compressImageForUpload(file);
+          const result = await imagekit.upload({
+            file: compressedFile,
+            fileName: compressedFile.name,
+            folder: "/tatvivah/variants",
+            useUniqueFileName: true,
+            signature: authData.signature,
+            token: authData.token,
+            expire: authData.expire,
+          });
+
+          return { url: result.url, fileId: result.fileId, name: result.name };
+        }
+      );
+
+      setVariantForm((prev) => ({
+        ...prev,
+        images: [...prev.images, ...uploaded],
+      }));
+      toast.success("Variant images uploaded.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Image upload failed");
+    } finally {
+      setUploadingVariantFormImages(false);
+      event.target.value = "";
+    }
   };
 
   const handleUploadCreateColorImages = async (
@@ -1794,9 +1863,53 @@ export default function SellerProductsClient({
                             />
                           </div>
                           <div className="sm:col-span-2 space-y-2">
-                            <p className="text-xs text-muted-foreground">
-                              Size variants inherit images from their color gallery. Add the size first, then save images in the color gallery section above.
-                            </p>
+                            <p className="text-xs text-muted-foreground">Variant Images</p>
+                            <div className="flex flex-wrap gap-2">
+                              {variantForm.images.map((image) => (
+                                <div
+                                  key={image.fileId}
+                                  className="relative h-14 w-14 overflow-hidden border border-border-soft group"
+                                >
+                                  <img
+                                    src={image.url}
+                                    alt="Variant preview"
+                                    className="h-full w-full object-cover"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setVariantForm((prev) => ({
+                                        ...prev,
+                                        images: prev.images.filter(
+                                          (entry) => entry.fileId !== image.fileId
+                                        ),
+                                      }))
+                                    }
+                                    className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 transition-opacity group-hover:opacity-100"
+                                  >
+                                    <X className="h-3.5 w-3.5 text-white" />
+                                  </button>
+                                </div>
+                              ))}
+                              <label className="flex h-14 w-14 cursor-pointer items-center justify-center border border-dashed border-border-soft text-muted-foreground transition-colors hover:text-foreground">
+                                {uploadingVariantFormImages ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <span className="text-lg">+</span>
+                                )}
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  multiple
+                                  onChange={handleUploadVariantFormImages}
+                                  disabled={
+                                    uploadingVariantFormImages ||
+                                    product.deletedByAdmin
+                                  }
+                                />
+                              </label>
+                            </div>
                           </div>
                           <Button
                             className="sm:col-span-2"
