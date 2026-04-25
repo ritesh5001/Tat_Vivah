@@ -53,6 +53,16 @@
         }
       ],
       [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Allow TatVivah to use your microphone for voice search.",
+          "speechRecognitionPermission": "Allow TatVivah to convert your speech into search text.",
+          "androidSpeechServicePackages": [
+            "com.google.android.googlequicksearchbox"
+          ]
+        }
+      ],
+      [
         "expo-build-properties",
         {
           "android": {
