@@ -7,6 +7,7 @@ import { CACHE_TAGS } from "@/lib/cache-tags";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 const SEARCH_PAGE_SIZE = 12;
+const SEARCH_REVALIDATE_SECONDS = 180;
 
 type SearchParams = {
   q?: string;
@@ -89,7 +90,10 @@ async function fetchSearchResults(query: string, page: number): Promise<{
     params.set("limit", String(SEARCH_PAGE_SIZE));
 
     const response = await fetch(`${API_BASE_URL}/v1/search?${params.toString()}`, {
-      next: { tags: [CACHE_TAGS.search, CACHE_TAGS.products] },
+      next: {
+        revalidate: SEARCH_REVALIDATE_SECONDS,
+        tags: [CACHE_TAGS.search, CACHE_TAGS.products],
+      },
     });
 
     if (!response.ok) {
@@ -180,7 +184,7 @@ export default async function SearchPage({
           </div>
         ) : items.length === 0 ? (
           <div className="border border-border-soft bg-card p-10 text-center text-sm text-muted-foreground">
-            No results found for "{query}".
+            No results found for &quot;{query}&quot;.
           </div>
         ) : (
           <>

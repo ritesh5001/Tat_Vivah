@@ -19,9 +19,11 @@ import { ApiError } from '../errors/ApiError.js';
 import { recordReturnFatal } from '../monitoring/alerts.js';
 import { notificationService } from '../notifications/notification.service.js';
 import { refundService } from './refund.service.js';
+import { CACHE_KEYS, getFromCache, invalidateCacheByPattern, setCache } from '../utils/cache.util.js';
 
 /** Maximum days after delivery that a return can be requested. */
 const RETURN_WINDOW_DAYS = 7;
+const RETURN_CACHE_TTL_SECONDS = 30;
 
 interface ReturnItemInput {
     orderItemId: string;
@@ -174,6 +176,11 @@ export class ReturnService {
             { orderId, userId, returnId: returnRequest.id, refundAmount, itemCount: items.length },
             'return_requested',
         );
+        await Promise.allSettled([
+            invalidateCacheByPattern(`returns:user:${userId}*`),
+            invalidateCacheByPattern('returns:admin:*'),
+            invalidateCacheByPattern(`orders:buyer:${userId}:*`),
+        ]);
 
         return returnRequest;
     }
@@ -183,6 +190,10 @@ export class ReturnService {
     // ------------------------------------------------------------------
 
     async getMyReturns(userId: string) {
+        const cacheKey = CACHE_KEYS.USER_RETURNS(userId);
+        const cached = await getFromCache<{ returns: unknown[] }>(cacheKey);
+        if (cached) return cached;
+
         const returns = await prisma.returnRequest.findMany({
             where: { userId },
             orderBy: { createdAt: 'desc' },
@@ -200,7 +211,9 @@ export class ReturnService {
             },
         });
 
-        return { returns };
+        const response = { returns };
+        await setCache(cacheKey, response, RETURN_CACHE_TTL_SECONDS);
+        return response;
     }
 
     // ------------------------------------------------------------------
@@ -251,6 +264,10 @@ export class ReturnService {
         userId?: string;
         orderId?: string;
     }) {
+        const cacheKey = CACHE_KEYS.ADMIN_RETURNS(filters.status, filters.userId, filters.orderId);
+        const cached = await getFromCache<{ returns: unknown[] }>(cacheKey);
+        if (cached) return cached;
+
         const returns = await prisma.returnRequest.findMany({
             where: {
                 ...(filters.status ? { status: filters.status } : {}),
@@ -284,7 +301,9 @@ export class ReturnService {
             },
         });
 
-        return { returns };
+        const response = { returns };
+        await setCache(cacheKey, response, RETURN_CACHE_TTL_SECONDS);
+        return response;
     }
 
     // ------------------------------------------------------------------
@@ -447,6 +466,13 @@ export class ReturnService {
             { orderId: txResult.orderId, userId: txResult.userId, adminId, returnId, alreadyApproved: txResult.alreadyApproved },
             'return_approved',
         );
+        await Promise.allSettled([
+            invalidateCacheByPattern(`returns:user:${txResult.userId}*`),
+            invalidateCacheByPattern('returns:admin:*'),
+            invalidateCacheByPattern(`orders:buyer:${txResult.userId}:*`),
+            ...txResult.sellerIds.map((sellerId) => invalidateCacheByPattern(`orders:seller:${sellerId}:*`)),
+            ...txResult.sellerIds.map((sellerId) => invalidateCacheByPattern(`seller:analytics:*:${sellerId}:*`)),
+        ]);
 
         return {
             success: true,
@@ -516,6 +542,11 @@ export class ReturnService {
             { orderId: existing.order.id, userId: existing.order.userId, adminId, returnId },
             'return_rejected',
         );
+        await Promise.allSettled([
+            invalidateCacheByPattern(`returns:user:${existing.order.userId}*`),
+            invalidateCacheByPattern('returns:admin:*'),
+            invalidateCacheByPattern(`orders:buyer:${existing.order.userId}:*`),
+        ]);
 
         return {
             success: true,
@@ -676,6 +707,12 @@ export class ReturnService {
             { orderId: txResult.orderId, userId: txResult.userId, adminId, returnId, refundTriggered, elapsedMs },
             'return_refund_processed',
         );
+        await Promise.allSettled([
+            invalidateCacheByPattern(`returns:user:${txResult.userId}*`),
+            invalidateCacheByPattern('returns:admin:*'),
+            invalidateCacheByPattern(`orders:buyer:${txResult.userId}:*`),
+            invalidateCacheByPattern('seller:analytics:*'),
+        ]);
 
         return { success: true, returnId, refundTriggered, alreadyRefunded: false };
     }

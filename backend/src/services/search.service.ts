@@ -202,7 +202,7 @@ export class SearchService {
                     data: [],
                     pagination: { page, limit: safeLimit, total: 0, totalPages: 0 },
                 };
-                await setCache(cacheKey, emptyResponse, 15);
+                await setCache(cacheKey, emptyResponse, 45);
                 return emptyResponse;
             }
 
@@ -218,7 +218,7 @@ export class SearchService {
             searchLogger.info({ q: normalizedQ, categoryId, sort, total, page }, 'search executed');
             timer();
             const response = { data, pagination: { page, limit: safeLimit, total, totalPages } };
-            await setCache(cacheKey, response, 60);
+            await setCache(cacheKey, response, 180);
             return response;
         } catch (error) {
             timer();
@@ -320,7 +320,7 @@ export class SearchService {
             title: r.title,
             category: r.categoryName ?? null,
         }));
-        await setCache(cacheKey, suggestions, 60);
+        await setCache(cacheKey, suggestions, 180);
         return suggestions;
     }
 
@@ -343,7 +343,7 @@ export class SearchService {
         }
 
         const results = await redis.zrange(TRENDING_KEY, 0, safeLimit - 1, { rev: true });
-        await setCache(cacheKey, results as string[], 30);
+        await setCache(cacheKey, results as string[], 120);
         return results as string[];
     }
 
@@ -435,7 +435,7 @@ export class SearchService {
         }
 
         searchLogger.debug({ productId, count: data.length }, 'related products');
-        await setCache(cacheKey, data, data.length === 0 ? 15 : 60);
+        await setCache(cacheKey, data, data.length === 0 ? 45 : 180);
         return data;
     }
 }

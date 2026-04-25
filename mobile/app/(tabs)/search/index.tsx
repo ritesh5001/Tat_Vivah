@@ -8,6 +8,7 @@ import {
   Modal,
 } from "react-native";
 import { FlashList } from "@shopify/flash-list";
+import { useQueryClient } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 import {
   ExpoSpeechRecognitionModule,
@@ -20,6 +21,7 @@ import { getCategories } from "../../../src/services/catalog";
 import {
   getProductsAndCache,
   getProductsCached,
+  getProductById,
   type ProductSummary,
 } from "../../../src/services/products";
 import { isAbortError } from "../../../src/services/api";
@@ -111,6 +113,7 @@ const CategoryChip = React.memo(function CategoryChip({
 
 export default function SearchScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { showToast } = useToast();
   const params = useLocalSearchParams<{ q?: string; categoryId?: string }>();
   const initialSearch = typeof params.q === "string" ? params.q : "";
@@ -456,9 +459,14 @@ export default function SearchScreen() {
 
   const handleProductPress = React.useCallback(
     (id: string) => {
+      void queryClient.prefetchQuery({
+        queryKey: ["product", id],
+        queryFn: ({ signal }) => getProductById(id, signal),
+        staleTime: 10 * 60 * 1000,
+      });
       router.push({ pathname: "/product/[id]", params: { id } });
     },
-    [router]
+    [queryClient, router]
   );
 
   // Stable renderItem — no inline closures

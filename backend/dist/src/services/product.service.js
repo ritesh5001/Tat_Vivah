@@ -336,7 +336,7 @@ export class ProductService {
                 totalPages: Math.ceil(total / limit),
             },
         };
-        await setCache(cacheKey, response, page === 1 ? 120 : 90);
+        await setCache(cacheKey, response, page === 1 ? 300 : 180);
         return response;
     }
     /**
@@ -357,7 +357,7 @@ export class ProductService {
         const coupons = await this.getActiveCouponsForSellers([product.sellerId]);
         const response = { product: this.toPublicProductDetail(product, coupons) };
         // Cache the result
-        await setCache(cacheKey, response, 60);
+        await setCache(cacheKey, response, 300);
         return response;
     }
     // =========================================================================

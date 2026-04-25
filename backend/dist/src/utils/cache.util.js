@@ -10,6 +10,20 @@ export const CACHE_KEYS = {
     PRODUCT_DETAIL: (id) => `products:detail:${id}`,
     SELLER_PRODUCTS: (sellerId, page, limit) => `products:seller:${sellerId}:${page}:${limit}`,
     BESTSELLERS_LIST: 'products:bestsellers',
+    // Auth-scoped dashboard/list reads. Keep TTLs short and always key by owner.
+    BUYER_ORDERS: (userId, page, limit, start, end) => `orders:buyer:${userId}:${page}:${limit}:${start ?? '_'}:${end ?? '_'}`,
+    BUYER_ORDER_DETAIL: (userId, orderId) => `orders:buyer:${userId}:detail:${orderId}`,
+    SELLER_ORDERS: (sellerId, page, limit, start, end) => `orders:seller:${sellerId}:${page}:${limit}:${start ?? '_'}:${end ?? '_'}`,
+    SELLER_ORDER_DETAIL: (sellerId, orderId) => `orders:seller:${sellerId}:detail:${orderId}`,
+    USER_ADDRESSES: (userId) => `addresses:user:${userId}`,
+    USER_WISHLIST: (userId) => `wishlist:user:${userId}`,
+    USER_WISHLIST_COUNT: (userId) => `wishlist:user:${userId}:count`,
+    USER_NOTIFICATIONS: (userId, page, limit) => `notifications:user:${userId}:${page}:${limit}`,
+    USER_UNREAD_NOTIFICATIONS: (userId) => `notifications:user:${userId}:unread`,
+    USER_CANCELLATIONS: (userId) => `cancellations:user:${userId}`,
+    ADMIN_CANCELLATIONS: (status, userId, orderId) => `cancellations:admin:${status ?? '_'}:${userId ?? '_'}:${orderId ?? '_'}`,
+    USER_RETURNS: (userId) => `returns:user:${userId}`,
+    ADMIN_RETURNS: (status, userId, orderId) => `returns:admin:${status ?? '_'}:${userId ?? '_'}:${orderId ?? '_'}`,
     // Occasions domain
     OCCASIONS_LIST: 'occasions:list',
     // Search domain
@@ -18,7 +32,6 @@ export const CACHE_KEYS = {
     SEARCH_RELATED: (productId, limit) => `search:related:${productId}:${limit}`,
     // Cart & Orders domain
     CART: (userId) => `cart:${userId}`,
-    BUYER_ORDERS: (userId) => `orders:buyer:${userId}`,
     ORDER_DETAIL: (orderId) => `orders:detail:${orderId}`,
     // Review domain
     PRODUCT_REVIEWS: (productId, page, limit, sort) => `reviews:${productId}:${page}:${limit}:${sort}`,
@@ -87,6 +100,24 @@ export async function invalidateProductCaches(productId) {
         tasks.push(invalidateCache(CACHE_KEYS.PRODUCT_DETAIL(productId)), invalidateCacheByPattern(`reviews:${productId}:*`), invalidateCacheByPattern(`search:related:${productId}:*`));
     }
     await Promise.allSettled(tasks);
+}
+export async function invalidateUserPrivateCaches(userId) {
+    await Promise.allSettled([
+        invalidateCacheByPattern(`orders:buyer:${userId}:*`),
+        invalidateCacheByPattern(`addresses:user:${userId}*`),
+        invalidateCacheByPattern(`wishlist:user:${userId}*`),
+        invalidateCacheByPattern(`notifications:user:${userId}:*`),
+        invalidateCacheByPattern(`cancellations:user:${userId}*`),
+        invalidateCacheByPattern(`returns:user:${userId}*`),
+    ]);
+}
+export async function invalidateSellerPrivateCaches(sellerId) {
+    await Promise.allSettled([
+        invalidateCacheByPattern(`orders:seller:${sellerId}:*`),
+        invalidateCacheByPattern(`products:seller:${sellerId}:*`),
+        invalidateCacheByPattern(`seller:analytics:*:${sellerId}:*`),
+        invalidateCacheByPattern(`seller:analytics:*:${sellerId}`),
+    ]);
 }
 /**
  * Invalidate category cache

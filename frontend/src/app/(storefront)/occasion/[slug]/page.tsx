@@ -7,13 +7,14 @@ import { SITE_URL } from "@/lib/site-config";
 import { CACHE_TAGS, occasionTag } from "@/lib/cache-tags";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+const OCCASION_REVALIDATE_SECONDS = 300;
 
 type OccasionItem = { id: string; name: string; slug: string; isActive: boolean; image?: string };
 
 async function fetchOccasions() {
     if (!API_BASE_URL) return [] as OccasionItem[];
     const response = await fetch(`${API_BASE_URL}/v1/occasions`, {
-        next: { tags: [CACHE_TAGS.occasions] },
+        next: { revalidate: OCCASION_REVALIDATE_SECONDS, tags: [CACHE_TAGS.occasions] },
     });
     if (!response.ok) return [] as OccasionItem[];
     const data = await response.json();
@@ -24,7 +25,10 @@ async function fetchProducts(occasionSlug: string, limit: number = 20) {
     if (!API_BASE_URL) return [];
     const query = new URLSearchParams({ occasion: occasionSlug, limit: String(limit) });
     const response = await fetch(`${API_BASE_URL}/v1/products?${query.toString()}`, {
-        next: { tags: [CACHE_TAGS.products, occasionTag(occasionSlug)] },
+        next: {
+            revalidate: OCCASION_REVALIDATE_SECONDS,
+            tags: [CACHE_TAGS.products, occasionTag(occasionSlug)],
+        },
     });
     if (!response.ok) return [];
     const data = await response.json();

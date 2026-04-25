@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import ProductDetailMain from "@/components/product-detail-main";
-import ProductDetailClient from "@/components/product-detail-client";
 import { ProductDetailDeferredSections } from "@/components/product-detail-deferred-sections";
 import { SITE_URL } from "@/lib/site-config";
 import { CACHE_TAGS, productTag } from "@/lib/cache-tags";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+const PRODUCT_REVALIDATE_SECONDS = 300;
 
 async function fetchProduct(id: string) {
   if (!API_BASE_URL) {
@@ -15,7 +15,10 @@ async function fetchProduct(id: string) {
   try {
     const response = await fetch(`${API_BASE_URL}/v1/products/${id}`, {
       cache: "force-cache",
-      next: { tags: [CACHE_TAGS.products, productTag(id)] },
+      next: {
+        revalidate: PRODUCT_REVALIDATE_SECONDS,
+        tags: [CACHE_TAGS.products, productTag(id)],
+      },
     });
     if (!response.ok) {
       return null;
@@ -161,7 +164,7 @@ export default async function ProductDetailPage({
                 Product Unavailable
               </p>
               <h1 className="font-serif text-3xl font-light text-foreground">
-                We couldn't load this product.
+                We couldn&apos;t load this product.
               </h1>
               <p className="text-sm text-muted-foreground">
                 Please return to the marketplace and try another listing.

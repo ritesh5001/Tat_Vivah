@@ -7,6 +7,7 @@ import { SITE_URL } from "@/lib/site-config";
 import { CACHE_TAGS, collectionTag } from "@/lib/cache-tags";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+const COLLECTION_REVALIDATE_SECONDS = 300;
 
 type CategoryItem = { id: string; name: string; slug?: string; isActive: boolean };
 
@@ -21,7 +22,7 @@ function slugify(value: string): string {
 async function fetchCategories() {
     if (!API_BASE_URL) return [] as CategoryItem[];
     const response = await fetch(`${API_BASE_URL}/v1/categories`, {
-        next: { tags: [CACHE_TAGS.categories] },
+        next: { revalidate: COLLECTION_REVALIDATE_SECONDS, tags: [CACHE_TAGS.categories] },
     });
     if (!response.ok) return [] as CategoryItem[];
     const data = await response.json();
@@ -32,7 +33,7 @@ async function fetchProducts(categoryId: string, limit: number = 20) {
     if (!API_BASE_URL) return [];
     const query = new URLSearchParams({ categoryId, limit: String(limit) });
     const response = await fetch(`${API_BASE_URL}/v1/products?${query.toString()}`, {
-        next: { tags: [CACHE_TAGS.products] },
+        next: { revalidate: COLLECTION_REVALIDATE_SECONDS, tags: [CACHE_TAGS.products] },
     });
     if (!response.ok) return [];
     const data = await response.json();
@@ -94,7 +95,10 @@ export default async function CollectionPage({ params }: Props) {
     }
 
     const productsResponse = await fetch(`${API_BASE_URL}/v1/products?${new URLSearchParams({ categoryId: category.id, limit: String(50) }).toString()}`, {
-        next: { tags: [CACHE_TAGS.products, collectionTag(slug)] },
+        next: {
+            revalidate: COLLECTION_REVALIDATE_SECONDS,
+            tags: [CACHE_TAGS.products, collectionTag(slug)],
+        },
     });
     const productsData = productsResponse.ok ? await productsResponse.json() : null;
     const products = productsData?.data ?? [];

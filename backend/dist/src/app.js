@@ -87,6 +87,14 @@ export function createApp() {
         const end = httpRequestDuration.startTimer();
         const startedAt = process.hrtime.bigint();
         const hotEndpoint = resolveHotEndpoint(req.path);
+        const originalWriteHead = res.writeHead.bind(res);
+        res.writeHead = ((...args) => {
+            if (!res.headersSent) {
+                const elapsedMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
+                res.setHeader('X-Response-Time', `${Math.round(elapsedMs)}ms`);
+            }
+            return originalWriteHead(...args);
+        });
         res.on('finish', () => {
             // Use route pattern if available, otherwise path
             const route = req.route?.path ?? req.path;

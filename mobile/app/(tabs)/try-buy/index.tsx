@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { Image } from "../../../src/components/CompatImage";
 import { AppHeader } from "../../../src/components/AppHeader";
@@ -22,7 +22,7 @@ import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
 import { useAuth } from "../../../src/hooks/useAuth";
 import { useNetworkStatus } from "../../../src/hooks/useNetworkStatus";
 import { useToast } from "../../../src/providers/ToastProvider";
-import { getProducts, type ProductItem } from "../../../src/services/products";
+import { getProductById, getProducts, type ProductItem } from "../../../src/services/products";
 import {
   createVirtualTryOn,
   type TryOnResult,
@@ -54,6 +54,7 @@ function productImage(product?: ProductItem | null): string {
 
 export default function TryBuyScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { session } = useAuth();
   const token = session?.accessToken ?? null;
   const { isConnected } = useNetworkStatus();
@@ -119,7 +120,7 @@ export default function TryBuyScreen() {
 
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ["images"],
-      quality: 0.86,
+      quality: 0.72,
       base64: true,
     });
 
@@ -137,7 +138,7 @@ export default function TryBuyScreen() {
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
-      quality: 0.86,
+      quality: 0.72,
       base64: true,
       allowsMultipleSelection: false,
     });
@@ -193,9 +194,14 @@ export default function TryBuyScreen() {
 
   const openSelectedProduct = React.useCallback(() => {
     if (!selectedProduct) return;
+    void queryClient.prefetchQuery({
+      queryKey: ["product", selectedProduct.id],
+      queryFn: ({ signal }) => getProductById(selectedProduct.id, signal),
+      staleTime: 10 * 60 * 1000,
+    });
     setIsResultVisible(false);
     router.push(`/product/${selectedProduct.id}`);
-  }, [router, selectedProduct]);
+  }, [queryClient, router, selectedProduct]);
 
   return (
     <SafeAreaView style={styles.safeArea}>

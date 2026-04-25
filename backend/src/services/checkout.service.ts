@@ -448,7 +448,7 @@ export class CheckoutService {
         await invalidateCache(CACHE_KEYS.CART(userId));
 
         void Promise.allSettled([
-            invalidateCacheByPattern(`${CACHE_KEYS.BUYER_ORDERS(userId)}:*`),
+            invalidateCacheByPattern(`orders:buyer:${userId}:*`),
             invalidateCacheByPattern(`orders:detail:*`),
             invalidateCacheByPattern(`recommendations:${userId}`),
             ...productIdsToInvalidate.map((productId) =>

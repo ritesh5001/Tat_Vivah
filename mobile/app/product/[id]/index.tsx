@@ -483,8 +483,8 @@ export default function ProductDetailScreen() {
     queryKey: ["product", productId],
     queryFn: ({ signal }) => getProductById(productId, signal),
     enabled: Boolean(productId),
-    staleTime: 1000 * 60 * 5,
-    gcTime: 1000 * 60 * 30,
+    staleTime: 1000 * 60 * 10,
+    gcTime: 1000 * 60 * 60,
   });
 
   React.useEffect(() => {

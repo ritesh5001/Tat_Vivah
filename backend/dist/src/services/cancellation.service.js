@@ -6,6 +6,8 @@ import { ApiError } from '../errors/ApiError.js';
 import { recordCancellationFatal } from '../monitoring/alerts.js';
 import { notificationService } from '../notifications/notification.service.js';
 import { refundService } from './refund.service.js';
+import { CACHE_KEYS, getFromCache, invalidateCacheByPattern, setCache } from '../utils/cache.util.js';
+const CANCELLATION_CACHE_TTL_SECONDS = 30;
 function isOrderCancellable(status) {
     return status === OrderStatus.PLACED || status === OrderStatus.CONFIRMED;
 }
@@ -83,9 +85,18 @@ export class CancellationService {
         orderCancelRequestTotal.inc();
         orderCancelTotal.inc();
         cancellationLogger.info({ orderId, userId, cancellationId: cancellation.id }, 'cancellation_requested');
+        await Promise.allSettled([
+            invalidateCacheByPattern(`cancellations:user:${userId}*`),
+            invalidateCacheByPattern('cancellations:admin:*'),
+            invalidateCacheByPattern(`orders:buyer:${userId}:*`),
+        ]);
         return cancellation;
     }
     async getMyCancellations(userId) {
+        const cacheKey = CACHE_KEYS.USER_CANCELLATIONS(userId);
+        const cached = await getFromCache(cacheKey);
+        if (cached)
+            return cached;
         const cancellations = await prisma.cancellationRequest.findMany({
             where: { userId },
             orderBy: { createdAt: 'desc' },
@@ -101,11 +112,17 @@ export class CancellationService {
                 },
             },
         });
-        return {
+        const response = {
             cancellations,
         };
+        await setCache(cacheKey, response, CANCELLATION_CACHE_TTL_SECONDS);
+        return response;
     }
     async listCancellations(filters) {
+        const cacheKey = CACHE_KEYS.ADMIN_CANCELLATIONS(filters.status, filters.userId, filters.orderId);
+        const cached = await getFromCache(cacheKey);
+        if (cached)
+            return cached;
         const cancellations = await prisma.cancellationRequest.findMany({
             where: {
                 ...(filters.status ? { status: filters.status } : {}),
@@ -139,7 +156,9 @@ export class CancellationService {
                 },
             },
         });
-        return { cancellations };
+        const response = { cancellations };
+        await setCache(cacheKey, response, CANCELLATION_CACHE_TTL_SECONDS);
+        return response;
     }
     async approveCancellation(adminId, cancellationId) {
         return this.approveCancellationInternal(adminId, cancellationId, 'ADMIN');
@@ -457,6 +476,13 @@ export class CancellationService {
             refundTriggered,
             alreadyCancelled: txResult.alreadyCancelled,
         }, 'cancellation_approved');
+        await Promise.allSettled([
+            invalidateCacheByPattern(`cancellations:user:${txResult.userId}*`),
+            invalidateCacheByPattern('cancellations:admin:*'),
+            invalidateCacheByPattern(`orders:buyer:${txResult.userId}:*`),
+            ...txResult.sellerIds.map((sellerId) => invalidateCacheByPattern(`orders:seller:${sellerId}:*`)),
+            ...txResult.sellerIds.map((sellerId) => invalidateCacheByPattern(`seller:analytics:*:${sellerId}:*`)),
+        ]);
         return {
             success: true,
             orderId: txResult.orderId,
@@ -521,6 +547,11 @@ export class CancellationService {
             paymentStatus: null,
             refundTriggered: false,
         }, 'cancellation_rejected');
+        await Promise.allSettled([
+            invalidateCacheByPattern(`cancellations:user:${existing.order.userId}*`),
+            invalidateCacheByPattern('cancellations:admin:*'),
+            invalidateCacheByPattern(`orders:buyer:${existing.order.userId}:*`),
+        ]);
         return {
             success: true,
             cancellationId: updated.id,

@@ -6,8 +6,10 @@ import { ApiError } from '../errors/ApiError.js';
 import { recordReturnFatal } from '../monitoring/alerts.js';
 import { notificationService } from '../notifications/notification.service.js';
 import { refundService } from './refund.service.js';
+import { CACHE_KEYS, getFromCache, invalidateCacheByPattern, setCache } from '../utils/cache.util.js';
 /** Maximum days after delivery that a return can be requested. */
 const RETURN_WINDOW_DAYS = 7;
+const RETURN_CACHE_TTL_SECONDS = 30;
 export class ReturnService {
     // ------------------------------------------------------------------
     // Buyer: Request Return
@@ -124,12 +126,21 @@ export class ReturnService {
         await notificationService.notifyAdmin('Return request raised', `Buyer ${userId} requested return for order ${orderId} (${items.length} item(s), refund ₹${refundAmount})`);
         returnRequestTotal.inc();
         returnLogger.info({ orderId, userId, returnId: returnRequest.id, refundAmount, itemCount: items.length }, 'return_requested');
+        await Promise.allSettled([
+            invalidateCacheByPattern(`returns:user:${userId}*`),
+            invalidateCacheByPattern('returns:admin:*'),
+            invalidateCacheByPattern(`orders:buyer:${userId}:*`),
+        ]);
         return returnRequest;
     }
     // ------------------------------------------------------------------
     // Buyer: List My Returns
     // ------------------------------------------------------------------
     async getMyReturns(userId) {
+        const cacheKey = CACHE_KEYS.USER_RETURNS(userId);
+        const cached = await getFromCache(cacheKey);
+        if (cached)
+            return cached;
         const returns = await prisma.returnRequest.findMany({
             where: { userId },
             orderBy: { createdAt: 'desc' },
@@ -146,7 +157,9 @@ export class ReturnService {
                 },
             },
         });
-        return { returns };
+        const response = { returns };
+        await setCache(cacheKey, response, RETURN_CACHE_TTL_SECONDS);
+        return response;
     }
     // ------------------------------------------------------------------
     // Buyer: Get Single Return
@@ -187,6 +200,10 @@ export class ReturnService {
     // Admin: List Returns
     // ------------------------------------------------------------------
     async listReturns(filters) {
+        const cacheKey = CACHE_KEYS.ADMIN_RETURNS(filters.status, filters.userId, filters.orderId);
+        const cached = await getFromCache(cacheKey);
+        if (cached)
+            return cached;
         const returns = await prisma.returnRequest.findMany({
             where: {
                 ...(filters.status ? { status: filters.status } : {}),
@@ -219,7 +236,9 @@ export class ReturnService {
                 },
             },
         });
-        return { returns };
+        const response = { returns };
+        await setCache(cacheKey, response, RETURN_CACHE_TTL_SECONDS);
+        return response;
     }
     // ------------------------------------------------------------------
     // Admin: Approve Return (restocks inventory)
@@ -363,6 +382,13 @@ export class ReturnService {
         }
         returnApprovedTotal.inc();
         returnLogger.info({ orderId: txResult.orderId, userId: txResult.userId, adminId, returnId, alreadyApproved: txResult.alreadyApproved }, 'return_approved');
+        await Promise.allSettled([
+            invalidateCacheByPattern(`returns:user:${txResult.userId}*`),
+            invalidateCacheByPattern('returns:admin:*'),
+            invalidateCacheByPattern(`orders:buyer:${txResult.userId}:*`),
+            ...txResult.sellerIds.map((sellerId) => invalidateCacheByPattern(`orders:seller:${sellerId}:*`)),
+            ...txResult.sellerIds.map((sellerId) => invalidateCacheByPattern(`seller:analytics:*:${sellerId}:*`)),
+        ]);
         return {
             success: true,
             orderId: txResult.orderId,
@@ -420,6 +446,11 @@ export class ReturnService {
         });
         returnRejectedTotal.inc();
         returnLogger.info({ orderId: existing.order.id, userId: existing.order.userId, adminId, returnId }, 'return_rejected');
+        await Promise.allSettled([
+            invalidateCacheByPattern(`returns:user:${existing.order.userId}*`),
+            invalidateCacheByPattern('returns:admin:*'),
+            invalidateCacheByPattern(`orders:buyer:${existing.order.userId}:*`),
+        ]);
         return {
             success: true,
             returnId: updated.id,
@@ -559,6 +590,12 @@ export class ReturnService {
         const elapsedMs = Date.now() - startMs;
         returnProcessingTimeMs.observe(elapsedMs);
         returnLogger.info({ orderId: txResult.orderId, userId: txResult.userId, adminId, returnId, refundTriggered, elapsedMs }, 'return_refund_processed');
+        await Promise.allSettled([
+            invalidateCacheByPattern(`returns:user:${txResult.userId}*`),
+            invalidateCacheByPattern('returns:admin:*'),
+            invalidateCacheByPattern(`orders:buyer:${txResult.userId}:*`),
+            invalidateCacheByPattern('seller:analytics:*'),
+        ]);
         return { success: true, returnId, refundTriggered, alreadyRefunded: false };
     }
 }

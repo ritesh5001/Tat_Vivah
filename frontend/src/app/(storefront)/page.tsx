@@ -111,13 +111,14 @@ const faqJsonLd = {
 };
 
 const API_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+const HOME_REVALIDATE_SECONDS = 300;
 
 async function fetchHomeData<T>(path: string, tags: string[]): Promise<T | null> {
   if (!API_URL) return null;
 
   try {
     const response = await fetch(`${API_URL}${path}`, {
-      next: { tags },
+      next: { revalidate: HOME_REVALIDATE_SECONDS, tags },
     });
 
     if (!response.ok) {
