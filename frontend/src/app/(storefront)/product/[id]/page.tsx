@@ -12,14 +12,18 @@ async function fetchProduct(id: string) {
   if (!API_BASE_URL) {
     return null;
   }
-  const response = await fetch(`${API_BASE_URL}/v1/products/${id}`, {
-    cache: "force-cache",
-    next: { tags: [CACHE_TAGS.products, productTag(id)] },
-  });
-  if (!response.ok) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/v1/products/${id}`, {
+      cache: "force-cache",
+      next: { tags: [CACHE_TAGS.products, productTag(id)] },
+    });
+    if (!response.ok) {
+      return null;
+    }
+    return response.json();
+  } catch {
     return null;
   }
-  return response.json();
 }
 
 /* ── Dynamic SEO metadata ── */

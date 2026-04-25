@@ -13,8 +13,6 @@ import {
 import { ApiError } from '../errors/ApiError.js';
 import { OccasionService, occasionService } from './occasion.service.js';
 import {
-    applyColorScopedImages,
-    buildColorScopedImageUpdates,
     normalizeVariantColorKey,
     resolveColorScopedGallery,
     sanitizeVariantImages,
@@ -386,33 +384,6 @@ export class ProductService {
         });
     }
 
-    private async syncProductColorImages(productId: string): Promise<void> {
-        const product = await this.productRepo.findByIdWithDetails(productId);
-        if (!product) {
-            throw ApiError.notFound('Product not found');
-        }
-
-        const updates = buildColorScopedImageUpdates(
-            (product.variants ?? []).map((variant) => ({
-                id: variant.id,
-                color: variant.color ?? null,
-                images: variant.images ?? [],
-            }))
-        );
-
-        if (updates.length === 0) {
-            return;
-        }
-
-        await Promise.all(
-            updates.map((variant) =>
-                this.variantRepo.update(variant.id, {
-                    images: variant.images,
-                })
-            )
-        );
-    }
-
     // =========================================================================
     // PUBLIC METHODS (Buyer)
     // =========================================================================
@@ -496,17 +467,10 @@ export class ProductService {
         sellerId: string,
         data: CreateProductRequest
     ): Promise<ProductCreateResponse> {
-        const normalizedVariants: CreateVariantRequest[] = applyColorScopedImages(
-            (data.variants ?? []).map((variant, index) => ({
-                ...variant,
-                id: `create-${index}`,
-                color: variant.color ?? null,
-                images: variant.images ?? [],
-            }))
-        ).map(({ id: _id, ...variant }) => ({
+        const normalizedVariants: CreateVariantRequest[] = (data.variants ?? []).map((variant) => ({
             size: variant.size,
             color: variant.color ?? undefined,
-            images: variant.images,
+            images: sanitizeVariantImages(variant.images),
             sku: variant.sku,
             sellerPrice: variant.sellerPrice,
             compareAtPrice: variant.compareAtPrice,
@@ -688,7 +652,6 @@ export class ProductService {
             ...data,
             images: resolvedImages,
         });
-        await this.syncProductColorImages(productId);
         await this.productRepo.syncVariantSummary(productId);
 
         // Invalidate caches
@@ -770,7 +733,6 @@ export class ProductService {
             approvedAt: null,
             approvedById: null,
         });
-        await this.syncProductColorImages(variantWithProduct.productId);
         await this.productRepo.syncVariantSummary(variantWithProduct.productId);
 
         // Invalidate caches

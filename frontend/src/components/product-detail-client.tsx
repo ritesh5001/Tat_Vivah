@@ -222,12 +222,27 @@ export default function ProductDetailClient({
   );
   const salePrice = selectedVariant?.price ?? product.salePrice ?? product.adminPrice ?? product.price;
   const compareAtPrice = selectedVariant?.compareAtPrice ?? product.regularPrice ?? null;
-  const selectedColorImages = React.useMemo(
-    () =>
-      variantsForColor.find((variant) => Array.isArray(variant.images) && variant.images.length > 0)?.images ??
-      (product.images?.length ? product.images : []),
-    [product.images, variantsForColor]
-  );
+  const selectedColorImages = React.useMemo(() => {
+    const selectedVariantImages =
+      selectedVariant?.images?.filter(
+        (image): image is string => typeof image === "string" && image.trim().length > 0
+      ) ?? [];
+
+    if (selectedVariantImages.length > 0) {
+      return selectedVariantImages;
+    }
+
+    const firstColorImageSet =
+      variantsForColor.find(
+        (variant) => Array.isArray(variant.images) && variant.images.length > 0
+      )?.images ?? [];
+
+    return firstColorImageSet.length > 0
+      ? firstColorImageSet
+      : product.images?.length
+        ? product.images
+        : [];
+  }, [product.images, selectedVariant, variantsForColor]);
 
   React.useEffect(() => {
     if (!onVariantImagesChange) return;
