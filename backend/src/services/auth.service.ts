@@ -248,10 +248,6 @@ export class AuthService {
             throw ApiError.forbidden('Account not active');
         }
 
-        if ((user.role === 'USER' || user.role === 'SELLER') && !user.isPhoneVerified) {
-            throw ApiError.forbidden('Mobile verification required', { phone: user.phone });
-        }
-
         // 4. Return response
         return this.issueTokens({
             id: user.id,

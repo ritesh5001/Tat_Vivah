@@ -203,16 +203,7 @@ export default function LoginPage() {
     } catch (error) {
       console.error("Login error:", error);
       const message = error instanceof Error ? error.message : "Invalid credentials";
-      if (message.toLowerCase().includes("verification")) {
-        toast.error("Please verify your mobile number with OTP to continue.");
-        const phone = (error as Error & { phone?: string }).phone;
-        const redirectUrl = phone
-          ? `/verify-otp?method=phone&phone=${encodeURIComponent(phone)}`
-          : `/verify-otp?method=phone`;
-        router.replace(redirectUrl);
-      } else {
-        toast.error(message);
-      }
+      toast.error(message);
     } finally {
       setLoading(false);
     }
