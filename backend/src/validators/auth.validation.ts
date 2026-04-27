@@ -139,9 +139,9 @@ export type LogoutInput = z.infer<typeof logoutSchema>;
  * POST /v1/auth/request-otp
  */
 export const requestOtpSchema = z.object({
-    email: z
+    phone: z
         .string()
-        .email('Invalid email address'),
+        .regex(/^\+?\d{10,15}$/, 'Phone must be 10-15 digits'),
 });
 
 export type RequestOtpInput = z.infer<typeof requestOtpSchema>;
@@ -151,9 +151,9 @@ export type RequestOtpInput = z.infer<typeof requestOtpSchema>;
  * POST /v1/auth/verify-otp
  */
 export const verifyOtpSchema = z.object({
-    email: z
+    phone: z
         .string()
-        .email('Invalid email address'),
+        .regex(/^\+?\d{10,15}$/, 'Phone must be 10-15 digits'),
     otp: z
         .string()
         .min(4, 'OTP is required'),

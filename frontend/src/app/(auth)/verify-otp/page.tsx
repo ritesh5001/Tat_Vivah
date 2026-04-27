@@ -13,16 +13,16 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { requestEmailOtp, verifyEmailOtp, persistAuthCookies } from "@/services/auth";
+import { requestPhoneOtp, verifyPhoneOtp, persistAuthCookies } from "@/services/auth";
 import { toast } from "sonner";
 import { heroContainerVariants, heroItemVariants } from "@/lib/motion.config";
 
 function VerifyOtpContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const prefill = searchParams.get("email") ?? "";
+  const prefill = searchParams.get("phone") ?? "";
 
-  const [email, setEmail] = React.useState(prefill);
+  const [phone, setPhone] = React.useState(prefill);
   const [otp, setOtp] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [sending, setSending] = React.useState(false);
@@ -30,18 +30,18 @@ function VerifyOtpContent() {
   const handleVerify = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!email || !otp) {
-      toast.error("Enter email and OTP.");
+    if (!phone || !otp) {
+      toast.error("Enter mobile number and OTP.");
       return;
     }
 
     setLoading(true);
     try {
-      const result = await verifyEmailOtp({ email, otp });
+      const result = await verifyPhoneOtp({ phone, otp });
       if (result.accessToken && result.refreshToken && result.user) {
         persistAuthCookies(result.accessToken, result.refreshToken, result.user);
 
-        toast.success("Email verified successfully.");
+        toast.success("Mobile number verified successfully.");
 
         const role = result.user.role?.toUpperCase();
         const redirectMap: Record<string, string> = {
@@ -53,7 +53,7 @@ function VerifyOtpContent() {
 
         router.push(redirectMap[role] ?? "/");
       } else {
-        toast.success(result.message ?? "Email verified. Await admin approval.");
+        toast.success(result.message ?? "Mobile number verified. Await admin approval.");
         router.push("/login");
       }
     } catch (error) {
@@ -64,14 +64,14 @@ function VerifyOtpContent() {
   };
 
   const handleResend = async () => {
-    if (!email) {
-      toast.error("Enter your email first.");
+    if (!phone) {
+      toast.error("Enter your mobile number first.");
       return;
     }
     setSending(true);
     try {
-      await requestEmailOtp(email);
-      toast.success("OTP sent to your email.");
+      await requestPhoneOtp(phone);
+      toast.success("OTP sent to your mobile number.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "OTP request failed");
     } finally {
@@ -100,13 +100,13 @@ function VerifyOtpContent() {
           >
             Confirm your
             <br />
-            <span className="italic">email address</span>.
+            <span className="italic">mobile number</span>.
           </motion.h1>
           <motion.p
             variants={heroItemVariants}
             className="text-base leading-relaxed text-muted-foreground"
           >
-            We sent a 6-digit OTP to your email. Enter it below to activate your
+            We sent a 6-digit OTP to your mobile number. Enter it below to activate your
             account.
           </motion.p>
         </motion.div>
@@ -123,19 +123,18 @@ function VerifyOtpContent() {
                 Verify OTP
               </CardTitle>
               <CardDescription>
-                Enter your email and OTP to continue.
+                Enter your mobile number and OTP to continue.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
               <form className="space-y-5" onSubmit={handleVerify}>
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email address</Label>
+                  <Label htmlFor="phone">Mobile number</Label>
                   <Input
-                    id="email"
-                    type="email"
-                    placeholder="you@email.com"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
+                    id="phone"
+                    placeholder="9876543210"
+                    value={phone}
+                    onChange={(event) => setPhone(event.target.value)}
                     disabled={Boolean(prefill)}
                   />
                 </div>

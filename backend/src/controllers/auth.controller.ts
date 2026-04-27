@@ -115,7 +115,7 @@ export class AuthController {
 
     /**
      * POST /v1/auth/request-otp
-     * Request email verification OTP
+     * Request mobile verification OTP
      */
     requestOtp = async (
         req: Request,
@@ -124,7 +124,7 @@ export class AuthController {
     ): Promise<void> => {
         try {
             const validatedData = requestOtpSchema.parse(req.body);
-            const result = await this.service.requestEmailOtp(validatedData.email);
+            const result = await this.service.requestPhoneOtp(validatedData.phone);
             res.status(200).json(result);
         } catch (error) {
             if (error instanceof ZodError) {
@@ -143,7 +143,7 @@ export class AuthController {
 
     /**
      * POST /v1/auth/verify-otp
-     * Verify email OTP and activate account
+     * Verify mobile OTP and activate account
      */
     verifyOtp = async (
         req: Request,
@@ -152,8 +152,8 @@ export class AuthController {
     ): Promise<void> => {
         try {
             const validatedData = verifyOtpSchema.parse(req.body);
-            const result = await this.service.verifyEmailOtp(
-                validatedData.email,
+            const result = await this.service.verifyPhoneOtp(
+                validatedData.phone,
                 validatedData.otp
             );
             res.status(200).json(result);

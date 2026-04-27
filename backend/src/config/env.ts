@@ -63,6 +63,10 @@ const envSchema = z.object({
     RESEND_API_KEY: z.string().min(1, 'RESEND_API_KEY is required'),
     EMAIL_FROM: z.string().email('EMAIL_FROM must be a valid email'),
 
+    // Fast2SMS
+    FAST2SMS_API_KEY: z.string().min(1, 'FAST2SMS_API_KEY is required').optional(),
+    FAST2SMS_BASE_URL: z.string().url('FAST2SMS_BASE_URL must be a valid URL').default('https://www.fast2sms.com/dev/bulkV2'),
+
     // ImageKit
     IMAGEKIT_PUBLIC_KEY: z.string().optional(),
     IMAGEKIT_PRIVATE_KEY: z.string().optional(),

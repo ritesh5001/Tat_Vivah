@@ -19,7 +19,7 @@ export default function LoginScreen() {
   const router = useRouter();
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const { signIn } = useAuth();
-  const [email, setEmail] = React.useState("");
+  const [identifierValue, setIdentifierValue] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -33,9 +33,9 @@ export default function LoginScreen() {
   }, [returnTo]);
 
   const handleLogin = React.useCallback(async () => {
-    const identifier = email.trim().toLowerCase();
+    const identifier = identifierValue.trim().toLowerCase();
     if (!identifier || !password) {
-      setError("Please enter email and password.");
+      setError("Please enter email/mobile and password.");
       return;
     }
 
@@ -49,23 +49,23 @@ export default function LoginScreen() {
     } finally {
       setLoading(false);
     }
-  }, [email, password, signIn, router, safeReturnTo]);
+  }, [identifierValue, password, signIn, router, safeReturnTo]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <AppHeader title="Sign In" showMenu showBack />
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <Text style={styles.heading}>Welcome To TatVivah</Text>
-        <Text style={styles.subHeading}>Sign in with your email to continue your luxury wedding edit.</Text>
+        <Text style={styles.subHeading}>Sign in with your email or mobile number to continue your luxury wedding edit.</Text>
 
         <View style={styles.formCard}>
-          <Text style={styles.label}>Email Address</Text>
+          <Text style={styles.label}>Email or Mobile</Text>
           <TextInput
-            value={email}
-            onChangeText={setEmail}
+            value={identifierValue}
+            onChangeText={setIdentifierValue}
             keyboardType="email-address"
             autoCapitalize="none"
-            placeholder="you@example.com"
+            placeholder="you@example.com or 9876543210"
             placeholderTextColor={colors.textSecondary}
             style={styles.input}
           />

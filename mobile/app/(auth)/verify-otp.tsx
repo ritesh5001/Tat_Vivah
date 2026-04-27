@@ -12,7 +12,7 @@ import {
 
 export default function VerifyOtpScreen() {
   const router = useRouter();
-  const { email } = useLocalSearchParams<{ email?: string }>();
+  const { phone } = useLocalSearchParams<{ phone?: string }>();
   const { signInWithOtp } = useAuth();
   const [otp, setOtp] = React.useState("");
   const [loading, setLoading] = React.useState(false);
@@ -21,11 +21,11 @@ export default function VerifyOtpScreen() {
   const [message, setMessage] = React.useState<string | null>(null);
 
   const handleVerify = React.useCallback(async () => {
-    const normalizedEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
+    const normalizedPhone = typeof phone === "string" ? phone.trim() : "";
     const code = otp.trim();
 
-    if (!normalizedEmail) {
-      setError("Missing email. Please request OTP again.");
+    if (!normalizedPhone) {
+      setError("Missing mobile number. Please request OTP again.");
       return;
     }
     if (code.length !== 6) {
@@ -37,7 +37,7 @@ export default function VerifyOtpScreen() {
     setError(null);
     setMessage(null);
     try {
-      const responseMessage = await signInWithOtp({ email: normalizedEmail, otp: code });
+      const responseMessage = await signInWithOtp({ phone: normalizedPhone, otp: code });
       if (responseMessage) {
         setMessage(responseMessage);
         return;
@@ -48,12 +48,12 @@ export default function VerifyOtpScreen() {
     } finally {
       setLoading(false);
     }
-  }, [email, otp, signInWithOtp, router]);
+  }, [phone, otp, signInWithOtp, router]);
 
   const handleResend = React.useCallback(async () => {
-    const normalizedEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
-    if (!normalizedEmail) {
-      setError("Missing email. Please request OTP again.");
+    const normalizedPhone = typeof phone === "string" ? phone.trim() : "";
+    if (!normalizedPhone) {
+      setError("Missing mobile number. Please request OTP again.");
       return;
     }
 
@@ -61,20 +61,20 @@ export default function VerifyOtpScreen() {
     setError(null);
     setMessage(null);
     try {
-      const result = await requestOtp({ email: normalizedEmail });
+      const result = await requestOtp({ phone: normalizedPhone });
       setMessage(result.message || "OTP sent again.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not resend OTP");
     } finally {
       setResending(false);
     }
-  }, [email]);
+  }, [phone]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <Text style={styles.heading}>VERIFY OTP</Text>
-        <Text style={styles.subHeading}>Enter the 6-digit code sent to your email</Text>
+        <Text style={styles.subHeading}>Enter the 6-digit code sent to your mobile number</Text>
 
         <TextInput
           value={otp}

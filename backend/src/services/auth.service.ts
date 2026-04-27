@@ -20,6 +20,7 @@ import { generateOtpCode, hashOtp } from '../utils/otp.util.js';
 import { otpRepository } from '../repositories/otp.repository.js';
 import { sendEmail } from '../notifications/email/resend.client.js';
 import { renderBrandedEmail } from '../notifications/email/templates/layout.js';
+import { normalizeIndianMobile } from './fast2sms.service.js';
 import { OtpPurpose } from '@prisma/client';
 import type { Role, UserStatus } from '@prisma/client';
 import { randomUUID } from 'crypto';
@@ -104,8 +105,9 @@ export class AuthService {
      * 4. No JWT generation, no auto-login
      */
     async registerUser(data: RegisterUserRequest): Promise<RegisterSuccessResponse> {
+        const phone = normalizeIndianMobile(data.phone);
         // 1. Check if email or phone already exists
-        const exists = await this.repository.existsByEmailOrPhone(data.email, data.phone);
+        const exists = await this.repository.existsByEmailOrPhone(data.email, phone);
         if (exists) {
             throw ApiError.conflict('Email or phone already in use');
         }
@@ -116,7 +118,7 @@ export class AuthService {
         // 3. Send OTP for signup (account will be created after verification)
         const payload: SignupOtpPayload = {
             email: data.email,
-            phone: data.phone,
+            phone,
             passwordHash,
             role: 'USER',
             fullName: data.fullName,
@@ -125,7 +127,7 @@ export class AuthService {
 
         // 4. Return success message (no token, no auto-login)
         return {
-            message: 'OTP sent to your email',
+            message: 'OTP sent to your mobile number',
         };
     }
 
@@ -141,8 +143,10 @@ export class AuthService {
      * 5. Seller cannot login until approved
      */
     async registerSeller(data: RegisterSellerRequest): Promise<RegisterSuccessResponse> {
+        const phone = normalizeIndianMobile(data.phone);
+        const whatsappNumber = normalizeIndianMobile(data.whatsappNumber);
         // 1. Check if email or phone already exists
-        const exists = await this.repository.existsByEmailOrPhone(data.email, data.phone);
+        const exists = await this.repository.existsByEmailOrPhone(data.email, phone);
         if (exists) {
             throw ApiError.conflict('Email or phone already in use');
         }
@@ -153,8 +157,8 @@ export class AuthService {
         // 3. Send OTP for signup (account will be created after verification)
         const payload: SignupOtpPayload = {
             email: data.email,
-            phone: data.phone,
-            whatsappNumber: data.whatsappNumber,
+            phone,
+            whatsappNumber,
             passwordHash,
             role: 'SELLER',
         };
@@ -162,7 +166,7 @@ export class AuthService {
 
         // 4. Return success message (no token, pending approval)
         return {
-            message: 'OTP sent to your email. Verify to complete seller registration.',
+            message: 'OTP sent to your mobile number. Verify to complete seller registration.',
         };
     }
 
@@ -244,8 +248,8 @@ export class AuthService {
             throw ApiError.forbidden('Account not active');
         }
 
-        if ((user.role === 'USER' || user.role === 'SELLER') && !user.isEmailVerified) {
-            throw ApiError.forbidden('Email verification required');
+        if ((user.role === 'USER' || user.role === 'SELLER') && !user.isPhoneVerified) {
+            throw ApiError.forbidden('Mobile verification required');
         }
 
         // 4. Return response
@@ -260,28 +264,29 @@ export class AuthService {
         }, userAgent, ipAddress);
     }
 
-    async requestEmailOtp(email: string): Promise<{ message: string }> {
-        const user = await this.repository.findUserByEmail(email);
+    async requestPhoneOtp(phone: string): Promise<{ message: string }> {
+        const normalizedPhone = normalizeIndianMobile(phone);
+        const user = await this.repository.findUserByPhone(normalizedPhone);
         if (!user) {
-            const payload = await otpService.getLatestSignupPayload(email);
+            const payload = await otpService.getLatestSignupPayload(normalizedPhone);
             if (!payload) {
                 throw ApiError.notFound('User not found');
             }
 
             await otpService.sendSignupOtp(payload);
-            return { message: 'OTP sent to email' };
+            return { message: 'OTP sent to mobile number' };
         }
 
-        if (user.isEmailVerified) {
-            return { message: 'Email already verified' };
+        if (user.isPhoneVerified) {
+            return { message: 'Mobile number already verified' };
         }
 
-        await otpService.sendEmailVerificationOtp(user.id, user.email ?? email);
-        return { message: 'OTP sent to email' };
+        await otpService.sendPhoneVerificationOtp(user.id, user.phone ?? normalizedPhone);
+        return { message: 'OTP sent to mobile number' };
     }
 
-    async verifyEmailOtp(email: string, code: string): Promise<LoginResponse | MessageResponse> {
-        const otp = await otpService.verifyEmailOtp(email, code);
+    async verifyPhoneOtp(phone: string, code: string): Promise<LoginResponse | MessageResponse> {
+        const otp = await otpService.verifyPhoneOtp(phone, code);
         if (otp.userId) {
             const user = await this.repository.findUserById(otp.userId);
             if (!user) {
@@ -299,7 +304,7 @@ export class AuthService {
 
             const updated = await this.repository.updateUser(user.id, {
                 status: nextStatus,
-                isEmailVerified: true,
+                isPhoneVerified: true,
             });
 
             return this.issueTokens({
@@ -331,8 +336,8 @@ export class AuthService {
             passwordHash: payload.passwordHash,
             role: payload.role,
             status,
-            isEmailVerified: true,
-            isPhoneVerified: false,
+            isEmailVerified: false,
+            isPhoneVerified: true,
         }).catch((error: any) => {
             if (error?.code === 'P2002' || String(error?.message ?? '').includes('Unique constraint')) {
                 throw ApiError.conflict('Email or phone already in use');
@@ -342,7 +347,7 @@ export class AuthService {
 
         if (created.role === 'SELLER') {
             return {
-                message: 'Email verified. Seller account pending admin approval.',
+                message: 'Mobile number verified. Seller account pending admin approval.',
             };
         }
 

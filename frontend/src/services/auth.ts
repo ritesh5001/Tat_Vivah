@@ -203,7 +203,7 @@ export async function registerAdmin(
   return data as RegisterResponse;
 }
 
-export async function requestEmailOtp(email: string): Promise<OtpRequestResponse> {
+export async function requestPhoneOtp(phone: string): Promise<OtpRequestResponse> {
   if (!API_BASE_URL) {
     throw new Error("API base URL is not configured");
   }
@@ -213,7 +213,7 @@ export async function requestEmailOtp(email: string): Promise<OtpRequestResponse
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ email }),
+    body: JSON.stringify({ phone }),
   });
 
   const data = await response.json().catch(() => null);
@@ -227,8 +227,8 @@ export async function requestEmailOtp(email: string): Promise<OtpRequestResponse
   return data as OtpRequestResponse;
 }
 
-export async function verifyEmailOtp(payload: {
-  email: string;
+export async function verifyPhoneOtp(payload: {
+  phone: string;
   otp: string;
 }): Promise<VerifyOtpResponse> {
   if (!API_BASE_URL) {

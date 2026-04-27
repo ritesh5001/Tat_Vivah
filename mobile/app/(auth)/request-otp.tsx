@@ -24,22 +24,21 @@ import {
 
 export default function RequestOtpScreen() {
   const router = useRouter();
-  const [email, setEmail] = React.useState("");
+  const [phone, setPhone] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
   const handleRequestOtp = async () => {
-    const trimmed = email.trim().toLowerCase();
+    const trimmed = phone.trim();
     if (!trimmed) {
-      setError("Please enter your email address.");
+      setError("Please enter your mobile number.");
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      await requestOtp({ email: trimmed });
-      // Navigate to verify-otp, passing email as a search param
-      router.push({ pathname: "/(auth)/verify-otp", params: { email: trimmed } });
+      await requestOtp({ phone: trimmed });
+      router.push({ pathname: "/(auth)/verify-otp", params: { phone: trimmed } });
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Failed to send OTP";
@@ -66,20 +65,20 @@ export default function RequestOtpScreen() {
 
         <Text style={styles.title}>Sign in with OTP</Text>
         <Text style={styles.subtitle}>
-          We&apos;ll send a one-time code to your email.
+          We&apos;ll send a one-time code to your mobile number.
         </Text>
 
         <View style={styles.card}>
-          <Text style={styles.label}>Email address</Text>
+          <Text style={styles.label}>Mobile number</Text>
           <TextInput
-            placeholder="you@example.com"
+            placeholder="9876543210"
             placeholderTextColor={colors.brownSoft}
             style={styles.input}
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
+            value={phone}
+            onChangeText={setPhone}
+            keyboardType="phone-pad"
             autoCapitalize="none"
-            autoComplete="email"
+            autoComplete="tel"
             autoCorrect={false}
             returnKeyType="send"
             onSubmitEditing={handleRequestOtp}

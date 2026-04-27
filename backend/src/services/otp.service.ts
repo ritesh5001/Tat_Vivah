@@ -1,9 +1,8 @@
 import { OtpPurpose } from '@prisma/client';
 import { otpRepository } from '../repositories/otp.repository.js';
 import { generateOtpCode, hashOtp } from '../utils/otp.util.js';
-import { sendEmail } from '../notifications/email/resend.client.js';
 import { ApiError } from '../errors/ApiError.js';
-import { renderBrandedEmail } from '../notifications/email/templates/layout.js';
+import { fast2SmsService, normalizeIndianMobile } from './fast2sms.service.js';
 
 const OTP_EXPIRY_MINUTES = 10;
 
@@ -17,9 +16,10 @@ export type SignupOtpPayload = {
 };
 
 export class OtpService {
-    async sendEmailVerificationOtp(userId: string, email: string): Promise<void> {
-        if (!email) {
-            throw ApiError.badRequest('Email is required for verification');
+    async sendPhoneVerificationOtp(userId: string, phone: string): Promise<void> {
+        const normalizedPhone = normalizeIndianMobile(phone);
+        if (!/^\d{10}$/.test(normalizedPhone)) {
+            throw ApiError.badRequest('A valid 10-digit mobile number is required');
         }
 
         const code = generateOtpCode();
@@ -28,30 +28,19 @@ export class OtpService {
 
         await otpRepository.createOtp({
             userId,
-            email,
+            email: normalizedPhone,
             codeHash,
             purpose: OtpPurpose.EMAIL_VERIFY,
             expiresAt,
         });
 
-        const html = renderBrandedEmail({
-            preheader: 'Your verification code for TatVivah account security.',
-            eyebrow: 'Account Security',
-            title: 'Verify Your Email Address',
-            message: [
-                'Use the one-time verification code below to confirm your TatVivah account.',
-                `This code is valid for ${OTP_EXPIRY_MINUTES} minutes and can only be used once.`,
-            ],
-            details: [{ label: 'Verification Code', value: code }],
-            accentText: 'If you did not request this code, please ignore this email.',
-        });
-
-        await sendEmail(email, 'Verify your TatVivah account', html);
+        await fast2SmsService.sendOtp(normalizedPhone, code);
     }
 
     async sendSignupOtp(payload: SignupOtpPayload): Promise<void> {
-        if (!payload.email) {
-            throw ApiError.badRequest('Email is required for verification');
+        const normalizedPhone = normalizeIndianMobile(payload.phone);
+        if (!/^\d{10}$/.test(normalizedPhone)) {
+            throw ApiError.badRequest('A valid 10-digit mobile number is required');
         }
 
         const code = generateOtpCode();
@@ -59,30 +48,22 @@ export class OtpService {
         const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
 
         await otpRepository.createOtp({
-            email: payload.email,
+            email: normalizedPhone,
             codeHash,
             purpose: OtpPurpose.EMAIL_VERIFY,
             expiresAt,
-            payload,
+            payload: {
+                ...payload,
+                phone: normalizedPhone,
+            },
         });
 
-        const html = renderBrandedEmail({
-            preheader: 'Complete signup with your TatVivah verification code.',
-            eyebrow: 'Signup Verification',
-            title: 'Confirm Your Signup',
-            message: [
-                'Enter the verification code below to finish creating your TatVivah account.',
-                `This code is valid for ${OTP_EXPIRY_MINUTES} minutes and can only be used once.`,
-            ],
-            details: [{ label: 'Verification Code', value: code }],
-            accentText: 'For your security, never share this code with anyone.',
-        });
-
-        await sendEmail(payload.email, 'Verify your TatVivah account', html);
+        await fast2SmsService.sendOtp(normalizedPhone, code);
     }
 
-    async verifyEmailOtp(email: string, code: string) {
-        const otp = await otpRepository.findLatestValid(email, OtpPurpose.EMAIL_VERIFY);
+    async verifyPhoneOtp(phone: string, code: string) {
+        const normalizedPhone = normalizeIndianMobile(phone);
+        const otp = await otpRepository.findLatestValid(normalizedPhone, OtpPurpose.EMAIL_VERIFY);
         if (!otp) {
             throw ApiError.badRequest('Invalid or expired OTP');
         }
@@ -96,8 +77,9 @@ export class OtpService {
         return otp;
     }
 
-    async getLatestSignupPayload(email: string): Promise<SignupOtpPayload | null> {
-        const latest = await otpRepository.findLatestByEmail(email, OtpPurpose.EMAIL_VERIFY);
+    async getLatestSignupPayload(phone: string): Promise<SignupOtpPayload | null> {
+        const normalizedPhone = normalizeIndianMobile(phone);
+        const latest = await otpRepository.findLatestByEmail(normalizedPhone, OtpPurpose.EMAIL_VERIFY);
         if (!latest || !('payload' in latest) || !latest.payload) {
             return null;
         }

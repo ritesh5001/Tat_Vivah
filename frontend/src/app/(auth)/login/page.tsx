@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { loginUser, persistAuthCookies } from "@/services/auth";
 import { toast } from "sonner";
 import {
@@ -34,7 +33,6 @@ interface LoginContent {
   features: string[];
   cardTitle: string;
   cardDescription: string;
-  showSocial: boolean;
   registerText: string | null;
   registerLabel: string | null;
   registerHref: string | null;
@@ -51,7 +49,6 @@ const LOGIN_CONTENT: Record<SubdomainType, LoginContent> = {
     features: ["Secure Login", "Verified Profiles"],
     cardTitle: "Sign In",
     cardDescription: "Use your TatVivah credentials to access your account.",
-    showSocial: true,
     registerText: "New here?",
     registerLabel: "Create an account",
     registerHref: "/register/user",
@@ -66,7 +63,6 @@ const LOGIN_CONTENT: Record<SubdomainType, LoginContent> = {
     features: ["Seller Portal", "Secure Access"],
     cardTitle: "Seller Sign In",
     cardDescription: "Login to your seller dashboard.",
-    showSocial: false,
     registerText: "New seller?",
     registerLabel: "Register your business",
     registerHref: "/register/seller",
@@ -81,7 +77,6 @@ const LOGIN_CONTENT: Record<SubdomainType, LoginContent> = {
     features: ["Admin Access", "Restricted Portal"],
     cardTitle: "Admin Sign In",
     cardDescription: "Login with your admin credentials.",
-    showSocial: false,
     registerText: null,
     registerLabel: null,
     registerHref: null,
@@ -145,9 +140,9 @@ export default function LoginPage() {
       console.error("Login error:", error);
       const message = error instanceof Error ? error.message : "Invalid credentials";
       if (message.toLowerCase().includes("verification")) {
-        toast.error("Please verify your email to continue.");
-        if (identifier.includes("@")) {
-          router.replace(`/verify-otp?email=${encodeURIComponent(identifier)}`);
+        toast.error("Please verify your mobile number to continue.");
+        if (/^\+?\d{10,15}$/.test(identifier)) {
+          router.replace(`/verify-otp?phone=${encodeURIComponent(identifier)}`);
         } else {
           router.replace("/verify-otp");
         }
@@ -256,21 +251,6 @@ export default function LoginPage() {
                   {loading ? "Signing In..." : "Sign In"}
                 </Button>
               </form>
-
-              {content.showSocial && (
-                <>
-                  <Separator />
-
-                  <div className="grid gap-3">
-                    <Button variant="outline" size="lg" className="w-full">
-                      Continue with Google
-                    </Button>
-                    <Button variant="outline" size="lg" className="w-full">
-                      Continue with Apple
-                    </Button>
-                  </div>
-                </>
-              )}
 
               {content.registerText && content.registerHref && (
                 <p className="text-center text-sm text-muted-foreground">
