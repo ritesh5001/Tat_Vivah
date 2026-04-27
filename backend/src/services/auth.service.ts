@@ -249,7 +249,7 @@ export class AuthService {
         }
 
         if ((user.role === 'USER' || user.role === 'SELLER') && !user.isPhoneVerified) {
-            throw ApiError.forbidden('Mobile verification required');
+            throw ApiError.forbidden('Mobile verification required', { phone: user.phone });
         }
 
         // 4. Return response

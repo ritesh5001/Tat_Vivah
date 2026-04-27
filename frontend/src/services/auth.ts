@@ -119,7 +119,9 @@ export async function loginUser(payload: LoginPayload): Promise<LoginResponse> {
   if (!response.ok) {
     const message =
       data?.error?.message ?? data?.message ?? "Login failed";
-    throw new Error(message);
+    const err = new Error(message) as Error & { phone?: string };
+    err.phone = (data?.error?.details?.phone as string | undefined) ?? undefined;
+    throw err;
   }
 
   return data as LoginResponse;

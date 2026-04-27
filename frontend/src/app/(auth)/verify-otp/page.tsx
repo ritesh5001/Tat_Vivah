@@ -56,7 +56,7 @@ function VerifyOtpContent() {
     return () => abortController.abort();
   }, [method]);
 
-  const handleVerify = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleVerify = React.useCallback(async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!identifier || !otp) {
@@ -94,7 +94,7 @@ function VerifyOtpContent() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [identifier, otp, method, router]);
 
   const handleResend = async () => {
     if (!identifier) {
@@ -122,7 +122,7 @@ function VerifyOtpContent() {
     }
     submittedOtpRef.current = otp;
     void handleVerify({ preventDefault() {} } as React.FormEvent<HTMLFormElement>);
-  }, [handleVerify, loading, otp]);
+  }, [handleVerify, otp]); // loading intentionally omitted: submittedOtpRef prevents double-submit after failure
 
   return (
     <div className="min-h-[calc(100vh-160px)] bg-background">

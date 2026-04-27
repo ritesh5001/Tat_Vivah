@@ -165,7 +165,11 @@ export default function LoginPage() {
       const message = error instanceof Error ? error.message : "Invalid credentials";
       if (message.toLowerCase().includes("verification")) {
         toast.error("Please verify your mobile number with OTP to continue.");
-        router.replace("/verify-otp?method=phone");
+        const phone = (error as Error & { phone?: string }).phone;
+        const redirectUrl = phone
+          ? `/verify-otp?method=phone&phone=${encodeURIComponent(phone)}`
+          : `/verify-otp?method=phone`;
+        router.replace(redirectUrl);
       } else {
         toast.error(message);
       }
