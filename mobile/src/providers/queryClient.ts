@@ -24,3 +24,4 @@ export const queryPersister = createAsyncStoragePersister({
   key: "TATVIVAH_RQ_CACHE_V1",
   throttleTime: 1000,
 });
+                                          

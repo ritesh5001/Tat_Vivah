@@ -1,6 +1,7 @@
 import * as React from "react";
 import { Stack } from "expo-router";
 import { useFonts } from "expo-font";
+import { Platform } from "react-native";
 import { AuthProvider } from "../src/providers/AuthProvider";
 import { ErrorBoundary } from "../src/components/ErrorBoundary";
 import { ToastProvider } from "../src/providers/ToastProvider";
@@ -51,12 +52,16 @@ function AppShell() {
 }
 
 export default function RootLayout() {
-  const [fontsLoaded] = useFonts({
-    CormorantGaramond_300Light: require("../assets/fonts/CormorantGaramond_300Light.ttf"),
-    CormorantGaramond_400Regular: require("../assets/fonts/CormorantGaramond_400Regular.ttf"),
-    Inter_400Regular: require("../assets/fonts/Inter_400Regular.ttf"),
-    Inter_500Medium: require("../assets/fonts/Inter_500Medium.ttf"),
-  });
+  const [fontsLoaded] = useFonts(
+    Platform.OS === "web"
+      ? {}
+      : {
+          CormorantGaramond_300Light: require("../assets/fonts/CormorantGaramond_300Light.ttf"),
+          CormorantGaramond_400Regular: require("../assets/fonts/CormorantGaramond_400Regular.ttf"),
+          Inter_400Regular: require("../assets/fonts/Inter_400Regular.ttf"),
+          Inter_500Medium: require("../assets/fonts/Inter_500Medium.ttf"),
+        },
+  );
 
   if (!fontsLoaded) {
     return null;
