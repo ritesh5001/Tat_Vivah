@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { loginUser, persistAuthCookies } from "@/services/auth";
+import { loginUser, persistAuthCookies, requestAuthOtp } from "@/services/auth";
 import { toast } from "sonner";
 import {
   getSubdomain,
@@ -22,9 +22,6 @@ import {
   getCorrectLoginUrl,
   type SubdomainType,
 } from "@/lib/subdomain";
-import { requestAuthOtp } from "@/services/auth";
-
-/* ── Subdomain-specific content ── */
 
 interface LoginContent {
   eyebrow: string;
@@ -85,14 +82,23 @@ const LOGIN_CONTENT: Record<SubdomainType, LoginContent> = {
   },
 };
 
+function detectInputType(value: string): "phone" | "email" | "unknown" {
+  const trimmed = value.trim();
+  if (!trimmed) return "unknown";
+  if (trimmed.includes("@")) return "email";
+  if (/^[+\d][\d\s\-()+]*$/.test(trimmed)) return "phone";
+  if (/[a-zA-Z]/.test(trimmed)) return "email";
+  return "unknown";
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [subdomain, setSubdomain] = React.useState<SubdomainType>("main");
 
   const [identifier, setIdentifier] = React.useState("");
-  const [otpMethod, setOtpMethod] = React.useState<"mobile-otp" | "email-otp" | "password">("mobile-otp");
   const [password, setPassword] = React.useState("");
   const [showPassword, setShowPassword] = React.useState(false);
+  const [useOtp, setUseOtp] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
 
   React.useEffect(() => {
@@ -101,47 +107,82 @@ export default function LoginPage() {
 
   const content = LOGIN_CONTENT[subdomain];
   const isMainPortal = subdomain === "main";
-  const isPasswordMode = !isMainPortal || otpMethod === "password";
+  const inputType = detectInputType(identifier);
+  const identifierReady = inputType !== "unknown";
+
+  // Reset OTP preference when detected type changes so UX stays clean
+  React.useEffect(() => {
+    setUseOtp(false);
+    setPassword("");
+  }, [inputType]);
+
+  const isOtpMode = isMainPortal && useOtp && identifierReady;
+  const showPasswordField = !isMainPortal || (identifierReady && !useOtp);
+
+  const identifierLabel =
+    isMainPortal
+      ? inputType === "phone"
+        ? "Mobile Number"
+        : inputType === "email"
+          ? "Email Address"
+          : "Mobile Number or Email"
+      : "Email or Mobile";
+
+  const identifierPlaceholder =
+    isMainPortal
+      ? inputType === "phone"
+        ? "9876543210"
+        : inputType === "email"
+          ? "you@email.com"
+          : "9876543210 or you@email.com"
+      : "you@email.com or 9876543210";
+
+  const cardDescription =
+    isMainPortal
+      ? isOtpMode
+        ? inputType === "phone"
+          ? "We'll send a one-time code to your mobile number."
+          : "We'll send a one-time code to your email address."
+        : identifierReady
+          ? "Enter your password below, or choose to login with OTP."
+          : "Enter your mobile number or email address to continue."
+      : content.cardDescription;
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    const trimmed = identifier.trim();
+
+    if (!trimmed) {
+      toast.error("Enter your mobile number or email address.");
+      return;
+    }
 
     setLoading(true);
     try {
-      if (isMainPortal && otpMethod !== "password") {
-        const trimmed = identifier.trim();
-        if (!trimmed) {
-          toast.error(otpMethod === "mobile-otp" ? "Enter your mobile number." : "Enter your email address.");
-          return;
-        }
-
-        if (otpMethod === "mobile-otp") {
+      if (isOtpMode) {
+        if (inputType === "phone") {
           await requestAuthOtp({ phone: trimmed });
           toast.success("OTP sent to your mobile number.");
           router.replace(`/verify-otp?method=phone&phone=${encodeURIComponent(trimmed)}`);
-          return;
+        } else {
+          await requestAuthOtp({ email: trimmed });
+          toast.success("OTP sent to your email address.");
+          router.replace(`/verify-otp?method=email&email=${encodeURIComponent(trimmed)}`);
         }
-
-        await requestAuthOtp({ email: trimmed });
-        toast.success("OTP sent to your email address.");
-        router.replace(`/verify-otp?method=email&email=${encodeURIComponent(trimmed)}`);
         return;
       }
 
-      if (!identifier || !password) {
-        toast.error("Enter your email and password to continue.");
+      if (!password) {
+        toast.error("Enter your password to continue.");
         return;
       }
 
-      const result = await loginUser({ identifier, password });
-
+      const result = await loginUser({ identifier: trimmed, password });
       const role = result.user.role?.toUpperCase();
       const allowedRoles = SUBDOMAIN_ALLOWED_ROLES[subdomain];
 
-      // Validate role matches current subdomain
       if (!allowedRoles.includes(role)) {
-        const portalLabel =
-          subdomain === "main" ? "customer" : subdomain;
+        const portalLabel = subdomain === "main" ? "customer" : subdomain;
         const correctUrl = getCorrectLoginUrl(role);
         toast.error(`This portal is for ${portalLabel} accounts only. Redirecting...`);
         window.location.replace(correctUrl);
@@ -149,7 +190,6 @@ export default function LoginPage() {
       }
 
       persistAuthCookies(result.accessToken, result.refreshToken, result.user);
-
       toast.success(content.successToast);
 
       const redirectMap: Record<string, string> = {
@@ -181,7 +221,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-[calc(100vh-160px)] bg-background">
       <div className="mx-auto flex min-h-[calc(100vh-160px)] max-w-6xl flex-col items-center justify-center gap-16 px-6 py-16 lg:flex-row lg:gap-24">
-        {/* Left Section - Editorial */}
+        {/* Left Section – Editorial */}
         <div className="flex-1 max-w-md lg:max-w-lg">
           <p className="text-xs font-medium uppercase tracking-[0.3em] text-gold mb-6">
             {content.eyebrow}
@@ -214,70 +254,28 @@ export default function LoginPage() {
               <CardTitle className="font-serif text-2xl font-normal">
                 {content.cardTitle}
               </CardTitle>
-              <CardDescription>
-                {isMainPortal
-                  ? otpMethod === "mobile-otp"
-                    ? "Enter your mobile number and we will send a login OTP."
-                    : otpMethod === "email-otp"
-                      ? "Enter your email address and we will send a login OTP."
-                      : "Use your TatVivah email and password to access your account."
-                  : content.cardDescription}
-              </CardDescription>
+              <CardDescription>{cardDescription}</CardDescription>
             </CardHeader>
 
             <CardContent className="space-y-6">
-              {isMainPortal && (
-                <div className="grid grid-cols-3 gap-2 rounded-none border border-border-soft p-1">
-                  <button
-                    type="button"
-                    onClick={() => setOtpMethod("mobile-otp")}
-                    className={`h-10 text-xs uppercase tracking-[0.18em] transition-colors ${otpMethod === "mobile-otp" ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}
-                  >
-                    Mobile OTP
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setOtpMethod("email-otp")}
-                    className={`h-10 text-xs uppercase tracking-[0.18em] transition-colors ${otpMethod === "email-otp" ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}
-                  >
-                    Email OTP
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setOtpMethod("password")}
-                    className={`h-10 text-xs uppercase tracking-[0.18em] transition-colors ${otpMethod === "password" ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}
-                  >
-                    Password
-                  </button>
-                </div>
-              )}
-
               <form className="space-y-5" onSubmit={handleSubmit}>
-                {/* Identifier */}
+                {/* Unified identifier input – auto-detects phone vs email */}
                 <div className="space-y-2">
-                  <Label htmlFor="identifier">
-                    {isMainPortal
-                      ? otpMethod === "mobile-otp"
-                        ? "Mobile number"
-                        : "Email address"
-                      : "Email or Mobile"}
-                  </Label>
+                  <Label htmlFor="identifier">{identifierLabel}</Label>
                   <Input
                     id="identifier"
-                    placeholder={
-                      isMainPortal
-                        ? otpMethod === "mobile-otp"
-                          ? "9876543210"
-                          : "you@email.com"
-                        : "you@email.com or 9876543210"
-                    }
+                    type={isMainPortal && inputType === "phone" ? "tel" : "text"}
+                    inputMode={isMainPortal && inputType === "phone" ? "numeric" : undefined}
+                    placeholder={identifierPlaceholder}
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)}
-                    autoComplete={isMainPortal && otpMethod === "mobile-otp" ? "tel" : "username"}
+                    autoComplete={isMainPortal && inputType === "phone" ? "tel" : "username"}
+                    autoFocus
                   />
                 </div>
 
-                {isPasswordMode && (
+                {/* Password field – shown once identifier type is known and not in OTP mode */}
+                {showPasswordField && (
                   <div className="space-y-2">
                     <Label htmlFor="password">Password</Label>
                     <div className="relative">
@@ -297,10 +295,33 @@ export default function LoginPage() {
                         {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                       </button>
                     </div>
+
+                    {/* OTP toggle – only for user portal */}
+                    {isMainPortal && identifierReady && (
+                      <button
+                        type="button"
+                        onClick={() => setUseOtp(true)}
+                        className="text-xs text-muted-foreground hover:text-foreground transition-colors duration-300 underline underline-offset-2"
+                      >
+                        Login with OTP instead
+                      </button>
+                    )}
                   </div>
                 )}
 
-                {isPasswordMode && (
+                {/* Password toggle when in OTP mode */}
+                {isOtpMode && (
+                  <button
+                    type="button"
+                    onClick={() => setUseOtp(false)}
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors duration-300 underline underline-offset-2 -mt-2 block"
+                  >
+                    Use password instead
+                  </button>
+                )}
+
+                {/* Remember me + Forgot password */}
+                {showPasswordField && !isOtpMode && (
                   <div className="flex items-center justify-between text-xs">
                     <label className="flex items-center gap-2 text-muted-foreground cursor-pointer">
                       <input
@@ -320,12 +341,12 @@ export default function LoginPage() {
 
                 <Button className="w-full" size="lg" disabled={loading}>
                   {loading
-                    ? isPasswordMode
-                      ? "Signing In..."
-                      : "Sending OTP..."
-                    : isPasswordMode
-                      ? "Sign In"
-                      : "Send OTP"}
+                    ? isOtpMode
+                      ? "Sending OTP..."
+                      : "Signing In..."
+                    : isOtpMode
+                      ? "Send OTP"
+                      : "Sign In"}
                 </Button>
               </form>
 

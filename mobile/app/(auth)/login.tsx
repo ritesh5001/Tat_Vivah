@@ -16,13 +16,23 @@ import {
   ScreenContainer as SafeAreaView,
 } from "../../src/components";
 
+function detectInputType(value: string): "phone" | "email" | "unknown" {
+  const trimmed = value.trim();
+  if (!trimmed) return "unknown";
+  if (trimmed.includes("@")) return "email";
+  if (/^[+\d][\d\s\-()+]*$/.test(trimmed)) return "phone";
+  if (/[a-zA-Z]/.test(trimmed)) return "email";
+  return "unknown";
+}
+
 export default function LoginScreen() {
   const router = useRouter();
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const { signIn } = useAuth();
-  const [mode, setMode] = React.useState<"mobile-otp" | "email-otp" | "email-password">("mobile-otp");
-  const [identifierValue, setIdentifierValue] = React.useState("");
+
+  const [identifier, setIdentifier] = React.useState("");
   const [password, setPassword] = React.useState("");
+  const [useOtp, setUseOtp] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -34,120 +44,137 @@ export default function LoginScreen() {
     return returnTo;
   }, [returnTo]);
 
-  const handleLogin = React.useCallback(async () => {
-    const identifier = mode === "mobile-otp"
-      ? identifierValue.trim()
-      : identifierValue.trim().toLowerCase();
+  const inputType = detectInputType(identifier);
+  const identifierReady = inputType !== "unknown";
+  const isOtpMode = useOtp && identifierReady;
 
-    if (!identifier) {
-      setError(mode === "mobile-otp" ? "Please enter your mobile number." : "Please enter your email address.");
+  // Reset OTP preference when detected type changes
+  React.useEffect(() => {
+    setUseOtp(false);
+    setPassword("");
+    setError(null);
+  }, [inputType]);
+
+  const subHeading = isOtpMode
+    ? inputType === "phone"
+      ? "We'll send a one-time code to your mobile number."
+      : "We'll send a one-time code to your email address."
+    : identifierReady
+      ? "Enter your password below, or choose to login with OTP."
+      : "Enter your mobile number or email address to sign in.";
+
+  const handleLogin = React.useCallback(async () => {
+    const trimmed = inputType === "phone"
+      ? identifier.trim()
+      : identifier.trim().toLowerCase();
+
+    if (!trimmed) {
+      setError("Enter your mobile number or email address.");
       return;
     }
 
     setLoading(true);
     setError(null);
     try {
-      if (mode === "mobile-otp") {
-        await requestOtp({ phone: identifier });
-        router.push({ pathname: "/(auth)/verify-otp", params: { method: "phone", phone: identifier } });
-        return;
-      }
-
-      if (mode === "email-otp") {
-        await requestOtp({ email: identifier });
-        router.push({ pathname: "/(auth)/verify-otp", params: { method: "email", email: identifier } });
+      if (isOtpMode) {
+        if (inputType === "phone") {
+          await requestOtp({ phone: trimmed });
+          router.push({ pathname: "/(auth)/verify-otp", params: { method: "phone", phone: trimmed } });
+        } else {
+          await requestOtp({ email: trimmed });
+          router.push({ pathname: "/(auth)/verify-otp", params: { method: "email", email: trimmed } });
+        }
         return;
       }
 
       if (!password) {
-        setError("Please enter your password.");
+        setError("Enter your password to continue.");
         return;
       }
 
-      await signIn({ identifier, password });
+      await signIn({ identifier: trimmed, password });
       router.replace(safeReturnTo as any);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sign in failed");
+      setError(err instanceof Error ? err.message : "Sign in failed. Please try again.");
     } finally {
       setLoading(false);
     }
-  }, [identifierValue, mode, password, signIn, router, safeReturnTo]);
+  }, [identifier, inputType, isOtpMode, password, signIn, router, safeReturnTo]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <AppHeader title="Sign In" showMenu showBack />
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <Text style={styles.heading}>Welcome To TatVivah</Text>
-        <Text style={styles.subHeading}>
-          {mode === "mobile-otp"
-            ? "Enter your mobile number and we will send a one-time login code."
-            : mode === "email-otp"
-              ? "Enter your email address and we will send a one-time login code."
-              : "Sign in with your TatVivah email and password."}
-        </Text>
+        <Text style={styles.subHeading}>{subHeading}</Text>
 
         <View style={styles.formCard}>
-          <View style={styles.modeRow}>
-            <Pressable onPress={() => setMode("mobile-otp")} style={[styles.modeButton, mode === "mobile-otp" && styles.modeButtonActive]}>
-              <Text style={[styles.modeButtonText, mode === "mobile-otp" && styles.modeButtonTextActive]}>Mobile OTP</Text>
-            </Pressable>
-            <Pressable onPress={() => setMode("email-otp")} style={[styles.modeButton, mode === "email-otp" && styles.modeButtonActive]}>
-              <Text style={[styles.modeButtonText, mode === "email-otp" && styles.modeButtonTextActive]}>Email OTP</Text>
-            </Pressable>
-            <Pressable onPress={() => setMode("email-password")} style={[styles.modeButton, mode === "email-password" && styles.modeButtonActive]}>
-              <Text style={[styles.modeButtonText, mode === "email-password" && styles.modeButtonTextActive]}>Password</Text>
-            </Pressable>
-          </View>
-
-          <Text style={styles.label}>{mode === "mobile-otp" ? "Mobile Number" : "Email Address"}</Text>
+          {/* Unified identifier input */}
+          <Text style={styles.label}>
+            {inputType === "phone"
+              ? "Mobile Number"
+              : inputType === "email"
+                ? "Email Address"
+                : "Mobile Number or Email"}
+          </Text>
           <TextInput
-            value={identifierValue}
-            onChangeText={setIdentifierValue}
-            keyboardType={mode === "mobile-otp" ? "phone-pad" : "email-address"}
+            value={identifier}
+            onChangeText={setIdentifier}
+            keyboardType="default"
             autoCapitalize="none"
-            placeholder={mode === "mobile-otp" ? "9876543210" : "you@example.com"}
+            autoCorrect={false}
+            placeholder="9876543210 or you@example.com"
             placeholderTextColor={colors.textSecondary}
             style={styles.input}
           />
 
-          {mode === "email-password" && (
+          {/* Password field – visible once identifier is detected and not in OTP mode */}
+          {identifierReady && !isOtpMode && (
             <>
               <Text style={styles.label}>Password</Text>
               <TextInput
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry
-                placeholder="Enter password"
+                placeholder="Enter your password"
                 placeholderTextColor={colors.textSecondary}
                 style={styles.input}
               />
+              <Pressable onPress={() => setUseOtp(true)} style={styles.otpToggleRow}>
+                <Text style={styles.otpToggleText}>Login with OTP instead</Text>
+              </Pressable>
             </>
+          )}
+
+          {/* Switch back to password when in OTP mode */}
+          {isOtpMode && (
+            <Pressable onPress={() => setUseOtp(false)} style={styles.otpToggleRow}>
+              <Text style={styles.otpToggleText}>Use password instead</Text>
+            </Pressable>
           )}
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
           <Pressable style={styles.continueButton} onPress={handleLogin} disabled={loading}>
             <Text style={styles.continueText}>
-              {loading ? (mode === "email-password" ? "LOGGING IN..." : "SENDING OTP...") : mode === "email-password" ? "LOGIN" : "SEND OTP"}
+              {loading
+                ? isOtpMode ? "SENDING OTP..." : "SIGNING IN..."
+                : isOtpMode ? "SEND OTP" : "SIGN IN"}
             </Text>
           </Pressable>
 
-          <View style={styles.linkRow}>
-            {mode === "email-password" ? (
-              <Pressable onPress={() => router.push("/(auth)/forgot-password") }>
+          {!isOtpMode && (
+            <View style={styles.linkRow}>
+              <Pressable onPress={() => router.push("/(auth)/forgot-password")}>
                 <Text style={styles.linkText}>Forgot Password?</Text>
               </Pressable>
-            ) : (
-              <Pressable onPress={() => router.push("/(auth)/request-otp") }>
-                <Text style={styles.linkText}>Open OTP screen</Text>
-              </Pressable>
-            )}
-          </View>
+            </View>
+          )}
         </View>
 
         <View style={styles.footerRow}>
           <Text style={styles.footerCopy}>New to TatVivah?</Text>
-          <Pressable onPress={() => router.push("/(auth)/register") }>
+          <Pressable onPress={() => router.push("/(auth)/register")}>
             <Text style={styles.footerLink}>Create account</Text>
           </Pressable>
         </View>
@@ -189,31 +216,6 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     borderRadius: 0,
   },
-  modeRow: {
-    flexDirection: "row",
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: spacing.lg,
-  },
-  modeButton: {
-    flex: 1,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  modeButtonActive: {
-    backgroundColor: colors.textPrimary,
-  },
-  modeButtonText: {
-    fontFamily: typography.sansMedium,
-    fontSize: 10,
-    letterSpacing: 1,
-    color: colors.textSecondary,
-    textTransform: "uppercase",
-  },
-  modeButtonTextActive: {
-    color: colors.background,
-  },
   label: {
     fontFamily: typography.sansMedium,
     textTransform: "uppercase",
@@ -234,6 +236,18 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     backgroundColor: colors.background,
     marginBottom: spacing.lg,
+  },
+  otpToggleRow: {
+    marginTop: -spacing.xs,
+    marginBottom: spacing.lg,
+    alignSelf: "flex-start",
+  },
+  otpToggleText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 12,
+    color: colors.textSecondary,
+    textDecorationLine: "underline",
+    letterSpacing: 0.3,
   },
   continueButton: {
     marginTop: spacing.xs,
