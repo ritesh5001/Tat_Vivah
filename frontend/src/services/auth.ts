@@ -203,7 +203,18 @@ export async function registerAdmin(
   return data as RegisterResponse;
 }
 
-export async function requestPhoneOtp(phone: string): Promise<OtpRequestResponse> {
+export interface RequestAuthOtpPayload {
+  email?: string;
+  phone?: string;
+}
+
+export interface VerifyAuthOtpPayload {
+  email?: string;
+  phone?: string;
+  otp: string;
+}
+
+export async function requestAuthOtp(payload: RequestAuthOtpPayload): Promise<OtpRequestResponse> {
   if (!API_BASE_URL) {
     throw new Error("API base URL is not configured");
   }
@@ -213,7 +224,7 @@ export async function requestPhoneOtp(phone: string): Promise<OtpRequestResponse
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ phone }),
+    body: JSON.stringify(payload),
   });
 
   const data = await response.json().catch(() => null);
@@ -227,10 +238,7 @@ export async function requestPhoneOtp(phone: string): Promise<OtpRequestResponse
   return data as OtpRequestResponse;
 }
 
-export async function verifyPhoneOtp(payload: {
-  phone: string;
-  otp: string;
-}): Promise<VerifyOtpResponse> {
+export async function verifyAuthOtp(payload: VerifyAuthOtpPayload): Promise<VerifyOtpResponse> {
   if (!API_BASE_URL) {
     throw new Error("API base URL is not configured");
   }

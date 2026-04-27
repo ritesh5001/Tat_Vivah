@@ -44,7 +44,7 @@ export default function RegisterScreen() {
     setError(null);
     try {
       await registerUser({ fullName, email, phone, password });
-      router.replace({ pathname: "/(auth)/verify-otp", params: { phone } });
+      router.replace({ pathname: "/(auth)/verify-otp", params: { method: "phone", phone } });
     } catch (err) {
       const message =
         err instanceof ApiError && err.statusCode === 409

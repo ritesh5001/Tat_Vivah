@@ -139,9 +139,17 @@ export type LogoutInput = z.infer<typeof logoutSchema>;
  * POST /v1/auth/request-otp
  */
 export const requestOtpSchema = z.object({
+    email: z
+        .string()
+        .email('Invalid email address')
+        .optional(),
     phone: z
         .string()
-        .regex(/^\+?\d{10,15}$/, 'Phone must be 10-15 digits'),
+        .regex(/^\+?\d{10,15}$/, 'Phone must be 10-15 digits')
+        .optional(),
+}).refine((data) => Boolean(data.email || data.phone), {
+    message: 'Email or phone is required',
+    path: ['email'],
 });
 
 export type RequestOtpInput = z.infer<typeof requestOtpSchema>;
@@ -151,12 +159,21 @@ export type RequestOtpInput = z.infer<typeof requestOtpSchema>;
  * POST /v1/auth/verify-otp
  */
 export const verifyOtpSchema = z.object({
+    email: z
+        .string()
+        .email('Invalid email address')
+        .optional(),
     phone: z
         .string()
-        .regex(/^\+?\d{10,15}$/, 'Phone must be 10-15 digits'),
+        .regex(/^\+?\d{10,15}$/, 'Phone must be 10-15 digits')
+        .optional(),
     otp: z
         .string()
-        .min(4, 'OTP is required'),
+        .length(6, 'OTP must be exactly 6 digits')
+        .regex(/^\d{6}$/, 'OTP must be 6 digits'),
+}).refine((data) => Boolean(data.email || data.phone), {
+    message: 'Email or phone is required',
+    path: ['email'],
 });
 
 export type VerifyOtpInput = z.infer<typeof verifyOtpSchema>;

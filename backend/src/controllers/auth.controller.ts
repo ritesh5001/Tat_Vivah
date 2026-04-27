@@ -124,7 +124,7 @@ export class AuthController {
     ): Promise<void> => {
         try {
             const validatedData = requestOtpSchema.parse(req.body);
-            const result = await this.service.requestPhoneOtp(validatedData.phone);
+            const result = await this.service.requestOtp(validatedData);
             res.status(200).json(result);
         } catch (error) {
             if (error instanceof ZodError) {
@@ -152,10 +152,9 @@ export class AuthController {
     ): Promise<void> => {
         try {
             const validatedData = verifyOtpSchema.parse(req.body);
-            const result = await this.service.verifyPhoneOtp(
-                validatedData.phone,
-                validatedData.otp
-            );
+            const userAgent = req.headers['user-agent'];
+            const ipAddress = req.ip ?? req.socket.remoteAddress;
+            const result = await this.service.verifyOtp(validatedData, userAgent, ipAddress);
             res.status(200).json(result);
         } catch (error) {
             if (error instanceof ZodError) {

@@ -22,6 +22,7 @@ import {
   getCorrectLoginUrl,
   type SubdomainType,
 } from "@/lib/subdomain";
+import { requestAuthOtp } from "@/services/auth";
 
 /* ── Subdomain-specific content ── */
 
@@ -89,6 +90,7 @@ export default function LoginPage() {
   const [subdomain, setSubdomain] = React.useState<SubdomainType>("main");
 
   const [identifier, setIdentifier] = React.useState("");
+  const [otpMethod, setOtpMethod] = React.useState<"mobile-otp" | "email-otp" | "password">("mobile-otp");
   const [password, setPassword] = React.useState("");
   const [showPassword, setShowPassword] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
@@ -98,17 +100,39 @@ export default function LoginPage() {
   }, []);
 
   const content = LOGIN_CONTENT[subdomain];
+  const isMainPortal = subdomain === "main";
+  const isPasswordMode = !isMainPortal || otpMethod === "password";
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!identifier || !password) {
-      toast.error("Enter email/phone and password to continue.");
-      return;
-    }
-
     setLoading(true);
     try {
+      if (isMainPortal && otpMethod !== "password") {
+        const trimmed = identifier.trim();
+        if (!trimmed) {
+          toast.error(otpMethod === "mobile-otp" ? "Enter your mobile number." : "Enter your email address.");
+          return;
+        }
+
+        if (otpMethod === "mobile-otp") {
+          await requestAuthOtp({ phone: trimmed });
+          toast.success("OTP sent to your mobile number.");
+          router.replace(`/verify-otp?method=phone&phone=${encodeURIComponent(trimmed)}`);
+          return;
+        }
+
+        await requestAuthOtp({ email: trimmed });
+        toast.success("OTP sent to your email address.");
+        router.replace(`/verify-otp?method=email&email=${encodeURIComponent(trimmed)}`);
+        return;
+      }
+
+      if (!identifier || !password) {
+        toast.error("Enter your email and password to continue.");
+        return;
+      }
+
       const result = await loginUser({ identifier, password });
 
       const role = result.user.role?.toUpperCase();
@@ -140,12 +164,8 @@ export default function LoginPage() {
       console.error("Login error:", error);
       const message = error instanceof Error ? error.message : "Invalid credentials";
       if (message.toLowerCase().includes("verification")) {
-        toast.error("Please verify your mobile number to continue.");
-        if (/^\+?\d{10,15}$/.test(identifier)) {
-          router.replace(`/verify-otp?phone=${encodeURIComponent(identifier)}`);
-        } else {
-          router.replace("/verify-otp");
-        }
+        toast.error("Please verify your mobile number with OTP to continue.");
+        router.replace("/verify-otp?method=phone");
       } else {
         toast.error(message);
       }
@@ -191,64 +211,117 @@ export default function LoginPage() {
                 {content.cardTitle}
               </CardTitle>
               <CardDescription>
-                {content.cardDescription}
+                {isMainPortal
+                  ? otpMethod === "mobile-otp"
+                    ? "Enter your mobile number and we will send a login OTP."
+                    : otpMethod === "email-otp"
+                      ? "Enter your email address and we will send a login OTP."
+                      : "Use your TatVivah email and password to access your account."
+                  : content.cardDescription}
               </CardDescription>
             </CardHeader>
 
             <CardContent className="space-y-6">
+              {isMainPortal && (
+                <div className="grid grid-cols-3 gap-2 rounded-none border border-border-soft p-1">
+                  <button
+                    type="button"
+                    onClick={() => setOtpMethod("mobile-otp")}
+                    className={`h-10 text-xs uppercase tracking-[0.18em] transition-colors ${otpMethod === "mobile-otp" ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    Mobile OTP
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setOtpMethod("email-otp")}
+                    className={`h-10 text-xs uppercase tracking-[0.18em] transition-colors ${otpMethod === "email-otp" ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    Email OTP
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setOtpMethod("password")}
+                    className={`h-10 text-xs uppercase tracking-[0.18em] transition-colors ${otpMethod === "password" ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    Password
+                  </button>
+                </div>
+              )}
+
               <form className="space-y-5" onSubmit={handleSubmit}>
                 {/* Identifier */}
                 <div className="space-y-2">
-                  <Label htmlFor="identifier">Email or Mobile</Label>
+                  <Label htmlFor="identifier">
+                    {isMainPortal
+                      ? otpMethod === "mobile-otp"
+                        ? "Mobile number"
+                        : "Email address"
+                      : "Email or Mobile"}
+                  </Label>
                   <Input
                     id="identifier"
-                    placeholder="you@email.com or 9876543210"
+                    placeholder={
+                      isMainPortal
+                        ? otpMethod === "mobile-otp"
+                          ? "9876543210"
+                          : "you@email.com"
+                        : "you@email.com or 9876543210"
+                    }
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)}
-                    autoComplete="username"
+                    autoComplete={isMainPortal && otpMethod === "mobile-otp" ? "tel" : "username"}
                   />
                 </div>
 
-                {/* Password */}
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <div className="relative">
-                    <Input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      placeholder="••••••••"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      autoComplete="current-password"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((v) => !v)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors duration-300"
-                    >
-                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </button>
+                {isPasswordMode && (
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Password</Label>
+                    <div className="relative">
+                      <Input
+                        id="password"
+                        type={showPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        autoComplete="current-password"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((v) => !v)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors duration-300"
+                      >
+                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
                   </div>
-                </div>
+                )}
 
-                <div className="flex items-center justify-between text-xs">
-                  <label className="flex items-center gap-2 text-muted-foreground cursor-pointer">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 rounded-sm border-border-soft accent-gold"
-                    />
-                    Remember me
-                  </label>
-                  <Link
-                    href="/forgot-password"
-                    className="text-muted-foreground hover:text-foreground transition-colors duration-300"
-                  >
-                    Forgot password?
-                  </Link>
-                </div>
+                {isPasswordMode && (
+                  <div className="flex items-center justify-between text-xs">
+                    <label className="flex items-center gap-2 text-muted-foreground cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded-sm border-border-soft accent-gold"
+                      />
+                      Remember me
+                    </label>
+                    <Link
+                      href="/forgot-password"
+                      className="text-muted-foreground hover:text-foreground transition-colors duration-300"
+                    >
+                      Forgot password?
+                    </Link>
+                  </div>
+                )}
 
                 <Button className="w-full" size="lg" disabled={loading}>
-                  {loading ? "Signing In..." : "Sign In"}
+                  {loading
+                    ? isPasswordMode
+                      ? "Signing In..."
+                      : "Sending OTP..."
+                    : isPasswordMode
+                      ? "Sign In"
+                      : "Send OTP"}
                 </Button>
               </form>
 

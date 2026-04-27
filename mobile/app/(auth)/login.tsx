@@ -9,6 +9,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { colors, spacing, typography } from "../../src/theme";
 import { AppHeader } from "../../src/components/AppHeader";
 import { useAuth } from "../../src/hooks/useAuth";
+import { requestOtp } from "../../src/services/auth";
 import {
   AppInput as TextInput,
   AppText as Text,
@@ -19,6 +20,7 @@ export default function LoginScreen() {
   const router = useRouter();
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const { signIn } = useAuth();
+  const [mode, setMode] = React.useState<"mobile-otp" | "email-otp" | "email-password">("mobile-otp");
   const [identifierValue, setIdentifierValue] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [loading, setLoading] = React.useState(false);
@@ -33,15 +35,35 @@ export default function LoginScreen() {
   }, [returnTo]);
 
   const handleLogin = React.useCallback(async () => {
-    const identifier = identifierValue.trim().toLowerCase();
-    if (!identifier || !password) {
-      setError("Please enter email/mobile and password.");
+    const identifier = mode === "mobile-otp"
+      ? identifierValue.trim()
+      : identifierValue.trim().toLowerCase();
+
+    if (!identifier) {
+      setError(mode === "mobile-otp" ? "Please enter your mobile number." : "Please enter your email address.");
       return;
     }
 
     setLoading(true);
     setError(null);
     try {
+      if (mode === "mobile-otp") {
+        await requestOtp({ phone: identifier });
+        router.push({ pathname: "/(auth)/verify-otp", params: { method: "phone", phone: identifier } });
+        return;
+      }
+
+      if (mode === "email-otp") {
+        await requestOtp({ email: identifier });
+        router.push({ pathname: "/(auth)/verify-otp", params: { method: "email", email: identifier } });
+        return;
+      }
+
+      if (!password) {
+        setError("Please enter your password.");
+        return;
+      }
+
       await signIn({ identifier, password });
       router.replace(safeReturnTo as any);
     } catch (err) {
@@ -49,50 +71,77 @@ export default function LoginScreen() {
     } finally {
       setLoading(false);
     }
-  }, [identifierValue, password, signIn, router, safeReturnTo]);
+  }, [identifierValue, mode, password, signIn, router, safeReturnTo]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <AppHeader title="Sign In" showMenu showBack />
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <Text style={styles.heading}>Welcome To TatVivah</Text>
-        <Text style={styles.subHeading}>Sign in with your email or mobile number to continue your luxury wedding edit.</Text>
+        <Text style={styles.subHeading}>
+          {mode === "mobile-otp"
+            ? "Enter your mobile number and we will send a one-time login code."
+            : mode === "email-otp"
+              ? "Enter your email address and we will send a one-time login code."
+              : "Sign in with your TatVivah email and password."}
+        </Text>
 
         <View style={styles.formCard}>
-          <Text style={styles.label}>Email or Mobile</Text>
+          <View style={styles.modeRow}>
+            <Pressable onPress={() => setMode("mobile-otp")} style={[styles.modeButton, mode === "mobile-otp" && styles.modeButtonActive]}>
+              <Text style={[styles.modeButtonText, mode === "mobile-otp" && styles.modeButtonTextActive]}>Mobile OTP</Text>
+            </Pressable>
+            <Pressable onPress={() => setMode("email-otp")} style={[styles.modeButton, mode === "email-otp" && styles.modeButtonActive]}>
+              <Text style={[styles.modeButtonText, mode === "email-otp" && styles.modeButtonTextActive]}>Email OTP</Text>
+            </Pressable>
+            <Pressable onPress={() => setMode("email-password")} style={[styles.modeButton, mode === "email-password" && styles.modeButtonActive]}>
+              <Text style={[styles.modeButtonText, mode === "email-password" && styles.modeButtonTextActive]}>Password</Text>
+            </Pressable>
+          </View>
+
+          <Text style={styles.label}>{mode === "mobile-otp" ? "Mobile Number" : "Email Address"}</Text>
           <TextInput
             value={identifierValue}
             onChangeText={setIdentifierValue}
-            keyboardType="email-address"
+            keyboardType={mode === "mobile-otp" ? "phone-pad" : "email-address"}
             autoCapitalize="none"
-            placeholder="you@example.com or 9876543210"
+            placeholder={mode === "mobile-otp" ? "9876543210" : "you@example.com"}
             placeholderTextColor={colors.textSecondary}
             style={styles.input}
           />
 
-          <Text style={styles.label}>Password</Text>
-          <TextInput
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            placeholder="Enter password"
-            placeholderTextColor={colors.textSecondary}
-            style={styles.input}
-          />
+          {mode === "email-password" && (
+            <>
+              <Text style={styles.label}>Password</Text>
+              <TextInput
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                placeholder="Enter password"
+                placeholderTextColor={colors.textSecondary}
+                style={styles.input}
+              />
+            </>
+          )}
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
           <Pressable style={styles.continueButton} onPress={handleLogin} disabled={loading}>
-            <Text style={styles.continueText}>{loading ? "LOGGING IN..." : "LOGIN"}</Text>
+            <Text style={styles.continueText}>
+              {loading ? (mode === "email-password" ? "LOGGING IN..." : "SENDING OTP...") : mode === "email-password" ? "LOGIN" : "SEND OTP"}
+            </Text>
           </Pressable>
 
           <View style={styles.linkRow}>
-            <Pressable onPress={() => router.push("/(auth)/request-otp") }>
-              <Text style={styles.linkText}>Login with OTP</Text>
-            </Pressable>
-            <Pressable onPress={() => router.push("/(auth)/forgot-password") }>
-              <Text style={styles.linkText}>Forgot Password?</Text>
-            </Pressable>
+            {mode === "email-password" ? (
+              <Pressable onPress={() => router.push("/(auth)/forgot-password") }>
+                <Text style={styles.linkText}>Forgot Password?</Text>
+              </Pressable>
+            ) : (
+              <Pressable onPress={() => router.push("/(auth)/request-otp") }>
+                <Text style={styles.linkText}>Open OTP screen</Text>
+              </Pressable>
+            )}
           </View>
         </View>
 
@@ -140,6 +189,31 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     borderRadius: 0,
   },
+  modeRow: {
+    flexDirection: "row",
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: spacing.lg,
+  },
+  modeButton: {
+    flex: 1,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modeButtonActive: {
+    backgroundColor: colors.textPrimary,
+  },
+  modeButtonText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 10,
+    letterSpacing: 1,
+    color: colors.textSecondary,
+    textTransform: "uppercase",
+  },
+  modeButtonTextActive: {
+    color: colors.background,
+  },
   label: {
     fontFamily: typography.sansMedium,
     textTransform: "uppercase",
@@ -186,7 +260,7 @@ const styles = StyleSheet.create({
   linkRow: {
     marginTop: spacing.lg,
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "center",
     alignItems: "center",
   },
   linkText: {

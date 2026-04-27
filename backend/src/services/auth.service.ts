@@ -264,7 +264,28 @@ export class AuthService {
         }, userAgent, ipAddress);
     }
 
-    async requestPhoneOtp(phone: string): Promise<{ message: string }> {
+    async requestOtp(input: { phone?: string | undefined; email?: string | undefined }): Promise<{ message: string }> {
+        const normalizedEmail = input.email?.trim().toLowerCase();
+        if (normalizedEmail) {
+            const user = await this.repository.findUserByEmail(normalizedEmail);
+            if (!user) {
+                throw ApiError.notFound('User not found');
+            }
+            if (user.status !== 'ACTIVE') {
+                throw ApiError.forbidden('Account not active');
+            }
+            await otpService.sendEmailOtp(user.id, normalizedEmail, 'login');
+            return { message: 'OTP sent to your email address' };
+        }
+
+        if (!input.phone) {
+            throw ApiError.badRequest('Email or phone is required');
+        }
+
+        return this.requestPhoneOtp(input.phone);
+    }
+
+    private async requestPhoneOtp(phone: string): Promise<{ message: string }> {
         const normalizedPhone = normalizeIndianMobile(phone);
         const user = await this.repository.findUserByPhone(normalizedPhone);
         if (!user) {
@@ -277,15 +298,37 @@ export class AuthService {
             return { message: 'OTP sent to mobile number' };
         }
 
-        if (user.isPhoneVerified) {
-            return { message: 'Mobile number already verified' };
-        }
-
-        await otpService.sendPhoneVerificationOtp(user.id, user.phone ?? normalizedPhone);
-        return { message: 'OTP sent to mobile number' };
+        await otpService.sendPhoneOtp(
+            user.id,
+            user.phone ?? normalizedPhone,
+            user.isPhoneVerified ? 'login' : 'verify',
+        );
+        return { message: user.isPhoneVerified ? 'Login OTP sent to mobile number' : 'OTP sent to mobile number' };
     }
 
-    async verifyPhoneOtp(phone: string, code: string): Promise<LoginResponse | MessageResponse> {
+    async verifyOtp(
+        input: { phone?: string | undefined; email?: string | undefined; otp: string },
+        userAgent?: string,
+        ipAddress?: string,
+    ): Promise<LoginResponse | MessageResponse> {
+        const normalizedEmail = input.email?.trim().toLowerCase();
+        if (normalizedEmail) {
+            return this.verifyEmailOtp(normalizedEmail, input.otp, userAgent, ipAddress);
+        }
+
+        if (!input.phone) {
+            throw ApiError.badRequest('Email or phone is required');
+        }
+
+        return this.verifyPhoneOtp(input.phone, input.otp, userAgent, ipAddress);
+    }
+
+    private async verifyPhoneOtp(
+        phone: string,
+        code: string,
+        userAgent?: string,
+        ipAddress?: string,
+    ): Promise<LoginResponse | MessageResponse> {
         const otp = await otpService.verifyPhoneOtp(phone, code);
         if (otp.userId) {
             const user = await this.repository.findUserById(otp.userId);
@@ -315,7 +358,7 @@ export class AuthService {
                 status: updated.status,
                 isEmailVerified: updated.isEmailVerified,
                 isPhoneVerified: updated.isPhoneVerified,
-            });
+            }, userAgent, ipAddress);
         }
 
         const payload = otp.payload as SignupOtpPayload | null;
@@ -359,7 +402,42 @@ export class AuthService {
             status: created.status,
             isEmailVerified: created.isEmailVerified,
             isPhoneVerified: created.isPhoneVerified,
-        });
+        }, userAgent, ipAddress);
+    }
+
+    private async verifyEmailOtp(
+        email: string,
+        code: string,
+        userAgent?: string,
+        ipAddress?: string,
+    ): Promise<LoginResponse> {
+        const otp = await otpService.verifyEmailOtp(email, code);
+        if (!otp.userId) {
+            throw ApiError.badRequest('Invalid or expired OTP');
+        }
+
+        const user = await this.repository.findUserById(otp.userId);
+        if (!user) {
+            throw ApiError.notFound('User not found');
+        }
+
+        if (user.status !== 'ACTIVE') {
+            throw ApiError.forbidden('Account not active');
+        }
+
+        const updated = user.isEmailVerified
+            ? user
+            : await this.repository.updateUser(user.id, { isEmailVerified: true });
+
+        return this.issueTokens({
+            id: updated.id,
+            email: updated.email,
+            phone: updated.phone,
+            role: updated.role,
+            status: updated.status,
+            isEmailVerified: updated.isEmailVerified,
+            isPhoneVerified: updated.isPhoneVerified,
+        }, userAgent, ipAddress);
     }
 
     /**

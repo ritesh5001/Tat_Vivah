@@ -24,21 +24,22 @@ import {
 
 export default function RequestOtpScreen() {
   const router = useRouter();
-  const [phone, setPhone] = React.useState("");
+  const [method, setMethod] = React.useState<"phone" | "email">("phone");
+  const [identifier, setIdentifier] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
   const handleRequestOtp = async () => {
-    const trimmed = phone.trim();
+    const trimmed = method === "phone" ? identifier.trim() : identifier.trim().toLowerCase();
     if (!trimmed) {
-      setError("Please enter your mobile number.");
+      setError(method === "phone" ? "Please enter your mobile number." : "Please enter your email address.");
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      await requestOtp({ phone: trimmed });
-      router.push({ pathname: "/(auth)/verify-otp", params: { phone: trimmed } });
+      await requestOtp(method === "phone" ? { phone: trimmed } : { email: trimmed });
+      router.push({ pathname: "/(auth)/verify-otp", params: method === "phone" ? { method: "phone", phone: trimmed } : { method: "email", email: trimmed } });
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Failed to send OTP";
@@ -65,20 +66,31 @@ export default function RequestOtpScreen() {
 
         <Text style={styles.title}>Sign in with OTP</Text>
         <Text style={styles.subtitle}>
-          We&apos;ll send a one-time code to your mobile number.
+          {method === "phone"
+            ? "We'll send a one-time code to your mobile number."
+            : "We'll send a one-time code to your email address."}
         </Text>
 
         <View style={styles.card}>
-          <Text style={styles.label}>Mobile number</Text>
+          <View style={styles.toggleRow}>
+            <Pressable onPress={() => setMethod("phone")} style={[styles.toggleButton, method === "phone" && styles.toggleButtonActive]}>
+              <Text style={[styles.toggleButtonText, method === "phone" && styles.toggleButtonTextActive]}>Mobile OTP</Text>
+            </Pressable>
+            <Pressable onPress={() => setMethod("email")} style={[styles.toggleButton, method === "email" && styles.toggleButtonActive]}>
+              <Text style={[styles.toggleButtonText, method === "email" && styles.toggleButtonTextActive]}>Email OTP</Text>
+            </Pressable>
+          </View>
+
+          <Text style={styles.label}>{method === "phone" ? "Mobile number" : "Email address"}</Text>
           <TextInput
-            placeholder="9876543210"
+            placeholder={method === "phone" ? "9876543210" : "you@example.com"}
             placeholderTextColor={colors.brownSoft}
             style={styles.input}
-            value={phone}
-            onChangeText={setPhone}
-            keyboardType="phone-pad"
+            value={identifier}
+            onChangeText={setIdentifier}
+            keyboardType={method === "phone" ? "phone-pad" : "email-address"}
             autoCapitalize="none"
-            autoComplete="tel"
+            autoComplete={method === "phone" ? "tel" : "email"}
             autoCorrect={false}
             returnKeyType="send"
             onSubmitEditing={handleRequestOtp}
@@ -171,6 +183,32 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.borderSoft,
     ...shadow.card,
+  },
+  toggleRow: {
+    flexDirection: "row",
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    marginBottom: spacing.md,
+  },
+  toggleButton: {
+    flex: 1,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surface,
+  },
+  toggleButtonActive: {
+    backgroundColor: colors.charcoal,
+  },
+  toggleButtonText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 11,
+    letterSpacing: 1.2,
+    color: colors.brown,
+    textTransform: "uppercase",
+  },
+  toggleButtonTextActive: {
+    color: colors.background,
   },
   label: {
     fontFamily: typography.sansMedium,
