@@ -6,6 +6,12 @@ import {
   clearSession,
 } from "../storage/auth";
 
+function envFlagEnabled(value: string | undefined): boolean {
+  if (!value) return false;
+  const normalized = value.trim().toLowerCase();
+  return normalized === "true" || normalized === "1" || normalized === "yes" || normalized === "on";
+}
+
 // ---------------------------------------------------------------------------
 // Environment
 // ---------------------------------------------------------------------------
@@ -17,15 +23,25 @@ const PROD_BASE_URL_RAW =
 const LOCAL_BASE_URL_RAW =
   process.env.LOCAL_BACKEND_URL?.trim() ||
   process.env.EXPO_PUBLIC_LOCAL_BACKEND_URL?.trim() ||
-  "http://localhost:5000";
+  "http://localhost:5005";
 
 export const PRODUCTION_API_BASE_URL = PROD_BASE_URL_RAW.replace(/\/+$/, "");
 export const LOCAL_API_BASE_URL = LOCAL_BASE_URL_RAW.replace(/\/+$/, "");
+const USE_LOCAL_API_IN_DEV =
+  envFlagEnabled(process.env.USE_LOCAL_BACKEND) ||
+  envFlagEnabled(process.env.EXPO_PUBLIC_USE_LOCAL_BACKEND);
 
-const RAW_BASE_URL = __DEV__ ? LOCAL_API_BASE_URL : PRODUCTION_API_BASE_URL;
+const RAW_BASE_URL =
+  __DEV__ && USE_LOCAL_API_IN_DEV ? LOCAL_API_BASE_URL : PRODUCTION_API_BASE_URL;
 
 /** Base URL with any trailing slashes stripped. */
 export const API_BASE_URL = RAW_BASE_URL.replace(/\/+$/, "");
+
+function shouldFallbackToProduction(error: unknown, baseUrl: string): boolean {
+  if (!__DEV__) return false;
+  if (baseUrl.replace(/\/+$/, "") === PRODUCTION_API_BASE_URL) return false;
+  return error instanceof ApiError && error.isNetworkError;
+}
 
 if (__DEV__) {
   // Helps verify whether app is currently pointed to local or production API.
@@ -33,6 +49,7 @@ if (__DEV__) {
     apiBaseUrl: API_BASE_URL,
     localBaseUrl: LOCAL_API_BASE_URL,
     productionBaseUrl: PRODUCTION_API_BASE_URL,
+    useLocalApiInDev: USE_LOCAL_API_IN_DEV,
   });
 }
 
@@ -245,7 +262,44 @@ export async function apiRequest<T>(
     return data as T;
   };
 
-  const promise = execute().finally(() => {
+  const promise = execute().catch(async (error) => {
+    if (!shouldFallbackToProduction(error, API_BASE_URL)) {
+      throw error;
+    }
+
+    if (__DEV__) {
+      console.warn("[mobile-api] local request failed, retrying on production", {
+        path,
+        localBase: API_BASE_URL,
+        productionBase: PRODUCTION_API_BASE_URL,
+      });
+    }
+
+    const authToken = token ?? (await getAccessToken());
+    const response = await fetch(`${PRODUCTION_API_BASE_URL}${path}`, {
+      headers: {
+        Accept: "application/json",
+        ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        ...((headers as Record<string, string>) ?? {}),
+      },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+      signal,
+      ...rest,
+    });
+
+    const data: unknown = await response.json().catch(() => null);
+    if (!response.ok) {
+      const msg =
+        (data as any)?.error?.message ??
+        (data as any)?.message ??
+        "Request failed";
+      const details = (data as any)?.error?.details;
+      throw new ApiError(response.status, msg, details);
+    }
+
+    return data as T;
+  }).finally(() => {
     if (key) inFlight.delete(key);
   });
 

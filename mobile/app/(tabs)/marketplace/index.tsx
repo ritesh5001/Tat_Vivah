@@ -8,12 +8,13 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Image } from "../../../src/components/CompatImage";
 import { FlashList } from "@shopify/flash-list";
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { colors, spacing, typography, shadow } from "../../../src/theme/tokens";
 import { AppHeader } from "../../../src/components/AppHeader";
 import { getCategories, type Category } from "../../../src/services/catalog";
 import {
   getProducts,
+  getProductById,
   type ProductItem,
 } from "../../../src/services/products";
 import { ApiError } from "../../../src/services/api";
@@ -30,6 +31,7 @@ const fallbackImage =
 
 export default function MarketplaceScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const params = useLocalSearchParams<{ categoryId?: string; q?: string }>();
   const initialCategoryId =
     typeof params.categoryId === "string" ? params.categoryId : undefined;
@@ -98,9 +100,14 @@ export default function MarketplaceScreen() {
 
   const handleProductPress = React.useCallback(
     (product: ProductItem) => {
+      void queryClient.prefetchQuery({
+        queryKey: ["product", product.id],
+        queryFn: ({ signal }) => getProductById(product.id, signal),
+        staleTime: 10 * 60 * 1000,
+      });
       router.push(`/product/${product.id}`);
     },
-    [router]
+    [queryClient, router]
   );
 
   const renderItem = React.useCallback(
@@ -215,6 +222,7 @@ export default function MarketplaceScreen() {
         data={products}
         keyExtractor={(item) => item.id}
         numColumns={2}
+        estimatedItemSize={330}
         contentContainerStyle={styles.container}
         drawDistance={420}
         renderItem={renderItem}

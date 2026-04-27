@@ -57,7 +57,6 @@ export function AppHeader({
   const backFallbackRoute = "/home";
 
   const handleOpenMenu = React.useCallback(() => {
-    console.log("MENU CLICKED");
     setMenuOpen(true);
   }, []);
 

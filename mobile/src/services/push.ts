@@ -40,6 +40,10 @@ async function getNotificationsModule() {
 export async function getExpoPushToken(): Promise<string | null> {
   if (_tokenCache) return _tokenCache;
 
+  if (Platform.OS === "web") {
+    return null;
+  }
+
   if (Constants.appOwnership === "expo") {
     console.warn("[push] Push notifications require a development build.");
     return null;

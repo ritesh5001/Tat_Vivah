@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const CACHE_VERSION = "v1";
-const CACHE_TTL_MS = 7 * 60 * 1000;
+const CACHE_TTL_MS = 30 * 60 * 1000;
 
 type CacheEnvelope<T> = {
   timestamp: number;

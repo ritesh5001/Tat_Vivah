@@ -61,6 +61,10 @@ import {
   uploadReviewImage,
   type ReviewImageAsset,
 } from "../../../src/services/imagekit";
+import {
+  createVirtualTryOn,
+  type TryOnResult,
+} from "../../../src/services/tryOn";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -79,6 +83,7 @@ const currency = new Intl.NumberFormat("en-IN", {
 
 const MAX_REVIEW_IMAGES = 3;
 const MAX_REVIEW_IMAGE_BYTES = 2 * 1024 * 1024;
+const MAX_TRY_ON_IMAGE_BYTES = 8 * 1024 * 1024;
 
 // ---------------------------------------------------------------------------
 // Memoised sub-components (extracted from render for FlatList perf)
@@ -390,6 +395,19 @@ function getVariantSizeLabel(variant: ProductVariant): string {
   return variant.size?.trim() || "Default";
 }
 
+function mimeTypeFromAsset(asset: ImagePicker.ImagePickerAsset): string {
+  if (asset.mimeType) return asset.mimeType;
+  const ext = asset.fileName?.split(".").pop()?.toLowerCase();
+  if (ext === "png") return "image/png";
+  if (ext === "webp") return "image/webp";
+  return "image/jpeg";
+}
+
+function buildDataImage(asset: ImagePicker.ImagePickerAsset): string | null {
+  if (!asset.base64) return null;
+  return `data:${mimeTypeFromAsset(asset)};base64,${asset.base64}`;
+}
+
 // ---------------------------------------------------------------------------
 // Main screen
 // ---------------------------------------------------------------------------
@@ -427,6 +445,13 @@ export default function ProductDetailScreen() {
 
   const [relatedProducts, setRelatedProducts] = React.useState<ProductSummary[]>([]);
   const [loadingRelated, setLoadingRelated] = React.useState(false);
+  const [tryOnUserImageUri, setTryOnUserImageUri] = React.useState<string | null>(null);
+  const [tryOnUserImageData, setTryOnUserImageData] = React.useState<string | null>(null);
+  const [tryOnResult, setTryOnResult] = React.useState<TryOnResult | null>(null);
+  const [tryOnError, setTryOnError] = React.useState<string | null>(null);
+  const [tryOnLoading, setTryOnLoading] = React.useState(false);
+  const [isTryOnVisible, setIsTryOnVisible] = React.useState(false);
+  const tryOnAbortRef = React.useRef<AbortController | null>(null);
 
   const WEB_BOTTOM_OFFSET = 16;
   const stickyBottomOffset = Platform.OS === "web"
@@ -450,6 +475,7 @@ export default function ProductDetailScreen() {
       if (viewCartTimerRef.current) {
         clearTimeout(viewCartTimerRef.current);
       }
+      tryOnAbortRef.current?.abort();
     };
   }, []);
 
@@ -457,8 +483,8 @@ export default function ProductDetailScreen() {
     queryKey: ["product", productId],
     queryFn: ({ signal }) => getProductById(productId, signal),
     enabled: Boolean(productId),
-    staleTime: 1000 * 60 * 5,
-    gcTime: 1000 * 60 * 30,
+    staleTime: 1000 * 60 * 10,
+    gcTime: 1000 * 60 * 60,
   });
 
   React.useEffect(() => {
@@ -835,6 +861,116 @@ export default function ProductDetailScreen() {
     showToast,
   ]);
 
+  const handleTryOnAsset = React.useCallback((asset?: ImagePicker.ImagePickerAsset) => {
+    if (!asset) return;
+    if (typeof asset.fileSize === "number" && asset.fileSize > MAX_TRY_ON_IMAGE_BYTES) {
+      setTryOnError("Choose an image under 8MB for virtual try-on.");
+      return;
+    }
+
+    const dataImage = buildDataImage(asset);
+    if (!dataImage) {
+      setTryOnError("Could not prepare this image. Please choose another photo.");
+      return;
+    }
+
+    setTryOnUserImageUri(asset.uri);
+    setTryOnUserImageData(dataImage);
+    setTryOnResult(null);
+    setTryOnError(null);
+  }, []);
+
+  const handleCaptureTryOnPhoto = React.useCallback(async () => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Permission required", "Allow camera access to take a try-on photo.");
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ["images"],
+      quality: 0.86,
+      base64: true,
+    });
+
+    if (!result.canceled) {
+      handleTryOnAsset(result.assets?.[0]);
+    }
+  }, [handleTryOnAsset]);
+
+  const handlePickTryOnPhoto = React.useCallback(async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Permission required", "Allow photo library access to upload a try-on photo.");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      quality: 0.86,
+      base64: true,
+      allowsMultipleSelection: false,
+    });
+
+    if (!result.canceled) {
+      handleTryOnAsset(result.assets?.[0]);
+    }
+  }, [handleTryOnAsset]);
+
+  const handleCreateTryOn = React.useCallback(async () => {
+    if (!token) {
+      showToast("Please sign in to use virtual try-on", "info");
+      router.push("/login");
+      return;
+    }
+    if (!isConnected) {
+      showToast("You're offline. Please check your connection.", "error");
+      return;
+    }
+    if (!product || !fallbackVariant) {
+      setTryOnError("Select a product variant first.");
+      return;
+    }
+    if (!tryOnUserImageData) {
+      setTryOnError("Take or upload your photo first.");
+      return;
+    }
+
+    tryOnAbortRef.current?.abort();
+    const controller = new AbortController();
+    tryOnAbortRef.current = controller;
+    setTryOnLoading(true);
+    setTryOnError(null);
+
+    try {
+      const result = await createVirtualTryOn({
+        productId: product.id,
+        variantId: fallbackVariant.id,
+        userImage: tryOnUserImageData,
+        signal: controller.signal,
+      });
+      if (!mountedRef.current) return;
+      setTryOnResult(result);
+      setIsTryOnVisible(true);
+      notifySuccess();
+    } catch (err) {
+      if (!mountedRef.current || isAbortError(err)) return;
+      const msg = err instanceof Error ? err.message : "Virtual try-on failed";
+      setTryOnError(msg);
+      showToast(msg, "error");
+    } finally {
+      if (mountedRef.current) setTryOnLoading(false);
+    }
+  }, [
+    token,
+    isConnected,
+    product,
+    fallbackVariant,
+    tryOnUserImageData,
+    router,
+    showToast,
+  ]);
+
   // ---- Gallery scroll handler ----
   const handleGalleryScroll = React.useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -1189,6 +1325,75 @@ export default function ProductDetailScreen() {
           )}
         </View>
 
+        <View style={styles.tryOnCard}>
+          <View style={styles.tryOnHeader}>
+            <View>
+              <Text style={styles.tryOnEyebrow}>Virtual Try-On</Text>
+              <Text style={styles.tryOnTitle}>See it on you</Text>
+            </View>
+            {tryOnResult?.output?.[0] ? (
+              <Pressable onPress={() => setIsTryOnVisible(true)} hitSlop={8}>
+                <Text style={styles.tryOnViewText}>View result</Text>
+              </Pressable>
+            ) : null}
+          </View>
+
+          <View style={styles.tryOnPreviewRow}>
+            <View style={styles.tryOnPreviewBox}>
+              {tryOnUserImageUri ? (
+                <Image
+                  source={{ uri: tryOnUserImageUri }}
+                  style={styles.tryOnPreviewImage}
+                  contentFit="cover"
+                />
+              ) : (
+                <Text style={styles.tryOnPlaceholderText}>Your photo</Text>
+              )}
+            </View>
+            <View style={styles.tryOnPreviewBox}>
+              <Image
+                source={{ uri: selectedColorImages[0] ?? images[0] ?? fallbackImage }}
+                style={styles.tryOnPreviewImage}
+                contentFit="cover"
+              />
+            </View>
+          </View>
+
+          <View style={styles.tryOnActions}>
+            <Pressable
+              style={styles.tryOnButton}
+              onPress={handleCaptureTryOnPhoto}
+              disabled={tryOnLoading}
+            >
+              <Text style={styles.tryOnButtonText}>Camera</Text>
+            </Pressable>
+            <Pressable
+              style={styles.tryOnButton}
+              onPress={handlePickTryOnPhoto}
+              disabled={tryOnLoading}
+            >
+              <Text style={styles.tryOnButtonText}>Upload</Text>
+            </Pressable>
+          </View>
+
+          {tryOnError ? <Text style={styles.errorText}>{tryOnError}</Text> : null}
+
+          <AnimatedPressable
+            style={[
+              styles.primaryButton,
+              (!tryOnUserImageData || tryOnLoading) && styles.buttonDisabled,
+            ]}
+            onPress={handleCreateTryOn}
+            disabled={!tryOnUserImageData || tryOnLoading}
+          >
+            {tryOnLoading ? (
+              <TatvivahLoader size="sm" color={colors.background} />
+            ) : (
+              <Text style={styles.primaryButtonText}>Try this product</Text>
+            )}
+          </AnimatedPressable>
+        </View>
+
         {/* ---- Reviews section ---- */}
         <View style={styles.reviewsCard}>
           <Text style={styles.sectionTitle}>Customer Reviews</Text>
@@ -1417,6 +1622,31 @@ export default function ProductDetailScreen() {
           <Text style={styles.viewerHintText}>
             {viewerIndex + 1}/{images.length} • Pinch/Double tap • Drag down to close
           </Text>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={isTryOnVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsTryOnVisible(false)}
+      >
+        <View style={styles.tryOnModalOverlay}>
+          <View style={styles.tryOnModalContent}>
+            <Pressable
+              style={styles.tryOnModalClose}
+              onPress={() => setIsTryOnVisible(false)}
+            >
+              <Text style={styles.viewerCloseText}>Close</Text>
+            </Pressable>
+            {tryOnResult?.output?.[0] ? (
+              <Image
+                source={{ uri: tryOnResult.output[0] }}
+                style={styles.tryOnResultImage}
+                contentFit="contain"
+              />
+            ) : null}
+          </View>
         </View>
       </Modal>
     </SafeAreaView>
@@ -1696,6 +1926,116 @@ const styles = StyleSheet.create({
   colorOptionTextActive: {
     color: colors.charcoal,
     fontFamily: typography.sansMedium,
+  },
+
+  // Virtual try-on
+  tryOnCard: {
+    marginTop: spacing.md,
+    marginHorizontal: spacing.lg,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.surfaceElevated,
+  },
+  tryOnHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: spacing.md,
+  },
+  tryOnEyebrow: {
+    fontFamily: typography.sans,
+    fontSize: 10,
+    color: colors.gold,
+    letterSpacing: 1.5,
+    textTransform: "uppercase",
+  },
+  tryOnTitle: {
+    marginTop: 2,
+    fontFamily: typography.serif,
+    fontSize: 22,
+    lineHeight: 26,
+    color: colors.charcoal,
+  },
+  tryOnViewText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 11,
+    color: colors.gold,
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+  tryOnPreviewRow: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  tryOnPreviewBox: {
+    flex: 1,
+    aspectRatio: 3 / 4,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.cream,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  tryOnPreviewImage: {
+    width: "100%",
+    height: "100%",
+  },
+  tryOnPlaceholderText: {
+    fontFamily: typography.sans,
+    fontSize: 11,
+    color: colors.brownSoft,
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+  tryOnActions: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  tryOnButton: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.warmWhite,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  tryOnButtonText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 11,
+    color: colors.charcoal,
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+  tryOnModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(20, 18, 16, 0.9)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: spacing.lg,
+  },
+  tryOnModalContent: {
+    width: "100%",
+    height: "86%",
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+  },
+  tryOnModalClose: {
+    position: "absolute",
+    top: spacing.md,
+    right: spacing.md,
+    zIndex: 2,
+    backgroundColor: "rgba(44, 40, 37, 0.72)",
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  tryOnResultImage: {
+    width: "100%",
+    height: "100%",
   },
 
   // Buttons

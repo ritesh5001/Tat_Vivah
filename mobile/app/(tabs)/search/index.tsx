@@ -8,7 +8,12 @@ import {
   Modal,
 } from "react-native";
 import { FlashList } from "@shopify/flash-list";
+import { useQueryClient } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
+import {
+  ExpoSpeechRecognitionModule,
+  useSpeechRecognitionEvent,
+} from "expo-speech-recognition";
 import { Image } from "../../../src/components/CompatImage";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { colors, spacing, typography, shadow } from "../../../src/theme/tokens";
@@ -16,6 +21,7 @@ import { getCategories } from "../../../src/services/catalog";
 import {
   getProductsAndCache,
   getProductsCached,
+  getProductById,
   type ProductSummary,
 } from "../../../src/services/products";
 import { isAbortError } from "../../../src/services/api";
@@ -28,6 +34,7 @@ import {
   AppText as Text,
   ScreenContainer as SafeAreaView,
 } from "../../../src/components";
+import { useToast } from "../../../src/providers/ToastProvider";
 
 const { width } = Dimensions.get("window");
 const cardWidth = (width - spacing.lg * 2 - spacing.md) / 2;
@@ -36,6 +43,7 @@ const fallbackImage =
 
 const DEBOUNCE_MS = 140;
 const SUGGEST_DEBOUNCE_MS = 110;
+const DEFAULT_SEARCH_LANGUAGE = "en-IN";
 
 const SORT_OPTIONS: { value: SortOption | ""; label: string }[] = [
   { value: "", label: "Default" },
@@ -105,6 +113,8 @@ const CategoryChip = React.memo(function CategoryChip({
 
 export default function SearchScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const { showToast } = useToast();
   const params = useLocalSearchParams<{ q?: string; categoryId?: string }>();
   const initialSearch = typeof params.q === "string" ? params.q : "";
   const initialCategoryId =
@@ -128,6 +138,10 @@ export default function SearchScreen() {
   const [showCategoryFilters, setShowCategoryFilters] = React.useState(true);
   const [suggestions, setSuggestions] = React.useState<SuggestionItem[]>([]);
   const [showSuggestions, setShowSuggestions] = React.useState(false);
+  const [voiceSupported, setVoiceSupported] = React.useState(true);
+  const [voiceListening, setVoiceListening] = React.useState(false);
+  const [voiceTranscript, setVoiceTranscript] = React.useState("");
+  const [voiceError, setVoiceError] = React.useState<string | null>(null);
 
   // Abort controller for the active search request
   const controllerRef = React.useRef<AbortController | null>(null);
@@ -137,6 +151,7 @@ export default function SearchScreen() {
   const suggestDebounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   // Suggestion abort controller
   const suggestControllerRef = React.useRef<AbortController | null>(null);
+  const speechTriggeredSearchRef = React.useRef(false);
 
   const skeletons = React.useMemo(
     () =>
@@ -150,11 +165,20 @@ export default function SearchScreen() {
   // Cleanup on unmount
   React.useEffect(() => {
     return () => {
+      ExpoSpeechRecognitionModule.stop();
       controllerRef.current?.abort();
       suggestControllerRef.current?.abort();
       if (debounceRef.current) clearTimeout(debounceRef.current);
       if (suggestDebounceRef.current) clearTimeout(suggestDebounceRef.current);
     };
+  }, []);
+
+  React.useEffect(() => {
+    try {
+      setVoiceSupported(ExpoSpeechRecognitionModule.isRecognitionAvailable());
+    } catch {
+      setVoiceSupported(false);
+    }
   }, []);
 
   React.useEffect(() => {
@@ -310,6 +334,116 @@ export default function SearchScreen() {
     loadProducts(1, true, trimmed, controller.signal);
   }, [loadProducts, router, search, selectedCategory]);
 
+  const runVoiceSearch = React.useCallback(
+    (transcript: string) => {
+      const trimmed = transcript.trim();
+      if (!trimmed) return;
+
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      controllerRef.current?.abort();
+      setSearch(trimmed);
+      setShowSuggestions(false);
+      setSuggestions([]);
+      setVoiceError(null);
+      speechTriggeredSearchRef.current = true;
+
+      router.setParams({
+        q: trimmed,
+        categoryId: selectedCategory,
+      });
+
+      const controller = new AbortController();
+      controllerRef.current = controller;
+      loadProducts(1, true, trimmed, controller.signal);
+    },
+    [loadProducts, router, selectedCategory]
+  );
+
+  const stopVoiceSearch = React.useCallback(() => {
+    ExpoSpeechRecognitionModule.stop();
+  }, []);
+
+  const startVoiceSearch = React.useCallback(async () => {
+    if (!voiceSupported) {
+      showToast("Voice search is not available on this device.", "info");
+      return;
+    }
+
+    speechTriggeredSearchRef.current = false;
+    setVoiceError(null);
+    setVoiceTranscript("");
+    setShowSuggestions(false);
+
+    try {
+      const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+      if (!permission.granted) {
+        const message = "Microphone permission is required for voice search.";
+        setVoiceError(message);
+        showToast(message, "error");
+        return;
+      }
+
+      ExpoSpeechRecognitionModule.start({
+        lang: DEFAULT_SEARCH_LANGUAGE,
+        interimResults: true,
+        continuous: false,
+        maxAlternatives: 1,
+        contextualStrings: categories.map((category) => category.name),
+        addsPunctuation: false,
+        androidIntentOptions: {
+          EXTRA_LANGUAGE_MODEL: "web_search",
+        },
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to start voice search";
+      setVoiceError(message);
+      showToast(message, "error");
+    }
+  }, [categories, showToast, voiceSupported]);
+
+  const toggleVoiceSearch = React.useCallback(() => {
+    if (voiceListening) {
+      stopVoiceSearch();
+      return;
+    }
+
+    startVoiceSearch();
+  }, [startVoiceSearch, stopVoiceSearch, voiceListening]);
+
+  useSpeechRecognitionEvent("start", () => {
+    setVoiceListening(true);
+    setVoiceError(null);
+  });
+
+  useSpeechRecognitionEvent("end", () => {
+    setVoiceListening(false);
+    if (!speechTriggeredSearchRef.current && voiceTranscript.trim()) {
+      runVoiceSearch(voiceTranscript);
+    }
+  });
+
+  useSpeechRecognitionEvent("result", (event) => {
+    const transcript = event.results[0]?.transcript?.trim() ?? "";
+    if (!transcript) return;
+
+    setVoiceTranscript(transcript);
+    setSearch(transcript);
+
+    if (event.isFinal) {
+      runVoiceSearch(transcript);
+    }
+  });
+
+  useSpeechRecognitionEvent("error", (event) => {
+    setVoiceListening(false);
+    const message = event.message || "Voice search failed";
+    setVoiceError(message);
+    if (event.error !== "aborted") {
+      showToast(message, "error");
+    }
+  });
+
   const handleRetry = React.useCallback(() => {
     controllerRef.current?.abort();
     const controller = new AbortController();
@@ -325,9 +459,14 @@ export default function SearchScreen() {
 
   const handleProductPress = React.useCallback(
     (id: string) => {
+      void queryClient.prefetchQuery({
+        queryKey: ["product", id],
+        queryFn: ({ signal }) => getProductById(id, signal),
+        staleTime: 10 * 60 * 1000,
+      });
       router.push({ pathname: "/product/[id]", params: { id } });
     },
-    [router]
+    [queryClient, router]
   );
 
   // Stable renderItem — no inline closures
@@ -397,6 +536,22 @@ export default function SearchScreen() {
             }}
             style={styles.searchInput}
           />
+          <Pressable
+            style={[
+              styles.iconControl,
+              voiceListening && styles.voiceControlActive,
+              !voiceSupported && styles.iconControlDisabled,
+            ]}
+            onPress={toggleVoiceSearch}
+            disabled={!voiceSupported}
+            hitSlop={8}
+          >
+            <Ionicons
+              name={voiceListening ? "mic" : "mic-outline"}
+              size={18}
+              color={voiceListening ? colors.background : colors.charcoal}
+            />
+          </Pressable>
           <Pressable style={styles.searchButton} onPress={handleSearch}>
             <Text style={styles.searchButtonText}>Search</Text>
           </Pressable>
@@ -409,6 +564,18 @@ export default function SearchScreen() {
             <Ionicons name="funnel-outline" size={18} color={colors.charcoal} />
           </Pressable>
         </View>
+
+        {voiceListening ? (
+          <Text style={styles.voiceStatusText}>
+            Listening{voiceTranscript ? `: ${voiceTranscript}` : "..."}
+          </Text>
+        ) : voiceError ? (
+          <Text style={styles.voiceErrorText}>{voiceError}</Text>
+        ) : voiceSupported ? (
+          <Text style={styles.voiceHintText}>Tap the mic and speak your search.</Text>
+        ) : (
+          <Text style={styles.voiceHintText}>Voice search is not available on this device.</Text>
+        )}
 
         {showCategoryFilters ? (
           <FlatList
@@ -601,6 +768,31 @@ const styles = StyleSheet.create({
   iconControlActive: {
     borderColor: colors.gold,
     backgroundColor: "rgba(184, 149, 108, 0.14)",
+  },
+  iconControlDisabled: {
+    opacity: 0.45,
+  },
+  voiceControlActive: {
+    borderColor: colors.gold,
+    backgroundColor: colors.gold,
+  },
+  voiceHintText: {
+    marginTop: spacing.sm,
+    fontFamily: typography.sans,
+    fontSize: 11,
+    color: colors.brownSoft,
+  },
+  voiceStatusText: {
+    marginTop: spacing.sm,
+    fontFamily: typography.sansMedium,
+    fontSize: 11,
+    color: colors.gold,
+  },
+  voiceErrorText: {
+    marginTop: spacing.sm,
+    fontFamily: typography.sans,
+    fontSize: 11,
+    color: "#A65D57",
   },
   categoryRow: {
     paddingTop: spacing.sm,
