@@ -21,6 +21,8 @@ const envSchema = z.object({
     KEEP_ALIVE_TIMEOUT_MS: z.string().default('65000').transform(Number),
     HEADERS_TIMEOUT_MS: z.string().default('70000').transform(Number),
     REQUEST_TIMEOUT_MS: z.string().default('120000').transform(Number),
+    JSON_BODY_LIMIT: z.string().default('5mb'),
+    URLENCODED_BODY_LIMIT: z.string().default('5mb'),
     MAX_REQUESTS_PER_SOCKET: z.string().default('1000').transform(Number),
     RUN_BACKGROUND_JOBS: z.string().optional().transform((v) => {
         if (!v) return undefined;

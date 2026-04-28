@@ -101,10 +101,10 @@ export function createApp(): Application {
     }));
 
     // Parse JSON bodies
-    app.use(express.json());
+    app.use(express.json({ limit: env.JSON_BODY_LIMIT }));
 
     // Parse URL-encoded bodies
-    app.use(express.urlencoded({ extended: true }));
+    app.use(express.urlencoded({ extended: true, limit: env.URLENCODED_BODY_LIMIT }));
 
     // Enable CORS — support comma-separated origins for multi-subdomain setup
     const corsOrigin = process.env['CORS_ORIGIN'];

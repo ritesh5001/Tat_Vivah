@@ -27,6 +27,31 @@ export function errorMiddleware(
     console.error('[Error]:', err);
 
     const prismaError = err as Error & { code?: string; meta?: Record<string, unknown> };
+    const bodyParserError = err as Error & {
+        status?: number;
+        type?: string;
+        limit?: number | string;
+        length?: number | string;
+    };
+
+    if (bodyParserError.type === 'entity.too.large' || bodyParserError.status === 413) {
+        const response: ErrorResponse = {
+            success: false,
+            error: {
+                message: 'Request payload is too large',
+                statusCode: 413,
+                details: {
+                    type: bodyParserError.type,
+                    limit: bodyParserError.limit,
+                    length: bodyParserError.length,
+                },
+            },
+        };
+
+        res.status(413).json(response);
+        return;
+    }
+
     if (prismaError.code === 'P1001') {
         const response: ErrorResponse = {
             success: false,
