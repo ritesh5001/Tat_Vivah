@@ -8,6 +8,7 @@ import { SITE_URL } from "@/lib/site-config";
 import { CACHE_TAGS, collectionTag, occasionTag } from "@/lib/cache-tags";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+const MARKETPLACE_REVALIDATE_SECONDS = 300;
 
 type SearchParams = {
   page?: string;
@@ -53,7 +54,7 @@ async function fetchCategories() {
     return [] as CategoryItem[];
   }
   const response = await fetch(`${API_BASE_URL}/v1/categories`, {
-    next: { tags: [CACHE_TAGS.categories] },
+    next: { revalidate: MARKETPLACE_REVALIDATE_SECONDS, tags: [CACHE_TAGS.categories] },
   });
   if (!response.ok) {
     return [] as CategoryItem[];
@@ -67,7 +68,7 @@ async function fetchOccasions() {
     return [] as OccasionItem[];
   }
   const response = await fetch(`${API_BASE_URL}/v1/occasions`, {
-    next: { tags: [CACHE_TAGS.occasions] },
+    next: { revalidate: MARKETPLACE_REVALIDATE_SECONDS, tags: [CACHE_TAGS.occasions] },
   });
   if (!response.ok) {
     return [] as OccasionItem[];
@@ -106,7 +107,7 @@ async function fetchProducts(params: {
   ].filter((tag): tag is string => Boolean(tag));
 
   const response = await fetch(`${API_BASE_URL}/v1/products?${query.toString()}`, {
-    next: { tags },
+    next: { revalidate: MARKETPLACE_REVALIDATE_SECONDS, tags },
   });
   if (!response.ok) {
     return { data: [], pagination: { page: params.page, limit: params.limit, total: 0, totalPages: 1 } };

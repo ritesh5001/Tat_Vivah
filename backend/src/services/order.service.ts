@@ -6,6 +6,13 @@ import type {
     SellerOrderListResponse,
     SellerOrderDetailResponse,
 } from '../types/order.types.js';
+import { CACHE_KEYS, getFromCache, setCache } from '../utils/cache.util.js';
+
+const PRIVATE_ORDER_CACHE_TTL_SECONDS = 30;
+
+function dateSegment(date?: Date): string | undefined {
+    return date ? date.toISOString() : undefined;
+}
 
 /**
  * Order Service
@@ -28,8 +35,20 @@ export class OrderService {
     ): Promise<BuyerOrderListResponse> {
         const page = Math.max(1, Math.trunc(params?.page ?? 1));
         const limit = Math.min(20, Math.max(1, Math.trunc(params?.limit ?? 20)));
+        const cacheKey = CACHE_KEYS.BUYER_ORDERS(
+            userId,
+            page,
+            limit,
+            dateSegment(params?.startDate),
+            dateSegment(params?.endDate),
+        );
+        const cached = await getFromCache<BuyerOrderListResponse>(cacheKey);
+        if (cached) return cached;
+
         const orders = await this.orderRepo.findByUserId(userId, { ...params, page, limit });
-        return { orders };
+        const response = { orders };
+        await setCache(cacheKey, response, PRIVATE_ORDER_CACHE_TTL_SECONDS);
+        return response;
     }
 
     /**
@@ -37,12 +56,18 @@ export class OrderService {
      * Uses Redis caching
      */
     async getBuyerOrder(orderId: string, userId: string): Promise<BuyerOrderDetailResponse> {
+        const cacheKey = CACHE_KEYS.BUYER_ORDER_DETAIL(userId, orderId);
+        const cached = await getFromCache<BuyerOrderDetailResponse>(cacheKey);
+        if (cached) return cached;
+
         const order = await this.orderRepo.findByIdAndUserId(orderId, userId);
         if (!order) {
             throw ApiError.notFound('Order not found');
         }
 
-        return { order };
+        const response = { order };
+        await setCache(cacheKey, response, PRIVATE_ORDER_CACHE_TTL_SECONDS);
+        return response;
     }
 
     // =========================================================================
@@ -59,8 +84,20 @@ export class OrderService {
     ): Promise<SellerOrderListResponse> {
         const page = Math.max(1, Math.trunc(params?.page ?? 1));
         const limit = Math.min(20, Math.max(1, Math.trunc(params?.limit ?? 20)));
+        const cacheKey = CACHE_KEYS.SELLER_ORDERS(
+            sellerId,
+            page,
+            limit,
+            dateSegment(params?.startDate),
+            dateSegment(params?.endDate),
+        );
+        const cached = await getFromCache<SellerOrderListResponse>(cacheKey);
+        if (cached) return cached;
+
         const orderItems = await this.orderRepo.findBySellerId(sellerId, { ...params, page, limit });
-        return { orderItems };
+        const response = { orderItems };
+        await setCache(cacheKey, response, PRIVATE_ORDER_CACHE_TTL_SECONDS);
+        return response;
     }
 
     /**
@@ -70,6 +107,10 @@ export class OrderService {
         orderId: string,
         sellerId: string
     ): Promise<SellerOrderDetailResponse> {
+        const cacheKey = CACHE_KEYS.SELLER_ORDER_DETAIL(sellerId, orderId);
+        const cached = await getFromCache<SellerOrderDetailResponse>(cacheKey);
+        if (cached) return cached;
+
         const result = await this.orderRepo.findSellerOrderById(orderId, sellerId);
 
         if (!result.order) {
@@ -80,12 +121,14 @@ export class OrderService {
             throw ApiError.forbidden('No items in this order belong to you');
         }
 
-        return {
+        const response = {
             orderId: result.order.id,
             status: result.order.status as any,
             createdAt: result.order.createdAt,
             items: result.items,
         };
+        await setCache(cacheKey, response, PRIVATE_ORDER_CACHE_TTL_SECONDS);
+        return response;
     }
 }
 

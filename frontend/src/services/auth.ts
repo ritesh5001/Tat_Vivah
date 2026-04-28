@@ -119,7 +119,9 @@ export async function loginUser(payload: LoginPayload): Promise<LoginResponse> {
   if (!response.ok) {
     const message =
       data?.error?.message ?? data?.message ?? "Login failed";
-    throw new Error(message);
+    const err = new Error(message) as Error & { phone?: string };
+    err.phone = (data?.error?.details?.phone as string | undefined) ?? undefined;
+    throw err;
   }
 
   return data as LoginResponse;
@@ -203,7 +205,18 @@ export async function registerAdmin(
   return data as RegisterResponse;
 }
 
-export async function requestEmailOtp(email: string): Promise<OtpRequestResponse> {
+export interface RequestAuthOtpPayload {
+  email?: string;
+  phone?: string;
+}
+
+export interface VerifyAuthOtpPayload {
+  email?: string;
+  phone?: string;
+  otp: string;
+}
+
+export async function requestAuthOtp(payload: RequestAuthOtpPayload): Promise<OtpRequestResponse> {
   if (!API_BASE_URL) {
     throw new Error("API base URL is not configured");
   }
@@ -213,7 +226,7 @@ export async function requestEmailOtp(email: string): Promise<OtpRequestResponse
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ email }),
+    body: JSON.stringify(payload),
   });
 
   const data = await response.json().catch(() => null);
@@ -227,10 +240,7 @@ export async function requestEmailOtp(email: string): Promise<OtpRequestResponse
   return data as OtpRequestResponse;
 }
 
-export async function verifyEmailOtp(payload: {
-  email: string;
-  otp: string;
-}): Promise<VerifyOtpResponse> {
+export async function verifyAuthOtp(payload: VerifyAuthOtpPayload): Promise<VerifyOtpResponse> {
   if (!API_BASE_URL) {
     throw new Error("API base URL is not configured");
   }

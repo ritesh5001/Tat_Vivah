@@ -14,8 +14,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import { loginUser, persistAuthCookies } from "@/services/auth";
+import { loginUser, persistAuthCookies, requestAuthOtp } from "@/services/auth";
 import { toast } from "sonner";
 import {
   getSubdomain,
@@ -23,8 +22,6 @@ import {
   getCorrectLoginUrl,
   type SubdomainType,
 } from "@/lib/subdomain";
-
-/* ── Subdomain-specific content ── */
 
 interface LoginContent {
   eyebrow: string;
@@ -34,7 +31,6 @@ interface LoginContent {
   features: string[];
   cardTitle: string;
   cardDescription: string;
-  showSocial: boolean;
   registerText: string | null;
   registerLabel: string | null;
   registerHref: string | null;
@@ -51,7 +47,6 @@ const LOGIN_CONTENT: Record<SubdomainType, LoginContent> = {
     features: ["Secure Login", "Verified Profiles"],
     cardTitle: "Sign In",
     cardDescription: "Use your TatVivah credentials to access your account.",
-    showSocial: true,
     registerText: "New here?",
     registerLabel: "Create an account",
     registerHref: "/register/user",
@@ -66,7 +61,6 @@ const LOGIN_CONTENT: Record<SubdomainType, LoginContent> = {
     features: ["Seller Portal", "Secure Access"],
     cardTitle: "Seller Sign In",
     cardDescription: "Login to your seller dashboard.",
-    showSocial: false,
     registerText: "New seller?",
     registerLabel: "Register your business",
     registerHref: "/register/seller",
@@ -81,13 +75,21 @@ const LOGIN_CONTENT: Record<SubdomainType, LoginContent> = {
     features: ["Admin Access", "Restricted Portal"],
     cardTitle: "Admin Sign In",
     cardDescription: "Login with your admin credentials.",
-    showSocial: false,
     registerText: null,
     registerLabel: null,
     registerHref: null,
     successToast: "Welcome back to the admin panel.",
   },
 };
+
+function detectInputType(value: string): "phone" | "email" | "unknown" {
+  const trimmed = value.trim();
+  if (!trimmed) return "unknown";
+  if (trimmed.includes("@")) return "email";
+  if (/^[+\d][\d\s\-()+]*$/.test(trimmed)) return "phone";
+  if (/[a-zA-Z]/.test(trimmed)) return "email";
+  return "unknown";
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -96,6 +98,7 @@ export default function LoginPage() {
   const [identifier, setIdentifier] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [showPassword, setShowPassword] = React.useState(false);
+  const [useOtp, setUseOtp] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
 
   React.useEffect(() => {
@@ -103,26 +106,83 @@ export default function LoginPage() {
   }, []);
 
   const content = LOGIN_CONTENT[subdomain];
+  const isMainPortal = subdomain === "main";
+  const inputType = detectInputType(identifier);
+  const identifierReady = inputType !== "unknown";
+
+  // Reset OTP preference when detected type changes so UX stays clean
+  React.useEffect(() => {
+    setUseOtp(false);
+    setPassword("");
+  }, [inputType]);
+
+  const isOtpMode = isMainPortal && useOtp && identifierReady;
+  const showPasswordField = !isMainPortal || (identifierReady && !useOtp);
+
+  const identifierLabel =
+    isMainPortal
+      ? inputType === "phone"
+        ? "Mobile Number"
+        : inputType === "email"
+          ? "Email Address"
+          : "Mobile Number or Email"
+      : "Email or Mobile";
+
+  const identifierPlaceholder =
+    isMainPortal
+      ? inputType === "phone"
+        ? "9876543210"
+        : inputType === "email"
+          ? "you@email.com"
+          : "9876543210 or you@email.com"
+      : "you@email.com or 9876543210";
+
+  const cardDescription =
+    isMainPortal
+      ? isOtpMode
+        ? inputType === "phone"
+          ? "We'll send a one-time code to your mobile number."
+          : "We'll send a one-time code to your email address."
+        : identifierReady
+          ? "Enter your password below, or choose to login with OTP."
+          : "Enter your mobile number or email address to continue."
+      : content.cardDescription;
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    const trimmed = identifier.trim();
 
-    if (!identifier || !password) {
-      toast.error("Enter email/phone and password to continue.");
+    if (!trimmed) {
+      toast.error("Enter your mobile number or email address.");
       return;
     }
 
     setLoading(true);
     try {
-      const result = await loginUser({ identifier, password });
+      if (isOtpMode) {
+        if (inputType === "phone") {
+          await requestAuthOtp({ phone: trimmed });
+          toast.success("OTP sent to your mobile number.");
+          router.replace(`/verify-otp?method=phone&phone=${encodeURIComponent(trimmed)}`);
+        } else {
+          await requestAuthOtp({ email: trimmed });
+          toast.success("OTP sent to your email address.");
+          router.replace(`/verify-otp?method=email&email=${encodeURIComponent(trimmed)}`);
+        }
+        return;
+      }
 
+      if (!password) {
+        toast.error("Enter your password to continue.");
+        return;
+      }
+
+      const result = await loginUser({ identifier: trimmed, password });
       const role = result.user.role?.toUpperCase();
       const allowedRoles = SUBDOMAIN_ALLOWED_ROLES[subdomain];
 
-      // Validate role matches current subdomain
       if (!allowedRoles.includes(role)) {
-        const portalLabel =
-          subdomain === "main" ? "customer" : subdomain;
+        const portalLabel = subdomain === "main" ? "customer" : subdomain;
         const correctUrl = getCorrectLoginUrl(role);
         toast.error(`This portal is for ${portalLabel} accounts only. Redirecting...`);
         window.location.replace(correctUrl);
@@ -130,7 +190,6 @@ export default function LoginPage() {
       }
 
       persistAuthCookies(result.accessToken, result.refreshToken, result.user);
-
       toast.success(content.successToast);
 
       const redirectMap: Record<string, string> = {
@@ -144,16 +203,7 @@ export default function LoginPage() {
     } catch (error) {
       console.error("Login error:", error);
       const message = error instanceof Error ? error.message : "Invalid credentials";
-      if (message.toLowerCase().includes("verification")) {
-        toast.error("Please verify your email to continue.");
-        if (identifier.includes("@")) {
-          router.replace(`/verify-otp?email=${encodeURIComponent(identifier)}`);
-        } else {
-          router.replace("/verify-otp");
-        }
-      } else {
-        toast.error(message);
-      }
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -162,7 +212,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-[calc(100vh-160px)] bg-background">
       <div className="mx-auto flex min-h-[calc(100vh-160px)] max-w-6xl flex-col items-center justify-center gap-16 px-6 py-16 lg:flex-row lg:gap-24">
-        {/* Left Section - Editorial */}
+        {/* Left Section – Editorial */}
         <div className="flex-1 max-w-md lg:max-w-lg">
           <p className="text-xs font-medium uppercase tracking-[0.3em] text-gold mb-6">
             {content.eyebrow}
@@ -195,82 +245,101 @@ export default function LoginPage() {
               <CardTitle className="font-serif text-2xl font-normal">
                 {content.cardTitle}
               </CardTitle>
-              <CardDescription>
-                {content.cardDescription}
-              </CardDescription>
+              <CardDescription>{cardDescription}</CardDescription>
             </CardHeader>
 
             <CardContent className="space-y-6">
               <form className="space-y-5" onSubmit={handleSubmit}>
-                {/* Identifier */}
+                {/* Unified identifier input – auto-detects phone vs email */}
                 <div className="space-y-2">
-                  <Label htmlFor="identifier">Email or Mobile</Label>
+                  <Label htmlFor="identifier">{identifierLabel}</Label>
                   <Input
                     id="identifier"
-                    placeholder="you@email.com or 9876543210"
+                    type={isMainPortal && inputType === "phone" ? "tel" : "text"}
+                    inputMode={isMainPortal && inputType === "phone" ? "numeric" : undefined}
+                    placeholder={identifierPlaceholder}
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)}
-                    autoComplete="username"
+                    autoComplete={isMainPortal && inputType === "phone" ? "tel" : "username"}
+                    autoFocus
                   />
                 </div>
 
-                {/* Password */}
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <div className="relative">
-                    <Input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      placeholder="••••••••"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      autoComplete="current-password"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((v) => !v)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors duration-300"
-                    >
-                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </button>
-                  </div>
-                </div>
+                {/* Password field – shown once identifier type is known and not in OTP mode */}
+                {showPasswordField && (
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Password</Label>
+                    <div className="relative">
+                      <Input
+                        id="password"
+                        type={showPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        autoComplete="current-password"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((v) => !v)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors duration-300"
+                      >
+                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
 
-                <div className="flex items-center justify-between text-xs">
-                  <label className="flex items-center gap-2 text-muted-foreground cursor-pointer">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 rounded-sm border-border-soft accent-gold"
-                    />
-                    Remember me
-                  </label>
-                  <Link
-                    href="/forgot-password"
-                    className="text-muted-foreground hover:text-foreground transition-colors duration-300"
+                    {/* OTP toggle – only for user portal */}
+                    {isMainPortal && identifierReady && (
+                      <button
+                        type="button"
+                        onClick={() => setUseOtp(true)}
+                        className="text-xs text-muted-foreground hover:text-foreground transition-colors duration-300 underline underline-offset-2"
+                      >
+                        Login with OTP instead
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* Password toggle when in OTP mode */}
+                {isOtpMode && (
+                  <button
+                    type="button"
+                    onClick={() => setUseOtp(false)}
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors duration-300 underline underline-offset-2 -mt-2 block"
                   >
-                    Forgot password?
-                  </Link>
-                </div>
+                    Use password instead
+                  </button>
+                )}
+
+                {/* Remember me + Forgot password */}
+                {showPasswordField && !isOtpMode && (
+                  <div className="flex items-center justify-between text-xs">
+                    <label className="flex items-center gap-2 text-muted-foreground cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded-sm border-border-soft accent-gold"
+                      />
+                      Remember me
+                    </label>
+                    <Link
+                      href="/forgot-password"
+                      className="text-muted-foreground hover:text-foreground transition-colors duration-300"
+                    >
+                      Forgot password?
+                    </Link>
+                  </div>
+                )}
 
                 <Button className="w-full" size="lg" disabled={loading}>
-                  {loading ? "Signing In..." : "Sign In"}
+                  {loading
+                    ? isOtpMode
+                      ? "Sending OTP..."
+                      : "Signing In..."
+                    : isOtpMode
+                      ? "Send OTP"
+                      : "Sign In"}
                 </Button>
               </form>
-
-              {content.showSocial && (
-                <>
-                  <Separator />
-
-                  <div className="grid gap-3">
-                    <Button variant="outline" size="lg" className="w-full">
-                      Continue with Google
-                    </Button>
-                    <Button variant="outline" size="lg" className="w-full">
-                      Continue with Apple
-                    </Button>
-                  </div>
-                </>
-              )}
 
               {content.registerText && content.registerHref && (
                 <p className="text-center text-sm text-muted-foreground">

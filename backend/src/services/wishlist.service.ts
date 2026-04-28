@@ -3,8 +3,10 @@ import { redis } from '../config/redis.js';
 import { ApiError } from '../errors/ApiError.js';
 import { wishlistLogger } from '../config/logger.js';
 import { wishlistAddTotal, wishlistRemoveTotal } from '../config/metrics.js';
+import { CACHE_KEYS, getFromCache, invalidateCache, setCache } from '../utils/cache.util.js';
 
 const CATEGORY_AFFINITY_KEY_PREFIX = 'user_category_affinity:';
+const WISHLIST_CACHE_TTL_SECONDS = 45;
 
 function categoryAffinityKey(userId: string): string {
     return `${CATEGORY_AFFINITY_KEY_PREFIX}${userId}`;
@@ -77,6 +79,10 @@ export class WishlistService {
      * List all wishlist items with product details.
      */
     async getWishlist(userId: string): Promise<WishlistResponse> {
+        const cacheKey = CACHE_KEYS.USER_WISHLIST(userId);
+        const cached = await getFromCache<WishlistResponse>(cacheKey);
+        if (cached) return cached;
+
         const wishlist = await this.findOrCreateWishlist(userId);
 
         const items = await prisma.wishlistItem.findMany({
@@ -99,7 +105,7 @@ export class WishlistService {
             },
         });
 
-        return {
+        const response = {
             wishlist: {
                 id: wishlist.id,
                 userId: wishlist.userId,
@@ -119,6 +125,8 @@ export class WishlistService {
                 })),
             },
         };
+        await setCache(cacheKey, response, WISHLIST_CACHE_TTL_SECONDS);
+        return response;
     }
 
     /**
@@ -154,6 +162,7 @@ export class WishlistService {
         if (existing) {
             // Remove
             await prisma.wishlistItem.delete({ where: { id: existing.id } });
+            await invalidateCache(CACHE_KEYS.USER_WISHLIST(userId), CACHE_KEYS.USER_WISHLIST_COUNT(userId));
             wishlistRemoveTotal.inc();
             wishlistLogger.info({ userId, productId }, 'wishlist_item_removed');
             return { message: 'Removed from wishlist', added: false, productId };
@@ -172,6 +181,7 @@ export class WishlistService {
             throw error;
         }
         await redis.zincrby(categoryAffinityKey(userId), 1, product.categoryId);
+        await invalidateCache(CACHE_KEYS.USER_WISHLIST(userId), CACHE_KEYS.USER_WISHLIST_COUNT(userId));
         wishlistAddTotal.inc();
         wishlistLogger.info({ userId, productId, categoryId: product.categoryId }, 'wishlist_item_added');
         return { message: 'Added to wishlist', added: true, productId };
@@ -212,6 +222,7 @@ export class WishlistService {
                     data: { wishlistId: wishlist.id, productId },
                 });
                 await redis.zincrby(categoryAffinityKey(userId), 1, product.categoryId);
+                await invalidateCache(CACHE_KEYS.USER_WISHLIST(userId), CACHE_KEYS.USER_WISHLIST_COUNT(userId));
                 wishlistAddTotal.inc();
                 wishlistLogger.info({ userId, productId, categoryId: product.categoryId }, 'wishlist_item_added');
             } catch (error: any) {
@@ -245,6 +256,7 @@ export class WishlistService {
 
         if (existing) {
             await prisma.wishlistItem.delete({ where: { id: existing.id } });
+            await invalidateCache(CACHE_KEYS.USER_WISHLIST(userId), CACHE_KEYS.USER_WISHLIST_COUNT(userId));
             wishlistRemoveTotal.inc();
             wishlistLogger.info({ userId: wishlist.userId, productId }, 'wishlist_item_removed');
         }
@@ -256,6 +268,10 @@ export class WishlistService {
      * Get total wishlist item count.
      */
     async getCount(userId: string): Promise<WishlistCountResponse> {
+        const cacheKey = CACHE_KEYS.USER_WISHLIST_COUNT(userId);
+        const cached = await getFromCache<WishlistCountResponse>(cacheKey);
+        if (cached) return cached;
+
         const wishlist = await prisma.wishlist.findUnique({ where: { userId } });
         if (!wishlist) return { count: 0 };
 
@@ -263,7 +279,9 @@ export class WishlistService {
             where: { wishlistId: wishlist.id },
         });
 
-        return { count };
+        const response = { count };
+        await setCache(cacheKey, response, WISHLIST_CACHE_TTL_SECONDS);
+        return response;
     }
 
     /**

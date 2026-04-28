@@ -1,8 +1,5 @@
-"use client";
-
 import Link from "next/link";
 import Image from "next/image";
-import { motion } from "framer-motion";
 
 const currency = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -189,7 +186,7 @@ export function MarketplaceProductCard({ product }: { product: MarketplaceCardPr
     <article
       className="group block overflow-hidden rounded-xl border border-border-soft/80 bg-card/95 shadow-[0_6px_24px_rgba(17,12,8,0.08)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_38px_rgba(17,12,8,0.14)] sm:rounded-2xl"
     >
-      <Link href={`/product/${product.id}`} className="block">
+      <Link href={`/product/${product.id}`} prefetch className="block">
         <div className="relative overflow-hidden bg-cream dark:bg-brown/20 aspect-3/4">
           <Image
             src={imageSrc}
@@ -224,7 +221,7 @@ export function MarketplaceProductCard({ product }: { product: MarketplaceCardPr
           {categoryLabel}
         </p>
 
-        <Link href={`/product/${product.id}`} className="block">
+        <Link href={`/product/${product.id}`} prefetch className="block">
           <h3 className="line-clamp-2 min-h-[2.35rem] text-[0.96rem] font-semibold leading-tight tracking-tight text-foreground transition-colors duration-300 group-hover:text-gold sm:min-h-[2.6rem] sm:text-[1.04rem]">
             {product.title}
           </h3>
@@ -271,19 +268,16 @@ export function MarketplaceProductCard({ product }: { product: MarketplaceCardPr
 
         <Link
           href={`/product/${product.id}`}
+          prefetch
           className="relative isolate mt-1.5 inline-flex h-10 w-full items-center justify-center overflow-hidden rounded-lg bg-black px-3 text-[0.86rem] font-semibold uppercase tracking-[0.14em] text-white transition-all duration-300 hover:bg-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/70 focus-visible:ring-offset-2 sm:mt-2 sm:h-11 sm:rounded-xl sm:px-4 sm:text-sm sm:tracking-widest"
         >
-          <motion.span
+          <span
             aria-hidden
-            className="pointer-events-none absolute inset-y-0 -left-1/3 w-1/4 bg-white/22 blur-[2px] sm:w-1/3 sm:bg-white/35"
-            animate={{ x: ["-140%", "420%"] }}
-            transition={{ duration: 2.4, ease: "linear", repeat: Number.POSITIVE_INFINITY, repeatDelay: 0.5 }}
+            className="pointer-events-none absolute inset-y-0 -left-1/3 w-1/4 skew-x-[-18deg] bg-white/20 blur-[2px] transition-transform duration-700 group-hover:translate-x-[520%] sm:w-1/3 sm:bg-white/30"
           />
-          <motion.span
+          <span
             aria-hidden
             className="pointer-events-none absolute inset-0 bg-white/5"
-            animate={{ opacity: [0.06, 0.14, 0.06] }}
-            transition={{ duration: 1.8, ease: "easeInOut", repeat: Number.POSITIVE_INFINITY }}
           />
           <span className="relative z-10">Add to Cart</span>
         </Link>

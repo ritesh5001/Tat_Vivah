@@ -32,13 +32,13 @@ authRouter.post('/login', authController.login);
 
 /**
  * POST /v1/auth/request-otp
- * Request email verification OTP
+ * Request mobile verification OTP
  */
 authRouter.post('/request-otp', authController.requestOtp);
 
 /**
  * POST /v1/auth/verify-otp
- * Verify email OTP
+ * Verify mobile OTP
  */
 authRouter.post('/verify-otp', authController.verifyOtp);
 

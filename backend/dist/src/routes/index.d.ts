@@ -11,6 +11,7 @@ export { productMediaRouter } from './product-media.routes.js';
 export { reviewRouter } from './review.routes.js';
 export { imagekitRouter } from './imagekit.routes.js';
 export { bestsellerRouter } from './bestseller.routes.js';
+export { tryOnRouter } from './try-on.routes.js';
 export { addressRouter } from './address.routes.js';
 export { cartRouter } from './cart.routes.js';
 export { checkoutRouter } from './checkout.routes.js';

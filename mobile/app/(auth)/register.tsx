@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { Link, useRouter } from "expo-router";
 import { colors, radius, spacing, typography, shadow } from "../../src/theme/tokens";
-import { registerUser, requestOtp } from "../../src/services/auth";
+import { registerUser } from "../../src/services/auth";
 import { AppHeader } from "../../src/components/AppHeader";
 import { ApiError } from "../../src/services/api";
 import { TatvivahLoader } from "../../src/components/TatvivahLoader";
@@ -44,12 +44,11 @@ export default function RegisterScreen() {
     setError(null);
     try {
       await registerUser({ fullName, email, phone, password });
-      await requestOtp({ email });
-      router.replace({ pathname: "/(auth)/verify-otp", params: { email } });
+      router.replace({ pathname: "/(auth)/verify-otp", params: { method: "phone", phone } });
     } catch (err) {
       const message =
         err instanceof ApiError && err.statusCode === 409
-          ? "An account with this email already exists"
+          ? "An account with this email or mobile number already exists"
           : err instanceof Error
             ? err.message
             : "Registration failed";

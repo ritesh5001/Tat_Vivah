@@ -22,6 +22,7 @@ import {
     productMediaRouter,
     imagekitRouter,
     bestsellerRouter,
+    tryOnRouter,
     cartRouter,
     checkoutRouter,
     couponRouter,
@@ -134,6 +135,15 @@ export function createApp(): Application {
         const end = httpRequestDuration.startTimer();
         const startedAt = process.hrtime.bigint();
         const hotEndpoint = resolveHotEndpoint(req.path);
+        const originalWriteHead = res.writeHead.bind(res);
+
+        res.writeHead = ((...args: Parameters<typeof res.writeHead>) => {
+            if (!res.headersSent) {
+                const elapsedMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
+                res.setHeader('X-Response-Time', `${Math.round(elapsedMs)}ms`);
+            }
+            return originalWriteHead(...args);
+        }) as typeof res.writeHead;
 
         res.on('finish', () => {
             // Use route pattern if available, otherwise path
@@ -263,6 +273,7 @@ export function createApp(): Application {
     app.use('/v1/seller/products', productMediaRouter);
     app.use('/v1/imagekit', imagekitRouter);
     app.use('/v1/bestsellers', bestsellerRouter);
+    app.use('/v1/try-on', tryOnRouter);
 
     // Address management
     app.use('/v1/addresses', addressRouter);

@@ -77,8 +77,8 @@ export default function SellerRegisterPage() {
     setLoading(true);
     try {
       await registerSeller({ email, phone, whatsappNumber, password });
-      toast.success("OTP sent to your email.");
-      window.location.href = `/verify-otp?email=${encodeURIComponent(email)}`;
+      toast.success("OTP sent to your mobile number.");
+      window.location.href = `/verify-otp?method=phone&phone=${encodeURIComponent(phone)}`;
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Signup failed");
     } finally {

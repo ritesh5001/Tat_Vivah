@@ -45,6 +45,24 @@
         }
       ],
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow TatVivah to select a photo for virtual try-on and product reviews.",
+          "cameraPermission": "Allow TatVivah to take a photo for virtual try-on.",
+          "microphonePermission": "Allow TatVivah to record audio when capturing media."
+        }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Allow TatVivah to use your microphone for voice search.",
+          "speechRecognitionPermission": "Allow TatVivah to convert your speech into search text.",
+          "androidSpeechServicePackages": [
+            "com.google.android.googlequicksearchbox"
+          ]
+        }
+      ],
+      [
         "expo-build-properties",
         {
           "android": {

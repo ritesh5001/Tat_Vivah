@@ -18,6 +18,25 @@ export const CACHE_KEYS = {
     SELLER_PRODUCTS: (sellerId: string, page: number, limit: number) => `products:seller:${sellerId}:${page}:${limit}`,
     BESTSELLERS_LIST: 'products:bestsellers',
 
+    // Auth-scoped dashboard/list reads. Keep TTLs short and always key by owner.
+    BUYER_ORDERS: (userId: string, page: number, limit: number, start?: string, end?: string) =>
+        `orders:buyer:${userId}:${page}:${limit}:${start ?? '_'}:${end ?? '_'}`,
+    BUYER_ORDER_DETAIL: (userId: string, orderId: string) => `orders:buyer:${userId}:detail:${orderId}`,
+    SELLER_ORDERS: (sellerId: string, page: number, limit: number, start?: string, end?: string) =>
+        `orders:seller:${sellerId}:${page}:${limit}:${start ?? '_'}:${end ?? '_'}`,
+    SELLER_ORDER_DETAIL: (sellerId: string, orderId: string) => `orders:seller:${sellerId}:detail:${orderId}`,
+    USER_ADDRESSES: (userId: string) => `addresses:user:${userId}`,
+    USER_WISHLIST: (userId: string) => `wishlist:user:${userId}`,
+    USER_WISHLIST_COUNT: (userId: string) => `wishlist:user:${userId}:count`,
+    USER_NOTIFICATIONS: (userId: string, page: number, limit: number) => `notifications:user:${userId}:${page}:${limit}`,
+    USER_UNREAD_NOTIFICATIONS: (userId: string) => `notifications:user:${userId}:unread`,
+    USER_CANCELLATIONS: (userId: string) => `cancellations:user:${userId}`,
+    ADMIN_CANCELLATIONS: (status?: string, userId?: string, orderId?: string) =>
+        `cancellations:admin:${status ?? '_'}:${userId ?? '_'}:${orderId ?? '_'}`,
+    USER_RETURNS: (userId: string) => `returns:user:${userId}`,
+    ADMIN_RETURNS: (status?: string, userId?: string, orderId?: string) =>
+        `returns:admin:${status ?? '_'}:${userId ?? '_'}:${orderId ?? '_'}`,
+
     // Occasions domain
     OCCASIONS_LIST: 'occasions:list',
 
@@ -29,7 +48,6 @@ export const CACHE_KEYS = {
 
     // Cart & Orders domain
     CART: (userId: string) => `cart:${userId}`,
-    BUYER_ORDERS: (userId: string) => `orders:buyer:${userId}`,
     ORDER_DETAIL: (orderId: string) => `orders:detail:${orderId}`,
 
     // Review domain
@@ -127,6 +145,26 @@ export async function invalidateProductCaches(productId?: string): Promise<void>
     }
 
     await Promise.allSettled(tasks);
+}
+
+export async function invalidateUserPrivateCaches(userId: string): Promise<void> {
+    await Promise.allSettled([
+        invalidateCacheByPattern(`orders:buyer:${userId}:*`),
+        invalidateCacheByPattern(`addresses:user:${userId}*`),
+        invalidateCacheByPattern(`wishlist:user:${userId}*`),
+        invalidateCacheByPattern(`notifications:user:${userId}:*`),
+        invalidateCacheByPattern(`cancellations:user:${userId}*`),
+        invalidateCacheByPattern(`returns:user:${userId}*`),
+    ]);
+}
+
+export async function invalidateSellerPrivateCaches(sellerId: string): Promise<void> {
+    await Promise.allSettled([
+        invalidateCacheByPattern(`orders:seller:${sellerId}:*`),
+        invalidateCacheByPattern(`products:seller:${sellerId}:*`),
+        invalidateCacheByPattern(`seller:analytics:*:${sellerId}:*`),
+        invalidateCacheByPattern(`seller:analytics:*:${sellerId}`),
+    ]);
 }
 
 /**

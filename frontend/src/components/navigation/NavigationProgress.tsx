@@ -10,7 +10,6 @@ import {
 
 const COMPLETE_DELAY_MS = 170;
 const FAILSAFE_TIMEOUT_MS = 10000;
-const OVERLAY_DELAY_MS = 220;
 
 export function NavigationProgress() {
   const pathname = usePathname();
@@ -65,10 +64,6 @@ export function NavigationProgress() {
           return prev + 4;
         });
       }, 220);
-
-      overlayDelayRef.current = window.setTimeout(() => {
-        setOverlayVisible(true);
-      }, OVERLAY_DELAY_MS);
 
       failsafeRef.current = window.setTimeout(() => {
         setVisible(false);

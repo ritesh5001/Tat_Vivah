@@ -181,6 +181,10 @@ REDIS_URL="redis://default:password@host:port"
 RESEND_API_KEY="re_..."
 EMAIL_FROM="noreply@yourdomain.com"
 
+# Mobile OTP
+FAST2SMS_API_KEY="your-fast2sms-api-key"
+FAST2SMS_BASE_URL="https://www.fast2sms.com/dev/bulkV2"
+
 # ImageKit
 IMAGEKIT_PUBLIC_KEY="..."
 IMAGEKIT_PRIVATE_KEY="..."

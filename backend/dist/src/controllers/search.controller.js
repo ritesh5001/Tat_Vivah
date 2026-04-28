@@ -68,7 +68,7 @@ export class SearchController {
                 categoryId: filters.categoryId,
                 sort: filters.sort,
             });
-            res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=120');
+            res.set('Cache-Control', 'public, max-age=120, stale-while-revalidate=600');
             res.json(result);
         }
         catch (error) {
@@ -82,7 +82,7 @@ export class SearchController {
         try {
             const { q, limit } = suggestQuerySchema.parse(req.query);
             const suggestions = await searchService.getSuggestions(q, limit);
-            res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=120');
+            res.set('Cache-Control', 'public, max-age=120, stale-while-revalidate=600');
             res.json({ suggestions });
         }
         catch (error) {
@@ -96,7 +96,7 @@ export class SearchController {
         try {
             const { limit } = trendingQuerySchema.parse(req.query);
             const trending = await searchService.getTrending(limit);
-            res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=120');
+            res.set('Cache-Control', 'public, max-age=120, stale-while-revalidate=600');
             res.json({ trending });
         }
         catch (error) {
@@ -111,7 +111,7 @@ export class SearchController {
             const { id } = relatedParamsSchema.parse(req.params);
             const { limit } = relatedQuerySchema.parse(req.query);
             const related = await searchService.getRelatedProducts(id, limit);
-            res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=180');
+            res.set('Cache-Control', 'public, max-age=180, stale-while-revalidate=900');
             res.json({ data: related });
         }
         catch (error) {

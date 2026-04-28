@@ -99,7 +99,7 @@ export function PublicHeader() {
             </span>
 
             <div className="flex-1 text-center">
-              <Link href="/" prefetch={false} className="inline-block">
+              <Link href="/" prefetch className="inline-block">
                 <Image
                   src="/logo-old.avif"
                   alt="TatVivah Trends"
@@ -113,7 +113,7 @@ export function PublicHeader() {
 
             <Link
               href="/search"
-              prefetch={false}
+              prefetch
               className="inline-flex h-9 w-9 items-center justify-center rounded-full text-foreground transition-colors duration-200 hover:bg-cream dark:hover:bg-brown/50"
               aria-label="Search"
             >
@@ -134,7 +134,7 @@ export function PublicHeader() {
 
             <Link
               href="/cart"
-              prefetch={false}
+              prefetch
               className="inline-flex h-9 w-9 items-center justify-center rounded-full text-foreground transition-colors duration-200 hover:bg-cream dark:hover:bg-brown/50"
               aria-label="Cart"
             >
@@ -156,7 +156,7 @@ export function PublicHeader() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  prefetch={false}
+                  prefetch
                   className="py-3 text-sm font-medium text-foreground transition-colors hover:text-gold"
                 >
                   {link.label}
@@ -164,7 +164,7 @@ export function PublicHeader() {
               ))}
               <Link
                 href={accountHref}
-                prefetch={false}
+                prefetch
                 className="py-3 text-sm font-medium text-foreground transition-colors hover:text-gold"
               >
                 {loading ? "..." : accountLabel}
@@ -174,7 +174,7 @@ export function PublicHeader() {
         </details>
 
         <div className="hidden h-16 w-full items-center gap-8 sm:flex">
-          <Link href="/" prefetch={false} className="shrink-0">
+          <Link href="/" prefetch className="shrink-0">
             <Image
               src="/logo-old.avif"
               alt="TatVivah Trends"
@@ -190,7 +190,7 @@ export function PublicHeader() {
               <Link
                 key={link.href}
                 href={link.href}
-                prefetch={false}
+                prefetch
                 className="relative rounded-full px-4 py-2 text-[13px] font-medium text-muted-foreground transition-all duration-200 hover:bg-cream hover:text-foreground dark:hover:bg-brown/40"
               >
                 {link.label}
@@ -205,7 +205,7 @@ export function PublicHeader() {
           <div className="ml-auto flex items-center gap-1">
             <Link
               href="/cart"
-              prefetch={false}
+              prefetch
               className="relative hidden h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors duration-200 hover:bg-cream hover:text-foreground dark:hover:bg-brown/40 sm:inline-flex"
               aria-label="Cart"
             >
@@ -220,7 +220,7 @@ export function PublicHeader() {
               <div className="group relative hidden sm:block">
                 <Link
                   href={accountHref}
-                  prefetch={false}
+                  prefetch
                   className="inline-flex items-center rounded-full bg-charcoal px-4 py-2 text-xs font-medium uppercase tracking-[0.12em] text-ivory transition-colors hover:bg-brown"
                 >
                   {accountLabel}
@@ -232,7 +232,7 @@ export function PublicHeader() {
                       <Link
                         key={item.href}
                         href={item.href}
-                        prefetch={false}
+                        prefetch
                         className="block px-4 py-2.5 text-xs font-medium uppercase tracking-widest text-foreground transition-colors hover:bg-cream"
                       >
                         {item.label}
@@ -251,7 +251,7 @@ export function PublicHeader() {
             ) : (
               <Link
                 href={accountHref}
-                prefetch={false}
+                prefetch
                 className="hidden items-center rounded-full bg-charcoal px-4 py-2 text-xs font-medium uppercase tracking-[0.12em] text-ivory transition-colors hover:bg-brown sm:inline-flex"
               >
                 {loading ? "..." : accountLabel}

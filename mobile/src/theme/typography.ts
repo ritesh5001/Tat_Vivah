@@ -1,13 +1,23 @@
-import type { TextStyle } from "react-native";
+import { Platform, type TextStyle } from "react-native";
+
+const webFontStacks = {
+  heading: "'Cormorant Garamond', 'Times New Roman', serif",
+  serif: "'Cormorant Garamond', 'Times New Roman', serif",
+  serifLight: "'Cormorant Garamond', 'Times New Roman', serif",
+  body: "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+  bodyMedium: "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+  sans: "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+  sansMedium: "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+} as const;
 
 export const typography = {
-  heading: "CormorantGaramond_400Regular",
-  serif: "CormorantGaramond_400Regular",
-  serifLight: "CormorantGaramond_300Light",
-  body: "Inter_400Regular",
-  bodyMedium: "Inter_500Medium",
-  sans: "Inter_400Regular",
-  sansMedium: "Inter_500Medium",
+  heading: Platform.OS === "web" ? webFontStacks.heading : "CormorantGaramond_400Regular",
+  serif: Platform.OS === "web" ? webFontStacks.serif : "CormorantGaramond_400Regular",
+  serifLight: Platform.OS === "web" ? webFontStacks.serifLight : "CormorantGaramond_300Light",
+  body: Platform.OS === "web" ? webFontStacks.body : "Inter_400Regular",
+  bodyMedium: Platform.OS === "web" ? webFontStacks.bodyMedium : "Inter_500Medium",
+  sans: Platform.OS === "web" ? webFontStacks.sans : "Inter_400Regular",
+  sansMedium: Platform.OS === "web" ? webFontStacks.sansMedium : "Inter_500Medium",
   sizes: {
     heroTitle: 40,
     sectionTitle: 32,
