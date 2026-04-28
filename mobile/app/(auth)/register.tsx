@@ -19,6 +19,10 @@ import {
   ScreenContainer as SafeAreaView,
 } from "../../src/components";
 
+function normalizePhone(value: string): string {
+  return value.replace(/\D/g, "");
+}
+
 export default function RegisterScreen() {
   const router = useRouter();
   const [fullName, setFullName] = React.useState("");
@@ -36,6 +40,23 @@ export default function RegisterScreen() {
       setError("Please fill all required fields.");
       return;
     }
+    const normalizedPhone = normalizePhone(phone);
+    if (!/^\d{10,15}$/.test(normalizedPhone)) {
+      setError("Mobile number must be 10 to 15 digits.");
+      return;
+    }
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+    if (!/[A-Z]/.test(password)) {
+      setError("Password must contain at least 1 uppercase letter.");
+      return;
+    }
+    if (!/[0-9]/.test(password)) {
+      setError("Password must contain at least 1 number.");
+      return;
+    }
     if (password !== confirmPassword) {
       setError("Passwords do not match.");
       return;
@@ -43,8 +64,13 @@ export default function RegisterScreen() {
     setLoading(true);
     setError(null);
     try {
-      await registerUser({ fullName, email, phone, password });
-      router.replace({ pathname: "/(auth)/verify-otp", params: { method: "phone", phone } });
+      await registerUser({
+        fullName: fullName.trim(),
+        email: email.trim().toLowerCase(),
+        phone: normalizedPhone,
+        password,
+      });
+      router.replace({ pathname: "/(auth)/verify-otp", params: { method: "phone", phone: normalizedPhone } });
     } catch (err) {
       const message =
         err instanceof ApiError && err.statusCode === 409
@@ -127,6 +153,9 @@ export default function RegisterScreen() {
               <Text style={styles.eyeText}>{showPassword ? "🙈" : "👁️"}</Text>
             </Pressable>
           </View>
+          <Text style={styles.helperText}>
+            Use at least 8 characters, 1 uppercase letter, and 1 number.
+          </Text>
 
           <Text style={styles.label}>Confirm password</Text>
           <View style={styles.inputRow}>
@@ -258,6 +287,13 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 1.6,
     marginBottom: spacing.xs,
+  },
+  helperText: {
+    marginTop: spacing.xs,
+    marginBottom: spacing.sm,
+    fontFamily: typography.sans,
+    fontSize: 12,
+    color: colors.brownSoft,
   },
   input: {
     height: 48,
