@@ -47,6 +47,29 @@ export interface RegisterResponse {
   message: string;
 }
 
+type ApiErrorResponse = {
+  error?: {
+    message?: string;
+    details?: Record<string, string>;
+  };
+  message?: string;
+};
+
+function buildApiError(data: ApiErrorResponse | null, fallback: string): Error {
+  const message =
+    data?.error?.message ??
+    data?.message ??
+    fallback;
+  const details = data?.error?.details;
+
+  if (details && Object.keys(details).length > 0) {
+    const detailText = Object.values(details).join(" ");
+    return new Error(detailText || message);
+  }
+
+  return new Error(message);
+}
+
 export interface OtpRequestResponse {
   message: string;
 }
@@ -145,9 +168,7 @@ export async function registerUser(
   const data = await response.json().catch(() => null);
 
   if (!response.ok) {
-    const message =
-      data?.error?.message ?? data?.message ?? "Registration failed";
-    throw new Error(message);
+    throw buildApiError(data as ApiErrorResponse | null, "Registration failed");
   }
 
   return data as RegisterResponse;
@@ -171,9 +192,7 @@ export async function registerSeller(
   const data = await response.json().catch(() => null);
 
   if (!response.ok) {
-    const message =
-      data?.error?.message ?? data?.message ?? "Seller registration failed";
-    throw new Error(message);
+    throw buildApiError(data as ApiErrorResponse | null, "Seller registration failed");
   }
 
   return data as RegisterResponse;
@@ -197,9 +216,7 @@ export async function registerAdmin(
   const data = await response.json().catch(() => null);
 
   if (!response.ok) {
-    const message =
-      data?.error?.message ?? data?.message ?? "Admin registration failed";
-    throw new Error(message);
+    throw buildApiError(data as ApiErrorResponse | null, "Admin registration failed");
   }
 
   return data as RegisterResponse;
