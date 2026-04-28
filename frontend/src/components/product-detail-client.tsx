@@ -1,16 +1,22 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import { ArrowLeftRight, ChevronDown, CircleHelp, Eye, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { addCartItem } from "@/services/cart";
 import { toggleWishlistItem, checkWishlistItems } from "@/services/wishlist";
+import { createAppointment } from "@/services/appointments";
+import { startNavigationFeedback } from "@/lib/navigation-feedback";
+import { upsertCheckoutSnapshotItem } from "@/lib/checkout-snapshot";
 
 interface Variant {
   id: string;
+  size: string;
+  color?: string | null;
+  images?: string[];
   sku: string;
   price: number;
   compareAtPrice?: number | null;
@@ -26,6 +32,7 @@ interface ProductDetailClientProps {
     description?: string | null;
     category?: { name: string } | null;
     sellerId?: string;
+    images?: string[];
     price?: number;
     regularPrice?: number;
     sellerPrice?: number;
@@ -33,6 +40,7 @@ interface ProductDetailClientProps {
     salePrice?: number;
     variants: Variant[];
   };
+  onVariantImagesChange?: (images: string[]) => void;
 }
 
 const currency = new Intl.NumberFormat("en-IN", {
@@ -41,18 +49,87 @@ const currency = new Intl.NumberFormat("en-IN", {
   maximumFractionDigits: 0,
 });
 
+const colorClassMap: Record<string, string> = {
+  white: "#ffffff",
+  black: "#111111",
+  navy: "#0f172a",
+  blue: "#1d4ed8",
+  beige: "#f5f5dc",
+  cream: "#F8F1E5",
+  grey: "#71717a",
+  gray: "#71717a",
+  maroon: "#7f1d1d",
+  green: "#15803d",
+};
+
+function normalizeColor(value?: string | null): string {
+  return (value ?? "").trim().toLowerCase();
+}
+
+function variantColorLabel(variant: Variant): string {
+  return variant.color?.trim() || "Default";
+}
+
+function fallbackHexFromText(input: string): string {
+  let hash = 0;
+  for (let i = 0; i < input.length; i += 1) {
+    hash = input.charCodeAt(i) + ((hash << 5) - hash);
+  }
+
+  const hue = Math.abs(hash % 360);
+  return `hsl(${hue} 55% 55%)`;
+}
+
+function swatchColorFromLabel(label: string): string {
+  const normalized = normalizeColor(label);
+  if (!normalized) return "#71717a";
+
+  if (colorClassMap[normalized]) {
+    return colorClassMap[normalized];
+  }
+
+  // Accept named CSS colors and hex/rgb/hsl values provided by seller input.
+  if (
+    /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(normalized) ||
+    /^rgb\(/i.test(normalized) ||
+    /^hsl\(/i.test(normalized) ||
+    /^[a-z][a-z\s-]*$/i.test(normalized)
+  ) {
+    return normalized;
+  }
+
+  return fallbackHexFromText(normalized);
+}
+
 export default function ProductDetailClient({
   product,
+  onVariantImagesChange,
 }: ProductDetailClientProps) {
   const router = useRouter();
+  const [selectedColor, setSelectedColor] = React.useState("");
   const [selectedVariantId, setSelectedVariantId] = React.useState(
     product.variants?.[0]?.id ?? ""
   );
   const [loading, setLoading] = React.useState(false);
+  const [buyNowLoading, setBuyNowLoading] = React.useState(false);
   const [wishlisted, setWishlisted] = React.useState(false);
   const [wishlistLoading, setWishlistLoading] = React.useState(false);
   const [pincode, setPincode] = React.useState("");
   const [deliveryMessage, setDeliveryMessage] = React.useState("");
+  const [bookModalOpen, setBookModalOpen] = React.useState(false);
+  const [appointmentDate, setAppointmentDate] = React.useState("");
+  const [appointmentTime, setAppointmentTime] = React.useState("");
+  const [booking, setBooking] = React.useState(false);
+
+  const getLocalDateString = React.useCallback(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }, []);
+
+  const minAppointmentDate = getLocalDateString();
 
   const handlePincodeCheck = () => {
     if (pincode.length === 6) {
@@ -77,10 +154,51 @@ export default function ProductDetailClient({
     return () => { cancelled = true; };
   }, [product.id]);
 
+  React.useEffect(() => {
+    router.prefetch("/checkout");
+  }, [router]);
+
+  const colorOptions = React.useMemo(() => {
+    const map = new Map<string, string>();
+    for (const variant of product.variants ?? []) {
+      const label = variantColorLabel(variant);
+      const key = normalizeColor(label);
+      if (!map.has(key)) {
+        map.set(key, label);
+      }
+    }
+    return Array.from(map.entries()).map(([key, label]) => ({ key, label }));
+  }, [product.variants]);
+
+  React.useEffect(() => {
+    const selectedVariant = product.variants.find((variant) => variant.id === selectedVariantId);
+    if (selectedVariant) {
+      setSelectedColor(normalizeColor(variantColorLabel(selectedVariant)));
+      return;
+    }
+
+    const first = product.variants[0];
+    if (first) {
+      setSelectedVariantId(first.id);
+      setSelectedColor(normalizeColor(variantColorLabel(first)));
+      return;
+    }
+
+    setSelectedColor("");
+  }, [product.variants, selectedVariantId]);
+
+  const variantsForColor = React.useMemo(() => {
+    if (!selectedColor) return product.variants;
+    return product.variants.filter(
+      (variant) => normalizeColor(variantColorLabel(variant)) === selectedColor
+    );
+  }, [product.variants, selectedColor]);
+
   const handleToggleWishlist = async () => {
     const hasToken = document.cookie.match(/(?:^|; )tatvivah_access=([^;]*)/);
     if (!hasToken) {
       toast.error("Please sign in to save items.");
+      startNavigationFeedback();
       router.push("/login?force=1");
       return;
     }
@@ -102,8 +220,49 @@ export default function ProductDetailClient({
   const selectedVariant = product.variants.find(
     (variant) => variant.id === selectedVariantId
   );
-  const salePrice = product.salePrice ?? product.adminPrice ?? product.price;
-  const compareAtPrice = selectedVariant?.compareAtPrice ?? null;
+  const salePrice = selectedVariant?.price ?? product.salePrice ?? product.adminPrice ?? product.price;
+  const compareAtPrice = selectedVariant?.compareAtPrice ?? product.regularPrice ?? null;
+  const selectedColorImages = React.useMemo(() => {
+    const selectedVariantImages =
+      selectedVariant?.images?.filter(
+        (image): image is string => typeof image === "string" && image.trim().length > 0
+      ) ?? [];
+
+    if (selectedVariantImages.length > 0) {
+      return selectedVariantImages;
+    }
+
+    const firstColorImageSet =
+      variantsForColor.find(
+        (variant) => Array.isArray(variant.images) && variant.images.length > 0
+      )?.images ?? [];
+
+    return firstColorImageSet.length > 0
+      ? firstColorImageSet
+      : product.images?.length
+        ? product.images
+        : [];
+  }, [product.images, selectedVariant, variantsForColor]);
+
+  React.useEffect(() => {
+    if (!onVariantImagesChange) return;
+
+    const nextImages = selectedColorImages.length
+      ? selectedColorImages
+      : product.images?.length
+        ? product.images
+        : ["/images/product-placeholder.svg"];
+
+    onVariantImagesChange(nextImages);
+  }, [onVariantImagesChange, product.images, selectedColorImages]);
+  const hasDiscount =
+    typeof compareAtPrice === "number" &&
+    typeof salePrice === "number" &&
+    compareAtPrice > salePrice;
+  const savingsAmount = hasDiscount ? compareAtPrice - salePrice : 0;
+  const discountPercent = hasDiscount
+    ? Math.round(((compareAtPrice - salePrice) / compareAtPrice) * 100)
+    : 0;
 
   const handleAddToCart = async () => {
     if (!selectedVariant) {
@@ -115,6 +274,7 @@ export default function ProductDetailClient({
       const hasToken = document.cookie.match(/(?:^|; )tatvivah_access=([^;]*)/);
       if (!hasToken) {
         toast.error("Please sign in to add items to cart.");
+        startNavigationFeedback();
         router.push("/login?force=1");
         return;
       }
@@ -133,6 +293,7 @@ export default function ProductDetailClient({
         error instanceof Error ? error.message : "Unable to add to cart";
       if (/access token required|unauthorized/i.test(message)) {
         toast.error("Please sign in to add items to cart.");
+        startNavigationFeedback();
         router.push("/login?force=1");
         return;
       }
@@ -142,18 +303,137 @@ export default function ProductDetailClient({
     }
   };
 
+  const handleBuyNow = async () => {
+    if (!selectedVariant) {
+      toast.error("Please choose a variant first.");
+      return;
+    }
+
+    if (typeof document !== "undefined") {
+      const hasToken = document.cookie.match(/(?:^|; )tatvivah_access=([^;]*)/);
+      if (!hasToken) {
+        toast.error("Please sign in to continue.");
+        startNavigationFeedback();
+        router.push("/login?force=1");
+        return;
+      }
+    }
+
+    setBuyNowLoading(true);
+    try {
+      const result = await addCartItem({
+        productId: product.id,
+        variantId: selectedVariant.id,
+        quantity: 1,
+      });
+      upsertCheckoutSnapshotItem({
+        variantId: result.item.variantId,
+        quantity: result.item.quantity,
+        priceSnapshot: result.item.priceSnapshot,
+      });
+      startNavigationFeedback();
+      router.push("/checkout");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to continue to checkout";
+      if (/access token required|unauthorized/i.test(message)) {
+        toast.error("Please sign in to continue.");
+        startNavigationFeedback();
+        router.push("/login?force=1");
+        return;
+      }
+      toast.error(message);
+    } finally {
+      setBuyNowLoading(false);
+    }
+  };
+
+  const handleOpenBooking = () => {
+    const roleMatch = document.cookie.match(/(?:^|; )tatvivah_role=([^;]*)/);
+    const role = roleMatch ? decodeURIComponent(roleMatch[1]).toUpperCase() : "";
+    const hasToken = document.cookie.match(/(?:^|; )tatvivah_access=([^;]*)/);
+
+    if (!hasToken || role !== "USER") {
+      toast.error("Please sign in as a customer to book a video call.");
+      startNavigationFeedback();
+      router.push("/login?force=1");
+      return;
+    }
+
+    if (!product.sellerId) {
+      toast.error("Seller details are unavailable for this product.");
+      return;
+    }
+
+    setBookModalOpen(true);
+  };
+
+  const handleConfirmBooking = async () => {
+    if (!appointmentDate || !appointmentTime) {
+      toast.error("Please select both date and time.");
+      return;
+    }
+
+    const selectedDateTime = new Date(`${appointmentDate}T${appointmentTime}:00`);
+    if (Number.isNaN(selectedDateTime.getTime())) {
+      toast.error("Please choose a valid date and time.");
+      return;
+    }
+
+    if (appointmentDate < minAppointmentDate) {
+      toast.error("Please choose today or a future date.");
+      return;
+    }
+
+    if (selectedDateTime.getTime() <= Date.now()) {
+      toast.error("Please choose a future time slot.");
+      return;
+    }
+
+    if (!product.sellerId) {
+      toast.error("Seller details are unavailable for this product.");
+      return;
+    }
+
+    setBooking(true);
+    try {
+      await createAppointment({
+        sellerId: product.sellerId,
+        productId: product.id,
+        date: appointmentDate,
+        time: appointmentTime,
+      });
+      toast.success("Video appointment booked.");
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(
+          "tatvivah_appointment_alert",
+          "Your appointment is booked successfully.",
+        );
+      }
+      setBookModalOpen(false);
+      setAppointmentDate("");
+      setAppointmentTime("");
+      startNavigationFeedback();
+      router.push("/user/appointments");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to book appointment");
+    } finally {
+      setBooking(false);
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.7, delay: 0.15, ease: [0.25, 0.1, 0.25, 1] }}
-      className="flex flex-col justify-center py-6 lg:py-12"
+      className="flex min-w-0 max-w-full flex-col justify-center overflow-x-clip py-4 sm:py-6 lg:py-12"
     >
       {/* Editorial Content Block */}
       {/* Editorial Content Block */}
       <div className="space-y-6">
         {/* 1. Title */}
-        <h1 className="font-serif text-3xl font-light leading-tight tracking-tight text-foreground lg:text-4xl xl:text-5xl">
+        <h1 className="break-words font-serif text-2xl font-light leading-tight tracking-tight text-foreground sm:text-3xl lg:text-4xl xl:text-5xl">
           {product.title}
         </h1>
 
@@ -163,13 +443,23 @@ export default function ProductDetailClient({
             <span className="font-serif text-3xl font-medium text-foreground sm:text-4xl">
               {typeof salePrice === "number" ? currency.format(salePrice) : "—"}
             </span>
-            {typeof compareAtPrice === "number" && typeof salePrice === "number" && compareAtPrice > salePrice && (
+            {hasDiscount && (
               <span className="text-sm text-muted-foreground line-through">
                 {currency.format(compareAtPrice)}
               </span>
             )}
+            {hasDiscount && (
+              <span className="rounded-full bg-[#d85025]/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#d85025]">
+                {discountPercent}% off
+              </span>
+            )}
             <span className="text-[10px] text-muted-foreground ml-2 uppercase tracking-wide">MRP (Inclusive of all taxes)</span>
           </div>
+          {hasDiscount && (
+            <p className="text-[11px] font-medium uppercase tracking-wide text-[#b03d19]">
+              You save {currency.format(savingsAmount)} + limited-time offer
+            </p>
+          )}
           <p className="text-[11px] text-muted-foreground uppercase tracking-widest pt-2">
             SKU ID- {selectedVariant?.sku ?? product.variants[0]?.sku ?? "N/A"}
           </p>
@@ -181,16 +471,39 @@ export default function ProductDetailClient({
             SELECT COLOUR
           </p>
           <div className="flex flex-wrap gap-4 mt-2">
-            {/* Mock colors matching typical variants - assuming the backend currently uses unified SKUs without explicit color attributes */}
-            {['bg-stone-500', 'bg-slate-900', 'bg-zinc-800', 'bg-amber-950'].map((colorClass, idx) => (
+            {colorOptions.length === 0 ? (
+              <span className="text-sm text-muted-foreground">Color options coming soon</span>
+            ) : (
+              colorOptions.map((color) => {
+                const active = color.key === selectedColor;
+                const swatchColor = swatchColorFromLabel(color.label);
+                return (
               <button
-                key={idx}
+                key={color.key}
                 type="button"
-                className={`flex h-12 w-12 items-center justify-center rounded-full border-[1.5px] ${idx === 0 ? 'border-gold p-0.5' : 'border-transparent'} hover:opacity-80 transition-all`}
+                onClick={() => {
+                  setSelectedColor(color.key);
+                  const firstVariantForColor = product.variants.find(
+                    (variant) => normalizeColor(variantColorLabel(variant)) === color.key
+                  );
+                  if (firstVariantForColor) {
+                    setSelectedVariantId(firstVariantForColor.id);
+                  }
+                }}
+                className={`flex w-[72px] flex-col items-center gap-2 transition-all hover:opacity-90 ${active ? 'text-foreground' : 'text-muted-foreground'}`}
+                title={color.label}
               >
-                <div className={`h-full w-full rounded-full ${colorClass}`} />
+                <div
+                  className={`h-9 w-9 rounded-full border sm:h-10 sm:w-10 lg:h-11 lg:w-11 ${active ? 'border-gold ring-2 ring-gold/25' : 'border-border-soft'}`}
+                  style={{ backgroundColor: swatchColor }}
+                />
+                <span className={`w-full text-center text-[10px] font-medium uppercase tracking-[0.12em] leading-tight sm:text-[11px] ${active ? 'text-foreground' : 'text-muted-foreground'}`}>
+                  {color.label}
+                </span>
               </button>
-            ))}
+                );
+              })
+            )}
           </div>
         </div>
 
@@ -201,16 +514,16 @@ export default function ProductDetailClient({
               SELECT SIZE
             </p>
             <button className="flex items-center gap-1.5 text-[11px] text-foreground underline decoration-1 underline-offset-4 hover:text-gold transition-colors tracking-wide">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" /></svg>
+              <CircleHelp className="h-3.5 w-3.5" strokeWidth={1.5} />
               Size Chart
             </button>
           </div>
 
           <div className="flex flex-wrap gap-2.5 mt-2">
-            {product.variants.length === 0 ? (
+            {variantsForColor.length === 0 ? (
               <span className="text-sm text-muted-foreground">Variants coming soon</span>
             ) : (
-              product.variants.map((variant, idx) => (
+              variantsForColor.map((variant, idx) => (
                 <motion.button
                   key={variant.id}
                   type="button"
@@ -223,7 +536,7 @@ export default function ProductDetailClient({
                       : "border border-border-soft text-muted-foreground hover:border-gold/50 hover:text-foreground"
                     }`}
                 >
-                  {variant.sku.split('-').pop() || variant.sku}
+                  {variant.size || "Default"}
                   {/* Stock Badge - Mocked for matching design visually */}
                   {(idx === 6 || idx === 8) && (
                     <span className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 bg-[#d85025] text-white text-[9px] font-semibold px-2 py-0.5 rounded-sm shadow-sm whitespace-nowrap z-10 tracking-widest">
@@ -241,7 +554,7 @@ export default function ProductDetailClient({
 
         {/* 5. Views Counter */}
         <div className="flex items-center gap-2 pt-6 pb-2 text-[13px] text-foreground">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" /><circle cx="12" cy="12" r="3" /></svg>
+          <Eye className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.5} />
           <span className="font-medium tracking-wide">671</span> people have viewed the product recently
         </div>
 
@@ -252,7 +565,7 @@ export default function ProductDetailClient({
               size="lg"
               variant="outline"
               onClick={handleAddToCart}
-              disabled={loading}
+              disabled={loading || buyNowLoading}
               className="w-full h-14 border border-gold/40 bg-[#fefaf6] dark:bg-brown/20 text-[#d85025] hover:bg-cream dark:hover:bg-brown/40 hover:text-[#b03d19] font-medium tracking-widest uppercase text-[13px] transition-colors"
             >
               {loading ? "Adding..." : "Add to Cart"}
@@ -262,12 +575,24 @@ export default function ProductDetailClient({
           <motion.div whileHover={{ y: -2 }} transition={{ duration: 0.4 }} className="flex-1">
             <Button
               size="lg"
-              onClick={() => router.push('/checkout')}
+              onClick={handleBuyNow}
+              disabled={buyNowLoading || loading}
               className="w-full h-14 bg-[#d85025] hover:bg-[#b03d19] text-white font-medium tracking-widest uppercase text-[13px] border-none transition-colors"
             >
-              Buy Now
+              {buyNowLoading ? "Processing..." : "Buy Now"}
             </Button>
           </motion.div>
+        </div>
+
+        <div className="pt-3">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleOpenBooking}
+            className="h-12 w-full border border-gold/40 text-[12px] font-medium uppercase tracking-[0.12em] text-foreground hover:bg-gold/5"
+          >
+            Book Video Call
+          </Button>
         </div>
 
         {/* 7. Pincode Check */}
@@ -289,7 +614,7 @@ export default function ProductDetailClient({
               <button
                 onClick={handlePincodeCheck}
                 disabled={pincode.length !== 6}
-                className="h-full px-8 text-[12px] font-bold tracking-[0.15em] border-l border-border-soft hover:bg-border-soft/30 transition-colors uppercase text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+                className="h-full border-l border-border-soft px-4 text-[11px] font-bold uppercase tracking-[0.12em] text-foreground transition-colors hover:bg-border-soft/30 disabled:cursor-not-allowed disabled:opacity-50 sm:px-8 sm:text-[12px] sm:tracking-[0.15em]"
               >
                 Check
               </button>
@@ -306,13 +631,13 @@ export default function ProductDetailClient({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-10 pb-6 border-b border-border-soft">
           <div className="flex items-center gap-4">
             <div className="h-12 w-12 flex items-center justify-center rounded-full bg-[#fefaf6] dark:bg-brown/30 text-gold shrink-0 border border-gold/10">
-              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2" /><path d="M15 18H9" /><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14" /><circle cx="17" cy="18" r="2" /><circle cx="7" cy="18" r="2" /></svg>
+              <Truck className="h-5.5 w-5.5" strokeWidth={1.35} />
             </div>
             <p className="text-[14px] font-medium leading-tight text-foreground">Free delivery<br /><span className="text-[13px] text-muted-foreground font-normal">within 2-3 days</span></p>
           </div>
           <div className="flex items-center gap-4">
             <div className="h-12 w-12 flex items-center justify-center rounded-full bg-[#fefaf6] dark:bg-brown/30 text-gold shrink-0 border border-gold/10">
-              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v6h6" /><path d="M21 17v-6h-6" /><path d="M18.5 4.5 21 7l-2.5 2.5" /><path d="M5.5 19.5 3 17l2.5-2.5" /></svg>
+              <ArrowLeftRight className="h-5.5 w-5.5" strokeWidth={1.35} />
             </div>
             <p className="text-[14px] font-medium leading-tight text-foreground">Easy Exchange in<br /><span className="text-[13px] text-muted-foreground font-normal">10 days</span></p>
           </div>
@@ -323,13 +648,13 @@ export default function ProductDetailClient({
           <details className="border-b border-border-soft group list-none [&::-webkit-details-marker]:hidden" open>
             <summary className="flex w-full items-center justify-between py-5 text-[12px] font-bold uppercase tracking-[0.15em] text-foreground hover:text-gold transition-colors cursor-pointer list-none [&::-webkit-details-marker]:hidden">
               Product Details
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="transition-transform group-open:rotate-180"><path d="M5 15l7-7 7 7" /></svg>
+              <ChevronDown className="h-4.5 w-4.5 transition-transform group-open:rotate-180" strokeWidth={1.5} />
             </summary>
             <div className="pb-5 space-y-3 animate-in fade-in slide-in-from-top-2">
               <p className="leading-relaxed">
                 {product.description || "Indulge in the finest craftsmanship with this stunning piece, designed to stand out. Impeccably tailored to match the highest standards."}
               </p>
-              <ul className="space-y-2 mt-4 grid grid-cols-2 gap-x-4 border-t border-border-soft pt-4">
+              <ul className="mt-4 grid grid-cols-1 gap-x-4 gap-y-2 border-t border-border-soft pt-4 sm:grid-cols-2">
                 <li><strong className="text-foreground uppercase text-[10px] tracking-widest font-bold">Category:</strong> {product.category?.name || "Curated Collection"}</li>
                 <li><strong className="text-foreground uppercase text-[10px] tracking-widest font-bold">Color:</strong> Multi Variation</li>
                 <li><strong className="text-foreground uppercase text-[10px] tracking-widest font-bold">Material:</strong> Premium Blend</li>
@@ -343,7 +668,7 @@ export default function ProductDetailClient({
           <details className="border-b border-border-soft group list-none [&::-webkit-details-marker]:hidden">
             <summary className="flex w-full items-center justify-between py-5 text-[12px] font-bold uppercase tracking-[0.15em] text-foreground hover:text-gold transition-colors cursor-pointer list-none [&::-webkit-details-marker]:hidden">
               Product Declaration
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6" /></svg>
+              <ChevronDown className="h-4.5 w-4.5 transition-transform group-open:rotate-180" strokeWidth={1.5} />
             </summary>
             <div className="pb-5 space-y-3 animate-in fade-in slide-in-from-top-2">
               <p className="leading-relaxed">
@@ -355,7 +680,7 @@ export default function ProductDetailClient({
           <details className="border-b border-border-soft group list-none [&::-webkit-details-marker]:hidden">
             <summary className="flex w-full items-center justify-between py-5 text-[12px] font-bold uppercase tracking-[0.15em] text-foreground hover:text-gold transition-colors cursor-pointer list-none [&::-webkit-details-marker]:hidden">
               Shipping & Returns
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6" /></svg>
+              <ChevronDown className="h-4.5 w-4.5 transition-transform group-open:rotate-180" strokeWidth={1.5} />
             </summary>
             <div className="pb-5 space-y-3 animate-in fade-in slide-in-from-top-2">
               <p className="leading-relaxed">
@@ -365,6 +690,65 @@ export default function ProductDetailClient({
           </details>
         </div>
       </div>
+
+      {bookModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+          <div className="w-full max-w-md border border-border-soft bg-card p-6 shadow-xl">
+            <div className="mb-5">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-gold">WhatsApp Consultation</p>
+              <h3 className="mt-2 font-serif text-2xl font-light text-foreground">Book Video Call</h3>
+              <p className="mt-2 text-sm text-muted-foreground">Select your preferred date and time for the seller video call.</p>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="mb-2 block text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                  Date
+                </label>
+                <input
+                  type="date"
+                  min={minAppointmentDate}
+                  value={appointmentDate}
+                  onChange={(event) => setAppointmentDate(event.target.value)}
+                  className="h-11 w-full border border-border-soft bg-background px-3 text-sm text-foreground outline-none focus:border-gold/50"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                  Time
+                </label>
+                <input
+                  type="time"
+                  value={appointmentTime}
+                  onChange={(event) => setAppointmentTime(event.target.value)}
+                  className="h-11 w-full border border-border-soft bg-background px-3 text-sm text-foreground outline-none focus:border-gold/50"
+                />
+              </div>
+            </div>
+
+            <div className="mt-6 flex gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1"
+                onClick={() => setBookModalOpen(false)}
+                disabled={booking}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                className="flex-1"
+                onClick={handleConfirmBooking}
+                disabled={booking}
+              >
+                {booking ? "Booking..." : "Confirm"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 }

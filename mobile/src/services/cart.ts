@@ -13,8 +13,10 @@ export interface CartItemDetails {
   };
   variant?: {
     id: string;
+    size: string;
     sku: string;
     price: number;
+    compareAtPrice?: number | null;
     inventory?: {
       stock: number;
     } | null;

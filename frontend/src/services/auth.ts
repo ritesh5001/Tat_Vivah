@@ -1,3 +1,5 @@
+import { COOKIE_ATTRIBUTES_SUFFIX } from "@/lib/site-config";
+
 export interface LoginPayload {
   identifier: string;
   password: string;
@@ -13,6 +15,7 @@ export interface RegisterUserPayload {
 export interface RegisterSellerPayload {
   email: string;
   phone: string;
+  whatsappNumber: string;
   password: string;
 }
 
@@ -44,6 +47,29 @@ export interface RegisterResponse {
   message: string;
 }
 
+type ApiErrorResponse = {
+  error?: {
+    message?: string;
+    details?: Record<string, string>;
+  };
+  message?: string;
+};
+
+function buildApiError(data: ApiErrorResponse | null, fallback: string): Error {
+  const message =
+    data?.error?.message ??
+    data?.message ??
+    fallback;
+  const details = data?.error?.details;
+
+  if (details && Object.keys(details).length > 0) {
+    const detailText = Object.values(details).join(" ");
+    return new Error(detailText || message);
+  }
+
+  return new Error(message);
+}
+
 export interface OtpRequestResponse {
   message: string;
 }
@@ -67,10 +93,10 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
 export function clearAuthSession(): void {
   if (typeof document === "undefined") return;
-  document.cookie = "tatvivah_access=; path=/; max-age=0";
-  document.cookie = "tatvivah_refresh=; path=/; max-age=0";
-  document.cookie = "tatvivah_role=; path=/; max-age=0";
-  document.cookie = "tatvivah_user=; path=/; max-age=0";
+  document.cookie = `tatvivah_access=; path=/; max-age=0${COOKIE_ATTRIBUTES_SUFFIX}`;
+  document.cookie = `tatvivah_refresh=; path=/; max-age=0${COOKIE_ATTRIBUTES_SUFFIX}`;
+  document.cookie = `tatvivah_role=; path=/; max-age=0${COOKIE_ATTRIBUTES_SUFFIX}`;
+  document.cookie = `tatvivah_user=; path=/; max-age=0${COOKIE_ATTRIBUTES_SUFFIX}`;
   window.dispatchEvent(new Event("tatvivah-auth"));
 }
 
@@ -80,14 +106,14 @@ export function clearAuthSession(): void {
 export function persistAuthCookies(
   accessToken: string,
   refreshToken: string,
-  user: { role: string; [key: string]: unknown }
+  user: { role: string;[key: string]: unknown }
 ): void {
-  document.cookie = `tatvivah_access=${accessToken}; path=/; max-age=86400`;
-  document.cookie = `tatvivah_refresh=${refreshToken}; path=/; max-age=604800`;
-  document.cookie = `tatvivah_role=${user.role}; path=/; max-age=86400`;
+  document.cookie = `tatvivah_access=${accessToken}; path=/; max-age=86400${COOKIE_ATTRIBUTES_SUFFIX}`;
+  document.cookie = `tatvivah_refresh=${refreshToken}; path=/; max-age=604800${COOKIE_ATTRIBUTES_SUFFIX}`;
+  document.cookie = `tatvivah_role=${user.role}; path=/; max-age=86400${COOKIE_ATTRIBUTES_SUFFIX}`;
   document.cookie = `tatvivah_user=${encodeURIComponent(
     JSON.stringify(user)
-  )}; path=/; max-age=86400`;
+  )}; path=/; max-age=86400${COOKIE_ATTRIBUTES_SUFFIX}`;
   window.dispatchEvent(new Event("tatvivah-auth"));
 }
 
@@ -116,7 +142,9 @@ export async function loginUser(payload: LoginPayload): Promise<LoginResponse> {
   if (!response.ok) {
     const message =
       data?.error?.message ?? data?.message ?? "Login failed";
-    throw new Error(message);
+    const err = new Error(message) as Error & { phone?: string };
+    err.phone = (data?.error?.details?.phone as string | undefined) ?? undefined;
+    throw err;
   }
 
   return data as LoginResponse;
@@ -140,9 +168,7 @@ export async function registerUser(
   const data = await response.json().catch(() => null);
 
   if (!response.ok) {
-    const message =
-      data?.error?.message ?? data?.message ?? "Registration failed";
-    throw new Error(message);
+    throw buildApiError(data as ApiErrorResponse | null, "Registration failed");
   }
 
   return data as RegisterResponse;
@@ -166,9 +192,7 @@ export async function registerSeller(
   const data = await response.json().catch(() => null);
 
   if (!response.ok) {
-    const message =
-      data?.error?.message ?? data?.message ?? "Seller registration failed";
-    throw new Error(message);
+    throw buildApiError(data as ApiErrorResponse | null, "Seller registration failed");
   }
 
   return data as RegisterResponse;
@@ -192,15 +216,24 @@ export async function registerAdmin(
   const data = await response.json().catch(() => null);
 
   if (!response.ok) {
-    const message =
-      data?.error?.message ?? data?.message ?? "Admin registration failed";
-    throw new Error(message);
+    throw buildApiError(data as ApiErrorResponse | null, "Admin registration failed");
   }
 
   return data as RegisterResponse;
 }
 
-export async function requestEmailOtp(email: string): Promise<OtpRequestResponse> {
+export interface RequestAuthOtpPayload {
+  email?: string;
+  phone?: string;
+}
+
+export interface VerifyAuthOtpPayload {
+  email?: string;
+  phone?: string;
+  otp: string;
+}
+
+export async function requestAuthOtp(payload: RequestAuthOtpPayload): Promise<OtpRequestResponse> {
   if (!API_BASE_URL) {
     throw new Error("API base URL is not configured");
   }
@@ -210,7 +243,7 @@ export async function requestEmailOtp(email: string): Promise<OtpRequestResponse
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ email }),
+    body: JSON.stringify(payload),
   });
 
   const data = await response.json().catch(() => null);
@@ -224,10 +257,7 @@ export async function requestEmailOtp(email: string): Promise<OtpRequestResponse
   return data as OtpRequestResponse;
 }
 
-export async function verifyEmailOtp(payload: {
-  email: string;
-  otp: string;
-}): Promise<VerifyOtpResponse> {
+export async function verifyAuthOtp(payload: VerifyAuthOtpPayload): Promise<VerifyOtpResponse> {
   if (!API_BASE_URL) {
     throw new Error("API base URL is not configured");
   }

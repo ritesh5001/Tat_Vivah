@@ -14,7 +14,6 @@ export function RecentlyViewedTracker({ productId }: { productId: string }) {
     // Fire-and-forget — we intentionally don't await or show loading
     apiRequest(`/v1/personalization/recently-viewed/${productId}`, {
       method: "POST",
-      showLoader: false,
     }).catch(() => {
       // Silently ignore — user may not be logged in
     });

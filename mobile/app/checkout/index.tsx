@@ -9,6 +9,7 @@ import {
   FlatList,
 } from "react-native";
 import { usePathname, useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, radius, spacing, typography, shadow } from "../../src/theme/tokens";
 import { checkout, validateCoupon, type CouponPreview } from "../../src/services/cart";
 import { initiatePayment, verifyPayment } from "../../src/services/payments";
@@ -79,11 +80,12 @@ const AddressSelectorRow = React.memo(function AddressSelectorRow({
 export default function CheckoutScreen() {
   const router = useRouter();
   const pathname = usePathname();
+  const insets = useSafeAreaInsets();
   const { session, isLoading: authLoading } = useAuth();
   const token = session?.accessToken ?? null;
   const { isConnected } = useNetworkStatus();
   const { clearCart, refreshCart, cartItems } = useCart();
-  const { addresses, defaultAddress, isLoading: addressesLoading } = useAddresses();
+  const { addresses, defaultAddress } = useAddresses();
   const { showToast } = useToast();
 
   // ---------- Payment guard — prevents double-submit ----------
@@ -144,10 +146,11 @@ export default function CheckoutScreen() {
     [cartItems]
   );
   const shippingFee = cartItems.length ? 180 : 0;
+  const gstFee = cartItems.length ? 180 : 0;
   const displaySubtotal = taxSummary?.subTotalAmount ?? cartSubtotal;
   const displayDiscount = taxSummary?.discountAmount ?? 0;
-  const displayGst = taxSummary?.totalTaxAmount ?? 0;
-  const computedGrandTotal = displaySubtotal - displayDiscount + shippingFee + displayGst;
+  const displayGst = gstFee;
+  const computedGrandTotal = displaySubtotal - displayDiscount + shippingFee + gstFee;
   const displayGrandTotal =
     typeof taxSummary?.grandTotal === "number"
       ? Math.max(taxSummary.grandTotal, computedGrandTotal)
@@ -369,9 +372,11 @@ export default function CheckoutScreen() {
       if (mountedRef.current) {
         notifySuccess();
         clearCart();
-        // Refresh to sync server state (cart should now be empty)
-        refreshCart();
         router.replace(`/orders/${orderId}`);
+        // Keep transition smooth: refresh cart on next tick instead of during navigation.
+        setTimeout(() => {
+          void refreshCart();
+        }, 0);
       }
     } catch (err) {
       if (!mountedRef.current) return; // Component unmounted during payment
@@ -420,6 +425,9 @@ export default function CheckoutScreen() {
     cartItems.length === 0 ||
     (hasAddresses && !selectedAddressId);
 
+  // Bottom bar is hidden on checkout, so only account for safe area + comfortable padding
+  const checkoutBottomReserve = Math.max(insets.bottom, spacing.sm) + spacing.xl;
+
   // ---- Selector key ----
   const selectorKeyExtractor = React.useCallback(
     (item: Address) => item.id,
@@ -443,7 +451,11 @@ export default function CheckoutScreen() {
       {isPaying ? (
         <TatvivahOverlayLoader label={payLabel} />
       ) : null}
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={[styles.container, { paddingBottom: checkoutBottomReserve }]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={styles.title}>Checkout</Text>
         <Text style={styles.subtitle}>
           Confirm delivery address and complete your order.
@@ -521,7 +533,7 @@ export default function CheckoutScreen() {
             <Text style={styles.label}>Phone</Text>
             <TextInput
               style={styles.input}
-              placeholder="+91 98765 43210"
+              placeholder="+91 97696 59709"
               placeholderTextColor={colors.brownSoft}
               keyboardType="phone-pad"
               value={shipping.phone}
@@ -789,7 +801,7 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: colors.surfaceElevated,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     padding: spacing.lg,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -811,7 +823,7 @@ const styles = StyleSheet.create({
   },
   input: {
     height: 48,
-    borderRadius: radius.md,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     paddingHorizontal: spacing.md,
@@ -824,7 +836,7 @@ const styles = StyleSheet.create({
   // Selected address display
   selectedAddressBox: {
     backgroundColor: colors.surface,
-    borderRadius: radius.md,
+    borderRadius: 0,
     padding: spacing.md,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -851,7 +863,7 @@ const styles = StyleSheet.create({
   changeButton: {
     marginTop: spacing.md,
     paddingVertical: spacing.sm,
-    borderRadius: radius.md,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.gold,
     alignItems: "center",
@@ -884,7 +896,7 @@ const styles = StyleSheet.create({
   addAddressButton: {
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.md,
-    borderRadius: radius.md,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.gold,
   },
@@ -902,7 +914,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gold,
     borderWidth: 1,
     borderColor: colors.gold,
-    borderRadius: radius.md,
+    borderRadius: 0,
     paddingVertical: spacing.sm,
     alignItems: "center",
   },
@@ -932,8 +944,8 @@ const styles = StyleSheet.create({
   },
   modalSheet: {
     backgroundColor: colors.surfaceElevated,
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xl,
     maxHeight: "80%",
@@ -941,7 +953,7 @@ const styles = StyleSheet.create({
   modalHandle: {
     width: 36,
     height: 4,
-    borderRadius: 2,
+    borderRadius: 0,
     backgroundColor: colors.borderSoft,
     alignSelf: "center",
     marginTop: spacing.md,
@@ -979,7 +991,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.sm,
-    borderRadius: radius.md,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: colors.surface,
@@ -993,7 +1005,7 @@ const styles = StyleSheet.create({
   selectorRadio: {
     width: 20,
     height: 20,
-    borderRadius: 10,
+    borderRadius: 0,
     borderWidth: 2,
     borderColor: colors.borderSoft,
     alignItems: "center",
@@ -1003,7 +1015,7 @@ const styles = StyleSheet.create({
   selectorRadioInner: {
     width: 10,
     height: 10,
-    borderRadius: 5,
+    borderRadius: 0,
     backgroundColor: colors.gold,
   },
   selectorContent: {
@@ -1025,7 +1037,7 @@ const styles = StyleSheet.create({
     borderColor: colors.borderSoft,
     paddingHorizontal: spacing.xs,
     paddingVertical: 2,
-    borderRadius: radius.sm,
+    borderRadius: 0,
     overflow: "hidden",
   },
   selectorDefault: {
@@ -1039,7 +1051,7 @@ const styles = StyleSheet.create({
     borderColor: colors.gold,
     paddingHorizontal: spacing.xs,
     paddingVertical: 2,
-    borderRadius: radius.sm,
+    borderRadius: 0,
     overflow: "hidden",
   },
   selectorLine: {
@@ -1074,7 +1086,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     backgroundColor: colors.surface,
-    borderRadius: radius.md,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.gold,
     padding: spacing.md,
@@ -1120,7 +1132,7 @@ const styles = StyleSheet.create({
   },
   couponApplyButton: {
     height: 48,
-    borderRadius: radius.md,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.gold,
     paddingHorizontal: spacing.lg,

@@ -12,6 +12,7 @@ export { productMediaRouter } from './product-media.routes.js';
 export { reviewRouter } from './review.routes.js';
 export { imagekitRouter } from './imagekit.routes.js';
 export { bestsellerRouter } from './bestseller.routes.js';
+export { tryOnRouter } from './try-on.routes.js';
 
 
 // Address management
@@ -23,6 +24,7 @@ export { checkoutRouter } from './checkout.routes.js';
 export { couponRouter } from './coupon.routes.js';
 export { orderRouter } from './order.routes.js';
 export { sellerOrderRouter } from './seller-order.routes.js';
+export { appointmentRouter } from './appointment.routes.js';
 export { cancellationRouter } from './cancellation.routes.js';
 export { returnRouter } from './return.routes.js';
 
@@ -49,6 +51,7 @@ export { wishlistRouter } from './wishlist.routes.js';
 // Search & Personalization
 export { searchRouter } from './search.routes.js';
 export { personalizationRouter } from './personalization.routes.js';
+export { liveRouter } from './live.routes.js';
 
 // Seller Analytics
 export { sellerAnalyticsRouter } from './sellerAnalytics.routes.js';
@@ -57,3 +60,6 @@ export { sellerAnalyticsRouter } from './sellerAnalytics.routes.js';
 export { reelRouter } from './reel.routes.js';
 export { sellerReelRouter } from './seller-reel.routes.js';
 export { adminReelRouter } from './admin-reel.routes.js';
+
+// Occasions
+export { occasionRouter } from './occasion.routes.js';

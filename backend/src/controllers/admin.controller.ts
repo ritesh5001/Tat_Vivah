@@ -23,6 +23,18 @@ import { refundService } from '../services/refund.service.js';
 import { commissionService } from '../services/commission.service.js';
 import type { RefundStatus, SettlementStatus } from '@prisma/client';
 
+function parsePositiveInt(value: unknown, fallback: number): number {
+    const n = Number(value);
+    if (!Number.isFinite(n) || n < 1) return fallback;
+    return Math.trunc(n);
+}
+
+function parseDate(value: unknown): Date | undefined {
+    if (typeof value !== 'string' || !value.trim()) return undefined;
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? undefined : d;
+}
+
 /**
  * Admin Controller
  * Handles HTTP requests for admin panel
@@ -58,12 +70,14 @@ export const adminController = {
      * List all sellers
      */
     listSellers: async (
-        _req: Request,
+        req: Request,
         res: Response,
         next: NextFunction
     ): Promise<void> => {
         try {
-            const result = await adminService.listSellers();
+            const page = parsePositiveInt(req.query['page'], 1);
+            const limit = parsePositiveInt(req.query['limit'], 20);
+            const result = await adminService.listSellers({ page, limit });
             res.json(result);
         } catch (error) {
             next(error);
@@ -117,12 +131,14 @@ export const adminController = {
      * List products pending moderation
      */
     listPendingProducts: async (
-        _req: Request,
+        req: Request,
         res: Response,
         next: NextFunction
     ): Promise<void> => {
         try {
-            const result = await adminService.listPendingProducts();
+            const page = parsePositiveInt(req.query['page'], 1);
+            const limit = parsePositiveInt(req.query['limit'], 20);
+            const result = await adminService.listPendingProducts({ page, limit });
             res.json(result);
         } catch (error) {
             next(error);
@@ -134,12 +150,14 @@ export const adminController = {
      * List all products
      */
     listAllProducts: async (
-        _req: Request,
+        req: Request,
         res: Response,
         next: NextFunction
     ): Promise<void> => {
         try {
-            const result = await adminService.listAllProducts();
+            const page = parsePositiveInt(req.query['page'], 1);
+            const limit = parsePositiveInt(req.query['limit'], 20);
+            const result = await adminService.listAllProducts({ page, limit });
             res.json(result);
         } catch (error) {
             next(error);
@@ -229,12 +247,14 @@ export const adminController = {
      * GET /v1/admin/products/pricing-overview
      */
     pricingOverview: async (
-        _req: Request,
+        req: Request,
         res: Response,
         next: NextFunction
     ): Promise<void> => {
         try {
-            const result = await adminService.pricingOverview();
+            const page = parsePositiveInt(req.query['page'], 1);
+            const limit = parsePositiveInt(req.query['limit'], 20);
+            const result = await adminService.pricingOverview({ page, limit });
             res.json(result);
         } catch (error) {
             next(error);
@@ -245,12 +265,19 @@ export const adminController = {
      * GET /v1/admin/analytics/profit
      */
     profitAnalytics: async (
-        _req: Request,
+        req: Request,
         res: Response,
         next: NextFunction
     ): Promise<void> => {
         try {
-            const result = await adminService.profitAnalytics();
+            const startDate = parseDate(req.query['startDate']);
+            const endDate = parseDate(req.query['endDate']);
+            const limit = parsePositiveInt(req.query['limit'], 20);
+            const result = await adminService.profitAnalytics({
+                limit,
+                ...(startDate ? { startDate } : {}),
+                ...(endDate ? { endDate } : {}),
+            });
             res.json(result);
         } catch (error) {
             next(error);
@@ -381,12 +408,17 @@ export const adminController = {
      * List all reviews
      */
     listReviews: async (
-        _req: Request,
+        req: Request,
         res: Response,
         next: NextFunction
     ): Promise<void> => {
         try {
-            const result = await reviewService.listReviews();
+            const rawPage = Number(req.query['page'] ?? 1);
+            const rawLimit = Number(req.query['limit'] ?? 50);
+            const page = Number.isFinite(rawPage) && rawPage > 0 ? Math.trunc(rawPage) : 1;
+            const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(100, Math.trunc(rawLimit)) : 50;
+
+            const result = await reviewService.listReviews({ page, limit });
             res.json(result);
         } catch (error) {
             next(error);
@@ -515,12 +547,21 @@ export const adminController = {
      * List all orders
      */
     listOrders: async (
-        _req: Request,
+        req: Request,
         res: Response,
         next: NextFunction
     ): Promise<void> => {
         try {
-            const result = await adminService.listOrders();
+            const page = parsePositiveInt(req.query['page'], 1);
+            const limit = parsePositiveInt(req.query['limit'], 20);
+            const startDate = parseDate(req.query['startDate']);
+            const endDate = parseDate(req.query['endDate']);
+            const result = await adminService.listOrders({
+                page,
+                limit,
+                ...(startDate ? { startDate } : {}),
+                ...(endDate ? { endDate } : {}),
+            });
             res.json(result);
         } catch (error) {
             next(error);
@@ -574,12 +615,14 @@ export const adminController = {
      * List all payments
      */
     listPayments: async (
-        _req: Request,
+        req: Request,
         res: Response,
         next: NextFunction
     ): Promise<void> => {
         try {
-            const result = await adminService.listPayments();
+            const page = parsePositiveInt(req.query['page'], 1);
+            const limit = parsePositiveInt(req.query['limit'], 20);
+            const result = await adminService.listPayments({ page, limit });
             res.json(result);
         } catch (error) {
             next(error);

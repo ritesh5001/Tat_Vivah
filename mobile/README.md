@@ -42,6 +42,43 @@ To learn more about developing your project with Expo, look at the following res
 - [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
 - [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
 
+## Web Deep-Link Rewrites
+
+For routes like `/reels`, `/product/123`, and other Expo Router paths, your web host must rewrite unknown paths to the app entry file.
+
+### Local development
+
+- Use `npm run web` from this `mobile` folder.
+- Open the exact URL served by Expo (usually `http://localhost:8081`).
+
+### Production hosting
+
+Configure a catch-all rewrite so every non-file request falls back to `/index.html`.
+
+#### Netlify (`_redirects`)
+
+```txt
+/* /index.html 200
+```
+
+#### Vercel (`vercel.json`)
+
+```json
+{
+   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+}
+```
+
+#### Nginx
+
+```nginx
+location / {
+   try_files $uri $uri/ /index.html;
+}
+```
+
+Without this fallback, direct navigation or refresh on `/reels` can return `404` in the browser console.
+
 ## Join the community
 
 Join our community of developers creating universal apps.

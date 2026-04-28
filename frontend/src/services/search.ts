@@ -46,7 +46,6 @@ export async function searchProducts(params: {
   if (params.categoryId) query.set("categoryId", params.categoryId);
   if (params.sort) query.set("sort", params.sort);
   return apiRequest<SearchResponse>(`/v1/search?${query.toString()}`, {
-    showLoader: false,
     signal: params.signal,
   });
 }
@@ -69,8 +68,7 @@ export async function getSuggestions(
   query.set("q", q);
   if (limit) query.set("limit", String(limit));
   const res = await apiRequest<{ suggestions: SuggestionItem[] }>(
-    `/v1/search/suggest?${query.toString()}`,
-    { showLoader: false }
+    `/v1/search/suggest?${query.toString()}`
   );
   return res.suggestions;
 }
@@ -83,8 +81,7 @@ export async function getTrending(limit?: number): Promise<string[]> {
   const query = new URLSearchParams();
   if (limit) query.set("limit", String(limit));
   const res = await apiRequest<{ trending: string[] }>(
-    `/v1/search/trending?${query.toString()}`,
-    { showLoader: false }
+    `/v1/search/trending?${query.toString()}`
   );
   return res.trending;
 }
@@ -103,15 +100,46 @@ export interface RelatedProductItem {
   category: { id: string; name: string } | null;
 }
 
+const RELATED_CACHE_TTL_MS = 5 * 60 * 1000;
+const relatedProductsCache = new Map<string, { expiresAt: number; data: RelatedProductItem[] }>();
+const relatedProductsInflight = new Map<string, Promise<RelatedProductItem[]>>();
+
 export async function getRelatedProducts(
   productId: string,
   limit?: number
 ): Promise<RelatedProductItem[]> {
+  const safeLimit = Math.min(20, Math.max(1, Math.trunc(limit || 8)));
+  const key = `${productId}:${safeLimit}`;
+  const now = Date.now();
+
+  const cached = relatedProductsCache.get(key);
+  if (cached && cached.expiresAt > now) {
+    return cached.data;
+  }
+
+  const inflight = relatedProductsInflight.get(key);
+  if (inflight) {
+    return inflight;
+  }
+
   const query = new URLSearchParams();
-  if (limit) query.set("limit", String(limit));
-  const res = await apiRequest<{ data: RelatedProductItem[] }>(
-    `/v1/products/${productId}/related?${query.toString()}`,
-    { showLoader: false }
-  );
-  return res.data;
+  query.set("limit", String(safeLimit));
+
+  const request = apiRequest<{ data: RelatedProductItem[] }>(
+    `/v1/products/${productId}/related?${query.toString()}`
+  )
+    .then((res) => {
+      const data = res.data ?? [];
+      relatedProductsCache.set(key, {
+        data,
+        expiresAt: Date.now() + RELATED_CACHE_TTL_MS,
+      });
+      return data;
+    })
+    .finally(() => {
+      relatedProductsInflight.delete(key);
+    });
+
+  relatedProductsInflight.set(key, request);
+  return request;
 }

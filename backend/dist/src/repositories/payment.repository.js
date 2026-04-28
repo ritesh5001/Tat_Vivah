@@ -1,4 +1,18 @@
 import { prisma } from '../config/db.js';
+const paymentLookupSelect = {
+    id: true,
+    orderId: true,
+    userId: true,
+    amount: true,
+    currency: true,
+    status: true,
+    provider: true,
+    providerOrderId: true,
+    providerPaymentId: true,
+    providerSignature: true,
+    createdAt: true,
+    updatedAt: true,
+};
 export class PaymentRepository {
     async createPayment(data) {
         return prisma.payment.create({
@@ -8,31 +22,19 @@ export class PaymentRepository {
     async findPaymentByOrderId(orderId) {
         return prisma.payment.findUnique({
             where: { orderId },
-            include: {
-                events: true
-            }
+            select: paymentLookupSelect,
         });
     }
     async findPaymentById(paymentId) {
         return prisma.payment.findUnique({
             where: { id: paymentId },
-            include: {
-                events: true,
-                order: true
-            }
+            select: paymentLookupSelect,
         });
     }
     async findByProviderOrderId(providerOrderId) {
         return prisma.payment.findFirst({
             where: { providerOrderId },
-            include: {
-                events: true,
-                order: {
-                    include: {
-                        items: true
-                    }
-                }
-            }
+            select: paymentLookupSelect,
         });
     }
     async updatePaymentStatus(paymentId, status, providerPaymentId) {

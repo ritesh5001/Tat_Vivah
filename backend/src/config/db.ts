@@ -10,29 +10,38 @@ const globalForPrisma = globalThis as unknown as {
     __prisma: PrismaClient | undefined;
 };
 
-function buildPrismaDatabaseUrl(rawUrl: string): string {
+function getIntEnv(name: string, fallback: number, min: number, max: number): number {
+    const raw = process.env[name];
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed)) return fallback;
+    const n = Math.trunc(parsed);
+    if (n < min) return min;
+    if (n > max) return max;
+    return n;
+}
+
+function buildPrismaDatabaseUrl(rawUrl: string, directUrl?: string): string {
     try {
-        const parsed = new URL(rawUrl);
+        // Keep DATABASE_URL host untouched unless an explicit DATABASE_URL_DIRECT
+        // is provided. Auto-rewriting Neon "-pooler" hosts to direct endpoints
+        // can break connectivity in managed environments.
+        const sourceUrl = directUrl ? directUrl : rawUrl;
+        const parsed = new URL(sourceUrl);
         const isPooledHost = parsed.hostname.includes('-pooler.');
 
+        const pooledConnectionLimit = getIntEnv('DB_POOL_CONNECTION_LIMIT', 10, 1, 100);
+        const pooledPoolTimeout = getIntEnv('DB_POOL_TIMEOUT', 15, 1, 120);
+        const directConnectionLimit = getIntEnv('DB_DIRECT_CONNECTION_LIMIT', 5, 1, 100);
+
         if (isPooledHost) {
-            if (!parsed.searchParams.has('pgbouncer')) {
-                parsed.searchParams.set('pgbouncer', 'true');
-            }
-
-            if (!parsed.searchParams.has('connection_limit')) {
-                parsed.searchParams.set('connection_limit', '1');
-            }
-
-            // Prevent Prisma from waiting indefinitely for a pooled connection
-            if (!parsed.searchParams.has('pool_timeout')) {
-                parsed.searchParams.set('pool_timeout', '15');
-            }
+            parsed.searchParams.set('pgbouncer', 'true');
+            parsed.searchParams.set('connection_limit', String(pooledConnectionLimit));
+            parsed.searchParams.set('pool_timeout', String(pooledPoolTimeout));
         }
 
-        // For non-pooled (direct) connections, set a reasonable pool size
+        // For non-pooled (direct) connections, keep a smaller default pool size.
         if (!isPooledHost && !parsed.searchParams.has('connection_limit')) {
-            parsed.searchParams.set('connection_limit', '5');
+            parsed.searchParams.set('connection_limit', String(directConnectionLimit));
         }
 
         return parsed.toString();
@@ -41,13 +50,14 @@ function buildPrismaDatabaseUrl(rawUrl: string): string {
     }
 }
 
-function createPrismaClient(): PrismaClient {
+function createPrismaClient() {
     const client = new PrismaClient({
         datasources: {
-            db: { url: buildPrismaDatabaseUrl(env.DATABASE_URL) },
+            db: { url: buildPrismaDatabaseUrl(env.DATABASE_URL, env.DATABASE_URL_DIRECT) },
         },
-        // Only log errors — removes noisy query/warn spam in dev terminal
-        log: ['error'],
+        log: env.NODE_ENV === 'development' && env.PRISMA_LOG_QUERIES
+            ? [{ emit: 'stdout', level: 'query' }]
+            : [],
     });
 
     return client;
@@ -58,7 +68,7 @@ function createPrismaClient(): PrismaClient {
  * In non-production environments it is pinned to globalThis so tsx
  * watch-mode restarts reuse the same connection pool.
  */
-export const prisma: PrismaClient =
+export const prisma =
     globalForPrisma.__prisma ?? createPrismaClient();
 
 if (env.NODE_ENV !== 'production') {
@@ -75,7 +85,10 @@ if (env.NODE_ENV !== 'production') {
 
 // @ts-expect-error — Prisma's $on('error') is loosely typed at runtime
 prisma.$on('error', (e: { message?: string }) => {
-    if (e.message?.includes('Closed')) {
+    if (
+        e.message?.includes('Closed') ||
+        e.message?.includes("Can't reach database server")
+    ) {
         // Intentionally silent — Prisma reconnects automatically
         return;
     }

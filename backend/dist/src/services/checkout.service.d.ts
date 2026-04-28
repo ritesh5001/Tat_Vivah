@@ -32,6 +32,7 @@ export declare class CheckoutService {
         shippingAddressLine1?: string;
         shippingAddressLine2?: string;
         shippingCity?: string;
+        shippingPincode?: string;
         shippingNotes?: string;
     }, couponCode?: string): Promise<CheckoutResponse>;
 }

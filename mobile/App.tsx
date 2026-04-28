@@ -1,20 +1,19 @@
 import { useFonts } from "expo-font";
-import {
-  PlayfairDisplay_700Bold,
-} from "@expo-google-fonts/playfair-display";
-import { Inter_400Regular, Inter_500Medium } from "@expo-google-fonts/inter";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, Platform } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { RootNavigator } from "./src/navigation/RootNavigator";
 import { AppProviders } from "./src/providers/AppProviders";
 import { colors, typography } from "./src/theme";
 
 export default function App() {
-  const [fontsLoaded] = useFonts({
-    PlayfairDisplay_700Bold,
-    Inter_400Regular,
-    Inter_500Medium,
-  });
+  const [fontsLoaded] = useFonts(
+    Platform.OS === "web"
+      ? {}
+      : {
+          Inter_400Regular: require("./assets/fonts/Inter_400Regular.ttf"),
+          Inter_500Medium: require("./assets/fonts/Inter_500Medium.ttf"),
+        },
+  );
 
   if (!fontsLoaded) {
     return (

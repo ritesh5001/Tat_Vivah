@@ -2,7 +2,7 @@
   "expo": {
     "name": "TatVivah",
     "slug": "tatvivah",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "mobile",
@@ -12,6 +12,7 @@
       "supportsTablet": true
     },
     "android": {
+      "versionCode": 2,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/adaptive-icon.png"
@@ -44,20 +45,40 @@
         }
       ],
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow TatVivah to select a photo for virtual try-on and product reviews.",
+          "cameraPermission": "Allow TatVivah to take a photo for virtual try-on.",
+          "microphonePermission": "Allow TatVivah to record audio when capturing media."
+        }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Allow TatVivah to use your microphone for voice search.",
+          "speechRecognitionPermission": "Allow TatVivah to convert your speech into search text.",
+          "androidSpeechServicePackages": [
+            "com.google.android.googlequicksearchbox"
+          ]
+        }
+      ],
+      [
         "expo-build-properties",
         {
           "android": {
-            "enableProguardInReleaseBuilds": false,
-            "enableShrinkResourcesInReleaseBuilds": false
+            "enableProguardInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "enableMinifyInReleaseBuilds": true
           }
         }
-      ]
+      ],
+      "expo-video"
     ],
     "extra": {
       "eas": {
-        "projectId": "bac4ca06-1208-4381-b8e1-c3737cd91fc3"
+        "projectId": "13fff0d2-6600-4b3e-9817-6a17f872adc6"
       }
     },
-    "owner": "moiqbalbbdniits-organization"
+    "owner": "zaheen.iqbal"
   }
 }

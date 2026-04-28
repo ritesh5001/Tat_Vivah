@@ -43,21 +43,21 @@ export function TatvivahLoader({
         <Animated.View
           style={[
             styles.dot,
-            { width: dotSize, height: dotSize, borderRadius: dotSize / 2, backgroundColor: color },
+            { width: dotSize, height: dotSize, borderRadius: 0, backgroundColor: color },
             { transform: [{ scale }] },
           ]}
         />
         <Animated.View
           style={[
             styles.dot,
-            { width: dotSize, height: dotSize, borderRadius: dotSize / 2, backgroundColor: color },
+            { width: dotSize, height: dotSize, borderRadius: 0, backgroundColor: color },
             { transform: [{ scale: scale.interpolate({ inputRange: [0.8, 1.2], outputRange: [1.1, 0.8] }) }] },
           ]}
         />
         <Animated.View
           style={[
             styles.dot,
-            { width: dotSize, height: dotSize, borderRadius: dotSize / 2, backgroundColor: color },
+            { width: dotSize, height: dotSize, borderRadius: 0, backgroundColor: color },
             { transform: [{ scale }] },
           ]}
         />
@@ -107,7 +107,7 @@ const styles = StyleSheet.create({
   overlayCard: {
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.lg,
-    borderRadius: 18,
+    borderRadius: 0,
     backgroundColor: colors.warmWhite,
     borderWidth: 1,
     borderColor: colors.borderSoft,

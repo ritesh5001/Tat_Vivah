@@ -8,7 +8,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Image } from "../../../src/components/CompatImage";
-import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
+import { colors, spacing, typography } from "../../../src/theme/tokens";
 import { useWishlist } from "../../../src/providers/WishlistProvider";
 import { useAuth } from "../../../src/hooks/useAuth";
 import { type WishlistItemDetail } from "../../../src/services/wishlist";
@@ -16,6 +16,8 @@ import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
 import { impactLight } from "../../../src/utils/haptics";
 import { AppHeader } from "../../../src/components/AppHeader";
 import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
+import { WishlistIcon } from "../../../src/components/WishlistIcon";
+import { MotionView } from "../../../src/components/motion";
 import { AppText as Text, ScreenContainer as SafeAreaView } from "../../../src/components";
 
 const currency = new Intl.NumberFormat("en-IN", {
@@ -82,7 +84,7 @@ const WishlistRow = React.memo(function WishlistRow({
         {removing ? (
           <TatvivahLoader size="sm" color={colors.brown} />
         ) : (
-          <Text style={{ fontSize: 20 }}>❤️</Text>
+          <WishlistIcon size={20} color="#E8453C" filled />
         )}
       </Pressable>
     </Pressable>
@@ -121,13 +123,15 @@ export default function WishlistScreen() {
   );
 
   const renderItem = React.useCallback(
-    ({ item }: ListRenderItemInfo<WishlistItemDetail>) => (
-      <WishlistRow
-        item={item}
-        onRemove={handleRemove}
-        onPress={handlePress}
-        removing={mutatingIds.has(item.productId)}
-      />
+    ({ item, index }: ListRenderItemInfo<WishlistItemDetail>) => (
+      <MotionView preset="slideUp" delay={Math.min(index * 24, 160)}>
+        <WishlistRow
+          item={item}
+          onRemove={handleRemove}
+          onPress={handlePress}
+          removing={mutatingIds.has(item.productId)}
+        />
+      </MotionView>
     ),
     [handleRemove, handlePress, mutatingIds]
   );
@@ -145,7 +149,7 @@ export default function WishlistScreen() {
           <Text style={styles.headerTitle}>Wishlist</Text>
         </View>
         <View style={styles.emptyWrap}>
-          <Text style={{ fontSize: 48 }}>🤍</Text>
+          <WishlistIcon size={48} color={colors.brownSoft} />
           <Text style={styles.emptyTitle}>Sign in to use wishlist</Text>
           <Text style={styles.emptySubtitle}>
             Save favorites and keep them synced to your account.
@@ -190,7 +194,7 @@ export default function WishlistScreen() {
         </View>
       ) : wishlistItems.length === 0 ? (
         <View style={styles.emptyWrap}>
-          <Text style={{ fontSize: 48 }}>🤍</Text>
+          <WishlistIcon size={48} color={colors.brownSoft} />
           <Text style={styles.emptyTitle}>Your Wishlist is Empty</Text>
           <Text style={styles.emptySubtitle}>
             Browse our collections and tap the heart to save items you love.
@@ -209,6 +213,11 @@ export default function WishlistScreen() {
           keyExtractor={keyExtractor}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          removeClippedSubviews
+          initialNumToRender={2}
+          maxToRenderPerBatch={2}
+          windowSize={3}
+          updateCellsBatchingPeriod={24}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
         />
       )}
@@ -257,13 +266,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     marginHorizontal: spacing.lg,
   },
   rowImage: {
     width: 80,
     height: 100,
-    borderRadius: radius.md,
+    borderRadius: 0,
     backgroundColor: colors.surface,
   },
   rowInfo: {
@@ -295,7 +304,7 @@ const styles = StyleSheet.create({
   removeButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: colors.surface,
@@ -332,7 +341,7 @@ const styles = StyleSheet.create({
     borderColor: colors.gold,
     paddingHorizontal: 32,
     paddingVertical: 14,
-    borderRadius: radius.md,
+    borderRadius: 0,
   },
   ctaButtonText: {
     fontFamily: typography.sans,
@@ -346,7 +355,7 @@ const styles = StyleSheet.create({
     borderColor: colors.borderSoft,
     paddingHorizontal: 32,
     paddingVertical: 12,
-    borderRadius: radius.md,
+    borderRadius: 0,
   },
   secondaryButtonText: {
     fontFamily: typography.sans,

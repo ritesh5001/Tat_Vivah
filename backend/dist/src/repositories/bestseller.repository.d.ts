@@ -44,10 +44,19 @@ export declare class BestsellerRepository {
                 name: string;
             };
             variants: {
+                status: import(".prisma/client").$Enums.ProductStatus;
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
                 productId: string;
+                sellerPrice: number;
+                adminListingPrice: number | null;
+                rejectionReason: string | null;
+                approvedAt: Date | null;
+                approvedById: string | null;
+                images: string[];
+                size: string;
+                color: string | null;
                 sku: string;
                 price: number;
                 compareAtPrice: number | null;

@@ -1,5 +1,6 @@
 import { PaymentProvider, PaymentStatus } from '@prisma/client';
 export declare class PaymentService {
+    private findOrderForPayment;
     private resolvePayableAmount;
     processRefund(orderId: string): Promise<{
         refundTriggered: boolean;
@@ -8,15 +9,6 @@ export declare class PaymentService {
     }>;
     initiatePayment(userId: string, orderId: string, provider: PaymentProvider): Promise<{
         paymentId: string;
-        providerPaymentId: string;
-        checkoutUrl: string;
-        amount: number;
-        currency: string;
-        orderId?: never;
-        key?: never;
-        provider?: never;
-    } | {
-        paymentId: string;
         orderId: string;
         amount: number;
         currency: string;
@@ -24,18 +16,18 @@ export declare class PaymentService {
         provider: string;
         providerPaymentId?: never;
         checkoutUrl?: never;
+    } | {
+        paymentId: string;
+        providerPaymentId: string;
+        checkoutUrl: string;
+        amount: number;
+        currency: string;
+        orderId?: never;
+        key?: never;
+        provider?: never;
     }>;
     retryPayment(userId: string, orderId: string): Promise<{
         paymentId: string;
-        providerPaymentId: string;
-        checkoutUrl: string;
-        amount: number;
-        currency: string;
-        orderId?: never;
-        key?: never;
-        provider?: never;
-    } | {
-        paymentId: string;
         orderId: string;
         amount: number;
         currency: string;
@@ -43,6 +35,15 @@ export declare class PaymentService {
         provider: string;
         providerPaymentId?: never;
         checkoutUrl?: never;
+    } | {
+        paymentId: string;
+        providerPaymentId: string;
+        checkoutUrl: string;
+        amount: number;
+        currency: string;
+        orderId?: never;
+        key?: never;
+        provider?: never;
     }>;
     getPaymentDetails(orderId: string, userId: string): Promise<{
         status: import(".prisma/client").$Enums.PaymentStatus;

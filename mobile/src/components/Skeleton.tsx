@@ -1,59 +1,85 @@
 import * as React from "react";
 import { View, StyleSheet, Animated, type ViewStyle } from "react-native";
-import { colors, radius, spacing } from "../theme/tokens";
+import { colors, spacing } from "../theme/tokens";
 
 // ---------------------------------------------------------------------------
 // Pulse animation hook (shared across all skeleton instances)
 // ---------------------------------------------------------------------------
+const sharedPulseOpacity = new Animated.Value(0.18);
+let sharedPulseLoop: Animated.CompositeAnimation | null = null;
+let sharedPulseUsers = 0;
+
+function startSharedPulseLoop() {
+  if (sharedPulseLoop) return;
+
+  sharedPulseLoop = Animated.loop(
+    Animated.sequence([
+      Animated.timing(sharedPulseOpacity, {
+        toValue: 0.42,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.timing(sharedPulseOpacity, {
+        toValue: 0.18,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+    ])
+  );
+
+  sharedPulseLoop.start();
+}
+
+function stopSharedPulseLoop() {
+  if (!sharedPulseLoop) return;
+  sharedPulseLoop.stop();
+  sharedPulseLoop = null;
+  sharedPulseOpacity.setValue(0.18);
+}
+
 function usePulse(): Animated.Value {
-  const opacity = React.useRef(new Animated.Value(0.18)).current;
-
   React.useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacity, {
-          toValue: 0.42,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacity, {
-          toValue: 0.18,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [opacity]);
+    sharedPulseUsers += 1;
+    startSharedPulseLoop();
 
-  return opacity;
+    return () => {
+      sharedPulseUsers -= 1;
+      if (sharedPulseUsers <= 0) {
+        sharedPulseUsers = 0;
+        stopSharedPulseLoop();
+      }
+    };
+  }, []);
+
+  return sharedPulseOpacity;
 }
 
 // ---------------------------------------------------------------------------
 // Base skeleton block
 // ---------------------------------------------------------------------------
 interface SkeletonBlockProps {
-  width?: number | `${number}%`;
+  width?: number | string;
   height?: number;
   borderRadius?: number;
   style?: ViewStyle;
 }
 
-export function SkeletonBlock({
-  width: w = "100%",
-  height: h = 12,
-  borderRadius: br = 6,
-  style,
-}: SkeletonBlockProps) {
+export function SkeletonBlock(props: SkeletonBlockProps) {
+  const w = props.width ?? "100%";
+  const isPercentWidth = typeof w === "string" && w.endsWith("%");
+  const normalizedWidth =
+    typeof w === "number" || w === "auto" || isPercentWidth ? w : "100%";
+  const h = props.height ?? 12;
+  const borderRadius = props.borderRadius ?? 0;
+  const style = props.style;
   const opacity = usePulse();
   return (
     <Animated.View
       style={[
         {
-          width: w,
+          width: normalizedWidth as ViewStyle["width"],
           height: h,
-          borderRadius: br,
+          borderRadius,
           backgroundColor: colors.brown,
           opacity,
         },
@@ -63,14 +89,17 @@ export function SkeletonBlock({
   );
 }
 
+type SkeletonProductCardProps = {
+  width?: number;
+};
+
 // ---------------------------------------------------------------------------
 // SkeletonProductCard — 2-column grid card (search screen)
 // ---------------------------------------------------------------------------
-export const SkeletonProductCard = React.memo(function SkeletonProductCard({
-  width: w,
-}: {
-  width?: number;
-}) {
+export const SkeletonProductCard = React.memo(function SkeletonProductCard(
+  props: SkeletonProductCardProps
+) {
+  const w = props.width;
   const opacity = usePulse();
   return (
     <View style={[styles.productCard, w != null && { width: w }]}>
@@ -154,25 +183,26 @@ const styles = StyleSheet.create({
   productCard: {
     marginBottom: spacing.md,
     padding: spacing.sm,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     backgroundColor: colors.warmWhite,
     borderWidth: 1,
     borderColor: colors.borderSoft,
   },
   productImage: {
-    height: 160,
-    borderRadius: radius.md,
+    width: "100%",
+    aspectRatio: 3 / 4,
+    borderRadius: 0,
     backgroundColor: colors.brown,
   },
   line: {
     height: 12,
-    borderRadius: 6,
+    borderRadius: 0,
     backgroundColor: colors.brown,
   },
   lineShort: {
     height: 12,
     width: "60%",
-    borderRadius: 6,
+    borderRadius: 0,
     backgroundColor: colors.brown,
   },
 
@@ -180,7 +210,7 @@ const styles = StyleSheet.create({
   orderCard: {
     marginBottom: spacing.md,
     padding: spacing.md,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     backgroundColor: colors.warmWhite,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -193,19 +223,19 @@ const styles = StyleSheet.create({
   orderTitleLine: {
     height: 14,
     width: "50%",
-    borderRadius: 6,
+    borderRadius: 0,
     backgroundColor: colors.brown,
   },
   orderBadge: {
     height: 10,
     width: 70,
-    borderRadius: 5,
+    borderRadius: 0,
     backgroundColor: colors.gold,
   },
   orderPriceLine: {
     height: 12,
     width: "30%",
-    borderRadius: 6,
+    borderRadius: 0,
     backgroundColor: colors.brown,
   },
 
@@ -213,7 +243,7 @@ const styles = StyleSheet.create({
   notifCard: {
     marginBottom: spacing.md,
     padding: spacing.md,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     backgroundColor: colors.warmWhite,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -221,13 +251,13 @@ const styles = StyleSheet.create({
   notifMessage: {
     height: 12,
     width: "90%",
-    borderRadius: 6,
+    borderRadius: 0,
     backgroundColor: colors.brown,
   },
   notifDate: {
     height: 10,
     width: "25%",
-    borderRadius: 5,
+    borderRadius: 0,
     backgroundColor: colors.gold,
   },
 
@@ -235,7 +265,7 @@ const styles = StyleSheet.create({
   cartCard: {
     marginBottom: spacing.md,
     padding: spacing.md,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     backgroundColor: colors.warmWhite,
     borderWidth: 1,
     borderColor: colors.borderSoft,

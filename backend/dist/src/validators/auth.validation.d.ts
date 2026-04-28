@@ -27,14 +27,17 @@ export type RegisterUserInput = z.infer<typeof registerUserSchema>;
 export declare const registerSellerSchema: z.ZodObject<{
     email: z.ZodString;
     phone: z.ZodString;
+    whatsappNumber: z.ZodString;
     password: z.ZodString;
 }, "strip", z.ZodTypeAny, {
     email: string;
     phone: string;
+    whatsappNumber: string;
     password: string;
 }, {
     email: string;
     phone: string;
+    whatsappNumber: string;
     password: string;
 }>;
 export type RegisterSellerInput = z.infer<typeof registerSellerSchema>;

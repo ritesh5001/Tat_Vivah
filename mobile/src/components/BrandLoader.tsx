@@ -45,7 +45,7 @@ export function BrandLoader({ size = 10, color = colors.charcoal }: BrandLoaderP
             {
               width: size,
               height: size,
-              borderRadius: size / 2,
+              borderRadius: 0,
               backgroundColor: color,
               opacity,
             },

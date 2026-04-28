@@ -32,7 +32,8 @@ export function impactLight(): void {
 /** Medium tap — add-to-cart, quantity change, variant select. */
 export function impactMedium(): void {
   try {
-    Haptics?.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    // Keep haptics soft and consistent across the app.
+    Haptics?.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   } catch {
     // no-op
   }

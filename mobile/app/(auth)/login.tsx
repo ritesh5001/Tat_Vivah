@@ -9,18 +9,30 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { colors, spacing, typography } from "../../src/theme";
 import { AppHeader } from "../../src/components/AppHeader";
 import { useAuth } from "../../src/hooks/useAuth";
+import { requestOtp } from "../../src/services/auth";
 import {
   AppInput as TextInput,
   AppText as Text,
   ScreenContainer as SafeAreaView,
 } from "../../src/components";
 
+function detectInputType(value: string): "phone" | "email" | "unknown" {
+  const trimmed = value.trim();
+  if (!trimmed) return "unknown";
+  if (trimmed.includes("@")) return "email";
+  if (/^[+\d][\d\s\-()+]*$/.test(trimmed)) return "phone";
+  if (/[a-zA-Z]/.test(trimmed)) return "email";
+  return "unknown";
+}
+
 export default function LoginScreen() {
   const router = useRouter();
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const { signIn } = useAuth();
-  const [email, setEmail] = React.useState("");
+
+  const [identifier, setIdentifier] = React.useState("");
   const [password, setPassword] = React.useState("");
+  const [useOtp, setUseOtp] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -32,73 +44,137 @@ export default function LoginScreen() {
     return returnTo;
   }, [returnTo]);
 
+  const inputType = detectInputType(identifier);
+  const identifierReady = inputType !== "unknown";
+  const isOtpMode = useOtp && identifierReady;
+
+  // Reset OTP preference when detected type changes
+  React.useEffect(() => {
+    setUseOtp(false);
+    setPassword("");
+    setError(null);
+  }, [inputType]);
+
+  const subHeading = isOtpMode
+    ? inputType === "phone"
+      ? "We'll send a one-time code to your mobile number."
+      : "We'll send a one-time code to your email address."
+    : identifierReady
+      ? "Enter your password below, or choose to login with OTP."
+      : "Enter your mobile number or email address to sign in.";
+
   const handleLogin = React.useCallback(async () => {
-    const identifier = email.trim().toLowerCase();
-    if (!identifier || !password) {
-      setError("Please enter email and password.");
+    const trimmed = inputType === "phone"
+      ? identifier.trim()
+      : identifier.trim().toLowerCase();
+
+    if (!trimmed) {
+      setError("Enter your mobile number or email address.");
       return;
     }
 
     setLoading(true);
     setError(null);
     try {
-      await signIn({ identifier, password });
+      if (isOtpMode) {
+        if (inputType === "phone") {
+          await requestOtp({ phone: trimmed });
+          router.push({ pathname: "/(auth)/verify-otp", params: { method: "phone", phone: trimmed } });
+        } else {
+          await requestOtp({ email: trimmed });
+          router.push({ pathname: "/(auth)/verify-otp", params: { method: "email", email: trimmed } });
+        }
+        return;
+      }
+
+      if (!password) {
+        setError("Enter your password to continue.");
+        return;
+      }
+
+      await signIn({ identifier: trimmed, password });
       router.replace(safeReturnTo as any);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sign in failed");
+      setError(err instanceof Error ? err.message : "Sign in failed. Please try again.");
     } finally {
       setLoading(false);
     }
-  }, [email, password, signIn, router, safeReturnTo]);
+  }, [identifier, inputType, isOtpMode, password, signIn, router, safeReturnTo]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <AppHeader title="Sign In" showMenu showBack />
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <Text style={styles.heading}>Welcome To TatVivah</Text>
-        <Text style={styles.subHeading}>Sign in with your email to continue your luxury wedding edit.</Text>
+        <Text style={styles.subHeading}>{subHeading}</Text>
 
         <View style={styles.formCard}>
-          <Text style={styles.label}>Email Address</Text>
+          {/* Unified identifier input */}
+          <Text style={styles.label}>
+            {inputType === "phone"
+              ? "Mobile Number"
+              : inputType === "email"
+                ? "Email Address"
+                : "Mobile Number or Email"}
+          </Text>
           <TextInput
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
+            value={identifier}
+            onChangeText={setIdentifier}
+            keyboardType="default"
             autoCapitalize="none"
-            placeholder="you@example.com"
+            autoCorrect={false}
+            placeholder="9876543210 or you@example.com"
             placeholderTextColor={colors.textSecondary}
             style={styles.input}
           />
 
-          <Text style={styles.label}>Password</Text>
-          <TextInput
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            placeholder="Enter password"
-            placeholderTextColor={colors.textSecondary}
-            style={styles.input}
-          />
+          {/* Password field – visible once identifier is detected and not in OTP mode */}
+          {identifierReady && !isOtpMode && (
+            <>
+              <Text style={styles.label}>Password</Text>
+              <TextInput
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                placeholder="Enter your password"
+                placeholderTextColor={colors.textSecondary}
+                style={styles.input}
+              />
+              <Pressable onPress={() => setUseOtp(true)} style={styles.otpToggleRow}>
+                <Text style={styles.otpToggleText}>Login with OTP instead</Text>
+              </Pressable>
+            </>
+          )}
+
+          {/* Switch back to password when in OTP mode */}
+          {isOtpMode && (
+            <Pressable onPress={() => setUseOtp(false)} style={styles.otpToggleRow}>
+              <Text style={styles.otpToggleText}>Use password instead</Text>
+            </Pressable>
+          )}
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
           <Pressable style={styles.continueButton} onPress={handleLogin} disabled={loading}>
-            <Text style={styles.continueText}>{loading ? "LOGGING IN..." : "LOGIN"}</Text>
+            <Text style={styles.continueText}>
+              {loading
+                ? isOtpMode ? "SENDING OTP..." : "SIGNING IN..."
+                : isOtpMode ? "SEND OTP" : "SIGN IN"}
+            </Text>
           </Pressable>
 
-          <View style={styles.linkRow}>
-            <Pressable onPress={() => router.push("/(auth)/request-otp") }>
-              <Text style={styles.linkText}>Login with OTP</Text>
-            </Pressable>
-            <Pressable onPress={() => router.push("/(auth)/forgot-password") }>
-              <Text style={styles.linkText}>Forgot Password?</Text>
-            </Pressable>
-          </View>
+          {!isOtpMode && (
+            <View style={styles.linkRow}>
+              <Pressable onPress={() => router.push("/(auth)/forgot-password")}>
+                <Text style={styles.linkText}>Forgot Password?</Text>
+              </Pressable>
+            </View>
+          )}
         </View>
 
         <View style={styles.footerRow}>
           <Text style={styles.footerCopy}>New to TatVivah?</Text>
-          <Pressable onPress={() => router.push("/(auth)/register") }>
+          <Pressable onPress={() => router.push("/(auth)/register")}>
             <Text style={styles.footerLink}>Create account</Text>
           </Pressable>
         </View>
@@ -138,7 +214,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.background,
     padding: spacing.lg,
-    borderRadius: 16,
+    borderRadius: 0,
   },
   label: {
     fontFamily: typography.sansMedium,
@@ -152,7 +228,7 @@ const styles = StyleSheet.create({
     height: 42,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 10,
+    borderRadius: 0,
     paddingHorizontal: 10,
     paddingVertical: 0,
     fontFamily: typography.body,
@@ -161,11 +237,23 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     marginBottom: spacing.lg,
   },
+  otpToggleRow: {
+    marginTop: -spacing.xs,
+    marginBottom: spacing.lg,
+    alignSelf: "flex-start",
+  },
+  otpToggleText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 12,
+    color: colors.textSecondary,
+    textDecorationLine: "underline",
+    letterSpacing: 0.3,
+  },
   continueButton: {
     marginTop: spacing.xs,
     width: "100%",
     height: 46,
-    borderRadius: 12,
+    borderRadius: 0,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.primaryAccent,
@@ -186,7 +274,7 @@ const styles = StyleSheet.create({
   linkRow: {
     marginTop: spacing.lg,
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "center",
     alignItems: "center",
   },
   linkText: {

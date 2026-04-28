@@ -28,7 +28,7 @@
   --color-border-warm: #D9D0C3;
   
   /* Font Families */
-  --font-serif: var(--font-cormorant);
+  --font-serif: var(--font-inter);
   --font-sans: var(--font-inter);
   --font-mono: var(--font-geist-mono);
   
@@ -191,6 +191,13 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-x: clip;
+}
+
 /* Premium text selection */
 ::selection {
   background: rgba(183, 149, 108, 0.25);
@@ -227,7 +234,7 @@ body {
    ========================================================================= */
 
 .font-serif {
-  font-family: var(--font-cormorant), Georgia, serif;
+  font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
 }
 
 .text-balance {
@@ -243,10 +250,51 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Large display headings */
 .heading-display {
-  font-family: var(--font-cormorant), Georgia, serif;
-  font-weight: 300;
+  font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
+  font-weight: 600;
   letter-spacing: -0.03em;
   line-height: 1.1;
+}
+
+@keyframes announcement-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-announcement-scroll {
+  animation: announcement-scroll 60s linear infinite;
+}
+
+.animate-announcement-scroll:hover {
+  animation-play-state: paused;
+}
+
+@keyframes features-scroll {
+  from {
+    transform: translateX(-50%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.animate-features-scroll {
+  animation: features-scroll 40s linear infinite;
+}
+
+.animate-features-scroll:hover {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-features-scroll {
+    animation: none;
+    transform: translateX(0);
+  }
 }
 
 /* =========================================================================

@@ -9,6 +9,9 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { notificationRepository } from '../notifications/notification.repository.js';
+import { CACHE_KEYS, getFromCache, invalidateCache, invalidateCacheByPattern, setCache } from '../utils/cache.util.js';
+
+const NOTIFICATION_CACHE_TTL_SECONDS = 20;
 
 export class NotificationController {
 
@@ -26,6 +29,17 @@ export class NotificationController {
 
             const page = Math.max(1, Number(req.query.page) || 1);
             const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
+            const cacheKey = CACHE_KEYS.USER_NOTIFICATIONS(userId, page, limit);
+            const cached = await getFromCache<{
+                success: true;
+                data: Array<Record<string, unknown>>;
+                meta: { total: number; page: number; limit: number };
+            }>(cacheKey);
+            if (cached) {
+                res.set('Cache-Control', 'no-store');
+                res.status(200).json(cached);
+                return;
+            }
 
             const result = await notificationRepository.findByUserId(userId, page, limit);
 
@@ -46,7 +60,7 @@ export class NotificationController {
                 };
             });
 
-            res.status(200).json({
+            const response = {
                 success: true,
                 data,
                 meta: {
@@ -54,7 +68,11 @@ export class NotificationController {
                     page,
                     limit,
                 },
-            });
+            } as const;
+
+            await setCache(cacheKey, response, NOTIFICATION_CACHE_TTL_SECONDS);
+            res.set('Cache-Control', 'no-store');
+            res.status(200).json(response);
         } catch (error) {
             next(error);
         }
@@ -72,12 +90,22 @@ export class NotificationController {
                 return;
             }
 
-            const count = await notificationRepository.countUnread(userId);
+            const cacheKey = CACHE_KEYS.USER_UNREAD_NOTIFICATIONS(userId);
+            const cached = await getFromCache<{ success: true; data: { count: number } }>(cacheKey);
+            if (cached) {
+                res.set('Cache-Control', 'no-store');
+                res.status(200).json(cached);
+                return;
+            }
 
-            res.status(200).json({
+            const count = await notificationRepository.countUnread(userId);
+            const response = {
                 success: true,
                 data: { count },
-            });
+            } as const;
+            await setCache(cacheKey, response, NOTIFICATION_CACHE_TTL_SECONDS);
+            res.set('Cache-Control', 'no-store');
+            res.status(200).json(response);
         } catch (error) {
             next(error);
         }
@@ -102,6 +130,11 @@ export class NotificationController {
                 res.status(404).json({ success: false, message: 'Notification not found' });
                 return;
             }
+
+            await Promise.allSettled([
+                invalidateCache(CACHE_KEYS.USER_UNREAD_NOTIFICATIONS(userId)),
+                invalidateCacheByPattern(`notifications:user:${userId}:*`),
+            ]);
 
             res.status(200).json({
                 success: true,

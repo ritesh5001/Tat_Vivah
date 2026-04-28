@@ -5,12 +5,16 @@ import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persi
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 60 * 1000,
+      staleTime: 10 * 60 * 1000,
       gcTime: 24 * 60 * 60 * 1000,
       retry: 1,
+      refetchOnMount: false,
       refetchOnReconnect: true,
       refetchOnWindowFocus: false,
       networkMode: "offlineFirst",
+    },
+    mutations: {
+      retry: 0,
     },
   },
 });
@@ -20,3 +24,4 @@ export const queryPersister = createAsyncStoragePersister({
   key: "TATVIVAH_RQ_CACHE_V1",
   throttleTime: 1000,
 });
+                                          

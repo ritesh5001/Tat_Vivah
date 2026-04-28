@@ -32,6 +32,7 @@ export interface OrderEntity {
     shippingAddressLine1?: string | null;
     shippingAddressLine2?: string | null;
     shippingCity?: string | null;
+    shippingPincode?: string | null;
     shippingNotes?: string | null;
     createdAt: Date;
 }
@@ -83,6 +84,9 @@ export interface OrderWithItems extends OrderEntity {
         id: string;
         status: string;
     } | null;
+    paymentStatus?: string | null;
+    cancellationStatus?: string | null;
+    returnStatus?: string | null;
     shipmentStatus?: string | null;
 }
 
@@ -92,6 +96,10 @@ export interface OrderWithItems extends OrderEntity {
 export interface OrderWithDetails extends OrderEntity {
     items: OrderItemWithProduct[];
     movements?: InventoryMovementEntity[];
+    paymentStatus?: string | null;
+    cancellationStatus?: string | null;
+    returnStatus?: string | null;
+    shipmentStatus?: string | null;
 }
 
 /**
@@ -116,12 +124,14 @@ export interface SellerOrderItem extends OrderItemEntity {
             reason: string;
             createdAt: Date;
         } | null;
+        shipmentStatus?: string | null;
         shippingName?: string | null;
         shippingPhone?: string | null;
         shippingEmail?: string | null;
         shippingAddressLine1?: string | null;
         shippingAddressLine2?: string | null;
         shippingCity?: string | null;
+        shippingPincode?: string | null;
         shippingNotes?: string | null;
     };
     productTitle: string | undefined;
@@ -144,6 +154,7 @@ export interface CreateOrderRequest {
     shippingAddressLine1?: string | null;
     shippingAddressLine2?: string | null;
     shippingCity?: string | null;
+    shippingPincode?: string | null;
     shippingNotes?: string | null;
     items: CreateOrderItemRequest[];
 }

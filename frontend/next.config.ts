@@ -1,12 +1,25 @@
 import type { NextConfig } from "next";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const configDir = path.dirname(fileURLToPath(import.meta.url));
 
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
+  compress: true,
+  generateEtags: true,
+  outputFileTracingRoot: configDir,
+  turbopack: {
+    root: configDir,
+  },
+
   /* ──────────────────────────────────────────────────────────────────────── */
   /*  IMAGE OPTIMISATION                                                    */
   /* ──────────────────────────────────────────────────────────────────────── */
   images: {
     // Serve modern formats — AVIF first, WebP fallback
     formats: ["image/avif", "image/webp"],
+    qualities: [60, 75],
 
     // Responsive breakpoints matching actual layout needs
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048],
@@ -69,7 +82,44 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      {
+        // Next.js static media/font assets
+        source: "/_next/static/media/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
+      {
+        // Public root assets commonly used by SEO and browser chrome
+        source: "/:path(logo.png|tatvivah-logo.svg|favicon.ico|robots.txt|sitemap.xml|manifest.json)",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=86400, stale-while-revalidate=604800",
+          },
+        ],
+      },
+      {
+        // Static fonts shipped from /public/fonts
+        source: "/fonts/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
     ];
+  },
+
+  /* ──────────────────────────────────────────────────────────────────────── */
+  /*  CSS OPTIMISATION                                                      */
+  /* ──────────────────────────────────────────────────────────────────────── */
+  experimental: {
+    optimizeCss: true,
   },
 };
 

@@ -7,10 +7,9 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import { Link } from "expo-router";
-import { useRouter } from "expo-router";
+import { Link, useRouter } from "expo-router";
 import { colors, radius, spacing, typography, shadow } from "../../src/theme/tokens";
-import { registerUser, requestOtp } from "../../src/services/auth";
+import { registerUser } from "../../src/services/auth";
 import { AppHeader } from "../../src/components/AppHeader";
 import { ApiError } from "../../src/services/api";
 import { TatvivahLoader } from "../../src/components/TatvivahLoader";
@@ -19,6 +18,10 @@ import {
   AppText as Text,
   ScreenContainer as SafeAreaView,
 } from "../../src/components";
+
+function normalizePhone(value: string): string {
+  return value.replace(/\D/g, "");
+}
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -37,6 +40,23 @@ export default function RegisterScreen() {
       setError("Please fill all required fields.");
       return;
     }
+    const normalizedPhone = normalizePhone(phone);
+    if (!/^\d{10,15}$/.test(normalizedPhone)) {
+      setError("Mobile number must be 10 to 15 digits.");
+      return;
+    }
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+    if (!/[A-Z]/.test(password)) {
+      setError("Password must contain at least 1 uppercase letter.");
+      return;
+    }
+    if (!/[0-9]/.test(password)) {
+      setError("Password must contain at least 1 number.");
+      return;
+    }
     if (password !== confirmPassword) {
       setError("Passwords do not match.");
       return;
@@ -44,13 +64,17 @@ export default function RegisterScreen() {
     setLoading(true);
     setError(null);
     try {
-      await registerUser({ fullName, email, phone, password });
-      await requestOtp({ email });
-      router.replace({ pathname: "/(auth)/verify-otp", params: { email } });
+      await registerUser({
+        fullName: fullName.trim(),
+        email: email.trim().toLowerCase(),
+        phone: normalizedPhone,
+        password,
+      });
+      router.replace({ pathname: "/(auth)/verify-otp", params: { method: "phone", phone: normalizedPhone } });
     } catch (err) {
       const message =
         err instanceof ApiError && err.statusCode === 409
-          ? "An account with this email already exists"
+          ? "An account with this email or mobile number already exists"
           : err instanceof Error
             ? err.message
             : "Registration failed";
@@ -107,7 +131,7 @@ export default function RegisterScreen() {
 
           <Text style={styles.label}>Phone</Text>
           <TextInput
-            placeholder="+91 98765 43210"
+            placeholder="+91 97696 59709"
             placeholderTextColor={colors.brownSoft}
             style={styles.input}
             value={phone}
@@ -129,6 +153,9 @@ export default function RegisterScreen() {
               <Text style={styles.eyeText}>{showPassword ? "🙈" : "👁️"}</Text>
             </Pressable>
           </View>
+          <Text style={styles.helperText}>
+            Use at least 8 characters, 1 uppercase letter, and 1 number.
+          </Text>
 
           <Text style={styles.label}>Confirm password</Text>
           <View style={styles.inputRow}>
@@ -191,7 +218,7 @@ const styles = StyleSheet.create({
   logoBadge: {
     height: 44,
     width: 44,
-    borderRadius: 12,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: colors.surface,
@@ -233,7 +260,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    borderRadius: radius.md,
+    borderRadius: 0,
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.md,
     marginBottom: spacing.md,
@@ -247,7 +274,7 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: colors.surfaceElevated,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     padding: spacing.lg,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -261,9 +288,16 @@ const styles = StyleSheet.create({
     letterSpacing: 1.6,
     marginBottom: spacing.xs,
   },
+  helperText: {
+    marginTop: spacing.xs,
+    marginBottom: spacing.sm,
+    fontFamily: typography.sans,
+    fontSize: 12,
+    color: colors.brownSoft,
+  },
   input: {
     height: 48,
-    borderRadius: radius.md,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     paddingHorizontal: spacing.md,
@@ -295,7 +329,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gold,
     borderWidth: 1,
     borderColor: colors.gold,
-    borderRadius: radius.md,
+    borderRadius: 0,
     paddingVertical: spacing.sm,
     alignItems: "center",
     marginTop: spacing.sm,

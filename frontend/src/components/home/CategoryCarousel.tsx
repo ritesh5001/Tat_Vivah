@@ -1,10 +1,9 @@
-"use client";
-
-import * as React from "react";
+import Image from "next/image";
 import Link from "next/link";
-import { getCategories, type Category } from "@/services/catalog";
-import { MotionCarousel } from "@/components/motion/MotionCarousel";
-import { MotionCard } from "@/components/motion/MotionCard";
+import type { Category } from "@/services/catalog";
+
+const ARCH_RADIUS = "50% 50% 0 0 / 40% 40% 0 0";
+const ARC_BORDER_WIDTH = 3.1;
 
 type CategoryItem = Category & {
   image?: string | null;
@@ -14,127 +13,102 @@ type CategoryItem = Category & {
 function resolveCategoryImage(category: CategoryItem): string {
   const raw = category.imageUrl ?? category.image ?? "";
   if (!raw) return "/images/product-placeholder.svg";
-  if (raw.startsWith("/")) return raw;
-  if (raw.startsWith("https://ik.imagekit.io")) return raw;
+  if (raw.startsWith("/") || raw.startsWith("https://ik.imagekit.io")) return raw;
   return "/images/product-placeholder.svg";
 }
 
-function CategorySkeletonCard() {
-  return (
-    <div className="snap-center shrink-0 w-[calc(50%-0.75rem)] md:w-[calc(33.333%-1rem)] xl:w-[calc(20%-1.2rem)]">
-      <div className="overflow-hidden rounded-none border border-border-soft bg-card shadow-sm">
-        <div className="aspect-square w-full animate-pulse bg-muted" />
-        <div className="p-3">
-          <div className="h-4 w-3/4 animate-pulse rounded-none bg-muted" />
-        </div>
-      </div>
-    </div>
-  );
+function slugifyCategory(value: string): string {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
 }
 
-export function CategoryCarousel() {
-  const [categories, setCategories] = React.useState<CategoryItem[]>([]);
-  const [loading, setLoading] = React.useState(true);
-  const [visible, setVisible] = React.useState(false);
-  const sectionRef = React.useRef<HTMLElement | null>(null);
-
-  React.useEffect(() => {
-    let mounted = true;
-
-    const load = async () => {
-      try {
-        const response = await getCategories();
-        if (mounted) {
-          setCategories((response.categories ?? []).filter((category) => category.isActive));
-        }
-      } catch {
-        if (mounted) setCategories([]);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-
-    load();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  React.useEffect(() => {
-    const node = sectionRef.current;
-    if (!node) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
-          setVisible(true);
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.2 }
-    );
-
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
+export function CategoryCarousel({ initialCategories }: { initialCategories?: CategoryItem[] }) {
+  const categories = (initialCategories ?? []).filter((category) => category.isActive);
 
   return (
-    <section
-      id="categories"
-      ref={sectionRef}
-      className="border-t border-border-soft bg-cream/50 dark:bg-card/50"
-    >
-      <div
-        className={`mx-auto max-w-6xl px-6 py-10 sm:py-12 lg:py-16 transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
-          }`}
-      >
-        <div className="mb-10 text-center">
-          <p className="mb-4 text-xs font-medium uppercase tracking-[0.3em] text-gold">
+    <section id="categories" className="border-t border-border-soft bg-[#f3ede7] dark:bg-card">
+      <div className="mx-auto max-w-460 px-3 py-12 sm:px-6 sm:py-20 lg:px-10">
+        <div className="mb-12 text-center">
+          <p className="mb-4 text-[11px] font-medium uppercase tracking-[0.34em] text-[#a07a63] dark:text-gold">
             Shop by Category
           </p>
-          <h2 className="font-serif text-3xl font-light tracking-tight text-foreground sm:text-4xl">
+          <h2 className="font-serif text-3xl font-light tracking-[0.02em] text-[#34231b] dark:text-foreground sm:text-4xl">
             Curated Collections
           </h2>
         </div>
 
-        {loading ? (
-          <div className="flex gap-6 overflow-x-auto px-1 py-1 scrollbar-hide">
-            {Array.from({ length: 5 }).map((_, index) => (
-              <CategorySkeletonCard key={index} />
-            ))}
-          </div>
-        ) : categories.length === 0 ? (
-          <div className="rounded-none border border-border-soft bg-card px-6 py-10 text-center text-sm text-muted-foreground">
+        {categories.length === 0 ? (
+          <div className="rounded border border-[#e1d3c8] bg-white/70 px-6 py-10 text-center text-sm text-[#7a675c] dark:border-border dark:bg-brown/20 dark:text-muted-foreground">
             Categories will be available soon.
           </div>
         ) : (
-          <MotionCarousel>
-            {categories.map((category) => (
-              <Link key={category.id} href="/marketplace" className="contents">
-                <MotionCard
-                  imageSrc={resolveCategoryImage(category)}
-                  imageAlt={category.name}
-                  aspectClass="aspect-square"
-                >
-                  <div className="px-3 py-4 text-center">
-                    <h3 className="line-clamp-2 font-serif text-base font-normal tracking-tight text-foreground transition-colors duration-300 group-hover:text-gold">
-                      {category.name}
-                    </h3>
-                  </div>
-                </MotionCard>
-              </Link>
-            ))}
-          </MotionCarousel>
+          <div className="overflow-x-auto scrollbar-hide" style={{ WebkitOverflowScrolling: "touch" }}>
+            <div className="flex gap-3 px-1 md:gap-4 lg:gap-6">
+              {categories.map((category) => {
+                const categorySlug = category.slug || slugifyCategory(category.name);
+                return (
+                  <Link
+                    key={category.id}
+                    href={`/marketplace?category=${encodeURIComponent(categorySlug)}`}
+                    className="group block shrink-0 w-[calc(50%-6px)] md:w-[calc(33.333%-11px)] lg:w-[calc(25%-18px)]"
+                  >
+                    <div
+                      className="relative w-full"
+                      style={{
+                        aspectRatio: "3 / 4",
+                        borderRadius: ARCH_RADIUS,
+                        padding: `${ARC_BORDER_WIDTH}px`,
+                        background: "linear-gradient(to bottom, #e4cfc4, #b89078 40%, #4a2515)",
+                      }}
+                    >
+                      <div
+                        className="relative h-full w-full overflow-hidden bg-[#ebe1d7] dark:bg-brown/20"
+                        style={{ borderRadius: ARCH_RADIUS }}
+                      >
+                        <Image
+                          src={resolveCategoryImage(category)}
+                          alt={category.name}
+                          fill
+                          sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                          quality={75}
+                          loading="lazy"
+                          draggable={false}
+                          className="object-cover transition-transform duration-400 ease-out group-hover:scale-105"
+                          style={{ objectPosition: "center 20%" }}
+                        />
+
+                        <div
+                          className="pointer-events-none absolute inset-0"
+                          style={{
+                            background:
+                              "linear-gradient(to top, rgba(40,14,4,0.82) 0%, rgba(40,14,4,0.4) 18%, rgba(40,14,4,0.06) 36%, transparent 55%)",
+                          }}
+                        />
+
+                        <div className="absolute inset-x-0 bottom-0 flex items-end justify-center px-3 pb-4 pt-16 sm:px-5 sm:pb-5 lg:pb-7">
+                          <h3 className="text-center font-serif text-sm font-normal uppercase tracking-widest leading-snug text-[#fff9f5] dark:text-ivory drop-shadow-[0_2px_10px_rgba(0,0,0,0.4)] sm:text-xl lg:text-2xl">
+                            {category.name}
+                          </h3>
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
         )}
 
-        <div className="mt-10 text-center">
+        <div className="mt-12 text-center">
           <Link
             href="/categories"
-            className="inline-flex items-center gap-2 border-b border-transparent pb-1 text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground transition-colors duration-300 hover:border-gold hover:text-foreground"
+            className="inline-flex items-center gap-2 border-b border-transparent pb-1 text-xs font-medium uppercase tracking-[0.15em] text-[#7f6859] dark:text-muted-foreground transition-colors duration-300 hover:border-[#b2886d] dark:hover:border-gold hover:text-[#3d2a21] dark:hover:text-foreground"
           >
             View All Categories
-            <span className="text-gold">→</span>
+            <span className="text-[#b2886d]">→</span>
           </Link>
         </div>
       </div>

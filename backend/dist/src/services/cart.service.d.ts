@@ -1,6 +1,5 @@
 import { CartRepository } from '../repositories/cart.repository.js';
 import { VariantRepository } from '../repositories/variant.repository.js';
-import { InventoryRepository } from '../repositories/inventory.repository.js';
 import type { CartResponse, CartItemResponse, CartItemDeleteResponse, AddCartItemRequest } from '../types/cart.types.js';
 /**
  * Cart Service
@@ -9,8 +8,7 @@ import type { CartResponse, CartItemResponse, CartItemDeleteResponse, AddCartIte
 export declare class CartService {
     private readonly cartRepo;
     private readonly variantRepo;
-    private readonly inventoryRepo;
-    constructor(cartRepo: CartRepository, variantRepo: VariantRepository, inventoryRepo: InventoryRepository);
+    constructor(cartRepo: CartRepository, variantRepo: VariantRepository);
     /**
      * Get user's cart with items
      * Uses Redis caching

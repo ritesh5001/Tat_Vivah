@@ -94,8 +94,12 @@ async function seedProductAndInventory(sellerId, stock) {
     const variant = await prisma.productVariant.create({
         data: {
             productId: product.id,
+            size: 'Default',
             sku: `SKU-STRESS-${ts}`,
+            sellerPrice: 500,
+            adminListingPrice: 600,
             price: 600,
+            status: ProductStatus.APPROVED,
         },
     });
     const inventory = await prisma.inventory.create({

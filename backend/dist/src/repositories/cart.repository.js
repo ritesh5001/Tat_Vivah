@@ -21,14 +21,10 @@ export class CartRepository {
      * Find or create cart for user
      */
     async findOrCreateByUserId(userId) {
-        const existing = await prisma.cart.findUnique({
+        return prisma.cart.upsert({
             where: { userId },
-        });
-        if (existing) {
-            return existing;
-        }
-        return prisma.cart.create({
-            data: { userId },
+            update: {},
+            create: { userId },
         });
     }
     /**
@@ -100,57 +96,61 @@ export class CartRepository {
     }
     /**
      * Get cart items with product and variant details
+     * Uses batch lookups (2 queries) instead of 2N individual queries.
      */
     async getCartWithDetails(userId) {
-        const cart = await prisma.cart.findUnique({
+        const cart = await prisma.cart.upsert({
             where: { userId },
+            update: {},
+            create: { userId },
             include: {
                 items: {
                     orderBy: { createdAt: 'desc' },
                 },
             },
         });
-        if (!cart) {
-            return null;
+        if (cart.items.length === 0) {
+            return { ...cart, items: [] };
         }
-        // Fetch product and variant details for each item
-        const itemsWithDetails = await Promise.all(cart.items.map(async (item) => {
-            const [product, variant] = await Promise.all([
-                prisma.product.findUnique({
-                    where: { id: item.productId },
-                    select: { id: true, title: true, sellerId: true, adminListingPrice: true, sellerPrice: true },
-                }),
-                prisma.productVariant.findUnique({
-                    where: { id: item.variantId },
-                    select: {
-                        id: true,
-                        sku: true,
-                        price: true,
-                        inventory: { select: { stock: true } },
-                    },
-                }),
-            ]);
+        // Batch lookup — 2 queries total instead of 2N
+        const productIds = [...new Set(cart.items.map((item) => item.productId))];
+        const variantIds = [...new Set(cart.items.map((item) => item.variantId))];
+        const [products, variants] = await Promise.all([
+            prisma.product.findMany({
+                where: { id: { in: productIds } },
+                select: { id: true, title: true, sellerId: true },
+            }),
+            prisma.productVariant.findMany({
+                where: { id: { in: variantIds } },
+                select: {
+                    id: true,
+                    size: true,
+                    sku: true,
+                    price: true,
+                    compareAtPrice: true,
+                    inventory: { select: { stock: true } },
+                },
+            }),
+        ]);
+        const productMap = new Map(products.map((p) => [p.id, p]));
+        const variantMap = new Map(variants.map((v) => [v.id, v]));
+        const itemsWithDetails = cart.items.map((item) => {
+            const product = productMap.get(item.productId);
+            const variant = variantMap.get(item.variantId);
             return {
                 ...item,
                 product: product
-                    ? {
-                        ...product,
-                        sellerPrice: Number(product.sellerPrice),
-                        adminListingPrice: product.adminListingPrice == null
-                            ? null
-                            : Number(product.adminListingPrice),
-                    }
+                    ? { ...product }
                     : undefined,
                 variant: variant
                     ? {
                         ...variant,
-                        price: product?.adminListingPrice != null
-                            ? Number(product.adminListingPrice)
-                            : variant.price,
+                        price: Number(variant.price),
+                        compareAtPrice: variant.compareAtPrice == null ? null : Number(variant.compareAtPrice),
                     }
                     : undefined,
             };
-        }));
+        });
         return {
             ...cart,
             items: itemsWithDetails,

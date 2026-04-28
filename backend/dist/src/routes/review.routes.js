@@ -5,9 +5,6 @@ const reviewRouter = Router();
 // POST /v1/reviews/:id/helpful - Mark as helpful (Authenticated)
 reviewRouter.post('/:id/helpful', authenticate, reviewController.markHelpful);
 // GET /v1/reviews/product/:productId - Get reviews (Public) — legacy route
-reviewRouter.get('/product/:productId', (req, res, next) => {
-    req.params['id'] = req.params['productId'];
-    reviewController.getProductReviews(req, res, next);
-});
+reviewRouter.get('/product/:productId', reviewController.getProductReviews);
 export { reviewRouter };
 //# sourceMappingURL=review.routes.js.map

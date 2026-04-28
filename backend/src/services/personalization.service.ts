@@ -54,21 +54,19 @@ export class PersonalizationService {
         const key = redisKey(userId);
         const score = Date.now();
 
-        // Pipeline: ZADD + ZREMRANGEBYRANK in two calls
-        // Upstash REST client doesn't support pipeline(), so we do sequential calls.
-        await redis.zadd(key, { score, member: productId });
-        // Keep only the top MAX_ITEMS (highest scores = most recent).
-        // ZREMRANGEBYRANK removes by rank (0 = lowest score = oldest).
-        // If we have N items and want to keep MAX_ITEMS, remove [0, N - MAX_ITEMS - 1].
-        await redis.zremrangebyrank(key, 0, -(MAX_ITEMS + 1));
+        const [, , product] = await Promise.all([
+            redis.zadd(key, { score, member: productId }),
+            redis.zremrangebyrank(key, 0, -(MAX_ITEMS + 1)),
+            prisma.product.findUnique({
+                where: { id: productId },
+                select: { categoryId: true },
+            }),
+        ]);
 
-        // Update category affinity score (+1 per view)
-        const product = await prisma.product.findUnique({
-            where: { id: productId },
-            select: { categoryId: true },
-        });
         if (product?.categoryId) {
-            await redis.zincrby(categoryAffinityKey(userId), 1, product.categoryId);
+            redis
+                .zincrby(categoryAffinityKey(userId), 1, product.categoryId)
+                .catch(() => { });
         }
 
         recentlyViewedTrackTotal.inc();

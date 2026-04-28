@@ -34,9 +34,10 @@ export async function requestCancellation(orderId: string, reason: string) {
   });
 }
 
-export async function listMyCancellations() {
+export async function listMyCancellations(token?: string | null) {
   return apiRequest<{ cancellations: CancellationRequestRecord[] }>("/v1/cancellations/my", {
     method: "GET",
+    token,
   });
 }
 

@@ -12,7 +12,7 @@ import { listBuyerOrders, type BuyerOrder } from "../../../src/services/orders";
 import { listMyCancellations, requestCancellation } from "../../../src/services/cancellations";
 import { listMyReturns, requestReturn } from "../../../src/services/returns";
 import { getPaymentDetails, retryPayment, verifyPayment } from "../../../src/services/payments";
-import { openRazorpayCheckout } from "../../../src/services/razorpay";
+import { isRazorpayAvailable, openRazorpayCheckout } from "../../../src/services/razorpay";
 import { useAuth } from "../../../src/hooks/useAuth";
 import { usePathname, useRouter } from "expo-router";
 import { isAbortError } from "../../../src/services/api";
@@ -22,7 +22,6 @@ import { useToast } from "../../../src/providers/ToastProvider";
 import { notifySuccess, notifyError, impactMedium } from "../../../src/utils/haptics";
 import { AppHeader } from "../../../src/components/AppHeader";
 import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
-import { isRazorpayAvailable } from "../../../src/services/razorpay";
 import {
   AppInput as TextInput,
   AppText as Text,
@@ -34,6 +33,32 @@ const currency = new Intl.NumberFormat("en-IN", {
   currency: "INR",
   maximumFractionDigits: 0,
 });
+
+type OrdersScreenCache = {
+  token: string;
+  cachedAt: number;
+  orders: BuyerOrder[];
+  paymentStatus: Record<string, string>;
+  cancellationByOrder: Record<string, { id: string; status: string }>;
+  returnByOrder: Record<string, { id: string; status: string }>;
+};
+
+let ordersScreenCache: OrdersScreenCache | null = null;
+const ORDERS_CACHE_TTL_MS = 30 * 1000;
+const PAYMENT_STATUS_CACHE_TTL_MS = 2 * 60 * 1000;
+const PAYMENT_STATUS_BATCH_SIZE = 4;
+
+type PaymentStatusCacheEntry = {
+  token: string;
+  cachedAt: number;
+  status: string;
+};
+
+const paymentStatusCache = new Map<string, PaymentStatusCacheEntry>();
+
+function getPaymentStatusCacheKey(token: string, orderId: string): string {
+  return `${token}:${orderId}`;
+}
 
 function getStatusStyle(label: string): { color: string } {
   switch (label) {
@@ -229,36 +254,6 @@ export default function OrdersScreen() {
   const [requestingReturnIds, setRequestingReturnIds] = React.useState<Set<string>>(new Set());
   const returnLockRef = React.useRef<Set<string>>(new Set());
 
-  if (!authLoading && !token) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <AppHeader title="Orders" subtitle="Track purchases" showMenu showBack />
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Orders</Text>
-          <Text style={styles.headerCopy}>Track every purchase in one place.</Text>
-        </View>
-        <View style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>Sign in to view orders</Text>
-          <Text style={styles.emptySubtitle}>
-            Access order history, invoices, and delivery tracking after login.
-          </Text>
-          <Pressable
-            style={styles.primaryButton}
-            onPress={() => router.push("/login?returnTo=%2Forders")}
-          >
-            <Text style={styles.primaryButtonText}>Sign in</Text>
-          </Pressable>
-          <Pressable
-            style={styles.secondaryButton}
-            onPress={() => router.push("/search")}
-          >
-            <Text style={styles.secondaryButtonText}>Continue browsing</Text>
-          </Pressable>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   const mountedRef = React.useRef(true);
   React.useEffect(() => {
     return () => { mountedRef.current = false; };
@@ -266,55 +261,113 @@ export default function OrdersScreen() {
 
   const loadOrders = React.useCallback(async () => {
     if (!token) return;
-    setLoading(true);
+
+    const cachedOrders = ordersScreenCache;
+
+    const isCacheValid =
+      cachedOrders !== null &&
+      cachedOrders.token === token &&
+      Date.now() - cachedOrders.cachedAt < ORDERS_CACHE_TTL_MS;
+
+    if (isCacheValid && cachedOrders) {
+      setOrders(cachedOrders.orders);
+      setPaymentStatus(cachedOrders.paymentStatus);
+      setCancellationByOrder(cachedOrders.cancellationByOrder);
+      setReturnByOrder(cachedOrders.returnByOrder);
+      setLoading(false);
+      setFetchError(null);
+      return;
+    }
+
+    setLoading(!isCacheValid);
     setFetchError(null);
     try {
       const result = await listBuyerOrders(token);
       if (!mountedRef.current) return;
       const nextOrders = result.orders ?? [];
       setOrders(nextOrders);
+      setLoading(false);
 
-      try {
-        const cancellationResult = await listMyCancellations(token);
-        if (!mountedRef.current) return;
-        const cancellationMap = (cancellationResult.cancellations ?? []).reduce((acc, item) => {
-          acc[item.orderId] = { id: item.id, status: item.status };
-          return acc;
-        }, {} as Record<string, { id: string; status: string }>);
-        setCancellationByOrder(cancellationMap);
-      } catch {
-        // no-op
-      }
-
-      try {
-        const returnResult = await listMyReturns(token);
-        if (!mountedRef.current) return;
-        const returnMap = (returnResult.returns ?? []).reduce((acc, item) => {
-          acc[item.orderId] = { id: item.id, status: item.status };
-          return acc;
-        }, {} as Record<string, { id: string; status: string }>);
-        setReturnByOrder(returnMap);
-      } catch {
-        // no-op
-      }
-
-      const statuses = await Promise.all(
-        nextOrders.map(async (order) => {
-          try {
-            const payment = await getPaymentDetails(order.id, token);
-            return [order.id, payment.data?.status ?? ""] as const;
-          } catch {
-            return [order.id, ""] as const;
-          }
-        })
-      );
-
-      if (!mountedRef.current) return;
-      const map = statuses.reduce((acc, [orderId, status]) => {
-        acc[orderId] = status;
+      const now = Date.now();
+      const cachedPaymentStatuses = nextOrders.reduce((acc, order) => {
+        const key = getPaymentStatusCacheKey(token, order.id);
+        const cached = paymentStatusCache.get(key);
+        if (cached && now - cached.cachedAt < PAYMENT_STATUS_CACHE_TTL_MS) {
+          acc[order.id] = cached.status;
+        }
         return acc;
       }, {} as Record<string, string>);
-      setPaymentStatus(map);
+
+      if (Object.keys(cachedPaymentStatuses).length > 0) {
+        setPaymentStatus((prev) => ({ ...prev, ...cachedPaymentStatuses }));
+      }
+
+      let cancellationMap: Record<string, { id: string; status: string }> = {};
+      let returnMap: Record<string, { id: string; status: string }> = {};
+
+      const statusMap = { ...cachedPaymentStatuses };
+      const pendingPaymentOrders = nextOrders.filter((order) => {
+        if (order.status !== "PLACED") return false;
+        const key = getPaymentStatusCacheKey(token, order.id);
+        const cached = paymentStatusCache.get(key);
+        return !cached || now - cached.cachedAt >= PAYMENT_STATUS_CACHE_TTL_MS;
+      });
+
+      const [cancellationsRes, returnsRes] = await Promise.allSettled([
+        listMyCancellations(token),
+        listMyReturns(token),
+      ]);
+
+      if (cancellationsRes.status === "fulfilled") {
+        cancellationMap = (cancellationsRes.value.cancellations ?? []).reduce((acc, item) => {
+          acc[item.orderId] = { id: item.id, status: item.status };
+          return acc;
+        }, {} as Record<string, { id: string; status: string }>);
+      }
+
+      if (returnsRes.status === "fulfilled") {
+        returnMap = (returnsRes.value.returns ?? []).reduce((acc, item) => {
+          acc[item.orderId] = { id: item.id, status: item.status };
+          return acc;
+        }, {} as Record<string, { id: string; status: string }>);
+      }
+
+      for (let i = 0; i < pendingPaymentOrders.length; i += PAYMENT_STATUS_BATCH_SIZE) {
+        const batch = pendingPaymentOrders.slice(i, i + PAYMENT_STATUS_BATCH_SIZE);
+        const batchStatuses = await Promise.all(
+          batch.map(async (order) => {
+            try {
+              const payment = await getPaymentDetails(order.id, token);
+              return [order.id, payment.data?.status ?? ""] as const;
+            } catch {
+              return [order.id, ""] as const;
+            }
+          })
+        );
+
+        batchStatuses.forEach(([orderId, status]) => {
+          statusMap[orderId] = status;
+          paymentStatusCache.set(getPaymentStatusCacheKey(token, orderId), {
+            token,
+            cachedAt: Date.now(),
+            status,
+          });
+        });
+      }
+
+      if (!mountedRef.current) return;
+      setCancellationByOrder(cancellationMap);
+      setReturnByOrder(returnMap);
+      setPaymentStatus((prev) => ({ ...prev, ...statusMap }));
+
+      ordersScreenCache = {
+        token,
+        cachedAt: Date.now(),
+        orders: nextOrders,
+        paymentStatus: statusMap,
+        cancellationByOrder: cancellationMap,
+        returnByOrder: returnMap,
+      };
     } catch (err) {
       if (!isAbortError(err) && mountedRef.current) {
         setOrders([]);
@@ -578,6 +631,36 @@ export default function OrdersScreen() {
     []
   );
 
+  if (!authLoading && !token) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <AppHeader title="Orders" subtitle="Track purchases" showMenu showBack />
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Orders</Text>
+          <Text style={styles.headerCopy}>Track every purchase in one place.</Text>
+        </View>
+        <View style={styles.emptyCard}>
+          <Text style={styles.emptyTitle}>Sign in to view orders</Text>
+          <Text style={styles.emptySubtitle}>
+            Access order history, invoices, and delivery tracking after login.
+          </Text>
+          <Pressable
+            style={styles.primaryButton}
+            onPress={() => router.push("/login?returnTo=%2Forders")}
+          >
+            <Text style={styles.primaryButtonText}>Sign in</Text>
+          </Pressable>
+          <Pressable
+            style={styles.secondaryButton}
+            onPress={() => router.push("/search")}
+          >
+            <Text style={styles.secondaryButtonText}>Continue browsing</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
@@ -747,7 +830,7 @@ const styles = StyleSheet.create({
   orderCard: {
     marginBottom: spacing.md,
     padding: spacing.lg,
-    borderRadius: radius.xl,
+    borderRadius: 0,
     backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -776,14 +859,14 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: spacing.sm,
     paddingVertical: 6,
-    borderRadius: 999,
+    borderRadius: 0,
     borderWidth: 1,
     backgroundColor: colors.surface,
   },
   statusDot: {
     width: 6,
     height: 6,
-    borderRadius: 3,
+    borderRadius: 0,
   },
   orderMeta: {
     marginTop: spacing.xs,
@@ -812,7 +895,7 @@ const styles = StyleSheet.create({
   trackLink: {
     paddingHorizontal: spacing.sm,
     paddingVertical: 6,
-    borderRadius: 16,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: colors.surface,
@@ -827,7 +910,7 @@ const styles = StyleSheet.create({
   loadingCard: {
     margin: spacing.lg,
     padding: spacing.lg,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -842,7 +925,7 @@ const styles = StyleSheet.create({
   emptyCard: {
     margin: spacing.lg,
     padding: spacing.xl,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -872,7 +955,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gold,
     borderWidth: 1,
     borderColor: colors.gold,
-    borderRadius: radius.md,
+    borderRadius: 0,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
     alignItems: "center",
@@ -888,7 +971,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    borderRadius: radius.md,
+    borderRadius: 0,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
     alignItems: "center",
@@ -905,7 +988,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gold,
     borderWidth: 1,
     borderColor: colors.gold,
-    borderRadius: radius.md,
+    borderRadius: 0,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
     alignItems: "center",
@@ -920,7 +1003,7 @@ const styles = StyleSheet.create({
   retryPaymentButton: {
     marginTop: spacing.sm,
     backgroundColor: colors.gold,
-    borderRadius: radius.md,
+    borderRadius: 0,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
     alignItems: "center" as const,
@@ -939,7 +1022,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    borderRadius: radius.md,
+    borderRadius: 0,
     paddingVertical: spacing.xs,
     alignItems: "center",
     backgroundColor: colors.surface,
@@ -955,7 +1038,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     borderWidth: 1,
     borderColor: colors.gold,
-    borderRadius: radius.md,
+    borderRadius: 0,
     paddingVertical: spacing.xs,
     alignItems: "center",
     backgroundColor: "rgba(184, 149, 108, 0.14)",
@@ -975,7 +1058,7 @@ const styles = StyleSheet.create({
   },
   modalCard: {
     backgroundColor: colors.surfaceElevated,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     padding: spacing.lg,
@@ -997,7 +1080,7 @@ const styles = StyleSheet.create({
     minHeight: 110,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    borderRadius: radius.md,
+    borderRadius: 0,
     padding: spacing.sm,
     textAlignVertical: "top",
     fontFamily: typography.sans,
@@ -1013,7 +1096,7 @@ const styles = StyleSheet.create({
   modalCancelButton: {
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    borderRadius: radius.md,
+    borderRadius: 0,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     alignItems: "center",
@@ -1026,7 +1109,7 @@ const styles = StyleSheet.create({
   },
   modalConfirmButton: {
     backgroundColor: colors.gold,
-    borderRadius: radius.md,
+    borderRadius: 0,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     alignItems: "center",

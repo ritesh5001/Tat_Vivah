@@ -19,8 +19,11 @@ import { otpService, type SignupOtpPayload } from './otp.service.js';
 import { generateOtpCode, hashOtp } from '../utils/otp.util.js';
 import { otpRepository } from '../repositories/otp.repository.js';
 import { sendEmail } from '../notifications/email/resend.client.js';
+import { renderBrandedEmail } from '../notifications/email/templates/layout.js';
+import { normalizeIndianMobile } from './fast2sms.service.js';
 import { OtpPurpose } from '@prisma/client';
 import type { Role, UserStatus } from '@prisma/client';
+import { randomUUID } from 'crypto';
 
 
 /**
@@ -44,6 +47,8 @@ export class AuthService {
         userAgent?: string,
         ipAddress?: string
     ): Promise<LoginResponse> {
+        const sessionId = randomUUID();
+
         const accessToken = generateAccessToken({
             userId: user.id,
             email: user.email,
@@ -54,29 +59,25 @@ export class AuthService {
             isPhoneVerified: user.isPhoneVerified,
         });
 
-        const refreshTokenExpiryMs = ms(env.REFRESH_TOKEN_EXPIRY as StringValue);
-        const expiresAt = new Date(Date.now() + refreshTokenExpiryMs);
-
-        // Generate a temporary session ID to embed in the refresh token
-        // We create session with a placeholder, then update in one step
-        const session = await this.repository.createSession({
-            userId: user.id,
-            refreshToken: '', // placeholder
-            userAgent: userAgent ?? undefined,
-            ipAddress: ipAddress ?? undefined,
-            expiresAt,
-        });
-
         const refreshToken = generateRefreshToken({
             userId: user.id,
-            sessionId: session.id,
+            sessionId,
             isEmailVerified: user.isEmailVerified,
             isPhoneVerified: user.isPhoneVerified,
         });
 
-        // Hash and update the session in one call
+        const refreshTokenExpiryMs = ms(env.REFRESH_TOKEN_EXPIRY as StringValue);
+        const expiresAt = new Date(Date.now() + refreshTokenExpiryMs);
         const hashedRefreshToken = await hashToken(refreshToken);
-        await this.repository.updateSessionRefreshToken(session.id, hashedRefreshToken);
+
+        await this.repository.createSession({
+            sessionId,
+            userId: user.id,
+            refreshToken: hashedRefreshToken,
+            userAgent: userAgent ?? undefined,
+            ipAddress: ipAddress ?? undefined,
+            expiresAt,
+        });
 
         return {
             user: {
@@ -104,8 +105,9 @@ export class AuthService {
      * 4. No JWT generation, no auto-login
      */
     async registerUser(data: RegisterUserRequest): Promise<RegisterSuccessResponse> {
+        const phone = normalizeIndianMobile(data.phone);
         // 1. Check if email or phone already exists
-        const exists = await this.repository.existsByEmailOrPhone(data.email, data.phone);
+        const exists = await this.repository.existsByEmailOrPhone(data.email, phone);
         if (exists) {
             throw ApiError.conflict('Email or phone already in use');
         }
@@ -116,7 +118,7 @@ export class AuthService {
         // 3. Send OTP for signup (account will be created after verification)
         const payload: SignupOtpPayload = {
             email: data.email,
-            phone: data.phone,
+            phone,
             passwordHash,
             role: 'USER',
             fullName: data.fullName,
@@ -125,7 +127,7 @@ export class AuthService {
 
         // 4. Return success message (no token, no auto-login)
         return {
-            message: 'OTP sent to your email',
+            message: 'OTP sent to your mobile number',
         };
     }
 
@@ -141,8 +143,10 @@ export class AuthService {
      * 5. Seller cannot login until approved
      */
     async registerSeller(data: RegisterSellerRequest): Promise<RegisterSuccessResponse> {
+        const phone = normalizeIndianMobile(data.phone);
+        const whatsappNumber = normalizeIndianMobile(data.whatsappNumber);
         // 1. Check if email or phone already exists
-        const exists = await this.repository.existsByEmailOrPhone(data.email, data.phone);
+        const exists = await this.repository.existsByEmailOrPhone(data.email, phone);
         if (exists) {
             throw ApiError.conflict('Email or phone already in use');
         }
@@ -153,7 +157,8 @@ export class AuthService {
         // 3. Send OTP for signup (account will be created after verification)
         const payload: SignupOtpPayload = {
             email: data.email,
-            phone: data.phone,
+            phone,
+            whatsappNumber,
             passwordHash,
             role: 'SELLER',
         };
@@ -161,7 +166,7 @@ export class AuthService {
 
         // 4. Return success message (no token, pending approval)
         return {
-            message: 'OTP sent to your email. Verify to complete seller registration.',
+            message: 'OTP sent to your mobile number. Verify to complete seller registration.',
         };
     }
 
@@ -243,10 +248,6 @@ export class AuthService {
             throw ApiError.forbidden('Account not active');
         }
 
-        if ((user.role === 'USER' || user.role === 'SELLER') && !user.isEmailVerified) {
-            throw ApiError.forbidden('Email verification required');
-        }
-
         // 4. Return response
         return this.issueTokens({
             id: user.id,
@@ -259,28 +260,72 @@ export class AuthService {
         }, userAgent, ipAddress);
     }
 
-    async requestEmailOtp(email: string): Promise<{ message: string }> {
-        const user = await this.repository.findUserByEmail(email);
+    async requestOtp(input: { phone?: string | undefined; email?: string | undefined }): Promise<{ message: string }> {
+        const normalizedEmail = input.email?.trim().toLowerCase();
+        if (normalizedEmail) {
+            const user = await this.repository.findUserByEmail(normalizedEmail);
+            if (!user) {
+                throw ApiError.notFound('User not found');
+            }
+            if (user.status !== 'ACTIVE') {
+                throw ApiError.forbidden('Account not active');
+            }
+            await otpService.sendEmailOtp(user.id, normalizedEmail, 'login');
+            return { message: 'OTP sent to your email address' };
+        }
+
+        if (!input.phone) {
+            throw ApiError.badRequest('Email or phone is required');
+        }
+
+        return this.requestPhoneOtp(input.phone);
+    }
+
+    private async requestPhoneOtp(phone: string): Promise<{ message: string }> {
+        const normalizedPhone = normalizeIndianMobile(phone);
+        const user = await this.repository.findUserByPhone(normalizedPhone);
         if (!user) {
-            const payload = await otpService.getLatestSignupPayload(email);
+            const payload = await otpService.getLatestSignupPayload(normalizedPhone);
             if (!payload) {
                 throw ApiError.notFound('User not found');
             }
 
             await otpService.sendSignupOtp(payload);
-            return { message: 'OTP sent to email' };
+            return { message: 'OTP sent to mobile number' };
         }
 
-        if (user.isEmailVerified) {
-            return { message: 'Email already verified' };
-        }
-
-        await otpService.sendEmailVerificationOtp(user.id, user.email ?? email);
-        return { message: 'OTP sent to email' };
+        await otpService.sendPhoneOtp(
+            user.id,
+            user.phone ?? normalizedPhone,
+            user.isPhoneVerified ? 'login' : 'verify',
+        );
+        return { message: user.isPhoneVerified ? 'Login OTP sent to mobile number' : 'OTP sent to mobile number' };
     }
 
-    async verifyEmailOtp(email: string, code: string): Promise<LoginResponse | MessageResponse> {
-        const otp = await otpService.verifyEmailOtp(email, code);
+    async verifyOtp(
+        input: { phone?: string | undefined; email?: string | undefined; otp: string },
+        userAgent?: string,
+        ipAddress?: string,
+    ): Promise<LoginResponse | MessageResponse> {
+        const normalizedEmail = input.email?.trim().toLowerCase();
+        if (normalizedEmail) {
+            return this.verifyEmailOtp(normalizedEmail, input.otp, userAgent, ipAddress);
+        }
+
+        if (!input.phone) {
+            throw ApiError.badRequest('Email or phone is required');
+        }
+
+        return this.verifyPhoneOtp(input.phone, input.otp, userAgent, ipAddress);
+    }
+
+    private async verifyPhoneOtp(
+        phone: string,
+        code: string,
+        userAgent?: string,
+        ipAddress?: string,
+    ): Promise<LoginResponse | MessageResponse> {
+        const otp = await otpService.verifyPhoneOtp(phone, code);
         if (otp.userId) {
             const user = await this.repository.findUserById(otp.userId);
             if (!user) {
@@ -298,7 +343,7 @@ export class AuthService {
 
             const updated = await this.repository.updateUser(user.id, {
                 status: nextStatus,
-                isEmailVerified: true,
+                isPhoneVerified: true,
             });
 
             return this.issueTokens({
@@ -309,7 +354,7 @@ export class AuthService {
                 status: updated.status,
                 isEmailVerified: updated.isEmailVerified,
                 isPhoneVerified: updated.isPhoneVerified,
-            });
+            }, userAgent, ipAddress);
         }
 
         const payload = otp.payload as SignupOtpPayload | null;
@@ -326,11 +371,12 @@ export class AuthService {
         const created = await this.repository.createUser({
             email: payload.email,
             phone: payload.phone,
+            whatsappNumber: payload.role === 'SELLER' ? (payload.whatsappNumber ?? null) : null,
             passwordHash: payload.passwordHash,
             role: payload.role,
             status,
-            isEmailVerified: true,
-            isPhoneVerified: false,
+            isEmailVerified: false,
+            isPhoneVerified: true,
         }).catch((error: any) => {
             if (error?.code === 'P2002' || String(error?.message ?? '').includes('Unique constraint')) {
                 throw ApiError.conflict('Email or phone already in use');
@@ -340,7 +386,7 @@ export class AuthService {
 
         if (created.role === 'SELLER') {
             return {
-                message: 'Email verified. Seller account pending admin approval.',
+                message: 'Mobile number verified. Seller account pending admin approval.',
             };
         }
 
@@ -352,7 +398,42 @@ export class AuthService {
             status: created.status,
             isEmailVerified: created.isEmailVerified,
             isPhoneVerified: created.isPhoneVerified,
-        });
+        }, userAgent, ipAddress);
+    }
+
+    private async verifyEmailOtp(
+        email: string,
+        code: string,
+        userAgent?: string,
+        ipAddress?: string,
+    ): Promise<LoginResponse> {
+        const otp = await otpService.verifyEmailOtp(email, code);
+        if (!otp.userId) {
+            throw ApiError.badRequest('Invalid or expired OTP');
+        }
+
+        const user = await this.repository.findUserById(otp.userId);
+        if (!user) {
+            throw ApiError.notFound('User not found');
+        }
+
+        if (user.status !== 'ACTIVE') {
+            throw ApiError.forbidden('Account not active');
+        }
+
+        const updated = user.isEmailVerified
+            ? user
+            : await this.repository.updateUser(user.id, { isEmailVerified: true });
+
+        return this.issueTokens({
+            id: updated.id,
+            email: updated.email,
+            phone: updated.phone,
+            role: updated.role,
+            status: updated.status,
+            isEmailVerified: updated.isEmailVerified,
+            isPhoneVerified: updated.isPhoneVerified,
+        }, userAgent, ipAddress);
     }
 
     /**
@@ -532,15 +613,17 @@ export class AuthService {
             expiresAt,
         });
 
-        const html = `
-            <div style="font-family:Arial,sans-serif; line-height:1.6;">
-                <h2>Reset your TatVivah password</h2>
-                <p>Your password-reset OTP is:</p>
-                <p style="font-size:24px; font-weight:bold; letter-spacing:4px;">${code}</p>
-                <p>This OTP expires in ${AuthService.PASSWORD_RESET_EXPIRY_MINUTES} minutes.</p>
-                <p>If you did not request this, please ignore this email.</p>
-            </div>
-        `;
+        const html = renderBrandedEmail({
+            preheader: 'Your password reset verification code for TatVivah.',
+            eyebrow: 'Password Recovery',
+            title: 'Reset Your Password',
+            message: [
+                'Use the one-time code below to reset your TatVivah account password.',
+                `This code expires in ${AuthService.PASSWORD_RESET_EXPIRY_MINUTES} minutes and can only be used once.`,
+            ],
+            details: [{ label: 'Reset Code', value: code }],
+            accentText: 'If you did not request this reset, you can safely ignore this email.',
+        });
 
         await sendEmail(email, 'Reset your TatVivah password', html);
 

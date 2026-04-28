@@ -1,5 +1,6 @@
 import React from "react";
 import Link from "next/link";
+import { SUPPORT_EMAIL, SUPPORT_PHONE_DISPLAY } from "@/lib/site-config";
 
 interface Section {
     id: string;
@@ -68,8 +69,8 @@ export function LegalPageLayout({
                             <h3 className="font-serif text-xl mb-3 text-charcoal">Need further assistance?</h3>
                             <p className="text-sm text-muted-foreground mb-0">
                                 If you have any questions regarding these terms or policies, please contact our support team at <br />
-                                <strong>Email:</strong> <a href="mailto:support@tatvivahtrends.com" className="text-gold no-underline hover:underline">support@tatvivahtrends.com</a><br />
-                                <strong>Phone:</strong> +91-7777777777
+                                <strong>Email:</strong> <a href={`mailto:${SUPPORT_EMAIL}`} className="text-gold no-underline hover:underline">{SUPPORT_EMAIL}</a><br />
+                                <strong>Phone:</strong> {SUPPORT_PHONE_DISPLAY}
                             </p>
                         </div>
                     </div>

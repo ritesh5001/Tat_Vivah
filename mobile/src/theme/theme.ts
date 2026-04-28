@@ -1,11 +1,13 @@
 export const luxuryTheme = {
-  background: "#FFFBF2",
-  dark: "#502314",
-  accent: "#B8956C",
-  textPrimary: "#502314",
-  textSecondary: "#6F5143",
-  border: "#E2DBD0",
+  background: "#FAF7F2",
+  dark: "#3D3329",
+  accent: "#B7956C",
+  textPrimary: "#2C2825",
+  textSecondary: "#5C524A",
+  border: "#E8E2D9",
   shadow: "#2C2825",
+  card: "#FFFCF8",
+  muted: "#F4EFE7",
   transparent: "transparent",
 } as const;
 

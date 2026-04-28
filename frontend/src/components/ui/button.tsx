@@ -1,4 +1,5 @@
 import * as React from "react";
+import { Slot } from "@radix-ui/react-slot";
 import { cn } from "@/lib/utils";
 
 export type ButtonVariant = "primary" | "secondary" | "ghost" | "outline";
@@ -36,36 +37,16 @@ export interface ButtonProps
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = "primary", size = "md", asChild, ...props }, ref) => {
-    // Handle asChild pattern for Link components
-    if (asChild && React.isValidElement(props.children)) {
-      return React.cloneElement(props.children as React.ReactElement<any>, {
-        className: cn(
-          // Base styles
-          "inline-flex items-center justify-center gap-2 font-medium tracking-wide uppercase",
-          // Premium transition
-          "transition-all duration-400 ease-out",
-          // Focus ring - muted gold
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-          // Disabled state
-          "disabled:pointer-events-none disabled:opacity-50",
-          variantClasses[variant],
-          sizeClasses[size],
-          className,
-          (props.children as React.ReactElement<any>).props.className,
-          "rounded-none!"
-        ),
-        ref,
-      });
-    }
+    const Comp = asChild ? Slot : "button";
 
     return (
-      <button
+      <Comp
         ref={ref}
         className={cn(
           // Base styles
           "inline-flex items-center justify-center gap-2 font-medium tracking-wide uppercase",
           // Premium transition
-          "transition-all duration-400 ease-out",
+          "transition-all duration-400 ease-out active:scale-[0.985]",
           // Focus ring - muted gold
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-background",
           // Disabled state

@@ -146,11 +146,11 @@ export declare const couponQuerySchema: z.ZodObject<{
     limit: number;
     type?: "PERCENT" | "FLAT" | undefined;
     search?: string | undefined;
-    isActive?: "true" | "false" | undefined;
+    isActive?: "false" | "true" | undefined;
 }, {
     type?: "PERCENT" | "FLAT" | undefined;
     search?: string | undefined;
-    isActive?: "true" | "false" | undefined;
+    isActive?: "false" | "true" | undefined;
     page?: number | undefined;
     limit?: number | undefined;
 }>;

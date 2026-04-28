@@ -1,16 +1,29 @@
 "use client";
 
 import { useEffect, useState } from "react";
-// We can use a more robust auth solution, but for now we follow the pattern in product-detail-client
-// which checks for 'tatvivah_access' cookie.
-// Ideally, we decoding the token to get user info. 
-// Since we don't have a decoder library handy in dependencies list (maybe jwt-decode?), 
-// We'll implemented a simple parse.
 
 interface User {
     id: string;
     role: string;
     [key: string]: any;
+}
+
+function readCookie(name: string): string | null {
+    if (typeof document === "undefined") return null;
+    const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
+    return match ? decodeURIComponent(match[1]) : null;
+}
+
+function decodeJwtPayload(token: string): User | null {
+    try {
+        const part = token.split(".")[1];
+        if (!part) return null;
+        const base64 = part.replace(/-/g, "+").replace(/_/g, "/");
+        const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
+        return JSON.parse(atob(padded)) as User;
+    } catch {
+        return null;
+    }
 }
 
 export function useAuth() {
@@ -19,25 +32,58 @@ export function useAuth() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // Check cookie
-        const match = document.cookie.match(/(?:^|; )tatvivah_access=([^;]*)/);
-        const accessToken = match ? match[1] : null;
+        const syncAuth = () => {
+            const accessToken = readCookie("tatvivah_access");
+            const roleCookie = readCookie("tatvivah_role");
+            const userCookie = readCookie("tatvivah_user");
 
-        if (accessToken) {
             setToken(accessToken);
-            try {
-                // Simple JWT decode (payload is 2nd part)
-                const payload = JSON.parse(atob(accessToken.split('.')[1]));
-                setUser(payload as User);
-            } catch (e) {
-                console.error("Failed to decode token", e);
+
+            if (!accessToken) {
+                setUser(null);
+                setLoading(false);
+                return;
+            }
+
+            if (userCookie) {
+                try {
+                    setUser(JSON.parse(userCookie) as User);
+                    setLoading(false);
+                    return;
+                } catch {
+                    // Fall through to JWT decode.
+                }
+            }
+
+            const decoded = decodeJwtPayload(accessToken);
+            if (decoded) {
+                setUser(decoded);
+            } else if (roleCookie) {
+                setUser({ id: "", role: roleCookie } as User);
+            } else {
                 setUser(null);
             }
-        } else {
-            setToken(null);
-            setUser(null);
-        }
-        setLoading(false);
+
+            setLoading(false);
+        };
+
+        syncAuth();
+
+        const onVisibility = () => {
+            if (document.visibilityState === "visible") {
+                syncAuth();
+            }
+        };
+
+        window.addEventListener("tatvivah-auth", syncAuth);
+        window.addEventListener("focus", syncAuth);
+        document.addEventListener("visibilitychange", onVisibility);
+
+        return () => {
+            window.removeEventListener("tatvivah-auth", syncAuth);
+            window.removeEventListener("focus", syncAuth);
+            document.removeEventListener("visibilitychange", onVisibility);
+        };
     }, []);
 
     return { user, token, loading };

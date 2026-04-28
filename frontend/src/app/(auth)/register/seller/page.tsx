@@ -54,6 +54,7 @@ export default function SellerRegisterPage() {
 
   const [email, setEmail] = React.useState("");
   const [phone, setPhone] = React.useState("");
+  const [whatsappNumber, setWhatsappNumber] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [confirmPassword, setConfirmPassword] = React.useState("");
   const [showPassword, setShowPassword] = React.useState(false);
@@ -63,7 +64,7 @@ export default function SellerRegisterPage() {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!email || !phone || !password) {
+    if (!email || !phone || !whatsappNumber || !password) {
       toast.error("Please fill all required fields.");
       return;
     }
@@ -75,9 +76,9 @@ export default function SellerRegisterPage() {
 
     setLoading(true);
     try {
-      await registerSeller({ email, phone, password });
-      toast.success("OTP sent to your email.");
-      window.location.href = `/verify-otp?email=${encodeURIComponent(email)}`;
+      await registerSeller({ email, phone, whatsappNumber, password });
+      toast.success("OTP sent to your mobile number.");
+      window.location.href = `/verify-otp?method=phone&phone=${encodeURIComponent(phone)}`;
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Signup failed");
     } finally {
@@ -190,7 +191,17 @@ export default function SellerRegisterPage() {
                     className={theme.input}
                   />
                 </motion.div>
-                <motion.div className="grid gap-4 sm:grid-cols-2" {...fadeInUp(2)}>
+                <motion.div className="space-y-2" {...fadeInUp(2)}>
+                  <Label htmlFor="whatsappNumber" className={theme.label}>WhatsApp Number</Label>
+                  <Input
+                    id="whatsappNumber"
+                    placeholder="9876543210"
+                    value={whatsappNumber}
+                    onChange={(event) => setWhatsappNumber(event.target.value.replace(/[^0-9]/g, ""))}
+                    className={theme.input}
+                  />
+                </motion.div>
+                <motion.div className="grid gap-4 sm:grid-cols-2" {...fadeInUp(3)}>
                   <div className="space-y-2">
                     <Label htmlFor="password" className={theme.label}>Password</Label>
                     <div className="relative">
@@ -232,7 +243,7 @@ export default function SellerRegisterPage() {
                     </div>
                   </div>
                 </motion.div>
-                <motion.div {...fadeInUp(3)}>
+                <motion.div {...fadeInUp(4)}>
                   <Button className={theme.button} size="lg" disabled={loading}>
                   {loading ? "Submitting..." : "Create Seller Account"}
                   </Button>

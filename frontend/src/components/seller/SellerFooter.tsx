@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SITE_URL } from "@/lib/site-config";
 
 export function SellerFooter() {
   return (
@@ -20,12 +21,14 @@ export function SellerFooter() {
           >
             Profile
           </Link>
-          <Link
-            href="/contact"
+          <a
+            href={`${SITE_URL}/contact`}
+            target="_blank"
+            rel="noopener noreferrer"
             className="text-[11px] uppercase tracking-[0.14em] text-foreground transition-colors hover:text-gold"
           >
             Support
-          </Link>
+          </a>
         </div>
       </div>
     </footer>

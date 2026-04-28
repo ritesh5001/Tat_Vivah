@@ -5,6 +5,9 @@ export type ProductImage = string;
 
 export interface ProductVariant {
   id: string;
+  size: string;
+  color?: string | null;
+  images?: string[];
   sku: string;
   /** Public listing price set by admin. Never the seller cost price. */
   price: number;

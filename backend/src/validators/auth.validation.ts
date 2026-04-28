@@ -39,6 +39,10 @@ export const registerSellerSchema = z.object({
         .string()
         .regex(/^\d{10,15}$/, 'Phone must be 10-15 digits'),
 
+    whatsappNumber: z
+        .string()
+        .regex(/^\d{10,15}$/, 'WhatsApp number must be 10-15 digits'),
+
     password: z
         .string()
         .min(8, 'Password must be at least 8 characters')
@@ -137,7 +141,15 @@ export type LogoutInput = z.infer<typeof logoutSchema>;
 export const requestOtpSchema = z.object({
     email: z
         .string()
-        .email('Invalid email address'),
+        .email('Invalid email address')
+        .optional(),
+    phone: z
+        .string()
+        .regex(/^\+?\d{10,15}$/, 'Phone must be 10-15 digits')
+        .optional(),
+}).refine((data) => Boolean(data.email || data.phone), {
+    message: 'Email or phone is required',
+    path: ['email'],
 });
 
 export type RequestOtpInput = z.infer<typeof requestOtpSchema>;
@@ -149,10 +161,19 @@ export type RequestOtpInput = z.infer<typeof requestOtpSchema>;
 export const verifyOtpSchema = z.object({
     email: z
         .string()
-        .email('Invalid email address'),
+        .email('Invalid email address')
+        .optional(),
+    phone: z
+        .string()
+        .regex(/^\+?\d{10,15}$/, 'Phone must be 10-15 digits')
+        .optional(),
     otp: z
         .string()
-        .min(4, 'OTP is required'),
+        .length(6, 'OTP must be exactly 6 digits')
+        .regex(/^\d{6}$/, 'OTP must be 6 digits'),
+}).refine((data) => Boolean(data.email || data.phone), {
+    message: 'Email or phone is required',
+    path: ['email'],
 });
 
 export type VerifyOtpInput = z.infer<typeof verifyOtpSchema>;

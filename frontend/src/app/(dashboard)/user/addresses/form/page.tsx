@@ -52,7 +52,7 @@ const emptyForm: FormState = {
   isDefault: false,
 };
 
-export default function AddressFormPage() {
+function AddressFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get("id");
@@ -354,5 +354,13 @@ export default function AddressFormPage() {
         </section>
       </motion.div>
     </div>
+  );
+}
+
+export default function AddressFormPage() {
+  return (
+    <React.Suspense fallback={null}>
+      <AddressFormContent />
+    </React.Suspense>
   );
 }

@@ -4,7 +4,7 @@ import { PrismaClient } from '@prisma/client';
  * In non-production environments it is pinned to globalThis so tsx
  * watch-mode restarts reuse the same connection pool.
  */
-export declare const prisma: PrismaClient;
+export declare const prisma: PrismaClient<import(".prisma/client").Prisma.PrismaClientOptions, never, import("@prisma/client/runtime/library").DefaultArgs>;
 /**
  * Graceful shutdown handler for Prisma connection.
  * Safe to call multiple times (Prisma ignores repeat disconnects).

@@ -86,6 +86,7 @@ export class ShipmentController {
             const userId = (req as any).user.userId;
             const result = await shipmentService.getSellerShipments(userId);
 
+            res.set('Cache-Control', 'no-store');
             res.status(200).json({
                 success: true,
                 data: result
@@ -106,6 +107,7 @@ export class ShipmentController {
 
             const result = await shipmentService.getTracking(orderId, userId);
 
+            res.set('Cache-Control', 'no-store');
             res.status(200).json({
                 success: true,
                 data: result

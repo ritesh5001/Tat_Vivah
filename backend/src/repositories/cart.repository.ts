@@ -29,16 +29,10 @@ export class CartRepository {
      * Find or create cart for user
      */
     async findOrCreateByUserId(userId: string): Promise<CartEntity> {
-        const existing = await prisma.cart.findUnique({
+        return prisma.cart.upsert({
             where: { userId },
-        });
-
-        if (existing) {
-            return existing;
-        }
-
-        return prisma.cart.create({
-            data: { userId },
+            update: {},
+            create: { userId },
         });
     }
 
@@ -123,8 +117,10 @@ export class CartRepository {
      * Uses batch lookups (2 queries) instead of 2N individual queries.
      */
     async getCartWithDetails(userId: string): Promise<CartWithItems | null> {
-        const cart = await prisma.cart.findUnique({
+        const cart = await prisma.cart.upsert({
             where: { userId },
+            update: {},
+            create: { userId },
             include: {
                 items: {
                     orderBy: { createdAt: 'desc' },
@@ -132,8 +128,8 @@ export class CartRepository {
             },
         });
 
-        if (!cart || cart.items.length === 0) {
-            return cart ? { ...cart, items: [] } : null;
+        if (cart.items.length === 0) {
+            return { ...cart, items: [] };
         }
 
         // Batch lookup — 2 queries total instead of 2N
@@ -143,14 +139,16 @@ export class CartRepository {
         const [products, variants] = await Promise.all([
             prisma.product.findMany({
                 where: { id: { in: productIds } },
-                select: { id: true, title: true, sellerId: true, adminListingPrice: true, sellerPrice: true },
+                select: { id: true, title: true, sellerId: true },
             }),
             prisma.productVariant.findMany({
                 where: { id: { in: variantIds } },
                 select: {
                     id: true,
+                    size: true,
                     sku: true,
                     price: true,
+                    compareAtPrice: true,
                     inventory: { select: { stock: true } },
                 },
             }),
@@ -166,21 +164,14 @@ export class CartRepository {
             return {
                 ...item,
                 product: product
-                    ? {
-                        ...product,
-                        sellerPrice: Number(product.sellerPrice),
-                        adminListingPrice:
-                            product.adminListingPrice == null
-                                ? null
-                                : Number(product.adminListingPrice),
-                    }
+                    ? { ...product }
                     : undefined,
                 variant: variant
                     ? {
                         ...variant,
-                        price: product?.adminListingPrice != null
-                            ? Number(product.adminListingPrice)
-                            : variant.price,
+                        price: Number(variant.price),
+                        compareAtPrice:
+                            variant.compareAtPrice == null ? null : Number(variant.compareAtPrice),
                     }
                     : undefined,
             };

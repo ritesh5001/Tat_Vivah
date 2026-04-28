@@ -77,9 +77,13 @@ async function run() {
     const variant1 = await prisma.productVariant.create({
         data: {
             productId: product1.id,
+            size: 'Default',
             sku: `COM-RACE-1-${now}`,
+            sellerPrice: 400,
+            adminListingPrice: 800,
             price: 800,
             compareAtPrice: 1000,
+            status: ProductStatus.APPROVED,
             inventory: { create: { stock: 10 } },
         },
     });
@@ -100,9 +104,13 @@ async function run() {
     const variant2 = await prisma.productVariant.create({
         data: {
             productId: product2.id,
+            size: 'Default',
             sku: `COM-RACE-2-${now}`,
+            sellerPrice: 600,
+            adminListingPrice: 1200,
             price: 1200,
             compareAtPrice: 1500,
+            status: ProductStatus.APPROVED,
             inventory: { create: { stock: 10 } },
         },
     });

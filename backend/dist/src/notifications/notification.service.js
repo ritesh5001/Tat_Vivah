@@ -80,6 +80,20 @@ export class NotificationService {
         });
     }
     /**
+     * Trigger SHIPMENT_CREATED (Buyer)
+     */
+    async notifyShipmentCreated(userId, orderId, carrier, trackingNumber) {
+        return this.create({
+            userId,
+            role: 'USER',
+            type: 'SHIPMENT_CREATED',
+            channel: 'EMAIL',
+            content: `Shipment created for Order #${orderId}`,
+            metadata: { orderId, carrier, trackingNumber },
+            eventKey: `SHIPMENT_CREATED:${orderId}`
+        });
+    }
+    /**
      * Trigger ORDER_SHIPPED (Buyer)
      */
     async notifyOrderShipped(userId, orderId, carrier, trackingNumber) {

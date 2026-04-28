@@ -8,20 +8,118 @@ import type {
     ProductQueryFilters,
 } from '../types/product.types.js';
 
+type ProductTx = typeof prisma;
+
 /**
  * Product Repository
  * Handles database operations for products
  */
 export class ProductRepository {
-    private mapProductDecimals<T extends { sellerPrice: unknown; adminListingPrice: unknown }>(product: T): Omit<T, 'sellerPrice' | 'adminListingPrice'> & { sellerPrice: number; adminListingPrice: number | null } {
+    private resolvePagination(page?: number, limit?: number): { skip: number; take: number } {
+        const pRaw = Number(page ?? 1);
+        const lRaw = Number(limit ?? 20);
+        const p = Number.isFinite(pRaw) && pRaw > 0 ? Math.trunc(pRaw) : 1;
+        const l = Math.min(20, Math.max(1, Number.isFinite(lRaw) ? Math.trunc(lRaw) : 20));
+        return { skip: (p - 1) * l, take: l };
+    }
+
+    private mapProductDecimals<T extends { sellerPrice: unknown; adminListingPrice: unknown }>(
+        product: T
+    ): Omit<T, 'sellerPrice' | 'adminListingPrice'> & { sellerPrice: number; adminListingPrice: number | null } {
         return {
             ...product,
             sellerPrice: Number(product.sellerPrice),
-            adminListingPrice:
-                product.adminListingPrice == null
-                    ? null
-                    : Number(product.adminListingPrice),
+            adminListingPrice: product.adminListingPrice == null ? null : Number(product.adminListingPrice),
         };
+    }
+
+    private mapVariantFields<T extends {
+        sellerPrice: unknown;
+        adminListingPrice: unknown;
+        price: unknown;
+        compareAtPrice: unknown;
+    }>(variant: T) {
+        return {
+            ...variant,
+            sellerPrice: Number(variant.sellerPrice),
+            adminListingPrice: variant.adminListingPrice == null ? null : Number(variant.adminListingPrice),
+            price: Number(variant.price),
+            compareAtPrice: variant.compareAtPrice == null ? null : Number(variant.compareAtPrice),
+        };
+    }
+
+    private mapProductWithVariants<T extends {
+        sellerPrice: unknown;
+        adminListingPrice: unknown;
+        variants?: Array<{
+            sellerPrice: unknown;
+            adminListingPrice: unknown;
+            price: unknown;
+            compareAtPrice: unknown;
+        }>;
+    }>(product: T) {
+        return {
+            ...this.mapProductDecimals(product),
+            variants: (product.variants ?? []).map((variant) => this.mapVariantFields(variant)),
+        };
+    }
+
+    async syncVariantSummary(productId: string, tx: ProductTx = prisma): Promise<ProductEntity> {
+        const product = await tx.product.findUnique({
+            where: { id: productId },
+            select: {
+                id: true,
+                deletedByAdmin: true,
+                variants: {
+                    select: {
+                        id: true,
+                        sellerPrice: true,
+                        adminListingPrice: true,
+                        status: true,
+                        rejectionReason: true,
+                        approvedAt: true,
+                        approvedById: true,
+                        createdAt: true,
+                        price: true,
+                    },
+                    orderBy: [{ price: 'asc' }, { createdAt: 'asc' }],
+                },
+            },
+        });
+
+        if (!product) {
+            throw new Error(`Product ${productId} not found while syncing variant summary`);
+        }
+
+        const approvedVariants = product.variants.filter((variant) => variant.status === 'APPROVED');
+        const pendingVariants = product.variants.filter((variant) => variant.status === 'PENDING');
+        const rejectedVariants = product.variants.filter((variant) => variant.status === 'REJECTED');
+
+        const summarySource = approvedVariants[0] ?? pendingVariants[0] ?? rejectedVariants[0] ?? null;
+        const nextStatus =
+            approvedVariants.length > 0 ? 'APPROVED' : pendingVariants.length > 0 ? 'PENDING' : 'REJECTED';
+        const rejectionReason =
+            nextStatus === 'REJECTED' ? rejectedVariants[0]?.rejectionReason ?? null : null;
+
+        const updated = await tx.product.update({
+            where: { id: productId },
+            data: {
+                sellerPrice: summarySource?.sellerPrice ?? 0,
+                adminListingPrice:
+                    approvedVariants.length > 0 ? approvedVariants[0]?.adminListingPrice ?? null : null,
+                priceApprovedAt:
+                    approvedVariants.length > 0 ? approvedVariants[0]?.approvedAt ?? null : null,
+                priceApprovedById:
+                    approvedVariants.length > 0 ? approvedVariants[0]?.approvedById ?? null : null,
+                status: product.deletedByAdmin ? 'REJECTED' : nextStatus,
+                rejectionReason: product.deletedByAdmin ? rejectionReason : rejectionReason,
+                approvedAt: approvedVariants.length > 0 ? approvedVariants[0]?.approvedAt ?? null : null,
+                approvedById: approvedVariants.length > 0 ? approvedVariants[0]?.approvedById ?? null : null,
+                isPublished: !product.deletedByAdmin && approvedVariants.length > 0,
+            },
+        });
+
+        return this.mapProductDecimals(updated) as ProductEntity;
     }
 
     /**
@@ -31,38 +129,130 @@ export class ProductRepository {
         products: ProductWithCategory[];
         total: number;
     }> {
-        const { page = 1, limit = 20, categoryId, search } = filters;
-        const skip = (page - 1) * limit;
+        const { page = 1, limit = 20, categoryId, search, occasion } = filters;
+        const { skip, take } = this.resolvePagination(page, Math.min(limit, 20));
+        const conditions: string[] = [
+            `p."status" = 'APPROVED'`,
+            `p."deleted_by_admin" = false`,
+            `EXISTS (
+                SELECT 1
+                FROM "product_variants" pv_pub
+                WHERE pv_pub."product_id" = p."id"
+                  AND pv_pub."status" = 'APPROVED'
+            )`,
+        ];
+        const params: unknown[] = [];
+        let paramIndex = 1;
 
-        const where = {
-            status: 'APPROVED' as const,
-            deletedByAdmin: false,
-            adminListingPrice: { not: null },
-            ...(categoryId && { categoryId }),
-            ...(search && {
-                OR: [
-                    { title: { contains: search, mode: 'insensitive' as const } },
-                    { description: { contains: search, mode: 'insensitive' as const } },
-                ],
-            }),
-        };
+        if (categoryId) {
+            conditions.push(`p."category_id" = $${paramIndex}`);
+            params.push(categoryId);
+            paramIndex += 1;
+        }
 
-        const [products, total] = await Promise.all([
-            prisma.product.findMany({
-                where,
-                skip,
-                take: limit,
-                include: {
-                    category: true,
-                },
-                orderBy: { createdAt: 'desc' },
-            }),
-            prisma.product.count({ where }),
+        if (search && search.trim().length > 0) {
+            const pattern = `%${search.trim()}%`;
+            conditions.push(`(
+                p."title" ILIKE $${paramIndex}
+                OR p."description" ILIKE $${paramIndex}
+                OR c."name" ILIKE $${paramIndex}
+                OR c."slug" ILIKE $${paramIndex}
+                OR EXISTS (
+                    SELECT 1
+                    FROM "product_occasions" po
+                    INNER JOIN "occasions" o ON o."id" = po."occasion_id"
+                    WHERE po."product_id" = p."id"
+                      AND o."is_active" = true
+                      AND (o."name" ILIKE $${paramIndex} OR o."slug" ILIKE $${paramIndex})
+                )
+            )`);
+            params.push(pattern);
+            paramIndex += 1;
+        }
+
+        if (occasion) {
+            conditions.push(`EXISTS (
+                SELECT 1
+                FROM "product_occasions" po
+                INNER JOIN "occasions" o ON o."id" = po."occasion_id"
+                WHERE po."product_id" = p."id"
+                  AND o."is_active" = true
+                  AND o."slug" = $${paramIndex}
+            )`);
+            params.push(occasion);
+            paramIndex += 1;
+        }
+
+        const whereClause = conditions.join(' AND ');
+        const countQuery = `
+            SELECT COUNT(*)::int AS total
+            FROM "products" p
+            LEFT JOIN "categories" c ON c."id" = p."category_id"
+            WHERE ${whereClause}
+        `;
+
+        const dataQuery = `
+            SELECT
+                p."id",
+                p."seller_id" AS "sellerId",
+                p."category_id" AS "categoryId",
+                p."title",
+                p."description",
+                p."images",
+                p."seller_price" AS "sellerPrice",
+                p."admin_listing_price" AS "adminListingPrice",
+                p."price_approved_at" AS "priceApprovedAt",
+                p."price_approved_by_id" AS "priceApprovedById",
+                p."status",
+                p."rejection_reason" AS "rejectionReason",
+                p."approved_at" AS "approvedAt",
+                p."approved_by_id" AS "approvedById",
+                p."is_published" AS "isPublished",
+                p."deleted_by_admin" AS "deletedByAdmin",
+                p."deleted_by_admin_at" AS "deletedByAdminAt",
+                p."deleted_by_admin_reason" AS "deletedByAdminReason",
+                p."created_at" AS "createdAt",
+                p."updated_at" AS "updatedAt",
+                cv."price" AS "cheapestVariantPrice",
+                cv."compare_at_price" AS "cheapestVariantCompareAt",
+                json_build_object(
+                    'id', c."id",
+                    'name', c."name",
+                    'slug', c."slug",
+                    'isActive', c."is_active"
+                ) AS "category"
+            FROM "products" p
+            LEFT JOIN "categories" c ON c."id" = p."category_id"
+            LEFT JOIN LATERAL (
+                SELECT pv."price", pv."compare_at_price"
+                FROM "product_variants" pv
+                WHERE pv."product_id" = p."id"
+                  AND pv."status" = 'APPROVED'
+                ORDER BY pv."price" ASC, pv."created_at" ASC
+                LIMIT 1
+            ) cv ON true
+            WHERE ${whereClause}
+            ORDER BY p."created_at" DESC
+            LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+        `;
+
+        const [countRows, rows] = await Promise.all([
+            prisma.$queryRawUnsafe<Array<{ total: number }>>(countQuery, ...params),
+            prisma.$queryRawUnsafe<any[]>(dataQuery, ...params, take, skip),
         ]);
 
+        const products = rows.map((product) => ({
+            ...product,
+            sellerPrice: Number(product.sellerPrice),
+            adminListingPrice: product.adminListingPrice == null ? null : Number(product.adminListingPrice),
+            cheapestVariantPrice: product.cheapestVariantPrice == null ? null : Number(product.cheapestVariantPrice),
+            cheapestVariantCompareAt:
+                product.cheapestVariantCompareAt == null ? null : Number(product.cheapestVariantCompareAt),
+        }));
+
         return {
-            products: products.map((product) => this.mapProductDecimals(product)) as ProductWithCategory[],
-            total,
+            products: products as ProductWithCategory[],
+            total: countRows[0]?.total ?? 0,
         };
     }
 
@@ -71,24 +261,74 @@ export class ProductRepository {
      */
     async findPublishedById(id: string): Promise<ProductWithDetails | null> {
         const product = await prisma.product.findFirst({
-            where: { id, status: 'APPROVED', deletedByAdmin: false, adminListingPrice: { not: null } },
-            include: {
-                category: true,
+            where: {
+                id,
+                status: 'APPROVED',
+                deletedByAdmin: false,
                 variants: {
-                    include: {
+                    some: {
+                        status: 'APPROVED',
+                    },
+                },
+            },
+            select: {
+                id: true,
+                sellerId: true,
+                sellerPrice: true,
+                categoryId: true,
+                title: true,
+                description: true,
+                images: true,
+                status: true,
+                isPublished: true,
+                createdAt: true,
+                updatedAt: true,
+                adminListingPrice: true,
+                category: {
+                    select: {
+                        id: true,
+                        name: true,
+                        slug: true,
+                        isActive: true,
+                    },
+                },
+                variants: {
+                    where: { status: 'APPROVED' },
+                    select: {
+                        id: true,
+                        size: true,
+                        color: true,
+                        images: true,
+                        sku: true,
+                        sellerPrice: true,
+                        adminListingPrice: true,
+                        price: true,
+                        compareAtPrice: true,
+                        status: true,
+                        rejectionReason: true,
+                        approvedAt: true,
+                        approvedById: true,
+                        createdAt: true,
+                        updatedAt: true,
                         inventory: true,
                     },
+                    orderBy: [{ price: 'asc' }, { createdAt: 'asc' }],
                 },
             },
         });
 
-        return product ? this.mapProductDecimals(product) as ProductWithDetails : null;
+        if (!product) {
+            return null;
+        }
+
+        return this.mapProductWithVariants(product) as ProductWithDetails;
     }
 
     /**
      * Find all products for a seller
      */
-    async findBySellerId(sellerId: string): Promise<ProductWithDetails[]> {
+    async findBySellerId(sellerId: string, params?: { page?: number; limit?: number }): Promise<ProductWithDetails[]> {
+        const { skip, take } = this.resolvePagination(params?.page, params?.limit);
         const products = await prisma.product.findMany({
             where: { sellerId },
             include: {
@@ -97,13 +337,15 @@ export class ProductRepository {
                     include: {
                         inventory: true,
                     },
+                    orderBy: [{ createdAt: 'asc' }],
                 },
             },
             orderBy: { createdAt: 'desc' },
-            take: 500,
+            skip,
+            take,
         });
 
-        return products.map((product) => this.mapProductDecimals(product)) as ProductWithDetails[];
+        return products.map((product) => this.mapProductWithVariants(product)) as ProductWithDetails[];
     }
 
     /**
@@ -114,7 +356,7 @@ export class ProductRepository {
             where: { id, sellerId },
         });
 
-        return product ? this.mapProductDecimals(product) as ProductEntity : null;
+        return product ? (this.mapProductDecimals(product) as ProductEntity) : null;
     }
 
     /**
@@ -129,24 +371,28 @@ export class ProductRepository {
                     include: {
                         inventory: true,
                     },
+                    orderBy: [{ createdAt: 'asc' }],
                 },
             },
         });
 
-        return product ? this.mapProductDecimals(product) as ProductWithDetails : null;
+        return product ? (this.mapProductWithVariants(product) as ProductWithDetails) : null;
     }
 
     /**
-     * Create a new product
+     * Create a new product with inline variants
      */
     async create(sellerId: string, data: CreateProductRequest): Promise<ProductEntity> {
+        const sortedVariants = [...data.variants].sort((a, b) => a.sellerPrice - b.sellerPrice);
+        const cheapest = sortedVariants[0];
+
         const product = await prisma.product.create({
             data: {
                 sellerId,
                 categoryId: data.categoryId,
                 title: data.title,
                 description: data.description ?? null,
-                sellerPrice: data.sellerPrice,
+                sellerPrice: cheapest?.sellerPrice ?? 0,
                 adminListingPrice: null,
                 priceApprovedAt: null,
                 priceApprovedById: null,
@@ -156,6 +402,24 @@ export class ProductRepository {
                 approvedAt: null,
                 approvedById: null,
                 isPublished: false,
+                variants: {
+                    create: data.variants.map((variant) => ({
+                        size: variant.size,
+                        color: variant.color?.trim() ? variant.color.trim() : null,
+                        images: variant.images ?? [],
+                        sku: variant.sku,
+                        sellerPrice: variant.sellerPrice,
+                        adminListingPrice: null,
+                        price: variant.sellerPrice,
+                        compareAtPrice: variant.compareAtPrice ?? null,
+                        status: 'PENDING',
+                        inventory: {
+                            create: {
+                                stock: variant.initialStock ?? 0,
+                            },
+                        },
+                    })),
+                },
             },
         });
 

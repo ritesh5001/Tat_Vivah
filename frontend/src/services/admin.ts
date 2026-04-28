@@ -21,9 +21,17 @@ export interface AdminProduct {
   approvedById?: string | null;
   variants?: Array<{
     id: string;
+    size: string;
+    color?: string | null;
+    images?: string[];
     sku: string;
+    sellerPrice: number;
+    adminListingPrice?: number | null;
     price: number;
     compareAtPrice?: number | null;
+    status: "PENDING" | "APPROVED" | "REJECTED";
+    rejectionReason?: string | null;
+    approvedAt?: string | null;
     stock?: number;
   }>;
   isPublished: boolean;
@@ -37,12 +45,20 @@ export interface AdminProduct {
     reviewedBy?: string | null;
     reviewedAt?: string | null;
   } | null;
+  occasionIds?: string[];
 }
 
 export interface AdminProductVariantUpdatePayload {
   id: string;
-  price?: number;
+  size?: string;
+  color?: string | null;
+  sku?: string;
+  images?: string[];
+  sellerPrice?: number;
+  adminListingPrice?: number | null;
   compareAtPrice?: number | null;
+  status?: "PENDING" | "APPROVED" | "REJECTED";
+  rejectionReason?: string | null;
   stock?: number;
 }
 
@@ -52,7 +68,7 @@ export interface AdminProductUpdatePayload {
   description?: string;
   images?: string[];
   isPublished?: boolean;
-  sellerPrice?: number;
+  occasionIds?: string[];
   variants?: AdminProductVariantUpdatePayload[];
 }
 
@@ -101,14 +117,28 @@ export interface AdminSeller {
 export interface AdminOrder {
   id: string;
   userId: string;
+  buyerEmail?: string | null;
+  buyerPhone?: string | null;
   status: "PLACED" | "CONFIRMED" | "CANCELLED" | "SHIPPED" | "DELIVERED";
   totalAmount: number;
+  shippingName?: string | null;
+  shippingPhone?: string | null;
+  shippingEmail?: string | null;
+  shippingAddressLine1?: string | null;
+  shippingAddressLine2?: string | null;
+  shippingCity?: string | null;
+  shippingPincode?: string | null;
+  shippingNotes?: string | null;
   createdAt: string;
   items?: Array<{
     id: string;
     sellerId: string;
+    sellerEmail?: string | null;
+    sellerName?: string | null;
     productId: string;
+    productTitle?: string | null;
     variantId: string;
+    variantSku?: string | null;
     quantity: number;
     priceSnapshot: number;
     sellerPriceSnapshot: number;
@@ -847,5 +877,85 @@ export async function overrideShipmentStatus(
   return apiRequest<{ success: boolean; data: unknown }>(
     `/v1/admin/shipments/${id}/override-status`,
     { method: "PUT", body: data, token }
+  );
+}
+
+// =====================================================================
+// OCCASIONS (ADMIN)
+// =====================================================================
+
+export interface AdminOccasion {
+  id: string;
+  name: string;
+  slug: string;
+  image?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateOccasionPayload {
+  name: string;
+  image?: string;
+}
+
+export interface UpdateOccasionPayload {
+  name?: string;
+  image?: string | null;
+}
+
+export async function getAdminOccasions(token?: string | null) {
+  return apiRequest<{ occasions: AdminOccasion[] }>("/v1/admin/occasions", {
+    method: "GET",
+    token,
+  });
+}
+
+export async function createAdminOccasion(
+  data: CreateOccasionPayload,
+  token?: string | null
+) {
+  return apiRequest<{ message: string; occasion: AdminOccasion }>(
+    "/v1/admin/occasions",
+    {
+      method: "POST",
+      body: data,
+      token,
+    }
+  );
+}
+
+export async function updateAdminOccasion(
+  id: string,
+  data: UpdateOccasionPayload,
+  token?: string | null
+) {
+  return apiRequest<{ message: string; occasion: AdminOccasion }>(
+    `/v1/admin/occasions/${id}`,
+    {
+      method: "PUT",
+      body: data,
+      token,
+    }
+  );
+}
+
+export async function deleteAdminOccasion(id: string, token?: string | null) {
+  return apiRequest<{ message: string }>(
+    `/v1/admin/occasions/${id}`,
+    {
+      method: "DELETE",
+      token,
+    }
+  );
+}
+
+export async function toggleAdminOccasion(id: string, token?: string | null) {
+  return apiRequest<{ message: string; occasion: AdminOccasion }>(
+    `/v1/admin/occasions/${id}/toggle`,
+    {
+      method: "PATCH",
+      token,
+    }
   );
 }

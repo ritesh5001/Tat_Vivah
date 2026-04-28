@@ -1,6 +1,5 @@
 import * as React from "react";
 import {
-  InteractionManager,
   View,
   StyleSheet,
   FlatList,
@@ -8,13 +7,21 @@ import {
   Dimensions,
   Modal,
 } from "react-native";
+import { FlashList } from "@shopify/flash-list";
+import { useQueryClient } from "@tanstack/react-query";
+import { Ionicons } from "@expo/vector-icons";
+import {
+  ExpoSpeechRecognitionModule,
+  useSpeechRecognitionEvent,
+} from "expo-speech-recognition";
 import { Image } from "../../../src/components/CompatImage";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
+import { colors, spacing, typography, shadow } from "../../../src/theme/tokens";
 import { getCategories } from "../../../src/services/catalog";
 import {
   getProductsAndCache,
   getProductsCached,
+  getProductById,
   type ProductSummary,
 } from "../../../src/services/products";
 import { isAbortError } from "../../../src/services/api";
@@ -27,14 +34,16 @@ import {
   AppText as Text,
   ScreenContainer as SafeAreaView,
 } from "../../../src/components";
+import { useToast } from "../../../src/providers/ToastProvider";
 
 const { width } = Dimensions.get("window");
 const cardWidth = (width - spacing.lg * 2 - spacing.md) / 2;
 const fallbackImage =
   "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80";
 
-const DEBOUNCE_MS = 220;
-const SUGGEST_DEBOUNCE_MS = 160;
+const DEBOUNCE_MS = 140;
+const SUGGEST_DEBOUNCE_MS = 110;
+const DEFAULT_SEARCH_LANGUAGE = "en-IN";
 
 const SORT_OPTIONS: { value: SortOption | ""; label: string }[] = [
   { value: "", label: "Default" },
@@ -104,13 +113,15 @@ const CategoryChip = React.memo(function CategoryChip({
 
 export default function SearchScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const { showToast } = useToast();
   const params = useLocalSearchParams<{ q?: string; categoryId?: string }>();
   const initialSearch = typeof params.q === "string" ? params.q : "";
   const initialCategoryId =
     typeof params.categoryId === "string" ? params.categoryId : undefined;
 
   const [categories, setCategories] = React.useState<
-    Array<{ id: string; name: string }>
+    { id: string; name: string }[]
   >([]);
   const [selectedCategory, setSelectedCategory] = React.useState<
     string | undefined
@@ -124,8 +135,13 @@ export default function SearchScreen() {
   const [fetchError, setFetchError] = React.useState<string | null>(null);
   const [sortBy, setSortBy] = React.useState<SortOption | "">("");
   const [showSortSheet, setShowSortSheet] = React.useState(false);
+  const [showCategoryFilters, setShowCategoryFilters] = React.useState(true);
   const [suggestions, setSuggestions] = React.useState<SuggestionItem[]>([]);
   const [showSuggestions, setShowSuggestions] = React.useState(false);
+  const [voiceSupported, setVoiceSupported] = React.useState(true);
+  const [voiceListening, setVoiceListening] = React.useState(false);
+  const [voiceTranscript, setVoiceTranscript] = React.useState("");
+  const [voiceError, setVoiceError] = React.useState<string | null>(null);
 
   // Abort controller for the active search request
   const controllerRef = React.useRef<AbortController | null>(null);
@@ -135,6 +151,7 @@ export default function SearchScreen() {
   const suggestDebounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   // Suggestion abort controller
   const suggestControllerRef = React.useRef<AbortController | null>(null);
+  const speechTriggeredSearchRef = React.useRef(false);
 
   const skeletons = React.useMemo(
     () =>
@@ -148,11 +165,20 @@ export default function SearchScreen() {
   // Cleanup on unmount
   React.useEffect(() => {
     return () => {
+      ExpoSpeechRecognitionModule.stop();
       controllerRef.current?.abort();
       suggestControllerRef.current?.abort();
       if (debounceRef.current) clearTimeout(debounceRef.current);
       if (suggestDebounceRef.current) clearTimeout(suggestDebounceRef.current);
     };
+  }, []);
+
+  React.useEffect(() => {
+    try {
+      setVoiceSupported(ExpoSpeechRecognitionModule.isRecognitionAvailable());
+    } catch {
+      setVoiceSupported(false);
+    }
   }, []);
 
   React.useEffect(() => {
@@ -235,7 +261,7 @@ export default function SearchScreen() {
     controllerRef.current = controller;
     loadProducts(1, true, undefined, controller.signal);
     return () => controller.abort();
-  }, [selectedCategory, sortBy]);
+  }, [selectedCategory, sortBy, loadProducts]);
 
   // Debounced search as user types
   const handleSearchChange = React.useCallback(
@@ -308,6 +334,116 @@ export default function SearchScreen() {
     loadProducts(1, true, trimmed, controller.signal);
   }, [loadProducts, router, search, selectedCategory]);
 
+  const runVoiceSearch = React.useCallback(
+    (transcript: string) => {
+      const trimmed = transcript.trim();
+      if (!trimmed) return;
+
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      controllerRef.current?.abort();
+      setSearch(trimmed);
+      setShowSuggestions(false);
+      setSuggestions([]);
+      setVoiceError(null);
+      speechTriggeredSearchRef.current = true;
+
+      router.setParams({
+        q: trimmed,
+        categoryId: selectedCategory,
+      });
+
+      const controller = new AbortController();
+      controllerRef.current = controller;
+      loadProducts(1, true, trimmed, controller.signal);
+    },
+    [loadProducts, router, selectedCategory]
+  );
+
+  const stopVoiceSearch = React.useCallback(() => {
+    ExpoSpeechRecognitionModule.stop();
+  }, []);
+
+  const startVoiceSearch = React.useCallback(async () => {
+    if (!voiceSupported) {
+      showToast("Voice search is not available on this device.", "info");
+      return;
+    }
+
+    speechTriggeredSearchRef.current = false;
+    setVoiceError(null);
+    setVoiceTranscript("");
+    setShowSuggestions(false);
+
+    try {
+      const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+      if (!permission.granted) {
+        const message = "Microphone permission is required for voice search.";
+        setVoiceError(message);
+        showToast(message, "error");
+        return;
+      }
+
+      ExpoSpeechRecognitionModule.start({
+        lang: DEFAULT_SEARCH_LANGUAGE,
+        interimResults: true,
+        continuous: false,
+        maxAlternatives: 1,
+        contextualStrings: categories.map((category) => category.name),
+        addsPunctuation: false,
+        androidIntentOptions: {
+          EXTRA_LANGUAGE_MODEL: "web_search",
+        },
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to start voice search";
+      setVoiceError(message);
+      showToast(message, "error");
+    }
+  }, [categories, showToast, voiceSupported]);
+
+  const toggleVoiceSearch = React.useCallback(() => {
+    if (voiceListening) {
+      stopVoiceSearch();
+      return;
+    }
+
+    startVoiceSearch();
+  }, [startVoiceSearch, stopVoiceSearch, voiceListening]);
+
+  useSpeechRecognitionEvent("start", () => {
+    setVoiceListening(true);
+    setVoiceError(null);
+  });
+
+  useSpeechRecognitionEvent("end", () => {
+    setVoiceListening(false);
+    if (!speechTriggeredSearchRef.current && voiceTranscript.trim()) {
+      runVoiceSearch(voiceTranscript);
+    }
+  });
+
+  useSpeechRecognitionEvent("result", (event) => {
+    const transcript = event.results[0]?.transcript?.trim() ?? "";
+    if (!transcript) return;
+
+    setVoiceTranscript(transcript);
+    setSearch(transcript);
+
+    if (event.isFinal) {
+      runVoiceSearch(transcript);
+    }
+  });
+
+  useSpeechRecognitionEvent("error", (event) => {
+    setVoiceListening(false);
+    const message = event.message || "Voice search failed";
+    setVoiceError(message);
+    if (event.error !== "aborted") {
+      showToast(message, "error");
+    }
+  });
+
   const handleRetry = React.useCallback(() => {
     controllerRef.current?.abort();
     const controller = new AbortController();
@@ -323,11 +459,14 @@ export default function SearchScreen() {
 
   const handleProductPress = React.useCallback(
     (id: string) => {
-      InteractionManager.runAfterInteractions(() => {
-        router.push({ pathname: "/product/[id]", params: { id } });
+      void queryClient.prefetchQuery({
+        queryKey: ["product", id],
+        queryFn: ({ signal }) => getProductById(id, signal),
+        staleTime: 10 * 60 * 1000,
       });
+      router.push({ pathname: "/product/[id]", params: { id } });
     },
-    [router]
+    [queryClient, router]
   );
 
   // Stable renderItem — no inline closures
@@ -352,13 +491,20 @@ export default function SearchScreen() {
 
   const categoryKeyExtractor = React.useCallback((item: CategoryChipItem) => item.id, []);
 
+  const categoryChips = React.useMemo<CategoryChipItem[]>(
+    () => [{ id: "all", name: "All" }, ...categories],
+    [categories]
+  );
+
   const renderCategoryItem = React.useCallback(
     ({ item }: { item: CategoryChipItem }) => (
       <CategoryChip
         item={item}
-        active={selectedCategory === item.id}
+        active={item.id === "all" ? !selectedCategory : selectedCategory === item.id}
         onPress={(pressedItem, active) =>
-          handleSelectCategory(active ? undefined : pressedItem.id)
+          handleSelectCategory(
+            pressedItem.id === "all" ? undefined : active ? undefined : pressedItem.id
+          )
         }
       />
     ),
@@ -367,28 +513,85 @@ export default function SearchScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <AppHeader
-        title="Marketplace"
-        subtitle="Discover verified sellers"
-        showMenu
-        showBack
-      />
+      <AppHeader variant="sub" showBack={false} showMenu showSearch={false} showCart />
 
-      <View style={styles.searchRow}>
-        <TextInput
-          placeholder="Search collections, styles..."
-          placeholderTextColor={colors.brownSoft}
-          value={search}
-          onChangeText={handleSearchChange}
-          onSubmitEditing={() => {
-            setShowSuggestions(false);
-            handleSearch();
-          }}
-          style={styles.searchInput}
-        />
-        <Pressable style={styles.searchButton} onPress={handleSearch}>
-          <Text style={styles.searchButtonText}>Search</Text>
-        </Pressable>
+      <View style={styles.topControls}>
+        <View style={styles.searchRow}>
+          <Pressable
+            style={styles.iconControl}
+            onPress={() => setShowSortSheet(true)}
+            hitSlop={8}
+          >
+            <Ionicons name="swap-vertical-outline" size={18} color={colors.charcoal} />
+          </Pressable>
+
+          <TextInput
+            placeholder="Search product, occasion, category..."
+            placeholderTextColor={colors.brownSoft}
+            value={search}
+            onChangeText={handleSearchChange}
+            onSubmitEditing={() => {
+              setShowSuggestions(false);
+              handleSearch();
+            }}
+            style={styles.searchInput}
+          />
+          <Pressable
+            style={[
+              styles.iconControl,
+              voiceListening && styles.voiceControlActive,
+              !voiceSupported && styles.iconControlDisabled,
+            ]}
+            onPress={toggleVoiceSearch}
+            disabled={!voiceSupported}
+            hitSlop={8}
+          >
+            <Ionicons
+              name={voiceListening ? "mic" : "mic-outline"}
+              size={18}
+              color={voiceListening ? colors.background : colors.charcoal}
+            />
+          </Pressable>
+          <Pressable style={styles.searchButton} onPress={handleSearch}>
+            <Text style={styles.searchButtonText}>Search</Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.iconControl, showCategoryFilters && styles.iconControlActive]}
+            onPress={() => setShowCategoryFilters((prev) => !prev)}
+            hitSlop={8}
+          >
+            <Ionicons name="funnel-outline" size={18} color={colors.charcoal} />
+          </Pressable>
+        </View>
+
+        {voiceListening ? (
+          <Text style={styles.voiceStatusText}>
+            Listening{voiceTranscript ? `: ${voiceTranscript}` : "..."}
+          </Text>
+        ) : voiceError ? (
+          <Text style={styles.voiceErrorText}>{voiceError}</Text>
+        ) : voiceSupported ? (
+          <Text style={styles.voiceHintText}>Tap the mic and speak your search.</Text>
+        ) : (
+          <Text style={styles.voiceHintText}>Voice search is not available on this device.</Text>
+        )}
+
+        {showCategoryFilters ? (
+          <FlatList
+            data={categoryChips}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={categoryKeyExtractor}
+            contentContainerStyle={styles.categoryRow}
+            renderItem={renderCategoryItem}
+            initialNumToRender={6}
+            maxToRenderPerBatch={6}
+            windowSize={3}
+            updateCellsBatchingPeriod={24}
+            removeClippedSubviews
+          />
+        ) : null}
       </View>
 
       {/* Autocomplete suggestions */}
@@ -420,27 +623,6 @@ export default function SearchScreen() {
           ))}
         </View>
       )}
-
-      {/* Sort + Category Row */}
-      <View style={styles.sortCategoryRow}>
-        <FlatList
-          data={categories}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          keyExtractor={categoryKeyExtractor}
-          contentContainerStyle={styles.categoryRow}
-          renderItem={renderCategoryItem}
-          style={styles.categoryList}
-        />
-        <Pressable
-          style={styles.sortButton}
-          onPress={() => setShowSortSheet(true)}
-        >
-          <Text style={styles.sortButtonText}>
-            {SORT_OPTIONS.find((o) => o.value === sortBy)?.label ?? "Sort"}
-          </Text>
-        </Pressable>
-      </View>
 
       {/* Sort bottom sheet */}
       <Modal
@@ -491,15 +673,15 @@ export default function SearchScreen() {
         </View>
       ) : null}
 
-      <FlatList
+      <FlashList
         data={
-          (loading ? skeletons : products) as Array<
+          (loading ? skeletons : products) as (
             ProductSummary | { id: string; skeleton: true }
-          >
+          )[]
         }
         keyExtractor={keyExtractor}
         numColumns={2}
-        columnWrapperStyle={styles.gridRow}
+        drawDistance={Math.round(cardWidth * 3)}
         renderItem={renderItem}
         contentContainerStyle={styles.gridContent}
         showsVerticalScrollIndicator={false}
@@ -519,10 +701,6 @@ export default function SearchScreen() {
             </View>
           ) : null
         }
-        initialNumToRender={6}
-        maxToRenderPerBatch={6}
-        windowSize={5}
-        removeClippedSubviews
       />
     </SafeAreaView>
   );
@@ -533,29 +711,42 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  topControls: {
+    marginTop: spacing.sm,
+    marginHorizontal: spacing.lg,
+    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
+    borderRadius: 0,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.surfaceElevated,
+    ...shadow.card,
+  },
   searchRow: {
-    marginTop: spacing.lg,
-    paddingHorizontal: spacing.lg,
     flexDirection: "row",
-    gap: spacing.sm,
+    alignItems: "center",
+    gap: spacing.xs,
   },
   searchInput: {
     flex: 1,
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
+    backgroundColor: colors.background,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 10,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 9,
     fontFamily: typography.sans,
+    fontSize: 13,
     color: colors.charcoal,
   },
   searchButton: {
     backgroundColor: colors.gold,
     borderWidth: 1,
     borderColor: colors.gold,
-    borderRadius: radius.md,
+    borderRadius: 0,
     paddingHorizontal: spacing.md,
+    minHeight: 38,
     justifyContent: "center",
   },
   searchButtonText: {
@@ -565,9 +756,47 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     color: colors.background,
   },
+  iconControl: {
+    width: 36,
+    height: 36,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.background,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  iconControlActive: {
+    borderColor: colors.gold,
+    backgroundColor: "rgba(184, 149, 108, 0.14)",
+  },
+  iconControlDisabled: {
+    opacity: 0.45,
+  },
+  voiceControlActive: {
+    borderColor: colors.gold,
+    backgroundColor: colors.gold,
+  },
+  voiceHintText: {
+    marginTop: spacing.sm,
+    fontFamily: typography.sans,
+    fontSize: 11,
+    color: colors.brownSoft,
+  },
+  voiceStatusText: {
+    marginTop: spacing.sm,
+    fontFamily: typography.sansMedium,
+    fontSize: 11,
+    color: colors.gold,
+  },
+  voiceErrorText: {
+    marginTop: spacing.sm,
+    fontFamily: typography.sans,
+    fontSize: 11,
+    color: "#A65D57",
+  },
   categoryRow: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
     gap: spacing.sm,
   },
   categoryChip: {
@@ -575,7 +804,7 @@ const styles = StyleSheet.create({
     borderColor: colors.borderSoft,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderRadius: 20,
+    borderRadius: 0,
     backgroundColor: colors.surface,
   },
   categoryChipActive: {
@@ -601,15 +830,16 @@ const styles = StyleSheet.create({
     width: cardWidth,
     marginBottom: spacing.md,
     padding: spacing.md,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     ...shadow.card,
   },
   productImage: {
-    height: 160,
-    borderRadius: radius.md,
+    width: "100%",
+    aspectRatio: 3 / 4,
+    borderRadius: 0,
     backgroundColor: colors.surface,
   },
   productTitle: {
@@ -626,14 +856,14 @@ const styles = StyleSheet.create({
   },
   skeletonLine: {
     height: 12,
-    borderRadius: 6,
+    borderRadius: 0,
     backgroundColor: colors.cream,
     marginTop: spacing.sm,
   },
   skeletonLineShort: {
     height: 12,
     width: "60%",
-    borderRadius: 6,
+    borderRadius: 0,
     backgroundColor: colors.cream,
     marginTop: spacing.xs,
   },
@@ -650,7 +880,7 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.lg,
     marginBottom: spacing.md,
     padding: spacing.lg,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: colors.surfaceElevated,
@@ -674,7 +904,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gold,
     borderWidth: 1,
     borderColor: colors.gold,
-    borderRadius: radius.md,
+    borderRadius: 0,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
   },
@@ -690,10 +920,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   suggestionsContainer: {
+    marginTop: spacing.xs,
     marginHorizontal: spacing.lg,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    borderRadius: radius.md,
+    borderRadius: 0,
     backgroundColor: colors.surfaceElevated,
     ...shadow.card,
     maxHeight: 220,
@@ -721,29 +952,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     marginLeft: spacing.sm,
   },
-  sortCategoryRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  categoryList: {
-    flex: 1,
-  },
-  sortButton: {
-    marginRight: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.surface,
-  },
-  sortButtonText: {
-    fontFamily: typography.sansMedium,
-    fontSize: 10,
-    letterSpacing: 0.8,
-    textTransform: "uppercase",
-    color: colors.charcoal,
-  },
   sortOverlay: {
     flex: 1,
     justifyContent: "flex-end",
@@ -751,8 +959,8 @@ const styles = StyleSheet.create({
   },
   sortSheet: {
     backgroundColor: colors.surfaceElevated,
-    borderTopLeftRadius: radius.lg,
-    borderTopRightRadius: radius.lg,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
     paddingVertical: spacing.lg,
     paddingHorizontal: spacing.lg,
   },
@@ -769,7 +977,7 @@ const styles = StyleSheet.create({
   },
   sortSheetOptionActive: {
     backgroundColor: "rgba(184, 149, 108, 0.14)",
-    borderRadius: radius.sm,
+    borderRadius: 0,
     marginHorizontal: -spacing.sm,
     paddingHorizontal: spacing.sm,
   },

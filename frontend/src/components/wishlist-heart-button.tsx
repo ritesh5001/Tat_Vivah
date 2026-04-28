@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { toggleWishlistItem, checkWishlistItems } from "@/services/wishlist";
+import { startNavigationFeedback } from "@/lib/navigation-feedback";
 
 interface WishlistHeartButtonProps {
   productId: string;
@@ -51,6 +52,7 @@ export function WishlistHeartButton({
       document.cookie.match(/(?:^|; )tatvivah_access=([^;]*)/);
     if (!hasToken) {
       toast.error("Please sign in to save items.");
+      startNavigationFeedback();
       router.push("/login?force=1");
       return;
     }

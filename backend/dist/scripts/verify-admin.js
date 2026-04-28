@@ -72,8 +72,11 @@ async function verifyAdmin() {
                 sellerPrice: 500,
                 variants: {
                     create: {
+                        size: 'Default',
                         sku: `ADM_SKU_${Date.now()}`,
+                        sellerPrice: 500,
                         price: 500,
+                        status: 'PENDING',
                         inventory: { create: { stock: 10 } }
                     }
                 }

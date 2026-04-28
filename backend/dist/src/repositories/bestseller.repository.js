@@ -18,6 +18,7 @@ export class BestsellerRepository {
             where: {
                 product: {
                     isPublished: true,
+                    status: 'APPROVED',
                     deletedByAdmin: false,
                 },
             },
@@ -26,7 +27,9 @@ export class BestsellerRepository {
             include: {
                 product: {
                     include: {
-                        variants: true,
+                        variants: {
+                            where: { status: 'APPROVED' },
+                        },
                         category: { select: { name: true } },
                     },
                 },

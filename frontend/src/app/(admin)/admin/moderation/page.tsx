@@ -5,9 +5,9 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  getPendingProducts,
-  setProductPrice,
   AdminProduct,
+  getPendingProducts,
+  updateProductDetails,
 } from "@/services/admin";
 import { toast } from "sonner";
 
@@ -17,12 +17,15 @@ const currency = new Intl.NumberFormat("en-IN", {
   maximumFractionDigits: 0,
 });
 
-const getMarginStyle = (margin?: number | null) => {
-  if (margin == null) return "border-border-soft text-muted-foreground bg-card";
-  if (margin > 0) return "border-gold/30 text-gold bg-gold/10";
-  if (margin === 0) return "border-border-soft text-muted-foreground bg-card";
-  return "border-destructive/40 text-destructive bg-destructive/10";
-};
+type VariantReviewState = Record<
+  string,
+  {
+    adminListingPrice: string;
+    compareAtPrice: string;
+    status: "PENDING" | "APPROVED" | "REJECTED";
+    rejectionReason: string;
+  }
+>;
 
 const getStatusStyle = (status?: string | null) => {
   switch (String(status ?? "PENDING").toUpperCase()) {
@@ -35,12 +38,28 @@ const getStatusStyle = (status?: string | null) => {
   }
 };
 
+const buildVariantReviewState = (product: AdminProduct): VariantReviewState => {
+  const next: VariantReviewState = {};
+  for (const variant of product.variants ?? []) {
+    next[variant.id] = {
+      adminListingPrice:
+        variant.adminListingPrice != null ? String(variant.adminListingPrice) : "",
+      compareAtPrice:
+        variant.compareAtPrice != null ? String(variant.compareAtPrice) : "",
+      status: variant.status ?? "PENDING",
+      rejectionReason: variant.rejectionReason ?? "",
+    };
+  }
+  return next;
+};
+
 export default function AdminModerationPage() {
   const [loading, setLoading] = React.useState(true);
+  const [saving, setSaving] = React.useState(false);
+  const [products, setProducts] = React.useState<AdminProduct[]>([]);
   const [selectedProduct, setSelectedProduct] =
     React.useState<AdminProduct | null>(null);
-  const [products, setProducts] = React.useState<AdminProduct[]>([]);
-  const [adminPriceInput, setAdminPriceInput] = React.useState("");
+  const [variantState, setVariantState] = React.useState<VariantReviewState>({});
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -59,57 +78,130 @@ export default function AdminModerationPage() {
   }, []);
 
   React.useEffect(() => {
-    load();
+    void load();
   }, [load]);
 
-  const submitPrice = async () => {
+  const openReviewModal = (product: AdminProduct) => {
+    setSelectedProduct(product);
+    setVariantState(buildVariantReviewState(product));
+  };
+
+  const closeReviewModal = () => {
+    setSelectedProduct(null);
+    setVariantState({});
+  };
+
+  const updateVariant = (
+    variantId: string,
+    patch: Partial<VariantReviewState[string]>
+  ) => {
+    setVariantState((prev) => ({
+      ...prev,
+      [variantId]: {
+        adminListingPrice: prev[variantId]?.adminListingPrice ?? "",
+        compareAtPrice: prev[variantId]?.compareAtPrice ?? "",
+        status: prev[variantId]?.status ?? "PENDING",
+        rejectionReason: prev[variantId]?.rejectionReason ?? "",
+        ...patch,
+      },
+    }));
+  };
+
+  const applyBulkStatus = (status: "APPROVED" | "REJECTED") => {
     if (!selectedProduct) return;
-    const nextPrice = Number(adminPriceInput);
-    if (Number.isNaN(nextPrice) || nextPrice <= 0) {
-      toast.error("Enter a valid admin listing price.");
-      return;
-    }
-    const sellerPrice = Number(selectedProduct.sellerPrice ?? 0);
-    if (sellerPrice > 0 && nextPrice < sellerPrice) {
-      toast.error("Admin listing price cannot be lower than seller price.");
-      return;
-    }
+    setVariantState((prev) => {
+      const next = { ...prev };
+      for (const variant of selectedProduct.variants ?? []) {
+        if (variant.status !== "PENDING") continue;
+        next[variant.id] = {
+          adminListingPrice:
+            prev[variant.id]?.adminListingPrice ??
+            (variant.adminListingPrice != null ? String(variant.adminListingPrice) : ""),
+          compareAtPrice:
+            prev[variant.id]?.compareAtPrice ??
+            (variant.compareAtPrice != null ? String(variant.compareAtPrice) : ""),
+          status,
+          rejectionReason:
+            status === "REJECTED"
+              ? prev[variant.id]?.rejectionReason ?? "Rejected during moderation"
+              : "",
+        };
+      }
+      return next;
+    });
+  };
+
+  const submitReview = async () => {
+    if (!selectedProduct) return;
 
     try {
-      await setProductPrice(selectedProduct.id, nextPrice);
-      toast.success("Product approved successfully.");
-      setSelectedProduct(null);
-      setAdminPriceInput("");
+      const variants = (selectedProduct.variants ?? []).map((variant) => {
+        const current = variantState[variant.id] ?? {
+          adminListingPrice:
+            variant.adminListingPrice != null ? String(variant.adminListingPrice) : "",
+          compareAtPrice:
+            variant.compareAtPrice != null ? String(variant.compareAtPrice) : "",
+          status: variant.status ?? "PENDING",
+          rejectionReason: variant.rejectionReason ?? "",
+        };
+
+        const adminListingPrice = current.adminListingPrice.trim()
+          ? Number(current.adminListingPrice)
+          : null;
+        const compareAtPrice = current.compareAtPrice.trim()
+          ? Number(current.compareAtPrice)
+          : null;
+
+        if (
+          adminListingPrice != null &&
+          (!Number.isFinite(adminListingPrice) ||
+            adminListingPrice < Number(variant.sellerPrice ?? 0))
+        ) {
+          throw new Error(
+            `${variant.sku}: admin price cannot be lower than seller price.`
+          );
+        }
+
+        const effectivePrice =
+          adminListingPrice ?? Number(variant.sellerPrice ?? 0);
+        if (
+          compareAtPrice != null &&
+          (!Number.isFinite(compareAtPrice) || compareAtPrice <= effectivePrice)
+        ) {
+          throw new Error(
+            `${variant.sku}: compare-at price must be greater than the selling price.`
+          );
+        }
+
+        if (current.status === "REJECTED" && !current.rejectionReason.trim()) {
+          throw new Error(`${variant.sku}: provide a rejection reason.`);
+        }
+
+        return {
+          id: variant.id,
+          adminListingPrice,
+          compareAtPrice,
+          status: current.status,
+          rejectionReason:
+            current.status === "REJECTED"
+              ? current.rejectionReason.trim()
+              : null,
+        };
+      });
+
+      setSaving(true);
+      await updateProductDetails(selectedProduct.id, { variants });
+      toast.success("Variant review saved.");
+      closeReviewModal();
       await load();
     } catch (error) {
       toast.error(
-        error instanceof Error
-          ? error.message
-          : "Unable to approve product"
+        error instanceof Error ? error.message : "Unable to save variant review"
       );
+    } finally {
+      setSaving(false);
     }
   };
-
-  const openPriceModal = (product: AdminProduct) => {
-    setSelectedProduct(product);
-    setAdminPriceInput(
-      product.adminListingPrice != null ? String(product.adminListingPrice) : ""
-    );
-  };
-
-  const previewMargin = React.useMemo(() => {
-    if (!selectedProduct) return { margin: null as number | null, percentage: null as number | null };
-    const seller = Number(selectedProduct.sellerPrice ?? 0);
-    const admin = Number(adminPriceInput);
-    if (Number.isNaN(admin) || admin <= 0 || seller <= 0) {
-      return { margin: null, percentage: null };
-    }
-    const margin = admin - seller;
-    return {
-      margin,
-      percentage: (margin / seller) * 100,
-    };
-  }, [adminPriceInput, selectedProduct]);
 
   return (
     <div className="min-h-[calc(100vh-160px)] bg-background dark:bg-card">
@@ -121,13 +213,14 @@ export default function AdminModerationPage() {
       >
         <div className="space-y-4">
           <p className="text-[11px] font-medium uppercase tracking-[0.3em] text-gold">
-            Pricing Control Panel
+            Variant Moderation
           </p>
           <h1 className="font-serif text-4xl font-light tracking-tight text-foreground sm:text-5xl">
             Approval Requests
           </h1>
           <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-            Review seller product submissions, set admin listing price, and approve products.
+            Review seller pricing per variant, optionally set public admin prices,
+            and approve or reject each size and color combination independently.
           </p>
         </div>
 
@@ -150,87 +243,92 @@ export default function AdminModerationPage() {
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-border-soft">
-                    <th className="p-5 text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">Image</th>
-                    <th className="p-5 text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">Product Name</th>
-                    <th className="p-5 text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">Seller</th>
-                    <th className="p-5 text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">Seller Price</th>
-                    <th className="p-5 text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">Admin Price</th>
-                    <th className="p-5 text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">Margin</th>
-                    <th className="p-5 text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">Margin %</th>
-                    <th className="p-5 text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">Status</th>
-                    <th className="p-5 text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">Action</th>
+                    <th className="p-5 text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                      Product
+                    </th>
+                    <th className="p-5 text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                      Seller
+                    </th>
+                    <th className="p-5 text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                      Variants
+                    </th>
+                    <th className="p-5 text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                      Pending
+                    </th>
+                    <th className="p-5 text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                      Lowest Seller Price
+                    </th>
+                    <th className="p-5 text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                      Action
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border-soft">
-                  {products.map((product, index) => (
-                    <motion.tr
-                      key={product.id}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: 0.08 + index * 0.03, duration: 0.3 }}
-                      className="hover:bg-cream/30 dark:hover:bg-brown/10"
-                    >
-                      <td className="p-5">
-                        <div className="h-12 w-12 overflow-hidden border border-border-soft bg-card">
-                          <img
-                            src={product.images?.[0] ?? "/images/product-placeholder.svg"}
-                            alt={product.title}
-                            className="h-full w-full object-cover"
-                          />
-                        </div>
-                      </td>
-                      <td className="p-5">
-                        <p className="font-medium text-foreground">{product.title}</p>
-                      </td>
-                      <td className="p-5 text-muted-foreground">
-                        {product.sellerName ?? product.sellerEmail ?? product.sellerId.slice(0, 8)}
-                      </td>
-                      <td className="p-5 text-muted-foreground">
-                        {currency.format(Number(product.sellerPrice ?? 0))}
-                      </td>
-                      <td className="p-5 text-muted-foreground">
-                        {product.adminListingPrice != null
-                          ? currency.format(Number(product.adminListingPrice))
-                          : "—"}
-                      </td>
-                      <td className="p-5">
-                        {product.adminListingPrice != null && (product.sellerPrice ?? 0) > 0 ? (
+                  {products.map((product, index) => {
+                    const variants = product.variants ?? [];
+                    const pendingCount = variants.filter(
+                      (variant) => variant.status === "PENDING"
+                    ).length;
+                    const lowestSellerPrice =
+                      variants.length > 0
+                        ? Math.min(
+                            ...variants.map((variant) =>
+                              Number(variant.sellerPrice ?? 0)
+                            )
+                          )
+                        : 0;
+
+                    return (
+                      <motion.tr
+                        key={product.id}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.08 + index * 0.03, duration: 0.3 }}
+                        className="hover:bg-cream/30 dark:hover:bg-brown/10"
+                      >
+                        <td className="p-5">
+                          <div className="space-y-1">
+                            <p className="font-medium text-foreground">
+                              {product.title}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {product.categoryName ?? "Uncategorized"}
+                            </p>
+                          </div>
+                        </td>
+                        <td className="p-5 text-muted-foreground">
+                          {product.sellerName ??
+                            product.sellerEmail ??
+                            product.sellerId.slice(0, 8)}
+                        </td>
+                        <td className="p-5 text-muted-foreground">
+                          {variants.length}
+                        </td>
+                        <td className="p-5">
                           <span
-                            className={`px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider border ${getMarginStyle(
-                              Number(product.adminListingPrice) - Number(product.sellerPrice ?? 0)
+                            className={`px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider border ${getStatusStyle(
+                              pendingCount > 0 ? "PENDING" : product.status
                             )}`}
                           >
-                            {currency.format(
-                              Number(product.adminListingPrice) - Number(product.sellerPrice ?? 0)
-                            )}
+                            {pendingCount} pending
                           </span>
-                        ) : (
-                          <span className={`px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider border ${getMarginStyle(null)}`}>
-                            Pending
-                          </span>
-                        )}
-                      </td>
-                      <td className="p-5 text-muted-foreground">
-                        {product.adminListingPrice != null && (product.sellerPrice ?? 0) > 0
-                          ? `${(
-                              ((Number(product.adminListingPrice) - Number(product.sellerPrice ?? 0)) /
-                                Number(product.sellerPrice ?? 0)) *
-                              100
-                            ).toFixed(2)}%`
-                          : "—"}
-                      </td>
-                      <td className="p-5">
-                        <span className={`px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider border ${getStatusStyle(product.status ?? "PENDING")}`}>
-                          {product.status ?? "PENDING"}
-                        </span>
-                      </td>
-                      <td className="p-5">
-                        <Button size="sm" variant="outline" onClick={() => openPriceModal(product)}>
-                          Review & Approve
-                        </Button>
-                      </td>
-                    </motion.tr>
-                  ))}
+                        </td>
+                        <td className="p-5 text-muted-foreground">
+                          {currency.format(lowestSellerPrice)}
+                        </td>
+                        <td className="p-5">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="whitespace-nowrap px-3 text-[10px]"
+                            onClick={() => openReviewModal(product)}
+                          >
+                            Review Variants
+                          </Button>
+                        </td>
+                      </motion.tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -244,7 +342,7 @@ export default function AdminModerationPage() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="fixed inset-0 z-50 flex items-center justify-center bg-charcoal/50 p-4"
-              onClick={() => setSelectedProduct(null)}
+              onClick={closeReviewModal}
             >
               <motion.div
                 initial={{ opacity: 0, y: 12, scale: 0.98 }}
@@ -252,52 +350,173 @@ export default function AdminModerationPage() {
                 exit={{ opacity: 0, y: 10, scale: 0.98 }}
                 transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
                 onClick={(event) => event.stopPropagation()}
-                className="w-full max-w-xl max-h-[90vh] overflow-y-auto border border-border-soft bg-card p-6 space-y-6"
+                className="w-full max-w-5xl max-h-[90vh] overflow-y-auto border border-border-soft bg-card p-6 space-y-6"
               >
                 <div className="flex items-start justify-between gap-4 border-b border-border-soft pb-4">
                   <div className="space-y-1">
-                    <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-gold">Pricing Review</p>
-                    <h2 className="font-serif text-2xl font-light text-foreground">{selectedProduct.title}</h2>
-                  </div>
-                  <span className={`px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider border ${getStatusStyle(selectedProduct.status)}`}>
-                    {selectedProduct.status ?? "PENDING"}
-                  </span>
-                </div>
-
-                <div className="space-y-3">
-                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Seller</p>
-                  <p className="text-sm text-muted-foreground">{selectedProduct.sellerName ?? selectedProduct.sellerEmail ?? selectedProduct.sellerId}</p>
-                  <p className="text-sm text-muted-foreground">
-                    Seller Price: {currency.format(Number(selectedProduct.sellerPrice ?? 0))}
-                  </p>
-                </div>
-
-                <div className="space-y-3">
-                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Admin Price</p>
-                  <Input
-                    type="number"
-                    min="1"
-                    step="0.01"
-                    value={adminPriceInput}
-                    onChange={(event) => setAdminPriceInput(event.target.value)}
-                    placeholder="Enter admin listing price"
-                  />
-                  <div className="grid gap-2 sm:grid-cols-2 text-sm text-muted-foreground">
-                    <p>
-                      Margin: {previewMargin.margin != null ? currency.format(previewMargin.margin) : "—"}
+                    <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-gold">
+                      Variant Pricing Review
                     </p>
-                    <p>
-                      Margin %: {previewMargin.percentage != null ? `${previewMargin.percentage.toFixed(2)}%` : "—"}
+                    <h2 className="font-serif text-2xl font-light text-foreground">
+                      {selectedProduct.title}
+                    </h2>
+                    <p className="text-sm text-muted-foreground">
+                      Seller:{" "}
+                      {selectedProduct.sellerName ??
+                        selectedProduct.sellerEmail ??
+                        selectedProduct.sellerId}
                     </p>
                   </div>
-                  <div className="flex flex-wrap gap-3">
-                    <Button size="sm" onClick={submitPrice}>
-                      Approve & Set Price
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => applyBulkStatus("APPROVED")}
+                    >
+                      Approve Pending
                     </Button>
-                    <Button size="sm" variant="ghost" onClick={() => setSelectedProduct(null)}>
-                      Close
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => applyBulkStatus("REJECTED")}
+                    >
+                      Reject Pending
                     </Button>
                   </div>
+                </div>
+
+                <div className="space-y-4">
+                  {(selectedProduct.variants ?? []).map((variant) => {
+                    const current = variantState[variant.id];
+                    const adminListingPrice = current?.adminListingPrice ?? "";
+                    const compareAtPrice = current?.compareAtPrice ?? "";
+                    const effectivePrice = adminListingPrice.trim()
+                      ? Number(adminListingPrice)
+                      : Number(variant.sellerPrice ?? 0);
+
+                    return (
+                      <div
+                        key={variant.id}
+                        className="space-y-4 border border-border-soft p-4"
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-4">
+                          <div className="space-y-1">
+                            <p className="font-medium text-foreground">
+                              {variant.size} {variant.color ? `· ${variant.color}` : ""}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              SKU: {variant.sku}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Seller price: {currency.format(Number(variant.sellerPrice ?? 0))}
+                            </p>
+                          </div>
+                          <span
+                            className={`px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider border ${getStatusStyle(
+                              current?.status ?? variant.status
+                            )}`}
+                          >
+                            {current?.status ?? variant.status}
+                          </span>
+                        </div>
+
+                        <div className="grid gap-3 md:grid-cols-4">
+                          <label className="space-y-1">
+                            <span className="text-xs text-muted-foreground">
+                              Admin Price
+                            </span>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={adminListingPrice}
+                              placeholder="Optional"
+                              onChange={(event) =>
+                                updateVariant(variant.id, {
+                                  adminListingPrice: event.target.value,
+                                })
+                              }
+                            />
+                          </label>
+                          <label className="space-y-1">
+                            <span className="text-xs text-muted-foreground">
+                              Compare At
+                            </span>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={compareAtPrice}
+                              placeholder="Optional"
+                              onChange={(event) =>
+                                updateVariant(variant.id, {
+                                  compareAtPrice: event.target.value,
+                                })
+                              }
+                            />
+                          </label>
+                          <label className="space-y-1">
+                            <span className="text-xs text-muted-foreground">
+                              Status
+                            </span>
+                            <select
+                              className="h-10 w-full border border-border-soft bg-card px-3 text-sm text-foreground"
+                              value={current?.status ?? variant.status}
+                              onChange={(event) =>
+                                updateVariant(variant.id, {
+                                  status: event.target.value as
+                                    | "PENDING"
+                                    | "APPROVED"
+                                    | "REJECTED",
+                                })
+                              }
+                            >
+                              <option value="PENDING">Pending</option>
+                              <option value="APPROVED">Approved</option>
+                              <option value="REJECTED">Rejected</option>
+                            </select>
+                          </label>
+                          <div className="space-y-1 rounded border border-border-soft px-3 py-2">
+                            <p className="text-xs text-muted-foreground">
+                              Effective Sell Price
+                            </p>
+                            <p className="font-medium text-foreground">
+                              {currency.format(effectivePrice)}
+                            </p>
+                          </div>
+                        </div>
+
+                        <label className="space-y-1">
+                          <span className="text-xs text-muted-foreground">
+                            Rejection Reason
+                          </span>
+                          <Input
+                            value={current?.rejectionReason ?? ""}
+                            placeholder="Required if rejected"
+                            onChange={(event) =>
+                              updateVariant(variant.id, {
+                                rejectionReason: event.target.value,
+                              })
+                            }
+                          />
+                        </label>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="flex flex-wrap gap-3">
+                  <Button size="sm" onClick={submitReview} disabled={saving}>
+                    {saving ? "Saving…" : "Save Review"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={closeReviewModal}
+                    disabled={saving}
+                  >
+                    Close
+                  </Button>
                 </div>
               </motion.div>
             </motion.div>

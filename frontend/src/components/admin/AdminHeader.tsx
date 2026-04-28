@@ -2,11 +2,15 @@
 
 import Link from "next/link";
 import { signOut } from "@/services/auth";
+import { getStorefrontUrl } from "@/lib/subdomain";
 
 export function AdminHeader() {
+  const homeUrl = getStorefrontUrl("home");
+  const shopUrl = getStorefrontUrl("shop");
+
   return (
     <header className="sticky top-0 z-40 border-b border-border-soft bg-background">
-      <div className="mx-auto flex h-16 w-full max-w-[1600px] items-center justify-between px-4 sm:px-6">
+      <div className="mx-auto flex h-16 w-full max-w-400 items-center justify-between px-4 sm:px-6">
         <div className="flex items-center gap-3">
           <div className="h-7 w-1 bg-gold" />
           <div>
@@ -16,6 +20,18 @@ export function AdminHeader() {
         </div>
 
         <div className="flex items-center gap-2">
+          <a
+            href={homeUrl}
+            className="inline-flex h-9 items-center border border-border-soft px-4 text-xs font-medium uppercase tracking-[0.12em] text-foreground transition-colors hover:bg-cream"
+          >
+            Home
+          </a>
+          <a
+            href={shopUrl}
+            className="inline-flex h-9 items-center border border-border-soft px-4 text-xs font-medium uppercase tracking-[0.12em] text-foreground transition-colors hover:bg-cream"
+          >
+            Shop
+          </a>
           <Link
             href="/admin/dashboard"
             className="inline-flex h-9 items-center border border-border-soft px-4 text-xs font-medium uppercase tracking-[0.12em] text-foreground transition-colors hover:bg-cream"

@@ -98,6 +98,25 @@ export declare class NotificationService {
         sentAt: Date | null;
     }>;
     /**
+     * Trigger SHIPMENT_CREATED (Buyer)
+     */
+    notifyShipmentCreated(userId: string, orderId: string, carrier: string, trackingNumber: string): Promise<{
+        status: import(".prisma/client").$Enums.NotificationStatus;
+        type: import(".prisma/client").$Enums.NotificationType;
+        id: string;
+        role: import(".prisma/client").$Enums.Role | null;
+        createdAt: Date;
+        metadata: import("@prisma/client/runtime/library").JsonValue | null;
+        userId: string | null;
+        channel: import(".prisma/client").$Enums.NotificationChannel;
+        subject: string | null;
+        content: string;
+        eventKey: string | null;
+        isRead: boolean;
+        readAt: Date | null;
+        sentAt: Date | null;
+    }>;
+    /**
      * Trigger ORDER_SHIPPED (Buyer)
      */
     notifyOrderShipped(userId: string, orderId: string, carrier: string, trackingNumber: string): Promise<{

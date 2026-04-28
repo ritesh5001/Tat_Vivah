@@ -1,10 +1,16 @@
+import { prisma } from '../config/db.js';
 import type { ProductEntity, ProductWithCategory, ProductWithDetails, CreateProductRequest, UpdateProductRequest, ProductQueryFilters } from '../types/product.types.js';
+type ProductTx = typeof prisma;
 /**
  * Product Repository
  * Handles database operations for products
  */
 export declare class ProductRepository {
+    private resolvePagination;
     private mapProductDecimals;
+    private mapVariantFields;
+    private mapProductWithVariants;
+    syncVariantSummary(productId: string, tx?: ProductTx): Promise<ProductEntity>;
     /**
      * Find published products with pagination and filters
      */
@@ -19,7 +25,10 @@ export declare class ProductRepository {
     /**
      * Find all products for a seller
      */
-    findBySellerId(sellerId: string): Promise<ProductWithDetails[]>;
+    findBySellerId(sellerId: string, params?: {
+        page?: number;
+        limit?: number;
+    }): Promise<ProductWithDetails[]>;
     /**
      * Find product by ID and seller (ownership check)
      */
@@ -29,7 +38,7 @@ export declare class ProductRepository {
      */
     findByIdWithDetails(id: string): Promise<ProductWithDetails | null>;
     /**
-     * Create a new product
+     * Create a new product with inline variants
      */
     create(sellerId: string, data: CreateProductRequest): Promise<ProductEntity>;
     /**
@@ -46,4 +55,5 @@ export declare class ProductRepository {
     exists(id: string): Promise<boolean>;
 }
 export declare const productRepository: ProductRepository;
+export {};
 //# sourceMappingURL=product.repository.d.ts.map

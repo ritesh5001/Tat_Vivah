@@ -24,22 +24,22 @@ import {
 
 export default function RequestOtpScreen() {
   const router = useRouter();
-  const [email, setEmail] = React.useState("");
+  const [method, setMethod] = React.useState<"phone" | "email">("phone");
+  const [identifier, setIdentifier] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
   const handleRequestOtp = async () => {
-    const trimmed = email.trim().toLowerCase();
+    const trimmed = method === "phone" ? identifier.trim() : identifier.trim().toLowerCase();
     if (!trimmed) {
-      setError("Please enter your email address.");
+      setError(method === "phone" ? "Please enter your mobile number." : "Please enter your email address.");
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      await requestOtp({ email: trimmed });
-      // Navigate to verify-otp, passing email as a search param
-      router.push({ pathname: "/(auth)/verify-otp", params: { email: trimmed } });
+      await requestOtp(method === "phone" ? { phone: trimmed } : { email: trimmed });
+      router.push({ pathname: "/(auth)/verify-otp", params: method === "phone" ? { method: "phone", phone: trimmed } : { method: "email", email: trimmed } });
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Failed to send OTP";
@@ -66,20 +66,31 @@ export default function RequestOtpScreen() {
 
         <Text style={styles.title}>Sign in with OTP</Text>
         <Text style={styles.subtitle}>
-          We'll send a one-time code to your email.
+          {method === "phone"
+            ? "We'll send a one-time code to your mobile number."
+            : "We'll send a one-time code to your email address."}
         </Text>
 
         <View style={styles.card}>
-          <Text style={styles.label}>Email address</Text>
+          <View style={styles.toggleRow}>
+            <Pressable onPress={() => setMethod("phone")} style={[styles.toggleButton, method === "phone" && styles.toggleButtonActive]}>
+              <Text style={[styles.toggleButtonText, method === "phone" && styles.toggleButtonTextActive]}>Mobile OTP</Text>
+            </Pressable>
+            <Pressable onPress={() => setMethod("email")} style={[styles.toggleButton, method === "email" && styles.toggleButtonActive]}>
+              <Text style={[styles.toggleButtonText, method === "email" && styles.toggleButtonTextActive]}>Email OTP</Text>
+            </Pressable>
+          </View>
+
+          <Text style={styles.label}>{method === "phone" ? "Mobile number" : "Email address"}</Text>
           <TextInput
-            placeholder="you@example.com"
+            placeholder={method === "phone" ? "9876543210" : "you@example.com"}
             placeholderTextColor={colors.brownSoft}
             style={styles.input}
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
+            value={identifier}
+            onChangeText={setIdentifier}
+            keyboardType={method === "phone" ? "phone-pad" : "email-address"}
             autoCapitalize="none"
-            autoComplete="email"
+            autoComplete={method === "phone" ? "tel" : "email"}
             autoCorrect={false}
             returnKeyType="send"
             onSubmitEditing={handleRequestOtp}
@@ -128,7 +139,7 @@ const styles = StyleSheet.create({
   logoBadge: {
     height: 44,
     width: 44,
-    borderRadius: 12,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: colors.surface,
@@ -167,11 +178,37 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: colors.surfaceElevated,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     padding: spacing.lg,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     ...shadow.card,
+  },
+  toggleRow: {
+    flexDirection: "row",
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    marginBottom: spacing.md,
+  },
+  toggleButton: {
+    flex: 1,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surface,
+  },
+  toggleButtonActive: {
+    backgroundColor: colors.charcoal,
+  },
+  toggleButtonText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 11,
+    letterSpacing: 1.2,
+    color: colors.brown,
+    textTransform: "uppercase",
+  },
+  toggleButtonTextActive: {
+    color: colors.background,
   },
   label: {
     fontFamily: typography.sansMedium,
@@ -183,7 +220,7 @@ const styles = StyleSheet.create({
   },
   input: {
     height: 48,
-    borderRadius: radius.md,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     paddingHorizontal: spacing.md,
@@ -196,7 +233,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gold,
     borderWidth: 1,
     borderColor: colors.gold,
-    borderRadius: radius.md,
+    borderRadius: 0,
     paddingVertical: spacing.sm,
     alignItems: "center",
   },

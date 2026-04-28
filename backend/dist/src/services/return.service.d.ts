@@ -15,8 +15,8 @@ export declare class ReturnService {
             orderItemId: string;
         }[];
     } & {
-        reason: string;
         status: import(".prisma/client").$Enums.ReturnStatus;
+        reason: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
@@ -28,34 +28,7 @@ export declare class ReturnService {
         refundAmount: number | null;
     }>;
     getMyReturns(userId: string): Promise<{
-        returns: ({
-            order: {
-                status: import(".prisma/client").$Enums.OrderStatus;
-                id: string;
-                createdAt: Date;
-                totalAmount: number;
-            };
-            items: {
-                variantId: string;
-                reason: string | null;
-                id: string;
-                quantity: number;
-                returnRequestId: string;
-                orderItemId: string;
-            }[];
-        } & {
-            reason: string;
-            status: import(".prisma/client").$Enums.ReturnStatus;
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            userId: string;
-            reviewedBy: string | null;
-            reviewedAt: Date | null;
-            rejectionReason: string | null;
-            orderId: string;
-            refundAmount: number | null;
-        })[];
+        returns: unknown[];
     }>;
     getReturnById(userId: string, returnId: string): Promise<{
         order: {
@@ -81,8 +54,8 @@ export declare class ReturnService {
             orderItemId: string;
         })[];
     } & {
-        reason: string;
         status: import(".prisma/client").$Enums.ReturnStatus;
+        reason: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
@@ -98,44 +71,7 @@ export declare class ReturnService {
         userId?: string;
         orderId?: string;
     }): Promise<{
-        returns: ({
-            user: {
-                id: string;
-                email: string | null;
-                user_profiles: {
-                    full_name: string;
-                } | null;
-            };
-            order: {
-                status: import(".prisma/client").$Enums.OrderStatus;
-                id: string;
-                createdAt: Date;
-                payment: {
-                    status: import(".prisma/client").$Enums.PaymentStatus;
-                } | null;
-                totalAmount: number;
-            };
-            items: {
-                variantId: string;
-                reason: string | null;
-                id: string;
-                quantity: number;
-                returnRequestId: string;
-                orderItemId: string;
-            }[];
-        } & {
-            reason: string;
-            status: import(".prisma/client").$Enums.ReturnStatus;
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            userId: string;
-            reviewedBy: string | null;
-            reviewedAt: Date | null;
-            rejectionReason: string | null;
-            orderId: string;
-            refundAmount: number | null;
-        })[];
+        returns: unknown[];
     }>;
     approveReturn(adminId: string, returnId: string): Promise<{
         success: boolean;

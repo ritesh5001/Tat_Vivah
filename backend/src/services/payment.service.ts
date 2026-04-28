@@ -1,17 +1,18 @@
 
 import { paymentRepository } from '../repositories/payment.repository.js';
-import { orderRepository } from '../repositories/order.repository.js';
 import { PaymentProvider, PaymentStatus, PaymentEventType, OrderStatus } from '@prisma/client';
 import { prisma } from '../config/db.js';
 import { ApiError } from '../errors/ApiError.js';
 import { razorpayService } from './razorpay.service.js';
-import { isRazorpayConfigured, razorpayClient } from './razorpay.client.js';
+import { getRazorpayKeyId, isRazorpayConfigured, razorpayClient } from './razorpay.client.js';
 import { emitPaymentSuccess, emitPaymentFailed } from '../events/order.events.js';
 import { paymentLogger } from '../config/logger.js';
 import { paymentSuccessTotal, staleCancelTotal, refundSuccessTotal } from '../config/metrics.js';
 import { recordPaymentFailure } from '../monitoring/alerts.js';
 import { generateInvoiceNumber } from '../utils/invoice.util.js';
 import { commissionService } from './commission.service.js';
+import { dispatchFreshness } from '../live/freshness.service.js';
+import { CACHE_TAGS, orderTag } from '../live/cache-tags.js';
 
 /** Maximum age (ms) of a PLACED order eligible for payment retry. */
 const STALE_ORDER_TTL_MS = 30 * 60 * 1000; // 30 minutes
@@ -39,6 +40,31 @@ function isTransactionStartTimeout(error: unknown): boolean {
 }
 
 export class PaymentService {
+
+    private async findOrderForPayment(userId: string, orderId: string): Promise<{
+        id: string;
+        userId: string;
+        status: OrderStatus;
+        createdAt: Date;
+        totalAmount: number;
+        grandTotal: number | null;
+        subTotalAmount: number | null;
+        totalTaxAmount: number | null;
+    } | null> {
+        return prisma.order.findFirst({
+            where: { id: orderId, userId },
+            select: {
+                id: true,
+                userId: true,
+                status: true,
+                createdAt: true,
+                totalAmount: true,
+                grandTotal: true,
+                subTotalAmount: true,
+                totalTaxAmount: true,
+            },
+        });
+    }
 
     private resolvePayableAmount(order: {
         totalAmount: number;
@@ -186,7 +212,10 @@ export class PaymentService {
 
     async initiatePayment(userId: string, orderId: string, provider: PaymentProvider) {
         // 1. Validate Order
-        const order = await orderRepository.findByIdAndUserId(orderId, userId);
+        const [order, existingPayment] = await Promise.all([
+            this.findOrderForPayment(userId, orderId),
+            paymentRepository.findPaymentByOrderId(orderId),
+        ]);
         if (!order) {
             throw new ApiError(404, 'Order not found or access denied');
         }
@@ -202,7 +231,6 @@ export class PaymentService {
         }
 
         // Check for existing successful payment
-        const existingPayment = await paymentRepository.findPaymentByOrderId(orderId);
         if (existingPayment && existingPayment.status === PaymentStatus.SUCCESS) {
             throw new ApiError(400, 'Order already paid');
         }
@@ -222,6 +250,24 @@ export class PaymentService {
         // Create Payment Record (INITIATED) — reuse row on retry
         let payment;
         if (existingPayment) {
+            // Fast path: reuse an existing INITIATED payment with active provider order.
+            if (
+                provider === PaymentProvider.RAZORPAY &&
+                existingPayment.status === PaymentStatus.INITIATED &&
+                existingPayment.provider === provider &&
+                existingPayment.providerOrderId &&
+                roundMoney(existingPayment.amount) === roundMoney(payableAmount)
+            ) {
+                return {
+                    paymentId: existingPayment.id,
+                    orderId: existingPayment.providerOrderId,
+                    amount: Math.round(payableAmount * 100),
+                    currency: existingPayment.currency,
+                    key: getRazorpayKeyId(),
+                    provider: 'RAZORPAY',
+                };
+            }
+
             payment = await prisma.payment.update({
                 where: { id: existingPayment.id },
                 data: {
@@ -292,7 +338,7 @@ export class PaymentService {
     // ------------------------------------------------------------------
 
     async retryPayment(userId: string, orderId: string) {
-        const order = await orderRepository.findByIdAndUserId(orderId, userId);
+        const order = await this.findOrderForPayment(userId, orderId);
         if (!order) {
             throw new ApiError(404, 'Order not found or access denied');
         }
@@ -466,6 +512,19 @@ export class PaymentService {
 
         // Trigger Notifications (event-driven, idempotent, best-effort)
         await emitPaymentSuccess(orderId);
+
+        await dispatchFreshness({
+            type: 'payment.updated',
+            entityId: orderId,
+            tags: [
+                CACHE_TAGS.payments,
+                CACHE_TAGS.orders,
+                CACHE_TAGS.userOrders,
+                CACHE_TAGS.sellerOrders,
+                orderTag(orderId),
+            ],
+            audience: { allAuthenticated: true },
+        });
     }
 
     // ------------------------------------------------------------------
@@ -495,6 +554,17 @@ export class PaymentService {
         // Notify buyer about payment failure (event-driven, idempotent, best-effort)
         if (payment.orderId) {
             await emitPaymentFailed(payment.orderId);
+            await dispatchFreshness({
+                type: 'payment.updated',
+                entityId: payment.orderId,
+                tags: [
+                    CACHE_TAGS.payments,
+                    CACHE_TAGS.orders,
+                    CACHE_TAGS.userOrders,
+                    orderTag(payment.orderId),
+                ],
+                audience: { allAuthenticated: true },
+            });
         }
 
         recordPaymentFailure();
@@ -539,6 +609,14 @@ export class PaymentService {
 
         for (const order of staleOrders) {
             try {
+                const reserveMovements = await prisma.inventoryMovement.findMany({
+                    where: { orderId: order.id, type: 'RESERVE' },
+                    select: {
+                        variantId: true,
+                        quantity: true,
+                    },
+                });
+
                 const wasCancelled = await prisma.$transaction(async (tx:any) => {
                     // 1. Optimistic-lock cancel: only flip to CANCELLED if still PLACED.
                     //    Between the findMany above and this tx, handlePaymentSuccess
@@ -554,13 +632,10 @@ export class PaymentService {
                         return false;
                     }
 
-                    // 2. Fetch movements INSIDE tx for consistency (prevents stale reads)
-                    const movements = await tx.inventoryMovement.findMany({
-                        where: { orderId: order.id, type: 'RESERVE' },
-                    });
-
-                    // 3. Release reserved inventory
-                    for (const movement of movements) {
+                    // 2. Release reserved inventory. Reserve movements are immutable
+                    // once written, so reading them before the transaction keeps the
+                    // transaction short and avoids stale interactive handles.
+                    for (const movement of reserveMovements) {
                         // Restore stock
                         await tx.inventory.update({
                             where: { variantId: movement.variantId },
@@ -579,23 +654,28 @@ export class PaymentService {
                         });
                     }
 
-                    // 4. Mark payment as FAILED if it's still INITIATED
-                    if (order.payment && order.payment.status === PaymentStatus.INITIATED) {
-                        await tx.payment.updateMany({
+                    // 3. Mark payment as FAILED if it's still INITIATED
+                    if (order.payment) {
+                        const updatedPayment = await tx.payment.updateMany({
                             where: { id: order.payment.id, status: PaymentStatus.INITIATED },
                             data: { status: PaymentStatus.FAILED },
                         });
 
-                        await tx.paymentEvent.create({
-                            data: {
-                                paymentId: order.payment.id,
-                                type: PaymentEventType.FAILED,
-                                payload: { reason: 'stale_order_auto_cancel' },
-                            },
-                        });
+                        if (updatedPayment.count > 0) {
+                            await tx.paymentEvent.create({
+                                data: {
+                                    paymentId: order.payment.id,
+                                    type: PaymentEventType.FAILED,
+                                    payload: { reason: 'stale_order_auto_cancel' },
+                                },
+                            });
+                        }
                     }
 
                     return true;
+                }, {
+                    maxWait: TX_MAX_WAIT_MS,
+                    timeout: TX_TIMEOUT_MS,
                 });
 
                 if (wasCancelled) {

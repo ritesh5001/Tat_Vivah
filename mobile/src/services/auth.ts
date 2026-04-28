@@ -43,12 +43,14 @@ export interface MessageResponse {
 
 /** POST /v1/auth/request-otp body */
 export interface RequestOtpPayload {
-  email: string;
+  email?: string;
+  phone?: string;
 }
 
 /** POST /v1/auth/verify-otp body */
 export interface VerifyOtpPayload {
-  email: string;
+  email?: string;
+  phone?: string;
   otp: string;
 }
 

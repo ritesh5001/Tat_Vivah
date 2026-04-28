@@ -13,6 +13,7 @@ export class CartController {
         try {
             const userId = req.user.userId;
             const result = await cartService.getCart(userId);
+            res.set('Cache-Control', 'no-store');
             res.json(result);
         }
         catch (error) {

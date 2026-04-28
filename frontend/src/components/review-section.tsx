@@ -30,8 +30,8 @@ const reviews = [
     },
 ];
 
-// Duplicate reviews to ensure seamless scrolling
-const allReviews = [...reviews, ...reviews, ...reviews];
+// Keep duplicated nodes minimal to lower DOM weight.
+const allReviews = [...reviews, ...reviews];
 
 export function ReviewSection() {
     return (
@@ -96,6 +96,12 @@ export function ReviewSection() {
         .animate-scroll {
           animation: scroll 40s linear infinite;
         }
+                @media (prefers-reduced-motion: reduce) {
+                    .animate-scroll {
+                        animation: none;
+                        transform: translateX(0);
+                    }
+                }
       `}</style>
         </section>
     );

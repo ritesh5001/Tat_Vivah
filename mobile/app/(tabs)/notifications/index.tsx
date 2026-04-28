@@ -46,6 +46,7 @@ export default function NotificationsScreen() {
   const [refreshing, setRefreshing] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [loadingMore, setLoadingMore] = React.useState(false);
+  const showGuestState = !authLoading && !token;
 
   const mountedRef = React.useRef(true);
   React.useEffect(() => {
@@ -53,33 +54,6 @@ export default function NotificationsScreen() {
       mountedRef.current = false;
     };
   }, []);
-
-  React.useEffect(() => {
-    if (!authLoading && !token) return;
-  }, [authLoading, token, router]);
-  if (!authLoading && !token) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <AppHeader title="Notifications" subtitle="Updates & offers" showMenu showBack />
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Notifications</Text>
-          <Text style={styles.headerCopy}>Stay updated on orders and offers.</Text>
-        </View>
-        <View style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>No notifications yet</Text>
-          <Text style={styles.emptySubtitle}>
-            Check back here for order updates and offers.
-          </Text>
-          <AnimatedPressable
-            onPress={() => router.push("/home")}
-            style={styles.ctaButton}
-          >
-            <Text style={styles.ctaButtonText}>Explore home</Text>
-          </AnimatedPressable>
-        </View>
-      </SafeAreaView>
-    );
-  }
 
   // ---- Fetch page ----
   const fetchPage = React.useCallback(
@@ -222,6 +196,30 @@ export default function NotificationsScreen() {
     );
   }, [loadingMore]);
 
+  if (showGuestState) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <AppHeader title="Notifications" subtitle="Updates & offers" showMenu showBack />
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Notifications</Text>
+          <Text style={styles.headerCopy}>Stay updated on orders and offers.</Text>
+        </View>
+        <View style={styles.emptyCard}>
+          <Text style={styles.emptyTitle}>No notifications yet</Text>
+          <Text style={styles.emptySubtitle}>
+            Check back here for order updates and offers.
+          </Text>
+          <AnimatedPressable
+            onPress={() => router.push("/home")}
+            style={styles.ctaButton}
+          >
+            <Text style={styles.ctaButtonText}>Explore home</Text>
+          </AnimatedPressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   // ---- Main render ----
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -332,7 +330,7 @@ const styles = StyleSheet.create({
   card: {
     marginBottom: spacing.md,
     padding: spacing.md,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -356,7 +354,7 @@ const styles = StyleSheet.create({
   unreadDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: 0,
     backgroundColor: colors.gold,
     marginLeft: spacing.sm,
   },
@@ -380,6 +378,16 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     padding: spacing.lg,
+  },
+  emptyCard: {
+    marginTop: spacing.lg,
+    marginHorizontal: spacing.lg,
+    padding: spacing.lg,
+    borderRadius: 0,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.surfaceElevated,
+    ...shadow.card,
   },
   loadingText: {
     marginTop: spacing.sm,
@@ -411,7 +419,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gold,
     borderWidth: 1,
     borderColor: colors.gold,
-    borderRadius: radius.md,
+    borderRadius: 0,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
     alignItems: "center",
@@ -441,7 +449,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gold,
     borderWidth: 1,
     borderColor: colors.gold,
-    borderRadius: radius.md,
+    borderRadius: 0,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
   },

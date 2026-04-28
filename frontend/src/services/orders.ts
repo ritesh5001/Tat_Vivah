@@ -15,6 +15,9 @@ export interface OrderItem {
 export interface BuyerOrder {
   id: string;
   status: string;
+  paymentStatus?: string | null;
+  cancellationStatus?: string | null;
+  returnStatus?: string | null;
   totalAmount: number;
   createdAt: string;
   items: OrderItem[];
@@ -40,12 +43,14 @@ export interface SellerOrderItem {
     id: string;
     status: string;
     createdAt: string;
+    shipmentStatus?: string | null;
     shippingName?: string;
     shippingPhone?: string;
     shippingEmail?: string;
     shippingAddressLine1?: string;
     shippingAddressLine2?: string;
     shippingCity?: string;
+    shippingPincode?: string;
     shippingNotes?: string;
     cancellationRequest?: {
       id: string;
