@@ -59,6 +59,7 @@ import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import {
   buildReviewImageName,
   uploadReviewImage,
+  uploadTryOnImage,
   type ReviewImageAsset,
 } from "../../../src/services/imagekit";
 import {
@@ -403,11 +404,6 @@ function mimeTypeFromAsset(asset: ImagePicker.ImagePickerAsset): string {
   return "image/jpeg";
 }
 
-function buildDataImage(asset: ImagePicker.ImagePickerAsset): string | null {
-  if (!asset.base64) return null;
-  return `data:${mimeTypeFromAsset(asset)};base64,${asset.base64}`;
-}
-
 // ---------------------------------------------------------------------------
 // Main screen
 // ---------------------------------------------------------------------------
@@ -446,7 +442,7 @@ export default function ProductDetailScreen() {
   const [relatedProducts, setRelatedProducts] = React.useState<ProductSummary[]>([]);
   const [loadingRelated, setLoadingRelated] = React.useState(false);
   const [tryOnUserImageUri, setTryOnUserImageUri] = React.useState<string | null>(null);
-  const [tryOnUserImageData, setTryOnUserImageData] = React.useState<string | null>(null);
+  const [tryOnUserImageAsset, setTryOnUserImageAsset] = React.useState<ReviewImageAsset | null>(null);
   const [tryOnResult, setTryOnResult] = React.useState<TryOnResult | null>(null);
   const [tryOnError, setTryOnError] = React.useState<string | null>(null);
   const [tryOnLoading, setTryOnLoading] = React.useState(false);
@@ -868,14 +864,12 @@ export default function ProductDetailScreen() {
       return;
     }
 
-    const dataImage = buildDataImage(asset);
-    if (!dataImage) {
-      setTryOnError("Could not prepare this image. Please choose another photo.");
-      return;
-    }
-
     setTryOnUserImageUri(asset.uri);
-    setTryOnUserImageData(dataImage);
+    setTryOnUserImageAsset({
+      uri: asset.uri,
+      fileName: asset.fileName ?? `tryon-${Date.now()}.jpg`,
+      mimeType: mimeTypeFromAsset(asset),
+    });
     setTryOnResult(null);
     setTryOnError(null);
   }, []);
@@ -890,7 +884,6 @@ export default function ProductDetailScreen() {
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ["images"],
       quality: 0.86,
-      base64: true,
     });
 
     if (!result.canceled) {
@@ -908,7 +901,6 @@ export default function ProductDetailScreen() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       quality: 0.86,
-      base64: true,
       allowsMultipleSelection: false,
     });
 
@@ -931,7 +923,7 @@ export default function ProductDetailScreen() {
       setTryOnError("Select a product variant first.");
       return;
     }
-    if (!tryOnUserImageData) {
+    if (!tryOnUserImageAsset) {
       setTryOnError("Take or upload your photo first.");
       return;
     }
@@ -943,10 +935,11 @@ export default function ProductDetailScreen() {
     setTryOnError(null);
 
     try {
+      const uploadedUserImageUrl = await uploadTryOnImage(tryOnUserImageAsset);
       const result = await createVirtualTryOn({
         productId: product.id,
         variantId: fallbackVariant.id,
-        userImage: tryOnUserImageData,
+        userImage: uploadedUserImageUrl,
         signal: controller.signal,
       });
       if (!mountedRef.current) return;
@@ -966,7 +959,7 @@ export default function ProductDetailScreen() {
     isConnected,
     product,
     fallbackVariant,
-    tryOnUserImageData,
+    tryOnUserImageAsset,
     router,
     showToast,
   ]);
@@ -1381,10 +1374,10 @@ export default function ProductDetailScreen() {
           <AnimatedPressable
             style={[
               styles.primaryButton,
-              (!tryOnUserImageData || tryOnLoading) && styles.buttonDisabled,
+              (!tryOnUserImageAsset || tryOnLoading) && styles.buttonDisabled,
             ]}
             onPress={handleCreateTryOn}
-            disabled={!tryOnUserImageData || tryOnLoading}
+            disabled={!tryOnUserImageAsset || tryOnLoading}
           >
             {tryOnLoading ? (
               <TatvivahLoader size="sm" color={colors.background} />

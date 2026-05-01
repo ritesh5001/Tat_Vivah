@@ -19,7 +19,7 @@ export interface ReviewImageAsset {
   mimeType: string;
 }
 
-export async function uploadReviewImage(asset: ReviewImageAsset): Promise<string> {
+async function uploadImageAsset(asset: ReviewImageAsset, folder: string): Promise<string> {
   if (!IMAGEKIT_PUBLIC_KEY) {
     throw new Error("Image upload is unavailable. Missing EXPO_PUBLIC_IMAGEKIT_PUBLIC_KEY.");
   }
@@ -40,7 +40,7 @@ export async function uploadReviewImage(asset: ReviewImageAsset): Promise<string
   formData.append("signature", auth.signature);
   formData.append("expire", String(auth.expire));
   formData.append("token", auth.token);
-  formData.append("folder", "/tatvivah/reviews");
+  formData.append("folder", folder);
   formData.append("useUniqueFileName", "true");
 
   const response = await fetch(IMAGEKIT_UPLOAD_URL, {
@@ -54,6 +54,14 @@ export async function uploadReviewImage(asset: ReviewImageAsset): Promise<string
   }
 
   return data.url;
+}
+
+export async function uploadReviewImage(asset: ReviewImageAsset): Promise<string> {
+  return uploadImageAsset(asset, "/tatvivah/reviews");
+}
+
+export async function uploadTryOnImage(asset: ReviewImageAsset): Promise<string> {
+  return uploadImageAsset(asset, "/tatvivah/tryon");
 }
 
 export function buildReviewImageName(index: number): string {

@@ -27,6 +27,7 @@ import {
   createVirtualTryOn,
   type TryOnResult,
 } from "../../../src/services/tryOn";
+import { uploadTryOnImage, type ReviewImageAsset } from "../../../src/services/imagekit";
 import { isAbortError } from "../../../src/services/api";
 import { colors, shadow, spacing, typography } from "../../../src/theme/tokens";
 import { notifySuccess } from "../../../src/utils/haptics";
@@ -43,11 +44,6 @@ function mimeTypeFromAsset(asset: ImagePicker.ImagePickerAsset): string {
   return "image/jpeg";
 }
 
-function buildDataImage(asset: ImagePicker.ImagePickerAsset): string | null {
-  if (!asset.base64) return null;
-  return `data:${mimeTypeFromAsset(asset)};base64,${asset.base64}`;
-}
-
 function productImage(product?: ProductItem | null): string {
   return product?.images?.find((image) => image.trim().length > 0) ?? fallbackImage;
 }
@@ -62,7 +58,7 @@ export default function TryBuyScreen() {
 
   const [selectedProduct, setSelectedProduct] = React.useState<ProductItem | null>(null);
   const [userImageUri, setUserImageUri] = React.useState<string | null>(null);
-  const [userImageData, setUserImageData] = React.useState<string | null>(null);
+  const [userImageAsset, setUserImageAsset] = React.useState<ReviewImageAsset | null>(null);
   const [tryOnResult, setTryOnResult] = React.useState<TryOnResult | null>(null);
   const [tryOnError, setTryOnError] = React.useState<string | null>(null);
   const [tryOnLoading, setTryOnLoading] = React.useState(false);
@@ -99,14 +95,12 @@ export default function TryBuyScreen() {
       return;
     }
 
-    const dataImage = buildDataImage(asset);
-    if (!dataImage) {
-      setTryOnError("Could not prepare this image. Try another photo.");
-      return;
-    }
-
     setUserImageUri(asset.uri);
-    setUserImageData(dataImage);
+    setUserImageAsset({
+      uri: asset.uri,
+      fileName: asset.fileName ?? `tryon-${Date.now()}.jpg`,
+      mimeType: mimeTypeFromAsset(asset),
+    });
     setTryOnResult(null);
     setTryOnError(null);
   }, []);
@@ -121,7 +115,6 @@ export default function TryBuyScreen() {
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ["images"],
       quality: 0.72,
-      base64: true,
     });
 
     if (!result.canceled) {
@@ -139,7 +132,6 @@ export default function TryBuyScreen() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       quality: 0.72,
-      base64: true,
       allowsMultipleSelection: false,
     });
 
@@ -162,7 +154,7 @@ export default function TryBuyScreen() {
       setTryOnError("Choose a product first.");
       return;
     }
-    if (!userImageData) {
+    if (!userImageAsset) {
       setTryOnError("Take or upload your photo first.");
       return;
     }
@@ -174,9 +166,10 @@ export default function TryBuyScreen() {
     setTryOnError(null);
 
     try {
+      const uploadedUserImageUrl = await uploadTryOnImage(userImageAsset);
       const result = await createVirtualTryOn({
         productId: selectedProduct.id,
-        userImage: userImageData,
+        userImage: uploadedUserImageUrl,
         signal: controller.signal,
       });
       setTryOnResult(result);
@@ -190,7 +183,7 @@ export default function TryBuyScreen() {
     } finally {
       setTryOnLoading(false);
     }
-  }, [isConnected, router, selectedProduct, showToast, token, userImageData]);
+  }, [isConnected, router, selectedProduct, showToast, token, userImageAsset]);
 
   const openSelectedProduct = React.useCallback(() => {
     if (!selectedProduct) return;
@@ -295,10 +288,10 @@ export default function TryBuyScreen() {
         <AnimatedPressable
           style={[
             styles.primaryButton,
-            (!selectedProduct || !userImageData || tryOnLoading) && styles.buttonDisabled,
+            (!selectedProduct || !userImageAsset || tryOnLoading) && styles.buttonDisabled,
           ]}
           onPress={generateTryOn}
-          disabled={!selectedProduct || !userImageData || tryOnLoading}
+          disabled={!selectedProduct || !userImageAsset || tryOnLoading}
         >
           {tryOnLoading ? (
             <TatvivahLoader size="sm" color={colors.background} />

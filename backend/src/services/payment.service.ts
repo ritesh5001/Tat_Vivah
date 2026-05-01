@@ -609,6 +609,14 @@ export class PaymentService {
 
         for (const order of staleOrders) {
             try {
+                const reserveMovements = await prisma.inventoryMovement.findMany({
+                    where: { orderId: order.id, type: 'RESERVE' },
+                    select: {
+                        variantId: true,
+                        quantity: true,
+                    },
+                });
+
                 const wasCancelled = await prisma.$transaction(async (tx:any) => {
                     // 1. Optimistic-lock cancel: only flip to CANCELLED if still PLACED.
                     //    Between the findMany above and this tx, handlePaymentSuccess
@@ -624,13 +632,10 @@ export class PaymentService {
                         return false;
                     }
 
-                    // 2. Fetch movements INSIDE tx for consistency (prevents stale reads)
-                    const movements = await tx.inventoryMovement.findMany({
-                        where: { orderId: order.id, type: 'RESERVE' },
-                    });
-
-                    // 3. Release reserved inventory
-                    for (const movement of movements) {
+                    // 2. Release reserved inventory. Reserve movements are immutable
+                    // once written, so reading them before the transaction keeps the
+                    // transaction short and avoids stale interactive handles.
+                    for (const movement of reserveMovements) {
                         // Restore stock
                         await tx.inventory.update({
                             where: { variantId: movement.variantId },
@@ -649,23 +654,28 @@ export class PaymentService {
                         });
                     }
 
-                    // 4. Mark payment as FAILED if it's still INITIATED
-                    if (order.payment && order.payment.status === PaymentStatus.INITIATED) {
-                        await tx.payment.updateMany({
+                    // 3. Mark payment as FAILED if it's still INITIATED
+                    if (order.payment) {
+                        const updatedPayment = await tx.payment.updateMany({
                             where: { id: order.payment.id, status: PaymentStatus.INITIATED },
                             data: { status: PaymentStatus.FAILED },
                         });
 
-                        await tx.paymentEvent.create({
-                            data: {
-                                paymentId: order.payment.id,
-                                type: PaymentEventType.FAILED,
-                                payload: { reason: 'stale_order_auto_cancel' },
-                            },
-                        });
+                        if (updatedPayment.count > 0) {
+                            await tx.paymentEvent.create({
+                                data: {
+                                    paymentId: order.payment.id,
+                                    type: PaymentEventType.FAILED,
+                                    payload: { reason: 'stale_order_auto_cancel' },
+                                },
+                            });
+                        }
                     }
 
                     return true;
+                }, {
+                    maxWait: TX_MAX_WAIT_MS,
+                    timeout: TX_TIMEOUT_MS,
                 });
 
                 if (wasCancelled) {
