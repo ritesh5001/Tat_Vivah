@@ -301,26 +301,7 @@ export class AuthService {
         return { message: 'OTP sent to your email address' };
     }
 
-    private async requestPhoneOtp(phone: string): Promise<{ message: string }> {
-        const normalizedPhone = normalizeIndianMobile(phone);
-        const user = await this.repository.findUserByPhone(normalizedPhone);
-        if (!user) {
-            const payload = await otpService.getLatestSignupPayload(normalizedPhone);
-            if (!payload) {
-                throw ApiError.notFound('User not found');
-            }
-
-            await otpService.sendSignupOtp(payload);
-            return { message: 'OTP sent to mobile number' };
-        }
-
-        await otpService.sendPhoneOtp(
-            user.id,
-            user.phone ?? normalizedPhone,
-            user.isPhoneVerified ? 'login' : 'verify',
-        );
-        return { message: user.isPhoneVerified ? 'Login OTP sent to mobile number' : 'OTP sent to mobile number' };
-    }
+    // NOTE: Phone OTP methods removed — project is email-only OTP across platforms.
 
     async verifyOtp(
         input: { email?: string | undefined; otp: string },
@@ -337,87 +318,7 @@ export class AuthService {
         return this.verifyEmailOtp(normalizedEmail, input.otp, userAgent, ipAddress);
     }
 
-    private async verifyPhoneOtp(
-        phone: string,
-        code: string,
-        userAgent?: string,
-        ipAddress?: string,
-    ): Promise<LoginResponse | MessageResponse> {
-        const otp = await otpService.verifyPhoneOtp(phone, code);
-        if (otp.userId) {
-            const user = await this.repository.findUserById(otp.userId);
-            if (!user) {
-                throw ApiError.notFound('User not found');
-            }
-
-            const nextStatus =
-                user.role === 'USER' && user.status === 'PENDING'
-                    ? 'ACTIVE'
-                    : user.status;
-
-            if (user.role === 'SELLER' && user.status !== 'ACTIVE') {
-                throw ApiError.forbidden('Seller approval pending');
-            }
-
-            const updated = await this.repository.updateUser(user.id, {
-                status: nextStatus,
-                isPhoneVerified: true,
-            });
-
-            return this.issueTokens({
-                id: updated.id,
-                email: updated.email,
-                phone: updated.phone,
-                role: updated.role,
-                status: updated.status,
-                isEmailVerified: updated.isEmailVerified,
-                isPhoneVerified: updated.isPhoneVerified,
-            }, userAgent, ipAddress);
-        }
-
-        const payload = otp.payload as SignupOtpPayload | null;
-        if (!payload) {
-            throw ApiError.badRequest('Invalid or expired OTP');
-        }
-
-        const exists = await this.repository.existsByEmailOrPhone(payload.email, payload.phone);
-        if (exists) {
-            throw ApiError.conflict('Email or phone already in use');
-        }
-
-        const status = payload.role === 'SELLER' ? 'PENDING' : 'ACTIVE';
-        const created = await this.repository.createUser({
-            email: payload.email,
-            phone: payload.phone,
-            whatsappNumber: payload.role === 'SELLER' ? (payload.whatsappNumber ?? null) : null,
-            passwordHash: payload.passwordHash,
-            role: payload.role,
-            status,
-            isEmailVerified: false,
-            isPhoneVerified: true,
-        }).catch((error: any) => {
-            if (error?.code === 'P2002' || String(error?.message ?? '').includes('Unique constraint')) {
-                throw ApiError.conflict('Email or phone already in use');
-            }
-            throw error;
-        });
-
-        if (created.role === 'SELLER') {
-            return {
-                message: 'Mobile number verified. Seller account pending admin approval.',
-            };
-        }
-
-        return this.issueTokens({
-            id: created.id,
-            email: created.email,
-            phone: created.phone,
-            role: created.role,
-            status: created.status,
-            isEmailVerified: created.isEmailVerified,
-            isPhoneVerified: created.isPhoneVerified,
-        }, userAgent, ipAddress);
-    }
+    // Phone-based verification flow removed — using email-only OTP.
 
     private async verifyEmailOtp(
         email: string,
