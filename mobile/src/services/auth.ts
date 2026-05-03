@@ -87,6 +87,10 @@ export async function loginUser(payload: LoginPayload): Promise<LoginResponse> {
 export async function registerUser(
   payload: RegisterUserPayload
 ): Promise<RegisterResponse> {
+  console.info("[mobile-auth][register-user] request", {
+    email: payload.email,
+    phone: payload.phone ? "[present]" : "[missing]",
+  });
   return apiRequest<RegisterResponse>({
     url: "/v1/auth/register",
     method: "POST",
@@ -98,6 +102,10 @@ export async function registerUser(
 export async function requestOtp(
   payload: RequestOtpPayload
 ): Promise<MessageResponse> {
+  console.info("[mobile-auth][request-otp] request", {
+    email: payload.email,
+    phone: payload.phone ? "[present]" : "[missing]",
+  });
   return apiRequest<MessageResponse>({
     url: "/v1/auth/request-otp",
     method: "POST",
@@ -109,6 +117,11 @@ export async function requestOtp(
 export async function verifyOtp(
   payload: VerifyOtpPayload
 ): Promise<VerifyOtpResponse> {
+  console.info("[mobile-auth][verify-otp] request", {
+    email: payload.email,
+    phone: payload.phone ? "[present]" : "[missing]",
+    otpLength: payload.otp.length,
+  });
   return apiRequest<VerifyOtpResponse>({
     url: "/v1/auth/verify-otp",
     method: "POST",

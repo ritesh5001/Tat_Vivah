@@ -56,9 +56,7 @@ export default function LoginScreen() {
   }, [inputType]);
 
   const subHeading = isOtpMode
-    ? inputType === "phone"
-      ? "We'll send a one-time code to your mobile number."
-      : "We'll send a one-time code to your email address."
+    ? "We'll send a one-time code to your email address."
     : identifierReady
       ? "Enter your password below, or choose to login with OTP."
       : "Enter your mobile number or email address to sign in.";
@@ -77,13 +75,13 @@ export default function LoginScreen() {
     setError(null);
     try {
       if (isOtpMode) {
-        if (inputType === "phone") {
-          await requestOtp({ phone: trimmed });
-          router.push({ pathname: "/(auth)/verify-otp", params: { method: "phone", phone: trimmed } });
-        } else {
-          await requestOtp({ email: trimmed });
-          router.push({ pathname: "/(auth)/verify-otp", params: { method: "email", email: trimmed } });
+        if (inputType !== "email") {
+          setError("OTP login requires an email address.");
+          return;
         }
+
+        await requestOtp({ email: trimmed });
+        router.push({ pathname: "/(auth)/verify-otp", params: { method: "email", email: trimmed } });
         return;
       }
 

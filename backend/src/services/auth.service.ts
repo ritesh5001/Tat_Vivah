@@ -24,6 +24,7 @@ import { normalizeIndianMobile } from './fast2sms.service.js';
 import { OtpPurpose } from '@prisma/client';
 import type { Role, UserStatus } from '@prisma/client';
 import { randomUUID } from 'crypto';
+import { authLogger } from '../config/logger.js';
 
 
 /**
@@ -33,6 +34,7 @@ import { randomUUID } from 'crypto';
  */
 export class AuthService {
     constructor(private readonly repository: AuthRepository) { }
+    private readonly logger = authLogger.child({ component: 'auth-service' });
 
     private async issueTokens(
         user: {
@@ -106,9 +108,11 @@ export class AuthService {
      */
     async registerUser(data: RegisterUserRequest): Promise<RegisterSuccessResponse> {
         const phone = normalizeIndianMobile(data.phone);
+        this.logger.info({ email: data.email, phone: phone ? '[present]' : '[missing]', role: 'USER' }, 'register_user_started');
         // 1. Check if email or phone already exists
         const exists = await this.repository.existsByEmailOrPhone(data.email, phone);
         if (exists) {
+            this.logger.warn({ email: data.email, phone }, 'register_user_conflict');
             throw ApiError.conflict('Email or phone already in use');
         }
 
@@ -124,10 +128,11 @@ export class AuthService {
             fullName: data.fullName,
         };
         await otpService.sendSignupOtp(payload);
+        this.logger.info({ email: data.email, phone: '[present]', role: 'USER' }, 'register_user_otp_sent');
 
         // 4. Return success message (no token, no auto-login)
         return {
-            message: 'OTP sent to your mobile number',
+            message: 'OTP sent to your email address',
         };
     }
 
@@ -145,9 +150,11 @@ export class AuthService {
     async registerSeller(data: RegisterSellerRequest): Promise<RegisterSuccessResponse> {
         const phone = normalizeIndianMobile(data.phone);
         const whatsappNumber = normalizeIndianMobile(data.whatsappNumber);
+        this.logger.info({ email: data.email, phone: phone ? '[present]' : '[missing]', whatsappNumber: whatsappNumber ? '[present]' : '[missing]', role: 'SELLER' }, 'register_seller_started');
         // 1. Check if email or phone already exists
         const exists = await this.repository.existsByEmailOrPhone(data.email, phone);
         if (exists) {
+            this.logger.warn({ email: data.email, phone }, 'register_seller_conflict');
             throw ApiError.conflict('Email or phone already in use');
         }
 
@@ -163,10 +170,11 @@ export class AuthService {
             role: 'SELLER',
         };
         await otpService.sendSignupOtp(payload);
+        this.logger.info({ email: data.email, phone: '[present]', whatsappNumber: '[present]', role: 'SELLER' }, 'register_seller_otp_sent');
 
         // 4. Return success message (no token, pending approval)
         return {
-            message: 'OTP sent to your mobile number. Verify to complete seller registration.',
+            message: 'OTP sent to your email address. Verify to complete seller registration.',
         };
     }
 
@@ -231,24 +239,35 @@ export class AuthService {
         userAgent?: string,
         ipAddress?: string
     ): Promise<LoginResponse> {
+        this.logger.info({ identifier, userAgent }, 'login_attempt_started');
+        
         // 1. Find user by email OR phone
         const user = await this.repository.findByIdentifier(identifier);
         if (!user) {
-            throw ApiError.unauthorized('User not found');
+            this.logger.warn({ identifier }, 'login_user_not_found');
+            throw ApiError.unauthorized('User account not found. Please check your email/phone or create a new account.');
         }
 
         // 2. Verify password
         const isPasswordValid = await comparePassword(password, user.passwordHash);
         if (!isPasswordValid) {
-            throw ApiError.unauthorized('Invalid password');
+            this.logger.warn({ userId: user.id, identifier }, 'login_invalid_password');
+            throw ApiError.unauthorized('Incorrect password. Please try again.');
         }
 
         // 3. Check status (must be ACTIVE)
         if (user.status !== 'ACTIVE') {
-            throw ApiError.forbidden('Account not active');
+            this.logger.warn({ userId: user.id, status: user.status, role: user.role }, 'login_account_inactive');
+            if (user.role === 'SELLER') {
+                throw ApiError.forbidden('Your seller account is pending admin approval.');
+            }
+            throw ApiError.forbidden('Your account is not active. Please contact support.');
         }
 
+        this.logger.info({ userId: user.id, role: user.role, identifier }, 'login_password_verified');
+
         // 4. Return response
+        this.logger.info({ userId: user.id, role: user.role }, 'login_tokens_issued');
         return this.issueTokens({
             id: user.id,
             email: user.email,
@@ -260,25 +279,26 @@ export class AuthService {
         }, userAgent, ipAddress);
     }
 
-    async requestOtp(input: { phone?: string | undefined; email?: string | undefined }): Promise<{ message: string }> {
+    async requestOtp(input: { email?: string | undefined }): Promise<{ message: string }> {
         const normalizedEmail = input.email?.trim().toLowerCase();
-        if (normalizedEmail) {
-            const user = await this.repository.findUserByEmail(normalizedEmail);
-            if (!user) {
-                throw ApiError.notFound('User not found');
-            }
-            if (user.status !== 'ACTIVE') {
-                throw ApiError.forbidden('Account not active');
-            }
-            await otpService.sendEmailOtp(user.id, normalizedEmail, 'login');
-            return { message: 'OTP sent to your email address' };
+        this.logger.info({ email: normalizedEmail ?? null }, 'request_otp_started');
+        if (!normalizedEmail) {
+            this.logger.warn({ email: normalizedEmail ?? null }, 'request_otp_missing_email');
+            throw ApiError.badRequest('Email is required');
         }
 
-        if (!input.phone) {
-            throw ApiError.badRequest('Email or phone is required');
+        const user = await this.repository.findUserByEmail(normalizedEmail);
+        if (!user) {
+            this.logger.warn({ email: normalizedEmail }, 'request_otp_user_not_found');
+            throw ApiError.notFound('User not found');
         }
-
-        return this.requestPhoneOtp(input.phone);
+        if (user.status !== 'ACTIVE') {
+            this.logger.warn({ email: normalizedEmail, userId: user.id, status: user.status }, 'request_otp_account_not_active');
+            throw ApiError.forbidden('Account not active');
+        }
+        await otpService.sendEmailOtp(user.id, normalizedEmail, 'login');
+        this.logger.info({ email: normalizedEmail, userId: user.id }, 'request_otp_sent');
+        return { message: 'OTP sent to your email address' };
     }
 
     private async requestPhoneOtp(phone: string): Promise<{ message: string }> {
@@ -303,20 +323,18 @@ export class AuthService {
     }
 
     async verifyOtp(
-        input: { phone?: string | undefined; email?: string | undefined; otp: string },
+        input: { email?: string | undefined; otp: string },
         userAgent?: string,
         ipAddress?: string,
     ): Promise<LoginResponse | MessageResponse> {
         const normalizedEmail = input.email?.trim().toLowerCase();
-        if (normalizedEmail) {
-            return this.verifyEmailOtp(normalizedEmail, input.otp, userAgent, ipAddress);
+        this.logger.info({ email: normalizedEmail ?? null, otpLength: input.otp?.length ?? 0 }, 'verify_otp_started');
+        if (!normalizedEmail) {
+            this.logger.warn({ email: normalizedEmail ?? null }, 'verify_otp_missing_email');
+            throw ApiError.badRequest('Email is required');
         }
 
-        if (!input.phone) {
-            throw ApiError.badRequest('Email or phone is required');
-        }
-
-        return this.verifyPhoneOtp(input.phone, input.otp, userAgent, ipAddress);
+        return this.verifyEmailOtp(normalizedEmail, input.otp, userAgent, ipAddress);
     }
 
     private async verifyPhoneOtp(
@@ -406,18 +424,67 @@ export class AuthService {
         code: string,
         userAgent?: string,
         ipAddress?: string,
-    ): Promise<LoginResponse> {
+    ): Promise<LoginResponse | MessageResponse> {
+        this.logger.debug({ email, userAgent: userAgent ?? null, ipAddress: ipAddress ?? null }, 'verify_email_otp_lookup');
         const otp = await otpService.verifyEmailOtp(email, code);
         if (!otp.userId) {
-            throw ApiError.badRequest('Invalid or expired OTP');
+            const payload = otp.payload as SignupOtpPayload | null;
+            if (!payload) {
+                this.logger.warn({ email }, 'verify_email_otp_missing_payload');
+                throw ApiError.badRequest('Invalid or expired OTP');
+            }
+
+            const exists = await this.repository.existsByEmailOrPhone(payload.email, payload.phone);
+            if (exists) {
+                this.logger.warn({ email: payload.email, phone: payload.phone }, 'verify_email_otp_conflict');
+                throw ApiError.conflict('Email or phone already in use');
+            }
+
+            const status = payload.role === 'SELLER' ? 'PENDING' : 'ACTIVE';
+            const created = await this.repository.createUser({
+                email: payload.email,
+                phone: payload.phone,
+                whatsappNumber: payload.role === 'SELLER' ? (payload.whatsappNumber ?? null) : null,
+                passwordHash: payload.passwordHash,
+                role: payload.role,
+                status,
+                isEmailVerified: true,
+                isPhoneVerified: false,
+            }).catch((error: any) => {
+                if (error?.code === 'P2002' || String(error?.message ?? '').includes('Unique constraint')) {
+                    throw ApiError.conflict('Email or phone already in use');
+                }
+                throw error;
+            });
+
+            if (created.role === 'SELLER') {
+                this.logger.info({ email: created.email, userId: created.id, role: created.role }, 'verify_email_otp_seller_created');
+                return {
+                    message: 'Email verified. Seller account pending admin approval.',
+                };
+            }
+
+            this.logger.info({ email: created.email, userId: created.id, role: created.role }, 'verify_email_otp_user_created');
+
+            return this.issueTokens({
+                id: created.id,
+                email: created.email,
+                phone: created.phone,
+                role: created.role,
+                status: created.status,
+                isEmailVerified: created.isEmailVerified,
+                isPhoneVerified: created.isPhoneVerified,
+            }, userAgent, ipAddress);
         }
 
         const user = await this.repository.findUserById(otp.userId);
         if (!user) {
+            this.logger.warn({ email, userId: otp.userId }, 'verify_email_otp_user_not_found');
             throw ApiError.notFound('User not found');
         }
 
         if (user.status !== 'ACTIVE') {
+            this.logger.warn({ email, userId: user.id, status: user.status }, 'verify_email_otp_account_not_active');
             throw ApiError.forbidden('Account not active');
         }
 

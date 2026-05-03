@@ -55,7 +55,7 @@
   },
   "dependencies": {
     "@imagekit/nodejs": "^7.2.1",
-    "@prisma/client": "^6.2.1",
+    "@prisma/client": "^4.16.2",
     "@scalar/express-api-reference": "^0.8.36",
     "@types/ms": "^2.1.0",
     "@types/pdfkit": "^0.17.5",
@@ -87,7 +87,7 @@
     "@types/jsonwebtoken": "^9.0.7",
     "@types/node": "^22.10.7",
     "@types/pino": "^7.0.4",
-    "prisma": "^6.2.1",
+    "prisma": "^4.16.2",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3"
   }

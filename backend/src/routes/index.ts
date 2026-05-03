@@ -13,8 +13,6 @@ export { reviewRouter } from './review.routes.js';
 export { imagekitRouter } from './imagekit.routes.js';
 export { bestsellerRouter } from './bestseller.routes.js';
 export { tryOnRouter } from './try-on.routes.js';
-
-
 // Address management
 export { addressRouter } from './address.routes.js';
 
