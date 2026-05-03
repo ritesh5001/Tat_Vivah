@@ -1,11 +1,11 @@
 // Order Domain Types
-import type { $Enums } from '@prisma/client';
-import type { Prisma } from '@prisma/client';
+// Import Prisma-generated enum types directly (Prisma v4 exports enums by name)
+import type { OrderStatus as PrismaOrderStatus, InventoryMovementType as PrismaInventoryMovementType, InventoryMovementReason as PrismaInventoryMovementReason, Prisma } from '@prisma/client';
 
 // Re-export enum types for convenience
-export type OrderStatus = $Enums.OrderStatus;
-export type InventoryMovementType = $Enums.InventoryMovementType;
-export type InventoryMovementReason = $Enums.InventoryMovementReason;
+export type OrderStatus = PrismaOrderStatus;
+export type InventoryMovementType = PrismaInventoryMovementType;
+export type InventoryMovementReason = PrismaInventoryMovementReason;
 
 // ============================================================================
 // ENTITY TYPES
