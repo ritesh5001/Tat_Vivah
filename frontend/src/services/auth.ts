@@ -129,6 +129,10 @@ export async function loginUser(payload: LoginPayload): Promise<LoginResponse> {
     throw new Error("API base URL is not configured");
   }
 
+  console.info("[auth-api][login] request", {
+    identifier: payload.identifier.substring(0, 3) + "***", // Mask for security
+  });
+
   const response = await fetch(`${API_BASE_URL}/v1/auth/login`, {
     method: "POST",
     headers: {
@@ -140,13 +144,19 @@ export async function loginUser(payload: LoginPayload): Promise<LoginResponse> {
   const data = await response.json().catch(() => null);
 
   if (!response.ok) {
-    const message =
-      data?.error?.message ?? data?.message ?? "Login failed";
-    const err = new Error(message) as Error & { phone?: string };
+    const errorMessage = data?.error?.message ?? data?.message ?? "Login failed";
+    console.error("[auth-api][login] error", {
+      statusCode: response.status,
+      message: errorMessage,
+      details: data?.error?.details,
+    });
+    const err = new Error(errorMessage) as Error & { phone?: string; statusCode?: number };
     err.phone = (data?.error?.details?.phone as string | undefined) ?? undefined;
+    err.statusCode = response.status;
     throw err;
   }
 
+  console.info("[auth-api][login] success", { role: data?.user?.role });
   return data as LoginResponse;
 }
 
@@ -156,6 +166,11 @@ export async function registerUser(
   if (!API_BASE_URL) {
     throw new Error("API base URL is not configured");
   }
+
+  console.debug("[auth][register-user] request", {
+    email: payload.email,
+    phone: payload.phone ? "[present]" : "[missing]",
+  });
 
   const response = await fetch(`${API_BASE_URL}/v1/auth/register`, {
     method: "POST",
@@ -168,8 +183,11 @@ export async function registerUser(
   const data = await response.json().catch(() => null);
 
   if (!response.ok) {
+    console.warn("[auth][register-user] failed", { status: response.status, data });
     throw buildApiError(data as ApiErrorResponse | null, "Registration failed");
   }
+
+  console.info("[auth][register-user] success", { email: payload.email });
 
   return data as RegisterResponse;
 }
@@ -180,6 +198,12 @@ export async function registerSeller(
   if (!API_BASE_URL) {
     throw new Error("API base URL is not configured");
   }
+
+  console.debug("[auth][register-seller] request", {
+    email: payload.email,
+    phone: payload.phone ? "[present]" : "[missing]",
+    whatsappNumber: payload.whatsappNumber ? "[present]" : "[missing]",
+  });
 
   const response = await fetch(`${API_BASE_URL}/v1/seller/register`, {
     method: "POST",
@@ -192,8 +216,11 @@ export async function registerSeller(
   const data = await response.json().catch(() => null);
 
   if (!response.ok) {
+    console.warn("[auth][register-seller] failed", { status: response.status, data });
     throw buildApiError(data as ApiErrorResponse | null, "Seller registration failed");
   }
+
+  console.info("[auth][register-seller] success", { email: payload.email });
 
   return data as RegisterResponse;
 }
@@ -238,6 +265,11 @@ export async function requestAuthOtp(payload: RequestAuthOtpPayload): Promise<Ot
     throw new Error("API base URL is not configured");
   }
 
+  console.debug("[auth][request-otp] request", {
+    email: payload.email ? payload.email : undefined,
+    phone: payload.phone ? "[present]" : undefined,
+  });
+
   const response = await fetch(`${API_BASE_URL}/v1/auth/request-otp`, {
     method: "POST",
     headers: {
@@ -251,8 +283,11 @@ export async function requestAuthOtp(payload: RequestAuthOtpPayload): Promise<Ot
   if (!response.ok) {
     const message =
       data?.error?.message ?? data?.message ?? "OTP request failed";
+    console.warn("[auth][request-otp] failed", { status: response.status, data });
     throw new Error(message);
   }
+
+  console.info("[auth][request-otp] success", { email: payload.email, phone: payload.phone ? "[present]" : undefined });
 
   return data as OtpRequestResponse;
 }
@@ -261,6 +296,12 @@ export async function verifyAuthOtp(payload: VerifyAuthOtpPayload): Promise<Veri
   if (!API_BASE_URL) {
     throw new Error("API base URL is not configured");
   }
+
+  console.debug("[auth][verify-otp] request", {
+    email: payload.email,
+    phone: payload.phone ? "[present]" : undefined,
+    otpLength: payload.otp?.length,
+  });
 
   const response = await fetch(`${API_BASE_URL}/v1/auth/verify-otp`, {
     method: "POST",
@@ -275,8 +316,11 @@ export async function verifyAuthOtp(payload: VerifyAuthOtpPayload): Promise<Veri
   if (!response.ok) {
     const message =
       data?.error?.message ?? data?.message ?? "OTP verification failed";
+    console.warn("[auth][verify-otp] failed", { status: response.status, data });
     throw new Error(message);
   }
+
+  console.info("[auth][verify-otp] success", { email: payload.email, phone: payload.phone ? "[present]" : undefined });
 
   return data as VerifyOtpResponse;
 }

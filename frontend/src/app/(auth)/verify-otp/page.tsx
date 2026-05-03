@@ -20,10 +20,7 @@ import { heroContainerVariants, heroItemVariants } from "@/lib/motion.config";
 function VerifyOtpContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const method = searchParams.get("method") === "email" ? "email" : "phone";
-  const prefill = method === "email"
-    ? searchParams.get("email") ?? ""
-    : searchParams.get("phone") ?? "";
+  const prefill = searchParams.get("email") ?? "";
 
   const [identifier, setIdentifier] = React.useState(prefill);
   const [otp, setOtp] = React.useState("");
@@ -31,50 +28,25 @@ function VerifyOtpContent() {
   const [sending, setSending] = React.useState(false);
   const submittedOtpRef = React.useRef<string | null>(null);
 
-  React.useEffect(() => {
-    if (method !== "phone" || typeof window === "undefined" || !("OTPCredential" in window) || !("credentials" in navigator)) {
-      return;
-    }
-
-    const abortController = new AbortController();
-    void (navigator.credentials as CredentialsContainer & {
-      get: (options?: CredentialRequestOptions & {
-        otp?: { transport: string[] };
-        signal?: AbortSignal;
-      }) => Promise<{ code?: string } | null>;
-    }).get({
-      otp: { transport: ["sms"] },
-      signal: abortController.signal,
-    }).then((credential) => {
-      if (credential?.code) {
-        setOtp(credential.code);
-      }
-    }).catch(() => {
-      // Browser support is optional; keep manual entry available.
-    });
-
-    return () => abortController.abort();
-  }, [method]);
+  // Email-only OTP flow; browser SMS OTP autofill not used.
 
   const handleVerify = React.useCallback(async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!identifier || !otp) {
-      toast.error(`Enter ${method === "email" ? "email and OTP" : "mobile number and OTP"}.`);
+      console.warn("[auth-ui][verify-otp] blocked submit", { hasEmail: Boolean(identifier), hasOtp: Boolean(otp) });
+      toast.error("Enter email and OTP.");
       return;
     }
 
     setLoading(true);
     try {
-      const result = await verifyAuthOtp(
-        method === "email"
-          ? { email: identifier, otp }
-          : { phone: identifier, otp }
-      );
+      console.info("[auth-ui][verify-otp] submit", { email: identifier, otpLength: otp.length });
+      const result = await verifyAuthOtp({ email: identifier, otp });
       if (result.accessToken && result.refreshToken && result.user) {
         persistAuthCookies(result.accessToken, result.refreshToken, result.user);
 
-        toast.success(method === "email" ? "Email verified successfully." : "Mobile number verified successfully.");
+        toast.success("Email verified successfully.");
 
         const role = result.user.role?.toUpperCase();
         const redirectMap: Record<string, string> = {
@@ -86,30 +58,30 @@ function VerifyOtpContent() {
 
         router.push(redirectMap[role] ?? "/");
       } else {
-        toast.success(result.message ?? `${method === "email" ? "Email" : "Mobile number"} verified. Await admin approval.`);
+        toast.success(result.message ?? `Email verified. Await admin approval.`);
         router.push("/login");
       }
     } catch (error) {
+      console.error("[auth-ui][verify-otp] failed", error);
       toast.error(error instanceof Error ? error.message : "OTP failed");
     } finally {
       setLoading(false);
     }
-  }, [identifier, otp, method, router]);
+  }, [identifier, otp, router]);
 
   const handleResend = async () => {
     if (!identifier) {
-      toast.error(`Enter your ${method === "email" ? "email address" : "mobile number"} first.`);
+      console.warn("[auth-ui][verify-otp] resend blocked", { hasEmail: false });
+      toast.error(`Enter your email address first.`);
       return;
     }
     setSending(true);
     try {
-      await requestAuthOtp(
-        method === "email"
-          ? { email: identifier }
-          : { phone: identifier }
-      );
-      toast.success(`OTP sent to your ${method === "email" ? "email address" : "mobile number"}.`);
+      console.info("[auth-ui][verify-otp] resend", { email: identifier });
+      await requestAuthOtp({ email: identifier });
+      toast.success(`OTP sent to your email address.`);
     } catch (error) {
+      console.error("[auth-ui][verify-otp] resend failed", error);
       toast.error(error instanceof Error ? error.message : "OTP request failed");
     } finally {
       setSending(false);
@@ -145,14 +117,13 @@ function VerifyOtpContent() {
           >
             Confirm your
             <br />
-            <span className="italic">{method === "email" ? "email address" : "mobile number"}</span>.
+            <span className="italic">email address</span>.
           </motion.h1>
           <motion.p
             variants={heroItemVariants}
             className="text-base leading-relaxed text-muted-foreground"
           >
-            We sent a 6-digit OTP to your {method === "email" ? "email address" : "mobile number"}. Enter it below to continue with your
-            account.
+            We sent a 6-digit OTP to your email address. Enter it below to continue with your account.
           </motion.p>
         </motion.div>
 
@@ -168,16 +139,16 @@ function VerifyOtpContent() {
                 Verify OTP
               </CardTitle>
               <CardDescription>
-                Enter your {method === "email" ? "email address" : "mobile number"} and OTP to continue.
+                Enter your email address and OTP to continue.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
               <form className="space-y-5" onSubmit={handleVerify}>
                 <div className="space-y-2">
-                  <Label htmlFor="identifier">{method === "email" ? "Email address" : "Mobile number"}</Label>
+                  <Label htmlFor="identifier">Email address</Label>
                   <Input
                     id="identifier"
-                    placeholder={method === "email" ? "you@email.com" : "9876543210"}
+                    placeholder="you@email.com"
                     value={identifier}
                     onChange={(event) => setIdentifier(event.target.value)}
                     disabled={Boolean(prefill)}
@@ -190,7 +161,7 @@ function VerifyOtpContent() {
                     placeholder="Enter 6-digit OTP"
                     value={otp}
                     onChange={(event) => setOtp(event.target.value)}
-                    autoComplete={method === "phone" ? "one-time-code" : undefined}
+                    autoComplete={undefined}
                     inputMode="numeric"
                   />
                 </div>

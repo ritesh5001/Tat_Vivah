@@ -100,10 +100,16 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = React.useState(false);
   const [useOtp, setUseOtp] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     setSubdomain(getSubdomain());
   }, []);
+
+  // Clear error when user modifies inputs
+  React.useEffect(() => {
+    setError(null);
+  }, [identifier, password]);
 
   const content = LOGIN_CONTENT[subdomain];
   const isMainPortal = subdomain === "main";
@@ -116,33 +122,28 @@ export default function LoginPage() {
     setPassword("");
   }, [inputType]);
 
-  const isOtpMode = isMainPortal && useOtp && identifierReady;
-  const showPasswordField = !isMainPortal || (identifierReady && !useOtp);
+  const isEmailIdentifier = inputType === "email";
+  const isOtpMode = isMainPortal && useOtp && isEmailIdentifier;
+  const showPasswordField = !isMainPortal || (identifierReady && (!useOtp || !isEmailIdentifier));
 
   const identifierLabel =
     isMainPortal
-      ? inputType === "phone"
-        ? "Mobile Number"
-        : inputType === "email"
-          ? "Email Address"
-          : "Mobile Number or Email"
+      ? inputType === "email"
+        ? "Email Address"
+        : "Mobile Number or Email"
       : "Email or Mobile";
 
   const identifierPlaceholder =
     isMainPortal
-      ? inputType === "phone"
-        ? "9876543210"
-        : inputType === "email"
-          ? "you@email.com"
-          : "9876543210 or you@email.com"
+      ? inputType === "email"
+        ? "you@email.com"
+        : "9876543210 or you@email.com"
       : "you@email.com or 9876543210";
 
   const cardDescription =
     isMainPortal
       ? isOtpMode
-        ? inputType === "phone"
-          ? "We'll send a one-time code to your mobile number."
-          : "We'll send a one-time code to your email address."
+        ? "We'll send a one-time code to your email address."
         : identifierReady
           ? "Enter your password below, or choose to login with OTP."
           : "Enter your mobile number or email address to continue."
@@ -153,38 +154,44 @@ export default function LoginPage() {
     const trimmed = identifier.trim();
 
     if (!trimmed) {
-      toast.error("Enter your mobile number or email address.");
+      setError("Enter your email address or mobile number.");
+      toast.error("Enter your email address or mobile number.");
       return;
     }
 
     setLoading(true);
+    setError(null);
     try {
       if (isOtpMode) {
-        if (inputType === "phone") {
-          await requestAuthOtp({ phone: trimmed });
-          toast.success("OTP sent to your mobile number.");
-          router.replace(`/verify-otp?method=phone&phone=${encodeURIComponent(trimmed)}`);
-        } else {
-          await requestAuthOtp({ email: trimmed });
-          toast.success("OTP sent to your email address.");
-          router.replace(`/verify-otp?method=email&email=${encodeURIComponent(trimmed)}`);
-        }
+        console.info("[auth-ui][login] otp-request", { inputType, identifier: trimmed });
+        await requestAuthOtp({ email: trimmed });
+        toast.success("OTP sent to your email address.");
+        router.replace(`/verify-otp?email=${encodeURIComponent(trimmed)}`);
         return;
       }
 
       if (!password) {
+        setError("Enter your password to continue.");
         toast.error("Enter your password to continue.");
         return;
       }
 
+      console.info("[auth-ui][login] attempting password-login", { 
+        identifier: trimmed.substring(0, 3) + "***",
+        portal: subdomain 
+      });
+
       const result = await loginUser({ identifier: trimmed, password });
+      console.info("[auth-ui][login] password-login success", { identifier: trimmed, role: result.user.role });
       const role = result.user.role?.toUpperCase();
       const allowedRoles = SUBDOMAIN_ALLOWED_ROLES[subdomain];
 
       if (!allowedRoles.includes(role)) {
         const portalLabel = subdomain === "main" ? "customer" : subdomain;
         const correctUrl = getCorrectLoginUrl(role);
-        toast.error(`This portal is for ${portalLabel} accounts only. Redirecting...`);
+        const errorMsg = `This portal is for ${portalLabel} accounts only. Redirecting...`;
+        toast.error(errorMsg);
+        console.warn("[auth-ui][login] wrong-portal", { role, subdomain });
         window.location.replace(correctUrl);
         return;
       }
@@ -201,8 +208,26 @@ export default function LoginPage() {
 
       router.replace(redirectMap[role] ?? "/");
     } catch (error) {
-      console.error("Login error:", error);
-      const message = error instanceof Error ? error.message : "Invalid credentials";
+      console.error("[auth-ui][login] error", error);
+      
+      let message = "Login failed. Please try again.";
+      
+      if (error instanceof Error) {
+        message = error.message;
+        
+        // Map specific backend messages to user-friendly ones
+        if (message.includes("User account not found")) {
+          message = "Email or mobile not found. Please check or create a new account.";
+        } else if (message.includes("Incorrect password")) {
+          message = "Incorrect password. Please try again.";
+        } else if (message.includes("pending admin approval")) {
+          message = "Your seller account is pending admin approval.";
+        } else if (message.includes("not active")) {
+          message = "Your account is not active. Please contact support.";
+        }
+      }
+      
+      setError(message);
       toast.error(message);
     } finally {
       setLoading(false);
@@ -250,6 +275,13 @@ export default function LoginPage() {
 
             <CardContent className="space-y-6">
               <form className="space-y-5" onSubmit={handleSubmit}>
+                {/* Error Display */}
+                {error && (
+                  <div className="rounded-lg bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 p-3 text-sm text-red-700 dark:text-red-300">
+                    {error}
+                  </div>
+                )}
+
                 {/* Unified identifier input – auto-detects phone vs email */}
                 <div className="space-y-2">
                   <Label htmlFor="identifier">{identifierLabel}</Label>
@@ -261,6 +293,7 @@ export default function LoginPage() {
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)}
                     autoComplete={isMainPortal && inputType === "phone" ? "tel" : "username"}
+                    className={error ? "border-red-500 focus:ring-red-500" : ""}
                     autoFocus
                   />
                 </div>

@@ -10,10 +10,6 @@ import {
 import { FlashList } from "@shopify/flash-list";
 import { useQueryClient } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
-import {
-  ExpoSpeechRecognitionModule,
-  useSpeechRecognitionEvent,
-} from "expo-speech-recognition";
 import { Image } from "../../../src/components/CompatImage";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { colors, spacing, typography, shadow } from "../../../src/theme/tokens";
@@ -47,8 +43,8 @@ const DEFAULT_SEARCH_LANGUAGE = "en-IN";
 
 const SORT_OPTIONS: { value: SortOption | ""; label: string }[] = [
   { value: "", label: "Default" },
-  { value: "price_asc", label: "Price: Low → High" },
-  { value: "price_desc", label: "Price: High → Low" },
+  { value: "price_asc", label: "Price: Low -> High" },
+  { value: "price_desc", label: "Price: High -> Low" },
   { value: "newest", label: "Newest First" },
   { value: "popularity", label: "Most Popular" },
 ];
@@ -56,6 +52,27 @@ const SORT_OPTIONS: { value: SortOption | ""; label: string }[] = [
 type CategoryChipItem = {
   id: string;
   name: string;
+};
+
+type SpeechResultEvent = {
+  results?: Array<{ transcript?: string }>;
+  isFinal?: boolean;
+};
+
+type SpeechErrorEvent = {
+  message?: string;
+  error?: string;
+};
+
+type SpeechRecognitionModuleLike = {
+  isRecognitionAvailable: () => boolean;
+  stop: () => void;
+  start: (options?: Record<string, unknown>) => void;
+  requestPermissionsAsync: () => Promise<{ granted: boolean }>;
+  addListener?: (
+    eventName: string,
+    listener: (event?: unknown) => void
+  ) => { remove: () => void };
 };
 
 // ---------------------------------------------------------------------------
@@ -142,6 +159,7 @@ export default function SearchScreen() {
   const [voiceListening, setVoiceListening] = React.useState(false);
   const [voiceTranscript, setVoiceTranscript] = React.useState("");
   const [voiceError, setVoiceError] = React.useState<string | null>(null);
+  const speechModuleRef = React.useRef<SpeechRecognitionModuleLike | null>(null);
 
   // Abort controller for the active search request
   const controllerRef = React.useRef<AbortController | null>(null);
@@ -165,7 +183,7 @@ export default function SearchScreen() {
   // Cleanup on unmount
   React.useEffect(() => {
     return () => {
-      ExpoSpeechRecognitionModule.stop();
+      speechModuleRef.current?.stop();
       controllerRef.current?.abort();
       suggestControllerRef.current?.abort();
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -175,8 +193,14 @@ export default function SearchScreen() {
 
   React.useEffect(() => {
     try {
-      setVoiceSupported(ExpoSpeechRecognitionModule.isRecognitionAvailable());
+      const speechPkg = require("expo-speech-recognition") as {
+        ExpoSpeechRecognitionModule?: SpeechRecognitionModuleLike;
+      };
+      const module = speechPkg.ExpoSpeechRecognitionModule ?? null;
+      speechModuleRef.current = module;
+      setVoiceSupported(Boolean(module?.isRecognitionAvailable?.()));
     } catch {
+      speechModuleRef.current = null;
       setVoiceSupported(false);
     }
   }, []);
@@ -360,7 +384,7 @@ export default function SearchScreen() {
   );
 
   const stopVoiceSearch = React.useCallback(() => {
-    ExpoSpeechRecognitionModule.stop();
+    speechModuleRef.current?.stop();
   }, []);
 
   const startVoiceSearch = React.useCallback(async () => {
@@ -375,7 +399,14 @@ export default function SearchScreen() {
     setShowSuggestions(false);
 
     try {
-      const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+      const speechModule = speechModuleRef.current;
+      if (!speechModule) {
+        setVoiceSupported(false);
+        showToast("Voice search is not available on this device.", "info");
+        return;
+      }
+
+      const permission = await speechModule.requestPermissionsAsync();
       if (!permission.granted) {
         const message = "Microphone permission is required for voice search.";
         setVoiceError(message);
@@ -383,7 +414,7 @@ export default function SearchScreen() {
         return;
       }
 
-      ExpoSpeechRecognitionModule.start({
+      speechModule.start({
         lang: DEFAULT_SEARCH_LANGUAGE,
         interimResults: true,
         continuous: false,
@@ -411,38 +442,52 @@ export default function SearchScreen() {
     startVoiceSearch();
   }, [startVoiceSearch, stopVoiceSearch, voiceListening]);
 
-  useSpeechRecognitionEvent("start", () => {
-    setVoiceListening(true);
-    setVoiceError(null);
-  });
+  React.useEffect(() => {
+    const speechModule = speechModuleRef.current;
+    if (!speechModule?.addListener) return;
 
-  useSpeechRecognitionEvent("end", () => {
-    setVoiceListening(false);
-    if (!speechTriggeredSearchRef.current && voiceTranscript.trim()) {
-      runVoiceSearch(voiceTranscript);
-    }
-  });
+    const onStart = speechModule.addListener("start", () => {
+      setVoiceListening(true);
+      setVoiceError(null);
+    });
 
-  useSpeechRecognitionEvent("result", (event) => {
-    const transcript = event.results[0]?.transcript?.trim() ?? "";
-    if (!transcript) return;
+    const onEnd = speechModule.addListener("end", () => {
+      setVoiceListening(false);
+      if (!speechTriggeredSearchRef.current && voiceTranscript.trim()) {
+        runVoiceSearch(voiceTranscript);
+      }
+    });
 
-    setVoiceTranscript(transcript);
-    setSearch(transcript);
+    const onResult = speechModule.addListener("result", (event?: unknown) => {
+      const typedEvent = (event as SpeechResultEvent) ?? {};
+      const transcript = typedEvent.results?.[0]?.transcript?.trim() ?? "";
+      if (!transcript) return;
 
-    if (event.isFinal) {
-      runVoiceSearch(transcript);
-    }
-  });
+      setVoiceTranscript(transcript);
+      setSearch(transcript);
 
-  useSpeechRecognitionEvent("error", (event) => {
-    setVoiceListening(false);
-    const message = event.message || "Voice search failed";
-    setVoiceError(message);
-    if (event.error !== "aborted") {
-      showToast(message, "error");
-    }
-  });
+      if (typedEvent.isFinal) {
+        runVoiceSearch(transcript);
+      }
+    });
+
+    const onError = speechModule.addListener("error", (event?: unknown) => {
+      const typedEvent = (event as SpeechErrorEvent) ?? {};
+      setVoiceListening(false);
+      const message = typedEvent.message || "Voice search failed";
+      setVoiceError(message);
+      if (typedEvent.error !== "aborted") {
+        showToast(message, "error");
+      }
+    });
+
+    return () => {
+      onStart?.remove();
+      onEnd?.remove();
+      onResult?.remove();
+      onError?.remove();
+    };
+  }, [runVoiceSearch, showToast, voiceTranscript]);
 
   const handleRetry = React.useCallback(() => {
     controllerRef.current?.abort();
@@ -489,7 +534,10 @@ export default function SearchScreen() {
     []
   );
 
-  const categoryKeyExtractor = React.useCallback((item: CategoryChipItem) => item.id, []);
+  const categoryKeyExtractor = React.useCallback(
+    (item: CategoryChipItem) => item.id,
+    []
+  );
 
   const categoryChips = React.useMemo<CategoryChipItem[]>(
     () => [{ id: "all", name: "All" }, ...categories],
@@ -978,16 +1026,14 @@ const styles = StyleSheet.create({
   sortSheetOptionActive: {
     backgroundColor: "rgba(184, 149, 108, 0.14)",
     borderRadius: 0,
-    marginHorizontal: -spacing.sm,
-    paddingHorizontal: spacing.sm,
   },
   sortSheetOptionText: {
     fontFamily: typography.sans,
-    fontSize: 14,
-    color: colors.brown,
+    fontSize: 13,
+    color: colors.charcoal,
   },
   sortSheetOptionTextActive: {
-    color: colors.charcoal,
     fontFamily: typography.sansMedium,
+    color: colors.charcoal,
   },
 });

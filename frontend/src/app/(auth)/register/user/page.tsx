@@ -68,15 +68,18 @@ export default function UserRegisterPage() {
 
     setLoading(true);
     try {
+      console.info("[auth-ui][register-user] submit", { email: email.trim().toLowerCase(), phone: normalizedPhone });
       await registerUser({
         fullName: fullName.trim(),
         email: email.trim().toLowerCase(),
         phone: normalizedPhone,
         password,
       });
-      toast.success("OTP sent to your mobile number.");
-      window.location.href = `/verify-otp?method=phone&phone=${encodeURIComponent(normalizedPhone)}`;
+      console.info("[auth-ui][register-user] otp-sent", { email: email.trim().toLowerCase() });
+      toast.success("OTP sent to your email address.");
+      window.location.href = `/verify-otp?email=${encodeURIComponent(email.trim().toLowerCase())}`;
     } catch (error) {
+      console.error("[auth-ui][register-user] failed", error);
       toast.error(error instanceof Error ? error.message : "Signup failed");
     } finally {
       setLoading(false);

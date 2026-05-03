@@ -64,13 +64,14 @@ export default function RegisterScreen() {
     setLoading(true);
     setError(null);
     try {
+      const normalizedEmail = email.trim().toLowerCase();
       await registerUser({
         fullName: fullName.trim(),
-        email: email.trim().toLowerCase(),
+        email: normalizedEmail,
         phone: normalizedPhone,
         password,
       });
-      router.replace({ pathname: "/(auth)/verify-otp", params: { method: "phone", phone: normalizedPhone } });
+      router.replace({ pathname: "/(auth)/verify-otp", params: { method: "email", email: normalizedEmail } });
     } catch (err) {
       const message =
         err instanceof ApiError && err.statusCode === 409

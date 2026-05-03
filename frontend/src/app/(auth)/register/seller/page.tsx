@@ -76,10 +76,17 @@ export default function SellerRegisterPage() {
 
     setLoading(true);
     try {
+      console.info("[auth-ui][register-seller] submit", {
+        email: email.trim().toLowerCase(),
+        phone,
+        whatsappNumber,
+      });
       await registerSeller({ email, phone, whatsappNumber, password });
-      toast.success("OTP sent to your mobile number.");
-      window.location.href = `/verify-otp?method=phone&phone=${encodeURIComponent(phone)}`;
+      console.info("[auth-ui][register-seller] otp-sent", { email: email.trim().toLowerCase() });
+      toast.success("OTP sent to your email address.");
+      window.location.href = `/verify-otp?email=${encodeURIComponent(email.trim().toLowerCase())}`;
     } catch (error) {
+      console.error("[auth-ui][register-seller] failed", error);
       toast.error(error instanceof Error ? error.message : "Signup failed");
     } finally {
       setLoading(false);

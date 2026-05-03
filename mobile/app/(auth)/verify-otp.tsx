@@ -12,9 +12,8 @@ import {
 
 export default function VerifyOtpScreen() {
   const router = useRouter();
-  const { phone, email, method } = useLocalSearchParams<{ phone?: string; email?: string; method?: string }>();
+  const { email } = useLocalSearchParams<{ email?: string }>();
   const { signInWithOtp } = useAuth();
-  const otpMethod = method === "email" ? "email" : "phone";
   const [otp, setOtp] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [resending, setResending] = React.useState(false);
@@ -23,13 +22,12 @@ export default function VerifyOtpScreen() {
   const submittedOtpRef = React.useRef<string | null>(null);
 
   const handleVerify = React.useCallback(async () => {
-    const identifier = otpMethod === "phone"
-      ? (typeof phone === "string" ? phone.trim() : "")
-      : (typeof email === "string" ? email.trim().toLowerCase() : "");
+    const identifier = typeof email === "string" ? email.trim().toLowerCase() : "";
     const code = otp.trim();
 
     if (!identifier) {
-      setError(`Missing ${otpMethod === "phone" ? "mobile number" : "email address"}. Please request OTP again.`);
+      console.warn("[mobile-auth][verify-otp] missing email");
+      setError("Missing email address. Please request OTP again.");
       return;
     }
     if (code.length !== 6) {
@@ -41,29 +39,26 @@ export default function VerifyOtpScreen() {
     setError(null);
     setMessage(null);
     try {
-      const responseMessage = await signInWithOtp(
-        otpMethod === "phone"
-          ? { phone: identifier, otp: code }
-          : { email: identifier, otp: code }
-      );
+      console.info("[mobile-auth][verify-otp] submit", { email: identifier, otpLength: code.length });
+      const responseMessage = await signInWithOtp({ email: identifier, otp: code });
       if (responseMessage) {
         setMessage(responseMessage);
         return;
       }
       router.replace("/home");
     } catch (err) {
+      console.error("[mobile-auth][verify-otp] failed", err);
       setError(err instanceof Error ? err.message : "OTP verification failed");
     } finally {
       setLoading(false);
     }
-  }, [email, otp, otpMethod, phone, signInWithOtp, router]);
+  }, [email, otp, signInWithOtp, router]);
 
   const handleResend = React.useCallback(async () => {
-    const identifier = otpMethod === "phone"
-      ? (typeof phone === "string" ? phone.trim() : "")
-      : (typeof email === "string" ? email.trim().toLowerCase() : "");
+    const identifier = typeof email === "string" ? email.trim().toLowerCase() : "";
     if (!identifier) {
-      setError(`Missing ${otpMethod === "phone" ? "mobile number" : "email address"}. Please request OTP again.`);
+      console.warn("[mobile-auth][verify-otp] resend blocked - missing email");
+      setError(`Missing email address. Please request OTP again.`);
       return;
     }
 
@@ -71,18 +66,16 @@ export default function VerifyOtpScreen() {
     setError(null);
     setMessage(null);
     try {
-      const result = await requestOtp(
-        otpMethod === "phone"
-          ? { phone: identifier }
-          : { email: identifier }
-      );
+      console.info("[mobile-auth][verify-otp] resend", { email: identifier });
+      const result = await requestOtp({ email: identifier });
       setMessage(result.message || "OTP sent again.");
     } catch (err) {
+      console.error("[mobile-auth][verify-otp] resend failed", err);
       setError(err instanceof Error ? err.message : "Could not resend OTP");
     } finally {
       setResending(false);
     }
-  }, [email, otpMethod, phone]);
+  }, [email]);
 
   React.useEffect(() => {
     if (otp.length !== 6 || loading || submittedOtpRef.current === otp) {
@@ -97,9 +90,7 @@ export default function VerifyOtpScreen() {
       <View style={styles.container}>
         <Text style={styles.heading}>VERIFY OTP</Text>
         <Text style={styles.subHeading}>
-          {otpMethod === "phone"
-            ? "Enter the 6-digit code sent to your mobile number"
-            : "Enter the 6-digit code sent to your email address"}
+          Enter the 6-digit code sent to your email address
         </Text>
 
         <TextInput
