@@ -287,7 +287,17 @@ export default function HomeScreen() {
 
   const categoryCards = React.useMemo<HomeGridCard[]>(() => {
     const categories: Category[] = categoriesQuery.data?.categories ?? [];
-    return categories.map((category, index) => ({
+    // Prefer showing Sable/Wedding first in the grid if present
+    const preferred = ["sable", "wedding"];
+    const sorted = [...categories].sort((a, b) => {
+      const ai = (a.slug || a.name || "").toLowerCase();
+      const bi = (b.slug || b.name || "").toLowerCase();
+      const aPref = preferred.indexOf(ai) !== -1 ? preferred.indexOf(ai) : Infinity;
+      const bPref = preferred.indexOf(bi) !== -1 ? preferred.indexOf(bi) : Infinity;
+      return aPref - bPref;
+    });
+
+    return sorted.map((category, index) => ({
       id: category.id,
       title: (category.name || "Category").toUpperCase(),
       image:
@@ -299,7 +309,17 @@ export default function HomeScreen() {
 
   const occasionCards = React.useMemo<HomeGridCard[]>(() => {
     const occasions: Occasion[] = occasionsQuery.data?.occasions ?? [];
-    return occasions.map((occasion, index) => ({
+    // Move Mehndi & Haldi to the front if present
+    const preferred = ["mehndi", "haldi"];
+    const sorted = [...occasions].sort((a, b) => {
+      const ai = (a.slug || a.name || "").toLowerCase();
+      const bi = (b.slug || b.name || "").toLowerCase();
+      const aPref = preferred.indexOf(ai) !== -1 ? preferred.indexOf(ai) : Infinity;
+      const bPref = preferred.indexOf(bi) !== -1 ? preferred.indexOf(bi) : Infinity;
+      return aPref - bPref;
+    });
+
+    return sorted.map((occasion, index) => ({
       id: occasion.id,
       title: (occasion.name || "Occasion").toUpperCase(),
       image:
@@ -774,35 +794,95 @@ export default function HomeScreen() {
             <Text style={styles.gridEmptyText}>No categories available right now.</Text>
           </View>
         ) : (
-          <FlatList
-            data={repeatedCategoryCards}
-            keyExtractor={(item) => item.id}
-            renderItem={renderCategoryCard}
-            horizontal
-            initialNumToRender={1}
-            maxToRenderPerBatch={2}
-            windowSize={3}
-            updateCellsBatchingPeriod={24}
-            removeClippedSubviews
-            decelerationRate="fast"
-            disableIntervalMomentum
-            snapToAlignment="start"
-            snapToInterval={categoryCardWidth + categoryCardGap}
-            style={styles.gridViewport}
-            contentContainerStyle={styles.categoryCarouselContent}
-            onEndReached={loadMoreCategories}
-            onEndReachedThreshold={0.4}
-            showsHorizontalScrollIndicator={false}
-            onScroll={(event) => {
-              const page = Math.round(event.nativeEvent.contentOffset.x / (categoryCardWidth + categoryCardGap));
-              setCategoryPageIndex((prev) => (prev === page ? prev : page));
-            }}
-            scrollEventThrottle={16}
-            onMomentumScrollEnd={(event) => {
-              const page = Math.round(event.nativeEvent.contentOffset.x / (categoryCardWidth + categoryCardGap));
-              setCategoryPageIndex((prev) => (prev === page ? prev : page));
-            }}
-          />
+          // If we have enough categories, show a compact 4x2 grid (8 items)
+          (categoryCards.length >= 8) ? (
+            <View style={styles.categoryGridWrap}>
+              {(() => {
+                const items = categoryCards.slice(0, 8);
+                const smallGap = spacing.md;
+                const cols = 4;
+                const totalGap = smallGap * (cols - 1);
+                const smallWidth = Math.floor((gridPageWidth - totalGap) / cols);
+                const smallHeight = Math.round(smallWidth * 1.34);
+
+                return (
+                  <>
+                    <View style={[styles.categoryGridRow, { gap: smallGap }]}>
+                      {items.slice(0, 4).map((card) => (
+                        <Pressable
+                          key={card.id}
+                          style={[styles.categoryCard, { width: smallWidth, height: smallHeight }]}
+                          onPress={() => navigateTo(`/search?q=${encodeURIComponent(card.query)}`)}
+                        >
+                          <CachedImage source={card.image} style={{ width: smallWidth, height: smallHeight }} contentFit="cover" />
+                          <View pointerEvents="none" style={styles.categoryCardOverlay} />
+                          <BottomWineFade />
+                          <ArchGradientBorder
+                            width={smallWidth}
+                            height={smallHeight}
+                            topRadius={smallWidth / 2}
+                            strokeWidth={3.1}
+                          />
+                          <Text style={[styles.categoryCardTitle, { fontSize: 16 }]}>{card.title}</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+
+                    <View style={[styles.categoryGridRow, { gap: smallGap, marginTop: spacing.md }]}>
+                      {items.slice(4, 8).map((card) => (
+                        <Pressable
+                          key={card.id}
+                          style={[styles.categoryCard, { width: smallWidth, height: smallHeight }]}
+                          onPress={() => navigateTo(`/search?q=${encodeURIComponent(card.query)}`)}
+                        >
+                          <CachedImage source={card.image} style={{ width: smallWidth, height: smallHeight }} contentFit="cover" />
+                          <View pointerEvents="none" style={styles.categoryCardOverlay} />
+                          <BottomWineFade />
+                          <ArchGradientBorder
+                            width={smallWidth}
+                            height={smallHeight}
+                            topRadius={smallWidth / 2}
+                            strokeWidth={3.1}
+                          />
+                          <Text style={[styles.categoryCardTitle, { fontSize: 16 }]}>{card.title}</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  </>
+                );
+              })()}
+            </View>
+          ) : (
+            <FlatList
+              data={repeatedCategoryCards}
+              keyExtractor={(item) => item.id}
+              renderItem={renderCategoryCard}
+              horizontal
+              initialNumToRender={1}
+              maxToRenderPerBatch={2}
+              windowSize={3}
+              updateCellsBatchingPeriod={24}
+              removeClippedSubviews
+              decelerationRate="fast"
+              disableIntervalMomentum
+              snapToAlignment="start"
+              snapToInterval={categoryCardWidth + categoryCardGap}
+              style={styles.gridViewport}
+              contentContainerStyle={styles.categoryCarouselContent}
+              onEndReached={loadMoreCategories}
+              onEndReachedThreshold={0.4}
+              showsHorizontalScrollIndicator={false}
+              onScroll={(event) => {
+                const page = Math.round(event.nativeEvent.contentOffset.x / (categoryCardWidth + categoryCardGap));
+                setCategoryPageIndex((prev) => (prev === page ? prev : page));
+              }}
+              scrollEventThrottle={16}
+              onMomentumScrollEnd={(event) => {
+                const page = Math.round(event.nativeEvent.contentOffset.x / (categoryCardWidth + categoryCardGap));
+                setCategoryPageIndex((prev) => (prev === page ? prev : page));
+              }}
+            />
+          )
         )}
         {repeatedCategoryCards.length > 0 ? (
           <View style={styles.paginationWrap}>
@@ -1197,6 +1277,13 @@ const styles = StyleSheet.create({
   occasionGrid: {
     marginTop: spacing.sm,
     paddingBottom: spacing.md,
+  },
+  categoryGridWrap: {
+    marginTop: spacing.sm,
+  },
+  categoryGridRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
   },
   gridPage: {
     flexDirection: "row",

@@ -9,12 +9,14 @@ import {
   useWindowDimensions,
   Alert,
   Modal,
+  Share,
   type ListRenderItemInfo,
   type NativeSyntheticEvent,
   type NativeScrollEvent,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Image } from "../../../src/components/CompatImage";
+import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import {
@@ -735,6 +737,16 @@ export default function ProductDetailScreen() {
     }
   }, [token, isConnected, product, fallbackVariant, outOfStock, addToCart, router, showToast]);
 
+  const handleShareProduct = React.useCallback(async () => {
+    try {
+      const shareTitle = product?.title?.trim() || "TatVivah product";
+      const url = `https://tatvivahtrends.com/product/${productId}`;
+      await Share.share({ message: `${shareTitle}\n${url}` });
+    } catch {
+      // no-op on cancel/error
+    }
+  }, [product?.title, productId]);
+
   const handlePickReviewImages = React.useCallback(async () => {
     if (reviewImages.length >= MAX_REVIEW_IMAGES) {
       setReviewError(`Maximum ${MAX_REVIEW_IMAGES} images allowed.`);
@@ -1132,25 +1144,38 @@ export default function ProductDetailScreen() {
 
           <View style={styles.titleRow}>
             <Text style={styles.productTitle}>{product.title}</Text>
-            <Pressable
-              onPress={() => {
-                if (!token) {
-                  router.push("/login");
-                  return;
-                }
-                impactLight();
-                toggleWishlist(product.id);
-              }}
-              disabled={!product || wishlistMutatingIds.has(product?.id ?? "")}
-              style={styles.wishlistInlineButton}
-              hitSlop={8}
-            >
-              <WishlistIcon
-                size={22}
-                color={isWishlisted(product.id) ? "#E8453C" : colors.charcoal}
-                filled={isWishlisted(product.id)}
-              />
-            </Pressable>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                <Pressable
+                  onPress={() => {
+                    if (!token) {
+                      router.push("/login");
+                      return;
+                    }
+                    impactLight();
+                    toggleWishlist(product.id);
+                  }}
+                  disabled={!product || wishlistMutatingIds.has(product?.id ?? "")}
+                  style={styles.wishlistInlineButton}
+                  hitSlop={8}
+                >
+                  <WishlistIcon
+                    size={22}
+                    color={isWishlisted(product.id) ? "#E8453C" : colors.charcoal}
+                    filled={isWishlisted(product.id)}
+                  />
+                </Pressable>
+
+                <Pressable
+                  onPress={() => {
+                    impactLight();
+                    void handleShareProduct();
+                  }}
+                  style={{ height: 36, width: 36, alignItems: "center", justifyContent: "center" }}
+                  hitSlop={8}
+                >
+                  <Ionicons name="share-social-outline" size={20} color={colors.charcoal} />
+                </Pressable>
+              </View>
           </View>
 
           <View style={styles.detailsTopRow}>
