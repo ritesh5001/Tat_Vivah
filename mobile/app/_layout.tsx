@@ -18,48 +18,32 @@ import { queryClient, queryPersister } from "../src/providers/queryClient";
 import { colors } from "../src/theme/tokens";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { GlobalBottomBar } from "../src/components/GlobalBottomBar";
-import InAppUpdates, { IAUUpdateKind } from "react-native-in-app-updates";
+// import InAppUpdates, { IAUUpdateKind } from "react-native-in-app-updates";
 
 function AppShell() {
   const { isConnected } = useNetworkStatus();
   const [updateAvailable, setUpdateAvailable] = React.useState(false);
-  const inAppUpdatesRef = React.useRef<InAppUpdates | null>(null);
+  // const inAppUpdatesRef = React.useRef<InAppUpdates | null>(null);
 
   React.useEffect(() => {
-    let active = true;
-
-    const load = async () => {
-      if (Platform.OS !== "android") return;
-      if (Constants.appOwnership === "expo") return;
-
-      try {
-        const inAppUpdates = new InAppUpdates(false);
-        inAppUpdatesRef.current = inAppUpdates;
-        const result = await inAppUpdates.checkNeedsUpdate();
-        if (!active) return;
-        setUpdateAvailable(Boolean(result?.shouldUpdate));
-      } catch {
-        // Silent fail: app should continue even if version check fails.
-      }
-    };
-
-    load();
-
+    // In-app updates feature disabled (package unavailable)
+    // Original code checked for app updates on Android and triggered flexible updates
+    // This can be re-enabled by installing the correct in-app-updates package
     return () => {
-      active = false;
+      // no cleanup needed
     };
   }, []);
 
-  const handleUpdatePress = React.useCallback(async () => {
-    const updater = inAppUpdatesRef.current;
-    if (!updater) return;
-
-    try {
-      await updater.startUpdate({ updateType: IAUUpdateKind.FLEXIBLE });
-    } catch {
-      // ignore
-    }
-  }, []);
+  // Update feature disabled — in-app-updates package unavailable
+  // const handleUpdatePress = React.useCallback(async () => {
+  //   const updater = inAppUpdatesRef.current;
+  //   if (!updater) return;
+  //   try {
+  //     await updater.startUpdate({ updateType: IAUUpdateKind.FLEXIBLE });
+  //   } catch {
+  //     // ignore
+  //   }
+  // }, []);
 
   return (
     <>
@@ -70,7 +54,7 @@ function AppShell() {
             <Text style={styles.updateTitle}>Update available</Text>
             <Text style={styles.updateSubtitle}>Please update the app from Play Store.</Text>
           </View>
-          <Pressable style={styles.updateButton} onPress={handleUpdatePress}>
+          <Pressable style={styles.updateButton} onPress={() => {}}>
             <Text style={styles.updateButtonText}>Update</Text>
           </Pressable>
         </View>
