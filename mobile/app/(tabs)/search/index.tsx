@@ -192,17 +192,11 @@ export default function SearchScreen() {
   }, []);
 
   React.useEffect(() => {
-    try {
-      const speechPkg = require("expo-speech-recognition") as {
-        ExpoSpeechRecognitionModule?: SpeechRecognitionModuleLike;
-      };
-      const module = speechPkg.ExpoSpeechRecognitionModule ?? null;
-      speechModuleRef.current = module;
-      setVoiceSupported(Boolean(module?.isRecognitionAvailable?.()));
-    } catch {
-      speechModuleRef.current = null;
-      setVoiceSupported(false);
-    }
+    // Speech recognition disabled — native module unavailable in dev environment
+    // Original code attempted to load expo-speech-recognition, which requires native compilation
+    // Voice search can be re-enabled by properly setting up native modules
+    speechModuleRef.current = null;
+    setVoiceSupported(false);
   }, []);
 
   React.useEffect(() => {

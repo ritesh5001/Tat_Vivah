@@ -51,6 +51,7 @@ import { impactMedium, impactLight, notifySuccess } from "../../../src/utils/hap
 import { AppHeader } from "../../../src/components/AppHeader";
 import { useQuery } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as Linking from "expo-linking";
 import Animated, {
   runOnJS,
   useAnimatedStyle,
@@ -740,8 +741,17 @@ export default function ProductDetailScreen() {
   const handleShareProduct = React.useCallback(async () => {
     try {
       const shareTitle = product?.title?.trim() || "TatVivah product";
-      const url = `https://tatvivahtrends.com/product/${productId}`;
-      await Share.share({ message: `${shareTitle}\n${url}` });
+      const webUrl = `https://tatvivahtrends.com/product/${productId}`;
+      const deepLink = `tatvivah://product/${productId}`;
+
+      // Try to share a deep link (so devices that support URL schemes can open the app),
+      // include the web URL as a fallback in the message so recipients without the app
+      // can still open the product page in the browser.
+      await Share.share({
+        title: shareTitle,
+        message: `${shareTitle}\n${webUrl}`,
+        url: deepLink,
+      });
     } catch {
       // no-op on cancel/error
     }
