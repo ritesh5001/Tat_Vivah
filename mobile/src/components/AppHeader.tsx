@@ -275,7 +275,8 @@ const styles = StyleSheet.create({
     minHeight: 58,
   },
   leftSlot: {
-    flex: 1,
+    flex: 0,
+    width: 56,
     flexDirection: "row",
     justifyContent: "flex-start",
     alignItems: "center",
@@ -309,7 +310,8 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   actions: {
-    flex: 1,
+    flex: 0,
+    width: 128,
     flexDirection: "row",
     justifyContent: "flex-end",
     gap: spacing.sm,
@@ -341,5 +343,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: colors.foreground,
     letterSpacing: 0.3,
+    maxWidth: "100%",
+    textAlign: "center",
   },
 });
