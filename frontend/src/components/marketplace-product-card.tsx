@@ -21,6 +21,7 @@ export interface MarketplaceCardProduct {
   salePrice?: number | null;
   adminPrice?: number | null;
   price?: number | null;
+  compareAtPrice?: number | null;
   regularPrice?: number | null;
   sellerPrice?: number | null;
   adminListingPrice?: number | null;
@@ -103,19 +104,22 @@ function resolveCouponPrice(product: MarketplaceCardProduct, displayPrice: numbe
 
 function resolvePrimaryPrice(product: MarketplaceCardProduct): number | null {
   const value =
-    product.salePrice ??
     product.adminPrice ??
-    product.price ??
     product.adminListingPrice ??
+    product.salePrice ??
+    product.price ??
     product.minPrice ??
     product.sellerPrice;
   return typeof value === "number" ? value : null;
 }
 
 function resolveOriginalPrice(product: MarketplaceCardProduct, displayPrice: number | null): number | null {
-  if (typeof product.regularPrice !== "number") return null;
   if (displayPrice === null) return null;
-  return product.regularPrice > displayPrice ? product.regularPrice : null;
+
+  const value = product.compareAtPrice ?? product.regularPrice;
+  if (typeof value !== "number") return null;
+
+  return value > displayPrice ? value : null;
 }
 
 const SIZE_ORDER = ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "4XL", "5XL"] as const;
@@ -229,20 +233,29 @@ export function MarketplaceProductCard({ product }: { product: MarketplaceCardPr
 
         {typeof displayPrice === "number" ? (
           <>
-            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 sm:gap-x-2.5">
-              <span className="text-[1.62rem] font-semibold leading-none tracking-[-0.015em] text-foreground sm:text-[2rem] sm:tracking-[-0.02em]">
-                {currency.format(displayPrice)}
-              </span>
+            <div className="space-y-1">
               {typeof originalPrice === "number" && (
-                <span className="text-[0.86rem] font-medium leading-none text-muted-foreground/80 line-through sm:text-[0.92rem]">
-                  {currency.format(originalPrice)}
-                </span>
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.72rem] font-medium uppercase tracking-[0.12em] text-muted-foreground sm:text-[0.78rem]">
+                  <span>MRP</span>
+                  <span className="text-[0.86rem] normal-case tracking-normal text-muted-foreground/85 line-through decoration-foreground/45 decoration-1 sm:text-[0.94rem]">
+                    {currency.format(originalPrice)}
+                  </span>
+                  {hasDiscount && (
+                    <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[0.68rem] font-semibold text-amber-800 dark:bg-amber-500/15 dark:text-amber-300 sm:text-[0.72rem]">
+                      Save {discountPercentage}%
+                    </span>
+                  )}
+                </div>
               )}
-              {hasDiscount && (
-                <span className="text-[0.78rem] font-semibold uppercase tracking-[0.1em] text-amber-700 dark:text-amber-300 sm:text-[0.82rem] sm:tracking-[0.12em]">
-                  {discountPercentage}% OFF
+
+              <div className="flex flex-wrap items-end gap-x-2 gap-y-1">
+                <span className="pb-0.5 text-[0.68rem] font-semibold uppercase tracking-[0.13em] text-muted-foreground sm:text-[0.74rem]">
+                  Sale price
                 </span>
-              )}
+                <span className="text-[1.72rem] font-bold leading-none text-foreground sm:text-[2.08rem]">
+                  {currency.format(displayPrice)}
+                </span>
+              </div>
             </div>
 
             {typeof couponPrice === "number" && couponPrice < displayPrice && (

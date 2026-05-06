@@ -156,6 +156,7 @@ export class BestsellerService {
                 title: item.product.title,
                 image: item.product.images?.[0] ?? null,
                 categoryName: item.product.category?.name ?? null,
+                compareAtPrice: cheapestVariant?.compareAtPrice ?? null,
                 regularPrice,
                 sellerPrice: sellingPrice,
                 adminPrice: sellingPrice,

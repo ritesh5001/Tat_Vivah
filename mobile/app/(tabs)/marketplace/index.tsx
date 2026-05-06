@@ -11,12 +11,11 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Image } from "../../../src/components/CompatImage";
 import { useQuery } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, spacing, typography, shadow } from "../../../src/theme/tokens";
+import { colors, spacing, typography } from "../../../src/theme/tokens";
 import { AppHeader } from "../../../src/components/AppHeader";
 import { getCategories, type Category } from "../../../src/services/catalog";
 import {
   getProducts,
-  getProductById,
   type ProductItem,
 } from "../../../src/services/products";
 import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
@@ -25,7 +24,7 @@ import {
   ScreenContainer as SafeAreaView,
 } from "../../../src/components";
 
-const COLS = 3;
+const COLS = 2;
 const FEATURED_LIMIT = 9;
 const POPULAR_LIMIT = 12;
 const fallbackImage =
@@ -85,9 +84,9 @@ export default function CategoriesScreen() {
     [popularData]
   );
 
-  const sidebarWidth = Math.round(windowWidth * 0.28);
+  const sidebarWidth = Math.round(windowWidth * 0.22);
   const contentWidth = windowWidth - sidebarWidth;
-  const cardWidth = Math.floor((contentWidth - spacing.lg * 2 - spacing.md * (COLS - 1)) / COLS);
+  const cardWidth = Math.floor((contentWidth - spacing.md * 2 - spacing.md * (COLS - 1)) / COLS);
   const cardHeight = Math.round(cardWidth * 1.2);
 
   const handleProductPress = React.useCallback(
@@ -148,8 +147,6 @@ export default function CategoriesScreen() {
     ),
     [cardWidth, cardHeight, handleProductPress]
   );
-
-  const contentAreaHeight = windowWidth; // Approximate
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -222,7 +219,7 @@ export default function CategoriesScreen() {
               <View style={styles.grid}>
                 {featuredProducts.map((product, idx) => (
                   <View key={`featured-${idx}`} style={{ width: cardWidth }}>
-                    {renderProductCard({ item: product, index: idx })}
+                    {renderProductCard({ item: product })}
                   </View>
                 ))}
               </View>
@@ -244,7 +241,7 @@ export default function CategoriesScreen() {
               <View style={styles.grid}>
                 {popularProducts.map((product, idx) => (
                   <View key={`popular-${idx}`} style={{ width: cardWidth }}>
-                    {renderProductCard({ item: product, index: idx })}
+                    {renderProductCard({ item: product })}
                   </View>
                 ))}
               </View>
@@ -272,7 +269,7 @@ const styles = StyleSheet.create({
     borderRightWidth: 1,
     borderRightColor: colors.borderSoft,
     backgroundColor: colors.background,
-    paddingHorizontal: spacing.xs,
+    paddingHorizontal: 0,
     paddingTop: spacing.sm,
   },
   sidebarLoading: {
@@ -281,9 +278,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   categoryItem: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.xs,
-    borderLeftWidth: 4,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: 2,
+    borderLeftWidth: 3,
     borderLeftColor: "transparent",
     alignItems: "center",
     justifyContent: "center",
@@ -294,15 +291,15 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(184, 149, 108, 0.08)",
   },
   categoryImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: colors.surface,
   },
   categoryImagePlaceholder: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: colors.surface,
     justifyContent: "center",
     alignItems: "center",
@@ -314,7 +311,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: spacing.xs,
     flexShrink: 1,
-    maxWidth: 72,
+    maxWidth: 66,
   },
   categoryNameActive: {
     fontFamily: typography.sansMedium,
@@ -322,7 +319,7 @@ const styles = StyleSheet.create({
   },
   contentArea: {
     flex: 1,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     paddingTop: spacing.md,
     paddingBottom: spacing.md,
   },
@@ -374,4 +371,3 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
   },
 });
-

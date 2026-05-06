@@ -16,6 +16,7 @@ function toCardProduct(item: BestsellerProduct): MarketplaceCardProduct {
     title: item.title,
     image: item.image ?? null,
     categoryName: item.categoryName ?? null,
+    compareAtPrice: item.compareAtPrice ?? null,
     regularPrice: item.regularPrice ?? null,
     sellerPrice: item.sellerPrice ?? null,
     adminPrice: item.adminPrice ?? null,
