@@ -457,6 +457,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: colors.surfaceElevated,
+    overflow: "hidden",
+    flexShrink: 0,
   },
   productCardActive: {
     borderColor: colors.gold,
@@ -468,12 +470,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   productTitle: {
-    minHeight: 40,
     paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
     fontFamily: typography.sansMedium,
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: 11.5,
+    lineHeight: 15,
     color: colors.charcoal,
   },
   loadingCard: {

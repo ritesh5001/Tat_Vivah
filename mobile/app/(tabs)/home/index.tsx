@@ -191,7 +191,6 @@ export default function HomeScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
 
-  const spotlightQuery = useProductsQuery({ page: 1, limit: 8, sort: "newest" });
   const categoriesQuery = useQuery({
     queryKey: ["home-categories"],
     queryFn: getCategories,
@@ -234,26 +233,6 @@ export default function HomeScreen() {
     [router]
   );
 
-  const spotlightCards = React.useMemo(() => {
-    const products = spotlightQuery.data?.data ?? [];
-    if (products.length === 0) {
-      return [
-        { id: "s1", image: images.hero.mobile[0], title: "ROYAL WEDDING", productId: null, description: "" },
-        { id: "s2", image: images.hero.mobile[2], title: "RECEPTION EDIT", productId: null, description: "" },
-        { id: "s3", image: images.hero.mobile[4], title: "GROOM SPECIAL", productId: null, description: "" },
-      ];
-    }
-
-    return products.slice(0, 3).map((product, index) => ({
-      id: product.id,
-      image: product.images?.[0] ?? images.hero.mobile[index % images.hero.mobile.length],
-      title: product.title,
-      productId: product.id,
-      description: product.description,
-    }));
-  }, [spotlightQuery.data]);
-
-  const spotlightCardHeight = Math.round(Math.min(Math.max(width * 1.05, 420), 560));
   const gridPageWidth = Math.max(width - spacing.pageHorizontal * 2, 280);
   const isPhone = width < 768;
   const gridPageGap = spacing.md;
@@ -593,8 +572,6 @@ export default function HomeScreen() {
     []
   );
 
-  const spotlightFeature = spotlightCards[0];
-
   React.useEffect(() => {
     if (!testimonials.length) return;
     const interval = setInterval(() => {
@@ -736,37 +713,48 @@ export default function HomeScreen() {
         ) : null}
       </View>
 
-      <View style={styles.spotlightSection}>
-        <View style={styles.spotlightHeadingWrap}>
-          <Ionicons name="sparkles-outline" size={30} color="#511d00" />
-          <Text style={styles.spotlightHeading}>IN THE SPOTLIGHT</Text>
+      <View style={styles.trustSection}>
+        <View style={styles.trustHeadingWrap}>
+          <View style={styles.trustHeadingMark} />
+          <Text style={styles.trustEyebrow}>The Tatvivah Promise</Text>
+          <View style={styles.trustHeadingMark} />
         </View>
-        <Pressable
-          style={[styles.spotlightFeatureCard, { height: spotlightCardHeight }]}
-          onPress={() =>
-            spotlightFeature?.productId
-              ? navigateTo(`/product/${spotlightFeature.productId}`)
-              : navigateTo("/marketplace")
-          }
-        >
-          {spotlightQuery.isLoading ? (
-            <View style={styles.spotlightSkeletonWrap}>
-              <SkeletonBlock width="100%" height={spotlightCardHeight} borderRadius={12} />
-            </View>
-          ) : (
-            <>
-              <CachedImage
-                source={spotlightFeature?.image ?? images.hero.mobile[2]}
-                style={styles.spotlightImage}
-                contentFit="cover"
-              />
-              <View style={styles.spotlightOverlay} />
-              <View style={styles.spotlightActionWrapBottom}>
-                <Text style={styles.spotlightActionText}>EXPLORE NOW</Text>
+        <Text style={styles.trustHeading}>Why shop with us</Text>
+
+        <View style={styles.trustGrid}>
+          {[
+            {
+              icon: "sparkles-outline" as const,
+              title: "Handcrafted",
+              copy: "Premium fabrics, intricate finishes, and details that photograph beautifully.",
+            },
+            {
+              icon: "shield-checkmark-outline" as const,
+              title: "Verified Sellers",
+              copy: "Curated ateliers across India — every piece vetted for quality and authenticity.",
+            },
+            {
+              icon: "cube-outline" as const,
+              title: "Pan-India Shipping",
+              copy: "Fast, tracked delivery to every pincode with luxury packaging on arrival.",
+            },
+            {
+              icon: "refresh-outline" as const,
+              title: "Easy 7-Day Returns",
+              copy: "Try at home with confidence — return or exchange within a week, no questions.",
+            },
+          ].map((item) => (
+            <View key={item.title} style={styles.trustCard}>
+              <View style={styles.trustIconWrap}>
+                <Ionicons name={item.icon} size={22} color={colors.gold} />
               </View>
-            </>
-          )}
-        </Pressable>
+              <Text style={styles.trustCardTitle}>{item.title}</Text>
+              <Text style={styles.trustCardCopy} numberOfLines={3}>
+                {item.copy}
+              </Text>
+            </View>
+          ))}
+        </View>
       </View>
 
       <View style={styles.collectionSection}>
@@ -1062,9 +1050,6 @@ export default function HomeScreen() {
     productCardGap,
     repeatedCategoryCards,
     repeatedBestsellerCards,
-    spotlightCardHeight,
-    spotlightFeature,
-    spotlightQuery.isLoading,
     testimonials,
     testimonialPageIndex,
     testimonialCardStep,
@@ -1395,64 +1380,78 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 8,
   },
-  spotlightSection: {
-    backgroundColor: "transparent",
-    marginHorizontal: 0,
-    paddingHorizontal: 0,
-    paddingVertical: 0,
+  trustSection: {
+    marginTop: 36,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xl,
+    backgroundColor: colors.cream,
     gap: spacing.md,
-    marginTop: 35,
   },
-  spotlightHeadingWrap: {
+  trustHeadingWrap: {
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: spacing.xs,
+    gap: 10,
   },
-  spotlightHeading: {
-    ...textStyles.sectionTitle,
-    color: "#17120E",
+  trustHeadingMark: {
+    width: 22,
+    height: 1,
+    backgroundColor: colors.gold,
+  },
+  trustEyebrow: {
+    fontFamily: typography.sansMedium,
+    fontSize: 10,
+    letterSpacing: 2.4,
     textTransform: "uppercase",
-    letterSpacing: 3.2,
-    fontSize: 24,
-  },
-  spotlightFeatureCard: {
-    width: "100%",
-    borderRadius: 0,
-    overflow: "hidden",
-    justifyContent: "flex-end",
-    backgroundColor: "#E8E3DA",
-    borderWidth: 1.5,
-    borderColor: "#7B4C2C",
-  },
-  spotlightImage: {
-    width: "100%",
-    height: "100%",
-  },
-  spotlightSkeletonWrap: {
-    width: "100%",
-    height: "100%",
-    overflow: "hidden",
-  },
-  spotlightOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.06)",
-  },
-  spotlightActionWrapBottom: {
-    position: "absolute",
-    bottom: spacing.lg,
-    alignSelf: "center",
-    borderRadius: 0,
-    backgroundColor: "#b7956c",
-    paddingHorizontal: spacing.xl,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: "#8C6A2B",
-  },
-  spotlightActionText: {
-    color: "#FFF8EA",
-    fontSize: 14,
-    letterSpacing: 1.6,
+    color: colors.gold,
     fontWeight: "700",
+  },
+  trustHeading: {
+    fontFamily: typography.serif,
+    fontSize: 24,
+    color: colors.charcoal,
+    textAlign: "center",
+    letterSpacing: 0.3,
+    fontWeight: "600",
+    marginBottom: spacing.sm,
+  },
+  trustGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.md,
+  },
+  trustCard: {
+    width: "47%",
+    flexGrow: 1,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.warmWhite,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    gap: 6,
+  },
+  trustIconWrap: {
+    width: 36,
+    height: 36,
+    borderWidth: 1,
+    borderColor: colors.gold,
+    backgroundColor: "rgba(184, 149, 108, 0.10)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
+  },
+  trustCardTitle: {
+    fontFamily: typography.serif,
+    fontSize: 15,
+    fontWeight: "600",
+    color: colors.charcoal,
+    letterSpacing: 0.2,
+  },
+  trustCardCopy: {
+    fontFamily: typography.sans,
+    fontSize: 11.5,
+    lineHeight: 16,
+    color: colors.brownSoft,
   },
   sectionHeadRow: {
     alignItems: "center",
