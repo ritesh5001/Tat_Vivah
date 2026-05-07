@@ -1,3 +1,5 @@
+import { Platform } from "react-native";
+
 import { API_BASE_URL, apiRequest } from "./api";
 
 interface ImageKitAuthResponse {
@@ -19,6 +21,24 @@ export interface ReviewImageAsset {
   mimeType: string;
 }
 
+async function appendImageFile(formData: FormData, asset: ReviewImageAsset): Promise<void> {
+  if (Platform.OS === "web") {
+    const imageResponse = await fetch(asset.uri);
+    if (!imageResponse.ok) {
+      throw new Error("Failed to read selected image");
+    }
+    const blob = await imageResponse.blob();
+    formData.append("file", blob, asset.fileName);
+    return;
+  }
+
+  formData.append("file", {
+    uri: asset.uri,
+    name: asset.fileName,
+    type: asset.mimeType,
+  } as unknown as Blob);
+}
+
 async function uploadImageAsset(asset: ReviewImageAsset, folder: string): Promise<string> {
   if (!IMAGEKIT_PUBLIC_KEY) {
     throw new Error("Image upload is unavailable. Missing EXPO_PUBLIC_IMAGEKIT_PUBLIC_KEY.");
@@ -30,11 +50,7 @@ async function uploadImageAsset(asset: ReviewImageAsset, folder: string): Promis
   });
 
   const formData = new FormData();
-  formData.append("file", {
-    uri: asset.uri,
-    name: asset.fileName,
-    type: asset.mimeType,
-  } as unknown as Blob);
+  await appendImageFile(formData, asset);
   formData.append("fileName", asset.fileName);
   formData.append("publicKey", IMAGEKIT_PUBLIC_KEY);
   formData.append("signature", auth.signature);
