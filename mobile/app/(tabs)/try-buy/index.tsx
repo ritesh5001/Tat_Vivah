@@ -241,6 +241,29 @@ export default function TryBuyScreen() {
           </View>
         </View>
 
+        {tryOnError ? <Text style={styles.errorText}>{tryOnError}</Text> : null}
+
+        <AnimatedPressable
+          style={[
+            styles.primaryButton,
+            (!selectedProduct || !userImageAsset || tryOnLoading) && styles.buttonDisabled,
+          ]}
+          onPress={generateTryOn}
+          disabled={!selectedProduct || !userImageAsset || tryOnLoading}
+        >
+          {tryOnLoading ? (
+            <TatvivahLoader size="sm" color={colors.background} />
+          ) : (
+            <Text style={styles.primaryButtonText}>Generate try-on</Text>
+          )}
+        </AnimatedPressable>
+
+        {tryOnResult?.output?.[0] ? (
+          <Pressable style={styles.secondaryButton} onPress={() => setIsResultVisible(true)}>
+            <Text style={styles.secondaryButtonText}>View last result</Text>
+          </Pressable>
+        ) : null}
+
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Choose product</Text>
           <Pressable onPress={() => router.push("/marketplace")}>
@@ -282,29 +305,6 @@ export default function TryBuyScreen() {
             })}
           </ScrollView>
         )}
-
-        {tryOnError ? <Text style={styles.errorText}>{tryOnError}</Text> : null}
-
-        <AnimatedPressable
-          style={[
-            styles.primaryButton,
-            (!selectedProduct || !userImageAsset || tryOnLoading) && styles.buttonDisabled,
-          ]}
-          onPress={generateTryOn}
-          disabled={!selectedProduct || !userImageAsset || tryOnLoading}
-        >
-          {tryOnLoading ? (
-            <TatvivahLoader size="sm" color={colors.background} />
-          ) : (
-            <Text style={styles.primaryButtonText}>Generate try-on</Text>
-          )}
-        </AnimatedPressable>
-
-        {tryOnResult?.output?.[0] ? (
-          <Pressable style={styles.secondaryButton} onPress={() => setIsResultVisible(true)}>
-            <Text style={styles.secondaryButtonText}>View last result</Text>
-          </Pressable>
-        ) : null}
       </ScrollView>
 
       <Modal
