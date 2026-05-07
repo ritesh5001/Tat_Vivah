@@ -297,7 +297,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   categoryItemActive: {
-    borderLeftColor: colors.primaryAccent,
+    borderLeftColor: colors.gold,
     backgroundColor: "rgba(184, 149, 108, 0.08)",
   },
   categoryImage: {
@@ -325,7 +325,7 @@ const styles = StyleSheet.create({
   },
   categoryNameActive: {
     fontFamily: typography.sansMedium,
-    color: colors.primaryAccent,
+    color: colors.gold,
     fontWeight: "700",
   },
   contentArea: {
