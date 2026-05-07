@@ -11,6 +11,7 @@ const adminLinks = [
   { href: "/admin/occasions", label: "Occasions" },
   { href: "/admin/products", label: "Products" },
   { href: "/admin/moderation", label: "Moderation" },
+  { href: "/admin/reels", label: "Reels" },
   { href: "/admin/orders", label: "Orders" },
   { href: "/admin/appointments", label: "Appointments" },
   { href: "/admin/payments", label: "Payments" },

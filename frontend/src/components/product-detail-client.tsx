@@ -237,16 +237,20 @@ export default function ProductDetailClient({
     (variant) => variant.id === selectedVariantId
   );
   const salePrice = selectedVariant?.price ?? product.salePrice ?? product.adminPrice ?? product.price;
-  const realCompareAt =
+  // Only treat the backend's compare-at as "real" when it's strictly greater than sale.
+  const candidateCompareAt =
     selectedVariant?.compareAtPrice ?? product.compareAtPrice ?? product.regularPrice ?? null;
+  const realCompareAt =
+    typeof candidateCompareAt === "number" &&
+    typeof salePrice === "number" &&
+    candidateCompareAt > salePrice
+      ? candidateCompareAt
+      : null;
   const fakeCompareAt =
-    typeof realCompareAt !== "number" && typeof salePrice === "number" && salePrice > 0
+    realCompareAt === null && typeof salePrice === "number" && salePrice > 0
       ? Math.round(salePrice / (1 - Math.round(seededRandom(product.id + "m", 50, 75)) / 100) / 10) * 10
       : null;
-  const compareAtPrice =
-    typeof realCompareAt === "number" && typeof salePrice === "number" && realCompareAt > salePrice
-      ? realCompareAt
-      : fakeCompareAt;
+  const compareAtPrice = realCompareAt ?? fakeCompareAt;
   const rating = Math.round(seededRandom(product.id, 39, 48)) / 10;
   const reviewCount = Math.round(seededRandom(product.id + "r", 50, 500));
   const deliveryEstimate = formatDeliveryEstimate(6);

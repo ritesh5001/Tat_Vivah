@@ -653,20 +653,24 @@ export default function ProductDetailScreen() {
     productAny?.adminPrice ??
     productAny?.price ??
     null;
-  const realCompareAt =
+  const productSeed = productAny?.id ?? "";
+  // Only treat the backend's compare-at as "real" when it's strictly greater than sale.
+  const candidateCompareAt =
     fallbackVariant?.compareAtPrice ??
     productAny?.compareAtPrice ??
     productAny?.regularPrice ??
     null;
-  const productSeed = productAny?.id ?? "";
+  const realCompareAt =
+    typeof candidateCompareAt === "number" &&
+    typeof salePrice === "number" &&
+    candidateCompareAt > salePrice
+      ? candidateCompareAt
+      : null;
   const fakeCompareAt =
-    typeof realCompareAt !== "number" && typeof salePrice === "number" && salePrice > 0 && productSeed
+    realCompareAt === null && typeof salePrice === "number" && salePrice > 0 && productSeed
       ? Math.round(salePrice / (1 - Math.round(seededRandom(productSeed + "m", 50, 75)) / 100) / 10) * 10
       : null;
-  const compareAtPrice =
-    typeof realCompareAt === "number" && typeof salePrice === "number" && realCompareAt > salePrice
-      ? realCompareAt
-      : fakeCompareAt;
+  const compareAtPrice = realCompareAt ?? fakeCompareAt;
   const hasDiscount =
     typeof salePrice === "number" &&
     typeof compareAtPrice === "number" &&
