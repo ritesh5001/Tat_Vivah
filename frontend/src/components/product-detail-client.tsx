@@ -35,6 +35,7 @@ interface ProductDetailClientProps {
     images?: string[];
     price?: number;
     regularPrice?: number;
+    compareAtPrice?: number;
     sellerPrice?: number;
     adminPrice?: number;
     salePrice?: number;
@@ -48,6 +49,21 @@ const currency = new Intl.NumberFormat("en-IN", {
   currency: "INR",
   maximumFractionDigits: 0,
 });
+
+function seededRandom(seed: string, min: number, max: number): number {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  }
+  const range = (max - min) * 10;
+  return min + (hash % range) / 10;
+}
+
+function formatDeliveryEstimate(daysAhead: number): string {
+  const date = new Date();
+  date.setDate(date.getDate() + daysAhead);
+  return date.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
+}
 
 const colorClassMap: Record<string, string> = {
   white: "#ffffff",
@@ -221,7 +237,19 @@ export default function ProductDetailClient({
     (variant) => variant.id === selectedVariantId
   );
   const salePrice = selectedVariant?.price ?? product.salePrice ?? product.adminPrice ?? product.price;
-  const compareAtPrice = selectedVariant?.compareAtPrice ?? product.regularPrice ?? null;
+  const realCompareAt =
+    selectedVariant?.compareAtPrice ?? product.compareAtPrice ?? product.regularPrice ?? null;
+  const fakeCompareAt =
+    typeof realCompareAt !== "number" && typeof salePrice === "number" && salePrice > 0
+      ? Math.round(salePrice / (1 - Math.round(seededRandom(product.id + "m", 50, 75)) / 100) / 10) * 10
+      : null;
+  const compareAtPrice =
+    typeof realCompareAt === "number" && typeof salePrice === "number" && realCompareAt > salePrice
+      ? realCompareAt
+      : fakeCompareAt;
+  const rating = Math.round(seededRandom(product.id, 39, 48)) / 10;
+  const reviewCount = Math.round(seededRandom(product.id + "r", 50, 500));
+  const deliveryEstimate = formatDeliveryEstimate(6);
   const selectedColorImages = React.useMemo(() => {
     const selectedVariantImages =
       selectedVariant?.images?.filter(
@@ -467,6 +495,18 @@ export default function ProductDetailClient({
           {product.title}
         </h1>
 
+        {/* 1b. Rating + reviews */}
+        <div className="flex items-center gap-2 text-sm">
+          <span className="inline-flex items-center gap-1 bg-emerald-700 text-white px-2 py-0.5 text-xs font-semibold">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+            </svg>
+            {rating.toFixed(1)}
+          </span>
+          <span className="text-muted-foreground">|</span>
+          <span className="text-muted-foreground">{reviewCount} reviews</span>
+        </div>
+
         {/* 2. Price & SKU */}
         <div className="space-y-2 pt-1 border-b border-border-soft pb-6">
           <div className="flex items-baseline gap-3 relative">
@@ -585,7 +625,7 @@ export default function ProductDetailClient({
         {/* 5. Views Counter */}
         <div className="flex items-center gap-2 pt-6 pb-2 text-[13px] text-foreground">
           <Eye className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.5} />
-          <span className="font-medium tracking-wide">671</span> people have viewed the product recently
+          <span className="font-medium tracking-wide">{Math.round(seededRandom(product.id + "v", 200, 900))}</span> people have viewed the product recently
         </div>
 
         {/* 6. Action Buttons */}
@@ -663,6 +703,25 @@ export default function ProductDetailClient({
                 {deliveryMessage}
               </p>
             )}
+          </div>
+        </div>
+
+        {/* 7b. Delivery estimate + offers */}
+        <div className="border border-border-soft bg-cream/40 dark:bg-brown/10 p-4 space-y-3">
+          <div className="flex items-center gap-3 text-[13px]">
+            <Truck className="h-4 w-4 shrink-0 text-emerald-700 dark:text-emerald-400" strokeWidth={1.6} />
+            <span className="text-foreground">
+              Get it by <strong className="font-semibold">{deliveryEstimate}</strong>
+            </span>
+          </div>
+          <div className="flex items-center gap-3 text-[13px]">
+            <svg className="h-4 w-4 shrink-0 text-amber-700 dark:text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+              <line x1="7" y1="7" x2="7.01" y2="7" />
+            </svg>
+            <span className="text-foreground">
+              Use code <strong className="font-semibold tracking-wide">WELCOME5</strong> for extra 5% off on first order
+            </span>
           </div>
         </div>
 
