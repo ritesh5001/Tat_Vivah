@@ -9,6 +9,14 @@ dist/
 web-build/
 expo-env.d.ts
 
+# local export/build artifacts
+dist-android/
+dist-android-final/
+dist-android-optimized/
+
+# local profiling and verification snapshots
+perf-pass-*.txt
+
 # Native
 .kotlin/
 *.orig.*

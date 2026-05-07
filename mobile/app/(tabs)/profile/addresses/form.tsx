@@ -47,6 +47,7 @@ export default function AddressFormScreen() {
 
   const { session, isLoading: authLoading } = useAuth();
   const token = session?.accessToken ?? null;
+  const showGuestState = !authLoading && !token;
   const { addresses, addAddress, editAddress } = useAddresses();
 
   // Find existing address for edit mode
@@ -96,35 +97,6 @@ export default function AddressFormScreen() {
   const handleGoBack = React.useCallback(() => {
     router.back();
   }, [router]);
-
-  if (!authLoading && !token) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.header}>
-          <AnimatedPressable onPress={handleGoBack} style={styles.backButton}>
-            <Text style={styles.backArrow}>←</Text>
-          </AnimatedPressable>
-          <View>
-            <Text style={styles.headerTitle}>
-              {isEdit ? "Edit Address" : "New Address"}
-            </Text>
-            <Text style={styles.headerCopy}>
-              Add delivery details when you're ready to check out.
-            </Text>
-          </View>
-        </View>
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyTitle}>Address details unavailable</Text>
-          <Text style={styles.emptySubtitle}>
-            You can add a delivery address during checkout.
-          </Text>
-          <AnimatedPressable onPress={handleGoBack} style={styles.primaryButton}>
-            <Text style={styles.primaryButtonText}>Back</Text>
-          </AnimatedPressable>
-        </View>
-      </SafeAreaView>
-    );
-  }
 
   // ---- Validation ----
 
@@ -202,6 +174,35 @@ export default function AddressFormScreen() {
     editAddress,
     router,
   ]);
+
+  if (showGuestState) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          <AnimatedPressable onPress={handleGoBack} style={styles.backButton}>
+            <Text style={styles.backArrow}>←</Text>
+          </AnimatedPressable>
+          <View>
+            <Text style={styles.headerTitle}>
+              {isEdit ? "Edit Address" : "New Address"}
+            </Text>
+            <Text style={styles.headerCopy}>
+              Add delivery details when you&apos;re ready to check out.
+            </Text>
+          </View>
+        </View>
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyTitle}>Address details unavailable</Text>
+          <Text style={styles.emptySubtitle}>
+            You can add a delivery address during checkout.
+          </Text>
+          <AnimatedPressable onPress={handleGoBack} style={styles.primaryButton}>
+            <Text style={styles.primaryButtonText}>Back</Text>
+          </AnimatedPressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -381,7 +382,7 @@ const styles = StyleSheet.create({
   backButton: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: 0,
     backgroundColor: colors.warmWhite,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -407,8 +408,12 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     marginHorizontal: spacing.lg,
     padding: spacing.lg,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     backgroundColor: colors.warmWhite,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    ...shadow.card,
+  },
   emptyContainer: {
     flex: 1,
     justifyContent: "center",
@@ -430,10 +435,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     marginBottom: spacing.md,
   },
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    ...shadow.card,
-  },
   fieldLabel: {
     fontFamily: typography.sans,
     fontSize: 11,
@@ -445,7 +446,7 @@ const styles = StyleSheet.create({
   },
   input: {
     height: 48,
-    borderRadius: radius.md,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     paddingHorizontal: spacing.md,
@@ -469,7 +470,7 @@ const styles = StyleSheet.create({
   labelChip: {
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.md,
-    borderRadius: radius.md,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: colors.background,
@@ -491,7 +492,7 @@ const styles = StyleSheet.create({
   primaryButton: {
     marginTop: spacing.lg,
     backgroundColor: colors.gold,
-    borderRadius: radius.md,
+    borderRadius: 0,
     paddingVertical: 14,
     alignItems: "center",
     minHeight: 48,

@@ -1,6 +1,6 @@
 import * as React from "react";
 import { View, Text, StyleSheet } from "react-native";
-import { colors, spacing, typography, radius } from "../theme/tokens";
+import { colors, spacing, typography } from "../theme/tokens";
 import type { ShipmentStatus } from "../services/shipping";
 
 // ---------------------------------------------------------------------------
@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
   dot: {
     width: DOT_SIZE,
     height: DOT_SIZE,
-    borderRadius: DOT_SIZE / 2,
+    borderRadius: 0,
     borderWidth: LINE_WIDTH,
     borderColor: colors.borderSoft,
     backgroundColor: colors.warmWhite,

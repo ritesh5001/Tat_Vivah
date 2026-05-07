@@ -28,34 +28,7 @@ export declare class ReviewService {
     /**
      * Get reviews for a product with pagination, sorting, and rating summary
      */
-    getProductReviews(productId: string, query: ReviewQuery): Promise<{
-        reviews: {
-            id: any;
-            rating: any;
-            title: any;
-            text: any;
-            images: any;
-            helpfulCount: any;
-            createdAt: any;
-            user: {
-                id: any;
-                email: any;
-                fullName: any;
-                avatar: any;
-            };
-        }[];
-        summary: {
-            averageRating: number;
-            totalReviews: number;
-            ratingDistribution: Record<number, number>;
-        };
-        pagination: {
-            page: number;
-            limit: number;
-            total: number;
-            totalPages: number;
-        };
-    }>;
+    getProductReviews(productId: string, query: ReviewQuery): Promise<any>;
     /**
      * Mark a review as helpful (increment counter)
      */
@@ -82,7 +55,10 @@ export declare class ReviewService {
     /**
      * List all reviews for admin (includes hidden)
      */
-    listReviews(): Promise<{
+    listReviews(params?: {
+        page?: number;
+        limit?: number;
+    }): Promise<{
         reviews: {
             id: any;
             rating: any;

@@ -29,13 +29,16 @@ export class AuthRepository {
      * Find a user by email OR phone (for login)
      */
     async findByIdentifier(identifier: string): Promise<UserEntity | null> {
-        return prisma.user.findFirst({
-            where: {
-                OR: [
-                    { email: identifier },
-                    { phone: identifier },
-                ],
-            },
+        const normalized = identifier.trim();
+
+        if (normalized.includes('@')) {
+            return prisma.user.findUnique({
+                where: { email: normalized.toLowerCase() },
+            });
+        }
+
+        return prisma.user.findUnique({
+            where: { phone: normalized },
         });
     }
 
@@ -69,6 +72,7 @@ export class AuthRepository {
             data: {
                 email: data.email,
                 phone: data.phone,
+                whatsappNumber: data.whatsappNumber ?? null,
                 passwordHash: data.passwordHash,
                 role: data.role,
                 status: data.status,
@@ -90,6 +94,7 @@ export class AuthRepository {
             data: {
                 ...(data.email !== undefined && { email: data.email }),
                 ...(data.phone !== undefined && { phone: data.phone }),
+                ...(data.whatsappNumber !== undefined && { whatsappNumber: data.whatsappNumber }),
                 ...(data.passwordHash !== undefined && { passwordHash: data.passwordHash }),
                 ...(data.role !== undefined && { role: data.role }),
                 ...(data.status !== undefined && { status: data.status }),
@@ -103,6 +108,7 @@ export class AuthRepository {
      * Create a new login session
      */
     async createSession(data: {
+        sessionId?: string;
         userId: string;
         refreshToken: string;
         userAgent?: string | undefined;
@@ -111,6 +117,7 @@ export class AuthRepository {
     }): Promise<{ id: string }> {
         return prisma.loginSession.create({
             data: {
+                ...(data.sessionId ? { id: data.sessionId } : {}),
                 userId: data.userId,
                 refreshToken: data.refreshToken,
                 userAgent: data.userAgent ?? null,

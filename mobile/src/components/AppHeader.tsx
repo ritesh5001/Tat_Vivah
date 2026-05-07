@@ -1,8 +1,8 @@
 import * as React from "react";
-import { View, Text, StyleSheet, Pressable, Animated, Easing } from "react-native";
+import { View, Text, StyleSheet, Pressable, Animated, Easing, TouchableOpacity } from "react-native";
 import { usePathname, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, radius, spacing, typography, shadow } from "../theme/tokens";
+import { colors, spacing, typography } from "../theme/tokens";
 import { images } from "../data/images";
 import { MenuSheet } from "./MenuSheet";
 import { Image } from "./CompatImage";
@@ -19,11 +19,13 @@ interface AppHeaderProps {
   showCart?: boolean;
 }
 
-const MARQUEE_MESSAGES = [
-  "Premium Men's Ethnic Wear",
-  "The Royal Wedding Edit",
-  "Crafted for Celebrations",
-  "Handpicked Ceremony Looks",
+const ANNOUNCEMENTS = [
+  "Verified Sellers",
+  "Secure Payments",
+  "Premium Ethnic Wear",
+  "Pan-India Shipping",
+  "Easy Returns",
+  "Authentic Designs",
 ];
 
 export function AppHeader({
@@ -41,37 +43,47 @@ export function AppHeader({
   const router = useRouter();
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = React.useState(false);
-  const [marqueeStripWidth, setMarqueeStripWidth] = React.useState(0);
-  const [marqueeContentWidth, setMarqueeContentWidth] = React.useState(0);
+  const [marqueeTrackWidth, setMarqueeTrackWidth] = React.useState(0);
   const marqueeTranslateX = React.useRef(new Animated.Value(0)).current;
 
   const isMainHeader = variant === "main";
   const shouldShowBack = isMainHeader ? false : (showBack ?? pathname !== "/home");
   const shouldShowMenu = showMenu ?? true;
   const shouldShowSearch = showSearch ?? isMainHeader;
-  const shouldShowProfile = showProfile ?? isMainHeader;
-  const shouldShowWishlist = showWishlist ?? isMainHeader;
+  const shouldShowProfile = showProfile ?? false;
+  const shouldShowWishlist = showWishlist ?? false;
   const shouldShowCart = showCart ?? isMainHeader;
-  const marqueeContent = React.useMemo(() => `${MARQUEE_MESSAGES.join("   •   ")}   •   `, []);
+  const marqueeItems = React.useMemo(() => [...ANNOUNCEMENTS, ...ANNOUNCEMENTS], []);
+  const backFallbackRoute = "/home";
+
+  const handleOpenMenu = React.useCallback(() => {
+    setMenuOpen(true);
+  }, []);
 
   const handleBack = React.useCallback(() => {
-    if (pathname === "/home") {
-      router.push("/home");
+    if (pathname === backFallbackRoute) {
+      router.replace(backFallbackRoute);
       return;
     }
-    router.back();
-  }, [pathname, router]);
+
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+
+    router.replace(backFallbackRoute);
+  }, [backFallbackRoute, pathname, router]);
 
   React.useEffect(() => {
-    if (!isMainHeader || marqueeStripWidth <= 0 || marqueeContentWidth <= 0) return;
+    if (!isMainHeader || marqueeTrackWidth <= 0) return;
 
-    const distance = marqueeStripWidth + marqueeContentWidth;
-    const duration = Math.max(4200, Math.round((distance / 180) * 1000));
+    // Keep speed stable across devices (~32 px/sec).
+    const duration = Math.max(12000, Math.round((marqueeTrackWidth / 32) * 1000));
 
-    marqueeTranslateX.setValue(marqueeStripWidth);
+    marqueeTranslateX.setValue(0);
     const loop = Animated.loop(
       Animated.timing(marqueeTranslateX, {
-        toValue: -marqueeContentWidth,
+        toValue: -marqueeTrackWidth,
         duration,
         easing: Easing.linear,
         useNativeDriver: true,
@@ -80,22 +92,39 @@ export function AppHeader({
     loop.start();
 
     return () => loop.stop();
-  }, [isMainHeader, marqueeContentWidth, marqueeStripWidth, marqueeTranslateX]);
+  }, [isMainHeader, marqueeTrackWidth, marqueeTranslateX]);
 
   return (
     <View style={styles.container}>
       {isMainHeader ? (
-        <View
-          style={styles.marqueeStrip}
-          onLayout={(event) => setMarqueeStripWidth(event.nativeEvent.layout.width)}
-        >
+        <View style={styles.marqueeStrip}>
           <Animated.View
-            style={[styles.marqueeTrack, { transform: [{ translateX: marqueeTranslateX }] }]}
-            onLayout={(event) => setMarqueeContentWidth(event.nativeEvent.layout.width)}
+            style={[styles.marqueeLoop, { transform: [{ translateX: marqueeTranslateX }] }]}
           >
-            <Text style={styles.marqueeText} numberOfLines={1}>
-              {marqueeContent}
-            </Text>
+            <View
+              style={styles.marqueeTrack}
+              onLayout={(event) => setMarqueeTrackWidth(event.nativeEvent.layout.width)}
+            >
+              {marqueeItems.map((message, index) => (
+                <View key={`mq-a-${index}`} style={styles.announcementItem}>
+                  <View style={styles.announcementDot} />
+                  <Text style={styles.marqueeText} numberOfLines={1}>
+                    {message}
+                  </Text>
+                </View>
+              ))}
+            </View>
+
+            <View style={styles.marqueeTrack}>
+              {marqueeItems.map((message, index) => (
+                <View key={`mq-b-${index}`} style={styles.announcementItem}>
+                  <View style={styles.announcementDot} />
+                  <Text style={styles.marqueeText} numberOfLines={1}>
+                    {message}
+                  </Text>
+                </View>
+              ))}
+            </View>
           </Animated.View>
         </View>
       ) : null}
@@ -103,13 +132,13 @@ export function AppHeader({
       <View style={styles.row}>
         <View style={[styles.leftSlot, isMainHeader && styles.mainEdgeSlot]}>
           {isMainHeader ? (
-            <Pressable
-              onPress={() => setMenuOpen(true)}
-              style={styles.iconButton}
-              hitSlop={8}
+            <TouchableOpacity
+              onPress={handleOpenMenu}
+              style={[styles.iconButton, styles.mainHeaderIconButton, { cursor: "pointer" as any }]}
+              activeOpacity={0.7}
             >
-              <Ionicons name="menu" size={25} color={colors.charcoal} />
-            </Pressable>
+              <Ionicons name="menu" size={21} color={colors.charcoal} />
+            </TouchableOpacity>
           ) : shouldShowBack ? (
             <View style={styles.leftRow}>
               <Pressable onPress={handleBack} style={styles.iconButton} hitSlop={8}>
@@ -127,22 +156,22 @@ export function AppHeader({
           ) : title ? (
             <Text style={styles.titleText} numberOfLines={1}>{title}</Text>
           ) : (
-            <View style={styles.centerSpacer} />
+            <Image source={images.logo} style={styles.subLogo} contentFit="contain" />
           )}
         </View>
 
         <View style={[styles.actions, isMainHeader && styles.mainEdgeSlot]}>
           {shouldShowSearch ? (
             <Pressable
-              style={styles.iconButton}
+              style={[styles.iconButton, isMainHeader && styles.mainHeaderIconButton]}
               onPress={() => router.push("/search")}
             >
-              <Ionicons name="search-outline" size={21} color={colors.charcoal} />
+              <Ionicons name="search-outline" size={19} color={colors.charcoal} />
             </Pressable>
           ) : null}
           {shouldShowProfile ? (
             <Pressable
-              style={styles.iconButton}
+              style={[styles.iconButton, isMainHeader && styles.mainHeaderIconButton]}
               onPress={() => router.push("/profile")}
             >
               <Ionicons name="person-outline" size={21} color={colors.charcoal} />
@@ -150,7 +179,7 @@ export function AppHeader({
           ) : null}
           {shouldShowWishlist ? (
             <Pressable
-              style={styles.iconButton}
+              style={[styles.iconButton, isMainHeader && styles.mainHeaderIconButton]}
               onPress={() => router.push("/wishlist")}
             >
               <Ionicons name="heart-outline" size={21} color={colors.charcoal} />
@@ -158,16 +187,16 @@ export function AppHeader({
           ) : null}
           {shouldShowCart ? (
             <Pressable
-              style={styles.iconButton}
+              style={[styles.iconButton, isMainHeader && styles.mainHeaderIconButton]}
               onPress={() => router.push("/cart")}
             >
-              <Ionicons name="bag-outline" size={20} color={colors.charcoal} />
+              <Ionicons name="bag-handle-outline" size={19} color={colors.charcoal} />
             </Pressable>
           ) : null}
           {shouldShowMenu && !isMainHeader ? (
             <Pressable
               style={styles.iconButton}
-              onPress={() => setMenuOpen(true)}
+              onPress={handleOpenMenu}
             >
               <Ionicons name="menu" size={18} color={colors.charcoal} />
             </Pressable>
@@ -189,45 +218,73 @@ export function AppHeader({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: "#f8ecd7",
+    backgroundColor: colors.background,
     borderBottomWidth: 1,
     borderBottomColor: colors.borderSoft,
-    paddingHorizontal: spacing.sm,
-    paddingBottom: spacing.xs,
-    ...shadow.card,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.sm,
+    shadowColor: colors.charcoal,
+    shadowOpacity: 0.02,
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 2,
+    elevation: 1,
+    zIndex: 10,
   },
   marqueeStrip: {
-    height: 36,
-    backgroundColor: "#511d00",
+    height: 28,
+    backgroundColor: colors.cream,
     overflow: "hidden",
     justifyContent: "center",
     marginBottom: spacing.xs,
     marginHorizontal: -spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderSoft,
+  },
+  marqueeLoop: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   marqueeTrack: {
     flexDirection: "row",
     alignItems: "center",
   },
+  announcementItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginRight: 22,
+  },
+  announcementDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 0,
+    backgroundColor: colors.gold,
+    marginRight: 7,
+  },
   marqueeText: {
-    color: "#FFFFFF",
+    color: colors.brownSoft,
     fontFamily: typography.sansMedium,
-    fontSize: 13,
-    letterSpacing: 0.1,
+    fontSize: 10,
+    letterSpacing: 1.1,
+    textTransform: "uppercase",
     textAlign: "left",
   },
   row: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    minHeight: 20,
+    minHeight: 58,
   },
   leftSlot: {
-    flex: 1,
+    flex: 0,
+    width: 56,
+    flexDirection: "row",
     justifyContent: "flex-start",
+    alignItems: "center",
+    zIndex: 50,
   },
   mainEdgeSlot: {
     flex: 0,
-    width: 146,
+    width: 112,
   },
   centerSlot: {
     flex: 1,
@@ -253,27 +310,41 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   actions: {
-    flex: 1,
+    flex: 0,
+    flexShrink: 0,
     flexDirection: "row",
     justifyContent: "flex-end",
-    gap: spacing.md,
+    alignItems: "center",
+    gap: 4,
     marginLeft: spacing.xs,
   },
   iconButton: {
-    height: 28,
-    width: 28,
+    height: 36,
+    width: 36,
     alignItems: "center",
     justifyContent: "center",
   },
+  mainHeaderIconButton: {
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.warmWhite,
+    zIndex: 50,
+  },
   logo: {
-    height: 34,
-    width: 136,
-    marginLeft: -100,
+    height: 36,
+    width: 134,
+    marginLeft: 0,
+  },
+  subLogo: {
+    height: 32,
+    width: 122,
   },
   titleText: {
     fontFamily: typography.serif,
     fontSize: 18,
-    color: colors.charcoal,
+    color: colors.foreground,
     letterSpacing: 0.3,
+    maxWidth: "100%",
+    textAlign: "center",
   },
 });

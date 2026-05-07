@@ -5,14 +5,18 @@ import {
   ScrollView,
   Pressable,
   FlatList,
-  Dimensions,
+  Platform,
+  useWindowDimensions,
   Alert,
+  Modal,
+  Share,
   type ListRenderItemInfo,
   type NativeSyntheticEvent,
   type NativeScrollEvent,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Image } from "../../../src/components/CompatImage";
+import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import {
@@ -40,24 +44,36 @@ import {
   AppText as Text,
   ScreenContainer as SafeAreaView,
 } from "../../../src/components";
-import { TatvivahLoader, TatvivahOverlayLoader } from "../../../src/components/TatvivahLoader";
+import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
 import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
+import { WishlistIcon } from "../../../src/components/WishlistIcon";
 import { impactMedium, impactLight, notifySuccess } from "../../../src/utils/haptics";
 import { AppHeader } from "../../../src/components/AppHeader";
 import { useQuery } from "@tanstack/react-query";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import {
   buildReviewImageName,
   uploadReviewImage,
+  uploadTryOnImage,
   type ReviewImageAsset,
 } from "../../../src/services/imagekit";
+import {
+  createVirtualTryOn,
+  type TryOnResult,
+} from "../../../src/services/tryOn";
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const IMAGE_WIDTH = SCREEN_WIDTH - spacing.lg * 2;
-const IMAGE_HEIGHT = Math.round(IMAGE_WIDTH * 1.25);
+const VIEWER_MIN_WIDTH = 1;
 
 const fallbackImage =
   "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80";
@@ -70,6 +86,7 @@ const currency = new Intl.NumberFormat("en-IN", {
 
 const MAX_REVIEW_IMAGES = 3;
 const MAX_REVIEW_IMAGE_BYTES = 2 * 1024 * 1024;
+const MAX_TRY_ON_IMAGE_BYTES = 8 * 1024 * 1024;
 
 // ---------------------------------------------------------------------------
 // Memoised sub-components (extracted from render for FlatList perf)
@@ -78,13 +95,17 @@ const MAX_REVIEW_IMAGE_BYTES = 2 * 1024 * 1024;
 /** Single gallery image with full-width paging. */
 const GalleryImage = React.memo(function GalleryImage({
   uri,
+  width,
+  height,
 }: {
   uri: string;
+  width: number;
+  height: number;
 }) {
   return (
     <Image
       source={{ uri }}
-      style={galleryStyles.image}
+      style={[galleryStyles.image, { width, height }]}
       contentFit="contain"
       transition={200}
       cachePolicy="memory-disk"
@@ -94,10 +115,116 @@ const GalleryImage = React.memo(function GalleryImage({
 
 const galleryStyles = StyleSheet.create({
   image: {
-    width: IMAGE_WIDTH,
-    height: IMAGE_HEIGHT,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     backgroundColor: colors.cream,
+  },
+});
+
+const ZoomableModalImage = React.memo(function ZoomableModalImage({
+  uri,
+  onRequestClose,
+}: {
+  uri: string;
+  onRequestClose: () => void;
+}) {
+  const scale = useSharedValue(1);
+  const savedScale = useSharedValue(1);
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
+  const savedTranslateX = useSharedValue(0);
+  const savedTranslateY = useSharedValue(0);
+
+  const pinch = Gesture.Pinch()
+    .onUpdate((event) => {
+      const next = savedScale.value * event.scale;
+      scale.value = Math.max(1, Math.min(4, next));
+    })
+    .onEnd(() => {
+      savedScale.value = scale.value;
+      if (savedScale.value < 1.02) {
+        savedScale.value = 1;
+        scale.value = withSpring(1);
+        savedTranslateX.value = 0;
+        savedTranslateY.value = 0;
+        translateX.value = withSpring(0);
+        translateY.value = withSpring(0);
+      }
+    });
+
+  const doubleTap = Gesture.Tap()
+    .numberOfTaps(2)
+    .onEnd(() => {
+      const nextScale = savedScale.value > 1.4 ? 1 : 2.5;
+      savedScale.value = nextScale;
+      scale.value = withSpring(nextScale);
+
+      if (nextScale === 1) {
+        savedTranslateX.value = 0;
+        savedTranslateY.value = 0;
+        translateX.value = withSpring(0);
+        translateY.value = withSpring(0);
+      }
+    });
+
+  const pan = Gesture.Pan()
+    .onUpdate((event) => {
+      if (savedScale.value > 1.02) {
+        translateX.value = savedTranslateX.value + event.translationX;
+        translateY.value = savedTranslateY.value + event.translationY;
+      } else {
+        translateY.value = event.translationY;
+      }
+    })
+    .onEnd(() => {
+      if (savedScale.value <= 1.02 && Math.abs(translateY.value) > 120) {
+        runOnJS(onRequestClose)();
+        return;
+      }
+
+      if (savedScale.value > 1.02) {
+        savedTranslateX.value = translateX.value;
+        savedTranslateY.value = translateY.value;
+      } else {
+        savedTranslateX.value = 0;
+        savedTranslateY.value = 0;
+        translateX.value = withSpring(0);
+        translateY.value = withSpring(0);
+      }
+    });
+
+  const composedGesture = Gesture.Simultaneous(pinch, pan, doubleTap);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+      { scale: scale.value },
+    ],
+  }));
+
+  return (
+    <GestureDetector gesture={composedGesture}>
+      <View style={viewerStyles.itemWrap}>
+        <Animated.Image
+          source={{ uri }}
+          style={[viewerStyles.image, animatedStyle]}
+          resizeMode="contain"
+        />
+      </View>
+    </GestureDetector>
+  );
+});
+
+const viewerStyles = StyleSheet.create({
+  itemWrap: {
+    width: "100%",
+    height: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  image: {
+    width: "100%",
+    height: "100%",
   },
 });
 
@@ -176,14 +303,14 @@ const relatedCardStyles = StyleSheet.create({
     width: 150,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    borderRadius: radius.md,
+    borderRadius: 0,
     padding: spacing.sm,
     backgroundColor: colors.background,
   },
   image: {
     width: "100%",
-    height: 110,
-    borderRadius: radius.sm,
+    aspectRatio: 3 / 4,
+    borderRadius: 0,
     backgroundColor: colors.cream,
   },
   title: {
@@ -210,9 +337,113 @@ function computeAvgRating(reviews: Review[]): number {
   return sum / reviews.length;
 }
 
-function renderStars(avg: number): string {
-  const full = Math.round(avg);
-  return "★".repeat(full) + "☆".repeat(5 - full);
+function normalizeColor(value?: string | null): string {
+  return (value ?? "").trim().toLowerCase();
+}
+
+const colorHexMap: Record<string, string> = {
+  white: "#ffffff",
+  black: "#111111",
+  navy: "#0f172a",
+  blue: "#1d4ed8",
+  beige: "#f5f5dc",
+  cream: "#F8F1E5",
+  grey: "#71717a",
+  gray: "#71717a",
+  maroon: "#7f1d1d",
+  green: "#15803d",
+  yellow: "#facc15",
+  red: "#dc2626",
+};
+
+function fallbackColorFromText(input: string): string {
+  let hash = 0;
+  for (let i = 0; i < input.length; i += 1) {
+    hash = input.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const hue = Math.abs(hash % 360);
+  return `hsl(${hue}, 55%, 55%)`;
+}
+
+function swatchColorFromLabel(label: string): string {
+  const normalized = normalizeColor(label);
+  if (!normalized) return "#71717a";
+
+  if (colorHexMap[normalized]) {
+    return colorHexMap[normalized];
+  }
+
+  if (
+    /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(normalized) ||
+    /^rgb\(/i.test(normalized) ||
+    /^hsl\(/i.test(normalized) ||
+    /^[a-z][a-z\s-]*$/i.test(normalized)
+  ) {
+    return normalized;
+  }
+
+  return fallbackColorFromText(normalized);
+}
+
+function getVariantColorLabel(variant: ProductVariant): string {
+  return variant.color?.trim() || "Default";
+}
+
+function getVariantSizeLabel(variant: ProductVariant): string {
+  const raw = variant.size?.trim();
+  if (!raw) return "Default";
+  // Backend often stores SKU codes ("LB36", "DB44") in the size field. Show the
+  // numeric size when present so users see clean values (36, 38, 40, 42).
+  const numeric = raw.match(/\d+/)?.[0];
+  return numeric ?? raw;
+}
+
+function seededRandom(seed: string, min: number, max: number): number {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  }
+  const range = (max - min) * 10;
+  return min + (hash % range) / 10;
+}
+
+function formatDeliveryEstimate(daysAhead: number): string {
+  const date = new Date();
+  date.setDate(date.getDate() + daysAhead);
+  return date.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
+}
+
+// Lightweight HTML cleaner for product descriptions. Splits paragraphs, decodes
+// common entities, and strips remaining tags so users see formatted text rather
+// than `<p>...</p>` markup.
+function htmlToParagraphs(html: string): string[] {
+  if (!html) return [];
+  const decoded = html
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&rsquo;/g, "’")
+    .replace(/&lsquo;/g, "‘")
+    .replace(/&ldquo;/g, "“")
+    .replace(/&rdquo;/g, "”");
+
+  const blocks = decoded
+    .split(/<\/?(?:p|div|br\s*\/?|li)\s*\/?>/i)
+    .map((chunk) => chunk.replace(/<[^>]+>/g, "").trim())
+    .filter((chunk) => chunk.length > 0);
+
+  return blocks.length > 0 ? blocks : [decoded.replace(/<[^>]+>/g, "").trim()];
+}
+
+function mimeTypeFromAsset(asset: ImagePicker.ImagePickerAsset): string {
+  if (asset.mimeType) return asset.mimeType;
+  const ext = asset.fileName?.split(".").pop()?.toLowerCase();
+  if (ext === "png") return "image/png";
+  if (ext === "webp") return "image/webp";
+  return "image/jpeg";
 }
 
 // ---------------------------------------------------------------------------
@@ -221,6 +452,8 @@ function renderStars(avg: number): string {
 
 export default function ProductDetailScreen() {
   const router = useRouter();
+  const { width: windowWidth } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
   const productId = typeof params.id === "string" ? params.id : "";
   const { session } = useAuth();
@@ -234,6 +467,7 @@ export default function ProductDetailScreen() {
   // ---- State ----
   const [product, setProduct] = React.useState<ProductDetail | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const [selectedColor, setSelectedColor] = React.useState<string>("");
   const [selectedVariantId, setSelectedVariantId] = React.useState<string | null>(null);
   const [adding, setAdding] = React.useState(false);
   const [showViewCart, setShowViewCart] = React.useState(false);
@@ -249,8 +483,28 @@ export default function ProductDetailScreen() {
 
   const [relatedProducts, setRelatedProducts] = React.useState<ProductSummary[]>([]);
   const [loadingRelated, setLoadingRelated] = React.useState(false);
+  const [tryOnUserImageUri, setTryOnUserImageUri] = React.useState<string | null>(null);
+  const [tryOnUserImageAsset, setTryOnUserImageAsset] = React.useState<ReviewImageAsset | null>(null);
+  const [tryOnResult, setTryOnResult] = React.useState<TryOnResult | null>(null);
+  const [tryOnError, setTryOnError] = React.useState<string | null>(null);
+  const [tryOnLoading, setTryOnLoading] = React.useState(false);
+  const [isTryOnVisible, setIsTryOnVisible] = React.useState(false);
+  const tryOnAbortRef = React.useRef<AbortController | null>(null);
+
+  const WEB_BOTTOM_OFFSET = 16;
+  const stickyBottomOffset = Platform.OS === "web"
+    ? WEB_BOTTOM_OFFSET
+    : Math.max(insets.bottom, spacing.sm);
+  const galleryWidth = Math.max(windowWidth - spacing.lg * 2, 260);
+  const galleryHeight = Math.round(galleryWidth * (4 / 3));
+  const stickyActionHeight = 96;
+  const stickyReserveSpace = stickyBottomOffset + stickyActionHeight + spacing.xl;
+  const viewerWidth = Math.max(windowWidth, VIEWER_MIN_WIDTH);
+  const isCompactLayout = windowWidth < 380;
 
   const [galleryIndex, setGalleryIndex] = React.useState(0);
+  const [isViewerVisible, setIsViewerVisible] = React.useState(false);
+  const [viewerIndex, setViewerIndex] = React.useState(0);
 
   const mountedRef = React.useRef(true);
   React.useEffect(() => {
@@ -259,6 +513,7 @@ export default function ProductDetailScreen() {
       if (viewCartTimerRef.current) {
         clearTimeout(viewCartTimerRef.current);
       }
+      tryOnAbortRef.current?.abort();
     };
   }, []);
 
@@ -266,8 +521,8 @@ export default function ProductDetailScreen() {
     queryKey: ["product", productId],
     queryFn: ({ signal }) => getProductById(productId, signal),
     enabled: Boolean(productId),
-    staleTime: 1000 * 60 * 5,
-    gcTime: 1000 * 60 * 30,
+    staleTime: 1000 * 60 * 10,
+    gcTime: 1000 * 60 * 60,
   });
 
   React.useEffect(() => {
@@ -276,10 +531,26 @@ export default function ProductDetailScreen() {
   }, [productQuery.isLoading, productQuery.data]);
 
   React.useEffect(() => {
-    if (!product?.id) return;
-    setGalleryIndex(0);
-    setSelectedVariantId(product.variants?.[0]?.id ?? null);
-  }, [product?.id, product?.variants]);
+    const variants = product?.variants ?? [];
+    const currentVariant = variants.find((variant) => variant.id === selectedVariantId);
+
+    if (currentVariant) {
+      const nextColor = normalizeColor(getVariantColorLabel(currentVariant));
+      setSelectedColor((previousColor) => (
+        previousColor === nextColor ? previousColor : nextColor
+      ));
+      return;
+    }
+
+    const firstVariant = variants[0];
+    if (firstVariant) {
+      setSelectedVariantId(firstVariant.id);
+      setSelectedColor(normalizeColor(getVariantColorLabel(firstVariant)));
+      return;
+    }
+
+    setSelectedColor("");
+  }, [product?.variants, selectedVariantId]);
 
   // ---- Track recently viewed (fire-and-forget) ----
   React.useEffect(() => {
@@ -350,8 +621,90 @@ export default function ProductDetailScreen() {
   const selectedVariant = product?.variants?.find(
     (v: ProductVariant) => v.id === selectedVariantId
   );
-  const fallbackVariant = selectedVariant ?? product?.variants?.[0] ?? null;
-  const images = product?.images?.length ? product.images : [fallbackImage];
+  const colorOptions = React.useMemo(() => {
+    const variants = product?.variants ?? [];
+    const map = new Map<string, string>();
+    for (const variant of variants) {
+      const label = getVariantColorLabel(variant);
+      const key = normalizeColor(label);
+      if (!map.has(key)) {
+        map.set(key, label);
+      }
+    }
+    return Array.from(map.entries()).map(([key, label]) => ({ key, label }));
+  }, [product?.variants]);
+
+  const variantsForColor = React.useMemo(() => {
+    const variants = product?.variants ?? [];
+    if (!selectedColor) return variants;
+    return variants.filter((variant) => normalizeColor(getVariantColorLabel(variant)) === selectedColor);
+  }, [product?.variants, selectedColor]);
+
+  const fallbackVariant = selectedVariant ?? variantsForColor[0] ?? product?.variants?.[0] ?? null;
+  const productAny = product as any;
+  const salePrice =
+    fallbackVariant?.price ??
+    productAny?.salePrice ??
+    productAny?.adminPrice ??
+    productAny?.price ??
+    null;
+  const productSeed = productAny?.id ?? "";
+  // Only treat the backend's compare-at as "real" when it's strictly greater than sale.
+  const candidateCompareAt =
+    fallbackVariant?.compareAtPrice ??
+    productAny?.compareAtPrice ??
+    productAny?.regularPrice ??
+    null;
+  const realCompareAt =
+    typeof candidateCompareAt === "number" &&
+    typeof salePrice === "number" &&
+    candidateCompareAt > salePrice
+      ? candidateCompareAt
+      : null;
+  const fakeCompareAt =
+    realCompareAt === null && typeof salePrice === "number" && salePrice > 0 && productSeed
+      ? Math.round(salePrice / (1 - Math.round(seededRandom(productSeed + "m", 50, 75)) / 100) / 10) * 10
+      : null;
+  const compareAtPrice = realCompareAt ?? fakeCompareAt;
+  const hasDiscount =
+    typeof salePrice === "number" &&
+    typeof compareAtPrice === "number" &&
+    compareAtPrice > salePrice;
+  const savingsAmount = hasDiscount ? compareAtPrice - salePrice : 0;
+  const discountPercent = hasDiscount
+    ? Math.round(((compareAtPrice - salePrice) / compareAtPrice) * 100)
+    : 0;
+  const productRating = productSeed ? Math.round(seededRandom(productSeed, 39, 48)) / 10 : 4.2;
+  const productReviewCount = productSeed ? Math.round(seededRandom(productSeed + "r", 50, 500)) : 0;
+  const productViewerCount = productSeed ? Math.round(seededRandom(productSeed + "v", 200, 900)) : 0;
+  const deliveryEstimate = formatDeliveryEstimate(6);
+  const selectedColorImages = React.useMemo(() => {
+    const selectedVariantImages =
+      selectedVariant?.images?.filter(
+        (image): image is string => typeof image === "string" && image.trim().length > 0
+      ) ?? [];
+
+    if (selectedVariantImages.length > 0) {
+      return selectedVariantImages;
+    }
+
+    const firstColorImageSet =
+      variantsForColor.find(
+        (variant) => Array.isArray(variant.images) && variant.images.length > 0
+      )?.images ?? [];
+
+    return firstColorImageSet.length > 0
+      ? firstColorImageSet
+      : product?.images?.length
+        ? product.images
+        : [];
+  }, [product?.images, selectedVariant, variantsForColor]);
+  const images =
+    selectedColorImages.length
+      ? selectedColorImages
+      : product?.images?.length
+        ? product.images
+        : [fallbackImage];
   const avgRating = computeAvgRating(reviews);
   // Duplicate‐prevention: backend prevents via unique constraint; we hide the form
   // if any review matches the logged-in user's ID (review.user object may only
@@ -361,6 +714,10 @@ export default function ProductDetailScreen() {
     Boolean(userId && reviews.length > 0 && reviews.some((r) => r.userId === userId));
   const outOfStock =
     fallbackVariant?.inventory != null && fallbackVariant.inventory.stock <= 0;
+
+  React.useEffect(() => {
+    setGalleryIndex(0);
+  }, [selectedColor, product?.id]);
 
   // ---- Handlers ----
   const handleAddToCart = React.useCallback(async () => {
@@ -406,6 +763,65 @@ export default function ProductDetailScreen() {
       if (mountedRef.current) setAdding(false);
     }
   }, [token, isConnected, product, fallbackVariant, outOfStock, addToCart, router, showToast]);
+
+  const handleBuyNow = React.useCallback(async () => {
+    if (!token) {
+      showToast("Please sign in to continue", "info");
+      router.push("/login");
+      return;
+    }
+    if (!isConnected) {
+      showToast("You're offline. Please check your connection.", "error");
+      return;
+    }
+    if (!product || !fallbackVariant) {
+      showToast(
+        product?.variants?.length
+          ? "Select a variant to continue"
+          : "Variants are not available for this item",
+        "info"
+      );
+      return;
+    }
+    if (outOfStock) {
+      showToast("This variant is out of stock", "info");
+      return;
+    }
+
+    setAdding(true);
+    try {
+      await addToCart({
+        productId: product.id,
+        variantId: fallbackVariant.id,
+        quantity: 1,
+      });
+      impactMedium();
+      router.push("/checkout");
+    } catch {
+      // CartProvider handles toast messaging
+    } finally {
+      if (mountedRef.current) setAdding(false);
+    }
+  }, [token, isConnected, product, fallbackVariant, outOfStock, addToCart, router, showToast]);
+
+  const handleShareProduct = React.useCallback(async () => {
+    try {
+      const shareTitle = product?.title?.trim() || "TatVivah product";
+      const webUrl = `https://tatvivahtrends.com/product/${productId}`;
+      const deepLink = `tatvivah://product/${productId}`;
+
+      // Try to share a deep link (so devices that support URL schemes can open the app),
+      // include the web URL as a fallback in the message so recipients without the app
+      // can still open the product page in the browser.
+      await Share.share({
+        title: shareTitle,
+        message: `${shareTitle}\n${webUrl}`,
+        url: deepLink,
+      });
+    } catch {
+      // no-op on cancel/error
+    }
+  }, [product?.title, productId]);
 
   const handlePickReviewImages = React.useCallback(async () => {
     if (reviewImages.length >= MAX_REVIEW_IMAGES) {
@@ -529,15 +945,131 @@ export default function ProductDetailScreen() {
     showToast,
   ]);
 
+  const handleTryOnAsset = React.useCallback((asset?: ImagePicker.ImagePickerAsset) => {
+    if (!asset) return;
+    if (typeof asset.fileSize === "number" && asset.fileSize > MAX_TRY_ON_IMAGE_BYTES) {
+      setTryOnError("Choose an image under 8MB for virtual try-on.");
+      return;
+    }
+
+    setTryOnUserImageUri(asset.uri);
+    setTryOnUserImageAsset({
+      uri: asset.uri,
+      fileName: asset.fileName ?? `tryon-${Date.now()}.jpg`,
+      mimeType: mimeTypeFromAsset(asset),
+    });
+    setTryOnResult(null);
+    setTryOnError(null);
+  }, []);
+
+  const handleCaptureTryOnPhoto = React.useCallback(async () => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Permission required", "Allow camera access to take a try-on photo.");
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ["images"],
+      quality: 0.86,
+    });
+
+    if (!result.canceled) {
+      handleTryOnAsset(result.assets?.[0]);
+    }
+  }, [handleTryOnAsset]);
+
+  const handlePickTryOnPhoto = React.useCallback(async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Permission required", "Allow photo library access to upload a try-on photo.");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      quality: 0.86,
+      allowsMultipleSelection: false,
+    });
+
+    if (!result.canceled) {
+      handleTryOnAsset(result.assets?.[0]);
+    }
+  }, [handleTryOnAsset]);
+
+  const handleCreateTryOn = React.useCallback(async () => {
+    if (!token) {
+      showToast("Please sign in to use virtual try-on", "info");
+      router.push("/login");
+      return;
+    }
+    if (!isConnected) {
+      showToast("You're offline. Please check your connection.", "error");
+      return;
+    }
+    if (!product || !fallbackVariant) {
+      setTryOnError("Select a product variant first.");
+      return;
+    }
+    if (!tryOnUserImageAsset) {
+      setTryOnError("Take or upload your photo first.");
+      return;
+    }
+
+    tryOnAbortRef.current?.abort();
+    const controller = new AbortController();
+    tryOnAbortRef.current = controller;
+    setTryOnLoading(true);
+    setTryOnError(null);
+
+    try {
+      const uploadedUserImageUrl = await uploadTryOnImage(tryOnUserImageAsset);
+      const result = await createVirtualTryOn({
+        productId: product.id,
+        variantId: fallbackVariant.id,
+        userImage: uploadedUserImageUrl,
+        signal: controller.signal,
+      });
+      if (!mountedRef.current) return;
+      setTryOnResult(result);
+      setIsTryOnVisible(true);
+      notifySuccess();
+    } catch (err) {
+      if (!mountedRef.current || isAbortError(err)) return;
+      const msg = err instanceof Error ? err.message : "Virtual try-on failed";
+      setTryOnError(msg);
+      showToast(msg, "error");
+    } finally {
+      if (mountedRef.current) setTryOnLoading(false);
+    }
+  }, [
+    token,
+    isConnected,
+    product,
+    fallbackVariant,
+    tryOnUserImageAsset,
+    router,
+    showToast,
+  ]);
+
   // ---- Gallery scroll handler ----
   const handleGalleryScroll = React.useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       const offset = e.nativeEvent.contentOffset.x;
-      const idx = Math.round(offset / IMAGE_WIDTH);
+      const idx = Math.round(offset / galleryWidth);
       setGalleryIndex(idx);
     },
-    []
+    [galleryWidth]
   );
+
+  const openImageViewer = React.useCallback((index: number) => {
+    setViewerIndex(index);
+    setIsViewerVisible(true);
+  }, []);
+
+  const closeImageViewer = React.useCallback(() => {
+    setIsViewerVisible(false);
+  }, []);
 
   // ---- Key extractors & render callbacks (stable refs) ----
   const galleryKeyExtractor = React.useCallback(
@@ -546,8 +1078,19 @@ export default function ProductDetailScreen() {
   );
 
   const renderGalleryItem = React.useCallback(
-    ({ item }: ListRenderItemInfo<string>) => <GalleryImage uri={item} />,
-    []
+    ({ item, index }: ListRenderItemInfo<string>) => (
+      <Pressable onPress={() => openImageViewer(index)}>
+        <GalleryImage uri={item} width={galleryWidth} height={galleryHeight} />
+      </Pressable>
+    ),
+    [galleryHeight, galleryWidth, openImageViewer]
+  );
+
+  const renderViewerItem = React.useCallback(
+    ({ item }: ListRenderItemInfo<string>) => (
+      <ZoomableModalImage uri={item} onRequestClose={closeImageViewer} />
+    ),
+    [closeImageViewer]
   );
 
   const reviewKeyExtractor = React.useCallback(
@@ -589,8 +1132,8 @@ export default function ProductDetailScreen() {
         <AppHeader showMenu showBack showWishlist showCart />
         <ScrollView contentContainerStyle={styles.container}>
           <SkeletonBlock
-            width={IMAGE_WIDTH}
-            height={IMAGE_HEIGHT}
+            width={galleryWidth}
+            height={galleryHeight}
             borderRadius={radius.lg}
             style={{ marginHorizontal: spacing.lg, marginTop: spacing.md }}
           />
@@ -622,7 +1165,12 @@ export default function ProductDetailScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <AppHeader showMenu showBack showWishlist showCart />
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={[styles.container, { paddingBottom: stickyReserveSpace }]}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        showsVerticalScrollIndicator={false}
+      >
         {/* ---- Image gallery with paging dots ---- */}
         <View style={styles.galleryFrame}>
           <FlatList
@@ -630,15 +1178,15 @@ export default function ProductDetailScreen() {
             keyExtractor={galleryKeyExtractor}
             horizontal
             pagingEnabled
-            snapToInterval={IMAGE_WIDTH}
+            snapToInterval={galleryWidth}
             decelerationRate="fast"
             showsHorizontalScrollIndicator={false}
             onScroll={handleGalleryScroll}
             scrollEventThrottle={16}
             contentContainerStyle={styles.galleryContainer}
             getItemLayout={(_data, index) => ({
-              length: IMAGE_WIDTH,
-              offset: IMAGE_WIDTH * index,
+              length: galleryWidth,
+              offset: galleryWidth * index,
               index,
             })}
             renderItem={renderGalleryItem}
@@ -666,50 +1214,158 @@ export default function ProductDetailScreen() {
 
         {/* ---- Details card ---- */}
         <View style={styles.detailsCard}>
+          <Text style={styles.categoryLabel}>
+            {product.category?.name ?? "Curated Collection"}
+          </Text>
+
+          <View style={styles.titleRow}>
+            <Text style={styles.productTitle}>{product.title}</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                <Pressable
+                  onPress={() => {
+                    if (!token) {
+                      router.push("/login");
+                      return;
+                    }
+                    impactLight();
+                    toggleWishlist(product.id);
+                  }}
+                  disabled={!product || wishlistMutatingIds.has(product?.id ?? "")}
+                  style={styles.wishlistInlineButton}
+                  hitSlop={8}
+                >
+                  <WishlistIcon
+                    size={22}
+                    color={isWishlisted(product.id) ? "#E8453C" : colors.charcoal}
+                    filled={isWishlisted(product.id)}
+                  />
+                </Pressable>
+
+                <Pressable
+                  onPress={() => {
+                    impactLight();
+                    void handleShareProduct();
+                  }}
+                  style={styles.shareInlineButton}
+                  hitSlop={8}
+                >
+                  <Ionicons name="share-social-outline" size={20} color={colors.charcoal} />
+                </Pressable>
+              </View>
+          </View>
+
           <View style={styles.detailsTopRow}>
-            <Text style={styles.categoryLabel}>
-              {product.category?.name ?? "Curated Collection"}
-            </Text>
             <View style={styles.detailsBadge}>
               <Text style={styles.detailsBadgeText}>Luxury Edit</Text>
             </View>
+            <Text style={styles.skuText}>
+              SKU ID- {fallbackVariant?.sku ?? "N/A"}
+            </Text>
           </View>
-          <Text style={styles.productTitle}>{product.title}</Text>
 
-          {/* Average rating */}
-          {reviews.length > 0 && (
-            <View style={styles.ratingRow}>
-              <Text style={styles.ratingStars}>{renderStars(avgRating)}</Text>
-              <Text style={styles.ratingText}>
-                {avgRating.toFixed(1)} ({reviews.length}{" "}
-                {reviews.length === 1 ? "review" : "reviews"})
+          {/* Rating pill — uses real reviews when present, otherwise seeded values */}
+          <View style={styles.ratingPillRow}>
+            <View style={styles.ratingPill}>
+              <Text style={styles.ratingPillStar}>★</Text>
+              <Text style={styles.ratingPillValue}>
+                {(reviews.length > 0 ? avgRating : productRating).toFixed(1)}
+              </Text>
+              <Text style={styles.ratingPillDivider}>|</Text>
+              <Text style={styles.ratingPillCount}>
+                {reviews.length > 0 ? reviews.length : productReviewCount}
               </Text>
             </View>
-          )}
+            <Text style={styles.ratingPillLabel}>
+              {reviews.length > 0
+                ? `${reviews.length === 1 ? "review" : "reviews"}`
+                : "ratings"}
+            </Text>
+          </View>
 
-          <Text style={styles.productDescription}>
-            {product.description ??
-              "Curated premium listing with verified quality assurance."}
-          </Text>
+          {(() => {
+            const paragraphs = htmlToParagraphs(
+              product.description ?? "Curated premium listing with verified quality assurance."
+            );
+            return (
+              <View style={styles.descriptionWrap}>
+                {paragraphs.map((para, idx) => (
+                  <Text key={`desc-${idx}`} style={styles.productDescription}>
+                    {para}
+                  </Text>
+                ))}
+              </View>
+            );
+          })()}
 
           {/* Price */}
           <View style={styles.priceRow}>
-            <Text style={styles.priceLabel}>Price</Text>
+            <Text style={styles.priceLabel}>MRP (Inclusive of all taxes)</Text>
             <View style={styles.priceValues}>
               <Text style={styles.priceValue}>
-                {selectedVariant ? currency.format(selectedVariant.price) : "—"}
+                {typeof salePrice === "number" ? currency.format(salePrice) : "—"}
               </Text>
-              {selectedVariant?.compareAtPrice != null &&
-                selectedVariant.compareAtPrice > selectedVariant.price && (
+              {hasDiscount && (
                   <Text style={styles.comparePrice}>
-                    {currency.format(selectedVariant.compareAtPrice)}
+                    {currency.format(compareAtPrice)}
                   </Text>
                 )}
+              {hasDiscount ? (
+                <View style={styles.discountPill}>
+                  <Text style={styles.discountPillText}>{discountPercent}% OFF</Text>
+                </View>
+              ) : null}
+            </View>
+            {hasDiscount ? (
+              <Text style={styles.savingsText}>
+                You save {currency.format(savingsAmount)} + limited-time offer
+              </Text>
+            ) : null}
+          </View>
+
+          {/* Delivery + offers + viewer count */}
+          <View style={styles.infoBlock}>
+            <View style={styles.infoRow}>
+              <Ionicons name="cube-outline" size={16} color={colors.gold} />
+              <Text style={styles.infoText}>
+                Get it by <Text style={styles.infoStrong}>{deliveryEstimate}</Text>
+              </Text>
+            </View>
+            <View style={styles.infoRow}>
+              <Ionicons name="pricetag-outline" size={16} color={colors.gold} />
+              <Text style={styles.infoText}>
+                Use <Text style={styles.infoStrong}>WELCOME5</Text> for extra 5% off on first order
+              </Text>
+            </View>
+            {productSeed ? (
+              <View style={styles.infoRow}>
+                <Ionicons name="eye-outline" size={16} color={colors.brownSoft} />
+                <Text style={styles.infoTextMuted}>
+                  {productViewerCount} people viewed this recently
+                </Text>
+              </View>
+            ) : null}
+          </View>
+
+          {/* Trust strip */}
+          <View style={styles.trustStrip}>
+            <View style={styles.trustItem}>
+              <Ionicons name="shield-checkmark-outline" size={14} color={colors.gold} />
+              <Text style={styles.trustText}>Authentic</Text>
+            </View>
+            <View style={styles.trustDivider} />
+            <View style={styles.trustItem}>
+              <Ionicons name="refresh-outline" size={14} color={colors.gold} />
+              <Text style={styles.trustText}>7-Day Returns</Text>
+            </View>
+            <View style={styles.trustDivider} />
+            <View style={styles.trustItem}>
+              <Ionicons name="airplane-outline" size={14} color={colors.gold} />
+              <Text style={styles.trustText}>Pan-India</Text>
             </View>
           </View>
 
           {/* Stock indicator */}
-          {selectedVariant?.inventory != null && (
+          {fallbackVariant?.inventory != null && (
             <Text
               style={[
                 styles.stockText,
@@ -718,18 +1374,69 @@ export default function ProductDetailScreen() {
             >
               {outOfStock
                 ? "Out of stock"
-                : selectedVariant.inventory.stock <= 5
-                  ? `Only ${selectedVariant.inventory.stock} left`
+                : fallbackVariant.inventory.stock <= 5
+                  ? `Only ${fallbackVariant.inventory.stock} left`
                   : "In stock"}
             </Text>
           )}
 
           {/* Variant selector */}
           <View style={styles.variantRow}>
-            <Text style={styles.variantLabel}>Select Variant</Text>
+            <Text style={styles.variantLabel}>Select Color</Text>
             <View style={styles.variantWrap}>
-              {product.variants?.length ? (
-                product.variants.map((variant: ProductVariant) => {
+              {colorOptions.length ? (
+                colorOptions.map((color) => {
+                  const active = selectedColor === color.key;
+                  const swatchSize = isCompactLayout ? 26 : 30;
+                  return (
+                    <Pressable
+                      key={color.key}
+                      style={[
+                        styles.colorOption,
+                        active && styles.colorOptionActive,
+                      ]}
+                      onPress={() => {
+                        setSelectedColor(color.key);
+                        const firstVariant = (product?.variants ?? []).find(
+                          (variant) => normalizeColor(getVariantColorLabel(variant)) === color.key,
+                        );
+                        if (firstVariant) {
+                          setSelectedVariantId(firstVariant.id);
+                        }
+                      }}
+                    >
+                      <View
+                        style={[
+                          styles.colorSwatch,
+                          {
+                            width: swatchSize,
+                            height: swatchSize,
+                            backgroundColor: swatchColorFromLabel(color.label),
+                          },
+                        ]}
+                      />
+                      <Text
+                        style={[
+                          styles.colorOptionText,
+                          active && styles.colorOptionTextActive,
+                        ]}
+                      >
+                        {color.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })
+              ) : (
+                <Text style={styles.mutedText}>Colors coming soon.</Text>
+              )}
+            </View>
+          </View>
+
+          <View style={styles.variantRow}>
+            <Text style={styles.variantLabel}>Select Size</Text>
+            <View style={styles.variantWrap}>
+              {variantsForColor.length ? (
+                variantsForColor.map((variant: ProductVariant) => {
                   const active = variant.id === selectedVariantId;
                   const variantOOS =
                     variant.inventory != null && variant.inventory.stock <= 0;
@@ -751,7 +1458,7 @@ export default function ProductDetailScreen() {
                           variantOOS && styles.variantChipTextDisabled,
                         ]}
                       >
-                        {variant.sku}
+                        {getVariantSizeLabel(variant)}
                       </Text>
                     </Pressable>
                   );
@@ -762,56 +1469,6 @@ export default function ProductDetailScreen() {
             </View>
           </View>
 
-          {/* Add to cart + Wishlist row */}
-          <View style={styles.actionRow}>
-            <AnimatedPressable
-              style={[
-                styles.primaryButton,
-                styles.primaryAction,
-                (outOfStock || adding) && styles.buttonDisabled,
-              ]}
-              onPress={handleAddToCart}
-              disabled={outOfStock || adding}
-              hitSlop={10}
-            >
-              {adding ? (
-                <TatvivahLoader size="sm" color={colors.background} />
-              ) : (
-                <Text style={styles.primaryButtonText}>
-                  {!selectedVariant
-                    ? "Select variant"
-                    : outOfStock
-                      ? "Out of stock"
-                      : "Add to cart"}
-                </Text>
-              )}
-            </AnimatedPressable>
-
-            {/* Wishlist heart */}
-            <Pressable
-              onPress={() => {
-                if (!token) {
-                  router.push("/login");
-                  return;
-                }
-                if (product) {
-                  impactLight();
-                  toggleWishlist(product.id);
-                }
-              }}
-              disabled={!product || wishlistMutatingIds.has(product?.id ?? "")}
-              style={[
-                styles.wishlistButton,
-                product && isWishlisted(product.id) && styles.wishlistButtonActive,
-              ]}
-              hitSlop={8}
-            >
-              <Text style={{ fontSize: 22 }}>
-                {product && isWishlisted(product.id) ? "❤️" : "🤍"}
-              </Text>
-            </Pressable>
-          </View>
-
           {showViewCart && (
             <Pressable
               style={styles.secondaryButton}
@@ -820,6 +1477,75 @@ export default function ProductDetailScreen() {
               <Text style={styles.secondaryButtonText}>View cart</Text>
             </Pressable>
           )}
+        </View>
+
+        <View style={styles.tryOnCard}>
+          <View style={styles.tryOnHeader}>
+            <View>
+              <Text style={styles.tryOnEyebrow}>Virtual Try-On</Text>
+              <Text style={styles.tryOnTitle}>See it on you</Text>
+            </View>
+            {tryOnResult?.output?.[0] ? (
+              <Pressable onPress={() => setIsTryOnVisible(true)} hitSlop={8}>
+                <Text style={styles.tryOnViewText}>View result</Text>
+              </Pressable>
+            ) : null}
+          </View>
+
+          <View style={styles.tryOnPreviewRow}>
+            <View style={styles.tryOnPreviewBox}>
+              {tryOnUserImageUri ? (
+                <Image
+                  source={{ uri: tryOnUserImageUri }}
+                  style={styles.tryOnPreviewImage}
+                  contentFit="cover"
+                />
+              ) : (
+                <Text style={styles.tryOnPlaceholderText}>Your photo</Text>
+              )}
+            </View>
+            <View style={styles.tryOnPreviewBox}>
+              <Image
+                source={{ uri: selectedColorImages[0] ?? images[0] ?? fallbackImage }}
+                style={styles.tryOnPreviewImage}
+                contentFit="cover"
+              />
+            </View>
+          </View>
+
+          <View style={styles.tryOnActions}>
+            <Pressable
+              style={styles.tryOnButton}
+              onPress={handleCaptureTryOnPhoto}
+              disabled={tryOnLoading}
+            >
+              <Text style={styles.tryOnButtonText}>Camera</Text>
+            </Pressable>
+            <Pressable
+              style={styles.tryOnButton}
+              onPress={handlePickTryOnPhoto}
+              disabled={tryOnLoading}
+            >
+              <Text style={styles.tryOnButtonText}>Upload</Text>
+            </Pressable>
+          </View>
+
+          {tryOnError ? <Text style={styles.errorText}>{tryOnError}</Text> : null}
+
+          <AnimatedPressable
+            style={[
+              styles.primaryButton,
+              (!tryOnUserImageAsset || tryOnLoading) && styles.buttonDisabled,
+            ]}
+            onPress={handleCreateTryOn}
+            disabled={!tryOnUserImageAsset || tryOnLoading}
+          >
+            {tryOnLoading ? (
+              <TatvivahLoader size="sm" color={colors.background} />
+            ) : (
+              <Text style={styles.primaryButtonText}>Try this product</Text>
+            )}
+          </AnimatedPressable>
         </View>
 
         {/* ---- Reviews section ---- */}
@@ -954,6 +1680,135 @@ export default function ProductDetailScreen() {
           )}
         </View>
       </ScrollView>
+
+      <View
+        style={[
+          styles.stickyActionShell,
+          {
+            bottom: Platform.OS === "web" ? 0 : stickyBottomOffset,
+            paddingBottom: Platform.OS === "web"
+              ? spacing.md
+              : Math.max(insets.bottom, spacing.xs),
+          },
+        ]}
+      >
+        <View style={styles.actionRow}>
+          <View style={{ flex: 1 }}>
+            <AnimatedPressable
+              style={[
+                styles.ctaButtonBase,
+                styles.addToCartButton,
+                (outOfStock || adding) && styles.buttonDisabled,
+              ]}
+              onPress={handleAddToCart}
+              disabled={outOfStock || adding}
+              hitSlop={10}
+            >
+              {adding ? (
+                <TatvivahLoader size="sm" color={colors.charcoal} />
+              ) : (
+                <>
+                  <Ionicons name="bag-handle-outline" size={15} color="#1A1410" />
+                  <Text style={[styles.ctaButtonText, styles.addToCartButtonText]}>
+                    {!selectedVariant
+                      ? "Select variant"
+                      : outOfStock
+                        ? "Out of stock"
+                        : "Add to bag"}
+                  </Text>
+                </>
+              )}
+            </AnimatedPressable>
+          </View>
+
+          <View style={{ flex: 1 }}>
+            <AnimatedPressable
+              style={[
+                styles.ctaButtonBase,
+                styles.buyNowButton,
+                (outOfStock || adding) && styles.buttonDisabled,
+              ]}
+              onPress={handleBuyNow}
+              disabled={outOfStock || adding}
+            >
+              {adding ? (
+                <TatvivahLoader size="sm" color="#FFFFFF" />
+              ) : (
+                <>
+                  <Ionicons name="flash-outline" size={15} color="#FFFFFF" />
+                  <Text style={styles.ctaButtonText}>Buy now</Text>
+                </>
+              )}
+            </AnimatedPressable>
+          </View>
+        </View>
+      </View>
+
+      <Modal
+        visible={isViewerVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeImageViewer}
+      >
+        <View style={styles.viewerOverlay}>
+          <Pressable
+            style={[styles.viewerCloseButton, { top: insets.top + spacing.md }]}
+            onPress={closeImageViewer}
+          >
+            <Text style={styles.viewerCloseText}>Close</Text>
+          </Pressable>
+
+          <FlatList
+            data={images}
+            horizontal
+            pagingEnabled
+            initialScrollIndex={viewerIndex}
+            keyExtractor={galleryKeyExtractor}
+            renderItem={renderViewerItem}
+            showsHorizontalScrollIndicator={false}
+            getItemLayout={(_data, index) => ({
+              length: viewerWidth,
+              offset: viewerWidth * index,
+              index,
+            })}
+            onMomentumScrollEnd={(e) => {
+              const next = Math.round(
+                e.nativeEvent.contentOffset.x / viewerWidth
+              );
+              setViewerIndex(next);
+            }}
+          />
+
+          <Text style={styles.viewerHintText}>
+            {viewerIndex + 1}/{images.length} • Pinch/Double tap • Drag down to close
+          </Text>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={isTryOnVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsTryOnVisible(false)}
+      >
+        <View style={styles.tryOnModalOverlay}>
+          <View style={styles.tryOnModalContent}>
+            <Pressable
+              style={styles.tryOnModalClose}
+              onPress={() => setIsTryOnVisible(false)}
+            >
+              <Text style={styles.viewerCloseText}>Close</Text>
+            </Pressable>
+            {tryOnResult?.output?.[0] ? (
+              <Image
+                source={{ uri: tryOnResult.output[0] }}
+                style={styles.tryOnResultImage}
+                contentFit="contain"
+              />
+            ) : null}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -988,7 +1843,7 @@ const styles = StyleSheet.create({
     right: spacing.lg,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 0,
     backgroundColor: "rgba(44, 40, 37, 0.65)",
   },
   galleryIndexText: {
@@ -1007,14 +1862,14 @@ const styles = StyleSheet.create({
   dot: {
     width: 6,
     height: 6,
-    borderRadius: 3,
+    borderRadius: 0,
     backgroundColor: colors.borderSoft,
   },
   dotActive: {
     backgroundColor: colors.gold,
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: 0,
   },
 
   // Details
@@ -1022,17 +1877,22 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     marginHorizontal: spacing.lg,
     padding: spacing.lg,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surfaceElevated,
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    ...shadow.card,
+    borderRadius: 0,
+    backgroundColor: colors.background,
+  },
+  titleRow: {
+    marginTop: spacing.xs,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: spacing.sm,
   },
   detailsTopRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: spacing.sm,
+    marginTop: spacing.xs,
   },
   categoryLabel: {
     fontFamily: typography.sans,
@@ -1044,7 +1904,7 @@ const styles = StyleSheet.create({
   detailsBadge: {
     paddingHorizontal: spacing.sm,
     paddingVertical: 4,
-    borderRadius: 999,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.gold,
     backgroundColor: "rgba(196, 167, 108, 0.12)",
@@ -1057,42 +1917,154 @@ const styles = StyleSheet.create({
     letterSpacing: 1.1,
   },
   productTitle: {
-    marginTop: spacing.xs,
     fontFamily: typography.serif,
-    fontSize: 22,
+    flex: 1,
+    fontSize: 26,
     color: colors.charcoal,
+    lineHeight: 30,
   },
-  ratingRow: {
+  wishlistInlineButton: {
+    width: 44,
+    height: 44,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.surfaceElevated,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  shareInlineButton: {
+    width: 44,
+    height: 44,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.surfaceElevated,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  ratingPillRow: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 8,
     marginTop: spacing.sm,
-    gap: spacing.xs,
   },
-  ratingStars: {
-    fontSize: 14,
-    color: colors.gold,
+  ratingPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#0F8A5F",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    gap: 4,
   },
-  ratingText: {
-    fontFamily: typography.sans,
+  ratingPillStar: {
+    color: "#FFFFFF",
     fontSize: 12,
+    lineHeight: 13,
+  },
+  ratingPillValue: {
+    fontFamily: typography.sansMedium,
+    fontSize: 12,
+    color: "#FFFFFF",
+    fontWeight: "700",
+  },
+  ratingPillDivider: {
+    fontFamily: typography.sans,
+    fontSize: 11,
+    color: "rgba(255,255,255,0.7)",
+  },
+  ratingPillCount: {
+    fontFamily: typography.sans,
+    fontSize: 11,
+    color: "rgba(255,255,255,0.95)",
+  },
+  ratingPillLabel: {
+    fontFamily: typography.sans,
+    fontSize: 11,
     color: colors.brownSoft,
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+  },
+  descriptionWrap: {
+    marginTop: spacing.sm,
+    gap: 8,
   },
   productDescription: {
-    marginTop: spacing.sm,
     fontFamily: typography.sans,
     fontSize: 12,
     lineHeight: 18,
     color: colors.brownSoft,
   },
+  infoBlock: {
+    marginTop: spacing.md,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    backgroundColor: colors.cream,
+    gap: 8,
+  },
+  infoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  infoText: {
+    fontFamily: typography.sans,
+    fontSize: 12,
+    color: colors.charcoal,
+    flex: 1,
+    lineHeight: 16,
+  },
+  infoTextMuted: {
+    fontFamily: typography.sans,
+    fontSize: 12,
+    color: colors.brownSoft,
+    flex: 1,
+    lineHeight: 16,
+  },
+  infoStrong: {
+    fontFamily: typography.sansMedium,
+    fontWeight: "700",
+    color: colors.charcoal,
+  },
+  trustStrip: {
+    marginTop: spacing.sm,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+  },
+  trustItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    flex: 1,
+    justifyContent: "center",
+  },
+  trustText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 10,
+    letterSpacing: 0.6,
+    color: colors.charcoal,
+    fontWeight: "600",
+  },
+  trustDivider: {
+    width: 1,
+    height: 16,
+    backgroundColor: colors.borderSoft,
+  },
   priceRow: {
     marginTop: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderSoft,
+    paddingBottom: spacing.md,
   },
   priceLabel: {
     fontFamily: typography.sans,
-    fontSize: 11,
+    fontSize: 10,
     color: colors.brownSoft,
     textTransform: "uppercase",
-    letterSpacing: 1.2,
+    letterSpacing: 0.8,
   },
   priceValues: {
     flexDirection: "row",
@@ -1102,7 +2074,7 @@ const styles = StyleSheet.create({
   },
   priceValue: {
     fontFamily: typography.serif,
-    fontSize: 20,
+    fontSize: 34,
     color: colors.charcoal,
   },
   comparePrice: {
@@ -1110,6 +2082,28 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.brownSoft,
     textDecorationLine: "line-through",
+  },
+  discountPill: {
+    borderWidth: 1,
+    borderColor: colors.gold,
+    backgroundColor: "rgba(196, 167, 108, 0.12)",
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 2,
+  },
+  discountPillText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 10,
+    color: colors.gold,
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+  },
+  savingsText: {
+    marginTop: spacing.xs,
+    fontFamily: typography.sans,
+    fontSize: 11,
+    color: colors.gold,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
   },
   stockText: {
     marginTop: spacing.xs,
@@ -1143,7 +2137,7 @@ const styles = StyleSheet.create({
     borderColor: colors.borderSoft,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderRadius: 20,
+    borderRadius: 0,
     backgroundColor: colors.warmWhite,
   },
   variantChipActive: {
@@ -1165,38 +2159,204 @@ const styles = StyleSheet.create({
     color: colors.brownSoft,
     textDecorationLine: "line-through",
   },
+  colorOption: {
+    width: 72,
+    alignItems: "center",
+    gap: 6,
+  },
+  colorOptionActive: {
+    opacity: 1,
+  },
+  colorSwatch: {
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    borderRadius: 999,
+  },
+  colorOptionText: {
+    fontFamily: typography.sans,
+    fontSize: 10,
+    color: colors.brownSoft,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    width: "100%",
+    textAlign: "center",
+    lineHeight: 12,
+  },
+  colorOptionTextActive: {
+    color: colors.charcoal,
+    fontFamily: typography.sansMedium,
+  },
+
+  // Virtual try-on
+  tryOnCard: {
+    marginTop: spacing.md,
+    marginHorizontal: spacing.lg,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.surfaceElevated,
+  },
+  tryOnHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: spacing.md,
+  },
+  tryOnEyebrow: {
+    fontFamily: typography.sans,
+    fontSize: 10,
+    color: colors.gold,
+    letterSpacing: 1.5,
+    textTransform: "uppercase",
+  },
+  tryOnTitle: {
+    marginTop: 2,
+    fontFamily: typography.serif,
+    fontSize: 22,
+    lineHeight: 26,
+    color: colors.charcoal,
+  },
+  tryOnViewText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 11,
+    color: colors.gold,
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+  tryOnPreviewRow: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  tryOnPreviewBox: {
+    flex: 1,
+    aspectRatio: 3 / 4,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.cream,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  tryOnPreviewImage: {
+    width: "100%",
+    height: "100%",
+  },
+  tryOnPlaceholderText: {
+    fontFamily: typography.sans,
+    fontSize: 11,
+    color: colors.brownSoft,
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+  tryOnActions: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  tryOnButton: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.warmWhite,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  tryOnButtonText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 11,
+    color: colors.charcoal,
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+  tryOnModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(20, 18, 16, 0.9)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: spacing.lg,
+  },
+  tryOnModalContent: {
+    width: "100%",
+    height: "86%",
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+  },
+  tryOnModalClose: {
+    position: "absolute",
+    top: spacing.md,
+    right: spacing.md,
+    zIndex: 2,
+    backgroundColor: "rgba(44, 40, 37, 0.72)",
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  tryOnResultImage: {
+    width: "100%",
+    height: "100%",
+  },
 
   // Buttons
   primaryButton: {
     marginTop: spacing.lg,
     backgroundColor: colors.gold,
-    borderRadius: radius.md,
+    borderRadius: 0,
     paddingVertical: 14,
     alignItems: "center",
   },
   actionRow: {
-    marginTop: spacing.sm,
     flexDirection: "row",
-    gap: 12,
+    gap: spacing.sm,
     alignItems: "center",
+    width: "100%",
   },
-  primaryAction: {
+  ctaButtonBase: {
     flex: 1,
+    minHeight: 50,
     marginTop: 0,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    borderRadius: 0,
+  },
+  addToCartButton: {
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1.5,
+    borderColor: "#1A1410",
+  },
+  addToCartButtonText: {
+    color: "#1A1410",
+    fontWeight: "700",
   },
   primaryButtonText: {
     fontFamily: typography.sansMedium,
     fontSize: 12,
-    letterSpacing: 1.4,
+    letterSpacing: 1.2,
     textTransform: "uppercase",
     color: colors.background,
+  },
+  ctaButtonText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 12,
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+    color: "#FFFFFF",
+    fontWeight: "700",
+  },
+  buyNowButton: {
+    backgroundColor: "#1A1410",
+    borderWidth: 1.5,
+    borderColor: "#1A1410",
   },
   secondaryButton: {
     marginTop: spacing.md,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     paddingVertical: 12,
-    borderRadius: radius.md,
+    borderRadius: 0,
     alignItems: "center",
   },
   secondaryButtonText: {
@@ -1209,10 +2369,26 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     opacity: 0.5,
   },
+  stickyActionShell: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    zIndex: 12,
+    elevation: 16,
+    paddingTop: 12,
+    paddingHorizontal: spacing.lg,
+    borderTopWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: "#FFFFFF",
+    shadowColor: "#1A1410",
+    shadowOpacity: 0.12,
+    shadowOffset: { width: 0, height: -3 },
+    shadowRadius: 12,
+  },
   wishlistButton: {
     width: 52,
     height: 52,
-    borderRadius: radius.md,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: colors.surface,
@@ -1222,6 +2398,13 @@ const styles = StyleSheet.create({
   wishlistButtonActive: {
     borderColor: "#E8453C",
     backgroundColor: "#3B1E22",
+  },
+  skuText: {
+    fontFamily: typography.sans,
+    fontSize: 10,
+    letterSpacing: 0.9,
+    textTransform: "uppercase",
+    color: colors.brownSoft,
   },
   loaderOverlay: {
     position: "absolute",
@@ -1246,7 +2429,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xl,
     marginHorizontal: spacing.lg,
     padding: spacing.lg,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -1291,7 +2474,7 @@ const styles = StyleSheet.create({
     minHeight: 80,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    borderRadius: radius.md,
+    borderRadius: 0,
     padding: spacing.sm,
     fontFamily: typography.sans,
     fontSize: 12,
@@ -1309,7 +2492,7 @@ const styles = StyleSheet.create({
   reviewImagePreviewWrap: {
     width: 56,
     height: 56,
-    borderRadius: radius.sm,
+    borderRadius: 0,
     overflow: "hidden",
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -1337,7 +2520,7 @@ const styles = StyleSheet.create({
   reviewImageAddBtn: {
     width: 56,
     height: 56,
-    borderRadius: radius.sm,
+    borderRadius: 0,
     borderWidth: 1,
     borderStyle: "dashed",
     borderColor: colors.borderSoft,
@@ -1385,7 +2568,7 @@ const styles = StyleSheet.create({
   reviewImageThumb: {
     width: 48,
     height: 48,
-    borderRadius: radius.sm,
+    borderRadius: 0,
     backgroundColor: colors.cream,
   },
   reviewDate: {
@@ -1413,7 +2596,7 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.lg,
     marginBottom: spacing.xl,
     padding: spacing.lg,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -1428,14 +2611,14 @@ const styles = StyleSheet.create({
     width: 150,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    borderRadius: radius.md,
+    borderRadius: 0,
     padding: spacing.sm,
     backgroundColor: colors.background,
   },
   relatedImage: {
     width: "100%",
     height: 110,
-    borderRadius: radius.sm,
+    borderRadius: 0,
     backgroundColor: colors.cream,
   },
   relatedTitle: {
@@ -1459,7 +2642,7 @@ const styles = StyleSheet.create({
   centerCard: {
     margin: spacing.lg,
     padding: spacing.xl,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     backgroundColor: colors.warmWhite,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -1471,5 +2654,37 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: colors.charcoal,
     marginBottom: spacing.md,
+  },
+  viewerOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.95)",
+  },
+  viewerCloseButton: {
+    position: "absolute",
+    top: spacing.xl,
+    right: spacing.lg,
+    zIndex: 2,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.35)",
+    borderRadius: 0,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    backgroundColor: "rgba(0,0,0,0.45)",
+  },
+  viewerCloseText: {
+    color: "#FFFFFF",
+    fontFamily: typography.sansMedium,
+    fontSize: 12,
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+  },
+  viewerHintText: {
+    position: "absolute",
+    bottom: spacing.xl,
+    alignSelf: "center",
+    color: "rgba(255,255,255,0.92)",
+    fontFamily: typography.sans,
+    fontSize: 12,
+    letterSpacing: 0.4,
   },
 });

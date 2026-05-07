@@ -69,9 +69,13 @@ async function run(): Promise<void> {
     const variant = await prisma.productVariant.create({
         data: {
             productId: product.id,
+            size: 'Default',
             sku: `REFUND-RACE-${now}`,
+            sellerPrice: 500,
+            adminListingPrice: 1000,
             price: 1000,
             compareAtPrice: 1200,
+            status: ProductStatus.APPROVED,
             inventory: {
                 create: { stock: 10 },
             },

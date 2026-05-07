@@ -18,6 +18,10 @@ import { registerUser } from "@/services/auth";
 import { toast } from "sonner";
 import { heroContainerVariants, heroItemVariants } from "@/lib/motion.config";
 
+function normalizePhone(value: string): string {
+  return value.replace(/\D/g, "");
+}
+
 export default function UserRegisterPage() {
   const [fullName, setFullName] = React.useState("");
   const [email, setEmail] = React.useState("");
@@ -36,6 +40,27 @@ export default function UserRegisterPage() {
       return;
     }
 
+    const normalizedPhone = normalizePhone(phone);
+    if (!/^\d{10,15}$/.test(normalizedPhone)) {
+      toast.error("Mobile number must be 10 to 15 digits.");
+      return;
+    }
+
+    if (password.length < 8) {
+      toast.error("Password must be at least 8 characters.");
+      return;
+    }
+
+    if (!/[A-Z]/.test(password)) {
+      toast.error("Password must contain at least 1 uppercase letter.");
+      return;
+    }
+
+    if (!/[0-9]/.test(password)) {
+      toast.error("Password must contain at least 1 number.");
+      return;
+    }
+
     if (password !== confirmPassword) {
       toast.error("Passwords do not match.");
       return;
@@ -43,10 +68,18 @@ export default function UserRegisterPage() {
 
     setLoading(true);
     try {
-      await registerUser({ fullName, email, phone, password });
-      toast.success("OTP sent to your email.");
-      window.location.href = `/verify-otp?email=${encodeURIComponent(email)}`;
+      console.info("[auth-ui][register-user] submit", { email: email.trim().toLowerCase(), phone: normalizedPhone });
+      await registerUser({
+        fullName: fullName.trim(),
+        email: email.trim().toLowerCase(),
+        phone: normalizedPhone,
+        password,
+      });
+      console.info("[auth-ui][register-user] otp-sent", { email: email.trim().toLowerCase() });
+      toast.success("OTP sent to your email address.");
+      window.location.href = `/verify-otp?email=${encodeURIComponent(email.trim().toLowerCase())}`;
     } catch (error) {
+      console.error("[auth-ui][register-user] failed", error);
       toast.error(error instanceof Error ? error.message : "Signup failed");
     } finally {
       setLoading(false);
@@ -171,6 +204,9 @@ export default function UserRegisterPage() {
                         {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                       </button>
                     </div>
+                    <p className="text-xs text-muted-foreground">
+                      Use at least 8 characters, 1 uppercase letter, and 1 number.
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="confirm">Confirm password</Label>

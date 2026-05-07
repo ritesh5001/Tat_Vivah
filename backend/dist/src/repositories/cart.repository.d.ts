@@ -56,6 +56,7 @@ export declare class CartRepository {
     clearCart(cartId: string): Promise<void>;
     /**
      * Get cart items with product and variant details
+     * Uses batch lookups (2 queries) instead of 2N individual queries.
      */
     getCartWithDetails(userId: string): Promise<CartWithItems | null>;
 }

@@ -15,6 +15,31 @@
 import { prisma } from '../config/db.js';
 import { notificationService } from '../notifications/notification.service.js';
 import { orderEventsLogger } from '../config/logger.js';
+async function notifyAdminsForShipmentEvent(eventKeyPrefix, orderId, title, message) {
+    const admins = await prisma.user.findMany({
+        where: {
+            role: { in: ['ADMIN', 'SUPER_ADMIN'] },
+            status: 'ACTIVE',
+            email: { not: null },
+        },
+        select: { id: true, email: true },
+    });
+    if (admins.length === 0)
+        return;
+    await Promise.allSettled(admins.map((admin) => notificationService.create({
+        userId: admin.id,
+        role: 'ADMIN',
+        type: 'ADMIN_ALERT',
+        channel: 'EMAIL',
+        content: title,
+        metadata: {
+            title,
+            message,
+            email: admin.email,
+        },
+        eventKey: `${eventKeyPrefix}:${orderId}:${admin.id}`,
+    })));
+}
 // =========================================================================
 //  ORDER PLACED — fires when checkout succeeds (before payment)
 // =========================================================================
@@ -87,9 +112,28 @@ export async function emitShipmentShipped(orderId, carrier, trackingNumber) {
         if (!order)
             return;
         await notificationService.notifyOrderShipped(order.userId, order.id, carrier, trackingNumber);
+        await notifyAdminsForShipmentEvent('SHIPMENT_SHIPPED_ADMIN', order.id, `Order #${order.id} marked SHIPPED`, `Shipment status updated to SHIPPED. Carrier: ${carrier}. Tracking: ${trackingNumber}.`);
     }
     catch (err) {
         orderEventsLogger.error({ orderId, carrier, trackingNumber, error: err instanceof Error ? err.message : String(err) }, 'emitShipmentShipped failed');
+    }
+}
+// =========================================================================
+//  SHIPMENT CREATED
+// =========================================================================
+export async function emitShipmentCreated(orderId, carrier, trackingNumber) {
+    try {
+        const order = await prisma.order.findUnique({
+            where: { id: orderId },
+            select: { id: true, userId: true },
+        });
+        if (!order)
+            return;
+        await notificationService.notifyShipmentCreated(order.userId, order.id, carrier, trackingNumber);
+        await notifyAdminsForShipmentEvent('SHIPMENT_CREATED_ADMIN', order.id, `Shipment created for Order #${order.id}`, `A seller created a shipment. Carrier: ${carrier}. Tracking: ${trackingNumber}.`);
+    }
+    catch (err) {
+        orderEventsLogger.error({ orderId, carrier, trackingNumber, error: err instanceof Error ? err.message : String(err) }, 'emitShipmentCreated failed');
     }
 }
 // =========================================================================

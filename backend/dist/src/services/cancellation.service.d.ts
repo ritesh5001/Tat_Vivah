@@ -8,8 +8,8 @@ export declare class CancellationService {
             userId: string;
         };
     } & {
-        reason: string;
         status: import(".prisma/client").$Enums.CancellationStatus;
+        reason: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
@@ -20,60 +20,14 @@ export declare class CancellationService {
         orderId: string;
     }>;
     getMyCancellations(userId: string): Promise<{
-        cancellations: ({
-            order: {
-                status: import(".prisma/client").$Enums.OrderStatus;
-                id: string;
-                createdAt: Date;
-                totalAmount: number;
-            };
-        } & {
-            reason: string;
-            status: import(".prisma/client").$Enums.CancellationStatus;
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            userId: string;
-            reviewedBy: string | null;
-            reviewedAt: Date | null;
-            rejectionReason: string | null;
-            orderId: string;
-        })[];
+        cancellations: unknown[];
     }>;
     listCancellations(filters: {
         status?: CancellationStatus;
         userId?: string;
         orderId?: string;
     }): Promise<{
-        cancellations: ({
-            user: {
-                id: string;
-                email: string | null;
-                user_profiles: {
-                    full_name: string;
-                } | null;
-            };
-            order: {
-                status: import(".prisma/client").$Enums.OrderStatus;
-                id: string;
-                createdAt: Date;
-                payment: {
-                    status: import(".prisma/client").$Enums.PaymentStatus;
-                } | null;
-                totalAmount: number;
-            };
-        } & {
-            reason: string;
-            status: import(".prisma/client").$Enums.CancellationStatus;
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            userId: string;
-            reviewedBy: string | null;
-            reviewedAt: Date | null;
-            rejectionReason: string | null;
-            orderId: string;
-        })[];
+        cancellations: unknown[];
     }>;
     approveCancellation(adminId: string, cancellationId: string): Promise<{
         success: boolean;

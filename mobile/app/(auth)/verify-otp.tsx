@@ -19,13 +19,15 @@ export default function VerifyOtpScreen() {
   const [resending, setResending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [message, setMessage] = React.useState<string | null>(null);
+  const submittedOtpRef = React.useRef<string | null>(null);
 
   const handleVerify = React.useCallback(async () => {
-    const normalizedEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
+    const identifier = typeof email === "string" ? email.trim().toLowerCase() : "";
     const code = otp.trim();
 
-    if (!normalizedEmail) {
-      setError("Missing email. Please request OTP again.");
+    if (!identifier) {
+      console.warn("[mobile-auth][verify-otp] missing email");
+      setError("Missing email address. Please request OTP again.");
       return;
     }
     if (code.length !== 6) {
@@ -37,13 +39,15 @@ export default function VerifyOtpScreen() {
     setError(null);
     setMessage(null);
     try {
-      const responseMessage = await signInWithOtp({ email: normalizedEmail, otp: code });
+      console.info("[mobile-auth][verify-otp] submit", { email: identifier, otpLength: code.length });
+      const responseMessage = await signInWithOtp({ email: identifier, otp: code });
       if (responseMessage) {
         setMessage(responseMessage);
         return;
       }
       router.replace("/home");
     } catch (err) {
+      console.error("[mobile-auth][verify-otp] failed", err);
       setError(err instanceof Error ? err.message : "OTP verification failed");
     } finally {
       setLoading(false);
@@ -51,9 +55,10 @@ export default function VerifyOtpScreen() {
   }, [email, otp, signInWithOtp, router]);
 
   const handleResend = React.useCallback(async () => {
-    const normalizedEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
-    if (!normalizedEmail) {
-      setError("Missing email. Please request OTP again.");
+    const identifier = typeof email === "string" ? email.trim().toLowerCase() : "";
+    if (!identifier) {
+      console.warn("[mobile-auth][verify-otp] resend blocked - missing email");
+      setError(`Missing email address. Please request OTP again.`);
       return;
     }
 
@@ -61,20 +66,32 @@ export default function VerifyOtpScreen() {
     setError(null);
     setMessage(null);
     try {
-      const result = await requestOtp({ email: normalizedEmail });
+      console.info("[mobile-auth][verify-otp] resend", { email: identifier });
+      const result = await requestOtp({ email: identifier });
       setMessage(result.message || "OTP sent again.");
     } catch (err) {
+      console.error("[mobile-auth][verify-otp] resend failed", err);
       setError(err instanceof Error ? err.message : "Could not resend OTP");
     } finally {
       setResending(false);
     }
   }, [email]);
 
+  React.useEffect(() => {
+    if (otp.length !== 6 || loading || submittedOtpRef.current === otp) {
+      return;
+    }
+    submittedOtpRef.current = otp;
+    void handleVerify();
+  }, [handleVerify, loading, otp]);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <Text style={styles.heading}>VERIFY OTP</Text>
-        <Text style={styles.subHeading}>Enter the 6-digit code sent to your email</Text>
+        <Text style={styles.subHeading}>
+          Enter the 6-digit code sent to your email address
+        </Text>
 
         <TextInput
           value={otp}
@@ -84,6 +101,8 @@ export default function VerifyOtpScreen() {
           placeholder="Enter OTP"
           placeholderTextColor={colors.textSecondary}
           style={styles.input}
+          autoComplete="sms-otp"
+          textContentType="oneTimeCode"
         />
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -129,7 +148,7 @@ const styles = StyleSheet.create({
     height: 48,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 8,
+    borderRadius: 0,
     paddingHorizontal: spacing.md,
     fontFamily: typography.body,
     fontSize: 15,
@@ -142,7 +161,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     width: "100%",
     height: 48,
-    borderRadius: 8,
+    borderRadius: 0,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.primaryAccent,

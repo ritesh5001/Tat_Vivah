@@ -51,9 +51,9 @@ export default function ProductReviews({ productId }: ProductReviewsProps) {
         setIsLoading(true);
         try {
             const data = await fetchProductReviews(productId, { page, limit: 10, sort });
-            setReviews(data.reviews);
-            setSummary(data.summary);
-            setTotalPages(data.pagination.totalPages);
+            setReviews(data.reviews ?? []);
+            setSummary(data.summary ?? null);
+            setTotalPages(Math.max(1, data.pagination?.totalPages ?? 1));
         } catch (error) {
             console.error("Failed to load reviews", error);
         } finally {
@@ -190,22 +190,22 @@ export default function ProductReviews({ productId }: ProductReviewsProps) {
                 </div>
             )}
 
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-3">
                 <h3 className="font-serif text-2xl font-light text-foreground">
                     Customer Reviews ({summary?.totalReviews ?? reviews.length})
                 </h3>
-                <div className="flex items-center gap-3">
+                <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:gap-3">
                     <select
                         value={sort}
                         onChange={(e) => { setSort(e.target.value); setPage(1); }}
-                        className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                        className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm sm:w-auto sm:flex-none"
                     >
                         {SORT_OPTIONS.map((opt) => (
                             <option key={opt.value} value={opt.value}>{opt.label}</option>
                         ))}
                     </select>
                     {canReview && !showForm && (
-                        <Button onClick={() => setShowForm(true)} variant="outline">
+                        <Button onClick={() => setShowForm(true)} variant="outline" className="w-full sm:w-auto">
                             Write a Review
                         </Button>
                     )}

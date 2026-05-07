@@ -39,6 +39,10 @@ export const registerSellerSchema = z.object({
         .string()
         .regex(/^\d{10,15}$/, 'Phone must be 10-15 digits'),
 
+    whatsappNumber: z
+        .string()
+        .regex(/^\d{10,15}$/, 'WhatsApp number must be 10-15 digits'),
+
     password: z
         .string()
         .min(8, 'Password must be at least 8 characters')
@@ -152,7 +156,8 @@ export const verifyOtpSchema = z.object({
         .email('Invalid email address'),
     otp: z
         .string()
-        .min(4, 'OTP is required'),
+        .length(6, 'OTP must be exactly 6 digits')
+        .regex(/^\d{6}$/, 'OTP must be 6 digits'),
 });
 
 export type VerifyOtpInput = z.infer<typeof verifyOtpSchema>;

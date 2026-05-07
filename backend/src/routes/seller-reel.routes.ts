@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { reelController } from '../controllers/reel.controller.js';
+import { reelEngagementController } from '../controllers/reel-engagement.controller.js';
 import { authenticate, authorize } from '../middlewares/auth.middleware.js';
 
 /**
@@ -22,6 +23,18 @@ sellerReelRouter.post('/', reelController.createReel);
  * List seller's own reels
  */
 sellerReelRouter.get('/', reelController.listSellerReels);
+
+/**
+ * PATCH /v1/seller/reels/:id
+ * Update a reel
+ */
+sellerReelRouter.patch('/:id', reelController.updateSellerReel);
+
+/**
+ * GET /v1/seller/reels/analytics
+ * Get seller reel analytics (views, likes, product clicks)
+ */
+sellerReelRouter.get('/analytics', reelEngagementController.getSellerAnalytics);
 
 /**
  * DELETE /v1/seller/reels/:id

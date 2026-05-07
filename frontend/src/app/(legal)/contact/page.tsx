@@ -1,5 +1,12 @@
 import { LegalPageLayout } from "@/components/legal-page-layout";
 import { Metadata } from "next";
+import {
+    ONBOARDING_EMAIL,
+    REFUND_EMAIL,
+    SELLER_SUPPORT_EMAIL,
+    SUPPORT_EMAIL,
+    SUPPORT_PHONE_DISPLAY,
+} from "@/lib/site-config";
 
 export const metadata: Metadata = {
     title: "Contact Us | Tat Vivah",
@@ -9,6 +16,7 @@ export const metadata: Metadata = {
 const SECTIONS = [
     { id: "customer-support", title: "Customer Support" },
     { id: "vendor-support", title: "Vendor Support" },
+    { id: "refund-support", title: "Refund Support" },
     { id: "business-inquiries", title: "Business Inquiries" },
 ];
 
@@ -29,8 +37,8 @@ export default function ContactPage() {
                     For questions regarding your orders, shipping, returns, or general assistance navigating our marketplace, our customer care team is available to assist you.
                 </p>
                 <ul>
-                    <li><strong>Email:</strong> <a href="mailto:support@tatvivahtrends.com">support@tatvivahtrends.com</a></li>
-                    <li><strong>Phone:</strong> +91-7777777777</li>
+                    <li><strong>Email:</strong> <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a></li>
+                    <li><strong>Phone:</strong> {SUPPORT_PHONE_DISPLAY}</li>
                     <li><strong>Hours:</strong> Monday to Saturday, 9:00 AM - 6:00 PM (IST)</li>
                 </ul>
             </section>
@@ -41,8 +49,20 @@ export default function ContactPage() {
                     If you are an existing seller on Tat Vivah and need help with your seller dashboard, product listings, or payouts, please contact our dedicated vendor team.
                 </p>
                 <ul>
-                    <li><strong>Email:</strong> <a href="mailto:sellersupport@tatvivahtrends.com">sellersupport@tatvivahtrends.com</a></li>
-                    <li><strong>Phone:</strong> +91-7777777777 (Extension 2)</li>
+                    <li><strong>Email:</strong> <a href={`mailto:${SELLER_SUPPORT_EMAIL}`}>{SELLER_SUPPORT_EMAIL}</a></li>
+                    <li><strong>Onboarding:</strong> <a href={`mailto:${ONBOARDING_EMAIL}`}>{ONBOARDING_EMAIL}</a></li>
+                    <li><strong>Phone:</strong> {SUPPORT_PHONE_DISPLAY}</li>
+                </ul>
+            </section>
+
+            <section id="refund-support">
+                <h2>Refund Support</h2>
+                <p>
+                    For refund status updates and payment reversal assistance, please write to our refunds desk with your order ID.
+                </p>
+                <ul>
+                    <li><strong>Email:</strong> <a href={`mailto:${REFUND_EMAIL}`}>{REFUND_EMAIL}</a></li>
+                    <li><strong>Phone:</strong> {SUPPORT_PHONE_DISPLAY}</li>
                 </ul>
             </section>
 
@@ -52,7 +72,7 @@ export default function ContactPage() {
                     For marketing collaborations, press inquiries, or corporate partnerships, please direct your communication to our business team.
                 </p>
                 <ul>
-                    <li><strong>Email:</strong> <a href="mailto:partnerships@tatvivahtrends.com">partnerships@tatvivahtrends.com</a></li>
+                    <li><strong>Email:</strong> <a href={`mailto:${ONBOARDING_EMAIL}`}>{ONBOARDING_EMAIL}</a></li>
                 </ul>
                 <p>
                     <strong>Registered Office Address:</strong><br />

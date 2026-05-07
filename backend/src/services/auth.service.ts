@@ -19,8 +19,12 @@ import { otpService, type SignupOtpPayload } from './otp.service.js';
 import { generateOtpCode, hashOtp } from '../utils/otp.util.js';
 import { otpRepository } from '../repositories/otp.repository.js';
 import { sendEmail } from '../notifications/email/resend.client.js';
+import { renderBrandedEmail } from '../notifications/email/templates/layout.js';
+import { normalizeIndianMobile } from './fast2sms.service.js';
 import { OtpPurpose } from '@prisma/client';
 import type { Role, UserStatus } from '@prisma/client';
+import { randomUUID } from 'crypto';
+import { authLogger } from '../config/logger.js';
 
 
 /**
@@ -30,6 +34,7 @@ import type { Role, UserStatus } from '@prisma/client';
  */
 export class AuthService {
     constructor(private readonly repository: AuthRepository) { }
+    private readonly logger = authLogger.child({ component: 'auth-service' });
 
     private async issueTokens(
         user: {
@@ -44,6 +49,8 @@ export class AuthService {
         userAgent?: string,
         ipAddress?: string
     ): Promise<LoginResponse> {
+        const sessionId = randomUUID();
+
         const accessToken = generateAccessToken({
             userId: user.id,
             email: user.email,
@@ -54,29 +61,25 @@ export class AuthService {
             isPhoneVerified: user.isPhoneVerified,
         });
 
-        const refreshTokenExpiryMs = ms(env.REFRESH_TOKEN_EXPIRY as StringValue);
-        const expiresAt = new Date(Date.now() + refreshTokenExpiryMs);
-
-        // Generate a temporary session ID to embed in the refresh token
-        // We create session with a placeholder, then update in one step
-        const session = await this.repository.createSession({
-            userId: user.id,
-            refreshToken: '', // placeholder
-            userAgent: userAgent ?? undefined,
-            ipAddress: ipAddress ?? undefined,
-            expiresAt,
-        });
-
         const refreshToken = generateRefreshToken({
             userId: user.id,
-            sessionId: session.id,
+            sessionId,
             isEmailVerified: user.isEmailVerified,
             isPhoneVerified: user.isPhoneVerified,
         });
 
-        // Hash and update the session in one call
+        const refreshTokenExpiryMs = ms(env.REFRESH_TOKEN_EXPIRY as StringValue);
+        const expiresAt = new Date(Date.now() + refreshTokenExpiryMs);
         const hashedRefreshToken = await hashToken(refreshToken);
-        await this.repository.updateSessionRefreshToken(session.id, hashedRefreshToken);
+
+        await this.repository.createSession({
+            sessionId,
+            userId: user.id,
+            refreshToken: hashedRefreshToken,
+            userAgent: userAgent ?? undefined,
+            ipAddress: ipAddress ?? undefined,
+            expiresAt,
+        });
 
         return {
             user: {
@@ -104,9 +107,12 @@ export class AuthService {
      * 4. No JWT generation, no auto-login
      */
     async registerUser(data: RegisterUserRequest): Promise<RegisterSuccessResponse> {
+        const phone = normalizeIndianMobile(data.phone);
+        this.logger.info({ email: data.email, phone: phone ? '[present]' : '[missing]', role: 'USER' }, 'register_user_started');
         // 1. Check if email or phone already exists
-        const exists = await this.repository.existsByEmailOrPhone(data.email, data.phone);
+        const exists = await this.repository.existsByEmailOrPhone(data.email, phone);
         if (exists) {
+            this.logger.warn({ email: data.email, phone }, 'register_user_conflict');
             throw ApiError.conflict('Email or phone already in use');
         }
 
@@ -116,16 +122,17 @@ export class AuthService {
         // 3. Send OTP for signup (account will be created after verification)
         const payload: SignupOtpPayload = {
             email: data.email,
-            phone: data.phone,
+            phone,
             passwordHash,
             role: 'USER',
             fullName: data.fullName,
         };
         await otpService.sendSignupOtp(payload);
+        this.logger.info({ email: data.email, phone: '[present]', role: 'USER' }, 'register_user_otp_sent');
 
         // 4. Return success message (no token, no auto-login)
         return {
-            message: 'OTP sent to your email',
+            message: 'OTP sent to your email address',
         };
     }
 
@@ -141,9 +148,13 @@ export class AuthService {
      * 5. Seller cannot login until approved
      */
     async registerSeller(data: RegisterSellerRequest): Promise<RegisterSuccessResponse> {
+        const phone = normalizeIndianMobile(data.phone);
+        const whatsappNumber = normalizeIndianMobile(data.whatsappNumber);
+        this.logger.info({ email: data.email, phone: phone ? '[present]' : '[missing]', whatsappNumber: whatsappNumber ? '[present]' : '[missing]', role: 'SELLER' }, 'register_seller_started');
         // 1. Check if email or phone already exists
-        const exists = await this.repository.existsByEmailOrPhone(data.email, data.phone);
+        const exists = await this.repository.existsByEmailOrPhone(data.email, phone);
         if (exists) {
+            this.logger.warn({ email: data.email, phone }, 'register_seller_conflict');
             throw ApiError.conflict('Email or phone already in use');
         }
 
@@ -153,15 +164,17 @@ export class AuthService {
         // 3. Send OTP for signup (account will be created after verification)
         const payload: SignupOtpPayload = {
             email: data.email,
-            phone: data.phone,
+            phone,
+            whatsappNumber,
             passwordHash,
             role: 'SELLER',
         };
         await otpService.sendSignupOtp(payload);
+        this.logger.info({ email: data.email, phone: '[present]', whatsappNumber: '[present]', role: 'SELLER' }, 'register_seller_otp_sent');
 
         // 4. Return success message (no token, pending approval)
         return {
-            message: 'OTP sent to your email. Verify to complete seller registration.',
+            message: 'OTP sent to your email address. Verify to complete seller registration.',
         };
     }
 
@@ -226,28 +239,35 @@ export class AuthService {
         userAgent?: string,
         ipAddress?: string
     ): Promise<LoginResponse> {
+        this.logger.info({ identifier, userAgent }, 'login_attempt_started');
+        
         // 1. Find user by email OR phone
         const user = await this.repository.findByIdentifier(identifier);
         if (!user) {
-            throw ApiError.unauthorized('User not found');
+            this.logger.warn({ identifier }, 'login_user_not_found');
+            throw ApiError.unauthorized('User account not found. Please check your email/phone or create a new account.');
         }
 
         // 2. Verify password
         const isPasswordValid = await comparePassword(password, user.passwordHash);
         if (!isPasswordValid) {
-            throw ApiError.unauthorized('Invalid password');
+            this.logger.warn({ userId: user.id, identifier }, 'login_invalid_password');
+            throw ApiError.unauthorized('Incorrect password. Please try again.');
         }
 
         // 3. Check status (must be ACTIVE)
         if (user.status !== 'ACTIVE') {
-            throw ApiError.forbidden('Account not active');
+            this.logger.warn({ userId: user.id, status: user.status, role: user.role }, 'login_account_inactive');
+            if (user.role === 'SELLER') {
+                throw ApiError.forbidden('Your seller account is pending admin approval.');
+            }
+            throw ApiError.forbidden('Your account is not active. Please contact support.');
         }
 
-        if ((user.role === 'USER' || user.role === 'SELLER') && !user.isEmailVerified) {
-            throw ApiError.forbidden('Email verification required');
-        }
+        this.logger.info({ userId: user.id, role: user.role, identifier }, 'login_password_verified');
 
         // 4. Return response
+        this.logger.info({ userId: user.id, role: user.role }, 'login_tokens_issued');
         return this.issueTokens({
             id: user.id,
             email: user.email,
@@ -259,100 +279,129 @@ export class AuthService {
         }, userAgent, ipAddress);
     }
 
-    async requestEmailOtp(email: string): Promise<{ message: string }> {
-        const user = await this.repository.findUserByEmail(email);
+    async requestOtp(input: { email?: string | undefined }): Promise<{ message: string }> {
+        const normalizedEmail = input.email?.trim().toLowerCase();
+        this.logger.info({ email: normalizedEmail ?? null }, 'request_otp_started');
+        if (!normalizedEmail) {
+            this.logger.warn({ email: normalizedEmail ?? null }, 'request_otp_missing_email');
+            throw ApiError.badRequest('Email is required');
+        }
+
+        const user = await this.repository.findUserByEmail(normalizedEmail);
         if (!user) {
-            const payload = await otpService.getLatestSignupPayload(email);
-            if (!payload) {
-                throw ApiError.notFound('User not found');
-            }
-
-            await otpService.sendSignupOtp(payload);
-            return { message: 'OTP sent to email' };
+            this.logger.warn({ email: normalizedEmail }, 'request_otp_user_not_found');
+            throw ApiError.notFound('User not found');
         }
-
-        if (user.isEmailVerified) {
-            return { message: 'Email already verified' };
+        if (user.status !== 'ACTIVE') {
+            this.logger.warn({ email: normalizedEmail, userId: user.id, status: user.status }, 'request_otp_account_not_active');
+            throw ApiError.forbidden('Account not active');
         }
-
-        await otpService.sendEmailVerificationOtp(user.id, user.email ?? email);
-        return { message: 'OTP sent to email' };
+        await otpService.sendEmailOtp(user.id, normalizedEmail, 'login');
+        this.logger.info({ email: normalizedEmail, userId: user.id }, 'request_otp_sent');
+        return { message: 'OTP sent to your email address' };
     }
 
-    async verifyEmailOtp(email: string, code: string): Promise<LoginResponse | MessageResponse> {
+    // NOTE: Phone OTP methods removed — project is email-only OTP across platforms.
+
+    async verifyOtp(
+        input: { email?: string | undefined; otp: string },
+        userAgent?: string,
+        ipAddress?: string,
+    ): Promise<LoginResponse | MessageResponse> {
+        const normalizedEmail = input.email?.trim().toLowerCase();
+        this.logger.info({ email: normalizedEmail ?? null, otpLength: input.otp?.length ?? 0 }, 'verify_otp_started');
+        if (!normalizedEmail) {
+            this.logger.warn({ email: normalizedEmail ?? null }, 'verify_otp_missing_email');
+            throw ApiError.badRequest('Email is required');
+        }
+
+        return this.verifyEmailOtp(normalizedEmail, input.otp, userAgent, ipAddress);
+    }
+
+    // Phone-based verification flow removed — using email-only OTP.
+
+    private async verifyEmailOtp(
+        email: string,
+        code: string,
+        userAgent?: string,
+        ipAddress?: string,
+    ): Promise<LoginResponse | MessageResponse> {
+        this.logger.debug({ email, userAgent: userAgent ?? null, ipAddress: ipAddress ?? null }, 'verify_email_otp_lookup');
         const otp = await otpService.verifyEmailOtp(email, code);
-        if (otp.userId) {
-            const user = await this.repository.findUserById(otp.userId);
-            if (!user) {
-                throw ApiError.notFound('User not found');
+        if (!otp.userId) {
+            const payload = otp.payload as SignupOtpPayload | null;
+            if (!payload) {
+                this.logger.warn({ email }, 'verify_email_otp_missing_payload');
+                throw ApiError.badRequest('Invalid or expired OTP');
             }
 
-            const nextStatus =
-                user.role === 'USER' && user.status === 'PENDING'
-                    ? 'ACTIVE'
-                    : user.status;
-
-            if (user.role === 'SELLER' && user.status !== 'ACTIVE') {
-                throw ApiError.forbidden('Seller approval pending');
-            }
-
-            const updated = await this.repository.updateUser(user.id, {
-                status: nextStatus,
-                isEmailVerified: true,
-            });
-
-            return this.issueTokens({
-                id: updated.id,
-                email: updated.email,
-                phone: updated.phone,
-                role: updated.role,
-                status: updated.status,
-                isEmailVerified: updated.isEmailVerified,
-                isPhoneVerified: updated.isPhoneVerified,
-            });
-        }
-
-        const payload = otp.payload as SignupOtpPayload | null;
-        if (!payload) {
-            throw ApiError.badRequest('Invalid or expired OTP');
-        }
-
-        const exists = await this.repository.existsByEmailOrPhone(payload.email, payload.phone);
-        if (exists) {
-            throw ApiError.conflict('Email or phone already in use');
-        }
-
-        const status = payload.role === 'SELLER' ? 'PENDING' : 'ACTIVE';
-        const created = await this.repository.createUser({
-            email: payload.email,
-            phone: payload.phone,
-            passwordHash: payload.passwordHash,
-            role: payload.role,
-            status,
-            isEmailVerified: true,
-            isPhoneVerified: false,
-        }).catch((error: any) => {
-            if (error?.code === 'P2002' || String(error?.message ?? '').includes('Unique constraint')) {
+            const exists = await this.repository.existsByEmailOrPhone(payload.email, payload.phone);
+            if (exists) {
+                this.logger.warn({ email: payload.email, phone: payload.phone }, 'verify_email_otp_conflict');
                 throw ApiError.conflict('Email or phone already in use');
             }
-            throw error;
-        });
 
-        if (created.role === 'SELLER') {
-            return {
-                message: 'Email verified. Seller account pending admin approval.',
-            };
+            const status = payload.role === 'SELLER' ? 'PENDING' : 'ACTIVE';
+            const created = await this.repository.createUser({
+                email: payload.email,
+                phone: payload.phone,
+                whatsappNumber: payload.role === 'SELLER' ? (payload.whatsappNumber ?? null) : null,
+                passwordHash: payload.passwordHash,
+                role: payload.role,
+                status,
+                isEmailVerified: true,
+                isPhoneVerified: false,
+            }).catch((error: any) => {
+                if (error?.code === 'P2002' || String(error?.message ?? '').includes('Unique constraint')) {
+                    throw ApiError.conflict('Email or phone already in use');
+                }
+                throw error;
+            });
+
+            if (created.role === 'SELLER') {
+                this.logger.info({ email: created.email, userId: created.id, role: created.role }, 'verify_email_otp_seller_created');
+                return {
+                    message: 'Email verified. Seller account pending admin approval.',
+                };
+            }
+
+            this.logger.info({ email: created.email, userId: created.id, role: created.role }, 'verify_email_otp_user_created');
+
+            return this.issueTokens({
+                id: created.id,
+                email: created.email,
+                phone: created.phone,
+                role: created.role,
+                status: created.status,
+                isEmailVerified: created.isEmailVerified,
+                isPhoneVerified: created.isPhoneVerified,
+            }, userAgent, ipAddress);
         }
 
+        const user = await this.repository.findUserById(otp.userId);
+        if (!user) {
+            this.logger.warn({ email, userId: otp.userId }, 'verify_email_otp_user_not_found');
+            throw ApiError.notFound('User not found');
+        }
+
+        if (user.status !== 'ACTIVE') {
+            this.logger.warn({ email, userId: user.id, status: user.status }, 'verify_email_otp_account_not_active');
+            throw ApiError.forbidden('Account not active');
+        }
+
+        const updated = user.isEmailVerified
+            ? user
+            : await this.repository.updateUser(user.id, { isEmailVerified: true });
+
         return this.issueTokens({
-            id: created.id,
-            email: created.email,
-            phone: created.phone,
-            role: created.role,
-            status: created.status,
-            isEmailVerified: created.isEmailVerified,
-            isPhoneVerified: created.isPhoneVerified,
-        });
+            id: updated.id,
+            email: updated.email,
+            phone: updated.phone,
+            role: updated.role,
+            status: updated.status,
+            isEmailVerified: updated.isEmailVerified,
+            isPhoneVerified: updated.isPhoneVerified,
+        }, userAgent, ipAddress);
     }
 
     /**
@@ -532,15 +581,17 @@ export class AuthService {
             expiresAt,
         });
 
-        const html = `
-            <div style="font-family:Arial,sans-serif; line-height:1.6;">
-                <h2>Reset your TatVivah password</h2>
-                <p>Your password-reset OTP is:</p>
-                <p style="font-size:24px; font-weight:bold; letter-spacing:4px;">${code}</p>
-                <p>This OTP expires in ${AuthService.PASSWORD_RESET_EXPIRY_MINUTES} minutes.</p>
-                <p>If you did not request this, please ignore this email.</p>
-            </div>
-        `;
+        const html = renderBrandedEmail({
+            preheader: 'Your password reset verification code for TatVivah.',
+            eyebrow: 'Password Recovery',
+            title: 'Reset Your Password',
+            message: [
+                'Use the one-time code below to reset your TatVivah account password.',
+                `This code expires in ${AuthService.PASSWORD_RESET_EXPIRY_MINUTES} minutes and can only be used once.`,
+            ],
+            details: [{ label: 'Reset Code', value: code }],
+            accentText: 'If you did not request this reset, you can safely ignore this email.',
+        });
 
         await sendEmail(email, 'Reset your TatVivah password', html);
 

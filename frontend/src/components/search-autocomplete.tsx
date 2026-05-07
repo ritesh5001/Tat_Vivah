@@ -1,9 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { getSuggestions, type SuggestionItem } from "@/services/search";
+import { startNavigationFeedback } from "@/lib/navigation-feedback";
 
 interface SearchAutocompleteProps {
   defaultValue?: string;
@@ -17,6 +18,7 @@ export function SearchAutocomplete({
   className,
 }: SearchAutocompleteProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [query, setQuery] = React.useState(defaultValue);
   const [suggestions, setSuggestions] = React.useState<SuggestionItem[]>([]);
   const [open, setOpen] = React.useState(false);
@@ -34,6 +36,10 @@ export function SearchAutocomplete({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  React.useEffect(() => {
+    router.prefetch("/marketplace");
+  }, [router]);
 
   const fetchSuggestions = React.useCallback(async (q: string) => {
     if (q.length < 2) {
@@ -69,11 +75,13 @@ export function SearchAutocomplete({
       const term = (searchTerm ?? query).trim();
       setOpen(false);
       if (!term) return;
-      const params = new URLSearchParams();
+      const params = new URLSearchParams(searchParams.toString());
       params.set("search", term);
+      params.delete("page");
+      startNavigationFeedback();
       router.push(`/marketplace?${params.toString()}`);
     },
-    [query, router]
+    [query, router, searchParams]
   );
 
   const handleKeyDown = React.useCallback(

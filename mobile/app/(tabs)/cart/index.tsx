@@ -5,8 +5,9 @@ import {
   FlatList,
   Pressable,
 } from "react-native";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useRouter } from "expo-router";
-import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
+import { colors, spacing, typography, shadow } from "../../../src/theme/tokens";
 import { useAuth } from "../../../src/hooks/useAuth";
 import { useCart } from "@/src/providers/CartProvider";
 import { useNetworkStatus } from "../../../src/hooks/useNetworkStatus";
@@ -16,6 +17,7 @@ import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
 import { impactLight } from "../../../src/utils/haptics";
 import type { CartItemDetails } from "../../../src/services/cart";
 import { AppHeader } from "../../../src/components/AppHeader";
+import { MotionView } from "../../../src/components/motion";
 import { AppText as Text, ScreenContainer as SafeAreaView } from "../../../src/components";
 
 const currency = new Intl.NumberFormat("en-IN", {
@@ -26,6 +28,7 @@ const currency = new Intl.NumberFormat("en-IN", {
 
 export default function CartScreen() {
   const router = useRouter();
+  const tabBarHeight = useBottomTabBarHeight();
   const { session, isLoading: authLoading } = useAuth();
   const token = session?.accessToken ?? null;
   const { isConnected } = useNetworkStatus();
@@ -82,56 +85,65 @@ export default function CartScreen() {
     0
   );
   const shipping = cartItems.length ? 180 : 0;
-  const total = subtotal + shipping;
+  const gst = cartItems.length ? 180 : 0;
+  const total = subtotal + shipping + gst;
 
   const renderItem = React.useCallback(
-    ({ item }: { item: CartItemDetails }) => {
+    ({ item, index }: { item: CartItemDetails; index: number }) => {
       const locked = mutatingIds.has(item.id);
       return (
-        <View style={styles.itemCard}>
-          <View style={styles.itemInfo}>
-            <Text style={styles.itemTitle}>
-              {item.product?.title ?? "Item"}
-            </Text>
-            <Text style={styles.itemMeta}>
-              Variant · {item.variant?.sku ?? "—"}
-            </Text>
-            <Text style={styles.itemPrice}>
-              {currency.format(item.priceSnapshot)}
-            </Text>
-          </View>
-          <View style={styles.qtyRow}>
+        <MotionView preset="slideUp" delay={Math.min(index * 24, 180)}>
+          <View style={styles.itemCard}>
+            <View style={styles.itemInfo}>
+              <Text style={styles.itemTitle}>
+                {item.product?.title ?? "Item"}
+              </Text>
+              <Text style={styles.itemMeta}>
+                Variant · {item.variant?.size ?? "Default"} · {item.variant?.sku ?? "—"}
+              </Text>
+              {typeof item.variant?.compareAtPrice === "number" &&
+              item.variant.compareAtPrice > item.priceSnapshot ? (
+                <Text style={styles.itemMeta}>
+                  MRP {currency.format(item.variant.compareAtPrice)}
+                </Text>
+              ) : null}
+              <Text style={styles.itemPrice}>
+                {currency.format(item.priceSnapshot)}
+              </Text>
+            </View>
+            <View style={styles.qtyRow}>
+              <Pressable
+                style={[styles.qtyButton, locked && styles.qtyButtonDisabled]}
+                onPress={() => handleQty(item.id, item.quantity - 1)}
+                disabled={locked}
+              >
+                <Text style={styles.qtyButtonText}>−</Text>
+              </Pressable>
+              <Text style={styles.qtyValue}>{item.quantity}</Text>
+              <Pressable
+                style={[styles.qtyButton, locked && styles.qtyButtonDisabled]}
+                onPress={() => handleQty(item.id, item.quantity + 1)}
+                disabled={locked}
+              >
+                <Text style={styles.qtyButtonText}>+</Text>
+              </Pressable>
+            </View>
             <Pressable
-              style={[styles.qtyButton, locked && styles.qtyButtonDisabled]}
-              onPress={() => handleQty(item.id, item.quantity - 1)}
+              style={styles.removeButton}
+              onPress={() => handleRemove(item.id)}
               disabled={locked}
             >
-              <Text style={styles.qtyButtonText}>−</Text>
-            </Pressable>
-            <Text style={styles.qtyValue}>{item.quantity}</Text>
-            <Pressable
-              style={[styles.qtyButton, locked && styles.qtyButtonDisabled]}
-              onPress={() => handleQty(item.id, item.quantity + 1)}
-              disabled={locked}
-            >
-              <Text style={styles.qtyButtonText}>+</Text>
+              <Text
+                style={[
+                  styles.removeButtonText,
+                  locked && { opacity: 0.4 },
+                ]}
+              >
+                {locked ? "Updating…" : "Remove"}
+              </Text>
             </Pressable>
           </View>
-          <Pressable
-            style={styles.removeButton}
-            onPress={() => handleRemove(item.id)}
-            disabled={locked}
-          >
-            <Text
-              style={[
-                styles.removeButtonText,
-                locked && { opacity: 0.4 },
-              ]}
-            >
-              {locked ? "Updating…" : "Remove"}
-            </Text>
-          </Pressable>
-        </View>
+        </MotionView>
       );
     },
     [mutatingIds, handleQty, handleRemove]
@@ -211,14 +223,18 @@ export default function CartScreen() {
             data={cartItems}
             keyExtractor={keyExtractor}
             renderItem={renderItem}
-            contentContainerStyle={styles.listContent}
+            contentContainerStyle={[
+              styles.listContent,
+              { paddingBottom: tabBarHeight + spacing.lg },
+            ]}
             initialNumToRender={6}
-            maxToRenderPerBatch={4}
-            windowSize={5}
+            maxToRenderPerBatch={2}
+            windowSize={3}
+            updateCellsBatchingPeriod={24}
             removeClippedSubviews
           />
 
-          <View style={styles.summaryCard}>
+          <View style={[styles.summaryCard, { marginBottom: tabBarHeight + spacing.sm }]}> 
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Subtotal</Text>
               <Text style={styles.summaryValue}>
@@ -233,9 +249,7 @@ export default function CartScreen() {
             </View>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>GST</Text>
-              <Text style={styles.summaryValue}>
-                Calculated at checkout
-              </Text>
+              <Text style={styles.summaryValue}>{currency.format(gst)}</Text>
             </View>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryTotal}>Total</Text>
@@ -299,7 +313,7 @@ const styles = StyleSheet.create({
   itemCard: {
     marginBottom: spacing.md,
     padding: spacing.md,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -333,7 +347,7 @@ const styles = StyleSheet.create({
   qtyButton: {
     height: 32,
     width: 32,
-    borderRadius: 16,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: colors.surface,
@@ -368,7 +382,7 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     backgroundColor: colors.surfaceElevated,
     ...shadow.card,
   },
@@ -397,7 +411,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gold,
     borderWidth: 1,
     borderColor: colors.gold,
-    borderRadius: radius.md,
+    borderRadius: 0,
     paddingVertical: spacing.sm,
     alignItems: "center",
   },
@@ -414,7 +428,7 @@ const styles = StyleSheet.create({
   emptyCard: {
     margin: spacing.lg,
     padding: spacing.xl,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,

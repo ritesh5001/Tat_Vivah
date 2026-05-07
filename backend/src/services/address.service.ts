@@ -7,8 +7,10 @@ import {
   type SerializedAddress,
   type AddressRepository,
 } from '../repositories/address.repository.js';
+import { CACHE_KEYS, getFromCache, invalidateCache, setCache } from '../utils/cache.util.js';
 
 const MAX_ADDRESSES_PER_USER = 10;
+const ADDRESS_CACHE_TTL_SECONDS = 60;
 
 export class AddressService {
   constructor(private repo: AddressRepository) {}
@@ -17,8 +19,14 @@ export class AddressService {
   // List
   // -----------------------------------------------------------------------
   async list(userId: string): Promise<SerializedAddress[]> {
+    const cacheKey = CACHE_KEYS.USER_ADDRESSES(userId);
+    const cached = await getFromCache<SerializedAddress[]>(cacheKey);
+    if (cached) return cached;
+
     const rows = await this.repo.findAllByUserId(userId);
-    return rows.map(serializeAddress);
+    const addresses = rows.map(serializeAddress);
+    await setCache(cacheKey, addresses, ADDRESS_CACHE_TTL_SECONDS);
+    return addresses;
   }
 
   // -----------------------------------------------------------------------
@@ -37,6 +45,7 @@ export class AddressService {
     const isDefault = count === 0 ? true : (input.isDefault ?? false);
 
     const row = await this.repo.createWithDefaultHandling({ ...input, userId, isDefault });
+    await invalidateCache(CACHE_KEYS.USER_ADDRESSES(userId));
     return serializeAddress(row);
   }
 
@@ -53,6 +62,7 @@ export class AddressService {
     if (existing.user_id !== userId) throw ApiError.forbidden('Access denied');
 
     const row = await this.repo.update(addressId, input);
+    await invalidateCache(CACHE_KEYS.USER_ADDRESSES(userId));
     return serializeAddress(row);
   }
 
@@ -65,6 +75,7 @@ export class AddressService {
     if (existing.user_id !== userId) throw ApiError.forbidden('Access denied');
 
     await this.repo.deleteWithDefaultPromotion(userId, addressId, existing.is_default);
+    await invalidateCache(CACHE_KEYS.USER_ADDRESSES(userId));
   }
 
   // -----------------------------------------------------------------------
@@ -80,6 +91,7 @@ export class AddressService {
     }
 
     const row = await this.repo.setDefault(userId, addressId);
+    await invalidateCache(CACHE_KEYS.USER_ADDRESSES(userId));
     return serializeAddress(row);
   }
 }

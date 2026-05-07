@@ -1,15 +1,15 @@
 import * as React from "react";
-import { View, Text, StyleSheet, Pressable } from "react-native";
+import { View, Text, StyleSheet, Pressable, type StyleProp, type ViewStyle } from "react-native";
 import { Image } from "./CompatImage";
 import { colors, typography, spacing } from "../theme/tokens";
 import { images } from "../data/images";
 import { type ProductItem } from "../services/products";
-import { useWishlist } from "../providers/WishlistProvider";
 
 interface ProductGridCardProps {
   product: ProductItem;
   onBuyNow?: (product: ProductItem) => void;
   onExplore?: (product: ProductItem) => void;
+  style?: StyleProp<ViewStyle>;
 }
 
 const currency = new Intl.NumberFormat("en-IN", {
@@ -18,104 +18,108 @@ const currency = new Intl.NumberFormat("en-IN", {
   maximumFractionDigits: 0,
 });
 
+function seededRandom(seed: string, min: number, max: number): number {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  }
+  const range = (max - min) * 10;
+  return min + (hash % range) / 10;
+}
+
 function ProductGridCardComponent({
   product,
-  onBuyNow,
   onExplore,
+  style,
 }: ProductGridCardProps) {
-  const { isWishlisted, toggleWishlist, mutatingIds } = useWishlist();
-  const wishlisted = isWishlisted(product.id);
-  const wishlistBusy = mutatingIds.has(product.id);
-
-  const formatPrice = (price?: number | null) => {
-    if (!price && price !== 0) return "Price on request";
-    return currency.format(price);
-  };
-
   const primaryPrice =
-    product.salePrice ?? product.adminPrice ?? product.price ?? product.sellerPrice;
-  const regularPrice = product.regularPrice;
-  const hasDiscount =
-    typeof regularPrice === "number" &&
+    product.salePrice ?? product.adminPrice ?? product.price ?? product.sellerPrice ?? null;
+
+  const realRegularPrice =
+    typeof product.regularPrice === "number" &&
     typeof primaryPrice === "number" &&
-    regularPrice > primaryPrice;
-  const discountPercent = hasDiscount
-    ? Math.round(((regularPrice - primaryPrice) / regularPrice) * 100)
-    : null;
-  const description = product.description?.trim();
-  const tagLabel = discountPercent && discountPercent >= 30 ? "Hot Deal" : null;
+    product.regularPrice > primaryPrice
+      ? product.regularPrice
+      : null;
+
+  const originalPrice = (() => {
+    if (realRegularPrice !== null) return realRegularPrice;
+    if (typeof primaryPrice !== "number" || primaryPrice <= 0) return null;
+    const fakeDiscount = Math.round(seededRandom(product.id + "m", 50, 75));
+    return Math.round(primaryPrice / (1 - fakeDiscount / 100) / 10) * 10;
+  })();
+
+  const discountPercent =
+    typeof primaryPrice === "number" &&
+    typeof originalPrice === "number" &&
+    originalPrice > 0
+      ? Math.round(((originalPrice - primaryPrice) / originalPrice) * 100)
+      : null;
+
+  const rating = Math.round(seededRandom(product.id, 39, 48)) / 10;
+  const reviewCount = Math.round(seededRandom(product.id + "r", 50, 500));
+
+  const firstImage =
+    Array.isArray(product.images) && product.images.length > 0 ? product.images[0] : null;
+
+  const handlePress = () => onExplore?.(product);
 
   return (
-    <Pressable
-      style={styles.card}
-      onPress={() => onExplore?.(product)}
-    >
+    <Pressable style={[styles.card, style]} onPress={handlePress}>
       <View style={styles.imageWrap}>
         <Image
-          source={product.images?.[0] ? { uri: product.images[0] } : images.productPlaceholder}
+          source={firstImage ? { uri: firstImage } : images.productPlaceholder}
           style={styles.image}
           contentFit="cover"
           contentPosition="center"
           transition={200}
           cachePolicy="memory-disk"
         />
-        <View style={styles.badgeRow}>
-          <View style={styles.badgePill}>
-            <Text style={styles.badgeText}>
-              {product.category?.name ?? "Featured"}
-            </Text>
-          </View>
-          {discountPercent != null ? (
-            <View style={[styles.badgePill, styles.badgePillAccent]}>
-              <Text style={[styles.badgeText, styles.badgeTextAccent]}>
-                {discountPercent}% off
-              </Text>
-            </View>
-          ) : null}
+
+        <View style={styles.trendingBadge}>
+          <Text style={styles.trendingText}>TRENDING</Text>
         </View>
-        {/* Wishlist heart overlay */}
-        <Pressable
-          onPress={() => toggleWishlist(product.id)}
-          disabled={wishlistBusy}
-          hitSlop={8}
-          style={styles.heartOverlay}
-        >
-          <Text style={{ fontSize: 18, opacity: wishlistBusy ? 0.5 : 1 }}>
-            {wishlisted ? "❤️" : "🤍"}
-          </Text>
-        </Pressable>
+
+        {discountPercent !== null ? (
+          <View style={styles.discountBadge}>
+            <Text style={styles.discountBadgeText}>{discountPercent}% OFF</Text>
+          </View>
+        ) : null}
+
+        <View style={styles.ratingPill}>
+          <Text style={styles.ratingStar}>★</Text>
+          <Text style={styles.ratingValue}>{rating.toFixed(1)}</Text>
+          <Text style={styles.ratingDivider}>|</Text>
+          <Text style={styles.ratingCount}>{reviewCount}</Text>
+        </View>
       </View>
 
       <View style={styles.info}>
-        <Text style={styles.brandText} numberOfLines={1}>
-          {product.category?.name ?? "Curated edit"}
+        <Text style={styles.categoryLabel} numberOfLines={1}>
+          {(product.category?.name ?? "Collection").toUpperCase()}
         </Text>
+
         <Text style={styles.title} numberOfLines={2}>
           {product.title}
         </Text>
-        {description ? (
-          <Text style={styles.description} numberOfLines={2}>
-            {description}
-          </Text>
-        ) : null}
-        <View style={styles.ratingRow}>
-          <Text style={styles.ratingText}>⭐ 4.3</Text>
-          <Text style={styles.ratingMeta}>| 2k</Text>
-        </View>
-        <View style={styles.priceRow}>
-          {hasDiscount ? (
-            <Text style={styles.discountText}>-{discountPercent}%</Text>
-          ) : null}
-          {hasDiscount ? (
-            <Text style={styles.priceStrike}>{formatPrice(regularPrice)}</Text>
-          ) : null}
-          <Text style={styles.price}>{formatPrice(primaryPrice)}</Text>
-        </View>
-        {tagLabel ? (
-          <View style={styles.tagPill}>
-            <Text style={styles.tagText}>{tagLabel}</Text>
+
+        {typeof primaryPrice === "number" ? (
+          <View style={styles.priceRow}>
+            <Text style={styles.price}>{currency.format(primaryPrice)}</Text>
+            {typeof originalPrice === "number" ? (
+              <Text style={styles.priceStrike}>{currency.format(originalPrice)}</Text>
+            ) : null}
+            {discountPercent !== null ? (
+              <Text style={styles.discountText}>({discountPercent}% OFF)</Text>
+            ) : null}
           </View>
-        ) : null}
+        ) : (
+          <Text style={styles.priceUnavailable}>Price on request</Text>
+        )}
+
+        <Pressable style={styles.ctaButton} onPress={handlePress}>
+          <Text style={styles.ctaButtonText}>ADD TO CART</Text>
+        </Pressable>
       </View>
     </Pressable>
   );
@@ -123,146 +127,163 @@ function ProductGridCardComponent({
 
 export const ProductGridCard = React.memo(ProductGridCardComponent);
 
+const TRENDING_BG = "rgba(255,255,255,0.95)";
+const RATING_BG = "rgba(255,255,255,0.92)";
+const DISCOUNT_AMBER = "#B45309";
+const DISCOUNT_BADGE_BG = "#D97706";
+const STAR_GREEN = "#16A34A";
+
 const styles = StyleSheet.create({
   card: {
     flex: 1,
-    borderRadius: 16,
-    backgroundColor: "#1E1A17",
+    backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     overflow: "hidden",
-    shadowColor: colors.brown,
-    shadowOpacity: 0.4,
-    shadowOffset: { width: 0, height: 8 },
-    shadowRadius: 24,
-    elevation: 5,
-    marginBottom: spacing.lg,
-    aspectRatio: 0.68,
+    shadowColor: colors.charcoal,
+    shadowOpacity: 0.04,
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 3,
+    elevation: 1,
   },
   imageWrap: {
-    flex: 3,
+    width: "100%",
+    aspectRatio: 3 / 4,
     backgroundColor: colors.surface,
     overflow: "hidden",
+    position: "relative",
   },
   image: {
     height: "100%",
     width: "100%",
   },
-  badgeRow: {
+  trendingBadge: {
     position: "absolute",
-    top: 10,
-    left: 10,
-    flexDirection: "row",
-    gap: 6,
+    top: 8,
+    left: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    backgroundColor: TRENDING_BG,
   },
-  heartOverlay: {
-    position: "absolute",
-    top: 10,
-    right: 10,
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: "rgba(32, 26, 21, 0.9)",
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  badgePill: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 14,
-    backgroundColor: "rgba(32, 26, 21, 0.92)",
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-  },
-  badgePillAccent: {
-    backgroundColor: "rgba(184, 149, 108, 0.16)",
-    borderColor: "rgba(184, 149, 108, 0.45)",
-  },
-  badgeText: {
-    fontFamily: typography.serif,
+  trendingText: {
+    fontFamily: typography.sansMedium,
     fontSize: 9,
-    letterSpacing: 1,
-    textTransform: "uppercase",
-    color: colors.brown,
+    letterSpacing: 1.2,
+    color: colors.charcoal,
+    fontWeight: "700",
   },
-  badgeTextAccent: {
-    color: colors.gold,
+  discountBadge: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    backgroundColor: DISCOUNT_BADGE_BG,
+  },
+  discountBadgeText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 9,
+    letterSpacing: 0.8,
+    color: "#FFFFFF",
+    fontWeight: "700",
+  },
+  ratingPill: {
+    position: "absolute",
+    bottom: 8,
+    left: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: RATING_BG,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    gap: 3,
+  },
+  ratingStar: {
+    color: STAR_GREEN,
+    fontSize: 11,
+    lineHeight: 12,
+  },
+  ratingValue: {
+    fontFamily: typography.sansMedium,
+    fontSize: 11,
+    color: colors.charcoal,
+    fontWeight: "600",
+  },
+  ratingDivider: {
+    fontFamily: typography.sans,
+    fontSize: 11,
+    color: colors.brownSoft,
+    marginHorizontal: 1,
+  },
+  ratingCount: {
+    fontFamily: typography.sans,
+    fontSize: 11,
+    color: colors.brownSoft,
   },
   info: {
     flex: 1,
-    padding: 16,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm + 2,
+    paddingBottom: spacing.md,
     gap: 4,
   },
-  brandText: {
-    fontFamily: typography.sans,
-    fontSize: 10,
-    textTransform: "uppercase",
-    letterSpacing: 1.2,
+  categoryLabel: {
+    fontFamily: typography.sansMedium,
+    fontSize: 9.5,
+    letterSpacing: 1.3,
     color: colors.brownSoft,
+    fontWeight: "600",
   },
   title: {
     fontFamily: typography.serif,
     fontSize: 14,
-    color: "#F5F1E8",
+    color: colors.charcoal,
     fontWeight: "600",
-  },
-  description: {
-    fontFamily: typography.sans,
-    fontSize: 11,
-    color: "rgba(245,241,232,0.7)",
-    lineHeight: 16,
-  },
-  ratingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  ratingText: {
-    fontFamily: typography.sansMedium,
-    fontSize: 11,
-    color: "#F5F1E8",
-  },
-  ratingMeta: {
-    fontFamily: typography.sans,
-    fontSize: 10,
-    color: colors.brownSoft,
+    lineHeight: 18,
+    minHeight: 36,
   },
   priceRow: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  discountText: {
-    fontFamily: typography.sansMedium,
-    fontSize: 11,
-    color: colors.gold,
+    alignItems: "baseline",
+    flexWrap: "wrap",
+    marginTop: 2,
+    gap: 6,
   },
   price: {
-    fontFamily: typography.serif,
+    fontFamily: typography.sansMedium,
     fontSize: 14,
-    color: "#F5F1E8",
+    color: colors.charcoal,
+    fontWeight: "700",
   },
   priceStrike: {
-    fontFamily: typography.serif,
+    fontFamily: typography.sans,
     fontSize: 11,
     color: colors.brownSoft,
     textDecorationLine: "line-through",
   },
-  tagPill: {
-    alignSelf: "flex-start",
-    marginTop: 2,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-    backgroundColor: "rgba(184, 149, 108, 0.14)",
-  },
-  tagText: {
+  discountText: {
     fontFamily: typography.sansMedium,
-    fontSize: 10,
-    color: colors.gold,
-    textTransform: "uppercase",
-    letterSpacing: 1,
+    fontSize: 11,
+    color: DISCOUNT_AMBER,
+    fontWeight: "700",
+  },
+  priceUnavailable: {
+    fontFamily: typography.sans,
+    fontSize: 12,
+    color: colors.brownSoft,
+  },
+  ctaButton: {
+    marginTop: spacing.sm,
+    height: 36,
+    backgroundColor: "#000000",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  ctaButtonText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 11,
+    letterSpacing: 1.4,
+    color: "#FFFFFF",
+    fontWeight: "700",
   },
 });

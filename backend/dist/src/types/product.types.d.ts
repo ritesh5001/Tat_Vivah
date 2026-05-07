@@ -46,9 +46,18 @@ export interface ProductEntity {
 export interface ProductVariantEntity {
     id: string;
     productId: string;
+    size: string;
+    color: string | null;
+    images: string[];
     sku: string;
+    sellerPrice: number;
+    adminListingPrice: number | null;
     price: number;
     compareAtPrice: number | null;
+    status: 'PENDING' | 'APPROVED' | 'REJECTED';
+    rejectionReason: string | null;
+    approvedAt: Date | null;
+    approvedById: string | null;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -81,10 +90,21 @@ export interface ProductWithCategory extends ProductEntity {
 }
 export interface PublicProductVariant {
     id: string;
+    size: string;
+    color: string | null;
+    images: string[];
     sku: string;
     price: number;
     compareAtPrice: number | null;
     inventory: InventoryEntity | null;
+}
+export interface PublicProductCouponPreview {
+    code: string;
+    type: 'PERCENT' | 'FLAT';
+    value: number;
+    maxDiscountAmount: number | null;
+    minOrderAmount: number;
+    discountedPrice: number;
 }
 export interface PublicProductWithCategory {
     id: string;
@@ -98,13 +118,14 @@ export interface PublicProductWithCategory {
     updatedAt: Date;
     category: CategoryEntity;
     regularPrice: number;
-    sellerPrice: number;
     adminPrice: number;
     salePrice: number;
     price: number;
+    activeCoupon?: PublicProductCouponPreview | null;
 }
 export interface PublicProductWithDetails {
     id: string;
+    sellerId: string;
     categoryId: string;
     title: string;
     description: string | null;
@@ -116,10 +137,27 @@ export interface PublicProductWithDetails {
     category: CategoryEntity;
     variants: PublicProductVariant[];
     regularPrice: number;
-    sellerPrice: number;
     adminPrice: number;
     salePrice: number;
     price: number;
+    activeCoupon?: PublicProductCouponPreview | null;
+}
+export interface SellerProductVariant {
+    id: string;
+    size: string;
+    color: string | null;
+    images: string[];
+    sku: string;
+    sellerPrice: number;
+    compareAtPrice: number | null;
+    status: 'PENDING' | 'APPROVED' | 'REJECTED';
+    rejectionReason: string | null;
+    approvedAt: Date | null;
+    inventory: InventoryEntity | null;
+}
+export interface SellerProductWithDetails extends Omit<ProductEntity, 'adminListingPrice' | 'priceApprovedAt' | 'priceApprovedById'> {
+    category: CategoryEntity;
+    variants: SellerProductVariant[];
 }
 /**
  * Create product request
@@ -127,10 +165,11 @@ export interface PublicProductWithDetails {
 export interface CreateProductRequest {
     categoryId: string;
     title: string;
-    sellerPrice: number;
     description?: string | undefined;
     isPublished?: boolean | undefined;
     images?: string[] | undefined;
+    occasionIds?: string[] | undefined;
+    variants: CreateVariantRequest[];
 }
 /**
  * Update product request
@@ -140,13 +179,19 @@ export interface UpdateProductRequest {
     title?: string | undefined;
     description?: string | undefined;
     images?: string[] | undefined;
+    sellerPrice?: number | undefined;
+    isPublished?: boolean | undefined;
+    occasionIds?: string[] | undefined;
 }
 /**
  * Create variant request
  */
 export interface CreateVariantRequest {
+    size: string;
+    color?: string | undefined;
+    images?: string[] | undefined;
     sku: string;
-    price: number;
+    sellerPrice: number;
     compareAtPrice?: number | undefined;
     initialStock?: number | undefined;
 }
@@ -154,8 +199,17 @@ export interface CreateVariantRequest {
  * Update variant request
  */
 export interface UpdateVariantRequest {
-    price?: number | undefined;
+    size?: string | undefined;
+    color?: string | null | undefined;
+    sku?: string | undefined;
+    images?: string[] | undefined;
+    sellerPrice?: number | undefined;
+    adminListingPrice?: number | null | undefined;
     compareAtPrice?: number | null | undefined;
+    status?: 'PENDING' | 'APPROVED' | 'REJECTED' | undefined;
+    rejectionReason?: string | null | undefined;
+    approvedAt?: Date | null | undefined;
+    approvedById?: string | null | undefined;
 }
 /**
  * Update stock request
@@ -171,6 +225,7 @@ export interface ProductQueryFilters {
     limit?: number | undefined;
     categoryId?: string | undefined;
     search?: string | undefined;
+    occasion?: string | undefined;
 }
 /**
  * Paginated response
@@ -204,21 +259,21 @@ export interface ProductDetailResponse {
  * Seller product list response
  */
 export interface SellerProductListResponse {
-    products: ProductWithDetails[];
+    products: SellerProductWithDetails[];
 }
 /**
  * Product creation response
  */
 export interface ProductCreateResponse {
     message: string;
-    product: ProductEntity;
+    product: SellerProductWithDetails;
 }
 /**
  * Product update response
  */
 export interface ProductUpdateResponse {
     message: string;
-    product: ProductEntity;
+    product: SellerProductWithDetails;
 }
 /**
  * Product delete response

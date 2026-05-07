@@ -36,7 +36,7 @@ const styles = StyleSheet.create({
   logoBadge: {
     height: 44,
     width: 44,
-    borderRadius: 12,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: colors.cream,
@@ -67,7 +67,7 @@ const styles = StyleSheet.create({
   menuButton: {
     height: 40,
     width: 40,
-    borderRadius: 20,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     alignItems: "center",

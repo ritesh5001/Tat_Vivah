@@ -81,7 +81,7 @@ async function verifyShipping() {
                 sellerPrice: 100,
                 adminListingPrice: 120,
                 variants: {
-                    create: { sku: `SKU1_${Date.now()}`, price: 100, inventory: { create: { stock: 100 } } }
+                    create: { size: 'Default', sku: `SKU1_${Date.now()}`, sellerPrice: 100, adminListingPrice: 120, price: 120, status: 'APPROVED', inventory: { create: { stock: 100 } } }
                 }
             },
             include: { variants: true }
@@ -98,7 +98,7 @@ async function verifyShipping() {
                 sellerPrice: 200,
                 adminListingPrice: 240,
                 variants: {
-                    create: { sku: `SKU2_${Date.now()}`, price: 200, inventory: { create: { stock: 100 } } }
+                    create: { size: 'Default', sku: `SKU2_${Date.now()}`, sellerPrice: 200, adminListingPrice: 240, price: 240, status: 'APPROVED', inventory: { create: { stock: 100 } } }
                 }
             },
             include: { variants: true }

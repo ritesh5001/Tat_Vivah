@@ -2,6 +2,7 @@ import { prisma } from '../config/db.js';
 import { redis } from '../config/redis.js';
 import { recommendationLogger } from '../config/logger.js';
 import { recommendationCandidateCount, recommendationGenerationTimeMs, recommendationRequestTotal, } from '../config/metrics.js';
+import { CACHE_KEYS, getFromCache, setCache } from '../utils/cache.util.js';
 const RECENTLY_VIEWED_KEY_PREFIX = 'recently_viewed:';
 const CATEGORY_AFFINITY_KEY_PREFIX = 'user_category_affinity:';
 const MAX_RESULTS = 20;
@@ -22,6 +23,11 @@ export function scoreRecommendationCandidate(params) {
 }
 export class RecommendationService {
     async getRecommendations(userId) {
+        const cacheKey = CACHE_KEYS.RECOMMENDATIONS(userId);
+        const cached = await getFromCache(cacheKey);
+        if (cached) {
+            return cached;
+        }
         const startedAt = performance.now();
         recommendationRequestTotal.inc();
         const wishlistItemsPromise = prisma.wishlistItem.findMany({
@@ -30,6 +36,7 @@ export class RecommendationService {
                 productId: true,
                 product: { select: { categoryId: true } },
             },
+            take: 500,
         });
         const purchasedOrderItemsPromise = prisma.orderItem.findMany({
             where: {
@@ -39,6 +46,7 @@ export class RecommendationService {
                 },
             },
             select: { productId: true },
+            take: 100,
         });
         const recentlyViewedIdsPromise = redis.zrange(recentlyViewedKey(userId), 0, 49, { rev: true });
         const affinityRawPromise = redis.zrange(categoryAffinityKey(userId), 0, 50, { rev: true, withScores: true });
@@ -57,21 +65,23 @@ export class RecommendationService {
                 bumpFrequency(categoryFrequency, item.product.categoryId, 3);
             }
         }
-        const purchasedProducts = purchasedProductIds.size
-            ? await prisma.product.findMany({
-                where: { id: { in: Array.from(purchasedProductIds) } },
-                select: { categoryId: true },
-            })
-            : [];
+        const [purchasedProducts, recentlyViewedProducts] = await Promise.all([
+            purchasedProductIds.size
+                ? prisma.product.findMany({
+                    where: { id: { in: Array.from(purchasedProductIds) } },
+                    select: { categoryId: true },
+                })
+                : Promise.resolve([]),
+            recentlyViewedIds.length
+                ? prisma.product.findMany({
+                    where: { id: { in: recentlyViewedIds } },
+                    select: { id: true, categoryId: true },
+                })
+                : Promise.resolve([]),
+        ]);
         for (const product of purchasedProducts) {
             bumpFrequency(categoryFrequency, product.categoryId, 5);
         }
-        const recentlyViewedProducts = recentlyViewedIds.length
-            ? await prisma.product.findMany({
-                where: { id: { in: recentlyViewedIds } },
-                select: { id: true, categoryId: true },
-            })
-            : [];
         const recentlyViewedCategoryByProduct = new Map(recentlyViewedProducts.map((p) => [p.id, p.categoryId]));
         for (const productId of recentlyViewedIds) {
             const categoryId = recentlyViewedCategoryByProduct.get(productId);
@@ -182,6 +192,7 @@ export class RecommendationService {
             resultCount: results.length,
             executionTime: Math.round(executionTime),
         }, 'recommendations_generated');
+        await setCache(cacheKey, results, 60);
         return results;
     }
 }

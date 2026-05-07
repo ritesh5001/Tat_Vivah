@@ -1,6 +1,24 @@
-
 import { prisma } from '../config/db.js';
-import { Payment, PaymentEvent, PaymentStatus, PaymentEventType } from '@prisma/client';
+import { Prisma, Payment, PaymentEvent, PaymentStatus, PaymentEventType } from '@prisma/client';
+
+const paymentLookupSelect = {
+    id: true,
+    orderId: true,
+    userId: true,
+    amount: true,
+    currency: true,
+    status: true,
+    provider: true,
+    providerOrderId: true,
+    providerPaymentId: true,
+    providerSignature: true,
+    createdAt: true,
+    updatedAt: true,
+} satisfies Prisma.PaymentSelect;
+
+type PaymentLookup = Prisma.PaymentGetPayload<{
+    select: typeof paymentLookupSelect;
+}>;
 
 export class PaymentRepository {
 
@@ -18,36 +36,24 @@ export class PaymentRepository {
         });
     }
 
-    async findPaymentByOrderId(orderId: string): Promise<Payment | null> {
+    async findPaymentByOrderId(orderId: string): Promise<PaymentLookup | null> {
         return prisma.payment.findUnique({
             where: { orderId },
-            include: {
-                events: true
-            }
+            select: paymentLookupSelect,
         });
     }
 
-    async findPaymentById(paymentId: string): Promise<Payment | null> {
+    async findPaymentById(paymentId: string): Promise<PaymentLookup | null> {
         return prisma.payment.findUnique({
             where: { id: paymentId },
-            include: {
-                events: true,
-                order: true
-            }
+            select: paymentLookupSelect,
         });
     }
 
-    async findByProviderOrderId(providerOrderId: string): Promise<Payment | null> {
+    async findByProviderOrderId(providerOrderId: string): Promise<PaymentLookup | null> {
         return prisma.payment.findFirst({
             where: { providerOrderId },
-            include: {
-                events: true,
-                order: {
-                    include: {
-                        items: true
-                    }
-                }
-            }
+            select: paymentLookupSelect,
         });
     }
 
@@ -107,4 +113,3 @@ export class PaymentRepository {
 }
 
 export const paymentRepository = new PaymentRepository();
-

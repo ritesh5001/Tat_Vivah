@@ -38,8 +38,7 @@ export default function RequestOtpScreen() {
     setError(null);
     try {
       await requestOtp({ email: trimmed });
-      // Navigate to verify-otp, passing email as a search param
-      router.push({ pathname: "/(auth)/verify-otp", params: { email: trimmed } });
+      router.push({ pathname: "/(auth)/verify-otp", params: { method: "email", email: trimmed } });
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Failed to send OTP";
@@ -66,7 +65,7 @@ export default function RequestOtpScreen() {
 
         <Text style={styles.title}>Sign in with OTP</Text>
         <Text style={styles.subtitle}>
-          We'll send a one-time code to your email.
+          We&apos;ll send a one-time code to your email address.
         </Text>
 
         <View style={styles.card}>
@@ -128,7 +127,7 @@ const styles = StyleSheet.create({
   logoBadge: {
     height: 44,
     width: 44,
-    borderRadius: 12,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: colors.surface,
@@ -167,7 +166,7 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: colors.surfaceElevated,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     padding: spacing.lg,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -183,7 +182,7 @@ const styles = StyleSheet.create({
   },
   input: {
     height: 48,
-    borderRadius: radius.md,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     paddingHorizontal: spacing.md,
@@ -196,7 +195,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gold,
     borderWidth: 1,
     borderColor: colors.gold,
-    borderRadius: radius.md,
+    borderRadius: 0,
     paddingVertical: spacing.sm,
     alignItems: "center",
   },

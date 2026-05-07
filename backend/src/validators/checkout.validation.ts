@@ -13,6 +13,7 @@ export const checkoutSchema = z.object({
 		shippingAddressLine1: z.string().min(1).optional(),
 		shippingAddressLine2: z.string().optional(),
 		shippingCity: z.string().min(1).optional(),
+		shippingPincode: z.string().regex(/^\d{6}$/, 'Pincode must be 6 digits').optional(),
 		shippingNotes: z.string().optional(),
 	})
 });

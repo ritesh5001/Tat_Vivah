@@ -42,8 +42,8 @@ export class ApiError extends Error {
     /**
      * Factory method for 403 Forbidden errors
      */
-    static forbidden(message = 'Forbidden'): ApiError {
-        return new ApiError(403, message);
+    static forbidden(message = 'Forbidden', details?: Record<string, unknown>): ApiError {
+        return new ApiError(403, message, details);
     }
 
     /**

@@ -6,7 +6,7 @@ router.use(authenticate);
 router.use(authorize('SELLER', 'ADMIN', 'SUPER_ADMIN'));
 router.get('/', async (req, res, next) => {
     try {
-        const sellerId = req.user.id;
+        const sellerId = req.user.userId;
         const settlements = await settlementRepository.findSettlementsBySellerId(sellerId);
         res.json({
             success: true,

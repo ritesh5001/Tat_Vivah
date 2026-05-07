@@ -1,10 +1,17 @@
 import express, { type Application } from 'express';
 import cors from 'cors';
 import compression from 'compression';
+import { env } from './config/env.js';
 import { errorMiddleware } from './middlewares/error.middleware.js';
-import { register, httpRequestDuration } from './config/metrics.js';
+import {
+    register,
+    httpRequestDuration,
+    hotEndpointDurationMs,
+    hotEndpointSlowTotal,
+} from './config/metrics.js';
 import { prisma } from './config/db.js';
 import { checkRedisConnection } from './config/redis.js';
+import { logger } from './config/logger.js';
 import type { IntegrityReport } from './jobs/inventoryIntegrity.js';
 import {
     authRouter,
@@ -15,11 +22,13 @@ import {
     productMediaRouter,
     imagekitRouter,
     bestsellerRouter,
+    tryOnRouter,
     cartRouter,
     checkoutRouter,
     couponRouter,
     orderRouter,
     sellerOrderRouter,
+    appointmentRouter,
     cancellationRouter,
     returnRouter,
     paymentRouter,
@@ -37,14 +46,30 @@ import {
     wishlistRouter,
     searchRouter,
     personalizationRouter,
+    liveRouter,
     sellerAnalyticsRouter,
     reelRouter,
     sellerReelRouter,
     adminReelRouter,
+    occasionRouter,
 } from './routes/index.js';
 import { searchController } from './controllers/search.controller.js';
 import { apiReference } from "@scalar/express-api-reference";
 import { openApiSpec } from "./docs/openapi.js";
+
+const HOT_ENDPOINT_SLOW_THRESHOLD_MS = 400;
+
+function resolveHotEndpoint(path: string): string | null {
+    if (path === '/v1/products') return '/v1/products';
+    if (/^\/v1\/products\/[^/]+$/.test(path)) return '/v1/products/:id';
+    if (path === '/v1/search' || path.startsWith('/v1/search/')) return '/v1/search';
+    if (path === '/v1/orders' || /^\/v1\/orders\/[^/]+$/.test(path)) return '/v1/orders';
+    if (path === '/v1/seller/products') return '/v1/seller/products';
+    if (path === '/v1/seller/orders' || /^\/v1\/seller\/orders\/[^/]+$/.test(path)) return '/v1/seller/orders';
+    if (path === '/v1/admin/products' || /^\/v1\/admin\/products\/.+/.test(path)) return '/v1/admin/products';
+    if (path === '/v1/imagekit/auth') return '/v1/imagekit/auth';
+    return null;
+}
 
 /**
  * Create and configure Express application
@@ -55,23 +80,40 @@ import { openApiSpec } from "./docs/openapi.js";
 export function createApp(): Application {
     const app = express();
 
+    app.disable('x-powered-by');
+    app.set('trust proxy', env.TRUST_PROXY);
+    app.set('etag', 'strong');
+
     // =========================================================================
     // GLOBAL MIDDLEWARE
     // =========================================================================
 
-    // Gzip / Brotli compression for all responses (reduces payload ~70%)
-    app.use(compression());
+    // Gzip compression tuned for API payloads while skipping tiny responses.
+    app.use(compression({
+        level: 6,
+        threshold: 1024,
+        filter: (req, res) => {
+            if (req.headers['x-no-compression']) {
+                return false;
+            }
+            return compression.filter(req, res);
+        },
+    }));
 
     // Parse JSON bodies
-    app.use(express.json());
+    app.use(express.json({ limit: env.JSON_BODY_LIMIT }));
 
     // Parse URL-encoded bodies
-    app.use(express.urlencoded({ extended: true }));
+    app.use(express.urlencoded({ extended: true, limit: env.URLENCODED_BODY_LIMIT }));
 
-    // Enable CORS
+    // Enable CORS — support comma-separated origins for multi-subdomain setup
+    const corsOrigin = process.env['CORS_ORIGIN'];
     app.use(cors({
-        origin: process.env['CORS_ORIGIN'] ?? '*',
+        origin: corsOrigin
+            ? corsOrigin.split(',').map(o => o.trim())
+            : true,  // `true` reflects the request origin (safer than '*' with credentials)
         credentials: true,
+        maxAge: 86400,
     }));
 
     // =========================================================================
@@ -91,10 +133,43 @@ export function createApp(): Application {
     // Request duration tracking middleware
     app.use((req, res, next) => {
         const end = httpRequestDuration.startTimer();
+        const startedAt = process.hrtime.bigint();
+        const hotEndpoint = resolveHotEndpoint(req.path);
+        const originalWriteHead = res.writeHead.bind(res);
+
+        res.writeHead = ((...args: Parameters<typeof res.writeHead>) => {
+            if (!res.headersSent) {
+                const elapsedMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
+                res.setHeader('X-Response-Time', `${Math.round(elapsedMs)}ms`);
+            }
+            return originalWriteHead(...args);
+        }) as typeof res.writeHead;
+
         res.on('finish', () => {
             // Use route pattern if available, otherwise path
             const route = (req.route?.path as string) ?? req.path;
             end({ method: req.method, route, status: String(res.statusCode) });
+
+            if (!hotEndpoint) return;
+
+            const elapsedMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
+            hotEndpointDurationMs.observe(
+                { endpoint: hotEndpoint, method: req.method, status: String(res.statusCode) },
+                elapsedMs,
+            );
+
+            if (elapsedMs >= HOT_ENDPOINT_SLOW_THRESHOLD_MS) {
+                hotEndpointSlowTotal.inc({ endpoint: hotEndpoint, method: req.method });
+                logger.warn(
+                    {
+                        endpoint: hotEndpoint,
+                        method: req.method,
+                        status: res.statusCode,
+                        durationMs: Math.round(elapsedMs),
+                    },
+                    'hot_endpoint_slow_request',
+                );
+            }
         });
         next();
     });
@@ -103,6 +178,7 @@ export function createApp(): Application {
     app.get('/metrics', async (_req, res) => {
         try {
             res.set('Content-Type', register.contentType);
+            res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
             res.end(await register.metrics());
         } catch (err) {
             res.status(500).end(String(err));
@@ -118,8 +194,17 @@ export function createApp(): Application {
     /** Called by server.ts after each integrity check run. */
     (app as any).__setIntegrityReport = (report: IntegrityReport) => { lastIntegrityReport = report; };
 
+    // Lightweight liveness probe for edge/load balancer checks.
+    const liveHealthHandler = (_req: express.Request, res: express.Response) => {
+        res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+    };
+
+    app.get('/health/live', liveHealthHandler);
+    app.get('/api/health/live', liveHealthHandler);
+
     // Enhanced health endpoint
-    app.get('/health', async (_req, res) => {
+    const healthHandler = async (_req: express.Request, res: express.Response) => {
         const checks: Record<string, unknown> = {};
 
         // DB connectivity
@@ -157,12 +242,16 @@ export function createApp(): Application {
         const overallOk = (checks.db as any)?.status === 'ok'
             && (checks.redis as any)?.status === 'ok';
 
+        res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
         res.status(overallOk ? 200 : 503).json({
             status: overallOk ? 'ok' : 'degraded',
             timestamp: new Date().toISOString(),
             checks,
         });
-    });
+    };
+
+    app.get('/health', healthHandler);
+    app.get('/api/health', healthHandler);
 
     app.get('/', (_req, res) => {
         res.json({
@@ -179,10 +268,12 @@ export function createApp(): Application {
     app.use('/v1/seller', sellerRouter);
     app.use('/v1/categories', categoryRouter);
     app.use('/v1/products', productRouter);
+    app.use('/v1/occasions', occasionRouter);
     app.use('/v1/seller/products', sellerProductRouter);
     app.use('/v1/seller/products', productMediaRouter);
     app.use('/v1/imagekit', imagekitRouter);
     app.use('/v1/bestsellers', bestsellerRouter);
+    app.use('/v1/try-on', tryOnRouter);
 
     // Address management
     app.use('/v1/addresses', addressRouter);
@@ -193,6 +284,7 @@ export function createApp(): Application {
     app.use('/v1/coupons', couponRouter);
     app.use('/v1/orders', orderRouter);
     app.use('/v1/seller/orders', sellerOrderRouter);
+    app.use('/v1/appointments', appointmentRouter);
     app.use('/v1/cancellations', cancellationRouter);
     app.use('/v1/returns', returnRouter);
 
@@ -253,6 +345,7 @@ export function createApp(): Application {
     // Search & Personalization
     app.use('/v1/search', searchRouter);
     app.use('/v1/personalization', personalizationRouter);
+    app.use('/v1/live', liveRouter);
 
     // Seller Analytics
     app.use('/v1/seller/analytics', sellerAnalyticsRouter);

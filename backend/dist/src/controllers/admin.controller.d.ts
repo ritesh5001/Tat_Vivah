@@ -17,7 +17,7 @@ export declare const adminController: {
      * GET /v1/admin/sellers
      * List all sellers
      */
-    listSellers: (_req: Request, res: Response, next: NextFunction) => Promise<void>;
+    listSellers: (req: Request, res: Response, next: NextFunction) => Promise<void>;
     /**
      * PUT /v1/admin/sellers/:id/approve
      * Approve a pending seller
@@ -32,12 +32,12 @@ export declare const adminController: {
      * GET /v1/admin/products/pending
      * List products pending moderation
      */
-    listPendingProducts: (_req: Request, res: Response, next: NextFunction) => Promise<void>;
+    listPendingProducts: (req: Request, res: Response, next: NextFunction) => Promise<void>;
     /**
      * GET /v1/admin/products
      * List all products
      */
-    listAllProducts: (_req: Request, res: Response, next: NextFunction) => Promise<void>;
+    listAllProducts: (req: Request, res: Response, next: NextFunction) => Promise<void>;
     /**
      * PUT /v1/admin/products/:id/approve
      * Approve a product
@@ -54,13 +54,18 @@ export declare const adminController: {
      */
     setProductPrice: (req: Request, res: Response, next: NextFunction) => Promise<void>;
     /**
+     * PATCH /v1/admin/products/:id
+     * Update product metadata (category, description, images, variants) as admin
+     */
+    updateProduct: (req: Request, res: Response, next: NextFunction) => Promise<void>;
+    /**
      * GET /v1/admin/products/pricing-overview
      */
-    pricingOverview: (_req: Request, res: Response, next: NextFunction) => Promise<void>;
+    pricingOverview: (req: Request, res: Response, next: NextFunction) => Promise<void>;
     /**
      * GET /v1/admin/analytics/profit
      */
-    profitAnalytics: (_req: Request, res: Response, next: NextFunction) => Promise<void>;
+    profitAnalytics: (req: Request, res: Response, next: NextFunction) => Promise<void>;
     /**
      * DELETE /v1/admin/products/:id
      * Delete a product (soft delete)
@@ -95,7 +100,7 @@ export declare const adminController: {
      * GET /v1/admin/reviews
      * List all reviews
      */
-    listReviews: (_req: Request, res: Response, next: NextFunction) => Promise<void>;
+    listReviews: (req: Request, res: Response, next: NextFunction) => Promise<void>;
     /**
      * DELETE /v1/admin/reviews/:id
      * Delete review
@@ -126,7 +131,7 @@ export declare const adminController: {
      * GET /v1/admin/orders
      * List all orders
      */
-    listOrders: (_req: Request, res: Response, next: NextFunction) => Promise<void>;
+    listOrders: (req: Request, res: Response, next: NextFunction) => Promise<void>;
     /**
      * PUT /v1/admin/orders/:id/cancel
      * Cancel an order
@@ -141,7 +146,7 @@ export declare const adminController: {
      * GET /v1/admin/payments
      * List all payments
      */
-    listPayments: (_req: Request, res: Response, next: NextFunction) => Promise<void>;
+    listPayments: (req: Request, res: Response, next: NextFunction) => Promise<void>;
     /**
      * GET /v1/admin/settlements
      * List all settlements with optional filters

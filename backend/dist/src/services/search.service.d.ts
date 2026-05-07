@@ -12,7 +12,6 @@ export interface SearchResultItem {
     description: string | null;
     images: string[];
     categoryId: string;
-    sellerPrice: number;
     adminListingPrice: number | null;
     isPublished: boolean;
     createdAt: string;
@@ -42,7 +41,6 @@ export interface RelatedProductItem {
     description: string | null;
     images: string[];
     categoryId: string;
-    sellerPrice: number;
     adminListingPrice: number | null;
     category: {
         id: string;
@@ -50,6 +48,7 @@ export interface RelatedProductItem {
     } | null;
 }
 export declare class SearchService {
+    private normalizeQuery;
     searchProducts(filters: SearchFilters): Promise<SearchResponse>;
     getSuggestions(q: string, limit?: number): Promise<SuggestionItem[]>;
     private trackTrending;

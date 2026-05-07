@@ -1,16 +1,17 @@
 import { paymentRepository } from '../repositories/payment.repository.js';
-import { orderRepository } from '../repositories/order.repository.js';
 import { PaymentProvider, PaymentStatus, PaymentEventType, OrderStatus } from '@prisma/client';
 import { prisma } from '../config/db.js';
 import { ApiError } from '../errors/ApiError.js';
 import { razorpayService } from './razorpay.service.js';
-import { isRazorpayConfigured, razorpayClient } from './razorpay.client.js';
+import { getRazorpayKeyId, isRazorpayConfigured, razorpayClient } from './razorpay.client.js';
 import { emitPaymentSuccess, emitPaymentFailed } from '../events/order.events.js';
 import { paymentLogger } from '../config/logger.js';
 import { paymentSuccessTotal, staleCancelTotal, refundSuccessTotal } from '../config/metrics.js';
 import { recordPaymentFailure } from '../monitoring/alerts.js';
 import { generateInvoiceNumber } from '../utils/invoice.util.js';
 import { commissionService } from './commission.service.js';
+import { dispatchFreshness } from '../live/freshness.service.js';
+import { CACHE_TAGS, orderTag } from '../live/cache-tags.js';
 /** Maximum age (ms) of a PLACED order eligible for payment retry. */
 const STALE_ORDER_TTL_MS = 30 * 60 * 1000; // 30 minutes
 const DEFAULT_SHIPPING_FEE_INR = 180;
@@ -32,6 +33,21 @@ function isTransactionStartTimeout(error) {
         msg.includes('p2028'));
 }
 export class PaymentService {
+    async findOrderForPayment(userId, orderId) {
+        return prisma.order.findFirst({
+            where: { id: orderId, userId },
+            select: {
+                id: true,
+                userId: true,
+                status: true,
+                createdAt: true,
+                totalAmount: true,
+                grandTotal: true,
+                subTotalAmount: true,
+                totalTaxAmount: true,
+            },
+        });
+    }
     resolvePayableAmount(order) {
         const totalAmount = toNumber(order.totalAmount);
         const grandTotal = toNumber(order.grandTotal);
@@ -146,7 +162,10 @@ export class PaymentService {
     // ------------------------------------------------------------------
     async initiatePayment(userId, orderId, provider) {
         // 1. Validate Order
-        const order = await orderRepository.findByIdAndUserId(orderId, userId);
+        const [order, existingPayment] = await Promise.all([
+            this.findOrderForPayment(userId, orderId),
+            paymentRepository.findPaymentByOrderId(orderId),
+        ]);
         if (!order) {
             throw new ApiError(404, 'Order not found or access denied');
         }
@@ -159,7 +178,6 @@ export class PaymentService {
             throw new ApiError(410, 'Order has expired. Please place a new order.');
         }
         // Check for existing successful payment
-        const existingPayment = await paymentRepository.findPaymentByOrderId(orderId);
         if (existingPayment && existingPayment.status === PaymentStatus.SUCCESS) {
             throw new ApiError(400, 'Order already paid');
         }
@@ -176,6 +194,21 @@ export class PaymentService {
         // Create Payment Record (INITIATED) — reuse row on retry
         let payment;
         if (existingPayment) {
+            // Fast path: reuse an existing INITIATED payment with active provider order.
+            if (provider === PaymentProvider.RAZORPAY &&
+                existingPayment.status === PaymentStatus.INITIATED &&
+                existingPayment.provider === provider &&
+                existingPayment.providerOrderId &&
+                roundMoney(existingPayment.amount) === roundMoney(payableAmount)) {
+                return {
+                    paymentId: existingPayment.id,
+                    orderId: existingPayment.providerOrderId,
+                    amount: Math.round(payableAmount * 100),
+                    currency: existingPayment.currency,
+                    key: getRazorpayKeyId(),
+                    provider: 'RAZORPAY',
+                };
+            }
             payment = await prisma.payment.update({
                 where: { id: existingPayment.id },
                 data: {
@@ -234,7 +267,7 @@ export class PaymentService {
     // Retry payment for a PLACED order with FAILED / INITIATED payment
     // ------------------------------------------------------------------
     async retryPayment(userId, orderId) {
-        const order = await orderRepository.findByIdAndUserId(orderId, userId);
+        const order = await this.findOrderForPayment(userId, orderId);
         if (!order) {
             throw new ApiError(404, 'Order not found or access denied');
         }
@@ -364,6 +397,18 @@ export class PaymentService {
         await commissionService.calculateAndStoreSellerSettlement(orderId);
         // Trigger Notifications (event-driven, idempotent, best-effort)
         await emitPaymentSuccess(orderId);
+        await dispatchFreshness({
+            type: 'payment.updated',
+            entityId: orderId,
+            tags: [
+                CACHE_TAGS.payments,
+                CACHE_TAGS.orders,
+                CACHE_TAGS.userOrders,
+                CACHE_TAGS.sellerOrders,
+                orderTag(orderId),
+            ],
+            audience: { allAuthenticated: true },
+        });
     }
     // ------------------------------------------------------------------
     // Shared failure handler — marks payment FAILED + releases inventory
@@ -390,6 +435,17 @@ export class PaymentService {
         // Notify buyer about payment failure (event-driven, idempotent, best-effort)
         if (payment.orderId) {
             await emitPaymentFailed(payment.orderId);
+            await dispatchFreshness({
+                type: 'payment.updated',
+                entityId: payment.orderId,
+                tags: [
+                    CACHE_TAGS.payments,
+                    CACHE_TAGS.orders,
+                    CACHE_TAGS.userOrders,
+                    orderTag(payment.orderId),
+                ],
+                audience: { allAuthenticated: true },
+            });
         }
         recordPaymentFailure();
         paymentLogger.warn({

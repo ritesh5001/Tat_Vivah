@@ -40,8 +40,8 @@ export function ArchCarousel({ title, items, onPressItem }: ArchCarouselProps) {
               {
                 width: cardWidth,
                 height: cardHeight,
-                borderTopLeftRadius: 150,
-                borderTopRightRadius: 150,
+                borderTopLeftRadius: 0,
+                borderTopRightRadius: 0,
               },
             ]}
             onPress={() => onPressItem?.(item.query)}
@@ -66,8 +66,8 @@ const styles = StyleSheet.create({
     paddingRight: spacing.md,
   },
   card: {
-    borderBottomLeftRadius: 10,
-    borderBottomRightRadius: 10,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
     overflow: "hidden",
     borderWidth: 1,
     borderColor: colors.border,

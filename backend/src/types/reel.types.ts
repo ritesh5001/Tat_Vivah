@@ -11,6 +11,7 @@ export interface ReelEntity {
     videoUrl: string;
     thumbnailUrl: string | null;
     caption: string | null;
+    category: 'MENS' | 'KIDS';
     status: 'PENDING' | 'APPROVED' | 'REJECTED';
     views: number;
     likes: number;
@@ -55,12 +56,21 @@ export interface CreateReelRequest {
     videoUrl: string;
     thumbnailUrl?: string | undefined;
     caption?: string | undefined;
+    category?: 'MENS' | 'KIDS' | undefined;
     productId?: string | undefined;
+    durationSeconds?: number | undefined;
+}
+
+export interface UpdateReelRequest {
+    caption?: string | undefined;
+    category?: 'MENS' | 'KIDS' | undefined;
+    productId?: string | null | undefined;
 }
 
 export interface ReelQueryFilters {
     page?: number | undefined;
     limit?: number | undefined;
+    category?: 'MENS' | 'KIDS' | undefined;
     status?: 'PENDING' | 'APPROVED' | 'REJECTED' | undefined;
 }
 
@@ -100,4 +110,51 @@ export interface AdminReelListResponse {
         total: number;
         totalPages: number;
     };
+}
+
+// ============================================================================
+// REEL COMMERCE TYPES
+// ============================================================================
+
+export interface ReelLikeEntity {
+    id: string;
+    reelId: string;
+    userId: string;
+    createdAt: Date;
+}
+
+export interface ReelViewEntity {
+    id: string;
+    reelId: string;
+    userId: string | null;
+    createdAt: Date;
+}
+
+export interface ReelProductClickEntity {
+    id: string;
+    reelId: string;
+    userId: string | null;
+    productId: string;
+    createdAt: Date;
+}
+
+export interface ReelAnalytics {
+    totalViews: number;
+    totalLikes: number;
+    totalProductClicks: number;
+}
+
+export interface SellerReelAnalytics {
+    reelId: string;
+    videoUrl: string;
+    caption: string | null;
+    status: 'PENDING' | 'APPROVED' | 'REJECTED';
+    views: number;
+    likes: number;
+    productClicks: number;
+    createdAt: Date;
+    product: {
+        id: string;
+        title: string;
+    } | null;
 }

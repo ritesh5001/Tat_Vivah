@@ -1,45 +1,67 @@
 import * as React from "react";
 import {
-  InteractionManager,
   View,
   StyleSheet,
   Pressable,
   ScrollView,
+  useWindowDimensions,
+  FlatList,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Image } from "../../../src/components/CompatImage";
-import { FlashList } from "@shopify/flash-list";
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
+import { useQuery } from "@tanstack/react-query";
+import { Ionicons } from "@expo/vector-icons";
+import { colors, spacing, typography } from "../../../src/theme/tokens";
 import { AppHeader } from "../../../src/components/AppHeader";
 import { getCategories, type Category } from "../../../src/services/catalog";
 import {
   getProducts,
   type ProductItem,
 } from "../../../src/services/products";
-import { ApiError } from "../../../src/services/api";
 import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
+import { MarketplaceCard } from "../../../src/components/MarketplaceCard";
 import {
-  AppInput as TextInput,
   AppText as Text,
   ScreenContainer as SafeAreaView,
 } from "../../../src/components";
 
-const LIMIT = 12;
-const fallbackImage =
-  "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80";
+const COLS = 2;
+const FEATURED_LIMIT = 9;
+const POPULAR_LIMIT = 12;
+const ALL_PRODUCTS_PAGE_SIZE = 8;
 
-export default function MarketplaceScreen() {
+function mergeUniqueProducts(current: ProductItem[], incoming: ProductItem[]): ProductItem[] {
+  if (incoming.length === 0) return current;
+  const seen = new Set(current.map((product) => product.id));
+  const merged = [...current];
+
+  incoming.forEach((product) => {
+    if (!seen.has(product.id)) {
+      merged.push(product);
+      seen.add(product.id);
+    }
+  });
+
+  return merged;
+}
+
+export default function CategoriesScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ categoryId?: string; q?: string }>();
-  const initialCategoryId =
-    typeof params.categoryId === "string" ? params.categoryId : undefined;
-  const initialSearch = typeof params.q === "string" ? params.q : "";
+  const { width: windowWidth } = useWindowDimensions();
+  const params = useLocalSearchParams<{ categoryId?: string }>();
+  
+  const [selectedCategoryId, setSelectedCategoryId] = React.useState<string | undefined>(
+    typeof params.categoryId === "string" ? params.categoryId : undefined
+  );
+  const [allProducts, setAllProducts] = React.useState<ProductItem[]>([]);
+  const [allVisibleCount, setAllVisibleCount] = React.useState(0);
+  const [allNextPage, setAllNextPage] = React.useState(2);
+  const [isAllPrefetching, setIsAllPrefetching] = React.useState(false);
+  const [hasMoreAllProducts, setHasMoreAllProducts] = React.useState(true);
+  const [hasAllProductsError, setHasAllProductsError] = React.useState(false);
+  const [pendingAllReveal, setPendingAllReveal] = React.useState(false);
 
-  const [categoryId, setCategoryId] = React.useState<string | undefined>(initialCategoryId);
-  const [searchInput, setSearchInput] = React.useState(initialSearch);
-  const [search, setSearch] = React.useState(initialSearch);
-  const { data: categoryData } = useQuery({
+  const { data: categoryData, isLoading: categoriesLoading } = useQuery({
     queryKey: ["categories"],
     queryFn: () => getCategories(),
   });
@@ -49,208 +71,382 @@ export default function MarketplaceScreen() {
     [categoryData]
   );
 
-  const productsQuery = useInfiniteQuery({
-    queryKey: ["products", { categoryId, search }],
-    queryFn: ({ pageParam = 1, signal }) =>
+  // Fetch featured products (no category filter)
+  const { data: featuredData, isLoading: featuredLoading } = useQuery({
+    queryKey: ["products", { limit: FEATURED_LIMIT, featured: true }],
+    queryFn: ({ signal }) =>
       getProducts({
-        page: pageParam,
-        limit: LIMIT,
-        categoryId,
-        search: search.trim() || undefined,
+        page: 1,
+        limit: FEATURED_LIMIT,
         signal,
       }),
-    getNextPageParam: (lastPage) => {
-      const current = lastPage.pagination?.page ?? 1;
-      const total = lastPage.pagination?.totalPages ?? 1;
-      return current < total ? current + 1 : undefined;
-    },
-    initialPageParam: 1,
+    staleTime: 1000 * 60 * 5,
   });
 
-  const products = React.useMemo<ProductItem[]>(
-    () => productsQuery.data?.pages.flatMap((page) => page.data as ProductItem[]) ?? [],
-    [productsQuery.data]
+  const featuredProducts = React.useMemo<ProductItem[]>(
+    () => (featuredData?.data as ProductItem[]) ?? [],
+    [featuredData]
   );
 
-  const formatPrice = React.useCallback((price?: number | null) => {
-    if (!price && price !== 0) return "Price on request";
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-      maximumFractionDigits: 0,
-    }).format(price);
-  }, []);
+  // Fetch all-category products using the same popularity ordering as homepage.
+  const { data: allProductsData, isLoading: allProductsLoading } = useQuery({
+    queryKey: ["marketplace-all-products", { limit: ALL_PRODUCTS_PAGE_SIZE, sort: "popularity" }],
+    queryFn: ({ signal }) =>
+      getProducts({
+        page: 1,
+        limit: ALL_PRODUCTS_PAGE_SIZE,
+        sort: "popularity",
+        signal,
+      }),
+    staleTime: 1000 * 60 * 5,
+  });
 
-  const handleSearch = React.useCallback(() => {
-    setSearch(searchInput.trim());
-  }, [searchInput]);
+  // Fetch popular products for selected category only
+  const { data: popularData, isLoading: popularLoading } = useQuery({
+    queryKey: ["products", { categoryId: selectedCategoryId, limit: POPULAR_LIMIT }],
+    queryFn: ({ signal }) =>
+      getProducts({
+        page: 1,
+        limit: POPULAR_LIMIT,
+        categoryId: selectedCategoryId,
+        signal,
+      }),
+    staleTime: 1000 * 60 * 5,
+    enabled: Boolean(selectedCategoryId),
+  });
 
-  const handleCategorySelect = React.useCallback((next?: string) => {
-    setCategoryId(next);
-  }, []);
+  const popularProducts = React.useMemo<ProductItem[]>(
+    () => (popularData?.data as ProductItem[]) ?? [],
+    [popularData]
+  );
 
-  const handleLoadMore = React.useCallback(() => {
-    if (productsQuery.isFetchingNextPage || !productsQuery.hasNextPage) return;
-    productsQuery.fetchNextPage();
-  }, [productsQuery]);
+  const sidebarWidth = Math.max(72, Math.round(windowWidth * 0.18));
+  const contentWidth = windowWidth - sidebarWidth;
+  const contentPad = 10;
+  const cardGap = 10;
+  const cardWidth = Math.floor((contentWidth - contentPad * 2 - cardGap * (COLS - 1)) / COLS);
+
+  const selectedCategory = React.useMemo(
+    () => categories.find((c) => c.id === selectedCategoryId) ?? null,
+    [categories, selectedCategoryId]
+  );
+
+  const visibleAllProducts = React.useMemo(
+    () => allProducts.slice(0, allVisibleCount),
+    [allProducts, allVisibleCount]
+  );
+
+  const prefetchNextAllProducts = React.useCallback(async () => {
+    if (isAllPrefetching || !hasMoreAllProducts) return;
+
+    setIsAllPrefetching(true);
+    setHasAllProductsError(false);
+
+    try {
+      const response = await getProducts({
+        page: allNextPage,
+        limit: ALL_PRODUCTS_PAGE_SIZE,
+        sort: "popularity",
+      });
+      const incoming = (response.data ?? []) as ProductItem[];
+      const totalPages = response.pagination?.totalPages;
+
+      setAllProducts((previous) => mergeUniqueProducts(previous, incoming));
+      setAllNextPage((previous) => previous + 1);
+      setHasMoreAllProducts(
+        (typeof totalPages === "number"
+          ? allNextPage < totalPages
+          : incoming.length === ALL_PRODUCTS_PAGE_SIZE) && incoming.length > 0
+      );
+    } catch {
+      setHasAllProductsError(true);
+      setHasMoreAllProducts(false);
+    } finally {
+      setIsAllPrefetching(false);
+    }
+  }, [allNextPage, hasMoreAllProducts, isAllPrefetching]);
+
+  const revealNextAllProducts = React.useCallback(() => {
+    if (selectedCategoryId) return;
+
+    if (allVisibleCount < allProducts.length) {
+      setAllVisibleCount((previous) =>
+        Math.min(previous + ALL_PRODUCTS_PAGE_SIZE, allProducts.length)
+      );
+      return;
+    }
+
+    if (hasMoreAllProducts) {
+      setPendingAllReveal(true);
+      void prefetchNextAllProducts();
+    }
+  }, [
+    allProducts.length,
+    allVisibleCount,
+    hasMoreAllProducts,
+    prefetchNextAllProducts,
+    selectedCategoryId,
+  ]);
+
+  React.useEffect(() => {
+    const products = ((allProductsData?.data ?? []) as ProductItem[]);
+    if (!allProductsData) return;
+
+    const totalPages = allProductsData.pagination?.totalPages;
+    setAllProducts(mergeUniqueProducts([], products));
+    setAllVisibleCount(Math.min(ALL_PRODUCTS_PAGE_SIZE, products.length));
+    setAllNextPage(2);
+    setHasMoreAllProducts(
+      typeof totalPages === "number" ? totalPages > 1 : products.length === ALL_PRODUCTS_PAGE_SIZE
+    );
+    setHasAllProductsError(false);
+    setPendingAllReveal(false);
+  }, [allProductsData]);
+
+  React.useEffect(() => {
+    if (selectedCategoryId) return;
+    if (allProductsLoading) return;
+    if (!hasMoreAllProducts || isAllPrefetching) return;
+    if (allProducts.length - allVisibleCount >= ALL_PRODUCTS_PAGE_SIZE) return;
+
+    void prefetchNextAllProducts();
+  }, [
+    allProducts.length,
+    allProductsLoading,
+    allVisibleCount,
+    hasMoreAllProducts,
+    isAllPrefetching,
+    prefetchNextAllProducts,
+    selectedCategoryId,
+  ]);
+
+  React.useEffect(() => {
+    if (!pendingAllReveal) return;
+
+    if (allVisibleCount < allProducts.length) {
+      setAllVisibleCount((previous) =>
+        Math.min(previous + ALL_PRODUCTS_PAGE_SIZE, allProducts.length)
+      );
+      setPendingAllReveal(false);
+      return;
+    }
+
+    if (!hasMoreAllProducts && !isAllPrefetching) {
+      setPendingAllReveal(false);
+    }
+  }, [
+    allProducts.length,
+    allVisibleCount,
+    hasMoreAllProducts,
+    isAllPrefetching,
+    pendingAllReveal,
+  ]);
 
   const handleProductPress = React.useCallback(
     (product: ProductItem) => {
-      InteractionManager.runAfterInteractions(() => {
-        router.push(`/product/${product.id}`);
-      });
+      router.push(`/product/${product.id}`);
     },
     [router]
   );
 
-  const renderItem = React.useCallback(
-    ({ item }: { item: ProductItem; index: number }) => (
-      <Pressable style={styles.luxuryCard} onPress={() => handleProductPress(item)}>
-        <Image
-          source={item.images?.[0] ? { uri: item.images[0] } : { uri: fallbackImage }}
-          style={styles.luxuryImage}
-          contentFit="cover"
-          transition={220}
-          cachePolicy="memory-disk"
-        />
-        <View style={styles.luxuryOverlay} />
-        <View style={styles.luxuryInfo}>
-          <Text style={styles.luxuryCategory}>
-            {item.category?.name ?? "Tatvivah Curated"}
-          </Text>
-          <Text style={styles.luxuryTitle} numberOfLines={2}>
-            {item.title}
-          </Text>
-          <View style={styles.luxuryBottomRow}>
-            <Text style={styles.luxuryPrice}>
-              {formatPrice(item.salePrice ?? item.adminPrice ?? item.price ?? item.sellerPrice)}
-            </Text>
-            <View style={styles.luxuryCtaPill}>
-              <Text style={styles.luxuryCtaText}>Explore</Text>
-            </View>
-          </View>
-        </View>
-      </Pressable>
-    ),
-    [formatPrice, handleProductPress]
+  const handleCategorySelect = React.useCallback((categoryId: string | undefined) => {
+    setSelectedCategoryId(categoryId);
+  }, []);
+
+  const handleContentScroll = React.useCallback(
+    (event: {
+      nativeEvent: {
+        contentOffset: { y: number };
+        contentSize: { height: number };
+        layoutMeasurement: { height: number };
+      };
+    }) => {
+      if (selectedCategoryId) return;
+      const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+      const distanceFromBottom =
+        contentSize.height - (contentOffset.y + layoutMeasurement.height);
+      if (distanceFromBottom < 900) {
+        revealNextAllProducts();
+      }
+    },
+    [revealNextAllProducts, selectedCategoryId]
   );
 
-  const ListHeader = (
-    <View style={styles.header}>
-      <Text style={styles.title}>Marketplace</Text>
-      <Text style={styles.subtitle}>Premium curated catalog</Text>
-      <Text style={styles.subtitleCopy}>
-        Discover wedding-ready edits crafted with heritage silhouettes and modern luxury detailing.
-      </Text>
-
-      <View style={styles.searchCard}>
-        <TextInput
-          value={searchInput}
-          onChangeText={setSearchInput}
-          placeholder="Search collections, styles..."
-          placeholderTextColor={colors.brownSoft}
-          style={styles.searchInput}
-          onSubmitEditing={handleSearch}
-          returnKeyType="search"
-        />
-        <Pressable style={styles.searchButton} onPress={handleSearch}>
-          <Text style={styles.searchButtonText}>Search</Text>
-        </Pressable>
-      </View>
-
-      <View style={styles.sortRow}>
-        <Pressable style={styles.sortButton}>
-          <Text style={styles.sortText}>Sort</Text>
-        </Pressable>
-        <Pressable style={styles.sortButton}>
-          <Text style={styles.sortText}>Filter</Text>
-        </Pressable>
-      </View>
-
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.filterRow}
-      >
+  const renderCategoryItem = React.useCallback(
+    ({ item }: { item: Category }) => {
+      const isActive = selectedCategoryId === item.id;
+      return (
         <Pressable
-          style={[styles.filterChip, !categoryId && styles.filterChipActive]}
-          onPress={() => handleCategorySelect(undefined)}
+          style={[styles.categoryItem, isActive && styles.categoryItemActive]}
+          onPress={() => handleCategorySelect(item.id)}
         >
+          {item.image && (
+            <Image
+              source={{ uri: item.image }}
+              style={styles.categoryImage}
+              contentFit="cover"
+            />
+          )}
           <Text
-            style={[styles.filterText, !categoryId && styles.filterTextActive]}
+            style={[styles.categoryName, isActive && styles.categoryNameActive]}
+            numberOfLines={2}
           >
-            All
+            {item.name}
           </Text>
         </Pressable>
-        {categories.map((category) => (
-          <Pressable
-            key={category.id}
-            style={[
-              styles.filterChip,
-              categoryId === category.id && styles.filterChipActive,
-            ]}
-            onPress={() => handleCategorySelect(category.id)}
-          >
-            <Text
-              style={[
-                styles.filterText,
-                categoryId === category.id && styles.filterTextActive,
-              ]}
-            >
-              {category.name}
-            </Text>
-          </Pressable>
-        ))}
-      </ScrollView>
-    </View>
+      );
+    },
+    [selectedCategoryId, handleCategorySelect]
+  );
+
+  const renderProductCard = React.useCallback(
+    ({ item }: { item: ProductItem }) => (
+      <MarketplaceCard
+        product={item}
+        onPress={() => handleProductPress(item)}
+        style={{ width: cardWidth }}
+      />
+    ),
+    [cardWidth, handleProductPress]
   );
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <AppHeader variant="main" />
-      <FlashList
-        data={products}
-        keyExtractor={(item) => item.id}
-        numColumns={1}
-        contentContainerStyle={styles.container}
-        
-        renderItem={renderItem}
-        ListHeaderComponent={ListHeader}
-        ListEmptyComponent={
-          productsQuery.isLoading ? (
-            <View style={styles.emptyCard}>
-              <TatvivahLoader label="Loading marketplace" color={colors.gold} />
-            </View>
-          ) : (
-            <View style={styles.emptyCard}>
-              <Text style={styles.emptyText}>
-                {productsQuery.error instanceof ApiError
-                  ? productsQuery.error.message
-                  : productsQuery.error instanceof Error
-                    ? productsQuery.error.message
-                    : "No products found. Try adjusting your search."}
-              </Text>
-            </View>
-          )
-        }
-        ListFooterComponent={
-          productsQuery.isFetchingNextPage ? (
-            <View style={styles.footerLoading}>
+      <AppHeader
+        variant="sub"
+        title="CATEGORIES"
+        showBack
+        showSearch
+        showWishlist
+        showCart
+      />
+
+      <View style={styles.container}>
+        {/* Left Sidebar - Categories */}
+        <View style={[styles.sidebar, { width: sidebarWidth }]}>
+          {categoriesLoading ? (
+            <View style={styles.sidebarLoading}>
               <TatvivahLoader size="sm" color={colors.gold} />
             </View>
-          ) : productsQuery.hasNextPage ? (
-            <Pressable style={styles.loadMoreButton} onPress={handleLoadMore}>
-              <Text style={styles.loadMoreText}>Load more</Text>
-            </Pressable>
           ) : (
-            <View style={styles.footerSpacer} />
-          )
-        }
-        onEndReached={handleLoadMore}
-        onEndReachedThreshold={0.2}
-        refreshing={productsQuery.isRefetching}
-        onRefresh={() => productsQuery.refetch()}
-      />
+            <>
+              {/* All Categories option */}
+              <Pressable
+                style={[
+                  styles.categoryItem,
+                  !selectedCategoryId && styles.categoryItemActive,
+                ]}
+                onPress={() => handleCategorySelect(undefined)}
+              >
+                <View style={styles.categoryImagePlaceholder}>
+                  <Ionicons name="grid" size={24} color={colors.charcoal} />
+                </View>
+                <Text
+                  style={[
+                    styles.categoryName,
+                    !selectedCategoryId && styles.categoryNameActive,
+                  ]}
+                  numberOfLines={2}
+                >
+                  All Categories
+                </Text>
+              </Pressable>
+
+              <FlatList
+                data={categories}
+                keyExtractor={(item) => item.id}
+                renderItem={renderCategoryItem}
+                scrollEnabled
+                showsVerticalScrollIndicator={false}
+              />
+            </>
+          )}
+        </View>
+
+        {/* Right Content Area */}
+        <ScrollView
+          style={[styles.contentArea, { width: contentWidth }]}
+          showsVerticalScrollIndicator={false}
+          onScroll={handleContentScroll}
+          scrollEventThrottle={16}
+        >
+          {/* Featured Section — only on All Categories */}
+          {!selectedCategoryId ? (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Featured On TatVivah</Text>
+              {featuredLoading ? (
+                <View style={styles.loadingWrap}>
+                  <TatvivahLoader size="sm" color={colors.gold} />
+                </View>
+              ) : featuredProducts.length === 0 ? (
+                <Text style={styles.emptyText}>No featured products</Text>
+              ) : (
+                <View style={styles.grid}>
+                  {featuredProducts.map((product, idx) => (
+                    <View key={`featured-${idx}`} style={{ width: cardWidth }}>
+                      {renderProductCard({ item: product })}
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+          ) : null}
+
+          {/* Popular Section */}
+          <View style={styles.section}>
+            {selectedCategory ? (
+              <View style={styles.categoryHeader}>
+                <View style={styles.categoryHeaderRow}>
+                  <View style={styles.categoryHeaderMark} />
+                  <Text style={styles.categoryHeaderEyebrow}>Shopping</Text>
+                </View>
+                <Text style={styles.categoryHeaderTitle}>{selectedCategory.name}</Text>
+                <Text style={styles.categoryHeaderMeta}>
+                  {popularLoading
+                    ? "Loading…"
+                    : `${popularProducts.length} ${popularProducts.length === 1 ? "piece" : "pieces"} curated for you`}
+                </Text>
+              </View>
+            ) : (
+              <Text style={styles.sectionTitle}>All Products</Text>
+            )}
+            {popularLoading ? (
+              <View style={styles.loadingWrap}>
+                <TatvivahLoader size="sm" color={colors.gold} />
+              </View>
+            ) : selectedCategoryId && popularProducts.length === 0 ? (
+              <Text style={styles.emptyText}>No products in this category</Text>
+            ) : !selectedCategoryId && allProductsLoading ? (
+              <View style={styles.loadingWrap}>
+                <TatvivahLoader size="sm" color={colors.gold} />
+              </View>
+            ) : !selectedCategoryId && visibleAllProducts.length === 0 ? (
+              <Text style={styles.emptyText}>No products available right now</Text>
+            ) : (
+              <View style={styles.grid}>
+                {(selectedCategoryId ? popularProducts : visibleAllProducts).map((product, idx) => (
+                  <View key={`popular-${product.id}-${idx}`} style={{ width: cardWidth }}>
+                    {renderProductCard({ item: product })}
+                  </View>
+                ))}
+              </View>
+            )}
+            {!selectedCategoryId ? (
+              hasAllProductsError ? (
+                <Text style={styles.statusText}>Could not load more products right now.</Text>
+              ) : isAllPrefetching ? (
+                <Text style={styles.statusText}>Loading next products...</Text>
+              ) : hasMoreAllProducts ? (
+                <Text style={styles.statusText}>Scroll down to reveal more products</Text>
+              ) : visibleAllProducts.length > 0 ? (
+                <Text style={styles.statusText}>You have reached the end.</Text>
+              ) : null
+            ) : null}
+          </View>
+
+          <View style={{ height: spacing.xl }} />
+        </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -261,235 +457,145 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   container: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xl,
-    paddingTop: spacing.sm,
-    gap: spacing.lg,
-  },
-  gridRow: {
-    gap: spacing.md,
-  },
-  header: {
-    marginBottom: spacing.md,
-    paddingHorizontal: spacing.xs,
-  },
-  title: {
-    fontFamily: typography.serif,
-    fontSize: 24,
-    color: colors.charcoal,
-  },
-  subtitle: {
-    marginTop: 2,
-    fontFamily: typography.sans,
-    fontSize: 12,
-    textTransform: "uppercase",
-    letterSpacing: 1.4,
-    color: colors.brownSoft,
-  },
-  subtitleCopy: {
-    marginTop: spacing.xs,
-    fontFamily: typography.sans,
-    fontSize: 12,
-    lineHeight: 18,
-    color: colors.brownSoft,
-  },
-  searchCard: {
-    marginTop: spacing.md,
-    padding: spacing.md,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    backgroundColor: colors.charcoal,
-    ...shadow.card,
-  },
-  searchInput: {
-    fontFamily: typography.sans,
-    fontSize: 14,
-    color: colors.background,
-    borderWidth: 1,
-    borderBottomColor: colors.borderSoft,
-    borderColor: colors.borderSoft,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  searchButton: {
-    marginTop: spacing.sm,
-    backgroundColor: "rgba(184, 149, 108, 0.2)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.16)",
-    borderRadius: radius.md,
-    paddingVertical: spacing.sm,
-    alignItems: "center",
-  },
-  searchButtonText: {
-    fontFamily: typography.sansMedium,
-    fontSize: 12,
-    letterSpacing: 1.4,
-    textTransform: "uppercase",
-    color: colors.charcoal,
-  },
-  sortRow: {
-    marginTop: spacing.md,
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  sortButton: {
     flex: 1,
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    backgroundColor: colors.charcoal,
-    paddingVertical: 10,
-    borderRadius: radius.md,
+    flexDirection: "row",
+    backgroundColor: colors.background,
+  },
+  sidebar: {
+    borderRightWidth: 1,
+    borderRightColor: colors.borderSoft,
+    backgroundColor: colors.background,
+    paddingHorizontal: 0,
+    paddingTop: 6,
+  },
+  sidebarLoading: {
+    flex: 1,
+    justifyContent: "center",
     alignItems: "center",
   },
-  sortText: {
-    fontFamily: typography.sansMedium,
-    fontSize: 12,
-    letterSpacing: 1.2,
-    textTransform: "uppercase",
-    color: colors.background,
+  categoryItem: {
+    paddingVertical: 7,
+    paddingHorizontal: 4,
+    borderLeftWidth: 2,
+    borderLeftColor: "transparent",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
   },
-  filterRow: {
-    marginTop: spacing.md,
+  categoryItemActive: {
+    borderLeftColor: colors.gold,
+    backgroundColor: colors.cream,
   },
-  filterChip: {
-    marginRight: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 8,
-    borderRadius: 20,
+  categoryImage: {
+    width: 44,
+    height: 58,
+    borderRadius: 0,
+    backgroundColor: colors.cream,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    backgroundColor: colors.charcoal,
   },
-  filterChipActive: {
-    backgroundColor: "rgba(232,220,197,0.18)",
-    borderColor: colors.gold,
-  },
-  filterText: {
-    fontFamily: typography.sans,
-    fontSize: 11,
-    textTransform: "uppercase",
-    letterSpacing: 1.2,
-    color: "rgba(255,251,242,0.7)",
-  },
-  filterTextActive: {
-    color: colors.background,
-  },
-  luxuryCard: {
-    width: "100%",
-    borderRadius: 14,
-    overflow: "hidden",
+  categoryImagePlaceholder: {
+    width: 44,
+    height: 58,
+    borderRadius: 0,
+    backgroundColor: colors.cream,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
-    backgroundColor: colors.charcoal,
-    shadowColor: colors.brown,
-    shadowOpacity: 0.4,
-    shadowOffset: { width: 0, height: 8 },
-    shadowRadius: 24,
-    elevation: 5,
-    marginBottom: spacing.lg,
+    borderColor: colors.borderSoft,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  luxuryImage: {
-    width: "100%",
-    aspectRatio: 0.75,
-    backgroundColor: colors.surface,
-  },
-  luxuryOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.18)",
-  },
-  luxuryInfo: {
-    position: "absolute",
-    left: spacing.md,
-    right: spacing.md,
-    bottom: spacing.md,
-    padding: spacing.md,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.25)",
-    backgroundColor: "rgba(15, 12, 9, 0.78)",
-  },
-  luxuryCategory: {
+  categoryName: {
     fontFamily: typography.sans,
     fontSize: 10,
+    color: colors.charcoal,
+    textAlign: "center",
+    marginTop: 5,
+    flexShrink: 1,
+    paddingHorizontal: 2,
+  },
+  categoryNameActive: {
+    fontFamily: typography.sansMedium,
+    color: colors.gold,
+    fontWeight: "700",
+  },
+  contentArea: {
+    flex: 1,
+    paddingHorizontal: 10,
+    paddingTop: 10,
+    paddingBottom: 10,
+  },
+  section: {
+    marginBottom: spacing.xl,
+  },
+  sectionTitle: {
+    fontFamily: typography.sansMedium,
+    fontSize: 12,
     letterSpacing: 1.6,
     textTransform: "uppercase",
-    color: colors.gold,
-    fontWeight: "400",
+    color: colors.charcoal,
+    marginBottom: 12,
+    fontWeight: "700",
   },
-  luxuryTitle: {
-    marginTop: spacing.xs,
+  categoryHeader: {
+    marginBottom: 14,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderSoft,
+  },
+  categoryHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 4,
+  },
+  categoryHeaderMark: {
+    width: 18,
+    height: 1.5,
+    backgroundColor: colors.gold,
+  },
+  categoryHeaderEyebrow: {
+    fontFamily: typography.sansMedium,
+    fontSize: 9.5,
+    letterSpacing: 2,
+    textTransform: "uppercase",
+    color: colors.gold,
+    fontWeight: "700",
+  },
+  categoryHeaderTitle: {
     fontFamily: typography.serif,
     fontSize: 22,
-    color: colors.background,
-    fontWeight: "600",
-  },
-  luxuryBottomRow: {
-    marginTop: spacing.sm,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  luxuryPrice: {
-    fontFamily: typography.serif,
-    fontSize: 17,
-    color: colors.background,
-  },
-  luxuryCtaPill: {
-    borderWidth: 1,
-    borderColor: "rgba(246, 238, 226, 0.28)",
-    borderRadius: 16,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
-    backgroundColor: "rgba(232,220,197,0.95)",
-  },
-  luxuryCtaText: {
-    fontFamily: typography.sansMedium,
-    fontSize: 10,
-    letterSpacing: 1.2,
-    textTransform: "uppercase",
     color: colors.charcoal,
+    fontWeight: "600",
+    letterSpacing: 0.3,
   },
-  emptyCard: {
-    marginTop: spacing.lg,
-    padding: spacing.lg,
-    borderRadius: radius.lg,
-    backgroundColor: colors.charcoal,
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
+  categoryHeaderMeta: {
+    fontFamily: typography.sans,
+    fontSize: 11,
+    color: colors.brownSoft,
+    marginTop: 2,
+  },
+  grid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  loadingWrap: {
+    paddingVertical: spacing.lg,
     alignItems: "center",
-    ...shadow.card,
   },
   emptyText: {
-    marginTop: spacing.sm,
     fontFamily: typography.sans,
     fontSize: 12,
     color: colors.brownSoft,
     textAlign: "center",
-  },
-  footerLoading: {
     paddingVertical: spacing.lg,
-    alignItems: "center",
   },
-  loadMoreButton: {
-    marginTop: spacing.lg,
-    marginBottom: spacing.xl,
-    backgroundColor: "rgba(184, 149, 108, 0.2)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.16)",
-    borderRadius: radius.md,
-    paddingVertical: spacing.sm,
-    alignItems: "center",
-  },
-  loadMoreText: {
-    fontFamily: typography.sansMedium,
-    fontSize: 12,
-    letterSpacing: 1.4,
-    textTransform: "uppercase",
-    color: colors.charcoal,
-  },
-  footerSpacer: {
-    height: spacing.xl,
+  statusText: {
+    marginTop: spacing.md,
+    fontFamily: typography.sans,
+    fontSize: 11,
+    color: colors.brownSoft,
+    textAlign: "center",
+    letterSpacing: 0.4,
   },
 });

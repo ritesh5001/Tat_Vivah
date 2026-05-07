@@ -16,5 +16,6 @@ export declare function emitOrderPlaced(orderId: string): Promise<void>;
 export declare function emitPaymentSuccess(orderId: string): Promise<void>;
 export declare function emitPaymentFailed(orderId: string): Promise<void>;
 export declare function emitShipmentShipped(orderId: string, carrier: string, trackingNumber: string): Promise<void>;
+export declare function emitShipmentCreated(orderId: string, carrier: string, trackingNumber: string): Promise<void>;
 export declare function emitShipmentDelivered(orderId: string): Promise<void>;
 //# sourceMappingURL=order.events.d.ts.map

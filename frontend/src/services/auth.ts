@@ -1,3 +1,5 @@
+import { COOKIE_ATTRIBUTES_SUFFIX } from "@/lib/site-config";
+
 export interface LoginPayload {
   identifier: string;
   password: string;
@@ -13,6 +15,7 @@ export interface RegisterUserPayload {
 export interface RegisterSellerPayload {
   email: string;
   phone: string;
+  whatsappNumber: string;
   password: string;
 }
 
@@ -44,6 +47,29 @@ export interface RegisterResponse {
   message: string;
 }
 
+type ApiErrorResponse = {
+  error?: {
+    message?: string;
+    details?: Record<string, string>;
+  };
+  message?: string;
+};
+
+function buildApiError(data: ApiErrorResponse | null, fallback: string): Error {
+  const message =
+    data?.error?.message ??
+    data?.message ??
+    fallback;
+  const details = data?.error?.details;
+
+  if (details && Object.keys(details).length > 0) {
+    const detailText = Object.values(details).join(" ");
+    return new Error(detailText || message);
+  }
+
+  return new Error(message);
+}
+
 export interface OtpRequestResponse {
   message: string;
 }
@@ -67,10 +93,10 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
 export function clearAuthSession(): void {
   if (typeof document === "undefined") return;
-  document.cookie = "tatvivah_access=; path=/; max-age=0";
-  document.cookie = "tatvivah_refresh=; path=/; max-age=0";
-  document.cookie = "tatvivah_role=; path=/; max-age=0";
-  document.cookie = "tatvivah_user=; path=/; max-age=0";
+  document.cookie = `tatvivah_access=; path=/; max-age=0${COOKIE_ATTRIBUTES_SUFFIX}`;
+  document.cookie = `tatvivah_refresh=; path=/; max-age=0${COOKIE_ATTRIBUTES_SUFFIX}`;
+  document.cookie = `tatvivah_role=; path=/; max-age=0${COOKIE_ATTRIBUTES_SUFFIX}`;
+  document.cookie = `tatvivah_user=; path=/; max-age=0${COOKIE_ATTRIBUTES_SUFFIX}`;
   window.dispatchEvent(new Event("tatvivah-auth"));
 }
 
@@ -80,14 +106,14 @@ export function clearAuthSession(): void {
 export function persistAuthCookies(
   accessToken: string,
   refreshToken: string,
-  user: { role: string; [key: string]: unknown }
+  user: { role: string;[key: string]: unknown }
 ): void {
-  document.cookie = `tatvivah_access=${accessToken}; path=/; max-age=86400`;
-  document.cookie = `tatvivah_refresh=${refreshToken}; path=/; max-age=604800`;
-  document.cookie = `tatvivah_role=${user.role}; path=/; max-age=86400`;
+  document.cookie = `tatvivah_access=${accessToken}; path=/; max-age=86400${COOKIE_ATTRIBUTES_SUFFIX}`;
+  document.cookie = `tatvivah_refresh=${refreshToken}; path=/; max-age=604800${COOKIE_ATTRIBUTES_SUFFIX}`;
+  document.cookie = `tatvivah_role=${user.role}; path=/; max-age=86400${COOKIE_ATTRIBUTES_SUFFIX}`;
   document.cookie = `tatvivah_user=${encodeURIComponent(
     JSON.stringify(user)
-  )}; path=/; max-age=86400`;
+  )}; path=/; max-age=86400${COOKIE_ATTRIBUTES_SUFFIX}`;
   window.dispatchEvent(new Event("tatvivah-auth"));
 }
 
@@ -103,6 +129,10 @@ export async function loginUser(payload: LoginPayload): Promise<LoginResponse> {
     throw new Error("API base URL is not configured");
   }
 
+  console.info("[auth-api][login] request", {
+    identifier: payload.identifier.substring(0, 3) + "***", // Mask for security
+  });
+
   const response = await fetch(`${API_BASE_URL}/v1/auth/login`, {
     method: "POST",
     headers: {
@@ -114,11 +144,19 @@ export async function loginUser(payload: LoginPayload): Promise<LoginResponse> {
   const data = await response.json().catch(() => null);
 
   if (!response.ok) {
-    const message =
-      data?.error?.message ?? data?.message ?? "Login failed";
-    throw new Error(message);
+    const errorMessage = data?.error?.message ?? data?.message ?? "Login failed";
+    console.error("[auth-api][login] error", {
+      statusCode: response.status,
+      message: errorMessage,
+      details: data?.error?.details,
+    });
+    const err = new Error(errorMessage) as Error & { phone?: string; statusCode?: number };
+    err.phone = (data?.error?.details?.phone as string | undefined) ?? undefined;
+    err.statusCode = response.status;
+    throw err;
   }
 
+  console.info("[auth-api][login] success", { role: data?.user?.role });
   return data as LoginResponse;
 }
 
@@ -128,6 +166,11 @@ export async function registerUser(
   if (!API_BASE_URL) {
     throw new Error("API base URL is not configured");
   }
+
+  console.debug("[auth][register-user] request", {
+    email: payload.email,
+    phone: payload.phone ? "[present]" : "[missing]",
+  });
 
   const response = await fetch(`${API_BASE_URL}/v1/auth/register`, {
     method: "POST",
@@ -140,10 +183,11 @@ export async function registerUser(
   const data = await response.json().catch(() => null);
 
   if (!response.ok) {
-    const message =
-      data?.error?.message ?? data?.message ?? "Registration failed";
-    throw new Error(message);
+    console.warn("[auth][register-user] failed", { status: response.status, data });
+    throw buildApiError(data as ApiErrorResponse | null, "Registration failed");
   }
+
+  console.info("[auth][register-user] success", { email: payload.email });
 
   return data as RegisterResponse;
 }
@@ -154,6 +198,12 @@ export async function registerSeller(
   if (!API_BASE_URL) {
     throw new Error("API base URL is not configured");
   }
+
+  console.debug("[auth][register-seller] request", {
+    email: payload.email,
+    phone: payload.phone ? "[present]" : "[missing]",
+    whatsappNumber: payload.whatsappNumber ? "[present]" : "[missing]",
+  });
 
   const response = await fetch(`${API_BASE_URL}/v1/seller/register`, {
     method: "POST",
@@ -166,10 +216,11 @@ export async function registerSeller(
   const data = await response.json().catch(() => null);
 
   if (!response.ok) {
-    const message =
-      data?.error?.message ?? data?.message ?? "Seller registration failed";
-    throw new Error(message);
+    console.warn("[auth][register-seller] failed", { status: response.status, data });
+    throw buildApiError(data as ApiErrorResponse | null, "Seller registration failed");
   }
+
+  console.info("[auth][register-seller] success", { email: payload.email });
 
   return data as RegisterResponse;
 }
@@ -192,25 +243,39 @@ export async function registerAdmin(
   const data = await response.json().catch(() => null);
 
   if (!response.ok) {
-    const message =
-      data?.error?.message ?? data?.message ?? "Admin registration failed";
-    throw new Error(message);
+    throw buildApiError(data as ApiErrorResponse | null, "Admin registration failed");
   }
 
   return data as RegisterResponse;
 }
 
-export async function requestEmailOtp(email: string): Promise<OtpRequestResponse> {
+export interface RequestAuthOtpPayload {
+  email?: string;
+  phone?: string;
+}
+
+export interface VerifyAuthOtpPayload {
+  email?: string;
+  phone?: string;
+  otp: string;
+}
+
+export async function requestAuthOtp(payload: RequestAuthOtpPayload): Promise<OtpRequestResponse> {
   if (!API_BASE_URL) {
     throw new Error("API base URL is not configured");
   }
+
+  console.debug("[auth][request-otp] request", {
+    email: payload.email ? payload.email : undefined,
+    phone: payload.phone ? "[present]" : undefined,
+  });
 
   const response = await fetch(`${API_BASE_URL}/v1/auth/request-otp`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ email }),
+    body: JSON.stringify(payload),
   });
 
   const data = await response.json().catch(() => null);
@@ -218,19 +283,25 @@ export async function requestEmailOtp(email: string): Promise<OtpRequestResponse
   if (!response.ok) {
     const message =
       data?.error?.message ?? data?.message ?? "OTP request failed";
+    console.warn("[auth][request-otp] failed", { status: response.status, data });
     throw new Error(message);
   }
+
+  console.info("[auth][request-otp] success", { email: payload.email, phone: payload.phone ? "[present]" : undefined });
 
   return data as OtpRequestResponse;
 }
 
-export async function verifyEmailOtp(payload: {
-  email: string;
-  otp: string;
-}): Promise<VerifyOtpResponse> {
+export async function verifyAuthOtp(payload: VerifyAuthOtpPayload): Promise<VerifyOtpResponse> {
   if (!API_BASE_URL) {
     throw new Error("API base URL is not configured");
   }
+
+  console.debug("[auth][verify-otp] request", {
+    email: payload.email,
+    phone: payload.phone ? "[present]" : undefined,
+    otpLength: payload.otp?.length,
+  });
 
   const response = await fetch(`${API_BASE_URL}/v1/auth/verify-otp`, {
     method: "POST",
@@ -245,8 +316,11 @@ export async function verifyEmailOtp(payload: {
   if (!response.ok) {
     const message =
       data?.error?.message ?? data?.message ?? "OTP verification failed";
+    console.warn("[auth][verify-otp] failed", { status: response.status, data });
     throw new Error(message);
   }
+
+  console.info("[auth][verify-otp] success", { email: payload.email, phone: payload.phone ? "[present]" : undefined });
 
   return data as VerifyOtpResponse;
 }

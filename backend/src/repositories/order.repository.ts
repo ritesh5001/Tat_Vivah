@@ -8,6 +8,17 @@ import type {
     OrderItemWithProduct,
 } from '../types/order.types.js';
 
+const DEFAULT_LIMIT = 20;
+const MAX_LIMIT = 20;
+
+function resolvePagination(page?: number, limit?: number): { skip: number; take: number } {
+    const pRaw = Number(page ?? 1);
+    const lRaw = Number(limit ?? DEFAULT_LIMIT);
+    const p = Number.isFinite(pRaw) && pRaw > 0 ? Math.trunc(pRaw) : 1;
+    const l = Math.min(MAX_LIMIT, Math.max(1, Number.isFinite(lRaw) ? Math.trunc(lRaw) : DEFAULT_LIMIT));
+    return { skip: (p - 1) * l, take: l };
+}
+
 /**
  * Order Repository
  * Handles database operations for orders
@@ -58,6 +69,31 @@ export class OrderRepository {
             include: {
                 items: true,
                 movements: true,
+                payment: {
+                    select: {
+                        status: true,
+                    },
+                },
+                cancellationRequest: {
+                    select: {
+                        status: true,
+                    },
+                },
+                returnRequests: {
+                    select: {
+                        status: true,
+                    },
+                    orderBy: { createdAt: 'desc' },
+                    take: 1,
+                },
+                shipments: {
+                    select: {
+                        status: true,
+                        created_at: true,
+                    },
+                    orderBy: { created_at: 'desc' },
+                    take: 1,
+                },
             },
         });
 
@@ -71,22 +107,55 @@ export class OrderRepository {
         return {
             ...order,
             items: itemsWithDetails,
+            paymentStatus: order.payment?.status ?? null,
+            cancellationStatus: order.cancellationRequest?.status ?? null,
+            returnStatus: order.returnRequests[0]?.status ?? null,
+            shipmentStatus: order.shipments[0]?.status ?? null,
         };
     }
 
     /**
      * Find all orders for a user (buyer)
      */
-    async findByUserId(userId: string): Promise<OrderWithItems[]> {
+    async findByUserId(
+        userId: string,
+        params?: { page?: number; limit?: number; startDate?: Date; endDate?: Date }
+    ): Promise<OrderWithItems[]> {
+        const { skip, take } = resolvePagination(params?.page, params?.limit);
+        const createdAtFilter =
+            params?.startDate || params?.endDate
+                ? {
+                    ...(params.startDate ? { gte: params.startDate } : {}),
+                    ...(params.endDate ? { lte: params.endDate } : {}),
+                }
+                : undefined;
+
         const orders = await prisma.order.findMany({
-            where: { userId },
+            where: {
+                userId,
+                ...(createdAtFilter ? { createdAt: createdAtFilter } : {}),
+            },
             include: {
                 items: true,
+                payment: {
+                    select: {
+                        status: true,
+                    },
+                },
                 cancellationRequest: {
                     select: {
                         id: true,
                         status: true,
                     },
+                },
+                returnRequests: {
+                    select: {
+                        id: true,
+                        status: true,
+                        createdAt: true,
+                    },
+                    orderBy: { createdAt: 'desc' },
+                    take: 1,
                 },
                 shipments: {
                     select: {
@@ -94,18 +163,23 @@ export class OrderRepository {
                         created_at: true,
                     },
                     orderBy: { created_at: 'desc' },
+                    take: 1,
                 },
             },
             orderBy: { createdAt: 'desc' },
+            skip,
+            take,
         });
 
         return orders.map((order) => {
-            const hasShipped = order.shipments.some((shipment) => shipment.status === 'SHIPPED');
             const latestShipmentStatus = order.shipments[0]?.status ?? null;
 
             return {
                 ...order,
-                shipmentStatus: hasShipped ? 'SHIPPED' : latestShipmentStatus,
+                paymentStatus: order.payment?.status ?? null,
+                cancellationStatus: order.cancellationRequest?.status ?? null,
+                returnStatus: order.returnRequests[0]?.status ?? null,
+                shipmentStatus: latestShipmentStatus,
             } as OrderWithItems;
         });
     }
@@ -114,15 +188,38 @@ export class OrderRepository {
      * Find order items for a seller
      * Uses batch lookups instead of N+1 queries
      */
-    async findBySellerId(sellerId: string): Promise<SellerOrderItem[]> {
+    async findBySellerId(
+        sellerId: string,
+        params?: { page?: number; limit?: number; startDate?: Date; endDate?: Date }
+    ): Promise<SellerOrderItem[]> {
+        const { skip, take } = resolvePagination(params?.page, params?.limit);
+        const createdAtFilter =
+            params?.startDate || params?.endDate
+                ? {
+                    ...(params.startDate ? { gte: params.startDate } : {}),
+                    ...(params.endDate ? { lte: params.endDate } : {}),
+                }
+                : undefined;
+
         const orderItems = await prisma.orderItem.findMany({
-            where: { sellerId },
+            where: {
+                sellerId,
+                ...(createdAtFilter ? { order: { createdAt: createdAtFilter } } : {}),
+            },
             include: {
                 order: {
                     select: {
                         id: true,
                         status: true,
                         createdAt: true,
+                        shipments: {
+                            select: {
+                                status: true,
+                                created_at: true,
+                            },
+                            orderBy: { created_at: 'desc' },
+                            take: 1,
+                        },
                         cancellationRequest: {
                             select: {
                                 id: true,
@@ -137,12 +234,14 @@ export class OrderRepository {
                         shippingAddressLine1: true,
                         shippingAddressLine2: true,
                         shippingCity: true,
+                        shippingPincode: true,
                         shippingNotes: true,
                     },
                 },
             },
             orderBy: { order: { createdAt: 'desc' } },
-            take: 500,
+            skip,
+            take,
         });
 
         // Batch lookup instead of N+1
@@ -169,6 +268,10 @@ export class OrderRepository {
 
         return orderItems.map((item) => ({
             ...item,
+            order: {
+                ...item.order,
+                shipmentStatus: item.order.shipments[0]?.status ?? null,
+            },
             productTitle: productMap.get(item.productId),
             variantSku: variantMap.get(item.variantId),
         }));
@@ -193,6 +296,7 @@ export class OrderRepository {
                 shippingAddressLine1: true,
                 shippingAddressLine2: true,
                 shippingCity: true,
+                shippingPincode: true,
                 shippingNotes: true,
             },
         });

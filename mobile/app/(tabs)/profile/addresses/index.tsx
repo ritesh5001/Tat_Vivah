@@ -3,10 +3,10 @@ import {
   View,
   StyleSheet,
   FlatList,
-  Alert,
   Modal,
   Pressable,
 } from "react-native";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useRouter } from "expo-router";
 import {
   colors,
@@ -98,8 +98,10 @@ const AddressRow = React.memo(function AddressRow({
 
 export default function AddressesScreen() {
   const router = useRouter();
+  const tabBarHeight = useBottomTabBarHeight();
   const { session, isLoading: authLoading } = useAuth();
   const token = session?.accessToken ?? null;
+  const showGuestState = !authLoading && !token;
   const {
     addresses,
     isLoading,
@@ -116,37 +118,6 @@ export default function AddressesScreen() {
   const handleGoBack = React.useCallback(() => {
     router.back();
   }, [router]);
-
-  if (!authLoading && !token) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.header}>
-          <AnimatedPressable onPress={handleGoBack} style={styles.backButton}>
-            <Text style={styles.backArrow}>←</Text>
-          </AnimatedPressable>
-          <View>
-            <Text style={styles.headerTitle}>Manage Addresses</Text>
-            <Text style={styles.headerCopy}>
-              Add, edit, or remove delivery addresses.
-            </Text>
-          </View>
-        </View>
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyIcon}>📍</Text>
-          <Text style={styles.emptyTitle}>No saved addresses</Text>
-          <Text style={styles.emptySubtitle}>
-            Add a delivery address when you're ready to check out.
-          </Text>
-          <AnimatedPressable
-            onPress={handleGoBack}
-            style={styles.primaryButton}
-          >
-            <Text style={styles.primaryButtonText}>Back to profile</Text>
-          </AnimatedPressable>
-        </View>
-      </SafeAreaView>
-    );
-  }
 
   // ---- Handlers (stable references) ----
 
@@ -223,6 +194,37 @@ export default function AddressesScreen() {
     [isLoading],
   );
 
+  if (showGuestState) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          <AnimatedPressable onPress={handleGoBack} style={styles.backButton}>
+            <Text style={styles.backArrow}>←</Text>
+          </AnimatedPressable>
+          <View>
+            <Text style={styles.headerTitle}>Manage Addresses</Text>
+            <Text style={styles.headerCopy}>
+              Add, edit, or remove delivery addresses.
+            </Text>
+          </View>
+        </View>
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyIcon}>📍</Text>
+          <Text style={styles.emptyTitle}>No saved addresses</Text>
+          <Text style={styles.emptySubtitle}>
+            Add a delivery address when you&apos;re ready to check out.
+          </Text>
+          <AnimatedPressable
+            onPress={handleGoBack}
+            style={styles.primaryButton}
+          >
+            <Text style={styles.primaryButtonText}>Back to profile</Text>
+          </AnimatedPressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safeArea}>
       {/* Header */}
@@ -259,13 +261,16 @@ export default function AddressesScreen() {
           keyExtractor={keyExtractor}
           renderItem={renderItem}
           ListEmptyComponent={ListEmpty}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingBottom: tabBarHeight + 116 },
+          ]}
           showsVerticalScrollIndicator={false}
         />
       )}
 
       {/* Add button — always visible at bottom */}
-      <View style={styles.addButtonContainer}>
+      <View style={[styles.addButtonContainer, { bottom: tabBarHeight }]}> 
         <AnimatedPressable style={styles.primaryButton} onPress={handleAdd}>
           <Text style={styles.primaryButtonText}>+ Add new address</Text>
         </AnimatedPressable>
@@ -334,7 +339,7 @@ const styles = StyleSheet.create({
   backButton: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: 0,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -363,7 +368,7 @@ const styles = StyleSheet.create({
   card: {
     marginTop: spacing.md,
     padding: spacing.lg,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -391,7 +396,7 @@ const styles = StyleSheet.create({
     borderColor: colors.borderSoft,
     paddingHorizontal: spacing.sm,
     paddingVertical: 3,
-    borderRadius: radius.sm,
+    borderRadius: 0,
     overflow: "hidden",
   },
   defaultBadge: {
@@ -405,7 +410,7 @@ const styles = StyleSheet.create({
     borderColor: colors.gold,
     paddingHorizontal: spacing.sm,
     paddingVertical: 3,
-    borderRadius: radius.sm,
+    borderRadius: 0,
     overflow: "hidden",
   },
   addressLine: {
@@ -426,7 +431,7 @@ const styles = StyleSheet.create({
   actionButton: {
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.md,
-    borderRadius: radius.md,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: colors.surface,
@@ -500,7 +505,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gold,
     borderWidth: 1,
     borderColor: colors.gold,
-    borderRadius: radius.md,
+    borderRadius: 0,
     paddingVertical: 14,
     alignItems: "center",
   },
@@ -527,7 +532,7 @@ const styles = StyleSheet.create({
     width: "100%",
     maxWidth: 340,
     backgroundColor: colors.surfaceElevated,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     padding: spacing.lg,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -554,7 +559,7 @@ const styles = StyleSheet.create({
   modalCancelButton: {
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    borderRadius: radius.md,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.borderSoft,
   },
@@ -568,7 +573,7 @@ const styles = StyleSheet.create({
   modalConfirmButton: {
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    borderRadius: radius.md,
+    borderRadius: 0,
     backgroundColor: colors.gold,
     minWidth: 90,
     alignItems: "center",

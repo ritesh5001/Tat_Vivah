@@ -35,6 +35,154 @@ const emptyForm: CreateCouponPayload = {
   firstTimeUserOnly: false,
 };
 
+const CouponFormFields = ({
+  values,
+  onChange,
+}: {
+  values: Record<string, any>;
+  onChange: (field: string, value: any) => void;
+}) => (
+  <div className="space-y-4">
+    <div className="grid grid-cols-2 gap-4">
+      <div>
+        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Code *</Label>
+        <Input
+          value={values.code ?? ""}
+          onChange={(e) => onChange("code", e.target.value.toUpperCase())}
+          className="mt-1 h-11 font-mono"
+          placeholder="SAVE20"
+        />
+      </div>
+      <div>
+        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Type *</Label>
+        <select
+          value={values.type ?? "PERCENT"}
+          onChange={(e) => onChange("type", e.target.value)}
+          className="mt-1 flex h-11 w-full items-center rounded-md border border-input bg-background px-3 py-2 text-sm"
+        >
+          <option value="PERCENT">Percentage</option>
+          <option value="FLAT">Flat Amount</option>
+        </select>
+      </div>
+    </div>
+
+    <div className="grid grid-cols-2 gap-4">
+      <div>
+        <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+          Value * {values.type === "PERCENT" ? "(%)" : "(₹)"}
+        </Label>
+        <Input
+          type="number"
+          min={0}
+          step={values.type === "PERCENT" ? 0.1 : 1}
+          value={values.value ?? 0}
+          onChange={(e) => onChange("value", Number(e.target.value))}
+          className="mt-1 h-11"
+        />
+      </div>
+      <div>
+        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Max Discount (₹)</Label>
+        <Input
+          type="number"
+          min={0}
+          value={values.maxDiscountAmount ?? ""}
+          onChange={(e) => onChange("maxDiscountAmount", e.target.value ? Number(e.target.value) : null)}
+          className="mt-1 h-11"
+          placeholder="No limit"
+        />
+      </div>
+    </div>
+
+    <div>
+      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Min Order Amount (₹)</Label>
+      <Input
+        type="number"
+        min={0}
+        value={values.minOrderAmount ?? 0}
+        onChange={(e) => onChange("minOrderAmount", Number(e.target.value))}
+        className="mt-1 h-11"
+      />
+    </div>
+
+    <div className="grid grid-cols-2 gap-4">
+      <div>
+        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Usage Limit (total)</Label>
+        <Input
+          type="number"
+          min={0}
+          value={values.usageLimit ?? ""}
+          onChange={(e) => onChange("usageLimit", e.target.value ? Number(e.target.value) : null)}
+          className="mt-1 h-11"
+          placeholder="Unlimited"
+        />
+      </div>
+      <div>
+        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Per User Limit</Label>
+        <Input
+          type="number"
+          min={0}
+          value={values.perUserLimit ?? ""}
+          onChange={(e) => onChange("perUserLimit", e.target.value ? Number(e.target.value) : null)}
+          className="mt-1 h-11"
+          placeholder="Unlimited"
+        />
+      </div>
+    </div>
+
+    <div className="grid grid-cols-2 gap-4">
+      <div>
+        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Valid From *</Label>
+        <Input
+          type="datetime-local"
+          value={values.validFrom ?? ""}
+          onChange={(e) => onChange("validFrom", e.target.value)}
+          className="mt-1 h-11"
+        />
+      </div>
+      <div>
+        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Valid Until *</Label>
+        <Input
+          type="datetime-local"
+          value={values.validUntil ?? ""}
+          onChange={(e) => onChange("validUntil", e.target.value)}
+          className="mt-1 h-11"
+        />
+      </div>
+    </div>
+
+    <div>
+      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Seller ID (optional, leave blank for platform-wide)</Label>
+      <Input
+        value={values.sellerId ?? ""}
+        onChange={(e) => onChange("sellerId", e.target.value || null)}
+        className="mt-1 h-11"
+        placeholder="Seller UUID"
+      />
+    </div>
+
+    <div className="flex items-center gap-6">
+      <label className="flex items-center gap-2 text-sm cursor-pointer">
+        <input
+          type="checkbox"
+          checked={values.firstTimeUserOnly ?? false}
+          onChange={(e) => onChange("firstTimeUserOnly", e.target.checked)}
+          className="h-4 w-4"
+        />
+        First-time users only
+      </label>
+      <label className="flex items-center gap-2 text-sm cursor-pointer">
+        <input
+          type="checkbox"
+          checked={values.isActive ?? true}
+          onChange={(e) => onChange("isActive", e.target.checked)}
+          className="h-4 w-4"
+        />
+        Active
+      </label>
+    </div>
+  </div>
+);
+
 export default function AdminCouponsPage() {
   const [loading, setLoading] = React.useState(true);
   const [coupons, setCoupons] = React.useState<AdminCoupon[]>([]);
@@ -147,154 +295,6 @@ export default function AdminCouponsPage() {
       toast.error(error instanceof Error ? error.message : "Unable to delete coupon");
     }
   };
-
-  const CouponFormFields = ({
-    values,
-    onChange,
-  }: {
-    values: Record<string, any>;
-    onChange: (field: string, value: any) => void;
-  }) => (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Code *</Label>
-          <Input
-            value={values.code ?? ""}
-            onChange={(e) => onChange("code", e.target.value.toUpperCase())}
-            className="mt-1 h-11 font-mono"
-            placeholder="SAVE20"
-          />
-        </div>
-        <div>
-          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Type *</Label>
-          <select
-            value={values.type ?? "PERCENT"}
-            onChange={(e) => onChange("type", e.target.value)}
-            className="mt-1 flex h-11 w-full items-center rounded-md border border-input bg-background px-3 py-2 text-sm"
-          >
-            <option value="PERCENT">Percentage</option>
-            <option value="FLAT">Flat Amount</option>
-          </select>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-            Value * {values.type === "PERCENT" ? "(%)" : "(₹)"}
-          </Label>
-          <Input
-            type="number"
-            min={0}
-            step={values.type === "PERCENT" ? 0.1 : 1}
-            value={values.value ?? 0}
-            onChange={(e) => onChange("value", Number(e.target.value))}
-            className="mt-1 h-11"
-          />
-        </div>
-        <div>
-          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Max Discount (₹)</Label>
-          <Input
-            type="number"
-            min={0}
-            value={values.maxDiscountAmount ?? ""}
-            onChange={(e) => onChange("maxDiscountAmount", e.target.value ? Number(e.target.value) : null)}
-            className="mt-1 h-11"
-            placeholder="No limit"
-          />
-        </div>
-      </div>
-
-      <div>
-        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Min Order Amount (₹)</Label>
-        <Input
-          type="number"
-          min={0}
-          value={values.minOrderAmount ?? 0}
-          onChange={(e) => onChange("minOrderAmount", Number(e.target.value))}
-          className="mt-1 h-11"
-        />
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Usage Limit (total)</Label>
-          <Input
-            type="number"
-            min={0}
-            value={values.usageLimit ?? ""}
-            onChange={(e) => onChange("usageLimit", e.target.value ? Number(e.target.value) : null)}
-            className="mt-1 h-11"
-            placeholder="Unlimited"
-          />
-        </div>
-        <div>
-          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Per User Limit</Label>
-          <Input
-            type="number"
-            min={0}
-            value={values.perUserLimit ?? ""}
-            onChange={(e) => onChange("perUserLimit", e.target.value ? Number(e.target.value) : null)}
-            className="mt-1 h-11"
-            placeholder="Unlimited"
-          />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Valid From *</Label>
-          <Input
-            type="datetime-local"
-            value={values.validFrom ?? ""}
-            onChange={(e) => onChange("validFrom", e.target.value)}
-            className="mt-1 h-11"
-          />
-        </div>
-        <div>
-          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Valid Until *</Label>
-          <Input
-            type="datetime-local"
-            value={values.validUntil ?? ""}
-            onChange={(e) => onChange("validUntil", e.target.value)}
-            className="mt-1 h-11"
-          />
-        </div>
-      </div>
-
-      <div>
-        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Seller ID (optional, leave blank for platform-wide)</Label>
-        <Input
-          value={values.sellerId ?? ""}
-          onChange={(e) => onChange("sellerId", e.target.value || null)}
-          className="mt-1 h-11"
-          placeholder="Seller UUID"
-        />
-      </div>
-
-      <div className="flex items-center gap-6">
-        <label className="flex items-center gap-2 text-sm cursor-pointer">
-          <input
-            type="checkbox"
-            checked={values.firstTimeUserOnly ?? false}
-            onChange={(e) => onChange("firstTimeUserOnly", e.target.checked)}
-            className="h-4 w-4"
-          />
-          First-time users only
-        </label>
-        <label className="flex items-center gap-2 text-sm cursor-pointer">
-          <input
-            type="checkbox"
-            checked={values.isActive ?? true}
-            onChange={(e) => onChange("isActive", e.target.checked)}
-            className="h-4 w-4"
-          />
-          Active
-        </label>
-      </div>
-    </div>
-  );
 
   const isExpired = (coupon: AdminCoupon) => new Date(coupon.validUntil) < new Date();
 

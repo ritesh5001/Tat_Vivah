@@ -7,6 +7,8 @@ import {
 } from '../utils/cache.util.js';
 import type { CategoryListResponse } from '../types/product.types.js';
 import { ApiError } from '../errors/ApiError.js';
+import { dispatchFreshness } from '../live/freshness.service.js';
+import { CACHE_TAGS, collectionTag } from '../live/cache-tags.js';
 
 /**
  * Category Service
@@ -54,7 +56,7 @@ export class CategoryService {
         const response: CategoryListResponse = { categories };
 
         // Cache the result
-        await setCache(CACHE_KEYS.CATEGORIES_LIST, response);
+        await setCache(CACHE_KEYS.CATEGORIES_LIST, response, 120);
 
         return response;
     }
@@ -97,6 +99,11 @@ export class CategoryService {
         const created = await this.repository.create({ ...input, slug });
 
         await invalidateCache(CACHE_KEYS.CATEGORIES_LIST);
+        await dispatchFreshness({
+            type: 'catalog.updated',
+            tags: [CACHE_TAGS.categories, CACHE_TAGS.products, CACHE_TAGS.search, collectionTag(slug)],
+            audience: { allAuthenticated: true },
+        });
         return created;
     }
 
@@ -145,6 +152,17 @@ export class CategoryService {
         });
 
         await invalidateCache(CACHE_KEYS.CATEGORIES_LIST);
+        await dispatchFreshness({
+            type: 'catalog.updated',
+            tags: [
+                CACHE_TAGS.categories,
+                CACHE_TAGS.products,
+                CACHE_TAGS.search,
+                collectionTag(updated.slug),
+                ...(category.slug ? [collectionTag(category.slug)] : []),
+            ],
+            audience: { allAuthenticated: true },
+        });
         return updated;
     }
 
@@ -165,6 +183,16 @@ export class CategoryService {
         await this.repository.purgeSoftDeletedProducts(id);
         await this.repository.delete(id);
         await invalidateCache(CACHE_KEYS.CATEGORIES_LIST);
+        await dispatchFreshness({
+            type: 'catalog.updated',
+            tags: [
+                CACHE_TAGS.categories,
+                CACHE_TAGS.products,
+                CACHE_TAGS.search,
+                ...(category.slug ? [collectionTag(category.slug)] : []),
+            ],
+            audience: { allAuthenticated: true },
+        });
     }
 
     /**
@@ -178,6 +206,16 @@ export class CategoryService {
 
         const updated = await this.repository.update(id, { isActive: !category.isActive });
         await invalidateCache(CACHE_KEYS.CATEGORIES_LIST);
+        await dispatchFreshness({
+            type: 'catalog.updated',
+            tags: [
+                CACHE_TAGS.categories,
+                CACHE_TAGS.products,
+                CACHE_TAGS.search,
+                collectionTag(updated.slug),
+            ],
+            audience: { allAuthenticated: true },
+        });
         return updated;
     }
 
@@ -192,6 +230,16 @@ export class CategoryService {
 
         const updated = await this.repository.update(id, { isActive: false });
         await invalidateCache(CACHE_KEYS.CATEGORIES_LIST);
+        await dispatchFreshness({
+            type: 'catalog.updated',
+            tags: [
+                CACHE_TAGS.categories,
+                CACHE_TAGS.products,
+                CACHE_TAGS.search,
+                collectionTag(updated.slug),
+            ],
+            audience: { allAuthenticated: true },
+        });
         return updated;
     }
 }

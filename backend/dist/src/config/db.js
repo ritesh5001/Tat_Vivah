@@ -5,17 +5,37 @@ import { env } from './env.js';
 // tsx watch-mode (or Next.js HMR) re-executes this module on file change.
 // ---------------------------------------------------------------------------
 const globalForPrisma = globalThis;
-function buildPrismaDatabaseUrl(rawUrl) {
+function getIntEnv(name, fallback, min, max) {
+    const raw = process.env[name];
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed))
+        return fallback;
+    const n = Math.trunc(parsed);
+    if (n < min)
+        return min;
+    if (n > max)
+        return max;
+    return n;
+}
+function buildPrismaDatabaseUrl(rawUrl, directUrl) {
     try {
-        const parsed = new URL(rawUrl);
+        // Keep DATABASE_URL host untouched unless an explicit DATABASE_URL_DIRECT
+        // is provided. Auto-rewriting Neon "-pooler" hosts to direct endpoints
+        // can break connectivity in managed environments.
+        const sourceUrl = directUrl ? directUrl : rawUrl;
+        const parsed = new URL(sourceUrl);
         const isPooledHost = parsed.hostname.includes('-pooler.');
+        const pooledConnectionLimit = getIntEnv('DB_POOL_CONNECTION_LIMIT', 10, 1, 100);
+        const pooledPoolTimeout = getIntEnv('DB_POOL_TIMEOUT', 15, 1, 120);
+        const directConnectionLimit = getIntEnv('DB_DIRECT_CONNECTION_LIMIT', 5, 1, 100);
         if (isPooledHost) {
-            if (!parsed.searchParams.has('pgbouncer')) {
-                parsed.searchParams.set('pgbouncer', 'true');
-            }
-            if (!parsed.searchParams.has('connection_limit')) {
-                parsed.searchParams.set('connection_limit', '1');
-            }
+            parsed.searchParams.set('pgbouncer', 'true');
+            parsed.searchParams.set('connection_limit', String(pooledConnectionLimit));
+            parsed.searchParams.set('pool_timeout', String(pooledPoolTimeout));
+        }
+        // For non-pooled (direct) connections, keep a smaller default pool size.
+        if (!isPooledHost && !parsed.searchParams.has('connection_limit')) {
+            parsed.searchParams.set('connection_limit', String(directConnectionLimit));
         }
         return parsed.toString();
     }
@@ -26,10 +46,11 @@ function buildPrismaDatabaseUrl(rawUrl) {
 function createPrismaClient() {
     const client = new PrismaClient({
         datasources: {
-            db: { url: buildPrismaDatabaseUrl(env.DATABASE_URL) },
+            db: { url: buildPrismaDatabaseUrl(env.DATABASE_URL, env.DATABASE_URL_DIRECT) },
         },
-        // Only log errors — removes noisy query/warn spam in dev terminal
-        log: ['error'],
+        log: env.NODE_ENV === 'development' && env.PRISMA_LOG_QUERIES
+            ? [{ emit: 'stdout', level: 'query' }]
+            : [],
     });
     return client;
 }
@@ -51,7 +72,8 @@ if (env.NODE_ENV !== 'production') {
 // ---------------------------------------------------------------------------
 // @ts-expect-error — Prisma's $on('error') is loosely typed at runtime
 prisma.$on('error', (e) => {
-    if (e.message?.includes('Closed')) {
+    if (e.message?.includes('Closed') ||
+        e.message?.includes("Can't reach database server")) {
         // Intentionally silent — Prisma reconnects automatically
         return;
     }

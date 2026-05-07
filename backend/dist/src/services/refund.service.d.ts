@@ -19,8 +19,8 @@ export declare class RefundService {
      *  - Failed records are NEVER deleted (immutable audit trail)
      */
     createRefund(input: CreateRefundInput): Promise<{
-        reason: string | null;
         status: import(".prisma/client").$Enums.RefundStatus;
+        reason: string | null;
         id: string;
         createdAt: Date;
         updatedAt: Date;
@@ -49,8 +49,8 @@ export declare class RefundService {
                 providerPaymentId: string | null;
             };
         } & {
-            reason: string | null;
             status: import(".prisma/client").$Enums.RefundStatus;
+            reason: string | null;
             id: string;
             createdAt: Date;
             updatedAt: Date;

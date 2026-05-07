@@ -45,6 +45,97 @@ const emptyForm: FormState = {
   isActive: true,
 };
 
+const CommissionFormFields = ({
+  values,
+  onChange,
+  categories,
+}: {
+  values: FormState;
+  onChange: (field: keyof FormState, value: any) => void;
+  categories: AdminCategory[];
+}) => (
+  <div className="space-y-4">
+    <div>
+      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Rule Scope *</Label>
+      <select
+        value={values.scope}
+        onChange={(e) => onChange("scope", e.target.value)}
+        className="mt-1 flex h-11 w-full items-center rounded-md border border-input bg-background px-3 py-2 text-sm"
+      >
+        <option value="GLOBAL">Global</option>
+        <option value="CATEGORY">Category</option>
+        <option value="SELLER">Seller</option>
+      </select>
+    </div>
+
+    {values.scope === "CATEGORY" && (
+      <div>
+        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Category *</Label>
+        <select
+          value={values.categoryId}
+          onChange={(e) => onChange("categoryId", e.target.value)}
+          className="mt-1 flex h-11 w-full items-center rounded-md border border-input bg-background px-3 py-2 text-sm"
+        >
+          <option value="">Select category</option>
+          {categories.map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
+      </div>
+    )}
+
+    {values.scope === "SELLER" && (
+      <div>
+        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Seller ID *</Label>
+        <Input
+          value={values.sellerId}
+          onChange={(e) => onChange("sellerId", e.target.value)}
+          className="mt-1 h-11"
+          placeholder="Paste seller UUID"
+        />
+      </div>
+    )}
+
+    <div className="grid grid-cols-2 gap-4">
+      <div>
+        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Commission % *</Label>
+        <Input
+          type="number"
+          min={0.01}
+          max={100}
+          step={0.01}
+          value={values.commissionPercent}
+          onChange={(e) => onChange("commissionPercent", Number(e.target.value))}
+          className="mt-1 h-11"
+          placeholder="e.g. 12.5"
+        />
+      </div>
+      <div>
+        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Platform Fee (₹)</Label>
+        <Input
+          type="number"
+          min={0}
+          step={1}
+          value={values.platformFee}
+          onChange={(e) => onChange("platformFee", Number(e.target.value))}
+          className="mt-1 h-11"
+          placeholder="e.g. 50"
+        />
+      </div>
+    </div>
+
+    <label className="flex items-center gap-2 text-sm cursor-pointer">
+      <input
+        type="checkbox"
+        checked={values.isActive}
+        onChange={(e) => onChange("isActive", e.target.checked)}
+        className="h-4 w-4"
+      />
+      Active
+    </label>
+  </div>
+);
+
 export default function AdminCommissionsPage() {
   const [loading, setLoading] = React.useState(true);
   const [rules, setRules] = React.useState<CommissionRule[]>([]);
@@ -178,95 +269,6 @@ export default function AdminCommissionsPage() {
     return "border-[#6B8CAE]/30 text-[#4A6B8C] bg-[#6B8CAE]/5";
   };
 
-  const CommissionFormFields = ({
-    values,
-    onChange,
-  }: {
-    values: FormState;
-    onChange: (field: keyof FormState, value: any) => void;
-  }) => (
-    <div className="space-y-4">
-      <div>
-        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Rule Scope *</Label>
-        <select
-          value={values.scope}
-          onChange={(e) => onChange("scope", e.target.value)}
-          className="mt-1 flex h-11 w-full items-center rounded-md border border-input bg-background px-3 py-2 text-sm"
-        >
-          <option value="GLOBAL">Global</option>
-          <option value="CATEGORY">Category</option>
-          <option value="SELLER">Seller</option>
-        </select>
-      </div>
-
-      {values.scope === "CATEGORY" && (
-        <div>
-          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Category *</Label>
-          <select
-            value={values.categoryId}
-            onChange={(e) => onChange("categoryId", e.target.value)}
-            className="mt-1 flex h-11 w-full items-center rounded-md border border-input bg-background px-3 py-2 text-sm"
-          >
-            <option value="">Select category</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      {values.scope === "SELLER" && (
-        <div>
-          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Seller ID *</Label>
-          <Input
-            value={values.sellerId}
-            onChange={(e) => onChange("sellerId", e.target.value)}
-            className="mt-1 h-11"
-            placeholder="Paste seller UUID"
-          />
-        </div>
-      )}
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Commission % *</Label>
-          <Input
-            type="number"
-            min={0.01}
-            max={100}
-            step={0.01}
-            value={values.commissionPercent}
-            onChange={(e) => onChange("commissionPercent", Number(e.target.value))}
-            className="mt-1 h-11"
-            placeholder="e.g. 12.5"
-          />
-        </div>
-        <div>
-          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Platform Fee (₹)</Label>
-          <Input
-            type="number"
-            min={0}
-            step={1}
-            value={values.platformFee}
-            onChange={(e) => onChange("platformFee", Number(e.target.value))}
-            className="mt-1 h-11"
-            placeholder="e.g. 50"
-          />
-        </div>
-      </div>
-
-      <label className="flex items-center gap-2 text-sm cursor-pointer">
-        <input
-          type="checkbox"
-          checked={values.isActive}
-          onChange={(e) => onChange("isActive", e.target.checked)}
-          className="h-4 w-4"
-        />
-        Active
-      </label>
-    </div>
-  );
-
   return (
     <div className="min-h-[calc(100vh-160px)] bg-background">
       <motion.div
@@ -345,6 +347,7 @@ export default function AdminCommissionsPage() {
               <CommissionFormFields
                 values={createForm}
                 onChange={(field, value) => setCreateForm((prev) => ({ ...prev, [field]: value }))}
+                categories={categories}
               />
               <div className="mt-6 flex justify-end gap-3">
                 <Button variant="outline" onClick={() => setShowCreate(false)}>Cancel</Button>
@@ -365,6 +368,7 @@ export default function AdminCommissionsPage() {
               <CommissionFormFields
                 values={editForm}
                 onChange={(field, value) => setEditForm((prev) => ({ ...prev, [field]: value }))}
+                categories={categories}
               />
               <div className="mt-6 flex justify-end gap-3">
                 <Button variant="outline" onClick={() => setEditingId(null)}>Cancel</Button>

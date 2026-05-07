@@ -1,3 +1,5 @@
+import { Platform } from "react-native";
+
 import { API_BASE_URL, apiRequest } from "./api";
 
 interface ImageKitAuthResponse {
@@ -19,7 +21,25 @@ export interface ReviewImageAsset {
   mimeType: string;
 }
 
-export async function uploadReviewImage(asset: ReviewImageAsset): Promise<string> {
+async function appendImageFile(formData: FormData, asset: ReviewImageAsset): Promise<void> {
+  if (Platform.OS === "web") {
+    const imageResponse = await fetch(asset.uri);
+    if (!imageResponse.ok) {
+      throw new Error("Failed to read selected image");
+    }
+    const blob = await imageResponse.blob();
+    formData.append("file", blob, asset.fileName);
+    return;
+  }
+
+  formData.append("file", {
+    uri: asset.uri,
+    name: asset.fileName,
+    type: asset.mimeType,
+  } as unknown as Blob);
+}
+
+async function uploadImageAsset(asset: ReviewImageAsset, folder: string): Promise<string> {
   if (!IMAGEKIT_PUBLIC_KEY) {
     throw new Error("Image upload is unavailable. Missing EXPO_PUBLIC_IMAGEKIT_PUBLIC_KEY.");
   }
@@ -30,17 +50,13 @@ export async function uploadReviewImage(asset: ReviewImageAsset): Promise<string
   });
 
   const formData = new FormData();
-  formData.append("file", {
-    uri: asset.uri,
-    name: asset.fileName,
-    type: asset.mimeType,
-  } as unknown as Blob);
+  await appendImageFile(formData, asset);
   formData.append("fileName", asset.fileName);
   formData.append("publicKey", IMAGEKIT_PUBLIC_KEY);
   formData.append("signature", auth.signature);
   formData.append("expire", String(auth.expire));
   formData.append("token", auth.token);
-  formData.append("folder", "/tatvivah/reviews");
+  formData.append("folder", folder);
   formData.append("useUniqueFileName", "true");
 
   const response = await fetch(IMAGEKIT_UPLOAD_URL, {
@@ -54,6 +70,14 @@ export async function uploadReviewImage(asset: ReviewImageAsset): Promise<string
   }
 
   return data.url;
+}
+
+export async function uploadReviewImage(asset: ReviewImageAsset): Promise<string> {
+  return uploadImageAsset(asset, "/tatvivah/reviews");
+}
+
+export async function uploadTryOnImage(asset: ReviewImageAsset): Promise<string> {
+  return uploadImageAsset(asset, "/tatvivah/tryon");
 }
 
 export function buildReviewImageName(index: number): string {

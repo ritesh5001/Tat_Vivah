@@ -13,31 +13,36 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { requestEmailOtp, verifyEmailOtp, persistAuthCookies } from "@/services/auth";
+import { requestAuthOtp, verifyAuthOtp, persistAuthCookies } from "@/services/auth";
 import { toast } from "sonner";
 import { heroContainerVariants, heroItemVariants } from "@/lib/motion.config";
 
-export default function VerifyOtpPage() {
+function VerifyOtpContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const prefill = searchParams.get("email") ?? "";
 
-  const [email, setEmail] = React.useState(prefill);
+  const [identifier, setIdentifier] = React.useState(prefill);
   const [otp, setOtp] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [sending, setSending] = React.useState(false);
+  const submittedOtpRef = React.useRef<string | null>(null);
 
-  const handleVerify = async (event: React.FormEvent<HTMLFormElement>) => {
+  // Email-only OTP flow; browser SMS OTP autofill not used.
+
+  const handleVerify = React.useCallback(async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!email || !otp) {
+    if (!identifier || !otp) {
+      console.warn("[auth-ui][verify-otp] blocked submit", { hasEmail: Boolean(identifier), hasOtp: Boolean(otp) });
       toast.error("Enter email and OTP.");
       return;
     }
 
     setLoading(true);
     try {
-      const result = await verifyEmailOtp({ email, otp });
+      console.info("[auth-ui][verify-otp] submit", { email: identifier, otpLength: otp.length });
+      const result = await verifyAuthOtp({ email: identifier, otp });
       if (result.accessToken && result.refreshToken && result.user) {
         persistAuthCookies(result.accessToken, result.refreshToken, result.user);
 
@@ -53,31 +58,43 @@ export default function VerifyOtpPage() {
 
         router.push(redirectMap[role] ?? "/");
       } else {
-        toast.success(result.message ?? "Email verified. Await admin approval.");
+        toast.success(result.message ?? `Email verified. Await admin approval.`);
         router.push("/login");
       }
     } catch (error) {
+      console.error("[auth-ui][verify-otp] failed", error);
       toast.error(error instanceof Error ? error.message : "OTP failed");
     } finally {
       setLoading(false);
     }
-  };
+  }, [identifier, otp, router]);
 
   const handleResend = async () => {
-    if (!email) {
-      toast.error("Enter your email first.");
+    if (!identifier) {
+      console.warn("[auth-ui][verify-otp] resend blocked", { hasEmail: false });
+      toast.error(`Enter your email address first.`);
       return;
     }
     setSending(true);
     try {
-      await requestEmailOtp(email);
-      toast.success("OTP sent to your email.");
+      console.info("[auth-ui][verify-otp] resend", { email: identifier });
+      await requestAuthOtp({ email: identifier });
+      toast.success(`OTP sent to your email address.`);
     } catch (error) {
+      console.error("[auth-ui][verify-otp] resend failed", error);
       toast.error(error instanceof Error ? error.message : "OTP request failed");
     } finally {
       setSending(false);
     }
   };
+
+  React.useEffect(() => {
+    if (otp.length !== 6 || loading || submittedOtpRef.current === otp) {
+      return;
+    }
+    submittedOtpRef.current = otp;
+    void handleVerify({ preventDefault() {} } as React.FormEvent<HTMLFormElement>);
+  }, [handleVerify, otp]); // loading intentionally omitted: submittedOtpRef prevents double-submit after failure
 
   return (
     <div className="min-h-[calc(100vh-160px)] bg-background">
@@ -106,8 +123,7 @@ export default function VerifyOtpPage() {
             variants={heroItemVariants}
             className="text-base leading-relaxed text-muted-foreground"
           >
-            We sent a 6-digit OTP to your email. Enter it below to activate your
-            account.
+            We sent a 6-digit OTP to your email address. Enter it below to continue with your account.
           </motion.p>
         </motion.div>
 
@@ -123,19 +139,18 @@ export default function VerifyOtpPage() {
                 Verify OTP
               </CardTitle>
               <CardDescription>
-                Enter your email and OTP to continue.
+                Enter your email address and OTP to continue.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
               <form className="space-y-5" onSubmit={handleVerify}>
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email address</Label>
+                  <Label htmlFor="identifier">Email address</Label>
                   <Input
-                    id="email"
-                    type="email"
+                    id="identifier"
                     placeholder="you@email.com"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
+                    value={identifier}
+                    onChange={(event) => setIdentifier(event.target.value)}
                     disabled={Boolean(prefill)}
                   />
                 </div>
@@ -146,6 +161,8 @@ export default function VerifyOtpPage() {
                     placeholder="Enter 6-digit OTP"
                     value={otp}
                     onChange={(event) => setOtp(event.target.value)}
+                    autoComplete={undefined}
+                    inputMode="numeric"
                   />
                 </div>
                 <Button className="w-full" size="lg" disabled={loading}>
@@ -165,5 +182,13 @@ export default function VerifyOtpPage() {
         </motion.div>
       </div>
     </div>
+  );
+}
+
+export default function VerifyOtpPage() {
+  return (
+    <React.Suspense fallback={null}>
+      <VerifyOtpContent />
+    </React.Suspense>
   );
 }

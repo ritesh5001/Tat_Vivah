@@ -19,9 +19,11 @@ import { ApiError } from '../errors/ApiError.js';
 import { recordReturnFatal } from '../monitoring/alerts.js';
 import { notificationService } from '../notifications/notification.service.js';
 import { refundService } from './refund.service.js';
+import { CACHE_KEYS, getFromCache, invalidateCacheByPattern, setCache } from '../utils/cache.util.js';
 
 /** Maximum days after delivery that a return can be requested. */
 const RETURN_WINDOW_DAYS = 7;
+const RETURN_CACHE_TTL_SECONDS = 30;
 
 interface ReturnItemInput {
     orderItemId: string;
@@ -174,6 +176,11 @@ export class ReturnService {
             { orderId, userId, returnId: returnRequest.id, refundAmount, itemCount: items.length },
             'return_requested',
         );
+        await Promise.allSettled([
+            invalidateCacheByPattern(`returns:user:${userId}*`),
+            invalidateCacheByPattern('returns:admin:*'),
+            invalidateCacheByPattern(`orders:buyer:${userId}:*`),
+        ]);
 
         return returnRequest;
     }
@@ -183,6 +190,10 @@ export class ReturnService {
     // ------------------------------------------------------------------
 
     async getMyReturns(userId: string) {
+        const cacheKey = CACHE_KEYS.USER_RETURNS(userId);
+        const cached = await getFromCache<{ returns: unknown[] }>(cacheKey);
+        if (cached) return cached;
+
         const returns = await prisma.returnRequest.findMany({
             where: { userId },
             orderBy: { createdAt: 'desc' },
@@ -200,7 +211,9 @@ export class ReturnService {
             },
         });
 
-        return { returns };
+        const response = { returns };
+        await setCache(cacheKey, response, RETURN_CACHE_TTL_SECONDS);
+        return response;
     }
 
     // ------------------------------------------------------------------
@@ -251,6 +264,10 @@ export class ReturnService {
         userId?: string;
         orderId?: string;
     }) {
+        const cacheKey = CACHE_KEYS.ADMIN_RETURNS(filters.status, filters.userId, filters.orderId);
+        const cached = await getFromCache<{ returns: unknown[] }>(cacheKey);
+        if (cached) return cached;
+
         const returns = await prisma.returnRequest.findMany({
             where: {
                 ...(filters.status ? { status: filters.status } : {}),
@@ -258,7 +275,7 @@ export class ReturnService {
                 ...(filters.orderId ? { orderId: filters.orderId } : {}),
             },
             orderBy: { createdAt: 'desc' },
-            take: 1000,
+            take: 100,
             include: {
                 items: true,
                 user: {
@@ -284,7 +301,9 @@ export class ReturnService {
             },
         });
 
-        return { returns };
+        const response = { returns };
+        await setCache(cacheKey, response, RETURN_CACHE_TTL_SECONDS);
+        return response;
     }
 
     // ------------------------------------------------------------------
@@ -447,6 +466,13 @@ export class ReturnService {
             { orderId: txResult.orderId, userId: txResult.userId, adminId, returnId, alreadyApproved: txResult.alreadyApproved },
             'return_approved',
         );
+        await Promise.allSettled([
+            invalidateCacheByPattern(`returns:user:${txResult.userId}*`),
+            invalidateCacheByPattern('returns:admin:*'),
+            invalidateCacheByPattern(`orders:buyer:${txResult.userId}:*`),
+            ...txResult.sellerIds.map((sellerId) => invalidateCacheByPattern(`orders:seller:${sellerId}:*`)),
+            ...txResult.sellerIds.map((sellerId) => invalidateCacheByPattern(`seller:analytics:*:${sellerId}:*`)),
+        ]);
 
         return {
             success: true,
@@ -516,6 +542,11 @@ export class ReturnService {
             { orderId: existing.order.id, userId: existing.order.userId, adminId, returnId },
             'return_rejected',
         );
+        await Promise.allSettled([
+            invalidateCacheByPattern(`returns:user:${existing.order.userId}*`),
+            invalidateCacheByPattern('returns:admin:*'),
+            invalidateCacheByPattern(`orders:buyer:${existing.order.userId}:*`),
+        ]);
 
         return {
             success: true,
@@ -536,6 +567,17 @@ export class ReturnService {
             const returnReq = await tx.returnRequest.findUnique({
                 where: { id: returnId },
                 include: {
+                    items: {
+                        include: {
+                            orderItem: {
+                                select: {
+                                    sellerId: true,
+                                    quantity: true,
+                                    sellerPriceSnapshot: true,
+                                },
+                            },
+                        },
+                    },
                     order: {
                         select: {
                             id: true,
@@ -583,13 +625,21 @@ export class ReturnService {
             if (locked.refundAmount && locked.refundAmount > 0) {
                 const settlements = await tx.sellerSettlement.findMany({
                     where: { orderId: locked.orderId },
-                    select: { id: true, grossAmount: true, netAmount: true, commissionAmount: true, platformFee: true },
+                    select: { id: true, sellerId: true, grossAmount: true, netAmount: true, commissionAmount: true, platformFee: true },
                 });
 
-                let remainingRefund = locked.refundAmount;
+                const sellerRefundMap = new Map<string, number>();
+                for (const returnItem of returnReq.items) {
+                    const sellerId = returnItem.orderItem.sellerId;
+                    const sellerRefund =
+                        (returnItem.orderItem.sellerPriceSnapshot ?? 0) * returnItem.quantity;
+                    sellerRefundMap.set(sellerId, (sellerRefundMap.get(sellerId) ?? 0) + sellerRefund);
+                }
+
                 for (const s of settlements) {
-                    if (remainingRefund <= 0) break;
-                    const deduction = Math.min(remainingRefund, s.grossAmount);
+                    const targetRefund = sellerRefundMap.get(s.sellerId) ?? 0;
+                    if (targetRefund <= 0) continue;
+                    const deduction = Math.min(targetRefund, s.grossAmount);
                     const ratio = s.grossAmount > 0 ? (s.grossAmount - deduction) / s.grossAmount : 0;
                     await tx.sellerSettlement.update({
                         where: { id: s.id },
@@ -599,7 +649,6 @@ export class ReturnService {
                             netAmount: Math.round(s.netAmount * ratio * 100) / 100,
                         },
                     });
-                    remainingRefund -= deduction;
                 }
             }
 
@@ -658,6 +707,12 @@ export class ReturnService {
             { orderId: txResult.orderId, userId: txResult.userId, adminId, returnId, refundTriggered, elapsedMs },
             'return_refund_processed',
         );
+        await Promise.allSettled([
+            invalidateCacheByPattern(`returns:user:${txResult.userId}*`),
+            invalidateCacheByPattern('returns:admin:*'),
+            invalidateCacheByPattern(`orders:buyer:${txResult.userId}:*`),
+            invalidateCacheByPattern('seller:analytics:*'),
+        ]);
 
         return { success: true, returnId, refundTriggered, alreadyRefunded: false };
     }

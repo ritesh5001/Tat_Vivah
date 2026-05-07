@@ -18,7 +18,7 @@ export const chartQuerySchema = z.object({
 });
 export const topProductsQuerySchema = z.object({
     query: z.object({
-        limit: z.coerce.number().int().min(1).max(50).default(10),
+        limit: z.coerce.number().int().min(1).max(20).default(10),
     }),
 });
 export const refundImpactQuerySchema = z.object({

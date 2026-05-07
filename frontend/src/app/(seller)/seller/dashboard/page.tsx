@@ -2,20 +2,20 @@
 
 import * as React from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
 import useSWR from "swr";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-} from "recharts";
 import { Button } from "@/components/ui/button";
+
+const RevenueChart = dynamic(() => import("./_components/RevenueChart"), {
+  ssr: false,
+  loading: () => <div className="h-72 sm:h-80 animate-pulse rounded bg-border-soft dark:bg-border" />,
+});
+
+const RefundBarChart = dynamic(() => import("./_components/RefundBarChart"), {
+  ssr: false,
+  loading: () => <div className="h-64 animate-pulse rounded bg-border-soft dark:bg-border" />,
+});
 import {
   Card,
   CardContent,
@@ -148,18 +148,6 @@ const summaryFetcher = () => getAnalyticsSummary();
 const topProductsFetcher = () => getTopProducts(10);
 const inventoryFetcher = () => getInventoryHealth();
 const refundFetcher = () => getRefundImpact();
-
-// ─── Custom tooltip ──────────────────────────────────────────────────────────
-
-function RevenueTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number }>; label?: string }) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="rounded-md border border-border-soft bg-card px-3 py-2 shadow-lg text-xs">
-      <p className="text-muted-foreground mb-1">{label}</p>
-      <p className="font-medium text-foreground">{currency.format(payload[0].value)}</p>
-    </div>
-  );
-}
 
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
@@ -389,43 +377,7 @@ export default function SellerDashboardPage() {
                   transition={{ duration: 0.35, ease: EASE }}
                   className="h-72 sm:h-80"
                 >
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData}>
-                      <defs>
-                        <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="var(--color-gold, #B8860B)" stopOpacity={0.4} />
-                          <stop offset="100%" stopColor="var(--color-gold, #B8860B)" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-border-soft" />
-                      <XAxis
-                        dataKey="date"
-                        tick={{ fontSize: 10 }}
-                        className="text-muted-foreground"
-                        tickFormatter={(v: string) => {
-                          const d = new Date(v);
-                          return chartInterval === "monthly"
-                            ? d.toLocaleDateString("en-IN", { month: "short", year: "2-digit" })
-                            : d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
-                        }}
-                      />
-                      <YAxis
-                        tick={{ fontSize: 10 }}
-                        className="text-muted-foreground"
-                        tickFormatter={(v: number) => compact.format(v)}
-                        width={50}
-                      />
-                      <Tooltip content={<RevenueTooltip />} />
-                      <Line
-                        type="monotone"
-                        dataKey="revenue"
-                        stroke="var(--color-gold, #B8860B)"
-                        strokeWidth={2.5}
-                        dot={false}
-                        activeDot={{ r: 4, fill: "var(--color-gold, #B8860B)" }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  <RevenueChart data={chartData} interval={chartInterval} />
                 </motion.div>
               </AnimatePresence>
             )}
@@ -696,44 +648,7 @@ export default function SellerDashboardPage() {
               <EmptyState message="No returns or refunds recorded yet — great news for your store!" />
             ) : (
               <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={refundData.mostReturnedProducts}
-                    layout="vertical"
-                    margin={{ left: 10, right: 20, top: 5, bottom: 5 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-border-soft" horizontal={false} />
-                    <XAxis type="number" tick={{ fontSize: 10 }} className="text-muted-foreground" />
-                    <YAxis
-                      type="category"
-                      dataKey="title"
-                      tick={{ fontSize: 10 }}
-                      className="text-muted-foreground"
-                      width={120}
-                      tickFormatter={(v: string) => (v.length > 18 ? v.slice(0, 18) + "\u2026" : v)}
-                    />
-                    <Tooltip
-                      content={({ active, payload }: Record<string, unknown>) => {
-                        if (!active || !Array.isArray(payload) || payload.length === 0) return null;
-                        const d = (payload as Array<{ payload: Record<string, unknown> }>)[0].payload;
-                        return (
-                          <div className="rounded-md border border-border-soft bg-card px-3 py-2 shadow-lg text-xs space-y-1">
-                            <p className="font-medium text-foreground">{String(d.title)}</p>
-                            <p className="text-muted-foreground">
-                              Returns: {String(d.returnCount)} &middot; Impact: {currency.format(Number(d.refundAmount))}
-                            </p>
-                          </div>
-                        );
-                      }}
-                    />
-                    <Bar
-                      dataKey="returnCount"
-                      fill="var(--color-gold, #B8860B)"
-                      radius={[0, 4, 4, 0]}
-                      barSize={20}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
+                <RefundBarChart data={refundData.mostReturnedProducts} />
               </div>
             )}
           </CardContent>

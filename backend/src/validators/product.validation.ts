@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { createVariantSchema } from './variant.validation.js';
 
 /**
  * Create Product Validation Schema
@@ -13,10 +14,6 @@ export const createProductSchema = z.object({
         .string()
         .min(3, 'Title must be at least 3 characters')
         .max(255, 'Title must be at most 255 characters'),
-
-    sellerPrice: z
-        .number({ invalid_type_error: 'Seller price must be a number' })
-        .positive('Seller price must be positive'),
 
     description: z
         .string()
@@ -33,6 +30,14 @@ export const createProductSchema = z.object({
         .boolean()
         .optional()
         .default(false),
+
+    occasionIds: z
+        .array(z.string().min(1))
+        .optional(),
+
+    variants: z
+        .array(createVariantSchema)
+        .min(1, 'At least one variant is required'),
 });
 
 export type CreateProductInput = z.infer<typeof createProductSchema>;
@@ -67,6 +72,10 @@ export const updateProductSchema = z.object({
     isPublished: z
         .boolean()
         .optional(),
+
+    occasionIds: z
+        .array(z.string().min(1))
+        .optional(),
 });
 
 export type UpdateProductInput = z.infer<typeof updateProductSchema>;
@@ -86,7 +95,7 @@ export const productQuerySchema = z.object({
     limit: z
         .string()
         .transform(Number)
-        .pipe(z.number().int().min(1).max(100))
+        .pipe(z.number().int().min(1).max(20))
         .optional()
         .default('20'),
 
@@ -95,6 +104,11 @@ export const productQuerySchema = z.object({
         .optional(),
 
     search: z
+        .string()
+        .max(100)
+        .optional(),
+
+    occasion: z
         .string()
         .max(100)
         .optional(),

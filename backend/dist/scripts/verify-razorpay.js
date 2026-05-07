@@ -72,8 +72,12 @@ async function verifyRazorpay() {
                 adminListingPrice: 1200,
                 variants: {
                     create: {
+                        size: 'Default',
                         sku: `SKU_RZP_${Date.now()}`,
+                        sellerPrice: 1000,
+                        adminListingPrice: 1200,
                         price: 1200,
+                        status: 'APPROVED',
                         inventory: { create: { stock: 10 } }
                     }
                 }

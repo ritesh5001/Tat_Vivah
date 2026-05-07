@@ -1,6 +1,6 @@
 import { prisma } from '../config/db.js';
 import { cartRepository } from '../repositories/cart.repository.js';
-import { invalidateCache, CACHE_KEYS, } from '../utils/cache.util.js';
+import { invalidateCache, invalidateCacheByPattern, CACHE_KEYS, } from '../utils/cache.util.js';
 import { emitOrderPlaced } from '../events/order.events.js';
 import { ApiError } from '../errors/ApiError.js';
 import { checkoutLogger, inventoryLogger } from '../config/logger.js';
@@ -8,7 +8,10 @@ import { inventoryReserveAttemptTotal, checkoutSuccessTotal, checkoutFailTotal, 
 import { recordReserveAttempt, recordReserveFailure } from '../monitoring/alerts.js';
 import { couponService } from './coupon.service.js';
 import { Prisma } from '@prisma/client';
+import { dispatchFreshness } from '../live/freshness.service.js';
+import { CACHE_TAGS, orderTag, productTag } from '../live/cache-tags.js';
 const round2 = (value) => value.toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+const MAX_CHECKOUT_ITEMS = 20;
 /**
  * Checkout Service
  * Handles the checkout process with atomic inventory reservation.
@@ -40,48 +43,83 @@ export class CheckoutService {
         // =====================================================================
         // PHASE 1 — Read-only validation (outside transaction)
         // =====================================================================
-        const cart = await this.cartRepo.getCartWithDetails(userId);
+        const [cart, buyer] = await Promise.all([
+            this.cartRepo.getCartWithDetails(userId),
+            prisma.user.findUnique({
+                where: { id: userId },
+                select: { state: true },
+            }),
+        ]);
         if (!cart || cart.items.length === 0) {
             throw ApiError.badRequest('Cart is empty');
         }
+        if (cart.items.length > MAX_CHECKOUT_ITEMS) {
+            throw ApiError.badRequest(`Cart cannot contain more than ${MAX_CHECKOUT_ITEMS} items per checkout`);
+        }
         const validationErrors = [];
         const itemsWithStock = [];
-        // Fetch buyer state for GST calculation
-        const buyer = await prisma.user.findUnique({
-            where: { id: userId },
-            select: { state: true },
-        });
         const buyerState = buyer?.state ?? '';
+        const productIds = cart.items.map((i) => i.productId);
+        const sellerIds = [
+            ...new Set(cart.items
+                .map((i) => i.product?.sellerId)
+                .filter((sellerId) => Boolean(sellerId))),
+        ];
+        const [productTaxRates, sellerProfiles] = await Promise.all([
+            prisma.product.findMany({
+                where: { id: { in: productIds } },
+                select: { id: true, taxRate: true },
+            }),
+            prisma.seller_profiles.findMany({
+                where: { user_id: { in: sellerIds } },
+                select: { user_id: true, state: true },
+            }),
+        ]);
+        const variants = await prisma.productVariant.findMany({
+            where: { id: { in: [...new Set(cart.items.map((item) => item.variantId))] } },
+            select: {
+                id: true,
+                sellerPrice: true,
+                adminListingPrice: true,
+                price: true,
+                status: true,
+            },
+        });
+        const taxRateMap = new Map(productTaxRates.map((p) => [p.id, p.taxRate ?? 0]));
+        const sellerStateMap = new Map(sellerProfiles.map((s) => [s.user_id, s.state ?? '']));
+        const variantMap = new Map(variants.map((variant) => [
+            variant.id,
+            {
+                sellerPrice: Number(variant.sellerPrice),
+                adminListingPrice: variant.adminListingPrice == null ? null : Number(variant.adminListingPrice),
+                price: Number(variant.price),
+                status: variant.status,
+            },
+        ]));
         for (const item of cart.items) {
             const availableStock = item.variant?.inventory?.stock ?? 0;
             if (!item.product || !item.variant) {
                 validationErrors.push(`Product or variant not found for item ${item.id}`);
                 continue;
             }
-            const adminListingPriceRaw = item.product.adminListingPrice;
-            const sellerPriceRaw = item.product.sellerPrice;
-            if (adminListingPriceRaw === null || adminListingPriceRaw === undefined) {
-                validationErrors.push(`Pricing is pending approval for ${item.product.title}`);
+            const variantPricing = variantMap.get(item.variantId);
+            if (!variantPricing) {
+                validationErrors.push(`Pricing could not be resolved for ${item.product.title}`);
                 continue;
             }
-            const adminListingPrice = Number(adminListingPriceRaw);
-            const sellerPrice = Number(sellerPriceRaw ?? adminListingPriceRaw);
+            if (variantPricing.status !== 'APPROVED') {
+                validationErrors.push(`Selected variant is pending approval for ${item.product.title}`);
+                continue;
+            }
+            const adminListingPrice = variantPricing.price;
+            const sellerPrice = variantPricing.sellerPrice;
             const margin = adminListingPrice - sellerPrice;
             if (margin < 0) {
                 validationErrors.push(`Invalid pricing state for ${item.product.title}`);
                 continue;
             }
-            // Fetch product taxRate and seller state for GST
-            const productWithTax = await prisma.product.findUnique({
-                where: { id: item.productId },
-                select: { taxRate: true },
-            });
-            const sellerProfile = await prisma.seller_profiles.findUnique({
-                where: { user_id: item.product.sellerId },
-                select: { state: true },
-            });
-            const productTaxRate = productWithTax?.taxRate ?? 0;
-            const sellerState = sellerProfile?.state ?? '';
+            const productTaxRate = taxRateMap.get(item.productId) ?? 0;
+            const sellerState = sellerStateMap.get(item.product.sellerId) ?? '';
             if (item.quantity > availableStock) {
                 validationErrors.push(`Insufficient stock for ${item.product.title}: Available ${availableStock}, Requested ${item.quantity}`);
             }
@@ -236,6 +274,7 @@ export class CheckoutService {
                     shippingAddressLine1: shipping?.shippingAddressLine1 ?? null,
                     shippingAddressLine2: shipping?.shippingAddressLine2 ?? null,
                     shippingCity: shipping?.shippingCity ?? null,
+                    shippingPincode: shipping?.shippingPincode ?? null,
                     shippingNotes: shipping?.shippingNotes ?? null,
                     status: 'PLACED',
                     items: {
@@ -269,17 +308,15 @@ export class CheckoutService {
                 });
             }
             // 2c. Create RESERVE inventory movements (audit trail)
-            for (const item of itemsWithStock) {
-                await tx.inventoryMovement.create({
-                    data: {
-                        variantId: item.variantId,
-                        orderId: created.id,
-                        quantity: item.quantity,
-                        type: 'RESERVE',
-                        reason: 'CHECKOUT',
-                    },
-                });
-            }
+            await tx.inventoryMovement.createMany({
+                data: itemsWithStock.map((item) => ({
+                    variantId: item.variantId,
+                    orderId: created.id,
+                    quantity: item.quantity,
+                    type: 'RESERVE',
+                    reason: 'CHECKOUT',
+                })),
+            });
             // 2d. Clear cart
             await tx.cartItem.deleteMany({
                 where: { cartId: cart.id },
@@ -293,14 +330,40 @@ export class CheckoutService {
         // PHASE 3 — Post-transaction side effects (best-effort)
         // =====================================================================
         // Invalidate caches
-        await Promise.all([
-            invalidateCache(CACHE_KEYS.CART(userId)),
-            invalidateCache(CACHE_KEYS.BUYER_ORDERS(userId)),
-            ...itemsWithStock.map((item) => invalidateCache(CACHE_KEYS.PRODUCT_DETAIL(item.productId))),
+        const productIdsToInvalidate = Array.from(new Set(itemsWithStock.map((item) => item.productId)));
+        // Keep buyer cart immediately consistent for UX; run broader invalidations asynchronously.
+        await invalidateCache(CACHE_KEYS.CART(userId));
+        void Promise.allSettled([
+            invalidateCacheByPattern(`orders:buyer:${userId}:*`),
+            invalidateCacheByPattern(`orders:detail:*`),
+            invalidateCacheByPattern(`recommendations:${userId}`),
+            ...productIdsToInvalidate.map((productId) => invalidateCache(CACHE_KEYS.PRODUCT_DETAIL(productId))),
             invalidateCache(CACHE_KEYS.PRODUCTS_LIST),
-        ]);
+            invalidateCacheByPattern('products:list:*'),
+            invalidateCacheByPattern('search:*'),
+        ]).catch((error) => {
+            checkoutLogger.warn({ userId, orderId: order.id, error }, 'Async cache invalidation failed');
+        });
         // Trigger Notifications (event-driven, idempotent, best-effort)
-        await emitOrderPlaced(order.id);
+        void emitOrderPlaced(order.id).catch((error) => {
+            checkoutLogger.error({ orderId: order.id, error }, 'Failed to emit order placed event');
+        });
+        void dispatchFreshness({
+            type: 'order.updated',
+            entityId: order.id,
+            tags: [
+                CACHE_TAGS.orders,
+                CACHE_TAGS.userOrders,
+                CACHE_TAGS.sellerOrders,
+                CACHE_TAGS.products,
+                CACHE_TAGS.search,
+                orderTag(order.id),
+                ...productIdsToInvalidate.map((productId) => productTag(productId)),
+            ],
+            audience: { allAuthenticated: true },
+        }).catch((error) => {
+            checkoutLogger.warn({ orderId: order.id, error }, 'checkout_freshness_dispatch_failed');
+        });
         checkoutSuccessTotal.inc();
         checkoutLogger.info({
             event: 'checkout_success',

@@ -54,9 +54,10 @@ export async function requestReturn(
   });
 }
 
-export async function listMyReturns() {
+export async function listMyReturns(token?: string | null) {
   return apiRequest<{ returns: ReturnRequestRecord[] }>("/v1/returns/my", {
     method: "GET",
+    token,
   });
 }
 

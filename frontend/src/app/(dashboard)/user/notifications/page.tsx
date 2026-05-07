@@ -19,6 +19,7 @@ import { toast } from "sonner";
 
 const typeLabel: Record<string, string> = {
   ORDER_PLACED: "Order Placed",
+  SHIPMENT_CREATED: "Shipment Created",
   ORDER_SHIPPED: "Shipped",
   ORDER_DELIVERED: "Delivered",
   PAYMENT_SUCCESS: "Payment Confirmed",
@@ -32,6 +33,7 @@ const typeLabel: Record<string, string> = {
 
 const typeIcon: Record<string, string> = {
   ORDER_PLACED: "📦",
+  SHIPMENT_CREATED: "📬",
   ORDER_SHIPPED: "🚚",
   ORDER_DELIVERED: "✅",
   PAYMENT_SUCCESS: "💳",
@@ -69,6 +71,7 @@ function notificationHref(n: AppNotification): string | null {
   if (!orderId) return null;
   switch (n.type) {
     case "ORDER_PLACED":
+    case "SHIPMENT_CREATED":
     case "ORDER_SHIPPED":
     case "ORDER_DELIVERED":
     case "PAYMENT_SUCCESS":

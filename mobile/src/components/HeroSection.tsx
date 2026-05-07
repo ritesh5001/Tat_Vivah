@@ -5,10 +5,10 @@ import { colors, radius, spacing, typography, shadow } from "../theme/tokens";
 export function HeroSection() {
   return (
     <View style={styles.heroCard}>
-      <Text style={styles.heroEyebrow}>Curated men's fashion</Text>
+      <Text style={styles.heroEyebrow}>Curated men&apos;s fashion</Text>
       <Text style={styles.heroTitle}>The art of timeless elegance</Text>
       <Text style={styles.heroSubtitle}>
-        Discover India's finest ethnic wear, handcrafted by artisans.
+        Discover India&apos;s finest ethnic wear, handcrafted by artisans.
       </Text>
       <View style={styles.heroActions}>
         <Pressable style={styles.primaryButton}>
@@ -28,7 +28,7 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.lg,
     padding: spacing.lg,
     backgroundColor: "#F8F2EA",
-    borderRadius: radius.xl,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     ...shadow.card,
@@ -61,7 +61,7 @@ const styles = StyleSheet.create({
   primaryButton: {
     backgroundColor: colors.charcoal,
     paddingVertical: spacing.sm,
-    borderRadius: radius.md,
+    borderRadius: 0,
     alignItems: "center",
   },
   primaryButtonText: {
@@ -75,7 +75,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.borderSoft,
     paddingVertical: spacing.sm,
-    borderRadius: radius.md,
+    borderRadius: 0,
     alignItems: "center",
   },
   ghostButtonText: {

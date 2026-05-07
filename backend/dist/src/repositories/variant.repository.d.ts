@@ -4,6 +4,9 @@ import type { ProductVariantEntity, VariantWithInventory, CreateVariantRequest, 
  * Handles database operations for product variants
  */
 export declare class VariantRepository {
+    private normalizeColor;
+    private normalizeSize;
+    private resolveEffectivePrice;
     /**
      * Create a variant with initial inventory
      */
@@ -22,7 +25,18 @@ export declare class VariantRepository {
     findByIdWithProduct(id: string): Promise<{
         id: string;
         productId: string;
+        size: string;
+        color: string | null;
+        images: string[];
+        sku: string;
+        sellerPrice: number;
+        adminListingPrice: number | null;
         price: number;
+        status: string;
+        compareAtPrice: number | null;
+        inventory: {
+            stock: number;
+        } | null;
         product: {
             id: string;
             sellerId: string;
@@ -38,7 +52,11 @@ export declare class VariantRepository {
     /**
      * Check if SKU exists
      */
-    skuExists(productId: string, sku: string): Promise<boolean>;
+    skuExists(productId: string, sku: string, excludeId?: string): Promise<boolean>;
+    /**
+     * Check if a size/color combination already exists.
+     */
+    variantCombinationExists(productId: string, size: string, color?: string | null, excludeId?: string): Promise<boolean>;
 }
 export declare const variantRepository: VariantRepository;
 //# sourceMappingURL=variant.repository.d.ts.map

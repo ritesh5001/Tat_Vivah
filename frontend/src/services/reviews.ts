@@ -1,5 +1,9 @@
 import { apiRequest } from "@/services/api";
 
+const REVIEWS_CACHE_TTL_MS = 2 * 60 * 1000;
+const reviewsCache = new Map<string, { expiresAt: number; data: ReviewListResponse }>();
+const reviewsInflight = new Map<string, Promise<ReviewListResponse>>();
+
 interface User {
     id: string;
     fullName: string;
@@ -44,16 +48,45 @@ export async function fetchProductReviews(
     productId: string,
     query?: { page?: number; limit?: number; sort?: string }
 ): Promise<ReviewListResponse> {
+    const safePage = Math.max(1, Math.trunc(query?.page || 1));
+    const safeLimit = Math.min(20, Math.max(1, Math.trunc(query?.limit || 10)));
+    const safeSort = query?.sort || "newest";
+    const cacheKey = `${productId}:${safePage}:${safeLimit}:${safeSort}`;
+    const now = Date.now();
+
+    const cached = reviewsCache.get(cacheKey);
+    if (cached && cached.expiresAt > now) {
+        return cached.data;
+    }
+
+    const inflight = reviewsInflight.get(cacheKey);
+    if (inflight) {
+        return inflight;
+    }
+
     const params = new URLSearchParams();
-    if (query?.page) params.set("page", String(query.page));
-    if (query?.limit) params.set("limit", String(query.limit));
-    if (query?.sort) params.set("sort", query.sort);
+    params.set("page", String(safePage));
+    params.set("limit", String(safeLimit));
+    params.set("sort", safeSort);
     const qs = params.toString();
 
-    return apiRequest<ReviewListResponse>(
+    const request = apiRequest<ReviewListResponse>(
         `/v1/products/${productId}/reviews${qs ? `?${qs}` : ""}`,
-        { method: "GET", showLoader: false }
-    );
+        { method: "GET" }
+    )
+        .then((data) => {
+            reviewsCache.set(cacheKey, {
+                data,
+                expiresAt: Date.now() + REVIEWS_CACHE_TTL_MS,
+            });
+            return data;
+        })
+        .finally(() => {
+            reviewsInflight.delete(cacheKey);
+        });
+
+    reviewsInflight.set(cacheKey, request);
+    return request;
 }
 
 export async function submitProductReview(

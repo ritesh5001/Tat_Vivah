@@ -5,6 +5,7 @@ import { getQueueRedisConnection } from './notification.queue.js';
 import { notificationRepository } from './notification.repository.js';
 import { sendEmail } from './email/resend.client.js';
 import { orderPlacedTemplate } from './email/templates/order-placed.js';
+import { shipmentCreatedTemplate } from './email/templates/shipment-created.js';
 import { orderShippedTemplate } from './email/templates/order-shipped.js';
 import { orderDeliveredTemplate } from './email/templates/order-delivered.js';
 import { sellerNewOrderTemplate } from './email/templates/seller-new-order.js';
@@ -47,6 +48,9 @@ export async function processNotificationJob(job) {
         switch (notification.type) {
             case 'ORDER_PLACED':
                 emailData = orderPlacedTemplate(meta);
+                break;
+            case 'SHIPMENT_CREATED':
+                emailData = shipmentCreatedTemplate(meta);
                 break;
             case 'ORDER_SHIPPED':
                 emailData = orderShippedTemplate(meta);

@@ -26,6 +26,46 @@ export function errorMiddleware(
     // Log error for debugging (in production, use proper logging)
     console.error('[Error]:', err);
 
+    const prismaError = err as Error & { code?: string; meta?: Record<string, unknown> };
+    const bodyParserError = err as Error & {
+        status?: number;
+        type?: string;
+        limit?: number | string;
+        length?: number | string;
+    };
+
+    if (bodyParserError.type === 'entity.too.large' || bodyParserError.status === 413) {
+        const response: ErrorResponse = {
+            success: false,
+            error: {
+                message: 'Request payload is too large',
+                statusCode: 413,
+                details: {
+                    type: bodyParserError.type,
+                    limit: bodyParserError.limit,
+                    length: bodyParserError.length,
+                },
+            },
+        };
+
+        res.status(413).json(response);
+        return;
+    }
+
+    if (prismaError.code === 'P1001') {
+        const response: ErrorResponse = {
+            success: false,
+            error: {
+                message: 'Database temporarily unavailable',
+                statusCode: 503,
+                ...(prismaError.meta && { details: prismaError.meta }),
+            },
+        };
+
+        res.status(503).json(response);
+        return;
+    }
+
     // Handle ApiError (operational errors)
     if (err instanceof ApiError) {
         const response: ErrorResponse = {

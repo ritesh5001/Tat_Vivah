@@ -55,7 +55,7 @@ export function MarketplaceSection({
         <Text style={styles.title}>The Heritage Collection</Text>
         <Text style={styles.copy}>
           Limited edition pieces crafted by third-generation artisans from
-          Varanasi and Lucknow. Each release celebrates India's textile legacy.
+          Varanasi and Lucknow. Each release celebrates India&apos;s textile legacy.
         </Text>
         <Pressable style={styles.ghostButton} onPress={onNewArrivalsPress}>
           <Text style={styles.ghostButtonText}>Discover new arrivals</Text>
@@ -73,7 +73,7 @@ const styles = StyleSheet.create({
   marketplaceCard: {
     padding: spacing.lg,
     backgroundColor: "#F8F2E8",
-    borderRadius: radius.xl,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     ...shadow.card,
@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
   heritageCard: {
     marginTop: spacing.lg,
     padding: spacing.lg,
-    borderRadius: radius.xl,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: colors.warmWhite,
@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     backgroundColor: colors.charcoal,
     paddingVertical: spacing.sm,
-    borderRadius: radius.md,
+    borderRadius: 0,
     alignItems: "center",
   },
   primaryButtonText: {
@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.borderSoft,
     paddingVertical: spacing.sm,
-    borderRadius: radius.md,
+    borderRadius: 0,
     alignItems: "center",
   },
   ghostButtonText: {
@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
   },
   featureCard: {
     padding: spacing.md,
-    borderRadius: radius.lg,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: colors.warmWhite,

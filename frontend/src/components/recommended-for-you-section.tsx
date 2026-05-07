@@ -1,13 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { motion } from "framer-motion";
-import {
-  fadeInVariants,
-  staggerContainerVariants,
-  staggerItemVariants,
-  viewportSettings,
-} from "@/lib/motion.config";
 import { apiRequest } from "@/services/api";
 import {
   MarketplaceProductCard,
@@ -39,7 +32,6 @@ export function RecommendedForYouSection() {
 
     apiRequest<RecommendationsResponse>("/v1/personalization/recommendations", {
       method: "GET",
-      showLoader: false,
     })
       .then((data) => {
         if (active) setProducts(data.products ?? []);
@@ -61,34 +53,22 @@ export function RecommendedForYouSection() {
   return (
     <section id="recommended" className="border-t border-border-soft">
       <div className="mx-auto max-w-6xl px-6 py-24">
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={viewportSettings}
-          variants={fadeInVariants}
-          className="mb-16"
-        >
+        <div className="mb-16">
           <p className="text-xs font-medium uppercase tracking-[0.3em] text-gold mb-4">
             Personalized Picks
           </p>
           <h2 className="font-serif text-3xl font-light tracking-tight text-foreground sm:text-4xl">
             Recommended For You
           </h2>
-        </motion.div>
+        </div>
 
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={viewportSettings}
-          variants={staggerContainerVariants}
-          className="grid gap-8 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5"
-        >
+        <div className="grid grid-cols-2 gap-8 md:grid-cols-3 lg:grid-cols-4">
           {products.slice(0, 6).map((product) => (
-            <motion.div key={product.id} variants={staggerItemVariants}>
+            <div key={product.id}>
               <MarketplaceProductCard product={product} />
-            </motion.div>
+            </div>
           ))}
-        </motion.div>
+        </div>
       </div>
     </section>
   );

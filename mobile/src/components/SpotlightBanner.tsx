@@ -13,7 +13,7 @@ export function SpotlightBanner() {
 
 const styles = StyleSheet.create({
   banner: {
-    borderRadius: 20,
+    borderRadius: 0,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.navbarBackground,
