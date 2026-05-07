@@ -83,9 +83,16 @@ export default function CategoriesScreen() {
     [popularData]
   );
 
-  const sidebarWidth = Math.round(windowWidth * 0.22);
+  const sidebarWidth = Math.max(72, Math.round(windowWidth * 0.18));
   const contentWidth = windowWidth - sidebarWidth;
-  const cardWidth = Math.floor((contentWidth - spacing.md * 2 - spacing.md * (COLS - 1)) / COLS);
+  const contentPad = 10;
+  const cardGap = 10;
+  const cardWidth = Math.floor((contentWidth - contentPad * 2 - cardGap * (COLS - 1)) / COLS);
+
+  const selectedCategory = React.useMemo(
+    () => categories.find((c) => c.id === selectedCategoryId) ?? null,
+    [categories, selectedCategoryId]
+  );
 
   const handleProductPress = React.useCallback(
     (product: ProductItem) => {
@@ -218,9 +225,22 @@ export default function CategoriesScreen() {
 
           {/* Popular Section */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              {selectedCategoryId ? "All Products" : "All Products"}
-            </Text>
+            {selectedCategory ? (
+              <View style={styles.categoryHeader}>
+                <View style={styles.categoryHeaderRow}>
+                  <View style={styles.categoryHeaderMark} />
+                  <Text style={styles.categoryHeaderEyebrow}>Shopping</Text>
+                </View>
+                <Text style={styles.categoryHeaderTitle}>{selectedCategory.name}</Text>
+                <Text style={styles.categoryHeaderMeta}>
+                  {popularLoading
+                    ? "Loading…"
+                    : `${popularProducts.length} ${popularProducts.length === 1 ? "piece" : "pieces"} curated for you`}
+                </Text>
+              </View>
+            ) : (
+              <Text style={styles.sectionTitle}>All Products</Text>
+            )}
             {popularLoading ? (
               <View style={styles.loadingWrap}>
                 <TatvivahLoader size="sm" color={colors.gold} />
@@ -260,7 +280,7 @@ const styles = StyleSheet.create({
     borderRightColor: colors.borderSoft,
     backgroundColor: colors.background,
     paddingHorizontal: 0,
-    paddingTop: spacing.sm,
+    paddingTop: 6,
   },
   sidebarLoading: {
     flex: 1,
@@ -268,66 +288,106 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   categoryItem: {
-    paddingVertical: spacing.xs,
+    paddingVertical: 8,
     paddingHorizontal: 2,
     borderLeftWidth: 3,
     borderLeftColor: "transparent",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: spacing.xs,
+    marginBottom: 2,
   },
   categoryItemActive: {
     borderLeftColor: colors.primaryAccent,
     backgroundColor: "rgba(184, 149, 108, 0.08)",
   },
   categoryImage: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: colors.surface,
   },
   categoryImagePlaceholder: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: colors.surface,
     justifyContent: "center",
     alignItems: "center",
   },
   categoryName: {
     fontFamily: typography.sans,
-    fontSize: 11,
+    fontSize: 10,
     color: colors.charcoal,
     textAlign: "center",
-    marginTop: spacing.xs,
+    marginTop: 4,
     flexShrink: 1,
-    maxWidth: 66,
+    paddingHorizontal: 2,
   },
   categoryNameActive: {
     fontFamily: typography.sansMedium,
     color: colors.primaryAccent,
+    fontWeight: "700",
   },
   contentArea: {
     flex: 1,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.md,
+    paddingHorizontal: 10,
+    paddingTop: 10,
+    paddingBottom: 10,
   },
   section: {
     marginBottom: spacing.xl,
   },
   sectionTitle: {
     fontFamily: typography.sansMedium,
-    fontSize: 14,
-    letterSpacing: 1.2,
+    fontSize: 12,
+    letterSpacing: 1.6,
     textTransform: "uppercase",
     color: colors.charcoal,
-    marginBottom: spacing.md,
+    marginBottom: 12,
+    fontWeight: "700",
+  },
+  categoryHeader: {
+    marginBottom: 14,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderSoft,
+  },
+  categoryHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 4,
+  },
+  categoryHeaderMark: {
+    width: 18,
+    height: 1.5,
+    backgroundColor: colors.gold,
+  },
+  categoryHeaderEyebrow: {
+    fontFamily: typography.sansMedium,
+    fontSize: 9.5,
+    letterSpacing: 2,
+    textTransform: "uppercase",
+    color: colors.gold,
+    fontWeight: "700",
+  },
+  categoryHeaderTitle: {
+    fontFamily: typography.serif,
+    fontSize: 22,
+    color: colors.charcoal,
+    fontWeight: "600",
+    letterSpacing: 0.3,
+  },
+  categoryHeaderMeta: {
+    fontFamily: typography.sans,
+    fontSize: 11,
+    color: colors.brownSoft,
+    marginTop: 2,
   },
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: spacing.md,
+    gap: 10,
   },
   loadingWrap: {
     paddingVertical: spacing.lg,
