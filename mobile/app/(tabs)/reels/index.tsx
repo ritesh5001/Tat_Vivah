@@ -5,9 +5,11 @@ import {
   Share,
   StyleSheet,
   View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
   useWindowDimensions,
 } from "react-native";
-import { FlashList } from "@shopify/flash-list";
+import { FlashList, type FlashListRef } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
@@ -31,6 +33,10 @@ export default function ReelsScreen() {
   const [likedById, setLikedById] = React.useState<Record<string, boolean>>({});
   const [isMuted, setIsMuted] = React.useState(true);
   const [activeCategory, setActiveCategory] = React.useState<"MENS" | "KIDS">("MENS");
+  const listRef = React.useRef<FlashListRef<ReelFeedItem> | null>(null);
+  const visibleIndexRef = React.useRef(0);
+  const dragStartIndexRef = React.useRef(0);
+  const isSettlingRef = React.useRef(false);
 
   const reelsQuery = useInfiniteQuery({
     queryKey: ["reels-feed", REELS_PAGE_LIMIT, activeCategory],
@@ -64,18 +70,65 @@ export default function ReelsScreen() {
   const itemHeight = height;
   const itemWidth = width;
 
+  React.useEffect(() => {
+    visibleIndexRef.current = visibleIndex;
+  }, [visibleIndex]);
+
+  React.useEffect(() => {
+    setVisibleIndex(0);
+    visibleIndexRef.current = 0;
+    dragStartIndexRef.current = 0;
+    listRef.current?.scrollToOffset({ offset: 0, animated: false });
+  }, [activeCategory]);
+
   const viewabilityConfigRef = React.useRef({
     itemVisiblePercentThreshold: 80,
     minimumViewTime: 120,
   });
 
   const onViewableItemsChanged = React.useRef(({ viewableItems }: { viewableItems: { index: number | null }[] }) => {
+    if (isSettlingRef.current) return;
     const firstVisible = viewableItems.find((entry) => typeof entry.index === "number");
     const nextIndex = firstVisible?.index;
     if (typeof nextIndex === "number") {
       setVisibleIndex((prev) => (prev === nextIndex ? prev : nextIndex));
     }
   }).current;
+
+  const settleToSingleReel = React.useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      if (reels.length === 0 || itemHeight <= 0) return;
+
+      const rawIndex = Math.round(event.nativeEvent.contentOffset.y / itemHeight);
+      const startIndex = dragStartIndexRef.current;
+      const direction = rawIndex > startIndex ? 1 : rawIndex < startIndex ? -1 : 0;
+      const targetIndex = Math.min(
+        Math.max(startIndex + direction, 0),
+        reels.length - 1
+      );
+
+      if (targetIndex === visibleIndexRef.current) {
+        return;
+      }
+
+      isSettlingRef.current = true;
+      visibleIndexRef.current = targetIndex;
+      setVisibleIndex(targetIndex);
+      listRef.current?.scrollToIndex({
+        index: targetIndex,
+        animated: true,
+        viewPosition: 0,
+      });
+      requestAnimationFrame(() => {
+        isSettlingRef.current = false;
+      });
+    },
+    [itemHeight, reels.length]
+  );
+
+  const handleScrollBeginDrag = React.useCallback(() => {
+    dragStartIndexRef.current = visibleIndexRef.current;
+  }, []);
 
   const loadMore = React.useCallback(() => {
     if (reelsQuery.hasNextPage && !reelsQuery.isFetchingNextPage) {
@@ -179,10 +232,12 @@ export default function ReelsScreen() {
     <View style={styles.container}>
       {renderCategorySwitcher()}
       <FlashList
+        ref={listRef}
         data={reels}
         keyExtractor={(item) => item.id}
         renderItem={renderReel}
         pagingEnabled
+        disableIntervalMomentum
         snapToAlignment="start"
         snapToInterval={itemHeight}
         decelerationRate="fast"
@@ -191,6 +246,9 @@ export default function ReelsScreen() {
         drawDistance={itemHeight * 1.5}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfigRef.current}
+        onScrollBeginDrag={handleScrollBeginDrag}
+        onMomentumScrollEnd={settleToSingleReel}
+        onScrollEndDrag={settleToSingleReel}
         onEndReached={loadMore}
         onEndReachedThreshold={0.65}
         ListFooterComponent={
