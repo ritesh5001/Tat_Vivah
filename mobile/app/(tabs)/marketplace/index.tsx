@@ -28,6 +28,22 @@ import {
 const COLS = 2;
 const FEATURED_LIMIT = 9;
 const POPULAR_LIMIT = 12;
+const ALL_PRODUCTS_PAGE_SIZE = 8;
+
+function mergeUniqueProducts(current: ProductItem[], incoming: ProductItem[]): ProductItem[] {
+  if (incoming.length === 0) return current;
+  const seen = new Set(current.map((product) => product.id));
+  const merged = [...current];
+
+  incoming.forEach((product) => {
+    if (!seen.has(product.id)) {
+      merged.push(product);
+      seen.add(product.id);
+    }
+  });
+
+  return merged;
+}
 
 export default function CategoriesScreen() {
   const router = useRouter();
@@ -37,6 +53,13 @@ export default function CategoriesScreen() {
   const [selectedCategoryId, setSelectedCategoryId] = React.useState<string | undefined>(
     typeof params.categoryId === "string" ? params.categoryId : undefined
   );
+  const [allProducts, setAllProducts] = React.useState<ProductItem[]>([]);
+  const [allVisibleCount, setAllVisibleCount] = React.useState(0);
+  const [allNextPage, setAllNextPage] = React.useState(2);
+  const [isAllPrefetching, setIsAllPrefetching] = React.useState(false);
+  const [hasMoreAllProducts, setHasMoreAllProducts] = React.useState(true);
+  const [hasAllProductsError, setHasAllProductsError] = React.useState(false);
+  const [pendingAllReveal, setPendingAllReveal] = React.useState(false);
 
   const { data: categoryData, isLoading: categoriesLoading } = useQuery({
     queryKey: ["categories"],
@@ -65,7 +88,20 @@ export default function CategoriesScreen() {
     [featuredData]
   );
 
-  // Fetch popular products for selected category or all
+  // Fetch all-category products using the same popularity ordering as homepage.
+  const { data: allProductsData, isLoading: allProductsLoading } = useQuery({
+    queryKey: ["marketplace-all-products", { limit: ALL_PRODUCTS_PAGE_SIZE, sort: "popularity" }],
+    queryFn: ({ signal }) =>
+      getProducts({
+        page: 1,
+        limit: ALL_PRODUCTS_PAGE_SIZE,
+        sort: "popularity",
+        signal,
+      }),
+    staleTime: 1000 * 60 * 5,
+  });
+
+  // Fetch popular products for selected category only
   const { data: popularData, isLoading: popularLoading } = useQuery({
     queryKey: ["products", { categoryId: selectedCategoryId, limit: POPULAR_LIMIT }],
     queryFn: ({ signal }) =>
@@ -76,6 +112,7 @@ export default function CategoriesScreen() {
         signal,
       }),
     staleTime: 1000 * 60 * 5,
+    enabled: Boolean(selectedCategoryId),
   });
 
   const popularProducts = React.useMemo<ProductItem[]>(
@@ -94,6 +131,117 @@ export default function CategoriesScreen() {
     [categories, selectedCategoryId]
   );
 
+  const visibleAllProducts = React.useMemo(
+    () => allProducts.slice(0, allVisibleCount),
+    [allProducts, allVisibleCount]
+  );
+
+  const prefetchNextAllProducts = React.useCallback(async () => {
+    if (isAllPrefetching || !hasMoreAllProducts) return;
+
+    setIsAllPrefetching(true);
+    setHasAllProductsError(false);
+
+    try {
+      const response = await getProducts({
+        page: allNextPage,
+        limit: ALL_PRODUCTS_PAGE_SIZE,
+        sort: "popularity",
+      });
+      const incoming = (response.data ?? []) as ProductItem[];
+      const totalPages = response.pagination?.totalPages;
+
+      setAllProducts((previous) => mergeUniqueProducts(previous, incoming));
+      setAllNextPage((previous) => previous + 1);
+      setHasMoreAllProducts(
+        (typeof totalPages === "number"
+          ? allNextPage < totalPages
+          : incoming.length === ALL_PRODUCTS_PAGE_SIZE) && incoming.length > 0
+      );
+    } catch {
+      setHasAllProductsError(true);
+      setHasMoreAllProducts(false);
+    } finally {
+      setIsAllPrefetching(false);
+    }
+  }, [allNextPage, hasMoreAllProducts, isAllPrefetching]);
+
+  const revealNextAllProducts = React.useCallback(() => {
+    if (selectedCategoryId) return;
+
+    if (allVisibleCount < allProducts.length) {
+      setAllVisibleCount((previous) =>
+        Math.min(previous + ALL_PRODUCTS_PAGE_SIZE, allProducts.length)
+      );
+      return;
+    }
+
+    if (hasMoreAllProducts) {
+      setPendingAllReveal(true);
+      void prefetchNextAllProducts();
+    }
+  }, [
+    allProducts.length,
+    allVisibleCount,
+    hasMoreAllProducts,
+    prefetchNextAllProducts,
+    selectedCategoryId,
+  ]);
+
+  React.useEffect(() => {
+    const products = ((allProductsData?.data ?? []) as ProductItem[]);
+    if (!allProductsData) return;
+
+    const totalPages = allProductsData.pagination?.totalPages;
+    setAllProducts(mergeUniqueProducts([], products));
+    setAllVisibleCount(Math.min(ALL_PRODUCTS_PAGE_SIZE, products.length));
+    setAllNextPage(2);
+    setHasMoreAllProducts(
+      typeof totalPages === "number" ? totalPages > 1 : products.length === ALL_PRODUCTS_PAGE_SIZE
+    );
+    setHasAllProductsError(false);
+    setPendingAllReveal(false);
+  }, [allProductsData]);
+
+  React.useEffect(() => {
+    if (selectedCategoryId) return;
+    if (allProductsLoading) return;
+    if (!hasMoreAllProducts || isAllPrefetching) return;
+    if (allProducts.length - allVisibleCount >= ALL_PRODUCTS_PAGE_SIZE) return;
+
+    void prefetchNextAllProducts();
+  }, [
+    allProducts.length,
+    allProductsLoading,
+    allVisibleCount,
+    hasMoreAllProducts,
+    isAllPrefetching,
+    prefetchNextAllProducts,
+    selectedCategoryId,
+  ]);
+
+  React.useEffect(() => {
+    if (!pendingAllReveal) return;
+
+    if (allVisibleCount < allProducts.length) {
+      setAllVisibleCount((previous) =>
+        Math.min(previous + ALL_PRODUCTS_PAGE_SIZE, allProducts.length)
+      );
+      setPendingAllReveal(false);
+      return;
+    }
+
+    if (!hasMoreAllProducts && !isAllPrefetching) {
+      setPendingAllReveal(false);
+    }
+  }, [
+    allProducts.length,
+    allVisibleCount,
+    hasMoreAllProducts,
+    isAllPrefetching,
+    pendingAllReveal,
+  ]);
+
   const handleProductPress = React.useCallback(
     (product: ProductItem) => {
       router.push(`/product/${product.id}`);
@@ -104,6 +252,25 @@ export default function CategoriesScreen() {
   const handleCategorySelect = React.useCallback((categoryId: string | undefined) => {
     setSelectedCategoryId(categoryId);
   }, []);
+
+  const handleContentScroll = React.useCallback(
+    (event: {
+      nativeEvent: {
+        contentOffset: { y: number };
+        contentSize: { height: number };
+        layoutMeasurement: { height: number };
+      };
+    }) => {
+      if (selectedCategoryId) return;
+      const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+      const distanceFromBottom =
+        contentSize.height - (contentOffset.y + layoutMeasurement.height);
+      if (distanceFromBottom < 900) {
+        revealNextAllProducts();
+      }
+    },
+    [revealNextAllProducts, selectedCategoryId]
+  );
 
   const renderCategoryItem = React.useCallback(
     ({ item }: { item: Category }) => {
@@ -200,6 +367,8 @@ export default function CategoriesScreen() {
         <ScrollView
           style={[styles.contentArea, { width: contentWidth }]}
           showsVerticalScrollIndicator={false}
+          onScroll={handleContentScroll}
+          scrollEventThrottle={16}
         >
           {/* Featured Section — only on All Categories */}
           {!selectedCategoryId ? (
@@ -245,17 +414,34 @@ export default function CategoriesScreen() {
               <View style={styles.loadingWrap}>
                 <TatvivahLoader size="sm" color={colors.gold} />
               </View>
-            ) : popularProducts.length === 0 ? (
+            ) : selectedCategoryId && popularProducts.length === 0 ? (
               <Text style={styles.emptyText}>No products in this category</Text>
+            ) : !selectedCategoryId && allProductsLoading ? (
+              <View style={styles.loadingWrap}>
+                <TatvivahLoader size="sm" color={colors.gold} />
+              </View>
+            ) : !selectedCategoryId && visibleAllProducts.length === 0 ? (
+              <Text style={styles.emptyText}>No products available right now</Text>
             ) : (
               <View style={styles.grid}>
-                {popularProducts.map((product, idx) => (
-                  <View key={`popular-${idx}`} style={{ width: cardWidth }}>
+                {(selectedCategoryId ? popularProducts : visibleAllProducts).map((product, idx) => (
+                  <View key={`popular-${product.id}-${idx}`} style={{ width: cardWidth }}>
                     {renderProductCard({ item: product })}
                   </View>
                 ))}
               </View>
             )}
+            {!selectedCategoryId ? (
+              hasAllProductsError ? (
+                <Text style={styles.statusText}>Could not load more products right now.</Text>
+              ) : isAllPrefetching ? (
+                <Text style={styles.statusText}>Loading next products...</Text>
+              ) : hasMoreAllProducts ? (
+                <Text style={styles.statusText}>Scroll down to reveal more products</Text>
+              ) : visibleAllProducts.length > 0 ? (
+                <Text style={styles.statusText}>You have reached the end.</Text>
+              ) : null
+            ) : null}
           </View>
 
           <View style={{ height: spacing.xl }} />
@@ -403,5 +589,13 @@ const styles = StyleSheet.create({
     color: colors.brownSoft,
     textAlign: "center",
     paddingVertical: spacing.lg,
+  },
+  statusText: {
+    marginTop: spacing.md,
+    fontFamily: typography.sans,
+    fontSize: 11,
+    color: colors.brownSoft,
+    textAlign: "center",
+    letterSpacing: 0.4,
   },
 });

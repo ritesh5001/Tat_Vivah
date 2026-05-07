@@ -337,11 +337,6 @@ function computeAvgRating(reviews: Review[]): number {
   return sum / reviews.length;
 }
 
-function renderStars(avg: number): string {
-  const full = Math.round(avg);
-  return "★".repeat(full) + "☆".repeat(5 - full);
-}
-
 function normalizeColor(value?: string | null): string {
   return (value ?? "").trim().toLowerCase();
 }
@@ -1945,21 +1940,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceElevated,
     alignItems: "center",
     justifyContent: "center",
-  },
-  ratingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: spacing.sm,
-    gap: spacing.xs,
-  },
-  ratingStars: {
-    fontSize: 14,
-    color: colors.gold,
-  },
-  ratingText: {
-    fontFamily: typography.sans,
-    fontSize: 12,
-    color: colors.brownSoft,
   },
   ratingPillRow: {
     flexDirection: "row",
