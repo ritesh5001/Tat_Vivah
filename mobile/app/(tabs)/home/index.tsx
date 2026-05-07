@@ -30,6 +30,8 @@ import {
   getBestsellers,
   type BestsellerProduct,
 } from "../../../src/services/bestsellers";
+import { type ProductItem } from "../../../src/services/products";
+import { MarketplaceCard } from "../../../src/components/MarketplaceCard";
 
 type HomeGridCard = {
   id: string;
@@ -50,6 +52,7 @@ type HomeProductCard = {
   priceText: string;
   categoryText?: string;
   query: string;
+  product: ProductItem;
 };
 
 function BottomWineFade() {
@@ -350,7 +353,7 @@ export default function HomeScreen() {
   );
 
   const mostLovedCards = React.useMemo<HomeProductCard[]>(() => {
-    const products = mostLovedQuery.data?.data ?? [];
+    const products = (mostLovedQuery.data?.data ?? []) as ProductItem[];
     return products.slice(0, 4).map((item, index) => ({
       id: item.id,
       title: item.title,
@@ -361,6 +364,7 @@ export default function HomeScreen() {
           : "₹0",
       categoryText: item.category?.name ?? "Collection",
       query: item.title,
+      product: item,
     }));
   }, [fallbackGridImages, mostLovedQuery.data]);
 
@@ -376,6 +380,16 @@ export default function HomeScreen() {
           : "₹0",
       categoryText: item.categoryName ?? "Collection",
       query: item.title,
+      product: {
+        id: item.productId ?? item.id,
+        title: item.title,
+        images: item.image ? [item.image] : [],
+        category: item.categoryName ? { name: item.categoryName } : null,
+        salePrice: item.salePrice ?? null,
+        adminPrice: item.adminPrice ?? null,
+        regularPrice: item.regularPrice ?? null,
+        price: item.minPrice ?? undefined,
+      } as ProductItem,
     }));
   }, [bestsellersQuery.data, fallbackGridImages]);
 
@@ -521,45 +535,24 @@ export default function HomeScreen() {
 
   const renderLargeProductCard = React.useCallback(
     ({ item }: ListRenderItemInfo<HomeProductCard>) => (
-      <Pressable
-        style={[styles.largeProductCard, { width: mostLovedCardWidth }]}
-        onPress={() => navigateTo(`/search?q=${encodeURIComponent(item.query)}`)}
-      >
-        <CachedImage
-          source={item.image}
-          style={[styles.largeProductImage, { height: mostLovedCardHeight }]}
-          contentFit="cover"
-        />
-        <View style={styles.largeProductMeta}>
-          <Text numberOfLines={1} style={styles.largeProductTitle}>{item.title}</Text>
-          <Text style={styles.largeProductPrice}>{item.priceText}</Text>
-        </View>
-      </Pressable>
+      <MarketplaceCard
+        product={item.product}
+        onPress={(id) => navigateTo(`/product/${id}`)}
+        style={{ width: mostLovedCardWidth }}
+      />
     ),
-    [mostLovedCardHeight, mostLovedCardWidth, navigateTo]
+    [mostLovedCardWidth, navigateTo]
   );
 
   const renderBestsellerCard = React.useCallback(
     ({ item }: ListRenderItemInfo<HomeProductCard>) => (
-      <Pressable
-        style={[styles.bestSellerCard, { width: bestsellerCardWidth }]}
-        onPress={() => navigateTo(`/search?q=${encodeURIComponent(item.query)}`)}
-      >
-        <CachedImage
-          source={item.image}
-          style={[styles.bestSellerImage, { height: bestsellerCardHeight }]}
-          contentFit="cover"
-        />
-        <View style={styles.bestSellerMeta}>
-          <Text numberOfLines={1} style={styles.bestSellerTitle}>{item.title}</Text>
-          <Text numberOfLines={1} style={styles.bestSellerCategory}>
-            {(item.categoryText ?? "Collection").toUpperCase()}
-          </Text>
-          <Text style={styles.bestSellerPrice}>{item.priceText}</Text>
-        </View>
-      </Pressable>
+      <MarketplaceCard
+        product={item.product}
+        onPress={(id) => navigateTo(`/product/${id}`)}
+        style={{ width: bestsellerCardWidth }}
+      />
     ),
-    [bestsellerCardHeight, bestsellerCardWidth, navigateTo]
+    [bestsellerCardWidth, navigateTo]
   );
 
   const testimonials = React.useMemo(

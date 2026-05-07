@@ -19,6 +19,7 @@ import {
   type ProductItem,
 } from "../../../src/services/products";
 import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
+import { MarketplaceCard } from "../../../src/components/MarketplaceCard";
 import {
   AppText as Text,
   ScreenContainer as SafeAreaView,
@@ -27,8 +28,6 @@ import {
 const COLS = 2;
 const FEATURED_LIMIT = 9;
 const POPULAR_LIMIT = 12;
-const fallbackImage =
-  "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80";
 
 export default function CategoriesScreen() {
   const router = useRouter();
@@ -87,7 +86,6 @@ export default function CategoriesScreen() {
   const sidebarWidth = Math.round(windowWidth * 0.22);
   const contentWidth = windowWidth - sidebarWidth;
   const cardWidth = Math.floor((contentWidth - spacing.md * 2 - spacing.md * (COLS - 1)) / COLS);
-  const cardHeight = Math.round(cardWidth * 1.2);
 
   const handleProductPress = React.useCallback(
     (product: ProductItem) => {
@@ -129,23 +127,13 @@ export default function CategoriesScreen() {
 
   const renderProductCard = React.useCallback(
     ({ item }: { item: ProductItem }) => (
-      <Pressable
-        style={[styles.productCard, { width: cardWidth }]}
+      <MarketplaceCard
+        product={item}
         onPress={() => handleProductPress(item)}
-      >
-        <Image
-          source={{ uri: item.images?.[0] ?? fallbackImage }}
-          style={[styles.productImage, { height: cardHeight }]}
-          contentFit="cover"
-        />
-        <View style={styles.productInfo}>
-          <Text style={styles.productTitle} numberOfLines={2}>
-            {item.title}
-          </Text>
-        </View>
-      </Pressable>
+        style={{ width: cardWidth }}
+      />
     ),
-    [cardWidth, cardHeight, handleProductPress]
+    [cardWidth, handleProductPress]
   );
 
   return (
@@ -338,26 +326,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.md,
-  },
-  productCard: {
-    borderRadius: 0,
-    overflow: "hidden",
-    backgroundColor: colors.background,
-  },
-  productImage: {
-    width: "100%",
-    backgroundColor: colors.cream,
-  },
-  productInfo: {
-    paddingHorizontal: spacing.xs,
-    paddingVertical: spacing.xs,
-    gap: spacing.xs,
-  },
-  productTitle: {
-    fontFamily: typography.sans,
-    fontSize: 11,
-    color: colors.charcoal,
-    lineHeight: 14,
   },
   loadingWrap: {
     paddingVertical: spacing.lg,

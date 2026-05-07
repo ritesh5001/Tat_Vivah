@@ -1,14 +1,25 @@
 import * as React from "react";
-import { View, Text, StyleSheet, Pressable, type StyleProp, type ViewStyle } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  ActivityIndicator,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { Image } from "./CompatImage";
 import { colors, typography, spacing } from "../theme/tokens";
 import { images } from "../data/images";
 import { type ProductItem } from "../services/products";
+import { useWishlist } from "../providers/WishlistProvider";
 
-interface ProductGridCardProps {
+interface MarketplaceCardProps {
   product: ProductItem;
-  onBuyNow?: (product: ProductItem) => void;
-  onExplore?: (product: ProductItem) => void;
+  onPress?: (id: string) => void;
+  onRemove?: (id: string) => void;
+  removing?: boolean;
   style?: StyleProp<ViewStyle>;
 }
 
@@ -27,11 +38,17 @@ function seededRandom(seed: string, min: number, max: number): number {
   return min + (hash % range) / 10;
 }
 
-function ProductGridCardComponent({
+function MarketplaceCardComponent({
   product,
-  onExplore,
+  onPress,
+  onRemove,
+  removing = false,
   style,
-}: ProductGridCardProps) {
+}: MarketplaceCardProps) {
+  const { isWishlisted, toggleWishlist, mutatingIds } = useWishlist();
+  const wishlisted = isWishlisted(product.id);
+  const wishlistBusy = mutatingIds.has(product.id);
+
   const primaryPrice =
     product.salePrice ?? product.adminPrice ?? product.price ?? product.sellerPrice ?? null;
 
@@ -62,7 +79,12 @@ function ProductGridCardComponent({
   const firstImage =
     Array.isArray(product.images) && product.images.length > 0 ? product.images[0] : null;
 
-  const handlePress = () => onExplore?.(product);
+  const handlePress = () => onPress?.(product.id);
+  const handleRemove = () => onRemove?.(product.id);
+  const handleToggleWishlist = (e: any) => {
+    e?.stopPropagation?.();
+    toggleWishlist(product.id);
+  };
 
   return (
     <Pressable style={[styles.card, style]} onPress={handlePress}>
@@ -70,36 +92,66 @@ function ProductGridCardComponent({
         <Image
           source={firstImage ? { uri: firstImage } : images.productPlaceholder}
           style={styles.image}
-          contentFit="cover"
+          contentFit="contain"
           contentPosition="center"
           transition={200}
           cachePolicy="memory-disk"
         />
 
-        <View style={styles.trendingBadge}>
-          <Text style={styles.trendingText}>TRENDING</Text>
-        </View>
+        {onRemove ? (
+          <Pressable
+            onPress={handleRemove}
+            disabled={removing}
+            hitSlop={8}
+            style={styles.iconButton}
+          >
+            {removing ? (
+              <ActivityIndicator size="small" color={colors.charcoal} />
+            ) : (
+              <Ionicons name="close" size={16} color={colors.charcoal} />
+            )}
+          </Pressable>
+        ) : (
+          <Pressable
+            onPress={handleToggleWishlist}
+            disabled={wishlistBusy}
+            hitSlop={8}
+            style={styles.iconButton}
+          >
+            {wishlistBusy ? (
+              <ActivityIndicator size="small" color={colors.charcoal} />
+            ) : (
+              <Ionicons
+                name={wishlisted ? "heart" : "heart-outline"}
+                size={16}
+                color={wishlisted ? "#E11D48" : colors.charcoal}
+              />
+            )}
+          </Pressable>
+        )}
 
-        {discountPercent !== null ? (
-          <View style={styles.discountBadge}>
-            <Text style={styles.discountBadgeText}>{discountPercent}% OFF</Text>
+        <View style={styles.imageFooter}>
+          <View style={styles.ratingPill}>
+            <Text style={styles.ratingStar}>★</Text>
+            <Text style={styles.ratingValue}>{rating.toFixed(1)}</Text>
+            <Text style={styles.ratingDivider}>|</Text>
+            <Text style={styles.ratingCount}>{reviewCount}</Text>
           </View>
-        ) : null}
 
-        <View style={styles.ratingPill}>
-          <Text style={styles.ratingStar}>★</Text>
-          <Text style={styles.ratingValue}>{rating.toFixed(1)}</Text>
-          <Text style={styles.ratingDivider}>|</Text>
-          <Text style={styles.ratingCount}>{reviewCount}</Text>
+          {discountPercent !== null ? (
+            <View style={styles.discountBadge}>
+              <Text style={styles.discountBadgeText}>{discountPercent}% OFF</Text>
+            </View>
+          ) : null}
         </View>
       </View>
 
       <View style={styles.info}>
-        <Text style={styles.categoryLabel} numberOfLines={1}>
-          {(product.category?.name ?? "Collection").toUpperCase()}
+        <Text style={styles.brand} numberOfLines={1}>
+          {(product.category?.name ?? "Tatvivah").toUpperCase()}
         </Text>
 
-        <Text style={styles.title} numberOfLines={2}>
+        <Text style={styles.title} numberOfLines={1}>
           {product.title}
         </Text>
 
@@ -110,7 +162,7 @@ function ProductGridCardComponent({
               <Text style={styles.priceStrike}>{currency.format(originalPrice)}</Text>
             ) : null}
             {discountPercent !== null ? (
-              <Text style={styles.discountText}>({discountPercent}% OFF)</Text>
+              <Text style={styles.discountText}>{discountPercent}% OFF</Text>
             ) : null}
           </View>
         ) : (
@@ -118,38 +170,34 @@ function ProductGridCardComponent({
         )}
 
         <Pressable style={styles.ctaButton} onPress={handlePress}>
-          <Text style={styles.ctaButtonText}>ADD TO CART</Text>
+          <Ionicons name="bag-handle-outline" size={13} color="#FFFFFF" />
+          <Text style={styles.ctaButtonText}>ADD TO BAG</Text>
         </Pressable>
       </View>
     </Pressable>
   );
 }
 
-export const ProductGridCard = React.memo(ProductGridCardComponent);
+export const MarketplaceCard = React.memo(MarketplaceCardComponent);
 
-const TRENDING_BG = "rgba(255,255,255,0.95)";
-const RATING_BG = "rgba(255,255,255,0.92)";
-const DISCOUNT_AMBER = "#B45309";
-const DISCOUNT_BADGE_BG = "#D97706";
-const STAR_GREEN = "#16A34A";
+const RATING_GREEN = "#0F8A5F";
+const DISCOUNT_AMBER = "#C2410C";
+const DISCOUNT_BADGE_BG = "rgba(255, 255, 255, 0.96)";
 
 const styles = StyleSheet.create({
   card: {
-    flex: 1,
     backgroundColor: colors.surfaceElevated,
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
     overflow: "hidden",
-    shadowColor: colors.charcoal,
-    shadowOpacity: 0.04,
-    shadowOffset: { width: 0, height: 1 },
-    shadowRadius: 3,
-    elevation: 1,
+    shadowColor: "#1A1410",
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 12,
+    elevation: 3,
   },
   imageWrap: {
     width: "100%",
     aspectRatio: 3 / 4,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.cream,
     overflow: "hidden",
     position: "relative",
   },
@@ -157,101 +205,101 @@ const styles = StyleSheet.create({
     height: "100%",
     width: "100%",
   },
-  trendingBadge: {
-    position: "absolute",
-    top: 8,
-    left: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    backgroundColor: TRENDING_BG,
-  },
-  trendingText: {
-    fontFamily: typography.sansMedium,
-    fontSize: 9,
-    letterSpacing: 1.2,
-    color: colors.charcoal,
-    fontWeight: "700",
-  },
-  discountBadge: {
+  iconButton: {
     position: "absolute",
     top: 8,
     right: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    backgroundColor: DISCOUNT_BADGE_BG,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#1A1410",
+    shadowOpacity: 0.12,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    elevation: 2,
   },
-  discountBadgeText: {
-    fontFamily: typography.sansMedium,
-    fontSize: 9,
-    letterSpacing: 0.8,
-    color: "#FFFFFF",
-    fontWeight: "700",
+  imageFooter: {
+    position: "absolute",
+    left: 8,
+    right: 8,
+    bottom: 8,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   ratingPill: {
-    position: "absolute",
-    bottom: 8,
-    left: 8,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: RATING_BG,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
+    backgroundColor: RATING_GREEN,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
     gap: 3,
   },
   ratingStar: {
-    color: STAR_GREEN,
-    fontSize: 11,
+    color: "#FFFFFF",
+    fontSize: 10,
     lineHeight: 12,
   },
   ratingValue: {
     fontFamily: typography.sansMedium,
-    fontSize: 11,
-    color: colors.charcoal,
-    fontWeight: "600",
+    fontSize: 10,
+    color: "#FFFFFF",
+    fontWeight: "700",
   },
   ratingDivider: {
     fontFamily: typography.sans,
-    fontSize: 11,
-    color: colors.brownSoft,
-    marginHorizontal: 1,
+    fontSize: 10,
+    color: "rgba(255,255,255,0.7)",
   },
   ratingCount: {
     fontFamily: typography.sans,
-    fontSize: 11,
-    color: colors.brownSoft,
+    fontSize: 10,
+    color: "rgba(255,255,255,0.92)",
+  },
+  discountBadge: {
+    backgroundColor: DISCOUNT_BADGE_BG,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  discountBadgeText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 10,
+    letterSpacing: 0.4,
+    color: DISCOUNT_AMBER,
+    fontWeight: "700",
   },
   info: {
-    flex: 1,
     paddingHorizontal: spacing.md,
     paddingTop: spacing.sm + 2,
     paddingBottom: spacing.md,
-    gap: 4,
+    gap: 2,
   },
-  categoryLabel: {
-    fontFamily: typography.sansMedium,
-    fontSize: 9.5,
-    letterSpacing: 1.3,
-    color: colors.brownSoft,
-    fontWeight: "600",
+  brand: {
+    fontFamily: typography.serif,
+    fontSize: 13,
+    letterSpacing: 0.6,
+    color: colors.charcoal,
+    fontWeight: "700",
   },
   title: {
-    fontFamily: typography.serif,
-    fontSize: 14,
-    color: colors.charcoal,
-    fontWeight: "600",
-    lineHeight: 18,
-    minHeight: 36,
+    fontFamily: typography.sans,
+    fontSize: 11.5,
+    color: colors.brownSoft,
+    lineHeight: 15,
+    marginBottom: 4,
   },
   priceRow: {
     flexDirection: "row",
     alignItems: "baseline",
     flexWrap: "wrap",
-    marginTop: 2,
     gap: 6,
   },
   price: {
     fontFamily: typography.sansMedium,
-    fontSize: 14,
+    fontSize: 15,
     color: colors.charcoal,
     fontWeight: "700",
   },
@@ -273,15 +321,17 @@ const styles = StyleSheet.create({
     color: colors.brownSoft,
   },
   ctaButton: {
-    marginTop: spacing.sm,
-    height: 36,
-    backgroundColor: "#000000",
+    marginTop: spacing.sm + 2,
+    height: 34,
+    backgroundColor: "#1A1410",
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    gap: 6,
   },
   ctaButtonText: {
     fontFamily: typography.sansMedium,
-    fontSize: 11,
+    fontSize: 10.5,
     letterSpacing: 1.4,
     color: "#FFFFFF",
     fontWeight: "700",

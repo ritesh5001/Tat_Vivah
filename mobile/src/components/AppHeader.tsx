@@ -311,10 +311,11 @@ const styles = StyleSheet.create({
   },
   actions: {
     flex: 0,
-    width: 128,
+    flexShrink: 0,
     flexDirection: "row",
     justifyContent: "flex-end",
-    gap: spacing.sm,
+    alignItems: "center",
+    gap: 4,
     marginLeft: spacing.xs,
   },
   iconButton: {
