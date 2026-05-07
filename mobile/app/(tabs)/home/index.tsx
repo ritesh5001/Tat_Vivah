@@ -10,7 +10,7 @@ import {
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from "react-native-svg";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, spacing, textStyles } from "../../../src/theme";
+import { colors, spacing, textStyles, typography } from "../../../src/theme";
 import { useProductsQuery } from "../../../src/hooks/useProductsQuery";
 import { AppHeader } from "../../../src/components/AppHeader";
 import { Footer } from "../../../src/components/Footer";
@@ -792,54 +792,44 @@ export default function HomeScreen() {
             <View style={styles.categoryGridWrap}>
               {(() => {
                 const items = categoryCards.slice(0, 8);
-                const smallGap = spacing.md;
+                const smallGap = 10;
                 const cols = 4;
                 const totalGap = smallGap * (cols - 1);
                 const smallWidth = Math.floor((gridPageWidth - totalGap) / cols);
-                const smallHeight = Math.round(smallWidth * 1.34);
+                const smallHeight = Math.round(smallWidth * 1.4);
+
+                const renderCompactCard = (card: HomeGridCard) => (
+                  <Pressable
+                    key={card.id}
+                    style={[styles.compactCategoryCard, { width: smallWidth, height: smallHeight }]}
+                    onPress={() => navigateTo(`/search?q=${encodeURIComponent(card.query)}`)}
+                  >
+                    <CachedImage
+                      source={card.image}
+                      style={{ width: smallWidth, height: smallHeight }}
+                      contentFit="cover"
+                      contentPosition="top"
+                    />
+                    <View pointerEvents="none" style={styles.compactCategoryScrim} />
+                    <View pointerEvents="none" style={styles.compactCategoryRing} />
+                    <Text
+                      style={styles.compactCategoryTitle}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.7}
+                    >
+                      {card.title}
+                    </Text>
+                  </Pressable>
+                );
 
                 return (
                   <>
                     <View style={[styles.categoryGridRow, { gap: smallGap }]}>
-                      {items.slice(0, 4).map((card) => (
-                        <Pressable
-                          key={card.id}
-                          style={[styles.categoryCard, { width: smallWidth, height: smallHeight }]}
-                          onPress={() => navigateTo(`/search?q=${encodeURIComponent(card.query)}`)}
-                        >
-                          <CachedImage source={card.image} style={{ width: smallWidth, height: smallHeight }} contentFit="cover" />
-                          <View pointerEvents="none" style={styles.categoryCardOverlay} />
-                          <BottomWineFade />
-                          <ArchGradientBorder
-                            width={smallWidth}
-                            height={smallHeight}
-                            topRadius={smallWidth / 2}
-                            strokeWidth={3.1}
-                          />
-                          <Text style={[styles.categoryCardTitle, { fontSize: 16 }]}>{card.title}</Text>
-                        </Pressable>
-                      ))}
+                      {items.slice(0, 4).map(renderCompactCard)}
                     </View>
-
-                    <View style={[styles.categoryGridRow, { gap: smallGap, marginTop: spacing.md }]}>
-                      {items.slice(4, 8).map((card) => (
-                        <Pressable
-                          key={card.id}
-                          style={[styles.categoryCard, { width: smallWidth, height: smallHeight }]}
-                          onPress={() => navigateTo(`/search?q=${encodeURIComponent(card.query)}`)}
-                        >
-                          <CachedImage source={card.image} style={{ width: smallWidth, height: smallHeight }} contentFit="cover" />
-                          <View pointerEvents="none" style={styles.categoryCardOverlay} />
-                          <BottomWineFade />
-                          <ArchGradientBorder
-                            width={smallWidth}
-                            height={smallHeight}
-                            topRadius={smallWidth / 2}
-                            strokeWidth={3.1}
-                          />
-                          <Text style={[styles.categoryCardTitle, { fontSize: 16 }]}>{card.title}</Text>
-                        </Pressable>
-                      ))}
+                    <View style={[styles.categoryGridRow, { gap: smallGap, marginTop: smallGap }]}>
+                      {items.slice(4, 8).map(renderCompactCard)}
                     </View>
                   </>
                 );
@@ -1197,6 +1187,49 @@ const styles = StyleSheet.create({
     textShadowColor: "rgba(0, 0, 0, 0.48)",
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 10,
+  },
+  compactCategoryCard: {
+    borderTopLeftRadius: 999,
+    borderTopRightRadius: 999,
+    borderBottomLeftRadius: 4,
+    borderBottomRightRadius: 4,
+    overflow: "hidden",
+    backgroundColor: "#E6DDD6",
+    justifyContent: "flex-end",
+    shadowColor: "#351A14",
+    shadowOpacity: 0.16,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  compactCategoryScrim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(20, 12, 8, 0.42)",
+  },
+  compactCategoryRing: {
+    ...StyleSheet.absoluteFillObject,
+    borderTopLeftRadius: 999,
+    borderTopRightRadius: 999,
+    borderBottomLeftRadius: 4,
+    borderBottomRightRadius: 4,
+    borderWidth: 1,
+    borderColor: "rgba(255, 248, 240, 0.35)",
+  },
+  compactCategoryTitle: {
+    position: "absolute",
+    bottom: 10,
+    left: 4,
+    right: 4,
+    textAlign: "center",
+    color: "#FFFFFF",
+    fontFamily: typography.sansMedium,
+    fontSize: 11,
+    letterSpacing: 0.8,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    textShadowColor: "rgba(0, 0, 0, 0.55)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
   vibeCard: {
     borderTopLeftRadius: 110,
