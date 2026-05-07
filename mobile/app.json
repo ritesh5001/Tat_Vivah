@@ -9,7 +9,11 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSSpeechRecognitionUsageDescription": "Allow TatVivah to convert your speech into search text.",
+        "NSMicrophoneUsageDescription": "Allow TatVivah to use your microphone for voice search."
+      }
     },
     "android": {
       "versionCode": 7,
@@ -19,7 +23,10 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.zaheen.iqbal.mobile"
+      "package": "com.zaheen.iqbal.mobile",
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "output": "static",
@@ -76,9 +83,8 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "13fff0d2-6600-4b3e-9817-6a17f872adc6"
+        "projectId": "8326af89-8dde-446c-9b49-049a0aff7bb5"
       }
-    },
-    "owner": "zaheen.iqbal"
+    }
   }
 }
