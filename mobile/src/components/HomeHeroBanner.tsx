@@ -8,6 +8,7 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
+import type { ScrollView as ScrollViewComponent } from "react-native";
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Rect, Stop } from "react-native-svg";
 import { CachedImage } from "./CachedImage";
 import { images } from "../data/images";
@@ -219,7 +220,7 @@ export function HomeHeroBanner({ onPress }: HomeHeroBannerProps) {
   const bannerHeight = Math.round(bannerWidth * 1.18);
 
   const scrollX = React.useRef(new Animated.Value(0)).current;
-  const sliderRef = React.useRef<Animated.FlatList<HeroSlide> | null>(null);
+  const sliderRef = React.useRef<ScrollViewComponent | null>(null);
 
   const activeIndexRef = React.useRef(0);
   const isDraggingRef = React.useRef(false);
@@ -228,14 +229,21 @@ export function HomeHeroBanner({ onPress }: HomeHeroBannerProps) {
     setBannerWidth(windowWidth);
   }, [windowWidth]);
 
-  const handleMomentumEnd = React.useCallback(
+  const updateActiveIndex = React.useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       if (!bannerWidth) return;
       const idx = Math.round(event.nativeEvent.contentOffset.x / bannerWidth);
       activeIndexRef.current = Math.max(0, Math.min(HERO_SLIDES.length - 1, idx));
-      isDraggingRef.current = false;
     },
     [bannerWidth]
+  );
+
+  const handleScrollEnd = React.useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      updateActiveIndex(event);
+      isDraggingRef.current = false;
+    },
+    [updateActiveIndex]
   );
 
   // Auto-advance every ~5s. Pauses while user is dragging.
@@ -244,9 +252,9 @@ export function HomeHeroBanner({ onPress }: HomeHeroBannerProps) {
     const interval = setInterval(() => {
       if (isDraggingRef.current) return;
       const next = (activeIndexRef.current + 1) % HERO_SLIDES.length;
-      sliderRef.current?.scrollToOffset({
-        offset: next * bannerWidth,
-        animated: true,
+      sliderRef.current?.scrollTo({
+        x: next * bannerWidth,
+        animated: next !== 0,
       });
       activeIndexRef.current = next;
     }, 5000);
@@ -269,31 +277,27 @@ export function HomeHeroBanner({ onPress }: HomeHeroBannerProps) {
         if (next > 0 && next !== bannerWidth) setBannerWidth(next);
       }}
     >
-      <Animated.FlatList
+      <Animated.ScrollView
         ref={sliderRef}
-        data={HERO_SLIDES}
-        keyExtractor={(item) => item.id}
         horizontal
-        pagingEnabled
         showsHorizontalScrollIndicator={false}
         bounces={false}
-        decelerationRate="fast"
+        decelerationRate="normal"
         snapToInterval={bannerWidth}
-        snapToAlignment="center"
-        disableIntervalMomentum
-        getItemLayout={(_, index) => ({
-          length: bannerWidth,
-          offset: bannerWidth * index,
-          index,
-        })}
+        snapToAlignment="start"
+        disableIntervalMomentum={true}
+        directionalLockEnabled
         scrollEventThrottle={16}
         onScroll={onScroll}
         onScrollBeginDrag={() => {
           isDraggingRef.current = true;
         }}
-        onMomentumScrollEnd={handleMomentumEnd}
-        renderItem={({ item, index }) => (
+        onScrollEndDrag={handleScrollEnd}
+        onMomentumScrollEnd={handleScrollEnd}
+      >
+        {HERO_SLIDES.map((item, index) => (
           <HeroSlideView
+            key={item.id}
             slide={item}
             index={index}
             scrollX={scrollX}
@@ -301,8 +305,8 @@ export function HomeHeroBanner({ onPress }: HomeHeroBannerProps) {
             bannerHeight={bannerHeight}
             onPress={onPress}
           />
-        )}
-      />
+        ))}
+      </Animated.ScrollView>
 
       <View pointerEvents="none" style={styles.paginationWrap}>
         {HERO_SLIDES.map((slide, index) => (
