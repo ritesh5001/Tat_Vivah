@@ -762,7 +762,9 @@ export default function HomeScreen() {
           <Ionicons name="sparkles-outline" size={28} color="#511d00" />
           <Text style={styles.collectionHeading}>SHOP BY CATEGORY</Text>
         </View>
-        <Text style={[styles.scrollDirectionText, styles.centerDirection]}>Swipe left or right</Text>
+        {categoryCards.length < 8 ? (
+          <Text style={[styles.scrollDirectionText, styles.centerDirection]}>Swipe left or right</Text>
+        ) : null}
         {categoriesQuery.isLoading ? (
           <View style={styles.gridLoadingWrap}>
             <SkeletonBlock width="47%" height={170} />
@@ -855,7 +857,7 @@ export default function HomeScreen() {
             />
           )
         )}
-        {repeatedCategoryCards.length > 0 ? (
+        {repeatedCategoryCards.length > 0 && categoryCards.length < 8 ? (
           <View style={styles.paginationWrap}>
             {Array.from({ length: baseCategoryPagesCount }).map((_, idx) => {
               const isActive = idx === (categoryPageIndex % baseCategoryPagesCount);

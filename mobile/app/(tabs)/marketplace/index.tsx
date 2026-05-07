@@ -194,30 +194,32 @@ export default function CategoriesScreen() {
           style={[styles.contentArea, { width: contentWidth }]}
           showsVerticalScrollIndicator={false}
         >
-          {/* Featured Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Featured On TatVivah</Text>
-            {featuredLoading ? (
-              <View style={styles.loadingWrap}>
-                <TatvivahLoader size="sm" color={colors.gold} />
-              </View>
-            ) : featuredProducts.length === 0 ? (
-              <Text style={styles.emptyText}>No featured products</Text>
-            ) : (
-              <View style={styles.grid}>
-                {featuredProducts.map((product, idx) => (
-                  <View key={`featured-${idx}`} style={{ width: cardWidth }}>
-                    {renderProductCard({ item: product })}
-                  </View>
-                ))}
-              </View>
-            )}
-          </View>
+          {/* Featured Section — only on All Categories */}
+          {!selectedCategoryId ? (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Featured On TatVivah</Text>
+              {featuredLoading ? (
+                <View style={styles.loadingWrap}>
+                  <TatvivahLoader size="sm" color={colors.gold} />
+                </View>
+              ) : featuredProducts.length === 0 ? (
+                <Text style={styles.emptyText}>No featured products</Text>
+              ) : (
+                <View style={styles.grid}>
+                  {featuredProducts.map((product, idx) => (
+                    <View key={`featured-${idx}`} style={{ width: cardWidth }}>
+                      {renderProductCard({ item: product })}
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+          ) : null}
 
           {/* Popular Section */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
-              All {selectedCategoryId ? "Popular" : "Products"}
+              {selectedCategoryId ? "All Products" : "All Products"}
             </Text>
             {popularLoading ? (
               <View style={styles.loadingWrap}>
