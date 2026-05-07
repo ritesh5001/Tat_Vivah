@@ -3,6 +3,7 @@ import {
   FlatList,
   ListRenderItemInfo,
   Pressable,
+  ScrollView,
   StyleSheet,
   View,
   useWindowDimensions,
@@ -230,7 +231,7 @@ export default function HomeScreen() {
   });
 
   const [showScrollTop, setShowScrollTop] = React.useState(false);
-  const listRef = React.useRef<FlatList<never> | null>(null);
+  const listRef = React.useRef<ScrollView | null>(null);
   const testimonialRef = React.useRef<FlatList<typeof testimonials[number]> | null>(null);
   const [occasionRepeatCount, setOccasionRepeatCount] = React.useState(1);
   const [categoryRepeatCount, setCategoryRepeatCount] = React.useState(1);
@@ -739,7 +740,7 @@ export default function HomeScreen() {
   );
 
   const handleScrollToTop = React.useCallback(() => {
-    listRef.current?.scrollToOffset({ offset: 0, animated: true });
+    listRef.current?.scrollTo({ y: 0, animated: true });
   }, []);
 
   const listHeader = React.useMemo(() => (
@@ -763,7 +764,6 @@ export default function HomeScreen() {
           maxToRenderPerBatch={2}
           windowSize={3}
           updateCellsBatchingPeriod={24}
-          removeClippedSubviews
           onEndReached={loadMoreVibe}
           onEndReachedThreshold={0.5}
           snapToInterval={vibeCardWidth + spacing.md}
@@ -824,7 +824,6 @@ export default function HomeScreen() {
             initialNumToRender={2}
             maxToRenderPerBatch={2}
             windowSize={3}
-            removeClippedSubviews
             decelerationRate="fast"
             disableIntervalMomentum
             snapToAlignment="start"
@@ -981,7 +980,6 @@ export default function HomeScreen() {
               maxToRenderPerBatch={2}
               windowSize={3}
               updateCellsBatchingPeriod={24}
-              removeClippedSubviews
               decelerationRate="fast"
               disableIntervalMomentum
               snapToAlignment="start"
@@ -1037,7 +1035,6 @@ export default function HomeScreen() {
             initialNumToRender={2}
             maxToRenderPerBatch={2}
             windowSize={3}
-            removeClippedSubviews
             contentContainerStyle={styles.largeProductList}
             showsHorizontalScrollIndicator={false}
             onEndReached={loadMoreBestsellers}
@@ -1092,7 +1089,6 @@ export default function HomeScreen() {
             initialNumToRender={2}
             maxToRenderPerBatch={4}
             windowSize={3}
-            removeClippedSubviews
             scrollEnabled={false}
             contentContainerStyle={styles.mostLovedGridList}
             columnWrapperStyle={styles.mostLovedGridRow}
@@ -1123,8 +1119,7 @@ export default function HomeScreen() {
           initialNumToRender={2}
           maxToRenderPerBatch={2}
           windowSize={3}
-            updateCellsBatchingPeriod={24}
-          removeClippedSubviews
+          updateCellsBatchingPeriod={24}
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.testimonialViewport}
           renderItem={({ item }) => {
@@ -1225,21 +1220,15 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
       <AppHeader variant="main" />
-      <FlatList
+      <ScrollView
         ref={listRef}
-        data={[]}
-        keyExtractor={(_item, index) => String(index)}
-        renderItem={() => null}
-        ListHeaderComponent={listHeader}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.contentContainer}
-        removeClippedSubviews
-        maxToRenderPerBatch={2}
-        initialNumToRender={2}
-        windowSize={3}
         onScroll={handleListScroll}
         scrollEventThrottle={16}
-      />
+      >
+        {listHeader}
+      </ScrollView>
 
       <ScrollToTopFab
         visible={showScrollTop}
