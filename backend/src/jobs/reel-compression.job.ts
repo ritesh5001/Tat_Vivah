@@ -66,14 +66,14 @@ export async function compressReelVideo(reelId: string, videoUrl: string): Promi
         if (durationSeconds !== null) {
             log.info({ durationSeconds }, 'Video duration probed');
 
-            // Reject videos over 30 seconds (backend enforcement)
-            if (durationSeconds > 30) {
-                log.warn({ durationSeconds }, 'Video exceeds 30 second limit, marking as REJECTED');
+            // Reject videos over 60 seconds (backend enforcement)
+            if (durationSeconds > 60) {
+                log.warn({ durationSeconds }, 'Video exceeds 60 second limit, marking as REJECTED');
                 await db.reel.update({
                     where: { id: reelId },
                     data: { status: 'REJECTED' },
                 });
-                return { reelId, success: false, durationSeconds, error: 'Video exceeds 30 second limit' };
+                return { reelId, success: false, durationSeconds, error: 'Video exceeds 60 second limit' };
             }
         }
 

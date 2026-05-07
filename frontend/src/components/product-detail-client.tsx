@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowLeftRight, ChevronDown, CircleHelp, Eye, Truck } from "lucide-react";
+import { ArrowLeftRight, ChevronDown, CircleHelp, Eye, Share2, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { addCartItem } from "@/services/cart";
@@ -348,6 +348,36 @@ export default function ProductDetailClient({
     }
   };
 
+  const handleShareProduct = async () => {
+    const url =
+      typeof window !== "undefined"
+        ? window.location.href
+        : `https://tatvivahtrends.com/product/${product.id}`;
+    const title = product.title?.trim() || "TatVivah product";
+
+    try {
+      if (typeof navigator !== "undefined" && navigator.share) {
+        await navigator.share({
+          title,
+          text: title,
+          url,
+        });
+        return;
+      }
+
+      if (typeof navigator !== "undefined" && navigator.clipboard) {
+        await navigator.clipboard.writeText(url);
+        toast.success("Product link copied.");
+        return;
+      }
+
+      toast.info(url);
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      toast.error("Unable to share this product.");
+    }
+  };
+
   const handleOpenBooking = () => {
     const roleMatch = document.cookie.match(/(?:^|; )tatvivah_role=([^;]*)/);
     const role = roleMatch ? decodeURIComponent(roleMatch[1]).toUpperCase() : "";
@@ -584,7 +614,16 @@ export default function ProductDetailClient({
           </motion.div>
         </div>
 
-        <div className="pt-3">
+        <div className="grid grid-cols-1 gap-3 pt-3 sm:grid-cols-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleShareProduct}
+            className="h-12 w-full gap-2 border border-border-soft text-[12px] font-medium uppercase tracking-[0.12em] text-foreground hover:border-gold/50 hover:bg-gold/5"
+          >
+            <Share2 className="h-4 w-4" strokeWidth={1.6} />
+            Share
+          </Button>
           <Button
             type="button"
             variant="outline"

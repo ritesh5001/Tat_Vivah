@@ -22,6 +22,7 @@ import { listSellerProducts, type SellerProduct } from "@/services/seller-produc
 const IMAGEKIT_PUBLIC_KEY = process.env.NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY;
 const IMAGEKIT_URL_ENDPOINT = process.env.NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT;
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+const MAX_REEL_DURATION_SECONDS = 60;
 
 const getStatusBadge = (status: string) => {
   const s = status.toUpperCase();
@@ -106,14 +107,14 @@ export default function SellerReelsPage() {
       return;
     }
 
-    // Duration validation: max 30 seconds
+    // Duration validation: max 1 minute
     const durationOk = await new Promise<boolean>((resolve) => {
       const video = document.createElement("video");
       video.preload = "metadata";
       video.onloadedmetadata = () => {
         URL.revokeObjectURL(video.src);
-        if (video.duration > 30) {
-          toast.error("Reel must be 30 seconds or less");
+        if (video.duration > MAX_REEL_DURATION_SECONDS) {
+          toast.error("Reel must be 1 minute or less");
           resolve(false);
         } else {
           resolve(true);
@@ -322,7 +323,7 @@ export default function SellerReelsPage() {
                             Click to upload video
                           </span>
                           <span className="text-xs text-muted-foreground/60 mt-1">
-                            Max 100MB · 30 seconds
+                            Max 100MB · 1 minute
                           </span>
                         </>
                       )}

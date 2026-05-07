@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-const MAX_REEL_DURATION_SECONDS = 30;
+const MAX_REEL_DURATION_SECONDS = 60;
 
 export const createReelSchema = z.object({
     videoUrl: z.string().url('Valid video URL is required'),

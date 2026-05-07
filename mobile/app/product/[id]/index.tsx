@@ -51,7 +51,6 @@ import { impactMedium, impactLight, notifySuccess } from "../../../src/utils/hap
 import { AppHeader } from "../../../src/components/AppHeader";
 import { useQuery } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import * as Linking from "expo-linking";
 import Animated, {
   runOnJS,
   useAnimatedStyle,
@@ -1180,7 +1179,7 @@ export default function ProductDetailScreen() {
                     impactLight();
                     void handleShareProduct();
                   }}
-                  style={{ height: 36, width: 36, alignItems: "center", justifyContent: "center" }}
+                  style={styles.shareInlineButton}
                   hitSlop={8}
                 >
                   <Ionicons name="share-social-outline" size={20} color={colors.charcoal} />
@@ -1792,6 +1791,15 @@ const styles = StyleSheet.create({
     lineHeight: 30,
   },
   wishlistInlineButton: {
+    width: 44,
+    height: 44,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.surfaceElevated,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  shareInlineButton: {
     width: 44,
     height: 44,
     borderWidth: 1,
