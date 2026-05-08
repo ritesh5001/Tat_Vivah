@@ -12,7 +12,7 @@
       "supportsTablet": true
     },
     "android": {
-      "versionCode": 7,
+      "versionCode": 10,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/adaptive-icon.png"
@@ -50,16 +50,6 @@
           "photosPermission": "Allow TatVivah to select a photo for virtual try-on and product reviews.",
           "cameraPermission": "Allow TatVivah to take a photo for virtual try-on.",
           "microphonePermission": "Allow TatVivah to record audio when capturing media."
-        }
-      ],
-      [
-        "expo-speech-recognition",
-        {
-          "microphonePermission": "Allow TatVivah to use your microphone for voice search.",
-          "speechRecognitionPermission": "Allow TatVivah to convert your speech into search text.",
-          "androidSpeechServicePackages": [
-            "com.google.android.googlequicksearchbox"
-          ]
         }
       ],
       [
