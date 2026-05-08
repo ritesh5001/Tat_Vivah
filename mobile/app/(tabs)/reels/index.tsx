@@ -30,7 +30,7 @@ export default function ReelsScreen() {
   const [visibleIndex, setVisibleIndex] = React.useState(0);
   const [likedById, setLikedById] = React.useState<Record<string, boolean>>({});
   const [likeCountsById, setLikeCountsById] = React.useState<Record<string, number>>({});
-  const [isMuted, setIsMuted] = React.useState(true);
+  const [isMuted, setIsMuted] = React.useState(false);
   const [activeCategory, setActiveCategory] = React.useState<"MENS" | "KIDS">("MENS");
   const listRef = React.useRef<FlashListRef<ReelFeedItem> | null>(null);
   const visibleIndexRef = React.useRef(0);
