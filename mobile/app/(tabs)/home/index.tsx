@@ -6,6 +6,7 @@ import {
   ScrollView,
   StyleSheet,
   View,
+  type TextStyle,
   useWindowDimensions,
 } from "react-native";
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from "react-native-svg";
@@ -35,6 +36,13 @@ import { getProducts, type ProductItem } from "../../../src/services/products";
 import { MarketplaceCard } from "../../../src/components/MarketplaceCard";
 
 const MOST_LOVED_PAGE_SIZE = 8;
+const HOME_SECTION_TITLE: TextStyle = {
+  ...textStyles.sectionTitle,
+  fontSize: 22,
+  lineHeight: 28,
+  letterSpacing: 1.8,
+  textTransform: "uppercase",
+};
 
 type HomeGridCard = {
   id: string;
@@ -1271,10 +1279,9 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   vibeTitle: {
-    ...textStyles.sectionTitle,
+    ...HOME_SECTION_TITLE,
     color: colors.headerBrown,
-    textTransform: "uppercase",
-    letterSpacing: 1,
+    textAlign: "center",
   },
   vibeCarouselContent: {
     gap: spacing.md,
@@ -1412,11 +1419,9 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   occasionTitle: {
-    ...textStyles.sectionTitle,
+    ...HOME_SECTION_TITLE,
     color: "#17120E",
-    textTransform: "uppercase",
-    letterSpacing: 2.2,
-    fontSize: 22,
+    textAlign: "center",
   },
   menTabWrap: {
     alignItems: "center",
@@ -1557,11 +1562,10 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   trustHeading: {
+    ...HOME_SECTION_TITLE,
     fontFamily: typography.serif,
-    fontSize: 24,
     color: colors.textPrimary,
     textAlign: "center",
-    letterSpacing: 0.3,
     fontWeight: "600",
     marginBottom: spacing.sm,
   },
@@ -1641,10 +1645,9 @@ const styles = StyleSheet.create({
     height: 8,
   },
   collectionHeading: {
-    ...textStyles.sectionTitle,
+    ...HOME_SECTION_TITLE,
     color: colors.textPrimary,
-    letterSpacing: 1.8,
-    fontSize: 22,
+    textAlign: "center",
   },
   mostLovedSection: {
     marginTop: 35,
@@ -1661,10 +1664,8 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   mostLovedHeading: {
-    ...textStyles.sectionTitle,
+    ...HOME_SECTION_TITLE,
     color: colors.textPrimary,
-    letterSpacing: 1.8,
-    fontSize: 22,
     textAlign: "center",
   },
   largeProductList: {
@@ -1771,10 +1772,9 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
   },
   testimonialHeading: {
-    ...textStyles.sectionTitle,
+    ...HOME_SECTION_TITLE,
     color: colors.textPrimary,
-    letterSpacing: 1.8,
-    fontSize: 22,
+    textAlign: "center",
   },
   testimonialViewport: {
     paddingHorizontal: 0,

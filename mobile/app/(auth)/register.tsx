@@ -23,6 +23,8 @@ function normalizePhone(value: string): string {
   return value.replace(/\D/g, "");
 }
 
+const REGISTER_PLACEHOLDER_COLOR = "rgba(91, 78, 69, 0.48)";
+
 export default function RegisterScreen() {
   const router = useRouter();
   const [fullName, setFullName] = React.useState("");
@@ -114,7 +116,7 @@ export default function RegisterScreen() {
           <Text style={styles.label}>Full name</Text>
           <TextInput
             placeholder="Enter your name"
-            placeholderTextColor={colors.brownSoft}
+            placeholderTextColor={REGISTER_PLACEHOLDER_COLOR}
             style={styles.input}
             value={fullName}
             onChangeText={setFullName}
@@ -123,7 +125,7 @@ export default function RegisterScreen() {
           <Text style={styles.label}>Email</Text>
           <TextInput
             placeholder="you@example.com"
-            placeholderTextColor={colors.brownSoft}
+            placeholderTextColor={REGISTER_PLACEHOLDER_COLOR}
             style={styles.input}
             value={email}
             onChangeText={setEmail}
@@ -133,7 +135,7 @@ export default function RegisterScreen() {
           <Text style={styles.label}>Phone</Text>
           <TextInput
             placeholder="+91 97696 59709"
-            placeholderTextColor={colors.brownSoft}
+            placeholderTextColor={REGISTER_PLACEHOLDER_COLOR}
             style={styles.input}
             value={phone}
             onChangeText={setPhone}
@@ -144,7 +146,7 @@ export default function RegisterScreen() {
           <View style={styles.inputRow}>
             <TextInput
               placeholder="Create a password"
-              placeholderTextColor={colors.brownSoft}
+              placeholderTextColor={REGISTER_PLACEHOLDER_COLOR}
               secureTextEntry={!showPassword}
               style={[styles.input, styles.passwordInput]}
               value={password}
@@ -162,7 +164,7 @@ export default function RegisterScreen() {
           <View style={styles.inputRow}>
             <TextInput
               placeholder="Re-enter password"
-              placeholderTextColor={colors.brownSoft}
+              placeholderTextColor={REGISTER_PLACEHOLDER_COLOR}
               secureTextEntry={!showConfirmPassword}
               style={[styles.input, styles.passwordInput]}
               value={confirmPassword}
