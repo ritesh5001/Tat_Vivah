@@ -1,8 +1,8 @@
 import React from "react";
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
-  Share,
   StyleSheet,
   View,
   type NativeScrollEvent,
@@ -15,14 +15,12 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { AppText as Text } from "../../../src/components";
 import { ReelItem, type ReelFeedItem } from "../../../src/components/ReelItem";
-import { companyInfo } from "../../../src/data/company";
 import { listPublicReels } from "../../../src/services/reels";
 import { getProductById } from "../../../src/services/products";
 import { impactLight } from "../../../src/utils/haptics";
 import { colors, spacing } from "../../../src/theme";
 
 const REELS_PAGE_LIMIT = 8;
-const ABOUT_US_FALLBACK = `${companyInfo.brand} curates premium ethnic wear for weddings and celebrations, combining heritage craftsmanship with modern comfort.`;
 
 export default function ReelsScreen() {
   const router = useRouter();
@@ -31,6 +29,7 @@ export default function ReelsScreen() {
   const { width, height } = useWindowDimensions();
   const [visibleIndex, setVisibleIndex] = React.useState(0);
   const [likedById, setLikedById] = React.useState<Record<string, boolean>>({});
+  const [likeCountsById, setLikeCountsById] = React.useState<Record<string, number>>({});
   const [isMuted, setIsMuted] = React.useState(true);
   const [activeCategory, setActiveCategory] = React.useState<"MENS" | "KIDS">("MENS");
   const listRef = React.useRef<FlashListRef<ReelFeedItem> | null>(null);
@@ -61,8 +60,8 @@ export default function ReelsScreen() {
         caption: reel.caption?.trim() || "",
         username: "@tatvivah",
         productId: reel.productId ?? null,
+        likeCount: reel.likes ?? 0,
         productTitle: reel.product?.title?.trim() || null,
-        aboutFallback: ABOUT_US_FALLBACK,
       }))
     );
   }, [reelsQuery.data]);
@@ -78,8 +77,24 @@ export default function ReelsScreen() {
     setVisibleIndex(0);
     visibleIndexRef.current = 0;
     dragStartIndexRef.current = 0;
+    setLikedById({});
+    setLikeCountsById({});
     listRef.current?.scrollToOffset({ offset: 0, animated: false });
   }, [activeCategory]);
+
+  React.useEffect(() => {
+    setLikeCountsById((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      reels.forEach((reel) => {
+        if (next[reel.id] === undefined) {
+          next[reel.id] = reel.likeCount;
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [reels]);
 
   const viewabilityConfigRef = React.useRef({
     itemVisiblePercentThreshold: 80,
@@ -138,22 +153,27 @@ export default function ReelsScreen() {
 
   const toggleLike = React.useCallback((id: string) => {
     impactLight();
-    setLikedById((prev) => ({ ...prev, [id]: !prev[id] }));
-  }, []);
+    setLikedById((prev) => {
+      const nextLiked = !prev[id];
+      const currentReelCount = reels.find((reel) => reel.id === id)?.likeCount ?? 0;
+      setLikeCountsById((counts) => ({
+        ...counts,
+        [id]: Math.max(0, (counts[id] ?? currentReelCount) + (nextLiked ? 1 : -1)),
+      }));
+      return { ...prev, [id]: nextLiked };
+    });
+  }, [reels]);
 
   const toggleMute = React.useCallback(() => {
     setIsMuted((prev) => !prev);
   }, []);
 
-  const shareReel = React.useCallback(async (item: ReelFeedItem) => {
-    try {
-      const shareTitle = item.productTitle?.trim() || item.caption?.trim() || "TatVivah reel";
-      await Share.share({
-        message: `${shareTitle}\n${item.videoUrl}`,
-      });
-    } catch {
-      // no-op for canceled shares
-    }
+  const shareReel = React.useCallback((_item: ReelFeedItem) => {
+    Alert.alert(
+      "Download TatVivah app",
+      "Is reel ko open karne ke liye TatVivah app download karein.",
+      [{ text: "OK" }]
+    );
   }, []);
 
   const handlePressProduct = React.useCallback(
@@ -180,13 +200,14 @@ export default function ReelsScreen() {
         shouldPreload={index === visibleIndex + 1}
         shouldKeepInMemory={Math.abs(index - visibleIndex) <= 1}
         liked={likedById[item.id] ?? false}
+        likeCount={likeCountsById[item.id] ?? item.likeCount}
         onToggleMute={toggleMute}
         onToggleLike={toggleLike}
         onShare={shareReel}
         onPressProduct={handlePressProduct}
       />
     ),
-    [handlePressProduct, isMuted, itemHeight, itemWidth, likedById, shareReel, tabBarHeight, toggleLike, toggleMute, visibleIndex]
+    [handlePressProduct, isMuted, itemHeight, itemWidth, likeCountsById, likedById, shareReel, tabBarHeight, toggleLike, toggleMute, visibleIndex]
   );
 
   const renderCategorySwitcher = () => (

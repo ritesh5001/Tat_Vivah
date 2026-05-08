@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { VideoView, useVideoPlayer } from "expo-video";
 import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
-import { colors, spacing, textStyles } from "../theme";
+import { colors, spacing } from "../theme";
 import { AppText as Text } from "./AppText";
 import { CachedImage } from "./CachedImage";
 
@@ -14,6 +14,7 @@ export type ReelFeedItem = {
   caption: string;
   username: string;
   productId: string | null;
+  likeCount: number;
   productTitle?: string | null;
   aboutFallback?: string;
 };
@@ -28,6 +29,7 @@ type ReelItemProps = {
   shouldPreload: boolean;
   shouldKeepInMemory: boolean;
   liked: boolean;
+  likeCount: number;
   onToggleMute: () => void;
   onToggleLike: (id: string) => void;
   onShare: (item: ReelFeedItem) => void;
@@ -44,10 +46,11 @@ function ReelItemBase({
   shouldPreload: _shouldPreload,
   shouldKeepInMemory: _shouldKeepInMemory,
   liked,
+  likeCount,
   onToggleMute,
   onToggleLike,
   onShare,
-  onPressProduct,
+  onPressProduct: _onPressProduct,
 }: ReelItemProps) {
   const [isHolding, setIsHolding] = React.useState(false);
   const overlayOpacity = useSharedValue(0.24);
@@ -59,18 +62,8 @@ function ReelItemBase({
     videoPlayer.loop = true;
     videoPlayer.muted = isMuted;
   });
-  const hasProductDetails = Boolean(item.productTitle || item.productId);
   const bottomOffset = Math.max(tabBarHeight, 0);
   const actionsBottom = bottomOffset + 144;
-  const metaBottom = bottomOffset + spacing.sm;
-  const detailHeading = hasProductDetails ? "Product Details" : "About Us";
-  const detailTitle = hasProductDetails
-    ? item.productTitle?.trim() || "TatVivah Selection"
-    : "TatVivah Trends";
-  const detailBody = hasProductDetails
-    ? item.caption?.trim() || "Handpicked premium style from TatVivah."
-    : item.aboutFallback?.trim() ||
-      "TatVivah curates premium ethnic wear crafted for weddings, celebrations, and festive occasions across India.";
 
   React.useEffect(() => {
     overlayOpacity.value = withTiming(isActive ? 0.18 : 0.28, { duration: 220 });
@@ -179,7 +172,7 @@ function ReelItemBase({
             size={20}
             color={liked ? colors.primaryAccent : "#FFFFFF"}
           />
-          <Text style={styles.actionLabel}>{liked ? "Liked" : "Like"}</Text>
+          <Text style={styles.actionLabel}>{formatCount(likeCount)}</Text>
         </Pressable>
 
         <Pressable style={styles.actionButton} onPress={() => onShare(item)}>
@@ -193,46 +186,16 @@ function ReelItemBase({
             size={20}
             color="#FFFFFF"
           />
-          <Text style={styles.actionLabel}>{isMuted ? "Muted" : "Sound"}</Text>
         </Pressable>
       </View>
-
-      {hasProductDetails && item.productId ? (
-        <Pressable
-            style={[styles.metaWrap, styles.productMetaWrap, { bottom: metaBottom }]}
-          onPress={() => onPressProduct?.(item.productId as string)}
-        >
-            <View style={styles.productInfoCol}>
-              <Text numberOfLines={2} style={styles.productTitleInline}>
-                {detailTitle}
-              </Text>
-              <View style={styles.shopButtonInline}>
-                <Text style={styles.shopButtonText}>SHOP NOW</Text>
-              </View>
-            </View>
-
-            {item.thumbnailUrl ? (
-              <CachedImage source={item.thumbnailUrl} style={styles.productThumb} contentFit="cover" />
-            ) : (
-              <View style={[styles.productThumb, styles.productThumbFallback]}>
-                <Text style={styles.productThumbFallbackText}>No Image</Text>
-              </View>
-            )}
-        </Pressable>
-      ) : (
-        <View style={[styles.metaWrap, { bottom: metaBottom }]}>
-          <Text style={styles.username}>{item.username}</Text>
-          <Text style={styles.metaHeading}>{detailHeading}</Text>
-          <Text numberOfLines={1} style={styles.metaTitle}>
-            {detailTitle}
-          </Text>
-          <Text numberOfLines={3} style={styles.caption}>
-            {detailBody}
-          </Text>
-        </View>
-      )}
     </View>
   );
+}
+
+function formatCount(value: number): string {
+  if (value >= 1000000) return `${(value / 1000000).toFixed(value >= 10000000 ? 0 : 1)}M`;
+  if (value >= 1000) return `${(value / 1000).toFixed(value >= 10000 ? 0 : 1)}K`;
+  return String(value);
 }
 
 const styles = StyleSheet.create({
@@ -280,110 +243,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
     textTransform: "uppercase",
   },
-  metaWrap: {
-    position: "absolute",
-    alignSelf: "center",
-    width: "78%",
-    padding: spacing.sm,
-    borderWidth: 1,
-    borderColor: "rgba(183, 149, 108, 0.45)",
-    borderRadius: 0,
-    backgroundColor: "rgba(0, 0, 0, 0.3)",
-    zIndex: 2,
-    alignItems: "center",
-  },
-  productMetaWrap: {
-    width: "84%",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    gap: spacing.sm,
-  },
-  productInfoCol: {
-    flex: 1,
-    alignItems: "flex-start",
-    justifyContent: "center",
-    gap: spacing.sm,
-  },
-  productTitleInline: {
-    ...textStyles.bodyText,
-    color: "#FFFFFF",
-    fontSize: 14,
-    lineHeight: 20,
-    letterSpacing: 0.2,
-  },
-  shopButtonInline: {
-    borderWidth: 1,
-    borderColor: colors.primaryAccent,
-    backgroundColor: "rgba(183, 149, 108, 0.14)",
-    borderRadius: 0,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 7,
-  },
-  productThumb: {
-    width: 78,
-    height: 96,
-    borderWidth: 1,
-    borderColor: "rgba(183, 149, 108, 0.7)",
-    backgroundColor: "#161616",
-  },
-  productThumbFallback: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  productThumbFallbackText: {
-    color: "#D5C4B0",
-    fontSize: 9,
-    letterSpacing: 0.4,
-    textTransform: "uppercase",
-  },
-  username: {
-    ...textStyles.bodyText,
-    color: colors.primaryAccent,
-    fontSize: 12,
-    letterSpacing: 0.6,
-    textTransform: "uppercase",
-    marginBottom: spacing.xs,
-  },
-  metaHeading: {
-    color: "#E8D5BF",
-    fontSize: 10,
-    letterSpacing: 1,
-    textTransform: "uppercase",
-    marginBottom: 4,
-  },
-  metaTitle: {
-    ...textStyles.bodyText,
-    color: "#FFFFFF",
-    fontSize: 13,
-    letterSpacing: 0.3,
-    marginBottom: 4,
-  },
-  caption: {
-    ...textStyles.bodyText,
-    color: "#FFFFFF",
-    fontSize: 13,
-    lineHeight: 18,
-    textAlign: "center",
-  },
-  shopButton: {
-    alignSelf: "center",
-    marginTop: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.primaryAccent,
-    backgroundColor: "rgba(183, 149, 108, 0.14)",
-    borderRadius: 0,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 7,
-  },
-  shopButtonText: {
-    color: "#FFFFFF",
-    fontSize: 11,
-    letterSpacing: 1,
-    textTransform: "uppercase",
-  },
 });
 
 function areEqual(prev: ReelItemProps, next: ReelItemProps) {
@@ -395,7 +254,8 @@ function areEqual(prev: ReelItemProps, next: ReelItemProps) {
     prev.isMuted === next.isMuted &&
     prev.shouldPreload === next.shouldPreload &&
     prev.shouldKeepInMemory === next.shouldKeepInMemory &&
-    prev.liked === next.liked
+    prev.liked === next.liked &&
+    prev.likeCount === next.likeCount
   );
 }
 

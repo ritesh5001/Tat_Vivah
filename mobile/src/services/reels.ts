@@ -6,6 +6,7 @@ export type PublicReel = {
   thumbnailUrl: string | null;
   caption: string | null;
   productId: string | null;
+  likes: number;
   product?: {
     id: string;
     title: string;
