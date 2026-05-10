@@ -461,23 +461,6 @@ export const returnPolicy: PolicyDocument = {
       ),
     },
     {
-      id: "non-returnable",
-      title: "Non-Returnable Items",
-      body: (
-        <>
-          <ul>
-            <li>Customized or made-to-order products</li>
-            <li>Intimate wear or hygiene-sensitive items</li>
-            <li>Perishable goods</li>
-            <li>Items marked as “non-returnable” on the product page</li>
-          </ul>
-          <p>
-            Tatvivah Trends reserves the right to refuse returns, restrict account activity, or suspend accounts in cases of excessive or fraudulent return behavior.
-          </p>
-        </>
-      ),
-    },
-    {
       id: "process",
       title: "Return Process",
       body: (
@@ -517,7 +500,7 @@ export const refundPolicy: PolicyDocument = {
   lastUpdated: "01 April 2026",
   intro: (
     <p>
-      Refunds are processed after approval to the original payment method within the stated timeline.
+      Refunds are credited after approval to the original payment method within the stated timeline.
     </p>
   ),
   sections: [
@@ -527,7 +510,7 @@ export const refundPolicy: PolicyDocument = {
       body: (
         <ul>
           <li>Refunds are issued after the return is approved or an eligible cancellation is confirmed.</li>
-          <li>Approved refunds are processed to the original payment method within 7-10 business days.</li>
+          <li>Approved refunds are credited to the original payment method within 7-10 business days.</li>
           <li>COD refunds are issued to the customer’s bank account after verification.</li>
         </ul>
       ),

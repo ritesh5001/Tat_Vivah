@@ -10,7 +10,6 @@ import {
 import { FlashList } from "@shopify/flash-list";
 import { useQueryClient } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
-import { Image } from "../../../src/components/CompatImage";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { colors, spacing, typography, shadow } from "../../../src/theme/tokens";
 import { getCategories } from "../../../src/services/catalog";
@@ -18,10 +17,12 @@ import {
   getProductsAndCache,
   getProductsCached,
   getProductById,
+  type ProductItem,
   type ProductSummary,
 } from "../../../src/services/products";
 import { isAbortError } from "../../../src/services/api";
 import { SkeletonProductCard } from "../../../src/components/Skeleton";
+import { MarketplaceCard } from "../../../src/components/MarketplaceCard";
 import { getSuggestions, type SuggestionItem, type SortOption } from "../../../src/services/search";
 import { AppHeader } from "../../../src/components/AppHeader";
 import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
@@ -34,8 +35,6 @@ import { useToast } from "../../../src/providers/ToastProvider";
 
 const { width } = Dimensions.get("window");
 const cardWidth = (width - spacing.lg * 2 - spacing.md) / 2;
-const fallbackImage =
-  "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80";
 
 const DEBOUNCE_MS = 140;
 const SUGGEST_DEBOUNCE_MS = 110;
@@ -85,23 +84,12 @@ const ProductCard = React.memo(function ProductCard({
   item: ProductSummary;
   onPress: (id: string) => void;
 }) {
-  const image = item.images?.[0] ?? fallbackImage;
   return (
-    <Pressable style={styles.productCard} onPress={() => onPress(item.id)}>
-      <Image
-        source={{ uri: image }}
-        style={styles.productImage}
-        contentFit="cover"
-        transition={200}
-        cachePolicy="memory-disk"
-      />
-      <Text style={styles.productTitle} numberOfLines={2}>
-        {item.title}
-      </Text>
-      <Text style={styles.productMeta}>
-        {item.category?.name ?? "Collection"}
-      </Text>
-    </Pressable>
+    <MarketplaceCard
+      product={item as ProductItem}
+      onPress={onPress}
+      style={{ width: cardWidth }}
+    />
   );
 });
 
@@ -867,34 +855,6 @@ const styles = StyleSheet.create({
   },
   gridRow: {
     gap: spacing.md,
-  },
-  productCard: {
-    width: cardWidth,
-    marginBottom: spacing.md,
-    padding: spacing.md,
-    borderRadius: 0,
-    backgroundColor: colors.surfaceElevated,
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    ...shadow.card,
-  },
-  productImage: {
-    width: "100%",
-    aspectRatio: 3 / 4,
-    borderRadius: 0,
-    backgroundColor: colors.surface,
-  },
-  productTitle: {
-    marginTop: spacing.sm,
-    fontFamily: typography.serif,
-    fontSize: 14,
-    color: colors.charcoal,
-  },
-  productMeta: {
-    marginTop: spacing.xs,
-    fontFamily: typography.sans,
-    fontSize: 11,
-    color: colors.brownSoft,
   },
   skeletonLine: {
     height: 12,

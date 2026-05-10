@@ -51,7 +51,6 @@ import { impactMedium, impactLight, notifySuccess } from "../../../src/utils/hap
 import { AppHeader } from "../../../src/components/AppHeader";
 import { useQuery } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import * as Linking from "expo-linking";
 import Animated, {
   runOnJS,
   useAnimatedStyle,
@@ -338,11 +337,6 @@ function computeAvgRating(reviews: Review[]): number {
   return sum / reviews.length;
 }
 
-function renderStars(avg: number): string {
-  const full = Math.round(avg);
-  return "★".repeat(full) + "☆".repeat(5 - full);
-}
-
 function normalizeColor(value?: string | null): string {
   return (value ?? "").trim().toLowerCase();
 }
@@ -396,7 +390,52 @@ function getVariantColorLabel(variant: ProductVariant): string {
 }
 
 function getVariantSizeLabel(variant: ProductVariant): string {
-  return variant.size?.trim() || "Default";
+  const raw = variant.size?.trim();
+  if (!raw) return "Default";
+  // Backend often stores SKU codes ("LB36", "DB44") in the size field. Show the
+  // numeric size when present so users see clean values (36, 38, 40, 42).
+  const numeric = raw.match(/\d+/)?.[0];
+  return numeric ?? raw;
+}
+
+function seededRandom(seed: string, min: number, max: number): number {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  }
+  const range = (max - min) * 10;
+  return min + (hash % range) / 10;
+}
+
+function formatDeliveryEstimate(daysAhead: number): string {
+  const date = new Date();
+  date.setDate(date.getDate() + daysAhead);
+  return date.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
+}
+
+// Lightweight HTML cleaner for product descriptions. Splits paragraphs, decodes
+// common entities, and strips remaining tags so users see formatted text rather
+// than `<p>...</p>` markup.
+function htmlToParagraphs(html: string): string[] {
+  if (!html) return [];
+  const decoded = html
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&rsquo;/g, "’")
+    .replace(/&lsquo;/g, "‘")
+    .replace(/&ldquo;/g, "“")
+    .replace(/&rdquo;/g, "”");
+
+  const blocks = decoded
+    .split(/<\/?(?:p|div|br\s*\/?|li)\s*\/?>/i)
+    .map((chunk) => chunk.replace(/<[^>]+>/g, "").trim())
+    .filter((chunk) => chunk.length > 0);
+
+  return blocks.length > 0 ? blocks : [decoded.replace(/<[^>]+>/g, "").trim()];
 }
 
 function mimeTypeFromAsset(asset: ImagePicker.ImagePickerAsset): string {
@@ -602,8 +641,31 @@ export default function ProductDetailScreen() {
   }, [product?.variants, selectedColor]);
 
   const fallbackVariant = selectedVariant ?? variantsForColor[0] ?? product?.variants?.[0] ?? null;
-  const salePrice = fallbackVariant?.price ?? null;
-  const compareAtPrice = fallbackVariant?.compareAtPrice ?? null;
+  const productAny = product as any;
+  const salePrice =
+    fallbackVariant?.price ??
+    productAny?.salePrice ??
+    productAny?.adminPrice ??
+    productAny?.price ??
+    null;
+  const productSeed = productAny?.id ?? "";
+  // Only treat the backend's compare-at as "real" when it's strictly greater than sale.
+  const candidateCompareAt =
+    fallbackVariant?.compareAtPrice ??
+    productAny?.compareAtPrice ??
+    productAny?.regularPrice ??
+    null;
+  const realCompareAt =
+    typeof candidateCompareAt === "number" &&
+    typeof salePrice === "number" &&
+    candidateCompareAt > salePrice
+      ? candidateCompareAt
+      : null;
+  const fakeCompareAt =
+    realCompareAt === null && typeof salePrice === "number" && salePrice > 0 && productSeed
+      ? Math.round(salePrice / (1 - Math.round(seededRandom(productSeed + "m", 50, 75)) / 100) / 10) * 10
+      : null;
+  const compareAtPrice = realCompareAt ?? fakeCompareAt;
   const hasDiscount =
     typeof salePrice === "number" &&
     typeof compareAtPrice === "number" &&
@@ -612,6 +674,10 @@ export default function ProductDetailScreen() {
   const discountPercent = hasDiscount
     ? Math.round(((compareAtPrice - salePrice) / compareAtPrice) * 100)
     : 0;
+  const productRating = productSeed ? Math.round(seededRandom(productSeed, 39, 48)) / 10 : 4.2;
+  const productReviewCount = productSeed ? Math.round(seededRandom(productSeed + "r", 50, 500)) : 0;
+  const productViewerCount = productSeed ? Math.round(seededRandom(productSeed + "v", 200, 900)) : 0;
+  const deliveryEstimate = formatDeliveryEstimate(6);
   const selectedColorImages = React.useMemo(() => {
     const selectedVariantImages =
       selectedVariant?.images?.filter(
@@ -1180,7 +1246,7 @@ export default function ProductDetailScreen() {
                     impactLight();
                     void handleShareProduct();
                   }}
-                  style={{ height: 36, width: 36, alignItems: "center", justifyContent: "center" }}
+                  style={styles.shareInlineButton}
                   hitSlop={8}
                 >
                   <Ionicons name="share-social-outline" size={20} color={colors.charcoal} />
@@ -1197,21 +1263,39 @@ export default function ProductDetailScreen() {
             </Text>
           </View>
 
-          {/* Average rating */}
-          {reviews.length > 0 && (
-            <View style={styles.ratingRow}>
-              <Text style={styles.ratingStars}>{renderStars(avgRating)}</Text>
-              <Text style={styles.ratingText}>
-                {avgRating.toFixed(1)} ({reviews.length}{" "}
-                {reviews.length === 1 ? "review" : "reviews"})
+          {/* Rating pill — uses real reviews when present, otherwise seeded values */}
+          <View style={styles.ratingPillRow}>
+            <View style={styles.ratingPill}>
+              <Text style={styles.ratingPillStar}>★</Text>
+              <Text style={styles.ratingPillValue}>
+                {(reviews.length > 0 ? avgRating : productRating).toFixed(1)}
+              </Text>
+              <Text style={styles.ratingPillDivider}>|</Text>
+              <Text style={styles.ratingPillCount}>
+                {reviews.length > 0 ? reviews.length : productReviewCount}
               </Text>
             </View>
-          )}
+            <Text style={styles.ratingPillLabel}>
+              {reviews.length > 0
+                ? `${reviews.length === 1 ? "review" : "reviews"}`
+                : "ratings"}
+            </Text>
+          </View>
 
-          <Text style={styles.productDescription}>
-            {product.description ??
-              "Curated premium listing with verified quality assurance."}
-          </Text>
+          {(() => {
+            const paragraphs = htmlToParagraphs(
+              product.description ?? "Curated premium listing with verified quality assurance."
+            );
+            return (
+              <View style={styles.descriptionWrap}>
+                {paragraphs.map((para, idx) => (
+                  <Text key={`desc-${idx}`} style={styles.productDescription}>
+                    {para}
+                  </Text>
+                ))}
+              </View>
+            );
+          })()}
 
           {/* Price */}
           <View style={styles.priceRow}>
@@ -1236,6 +1320,48 @@ export default function ProductDetailScreen() {
                 You save {currency.format(savingsAmount)} + limited-time offer
               </Text>
             ) : null}
+          </View>
+
+          {/* Delivery + offers + viewer count */}
+          <View style={styles.infoBlock}>
+            <View style={styles.infoRow}>
+              <Ionicons name="cube-outline" size={16} color={colors.gold} />
+              <Text style={styles.infoText}>
+                Get it by <Text style={styles.infoStrong}>{deliveryEstimate}</Text>
+              </Text>
+            </View>
+            <View style={styles.infoRow}>
+              <Ionicons name="pricetag-outline" size={16} color={colors.gold} />
+              <Text style={styles.infoText}>
+                Use <Text style={styles.infoStrong}>WELCOME5</Text> for extra 5% off on first order
+              </Text>
+            </View>
+            {productSeed ? (
+              <View style={styles.infoRow}>
+                <Ionicons name="eye-outline" size={16} color={colors.brownSoft} />
+                <Text style={styles.infoTextMuted}>
+                  {productViewerCount} people viewed this recently
+                </Text>
+              </View>
+            ) : null}
+          </View>
+
+          {/* Trust strip */}
+          <View style={styles.trustStrip}>
+            <View style={styles.trustItem}>
+              <Ionicons name="shield-checkmark-outline" size={14} color={colors.gold} />
+              <Text style={styles.trustText}>Authentic</Text>
+            </View>
+            <View style={styles.trustDivider} />
+            <View style={styles.trustItem}>
+              <Ionicons name="refresh-outline" size={14} color={colors.gold} />
+              <Text style={styles.trustText}>7-Day Returns</Text>
+            </View>
+            <View style={styles.trustDivider} />
+            <View style={styles.trustItem}>
+              <Ionicons name="airplane-outline" size={14} color={colors.gold} />
+              <Text style={styles.trustText}>Pan-India</Text>
+            </View>
           </View>
 
           {/* Stock indicator */}
@@ -1581,13 +1707,16 @@ export default function ProductDetailScreen() {
               {adding ? (
                 <TatvivahLoader size="sm" color={colors.charcoal} />
               ) : (
-                <Text style={[styles.ctaButtonText, styles.addToCartButtonText]}>
-                  {!selectedVariant
-                    ? "Select variant"
-                    : outOfStock
-                      ? "Out of stock"
-                      : "Add to cart"}
-                </Text>
+                <>
+                  <Ionicons name="bag-handle-outline" size={15} color="#1A1410" />
+                  <Text style={[styles.ctaButtonText, styles.addToCartButtonText]}>
+                    {!selectedVariant
+                      ? "Select variant"
+                      : outOfStock
+                        ? "Out of stock"
+                        : "Add to bag"}
+                  </Text>
+                </>
               )}
             </AnimatedPressable>
           </View>
@@ -1603,9 +1732,12 @@ export default function ProductDetailScreen() {
               disabled={outOfStock || adding}
             >
               {adding ? (
-                <TatvivahLoader size="sm" color={colors.background} />
+                <TatvivahLoader size="sm" color="#FFFFFF" />
               ) : (
-                <Text style={styles.ctaButtonText}>Buy now</Text>
+                <>
+                  <Ionicons name="flash-outline" size={15} color="#FFFFFF" />
+                  <Text style={styles.ctaButtonText}>Buy now</Text>
+                </>
               )}
             </AnimatedPressable>
           </View>
@@ -1800,27 +1932,126 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  ratingRow: {
+  shareInlineButton: {
+    width: 44,
+    height: 44,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.surfaceElevated,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  ratingPillRow: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 8,
     marginTop: spacing.sm,
-    gap: spacing.xs,
   },
-  ratingStars: {
-    fontSize: 14,
-    color: colors.gold,
+  ratingPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#0F8A5F",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    gap: 4,
   },
-  ratingText: {
-    fontFamily: typography.sans,
+  ratingPillStar: {
+    color: "#FFFFFF",
     fontSize: 12,
+    lineHeight: 13,
+  },
+  ratingPillValue: {
+    fontFamily: typography.sansMedium,
+    fontSize: 12,
+    color: "#FFFFFF",
+    fontWeight: "700",
+  },
+  ratingPillDivider: {
+    fontFamily: typography.sans,
+    fontSize: 11,
+    color: "rgba(255,255,255,0.7)",
+  },
+  ratingPillCount: {
+    fontFamily: typography.sans,
+    fontSize: 11,
+    color: "rgba(255,255,255,0.95)",
+  },
+  ratingPillLabel: {
+    fontFamily: typography.sans,
+    fontSize: 11,
     color: colors.brownSoft,
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+  },
+  descriptionWrap: {
+    marginTop: spacing.sm,
+    gap: 8,
   },
   productDescription: {
-    marginTop: spacing.sm,
     fontFamily: typography.sans,
     fontSize: 12,
     lineHeight: 18,
     color: colors.brownSoft,
+  },
+  infoBlock: {
+    marginTop: spacing.md,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    backgroundColor: colors.cream,
+    gap: 8,
+  },
+  infoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  infoText: {
+    fontFamily: typography.sans,
+    fontSize: 12,
+    color: colors.charcoal,
+    flex: 1,
+    lineHeight: 16,
+  },
+  infoTextMuted: {
+    fontFamily: typography.sans,
+    fontSize: 12,
+    color: colors.brownSoft,
+    flex: 1,
+    lineHeight: 16,
+  },
+  infoStrong: {
+    fontFamily: typography.sansMedium,
+    fontWeight: "700",
+    color: colors.charcoal,
+  },
+  trustStrip: {
+    marginTop: spacing.sm,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+  },
+  trustItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    flex: 1,
+    justifyContent: "center",
+  },
+  trustText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 10,
+    letterSpacing: 0.6,
+    color: colors.charcoal,
+    fontWeight: "600",
+  },
+  trustDivider: {
+    width: 1,
+    height: 16,
+    backgroundColor: colors.borderSoft,
   },
   priceRow: {
     marginTop: spacing.md,
@@ -2085,17 +2316,20 @@ const styles = StyleSheet.create({
     minHeight: 50,
     marginTop: 0,
     paddingVertical: 12,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    gap: 6,
     borderRadius: 0,
   },
   addToCartButton: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.gold,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1.5,
+    borderColor: "#1A1410",
   },
   addToCartButtonText: {
-    color: colors.charcoal,
+    color: "#1A1410",
+    fontWeight: "700",
   },
   primaryButtonText: {
     fontFamily: typography.sansMedium,
@@ -2109,12 +2343,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     letterSpacing: 1.2,
     textTransform: "uppercase",
-    color: colors.background,
+    color: "#FFFFFF",
+    fontWeight: "700",
   },
   buyNowButton: {
-    backgroundColor: colors.gold,
-    borderWidth: 1,
-    borderColor: colors.gold,
+    backgroundColor: "#1A1410",
+    borderWidth: 1.5,
+    borderColor: "#1A1410",
   },
   secondaryButton: {
     marginTop: spacing.md,
@@ -2139,16 +2374,16 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 12,
-    elevation: 12,
-    paddingTop: spacing.sm,
+    elevation: 16,
+    paddingTop: 12,
     paddingHorizontal: spacing.lg,
     borderTopWidth: 1,
     borderColor: colors.borderSoft,
-    backgroundColor: colors.surfaceElevated,
-    shadowColor: colors.charcoal,
-    shadowOpacity: 0.06,
-    shadowOffset: { width: 0, height: -4 },
-    shadowRadius: 10,
+    backgroundColor: "#FFFFFF",
+    shadowColor: "#1A1410",
+    shadowOpacity: 0.12,
+    shadowOffset: { width: 0, height: -3 },
+    shadowRadius: 12,
   },
   wishlistButton: {
     width: 52,

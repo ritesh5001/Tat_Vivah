@@ -151,7 +151,6 @@ export const returnPolicy: PolicyDocument = {
   updatedAt: "01 April 2026",
   sections: [
     { title: "Eligibility for Returns", body: "Customers may request a return if the product is damaged, defective, incorrect, or significantly different from its description, and the request is raised within 7 days of delivery." },
-    { title: "Non-Returnable Items", body: "Customized or made-to-order products, intimate wear, hygiene-sensitive items, perishable goods, and items marked non-returnable are generally not eligible for return. Tatvivah Trends may restrict accounts in cases of excessive or fraudulent return behavior." },
     { title: "Return Process", body: "Log in to your account, open My Orders, select the item, click Request Return, provide the reason and supporting images, and wait for pickup approval." },
     { title: "Refunds", body: "Refunds are initiated after the returned product passes quality inspection and are credited to the original payment method within 7-10 business days. COD refunds are processed to the customer’s bank account." },
     { title: "Contact Us", body: "For return assistance, contact support@tatvivahtrends.com or call 9769659709." },
@@ -164,7 +163,7 @@ export const refundPolicy: PolicyDocument = {
   updatedAt: "01 April 2026",
   sections: [
     { title: "Approval Process", body: "Refund initiation starts after return quality check approval or seller-side cancellation confirmation." },
-    { title: "Processing Time", body: "UPI and wallet refunds usually reflect within 2-4 business days, and card or net-banking refunds within 5-7 business days." },
+    { title: "Credited Time", body: "UPI and wallet refunds are usually credited within 2-4 business days, and card or net-banking refunds within 5-7 business days." },
     { title: "Partial Refunds", body: "Partial refunds may be issued for partial returns, promotional adjustments, or policy-based deductions where applicable." },
     { title: "Refund Escalation", body: "If your refund is delayed beyond the SLA, contact support@tatvivahtrends.com with your order ID and payment reference." },
   ],

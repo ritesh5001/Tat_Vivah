@@ -126,6 +126,7 @@ export default function RootLayout({
       </head>
       <body
         className={`${inter.variable} min-h-screen bg-background text-foreground antialiased`}
+        suppressHydrationWarning
       >
         <script
           type="application/ld+json"

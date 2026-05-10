@@ -1,15 +1,30 @@
 import * as React from "react";
 import { View, Text, StyleSheet, FlatList, Pressable } from "react-native";
-import { Image } from "./CompatImage";
-import { colors, radius, spacing, typography, shadow } from "../theme/tokens";
-import { images } from "../data/images";
+import { colors, spacing, typography } from "../theme/tokens";
 import { type BestsellerProduct } from "../services/bestsellers";
+import { type ProductItem } from "../services/products";
+import { ProductGridCard } from "./ProductGridCard";
 
 interface BestsellerSectionProps {
   loading: boolean;
   items: BestsellerProduct[];
   cardWidth: number;
   onPressShopAll?: () => void;
+  onPressItem?: (product: ProductItem) => void;
+}
+
+function bestsellerToProductItem(item: BestsellerProduct): ProductItem {
+  return {
+    id: item.productId || item.id,
+    title: item.title,
+    images: item.image ? [item.image] : [],
+    category: item.categoryName ? { name: item.categoryName } : null,
+    price: item.adminPrice ?? item.minPrice ?? undefined,
+    salePrice: item.salePrice ?? null,
+    adminPrice: item.adminPrice ?? null,
+    regularPrice: item.regularPrice ?? null,
+    sellerPrice: null,
+  };
 }
 
 export function BestsellerSection({
@@ -17,16 +32,8 @@ export function BestsellerSection({
   items,
   cardWidth,
   onPressShopAll,
+  onPressItem,
 }: BestsellerSectionProps) {
-  const formatPrice = (price?: number | null) => {
-    if (!price && price !== 0) return "Contact for price";
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-      maximumFractionDigits: 0,
-    }).format(price);
-  };
-
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
@@ -64,30 +71,11 @@ export function BestsellerSection({
             return { length: itemWidth, offset: itemWidth * index, index };
           }}
           renderItem={({ item }) => (
-            <View style={[styles.card, { width: cardWidth }]}>
-              <Image
-                source={item.image ? { uri: item.image } : images.productPlaceholder}
-                style={styles.image}
-                contentFit="cover"
-                contentPosition="center"
-                transition={200}
-                cachePolicy="memory-disk"
-              />
-              <Text style={styles.title}>{item.title}</Text>
-              <View style={styles.priceRow}>
-                <Text style={styles.price}>
-                  {formatPrice(item.salePrice ?? item.adminPrice ?? item.minPrice)}
-                </Text>
-                {typeof item.regularPrice === "number" &&
-                typeof (item.salePrice ?? item.adminPrice ?? item.minPrice) ===
-                  "number" &&
-                item.regularPrice !== (item.salePrice ?? item.adminPrice ?? item.minPrice) ? (
-                  <Text style={styles.priceStrike}>
-                    {formatPrice(item.regularPrice)}
-                  </Text>
-                ) : null}
-              </View>
-            </View>
+            <ProductGridCard
+              product={bestsellerToProductItem(item)}
+              onExplore={onPressItem}
+              style={{ width: cardWidth, flex: 0 }}
+            />
           )}
         />
       )}
@@ -130,53 +118,14 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
     gap: spacing.md,
   },
-  card: {
-    padding: spacing.md,
-    borderRadius: 0,
-    backgroundColor: colors.warmWhite,
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    ...shadow.card,
-  },
-  image: {
-    width: "100%",
-    aspectRatio: 3 / 4,
-    borderRadius: 0,
-    backgroundColor: colors.cream,
-  },
-  title: {
-    marginTop: spacing.sm,
-    fontFamily: typography.serif,
-    fontSize: 18,
-    color: colors.charcoal,
-  },
-  priceRow: {
-    marginTop: spacing.xs,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-  },
-  price: {
-    fontFamily: typography.sansMedium,
-    fontSize: 12,
-    color: colors.charcoal,
-  },
-  priceStrike: {
-    fontFamily: typography.sans,
-    fontSize: 12,
-    color: colors.brownSoft,
-    textDecorationLine: "line-through",
-  },
   loadingCard: {
     marginTop: spacing.lg,
     marginHorizontal: spacing.lg,
     padding: spacing.lg,
-    borderRadius: 0,
     backgroundColor: colors.warmWhite,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     alignItems: "center",
-    ...shadow.card,
   },
   loadingText: {
     fontFamily: typography.sans,

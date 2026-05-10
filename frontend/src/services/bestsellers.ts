@@ -18,6 +18,7 @@ export interface BestsellerProduct {
   title: string;
   image?: string | null;
   categoryName?: string | null;
+  compareAtPrice?: number | null;
   regularPrice?: number | null;
   sellerPrice?: number | null;
   adminPrice?: number | null;

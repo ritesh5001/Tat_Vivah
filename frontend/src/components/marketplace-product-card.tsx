@@ -21,6 +21,7 @@ export interface MarketplaceCardProduct {
   salePrice?: number | null;
   adminPrice?: number | null;
   price?: number | null;
+  compareAtPrice?: number | null;
   regularPrice?: number | null;
   sellerPrice?: number | null;
   adminListingPrice?: number | null;
@@ -103,19 +104,22 @@ function resolveCouponPrice(product: MarketplaceCardProduct, displayPrice: numbe
 
 function resolvePrimaryPrice(product: MarketplaceCardProduct): number | null {
   const value =
-    product.salePrice ??
     product.adminPrice ??
-    product.price ??
     product.adminListingPrice ??
+    product.salePrice ??
+    product.price ??
     product.minPrice ??
     product.sellerPrice;
   return typeof value === "number" ? value : null;
 }
 
 function resolveOriginalPrice(product: MarketplaceCardProduct, displayPrice: number | null): number | null {
-  if (typeof product.regularPrice !== "number") return null;
   if (displayPrice === null) return null;
-  return product.regularPrice > displayPrice ? product.regularPrice : null;
+
+  const value = product.compareAtPrice ?? product.regularPrice;
+  if (typeof value !== "number") return null;
+
+  return value > displayPrice ? value : null;
 }
 
 const SIZE_ORDER = ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "4XL", "5XL"] as const;
@@ -167,11 +171,29 @@ function formatSizesLabel(sizes: string[]): string {
   return hidden > 0 ? `${visible} +${hidden}` : visible;
 }
 
+function seededRandom(seed: string, min: number, max: number): number {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  }
+  const range = (max - min) * 10;
+  return min + (hash % range) / 10;
+}
+
 export function MarketplaceProductCard({ product }: { product: MarketplaceCardProduct }) {
   const displayPrice = resolvePrimaryPrice(product);
-  const originalPrice = resolveOriginalPrice(product, displayPrice);
+  const realOriginalPrice = resolveOriginalPrice(product, displayPrice);
   const couponPrice = resolveCouponPrice(product, displayPrice);
   const availableSizes = resolveAvailableSizes(product);
+  const rating = Math.round(seededRandom(product.id, 39, 48)) / 10;
+  const reviewCount = Math.round(seededRandom(product.id + "r", 50, 500));
+
+  const originalPrice = (() => {
+    if (typeof realOriginalPrice === "number") return realOriginalPrice;
+    if (typeof displayPrice !== "number" || displayPrice <= 0) return null;
+    const fakeDiscount = Math.round(seededRandom(product.id + "m", 50, 75));
+    return Math.round(displayPrice / (1 - fakeDiscount / 100) / 10) * 10;
+  })();
 
   const discountPercentage =
     typeof displayPrice === "number" && typeof originalPrice === "number" && originalPrice > 0
@@ -201,8 +223,19 @@ export function MarketplaceProductCard({ product }: { product: MarketplaceCardPr
           <div className="pointer-events-none absolute inset-0 bg-linear-to-t from-black/18 via-transparent to-transparent opacity-70 transition-opacity duration-300 group-hover:opacity-85" />
 
           <div className="absolute left-2 top-2 sm:left-3 sm:top-3">
-            <span className="inline-flex items-center rounded-full bg-white/95 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.14em] text-foreground/80 backdrop-blur-sm sm:px-2.5 sm:py-1 sm:text-[10px] sm:tracking-[0.18em]">
+            <span className="inline-flex items-center bg-white/95 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.14em] text-foreground/80 backdrop-blur-sm sm:px-2.5 sm:py-1 sm:text-[10px] sm:tracking-[0.18em]">
               Trending
+            </span>
+          </div>
+
+          <div className="absolute bottom-2 left-2 sm:bottom-3 sm:left-3">
+            <span className="inline-flex items-center gap-1 bg-white/90 px-2 py-0.5 text-[10px] font-semibold text-foreground/90 shadow-sm backdrop-blur-sm sm:px-2.5 sm:py-1 sm:text-[11px]">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="#16a34a" aria-hidden="true" className="shrink-0">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+              </svg>
+              <span>{rating.toFixed(1)}</span>
+              <span className="text-muted-foreground/60">|</span>
+              <span className="text-muted-foreground/80">{reviewCount}</span>
             </span>
           </div>
 
@@ -229,18 +262,18 @@ export function MarketplaceProductCard({ product }: { product: MarketplaceCardPr
 
         {typeof displayPrice === "number" ? (
           <>
-            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 sm:gap-x-2.5">
-              <span className="text-[1.62rem] font-semibold leading-none tracking-[-0.015em] text-foreground sm:text-[2rem] sm:tracking-[-0.02em]">
+            <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
+              <span className="text-[0.97rem] font-bold leading-none text-foreground">
                 {currency.format(displayPrice)}
               </span>
               {typeof originalPrice === "number" && (
-                <span className="text-[0.86rem] font-medium leading-none text-muted-foreground/80 line-through sm:text-[0.92rem]">
+                <span className="text-[0.80rem] text-muted-foreground/75 line-through decoration-foreground/35 decoration-1">
                   {currency.format(originalPrice)}
                 </span>
               )}
               {hasDiscount && (
-                <span className="text-[0.78rem] font-semibold uppercase tracking-[0.1em] text-amber-700 dark:text-amber-300 sm:text-[0.82rem] sm:tracking-[0.12em]">
-                  {discountPercentage}% OFF
+                <span className="text-[0.75rem] font-semibold text-amber-700 dark:text-amber-400">
+                  ({discountPercentage}% OFF)
                 </span>
               )}
             </div>

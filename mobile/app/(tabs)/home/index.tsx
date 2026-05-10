@@ -3,14 +3,16 @@ import {
   FlatList,
   ListRenderItemInfo,
   Pressable,
+  ScrollView,
   StyleSheet,
   View,
+  type TextStyle,
   useWindowDimensions,
 } from "react-native";
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from "react-native-svg";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, spacing, textStyles } from "../../../src/theme";
+import { colors, spacing, textStyles, typography } from "../../../src/theme";
 import { useProductsQuery } from "../../../src/hooks/useProductsQuery";
 import { AppHeader } from "../../../src/components/AppHeader";
 import { Footer } from "../../../src/components/Footer";
@@ -30,6 +32,17 @@ import {
   getBestsellers,
   type BestsellerProduct,
 } from "../../../src/services/bestsellers";
+import { getProducts, type ProductItem } from "../../../src/services/products";
+import { MarketplaceCard } from "../../../src/components/MarketplaceCard";
+
+const MOST_LOVED_PAGE_SIZE = 8;
+const HOME_SECTION_TITLE: TextStyle = {
+  ...textStyles.sectionTitle,
+  fontSize: 22,
+  lineHeight: 28,
+  letterSpacing: 1.8,
+  textTransform: "uppercase",
+};
 
 type HomeGridCard = {
   id: string;
@@ -50,6 +63,7 @@ type HomeProductCard = {
   priceText: string;
   categoryText?: string;
   query: string;
+  product: ProductItem;
 };
 
 function BottomWineFade() {
@@ -184,11 +198,25 @@ function repeatProductCards(cards: HomeProductCard[], times: number): HomeProduc
   return repeated;
 }
 
+function mergeUniqueProducts(current: ProductItem[], incoming: ProductItem[]): ProductItem[] {
+  if (incoming.length === 0) return current;
+  const seen = new Set(current.map((product) => product.id));
+  const merged = [...current];
+
+  incoming.forEach((product) => {
+    if (!seen.has(product.id)) {
+      merged.push(product);
+      seen.add(product.id);
+    }
+  });
+
+  return merged;
+}
+
 export default function HomeScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
 
-  const spotlightQuery = useProductsQuery({ page: 1, limit: 8, sort: "newest" });
   const categoriesQuery = useQuery({
     queryKey: ["home-categories"],
     queryFn: getCategories,
@@ -204,10 +232,14 @@ export default function HomeScreen() {
     queryFn: () => getBestsellers(4),
     staleTime: 60 * 1000,
   });
-  const mostLovedQuery = useProductsQuery({ page: 1, limit: 4, sort: "popularity" });
+  const mostLovedQuery = useProductsQuery({
+    page: 1,
+    limit: MOST_LOVED_PAGE_SIZE,
+    sort: "popularity",
+  });
 
   const [showScrollTop, setShowScrollTop] = React.useState(false);
-  const listRef = React.useRef<FlatList<never> | null>(null);
+  const listRef = React.useRef<ScrollView | null>(null);
   const testimonialRef = React.useRef<FlatList<typeof testimonials[number]> | null>(null);
   const [occasionRepeatCount, setOccasionRepeatCount] = React.useState(1);
   const [categoryRepeatCount, setCategoryRepeatCount] = React.useState(1);
@@ -218,6 +250,13 @@ export default function HomeScreen() {
   const [vibePageIndex, setVibePageIndex] = React.useState(0);
   const [bestsellerPageIndex, setBestsellerPageIndex] = React.useState(0);
   const [testimonialPageIndex, setTestimonialPageIndex] = React.useState(0);
+  const [mostLovedProducts, setMostLovedProducts] = React.useState<ProductItem[]>([]);
+  const [mostLovedVisibleCount, setMostLovedVisibleCount] = React.useState(0);
+  const [mostLovedNextPage, setMostLovedNextPage] = React.useState(2);
+  const [isMostLovedPrefetching, setIsMostLovedPrefetching] = React.useState(false);
+  const [hasMoreMostLoved, setHasMoreMostLoved] = React.useState(true);
+  const [hasMostLovedError, setHasMostLovedError] = React.useState(false);
+  const [pendingMostLovedReveal, setPendingMostLovedReveal] = React.useState(false);
   const testimonialIndexRef = React.useRef(0);
 
   React.useEffect(() => {
@@ -231,26 +270,6 @@ export default function HomeScreen() {
     [router]
   );
 
-  const spotlightCards = React.useMemo(() => {
-    const products = spotlightQuery.data?.data ?? [];
-    if (products.length === 0) {
-      return [
-        { id: "s1", image: images.hero.mobile[0], title: "ROYAL WEDDING", productId: null, description: "" },
-        { id: "s2", image: images.hero.mobile[2], title: "RECEPTION EDIT", productId: null, description: "" },
-        { id: "s3", image: images.hero.mobile[4], title: "GROOM SPECIAL", productId: null, description: "" },
-      ];
-    }
-
-    return products.slice(0, 3).map((product, index) => ({
-      id: product.id,
-      image: product.images?.[0] ?? images.hero.mobile[index % images.hero.mobile.length],
-      title: product.title,
-      productId: product.id,
-      description: product.description,
-    }));
-  }, [spotlightQuery.data]);
-
-  const spotlightCardHeight = Math.round(Math.min(Math.max(width * 1.05, 420), 560));
   const gridPageWidth = Math.max(width - spacing.pageHorizontal * 2, 280);
   const isPhone = width < 768;
   const gridPageGap = spacing.md;
@@ -265,11 +284,9 @@ export default function HomeScreen() {
   const categoryCardHeight = Math.round(categoryCardWidth * 1.34);
   const productCardGap = spacing.md;
   const mostLovedCardWidth = (gridPageWidth - productCardGap) / 2;
-  const mostLovedCardHeight = Math.round(mostLovedCardWidth * (4 / 3));
   const bestsellerCardWidth = isPhone
     ? (gridPageWidth - productCardGap) / 2
     : gridPageWidth;
-  const bestsellerCardHeight = Math.round(bestsellerCardWidth * (4 / 3));
   const testimonialCardGap = spacing.md;
   const testimonialCardWidth = Math.min(Math.max(gridPageWidth * 0.82, 260), 320);
   const testimonialCardStep = testimonialCardWidth + testimonialCardGap;
@@ -350,8 +367,8 @@ export default function HomeScreen() {
   );
 
   const mostLovedCards = React.useMemo<HomeProductCard[]>(() => {
-    const products = mostLovedQuery.data?.data ?? [];
-    return products.slice(0, 4).map((item, index) => ({
+    const products = mostLovedProducts.slice(0, mostLovedVisibleCount);
+    return products.map((item, index) => ({
       id: item.id,
       title: item.title,
       image: item.images?.[0] ?? fallbackGridImages[index % fallbackGridImages.length],
@@ -361,8 +378,9 @@ export default function HomeScreen() {
           : "₹0",
       categoryText: item.category?.name ?? "Collection",
       query: item.title,
+      product: item,
     }));
-  }, [fallbackGridImages, mostLovedQuery.data]);
+  }, [fallbackGridImages, mostLovedProducts, mostLovedVisibleCount]);
 
   const bestsellerCards = React.useMemo<HomeProductCard[]>(() => {
     const products: BestsellerProduct[] = bestsellersQuery.data?.products ?? [];
@@ -376,6 +394,16 @@ export default function HomeScreen() {
           : "₹0",
       categoryText: item.categoryName ?? "Collection",
       query: item.title,
+      product: {
+        id: item.productId ?? item.id,
+        title: item.title,
+        images: item.image ? [item.image] : [],
+        category: item.categoryName ? { name: item.categoryName } : null,
+        salePrice: item.salePrice ?? null,
+        adminPrice: item.adminPrice ?? null,
+        regularPrice: item.regularPrice ?? null,
+        price: item.minPrice ?? undefined,
+      } as ProductItem,
     }));
   }, [bestsellersQuery.data, fallbackGridImages]);
 
@@ -414,6 +442,55 @@ export default function HomeScreen() {
     setBestsellerRepeatCount((prev) => prev + 1);
   }, [bestsellerCards.length]);
 
+  const prefetchNextMostLoved = React.useCallback(async () => {
+    if (isMostLovedPrefetching || !hasMoreMostLoved) return;
+
+    setIsMostLovedPrefetching(true);
+    setHasMostLovedError(false);
+
+    try {
+      const response = await getProducts({
+        page: mostLovedNextPage,
+        limit: MOST_LOVED_PAGE_SIZE,
+        sort: "popularity",
+      });
+      const incoming = (response.data ?? []) as ProductItem[];
+      const totalPages = response.pagination?.totalPages;
+
+      setMostLovedProducts((previous) => mergeUniqueProducts(previous, incoming));
+      setMostLovedNextPage((previous) => previous + 1);
+      setHasMoreMostLoved(
+        (typeof totalPages === "number"
+          ? mostLovedNextPage < totalPages
+          : incoming.length === MOST_LOVED_PAGE_SIZE) && incoming.length > 0
+      );
+    } catch {
+      setHasMostLovedError(true);
+      setHasMoreMostLoved(false);
+    } finally {
+      setIsMostLovedPrefetching(false);
+    }
+  }, [hasMoreMostLoved, isMostLovedPrefetching, mostLovedNextPage]);
+
+  const revealNextMostLoved = React.useCallback(() => {
+    if (mostLovedVisibleCount < mostLovedProducts.length) {
+      setMostLovedVisibleCount((previous) =>
+        Math.min(previous + MOST_LOVED_PAGE_SIZE, mostLovedProducts.length)
+      );
+      return;
+    }
+
+    if (hasMoreMostLoved) {
+      setPendingMostLovedReveal(true);
+      void prefetchNextMostLoved();
+    }
+  }, [
+    hasMoreMostLoved,
+    mostLovedProducts.length,
+    mostLovedVisibleCount,
+    prefetchNextMostLoved,
+  ]);
+
   React.useEffect(() => {
     setOccasionRepeatCount(1);
     setOccasionPageIndex(0);
@@ -433,6 +510,58 @@ export default function HomeScreen() {
     setBestsellerRepeatCount(1);
     setBestsellerPageIndex(0);
   }, [bestsellerCards.length]);
+
+  React.useEffect(() => {
+    const products = ((mostLovedQuery.data?.data ?? []) as ProductItem[]);
+    if (!mostLovedQuery.data) return;
+
+    const totalPages = mostLovedQuery.data.pagination?.totalPages;
+    setMostLovedProducts(mergeUniqueProducts([], products));
+    setMostLovedVisibleCount(Math.min(MOST_LOVED_PAGE_SIZE, products.length));
+    setMostLovedNextPage(2);
+    setHasMoreMostLoved(
+      typeof totalPages === "number" ? totalPages > 1 : products.length === MOST_LOVED_PAGE_SIZE
+    );
+    setHasMostLovedError(false);
+    setPendingMostLovedReveal(false);
+  }, [mostLovedQuery.data]);
+
+  React.useEffect(() => {
+    if (mostLovedQuery.isLoading) return;
+    if (!hasMoreMostLoved || isMostLovedPrefetching) return;
+    if (mostLovedProducts.length - mostLovedVisibleCount >= MOST_LOVED_PAGE_SIZE) return;
+
+    void prefetchNextMostLoved();
+  }, [
+    hasMoreMostLoved,
+    isMostLovedPrefetching,
+    mostLovedProducts.length,
+    mostLovedQuery.isLoading,
+    mostLovedVisibleCount,
+    prefetchNextMostLoved,
+  ]);
+
+  React.useEffect(() => {
+    if (!pendingMostLovedReveal) return;
+
+    if (mostLovedVisibleCount < mostLovedProducts.length) {
+      setMostLovedVisibleCount((previous) =>
+        Math.min(previous + MOST_LOVED_PAGE_SIZE, mostLovedProducts.length)
+      );
+      setPendingMostLovedReveal(false);
+      return;
+    }
+
+    if (!hasMoreMostLoved && !isMostLovedPrefetching) {
+      setPendingMostLovedReveal(false);
+    }
+  }, [
+    hasMoreMostLoved,
+    isMostLovedPrefetching,
+    mostLovedProducts.length,
+    mostLovedVisibleCount,
+    pendingMostLovedReveal,
+  ]);
 
   const renderGridPage = React.useCallback(
     ({ item }: ListRenderItemInfo<HomeGridPage>) => (
@@ -521,45 +650,24 @@ export default function HomeScreen() {
 
   const renderLargeProductCard = React.useCallback(
     ({ item }: ListRenderItemInfo<HomeProductCard>) => (
-      <Pressable
-        style={[styles.largeProductCard, { width: mostLovedCardWidth }]}
-        onPress={() => navigateTo(`/search?q=${encodeURIComponent(item.query)}`)}
-      >
-        <CachedImage
-          source={item.image}
-          style={[styles.largeProductImage, { height: mostLovedCardHeight }]}
-          contentFit="cover"
-        />
-        <View style={styles.largeProductMeta}>
-          <Text numberOfLines={1} style={styles.largeProductTitle}>{item.title}</Text>
-          <Text style={styles.largeProductPrice}>{item.priceText}</Text>
-        </View>
-      </Pressable>
+      <MarketplaceCard
+        product={item.product}
+        onPress={(id) => navigateTo(`/product/${id}`)}
+        style={{ width: mostLovedCardWidth }}
+      />
     ),
-    [mostLovedCardHeight, mostLovedCardWidth, navigateTo]
+    [mostLovedCardWidth, navigateTo]
   );
 
   const renderBestsellerCard = React.useCallback(
     ({ item }: ListRenderItemInfo<HomeProductCard>) => (
-      <Pressable
-        style={[styles.bestSellerCard, { width: bestsellerCardWidth }]}
-        onPress={() => navigateTo(`/search?q=${encodeURIComponent(item.query)}`)}
-      >
-        <CachedImage
-          source={item.image}
-          style={[styles.bestSellerImage, { height: bestsellerCardHeight }]}
-          contentFit="cover"
-        />
-        <View style={styles.bestSellerMeta}>
-          <Text numberOfLines={1} style={styles.bestSellerTitle}>{item.title}</Text>
-          <Text numberOfLines={1} style={styles.bestSellerCategory}>
-            {(item.categoryText ?? "Collection").toUpperCase()}
-          </Text>
-          <Text style={styles.bestSellerPrice}>{item.priceText}</Text>
-        </View>
-      </Pressable>
+      <MarketplaceCard
+        product={item.product}
+        onPress={(id) => navigateTo(`/product/${id}`)}
+        style={{ width: bestsellerCardWidth }}
+      />
     ),
-    [bestsellerCardHeight, bestsellerCardWidth, navigateTo]
+    [bestsellerCardWidth, navigateTo]
   );
 
   const testimonials = React.useMemo(
@@ -600,8 +708,6 @@ export default function HomeScreen() {
     []
   );
 
-  const spotlightFeature = spotlightCards[0];
-
   React.useEffect(() => {
     if (!testimonials.length) return;
     const interval = setInterval(() => {
@@ -621,8 +727,28 @@ export default function HomeScreen() {
     setShowScrollTop((prev) => (prev === shouldShow ? prev : shouldShow));
   }, []);
 
+  const handleListScroll = React.useCallback(
+    (event: {
+      nativeEvent: {
+        contentOffset: { y: number };
+        contentSize: { height: number };
+        layoutMeasurement: { height: number };
+      };
+    }) => {
+      const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+      handleScroll(contentOffset.y);
+
+      const distanceFromBottom =
+        contentSize.height - (contentOffset.y + layoutMeasurement.height);
+      if (distanceFromBottom < 900) {
+        revealNextMostLoved();
+      }
+    },
+    [handleScroll, revealNextMostLoved]
+  );
+
   const handleScrollToTop = React.useCallback(() => {
-    listRef.current?.scrollToOffset({ offset: 0, animated: true });
+    listRef.current?.scrollTo({ y: 0, animated: true });
   }, []);
 
   const listHeader = React.useMemo(() => (
@@ -646,7 +772,6 @@ export default function HomeScreen() {
           maxToRenderPerBatch={2}
           windowSize={3}
           updateCellsBatchingPeriod={24}
-          removeClippedSubviews
           onEndReached={loadMoreVibe}
           onEndReachedThreshold={0.5}
           snapToInterval={vibeCardWidth + spacing.md}
@@ -707,7 +832,6 @@ export default function HomeScreen() {
             initialNumToRender={2}
             maxToRenderPerBatch={2}
             windowSize={3}
-            removeClippedSubviews
             decelerationRate="fast"
             disableIntervalMomentum
             snapToAlignment="start"
@@ -743,37 +867,48 @@ export default function HomeScreen() {
         ) : null}
       </View>
 
-      <View style={styles.spotlightSection}>
-        <View style={styles.spotlightHeadingWrap}>
-          <Ionicons name="sparkles-outline" size={30} color="#511d00" />
-          <Text style={styles.spotlightHeading}>IN THE SPOTLIGHT</Text>
+      <View style={styles.trustSection}>
+        <View style={styles.trustHeadingWrap}>
+          <View style={styles.trustHeadingMark} />
+          <Text style={styles.trustEyebrow}>The Tatvivah Promise</Text>
+          <View style={styles.trustHeadingMark} />
         </View>
-        <Pressable
-          style={[styles.spotlightFeatureCard, { height: spotlightCardHeight }]}
-          onPress={() =>
-            spotlightFeature?.productId
-              ? navigateTo(`/product/${spotlightFeature.productId}`)
-              : navigateTo("/marketplace")
-          }
-        >
-          {spotlightQuery.isLoading ? (
-            <View style={styles.spotlightSkeletonWrap}>
-              <SkeletonBlock width="100%" height={spotlightCardHeight} borderRadius={12} />
-            </View>
-          ) : (
-            <>
-              <CachedImage
-                source={spotlightFeature?.image ?? images.hero.mobile[2]}
-                style={styles.spotlightImage}
-                contentFit="cover"
-              />
-              <View style={styles.spotlightOverlay} />
-              <View style={styles.spotlightActionWrapBottom}>
-                <Text style={styles.spotlightActionText}>EXPLORE NOW</Text>
+        <Text style={styles.trustHeading}>Why shop with us</Text>
+
+        <View style={styles.trustGrid}>
+          {[
+            {
+              icon: "sparkles-outline" as const,
+              title: "Handcrafted",
+              copy: "Premium fabrics, intricate finishes, and details that photograph beautifully.",
+            },
+            {
+              icon: "shield-checkmark-outline" as const,
+              title: "Verified Sellers",
+              copy: "Curated ateliers across India — every piece vetted for quality and authenticity.",
+            },
+            {
+              icon: "cube-outline" as const,
+              title: "Pan-India Shipping",
+              copy: "Fast, tracked delivery to every pincode with luxury packaging on arrival.",
+            },
+            {
+              icon: "refresh-outline" as const,
+              title: "Easy 7-Day Returns",
+              copy: "Try at home with confidence — return or exchange within a week, no questions.",
+            },
+          ].map((item) => (
+            <View key={item.title} style={styles.trustCard}>
+              <View style={styles.trustIconWrap}>
+                <Ionicons name={item.icon} size={22} color={colors.primaryAccent} />
               </View>
-            </>
-          )}
-        </Pressable>
+              <Text style={styles.trustCardTitle}>{item.title}</Text>
+              <Text style={styles.trustCardCopy} numberOfLines={3}>
+                {item.copy}
+              </Text>
+            </View>
+          ))}
+        </View>
       </View>
 
       <View style={styles.collectionSection}>
@@ -781,7 +916,9 @@ export default function HomeScreen() {
           <Ionicons name="sparkles-outline" size={28} color="#511d00" />
           <Text style={styles.collectionHeading}>SHOP BY CATEGORY</Text>
         </View>
-        <Text style={[styles.scrollDirectionText, styles.centerDirection]}>Swipe left or right</Text>
+        {categoryCards.length < 8 ? (
+          <Text style={[styles.scrollDirectionText, styles.centerDirection]}>Swipe left or right</Text>
+        ) : null}
         {categoriesQuery.isLoading ? (
           <View style={styles.gridLoadingWrap}>
             <SkeletonBlock width="47%" height={170} />
@@ -799,54 +936,43 @@ export default function HomeScreen() {
             <View style={styles.categoryGridWrap}>
               {(() => {
                 const items = categoryCards.slice(0, 8);
-                const smallGap = spacing.md;
+                const smallGap = 10;
                 const cols = 4;
                 const totalGap = smallGap * (cols - 1);
                 const smallWidth = Math.floor((gridPageWidth - totalGap) / cols);
-                const smallHeight = Math.round(smallWidth * 1.34);
+                const smallHeight = Math.round(smallWidth * 1.4);
+
+                const renderCompactCard = (card: HomeGridCard) => (
+                  <Pressable
+                    key={card.id}
+                    style={[styles.compactCategoryCard, { width: smallWidth, height: smallHeight }]}
+                    onPress={() => navigateTo(`/search?q=${encodeURIComponent(card.query)}`)}
+                  >
+                    <CachedImage
+                      source={card.image}
+                      style={{ width: smallWidth, height: smallHeight }}
+                      contentFit="cover"
+                    />
+                    <View pointerEvents="none" style={styles.compactCategoryScrim} />
+                    <View pointerEvents="none" style={styles.compactCategoryRing} />
+                    <Text
+                      style={styles.compactCategoryTitle}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.7}
+                    >
+                      {card.title}
+                    </Text>
+                  </Pressable>
+                );
 
                 return (
                   <>
                     <View style={[styles.categoryGridRow, { gap: smallGap }]}>
-                      {items.slice(0, 4).map((card) => (
-                        <Pressable
-                          key={card.id}
-                          style={[styles.categoryCard, { width: smallWidth, height: smallHeight }]}
-                          onPress={() => navigateTo(`/search?q=${encodeURIComponent(card.query)}`)}
-                        >
-                          <CachedImage source={card.image} style={{ width: smallWidth, height: smallHeight }} contentFit="cover" />
-                          <View pointerEvents="none" style={styles.categoryCardOverlay} />
-                          <BottomWineFade />
-                          <ArchGradientBorder
-                            width={smallWidth}
-                            height={smallHeight}
-                            topRadius={smallWidth / 2}
-                            strokeWidth={3.1}
-                          />
-                          <Text style={[styles.categoryCardTitle, { fontSize: 16 }]}>{card.title}</Text>
-                        </Pressable>
-                      ))}
+                      {items.slice(0, 4).map(renderCompactCard)}
                     </View>
-
-                    <View style={[styles.categoryGridRow, { gap: smallGap, marginTop: spacing.md }]}>
-                      {items.slice(4, 8).map((card) => (
-                        <Pressable
-                          key={card.id}
-                          style={[styles.categoryCard, { width: smallWidth, height: smallHeight }]}
-                          onPress={() => navigateTo(`/search?q=${encodeURIComponent(card.query)}`)}
-                        >
-                          <CachedImage source={card.image} style={{ width: smallWidth, height: smallHeight }} contentFit="cover" />
-                          <View pointerEvents="none" style={styles.categoryCardOverlay} />
-                          <BottomWineFade />
-                          <ArchGradientBorder
-                            width={smallWidth}
-                            height={smallHeight}
-                            topRadius={smallWidth / 2}
-                            strokeWidth={3.1}
-                          />
-                          <Text style={[styles.categoryCardTitle, { fontSize: 16 }]}>{card.title}</Text>
-                        </Pressable>
-                      ))}
+                    <View style={[styles.categoryGridRow, { gap: smallGap, marginTop: smallGap }]}>
+                      {items.slice(4, 8).map(renderCompactCard)}
                     </View>
                   </>
                 );
@@ -862,7 +988,6 @@ export default function HomeScreen() {
               maxToRenderPerBatch={2}
               windowSize={3}
               updateCellsBatchingPeriod={24}
-              removeClippedSubviews
               decelerationRate="fast"
               disableIntervalMomentum
               snapToAlignment="start"
@@ -884,7 +1009,7 @@ export default function HomeScreen() {
             />
           )
         )}
-        {repeatedCategoryCards.length > 0 ? (
+        {repeatedCategoryCards.length > 0 && categoryCards.length < 8 ? (
           <View style={styles.paginationWrap}>
             {Array.from({ length: baseCategoryPagesCount }).map((_, idx) => {
               const isActive = idx === (categoryPageIndex % baseCategoryPagesCount);
@@ -892,37 +1017,6 @@ export default function HomeScreen() {
             })}
           </View>
         ) : null}
-      </View>
-
-      <View style={styles.mostLovedSection}>
-        <View style={styles.mostLovedHeaderRow}>
-          <Ionicons name="sparkles-outline" size={28} color="#511d00" />
-          <Text style={styles.mostLovedHeading}>MOST LOVED</Text>
-        </View>
-        {mostLovedQuery.isLoading ? (
-          <View style={styles.gridLoadingWrap}>
-            <SkeletonBlock width="47%" height={240} />
-            <SkeletonBlock width="47%" height={240} />
-          </View>
-        ) : mostLovedCards.length === 0 ? (
-          <View style={styles.gridEmptyState}>
-            <Text style={styles.gridEmptyText}>No loved products available right now.</Text>
-          </View>
-        ) : (
-          <FlatList
-            data={mostLovedCards}
-            keyExtractor={(item) => item.id}
-            renderItem={renderLargeProductCard}
-            numColumns={2}
-            initialNumToRender={2}
-            maxToRenderPerBatch={4}
-            windowSize={3}
-            removeClippedSubviews
-            scrollEnabled={false}
-            contentContainerStyle={styles.mostLovedGridList}
-            columnWrapperStyle={styles.mostLovedGridRow}
-          />
-        )}
       </View>
 
       <View style={styles.mostLovedSection}>
@@ -949,7 +1043,6 @@ export default function HomeScreen() {
             initialNumToRender={2}
             maxToRenderPerBatch={2}
             windowSize={3}
-            removeClippedSubviews
             contentContainerStyle={styles.largeProductList}
             showsHorizontalScrollIndicator={false}
             onEndReached={loadMoreBestsellers}
@@ -981,6 +1074,45 @@ export default function HomeScreen() {
         </View>
       </View>
 
+      <View style={styles.mostLovedSection}>
+        <View style={styles.mostLovedHeaderRow}>
+          <Ionicons name="sparkles-outline" size={28} color="#511d00" />
+          <Text style={styles.mostLovedHeading}>MOST LOVED</Text>
+        </View>
+        {mostLovedQuery.isLoading ? (
+          <View style={styles.gridLoadingWrap}>
+            <SkeletonBlock width="47%" height={240} />
+            <SkeletonBlock width="47%" height={240} />
+          </View>
+        ) : mostLovedCards.length === 0 ? (
+          <View style={styles.gridEmptyState}>
+            <Text style={styles.gridEmptyText}>No loved products available right now.</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={mostLovedCards}
+            keyExtractor={(item) => item.id}
+            renderItem={renderLargeProductCard}
+            numColumns={2}
+            initialNumToRender={2}
+            maxToRenderPerBatch={4}
+            windowSize={3}
+            scrollEnabled={false}
+            contentContainerStyle={styles.mostLovedGridList}
+            columnWrapperStyle={styles.mostLovedGridRow}
+          />
+        )}
+        {hasMostLovedError ? (
+          <Text style={styles.mostLovedStatusText}>Could not load more products right now.</Text>
+        ) : isMostLovedPrefetching ? (
+          <Text style={styles.mostLovedStatusText}>Loading next products...</Text>
+        ) : hasMoreMostLoved ? (
+          <Text style={styles.mostLovedStatusText}>Scroll down to reveal more products</Text>
+        ) : mostLovedCards.length > 0 ? (
+          <Text style={styles.mostLovedStatusText}>You have reached the end.</Text>
+        ) : null}
+      </View>
+
       <View style={styles.testimonialSection}>
         <View style={styles.testimonialHeadingBox}>
           <Text style={styles.testimonialEyebrow}>Real Stories</Text>
@@ -995,8 +1127,7 @@ export default function HomeScreen() {
           initialNumToRender={2}
           maxToRenderPerBatch={2}
           windowSize={3}
-            updateCellsBatchingPeriod={24}
-          removeClippedSubviews
+          updateCellsBatchingPeriod={24}
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.testimonialViewport}
           renderItem={({ item }) => {
@@ -1057,6 +1188,7 @@ export default function HomeScreen() {
     baseVibePagesCount,
     baseBestsellerPagesCount,
     bestsellersQuery.isLoading,
+    categoryCards,
     categoryPageIndex,
     gridPageGap,
     gridPageWidth,
@@ -1079,9 +1211,6 @@ export default function HomeScreen() {
     productCardGap,
     repeatedCategoryCards,
     repeatedBestsellerCards,
-    spotlightCardHeight,
-    spotlightFeature,
-    spotlightQuery.isLoading,
     testimonials,
     testimonialPageIndex,
     testimonialCardStep,
@@ -1091,26 +1220,23 @@ export default function HomeScreen() {
     repeatedVibeCards,
     vibePageIndex,
     vibeCardWidth,
+    hasMoreMostLoved,
+    hasMostLovedError,
+    isMostLovedPrefetching,
   ]);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
       <AppHeader variant="main" />
-      <FlatList
+      <ScrollView
         ref={listRef}
-        data={[]}
-        keyExtractor={(_item, index) => String(index)}
-        renderItem={() => null}
-        ListHeaderComponent={listHeader}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.contentContainer}
-        removeClippedSubviews
-        maxToRenderPerBatch={2}
-        initialNumToRender={2}
-        windowSize={3}
-        onScroll={(event) => handleScroll(event.nativeEvent.contentOffset.y)}
+        onScroll={handleListScroll}
         scrollEventThrottle={16}
-      />
+      >
+        {listHeader}
+      </ScrollView>
 
       <ScrollToTopFab
         visible={showScrollTop}
@@ -1153,10 +1279,9 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   vibeTitle: {
-    ...textStyles.sectionTitle,
+    ...HOME_SECTION_TITLE,
     color: colors.headerBrown,
-    textTransform: "uppercase",
-    letterSpacing: 1,
+    textAlign: "center",
   },
   vibeCarouselContent: {
     gap: spacing.md,
@@ -1205,6 +1330,49 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 10,
   },
+  compactCategoryCard: {
+    borderTopLeftRadius: 999,
+    borderTopRightRadius: 999,
+    borderBottomLeftRadius: 4,
+    borderBottomRightRadius: 4,
+    overflow: "hidden",
+    backgroundColor: "#E6DDD6",
+    justifyContent: "flex-end",
+    shadowColor: "#351A14",
+    shadowOpacity: 0.16,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  compactCategoryScrim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(20, 12, 8, 0.42)",
+  },
+  compactCategoryRing: {
+    ...StyleSheet.absoluteFillObject,
+    borderTopLeftRadius: 999,
+    borderTopRightRadius: 999,
+    borderBottomLeftRadius: 4,
+    borderBottomRightRadius: 4,
+    borderWidth: 1,
+    borderColor: "rgba(255, 248, 240, 0.35)",
+  },
+  compactCategoryTitle: {
+    position: "absolute",
+    bottom: 10,
+    left: 4,
+    right: 4,
+    textAlign: "center",
+    color: "#FFFFFF",
+    fontFamily: typography.sansMedium,
+    fontSize: 11,
+    letterSpacing: 0.8,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    textShadowColor: "rgba(0, 0, 0, 0.55)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
   vibeCard: {
     borderTopLeftRadius: 110,
     borderTopRightRadius: 110,
@@ -1251,11 +1419,9 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   occasionTitle: {
-    ...textStyles.sectionTitle,
+    ...HOME_SECTION_TITLE,
     color: "#17120E",
-    textTransform: "uppercase",
-    letterSpacing: 2.2,
-    fontSize: 22,
+    textAlign: "center",
   },
   menTabWrap: {
     alignItems: "center",
@@ -1369,64 +1535,77 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 8,
   },
-  spotlightSection: {
-    backgroundColor: "transparent",
-    marginHorizontal: 0,
-    paddingHorizontal: 0,
-    paddingVertical: 0,
+  trustSection: {
+    marginTop: 36,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xl,
+    backgroundColor: colors.muted,
     gap: spacing.md,
-    marginTop: 35,
   },
-  spotlightHeadingWrap: {
+  trustHeadingWrap: {
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: spacing.xs,
+    gap: 10,
   },
-  spotlightHeading: {
-    ...textStyles.sectionTitle,
-    color: "#17120E",
+  trustHeadingMark: {
+    width: 22,
+    height: 1,
+    backgroundColor: colors.primaryAccent,
+  },
+  trustEyebrow: {
+    fontFamily: typography.sansMedium,
+    fontSize: 10,
+    letterSpacing: 2.4,
     textTransform: "uppercase",
-    letterSpacing: 3.2,
-    fontSize: 24,
-  },
-  spotlightFeatureCard: {
-    width: "100%",
-    borderRadius: 0,
-    overflow: "hidden",
-    justifyContent: "flex-end",
-    backgroundColor: "#E8E3DA",
-    borderWidth: 1.5,
-    borderColor: "#7B4C2C",
-  },
-  spotlightImage: {
-    width: "100%",
-    height: "100%",
-  },
-  spotlightSkeletonWrap: {
-    width: "100%",
-    height: "100%",
-    overflow: "hidden",
-  },
-  spotlightOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.06)",
-  },
-  spotlightActionWrapBottom: {
-    position: "absolute",
-    bottom: spacing.lg,
-    alignSelf: "center",
-    borderRadius: 0,
-    backgroundColor: "#b7956c",
-    paddingHorizontal: spacing.xl,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: "#8C6A2B",
-  },
-  spotlightActionText: {
-    color: "#FFF8EA",
-    fontSize: 14,
-    letterSpacing: 1.6,
+    color: colors.primaryAccent,
     fontWeight: "700",
+  },
+  trustHeading: {
+    ...HOME_SECTION_TITLE,
+    fontFamily: typography.serif,
+    color: colors.textPrimary,
+    textAlign: "center",
+    fontWeight: "600",
+    marginBottom: spacing.sm,
+  },
+  trustGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.md,
+  },
+  trustCard: {
+    width: "47%",
+    flexGrow: 1,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: 6,
+  },
+  trustIconWrap: {
+    width: 36,
+    height: 36,
+    borderWidth: 1,
+    borderColor: colors.primaryAccent,
+    backgroundColor: "rgba(184, 149, 108, 0.10)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
+  },
+  trustCardTitle: {
+    fontFamily: typography.serif,
+    fontSize: 15,
+    fontWeight: "600",
+    color: colors.textPrimary,
+    letterSpacing: 0.2,
+  },
+  trustCardCopy: {
+    fontFamily: typography.sans,
+    fontSize: 11.5,
+    lineHeight: 16,
+    color: colors.textSecondary,
   },
   sectionHeadRow: {
     alignItems: "center",
@@ -1466,10 +1645,9 @@ const styles = StyleSheet.create({
     height: 8,
   },
   collectionHeading: {
-    ...textStyles.sectionTitle,
+    ...HOME_SECTION_TITLE,
     color: colors.textPrimary,
-    letterSpacing: 1.8,
-    fontSize: 22,
+    textAlign: "center",
   },
   mostLovedSection: {
     marginTop: 35,
@@ -1486,10 +1664,8 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   mostLovedHeading: {
-    ...textStyles.sectionTitle,
+    ...HOME_SECTION_TITLE,
     color: colors.textPrimary,
-    letterSpacing: 1.8,
-    fontSize: 22,
     textAlign: "center",
   },
   largeProductList: {
@@ -1502,6 +1678,13 @@ const styles = StyleSheet.create({
   mostLovedGridRow: {
     justifyContent: "space-between",
     marginBottom: spacing.md,
+  },
+  mostLovedStatusText: {
+    marginTop: spacing.sm,
+    textAlign: "center",
+    fontSize: 11,
+    color: colors.textSecondary,
+    letterSpacing: 0.4,
   },
   largeProductCard: {
     borderWidth: 1.5,
@@ -1589,10 +1772,9 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
   },
   testimonialHeading: {
-    ...textStyles.sectionTitle,
+    ...HOME_SECTION_TITLE,
     color: colors.textPrimary,
-    letterSpacing: 1.8,
-    fontSize: 22,
+    textAlign: "center",
   },
   testimonialViewport: {
     paddingHorizontal: 0,

@@ -1,6 +1,6 @@
 import * as React from "react";
 import {
-  FlatList,
+  Animated,
   NativeScrollEvent,
   NativeSyntheticEvent,
   Pressable,
@@ -8,6 +8,7 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
+import type { ScrollView as ScrollViewComponent } from "react-native";
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Rect, Stop } from "react-native-svg";
 import { CachedImage } from "./CachedImage";
 import { images } from "../data/images";
@@ -59,14 +60,14 @@ const HERO_SLIDES: HeroSlide[] = [
 
 function BannerWineFade() {
   return (
-    <View style={styles.bannerWineFade}>
+    <View pointerEvents="none" style={styles.bannerWineFade}>
       <Svg width="100%" height="100%" preserveAspectRatio="none">
         <Defs>
           <SvgLinearGradient id="hero-wine-fade" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0%" stopColor="#4A2515" stopOpacity="0" />
-            <Stop offset="52%" stopColor="#4A2515" stopOpacity="0.06" />
-            <Stop offset="76%" stopColor="#4A2515" stopOpacity="0.28" />
-            <Stop offset="100%" stopColor="#4A2515" stopOpacity="0.72" />
+            <Stop offset="0%" stopColor="#0A0604" stopOpacity="0" />
+            <Stop offset="40%" stopColor="#0A0604" stopOpacity="0.05" />
+            <Stop offset="68%" stopColor="#1A0E08" stopOpacity="0.42" />
+            <Stop offset="100%" stopColor="#0A0604" stopOpacity="0.85" />
           </SvgLinearGradient>
         </Defs>
         <Rect x="0" y="0" width="100%" height="100%" fill="url(#hero-wine-fade)" />
@@ -75,115 +76,245 @@ function BannerWineFade() {
   );
 }
 
+interface HeroSlideViewProps {
+  slide: HeroSlide;
+  index: number;
+  scrollX: Animated.Value;
+  bannerWidth: number;
+  bannerHeight: number;
+  onPress?: () => void;
+}
+
+function HeroSlideView({ slide, index, scrollX, bannerWidth, bannerHeight, onPress }: HeroSlideViewProps) {
+  // Range covering the previous, current, and next page positions.
+  const inputRange = [
+    (index - 1) * bannerWidth,
+    index * bannerWidth,
+    (index + 1) * bannerWidth,
+  ];
+
+  // Subtle parallax — the image wrap is 30% wider than the slide and clipped by overflow:hidden,
+  // so translating it within ±0.12W never exposes the slide background.
+  const imageTranslateX = scrollX.interpolate({
+    inputRange,
+    outputRange: [bannerWidth * 0.12, 0, -bannerWidth * 0.12],
+    extrapolate: "clamp",
+  });
+
+  // Ken Burns: image is slightly zoomed when active, smaller when off-screen.
+  const imageScale = scrollX.interpolate({
+    inputRange,
+    outputRange: [1.04, 1.1, 1.04],
+    extrapolate: "clamp",
+  });
+
+  // Text fades in only when the slide is centered.
+  const textOpacity = scrollX.interpolate({
+    inputRange,
+    outputRange: [0, 1, 0],
+    extrapolate: "clamp",
+  });
+
+  // Text rises a few pixels as it enters, smoothing the transition.
+  const textTranslateY = scrollX.interpolate({
+    inputRange,
+    outputRange: [24, 0, -24],
+    extrapolate: "clamp",
+  });
+
+  // Wrap the image in a wider container so the parallax shift never reveals the dark backdrop.
+  const overscan = bannerWidth * 0.15;
+
+  return (
+    <Pressable
+      style={[styles.slide, { width: bannerWidth, height: bannerHeight }]}
+      onPress={onPress}
+    >
+      <Animated.View
+        style={[
+          styles.heroImageWrap,
+          {
+            left: -overscan,
+            right: -overscan,
+            transform: [{ translateX: imageTranslateX }, { scale: imageScale }],
+          },
+        ]}
+      >
+        <CachedImage source={slide.image} style={styles.heroImage} contentFit="cover" />
+      </Animated.View>
+
+      <View style={styles.heroOverlay} />
+      <BannerWineFade />
+
+      <Animated.View
+        style={[
+          styles.heroContent,
+          {
+            opacity: textOpacity,
+            transform: [{ translateY: textTranslateY }],
+          },
+        ]}
+      >
+        <View style={styles.eyebrowRow}>
+          <View style={styles.eyebrowMark} />
+          <Text style={styles.eyebrow}>{slide.eyebrow}</Text>
+        </View>
+        <Text style={styles.title}>{slide.title}</Text>
+        <Text style={styles.subtitle}>{slide.subtitle}</Text>
+      </Animated.View>
+    </Pressable>
+  );
+}
+
+interface PaginationDotProps {
+  index: number;
+  scrollX: Animated.Value;
+  bannerWidth: number;
+}
+
+function PaginationDot({ index, scrollX, bannerWidth }: PaginationDotProps) {
+  const inputRange = [
+    (index - 1) * bannerWidth,
+    index * bannerWidth,
+    (index + 1) * bannerWidth,
+  ];
+
+  const dotWidth = scrollX.interpolate({
+    inputRange,
+    outputRange: [8, 28, 8],
+    extrapolate: "clamp",
+  });
+
+  const dotOpacity = scrollX.interpolate({
+    inputRange,
+    outputRange: [0.38, 1, 0.38],
+    extrapolate: "clamp",
+  });
+
+  // Active dot uses a warm gold color, inactive ones a soft ivory.
+  const dotColor = scrollX.interpolate({
+    inputRange,
+    outputRange: ["rgba(255,255,255,0.55)", "#E2B866", "rgba(255,255,255,0.55)"],
+    extrapolate: "clamp",
+  });
+
+  return (
+    <Animated.View
+      style={[
+        styles.paginationDot,
+        {
+          width: dotWidth,
+          opacity: dotOpacity,
+          backgroundColor: dotColor as unknown as string,
+        },
+      ]}
+    />
+  );
+}
+
 export function HomeHeroBanner({ onPress }: HomeHeroBannerProps) {
   const { width: windowWidth } = useWindowDimensions();
   const [bannerWidth, setBannerWidth] = React.useState(windowWidth);
-  const [activeIndex, setActiveIndex] = React.useState(0);
-  const isDraggingRef = React.useRef(false);
 
-  const sliderRef = React.useRef<FlatList<HeroSlide> | null>(null);
+  // Hero is slightly taller than wide for a cinematic feel (1.18:1).
+  const bannerHeight = Math.round(bannerWidth * 1.18);
+
+  const scrollX = React.useRef(new Animated.Value(0)).current;
+  const sliderRef = React.useRef<ScrollViewComponent | null>(null);
+
   const activeIndexRef = React.useRef(0);
+  const isDraggingRef = React.useRef(false);
 
   React.useEffect(() => {
     setBannerWidth(windowWidth);
   }, [windowWidth]);
 
-  React.useEffect(() => {
-    activeIndexRef.current = activeIndex;
-  }, [activeIndex]);
-
-  const handleScroll = React.useCallback(
+  const updateActiveIndex = React.useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       if (!bannerWidth) return;
-      const index = Math.round(event.nativeEvent.contentOffset.x / bannerWidth);
-      const bounded = Math.max(0, Math.min(HERO_SLIDES.length - 1, index));
-      if (bounded !== activeIndexRef.current) {
-        activeIndexRef.current = bounded;
-        setActiveIndex(bounded);
-      }
+      const idx = Math.round(event.nativeEvent.contentOffset.x / bannerWidth);
+      activeIndexRef.current = Math.max(0, Math.min(HERO_SLIDES.length - 1, idx));
     },
     [bannerWidth]
   );
 
-  React.useEffect(() => {
-    const interval = setInterval(() => {
-      if (!bannerWidth || isDraggingRef.current) return;
-      const nextIndex = (activeIndexRef.current + 1) % HERO_SLIDES.length;
-      sliderRef.current?.scrollToOffset({
-        offset: nextIndex * bannerWidth,
-        animated: true,
-      });
-      activeIndexRef.current = nextIndex;
-      setActiveIndex(nextIndex);
-    }, 4200);
+  const handleScrollEnd = React.useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      updateActiveIndex(event);
+      isDraggingRef.current = false;
+    },
+    [updateActiveIndex]
+  );
 
+  // Auto-advance every ~5s. Pauses while user is dragging.
+  React.useEffect(() => {
+    if (!bannerWidth) return;
+    const interval = setInterval(() => {
+      if (isDraggingRef.current) return;
+      const next = (activeIndexRef.current + 1) % HERO_SLIDES.length;
+      sliderRef.current?.scrollTo({
+        x: next * bannerWidth,
+        animated: next !== 0,
+      });
+      activeIndexRef.current = next;
+    }, 5000);
     return () => clearInterval(interval);
   }, [bannerWidth]);
 
+  const onScroll = React.useMemo(
+    () =>
+      Animated.event([{ nativeEvent: { contentOffset: { x: scrollX } } }], {
+        useNativeDriver: false, // backgroundColor interpolation needs JS driver
+      }),
+    [scrollX]
+  );
+
   return (
     <View
-      style={[styles.heroCard, { height: bannerWidth }]}
+      style={[styles.heroCard, { height: bannerHeight }]}
       onLayout={(event) => {
-        const nextWidth = Math.round(event.nativeEvent.layout.width);
-        if (nextWidth > 0 && nextWidth !== bannerWidth) {
-          setBannerWidth(nextWidth);
-        }
+        const next = Math.round(event.nativeEvent.layout.width);
+        if (next > 0 && next !== bannerWidth) setBannerWidth(next);
       }}
     >
-      <FlatList
+      <Animated.ScrollView
         ref={sliderRef}
-        data={HERO_SLIDES}
         horizontal
-        scrollEnabled
-        nestedScrollEnabled
-        directionalLockEnabled
-        pagingEnabled
         showsHorizontalScrollIndicator={false}
-        keyExtractor={(item) => item.id}
-        style={[styles.slider, { height: bannerWidth }]}
-        contentContainerStyle={[styles.sliderContent, { height: bannerWidth }]}
+        bounces={false}
+        decelerationRate="normal"
         snapToInterval={bannerWidth}
         snapToAlignment="start"
-        decelerationRate="fast"
-        getItemLayout={(_, index) => ({
-          length: bannerWidth,
-          offset: bannerWidth * index,
-          index,
-        })}
-        renderItem={({ item }) => (
-          <Pressable style={[styles.slide, { width: bannerWidth, height: bannerWidth }]} onPress={onPress}>
-            <CachedImage source={item.image} style={styles.heroImage} contentFit="cover" />
-            <View style={styles.heroOverlay} />
-            <BannerWineFade />
-            <View style={styles.heroContent}>
-              <Text style={styles.eyebrow}>{item.eyebrow}</Text>
-              <Text style={styles.title}>{item.title}</Text>
-              <Text style={styles.subtitle}>{item.subtitle}</Text>
-            </View>
-          </Pressable>
-        )}
-        onScroll={handleScroll}
+        disableIntervalMomentum={true}
+        directionalLockEnabled
+        scrollEventThrottle={16}
+        onScroll={onScroll}
         onScrollBeginDrag={() => {
           isDraggingRef.current = true;
         }}
-        onScrollEndDrag={() => {
-          isDraggingRef.current = false;
-        }}
-        onMomentumScrollEnd={(event) => {
-          isDraggingRef.current = false;
-          handleScroll(event);
-        }}
-        onMomentumScrollBegin={() => {
-          isDraggingRef.current = true;
-        }}
-        scrollEventThrottle={16}
-      />
+        onScrollEndDrag={handleScrollEnd}
+        onMomentumScrollEnd={handleScrollEnd}
+      >
+        {HERO_SLIDES.map((item, index) => (
+          <HeroSlideView
+            key={item.id}
+            slide={item}
+            index={index}
+            scrollX={scrollX}
+            bannerWidth={bannerWidth}
+            bannerHeight={bannerHeight}
+            onPress={onPress}
+          />
+        ))}
+      </Animated.ScrollView>
 
-      <View style={styles.paginationWrap}>
+      <View pointerEvents="none" style={styles.paginationWrap}>
         {HERO_SLIDES.map((slide, index) => (
-          <View
+          <PaginationDot
             key={slide.id}
-            style={[styles.paginationDot, index === activeIndex && styles.paginationDotActive]}
+            index={index}
+            scrollX={scrollX}
+            bannerWidth={bannerWidth}
           />
         ))}
       </View>
@@ -194,20 +325,16 @@ export function HomeHeroBanner({ onPress }: HomeHeroBannerProps) {
 const styles = StyleSheet.create({
   heroCard: {
     width: "100%",
-    borderRadius: 0,
     overflow: "hidden",
-    borderWidth: 0,
-    backgroundColor: "#F4EFE7",
+    backgroundColor: "#0A0604",
     justifyContent: "flex-end",
-  },
-  slider: {
-    width: "100%",
-  },
-  sliderContent: {
-    width: "100%",
   },
   slide: {
     position: "relative",
+    overflow: "hidden",
+  },
+  heroImageWrap: {
+    ...StyleSheet.absoluteFillObject,
   },
   heroImage: {
     width: "100%",
@@ -215,7 +342,7 @@ const styles = StyleSheet.create({
   },
   heroOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(30, 26, 23, 0.16)",
+    backgroundColor: "rgba(20, 14, 10, 0.18)",
   },
   bannerWineFade: {
     ...StyleSheet.absoluteFillObject,
@@ -224,48 +351,56 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 0,
     right: 0,
-    bottom: 0,
+    bottom: 56,
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xl,
     gap: spacing.xs,
-    backgroundColor: "transparent",
+  },
+  eyebrowRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 4,
+  },
+  eyebrowMark: {
+    width: 22,
+    height: 1.5,
+    backgroundColor: "#E2B866",
   },
   eyebrow: {
     fontFamily: typography.sansMedium,
-    fontSize: 11,
-    letterSpacing: 1.8,
+    fontSize: 10.5,
+    letterSpacing: 2.4,
     textTransform: "uppercase",
-    color: "#F2E7D4",
+    color: "#E2B866",
+    fontWeight: "700",
   },
   title: {
     fontFamily: typography.serif,
-    fontSize: 24,
-    lineHeight: 28,
+    fontSize: 28,
+    lineHeight: 32,
     color: "#FFFBF2",
+    fontWeight: "600",
+    letterSpacing: 0.2,
   },
   subtitle: {
     fontFamily: typography.sans,
-    fontSize: 12,
-    lineHeight: 17,
-    color: "#F2E7D4",
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: "rgba(255, 251, 242, 0.86)",
+    marginTop: 4,
+    maxWidth: 360,
   },
   paginationWrap: {
     position: "absolute",
-    bottom: spacing.sm,
+    bottom: 22,
     width: "100%",
     flexDirection: "row",
     justifyContent: "center",
-    gap: 8,
+    alignItems: "center",
+    gap: 6,
   },
   paginationDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 0,
-    backgroundColor: "rgba(255,255,255,0.38)",
-  },
-  paginationDotActive: {
-    width: 20,
-    borderRadius: 0,
-    backgroundColor: "#E2B866",
+    height: 4,
+    borderRadius: 2,
   },
 });
