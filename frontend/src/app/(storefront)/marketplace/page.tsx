@@ -15,9 +15,18 @@ type SearchParams = {
   categoryId?: string;
   category?: string;
   occasion?: string;
+  audience?: string;
   search?: string;
   sort?: string;
 };
+
+type Audience = "MENS" | "KIDS";
+
+function parseAudience(value?: string): Audience | undefined {
+  if (!value) return undefined;
+  const upper = value.trim().toUpperCase();
+  return upper === "MENS" || upper === "KIDS" ? (upper as Audience) : undefined;
+}
 
 type CategoryItem = {
   id: string;
@@ -83,6 +92,7 @@ async function fetchProducts(params: {
   categoryId?: string;
   categorySlug?: string;
   occasion?: string;
+  audience?: Audience;
   search?: string;
   sort?: string;
 }) {
@@ -94,6 +104,7 @@ async function fetchProducts(params: {
   query.set("limit", String(params.limit));
   if (params.categoryId) query.set("categoryId", params.categoryId);
   if (params.occasion) query.set("occasion", params.occasion);
+  if (params.audience) query.set("audience", params.audience);
   if (params.search) query.set("search", params.search);
   if (params.sort) query.set("sort", params.sort);
 
@@ -182,6 +193,7 @@ export default async function MarketplacePage({
   const categoryIdParam = resolvedParams?.categoryId?.trim();
   const categorySlugParam = resolvedParams?.category?.trim().toLowerCase();
   const occasionSlug = resolvedParams?.occasion?.trim();
+  const audience = parseAudience(resolvedParams?.audience);
   const search = resolvedParams?.search?.trim();
   const sort = resolvedParams?.sort?.trim();
 
@@ -209,6 +221,7 @@ export default async function MarketplacePage({
     categoryId: selectedCategoryId,
     categorySlug: selectedCategoryById?.slug ?? selectedCategoryBySlug?.slug ?? categorySlugParam,
     occasion: occasionSlug,
+    audience,
     search,
     sort,
   });
@@ -241,6 +254,7 @@ export default async function MarketplacePage({
     nextPage?: number;
     nextOccasion?: string | null;
     nextCategoryId?: string | null;
+    nextAudience?: Audience | null;
     nextSearch?: string | null;
     nextSort?: string | null;
   }) => {
@@ -255,6 +269,9 @@ export default async function MarketplacePage({
       if (cat) params.set("category", getCategorySlug(cat));
       else params.set("categoryId", catId);
     }
+
+    const aud = options.nextAudience === null ? undefined : (options.nextAudience ?? audience);
+    if (aud) params.set("audience", aud);
 
     const s = options.nextSearch === null ? undefined : (options.nextSearch ?? search);
     if (s) params.set("search", s);
@@ -414,13 +431,14 @@ export default async function MarketplacePage({
             <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
               Refine Results
             </p>
-            {search || sort || selectedCategoryId ? (
+            {search || sort || selectedCategoryId || audience ? (
               <Link
                 href={buildUrl({
                   nextPage: 1,
                   nextSearch: null,
                   nextSort: null,
                   nextCategoryId: null,
+                  nextAudience: null,
                 })}
                 className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
               >
@@ -439,6 +457,9 @@ export default async function MarketplacePage({
             ) : null}
             {occasionSlug ? (
               <input type="hidden" name="occasion" value={occasionSlug} />
+            ) : null}
+            {audience ? (
+              <input type="hidden" name="audience" value={audience} />
             ) : null}
 
             <label className="relative block">
@@ -502,6 +523,39 @@ export default async function MarketplacePage({
           </form>
         </section>
 
+        <section id="marketplace-audience" className="space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+              Audience
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Link
+              href={buildUrl({ nextPage: 1, nextAudience: null })}
+              className={`shrink-0 border px-4 py-2 text-[11px] font-medium uppercase tracking-[0.14em] transition-colors ${
+                !audience
+                  ? "border-gold bg-cream text-charcoal dark:bg-brown/30 dark:text-ivory"
+                  : "border-border-soft bg-card text-muted-foreground hover:border-gold/50 hover:text-foreground"
+              }`}
+            >
+              All
+            </Link>
+            {(["MENS", "KIDS"] as const).map((opt) => (
+              <Link
+                key={opt}
+                href={buildUrl({ nextPage: 1, nextAudience: opt })}
+                className={`shrink-0 border px-4 py-2 text-[11px] font-medium uppercase tracking-[0.14em] transition-colors ${
+                  audience === opt
+                    ? "border-gold bg-cream text-charcoal dark:bg-brown/30 dark:text-ivory"
+                    : "border-border-soft bg-card text-muted-foreground hover:border-gold/50 hover:text-foreground"
+                }`}
+              >
+                {opt === "MENS" ? "Mens" : "Kids"}
+              </Link>
+            ))}
+          </div>
+        </section>
+
         <section id="marketplace-categories" className="space-y-3">
           <div className="flex items-center justify-between gap-2">
             <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
@@ -560,6 +614,11 @@ export default async function MarketplacePage({
             {selectedOccasion ? (
               <span className="border border-border-soft bg-card px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
                 Occasion: {selectedOccasion.name}
+              </span>
+            ) : null}
+            {audience ? (
+              <span className="border border-border-soft bg-card px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                Audience: {audience === "MENS" ? "Mens" : "Kids"}
               </span>
             ) : null}
             {activeSortLabel !== "Relevance" ? (
