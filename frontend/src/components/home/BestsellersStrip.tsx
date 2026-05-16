@@ -1,12 +1,17 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 import type { BestsellerProduct } from "@/services/bestsellers";
 import {
   MarketplaceProductCard,
   type MarketplaceCardProduct,
 } from "@/components/marketplace-product-card";
+import { AudienceTabs, type Audience } from "@/components/home/AudienceTabs";
 
 type Props = {
   bestsellers: BestsellerProduct[];
+  kidsBestsellers?: BestsellerProduct[];
 };
 
 function toCardProduct(item: BestsellerProduct): MarketplaceCardProduct {
@@ -29,43 +34,35 @@ function toCardProduct(item: BestsellerProduct): MarketplaceCardProduct {
   };
 }
 
-export function BestsellersStrip({ bestsellers }: Props) {
-  if (bestsellers.length === 0) {
-    return (
-      <section id="bestsellers" className="border-t border-border-soft">
-        <div className="mx-auto max-w-460 px-3 py-12 sm:px-6 sm:py-20 lg:px-10">
-          <div className="mb-12 text-center">
-            <p className="mb-4 text-xs font-medium uppercase tracking-[0.3em] text-gold">Most Loved</p>
-            <h2 className="font-serif text-3xl font-light tracking-tight text-foreground sm:text-4xl">Bestselling Pieces</h2>
-          </div>
-          <div className="border border-border-soft bg-card p-10 text-center text-sm text-muted-foreground">
-            No bestsellers available yet.
-          </div>
-        </div>
-      </section>
-    );
-  }
+export function BestsellersStrip({ bestsellers, kidsBestsellers = [] }: Props) {
+  const [audience, setAudience] = useState<Audience>("MENS");
+  const items = audience === "MENS" ? bestsellers : kidsBestsellers;
 
   return (
     <section id="bestsellers" className="border-t border-border-soft">
       <div className="mx-auto max-w-460 px-3 py-12 sm:px-6 sm:py-20 lg:px-10">
-        <div className="mb-12 text-center">
+        <div className="mb-8 text-center">
           <p className="mb-4 text-xs font-medium uppercase tracking-[0.3em] text-gold">Most Loved</p>
-          <h2 className="font-serif text-3xl font-light tracking-tight text-foreground sm:text-4xl">Bestselling Pieces</h2>
+          <h2 className="mb-6 font-serif text-3xl font-light tracking-tight text-foreground sm:text-4xl">Bestselling Pieces</h2>
+          <AudienceTabs value={audience} onChange={setAudience} />
         </div>
 
-        <div className="flex gap-6 overflow-x-auto snap-x snap-mandatory scrollbar-hide sm:px-2" style={{ WebkitOverflowScrolling: "touch" }}>
-          {bestsellers.map((item) => {
-            return (
+        {items.length === 0 ? (
+          <div className="border border-border-soft bg-card p-10 text-center text-sm text-muted-foreground">
+            No bestsellers available for {audience === "MENS" ? "Mens" : "Kids"} yet.
+          </div>
+        ) : (
+          <div className="flex gap-6 overflow-x-auto snap-x snap-mandatory scrollbar-hide sm:px-2" style={{ WebkitOverflowScrolling: "touch" }}>
+            {items.map((item) => (
               <div
                 key={item.id}
                 className="shrink-0 snap-start w-[calc(50%-12px)] md:w-[calc(33.333%-16px)] lg:w-[calc(25%-18px)]"
               >
                 <MarketplaceProductCard product={toCardProduct(item)} />
               </div>
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        )}
 
         <div className="mt-12 text-center">
           <Link

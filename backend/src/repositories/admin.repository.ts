@@ -86,6 +86,7 @@ export interface AdminProduct {
     sellerEmail: string | null;
     categoryId: string;
     categoryName: string | null;
+    audience: 'MENS' | 'KIDS';
     sellerPrice?: number;
     adminListingPrice?: number | null;
     priceApprovedAt?: Date | null;
@@ -295,6 +296,7 @@ export class AdminRepository {
             sellerEmail: product.seller?.email ?? null,
             categoryId: product.categoryId,
             categoryName: product.category?.name ?? null,
+            audience: product.audience,
             sellerPrice: Number(product.sellerPrice),
             adminListingPrice: product.adminListingPrice == null ? null : Number(product.adminListingPrice),
             priceApprovedAt: product.priceApprovedAt,
@@ -386,11 +388,12 @@ export class AdminRepository {
     /**
      * Find all products pending moderation
      */
-    async findPendingProducts(params?: PaginationParams): Promise<AdminProduct[]> {
+    async findPendingProducts(params?: PaginationParams & { audience?: 'MENS' | 'KIDS' }): Promise<AdminProduct[]> {
         const { skip, take } = resolvePagination(params);
         const products = await prisma.product.findMany({
             where: {
                 deletedByAdmin: false,
+                ...(params?.audience ? { audience: params.audience } : {}),
                 OR: [
                     { status: 'PENDING' },
                     {
@@ -439,6 +442,7 @@ export class AdminRepository {
             sellerEmail: product.seller?.email ?? null,
             categoryId: product.categoryId,
             categoryName: product.category?.name ?? null,
+            audience: product.audience,
             sellerPrice: Number(product.sellerPrice),
             adminListingPrice: product.adminListingPrice == null ? null : Number(product.adminListingPrice),
             priceApprovedAt: product.priceApprovedAt,
@@ -520,6 +524,7 @@ export class AdminRepository {
             sellerEmail: product.seller?.email ?? null,
             categoryId: product.categoryId,
             categoryName: product.category?.name ?? null,
+            audience: product.audience,
             sellerPrice: Number(product.sellerPrice),
             adminListingPrice: product.adminListingPrice == null ? null : Number(product.adminListingPrice),
             priceApprovedAt: product.priceApprovedAt,
@@ -561,9 +566,10 @@ export class AdminRepository {
     /**
      * List all products for admin view
      */
-    async findAllProducts(params?: PaginationParams): Promise<AdminProduct[]> {
+    async findAllProducts(params?: PaginationParams & { audience?: 'MENS' | 'KIDS' }): Promise<AdminProduct[]> {
         const { skip, take } = resolvePagination(params);
         const products = await prisma.product.findMany({
+            where: params?.audience ? { audience: params.audience } : {},
             include: {
                 seller: {
                     select: {
@@ -603,6 +609,7 @@ export class AdminRepository {
             sellerEmail: product.seller?.email ?? null,
             categoryId: product.categoryId,
             categoryName: product.category?.name ?? null,
+            audience: product.audience,
             sellerPrice: Number(product.sellerPrice),
             adminListingPrice: product.adminListingPrice == null ? null : Number(product.adminListingPrice),
             priceApprovedAt: product.priceApprovedAt,
@@ -667,6 +674,7 @@ export class AdminRepository {
             sellerEmail: null,
             categoryId: product.categoryId,
             categoryName: null,
+            audience: product.audience,
             sellerPrice: Number(product.sellerPrice),
             adminListingPrice: product.adminListingPrice == null ? null : Number(product.adminListingPrice),
             priceApprovedAt: product.priceApprovedAt,
@@ -740,6 +748,7 @@ export class AdminRepository {
             sellerEmail: null,
             categoryId: product.categoryId,
             categoryName: null,
+            audience: product.audience,
             sellerPrice: Number(product.sellerPrice),
             adminListingPrice: product.adminListingPrice == null ? null : Number(product.adminListingPrice),
             priceApprovedAt: product.priceApprovedAt,
@@ -787,6 +796,7 @@ export class AdminRepository {
             sellerEmail: null,
             categoryId: product.categoryId,
             categoryName: null,
+            audience: product.audience,
             sellerPrice: Number(product.sellerPrice),
             adminListingPrice: product.adminListingPrice == null ? null : Number(product.adminListingPrice),
             priceApprovedAt: product.priceApprovedAt,
@@ -830,6 +840,7 @@ export class AdminRepository {
             sellerEmail: null,
             categoryId: product.categoryId,
             categoryName: null,
+            audience: product.audience,
             sellerPrice: Number(product.sellerPrice),
             adminListingPrice: product.adminListingPrice == null ? null : Number(product.adminListingPrice),
             priceApprovedAt: product.priceApprovedAt,

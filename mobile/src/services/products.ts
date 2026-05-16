@@ -71,6 +71,7 @@ export async function getProducts(params: {
   page: number;
   limit: number;
   categoryId?: string;
+  audience?: "MENS" | "KIDS";
   search?: string;
   sort?: string;
   signal?: AbortSignal;
@@ -79,6 +80,7 @@ export async function getProducts(params: {
   query.set("page", String(params.page));
   query.set("limit", String(params.limit));
   if (params.categoryId) query.set("categoryId", params.categoryId);
+  if (params.audience) query.set("audience", params.audience);
   if (params.search) query.set("search", params.search);
   if (params.sort) query.set("sort", params.sort);
 

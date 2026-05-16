@@ -34,6 +34,7 @@ import {
 } from "../../../src/services/bestsellers";
 import { getProducts, type ProductItem } from "../../../src/services/products";
 import { MarketplaceCard } from "../../../src/components/MarketplaceCard";
+import { AudienceTabs, type Audience } from "../../../src/components/AudienceTabs";
 
 const MOST_LOVED_PAGE_SIZE = 8;
 const HOME_SECTION_TITLE: TextStyle = {
@@ -227,15 +228,19 @@ export default function HomeScreen() {
     queryFn: getOccasions,
     staleTime: 60 * 1000,
   });
+  const [bestsellersAudience, setBestsellersAudience] = React.useState<Audience>("MENS");
+  const [mostLovedAudience, setMostLovedAudience] = React.useState<Audience>("MENS");
+
   const bestsellersQuery = useQuery({
-    queryKey: ["home-bestsellers"],
-    queryFn: () => getBestsellers(4),
+    queryKey: ["home-bestsellers", bestsellersAudience],
+    queryFn: () => getBestsellers(4, bestsellersAudience),
     staleTime: 60 * 1000,
   });
   const mostLovedQuery = useProductsQuery({
     page: 1,
     limit: MOST_LOVED_PAGE_SIZE,
     sort: "popularity",
+    audience: mostLovedAudience,
   });
 
   const [showScrollTop, setShowScrollTop] = React.useState(false);
@@ -453,6 +458,7 @@ export default function HomeScreen() {
         page: mostLovedNextPage,
         limit: MOST_LOVED_PAGE_SIZE,
         sort: "popularity",
+        audience: mostLovedAudience,
       });
       const incoming = (response.data ?? []) as ProductItem[];
       const totalPages = response.pagination?.totalPages;
@@ -470,7 +476,7 @@ export default function HomeScreen() {
     } finally {
       setIsMostLovedPrefetching(false);
     }
-  }, [hasMoreMostLoved, isMostLovedPrefetching, mostLovedNextPage]);
+  }, [hasMoreMostLoved, isMostLovedPrefetching, mostLovedAudience, mostLovedNextPage]);
 
   const revealNextMostLoved = React.useCallback(() => {
     if (mostLovedVisibleCount < mostLovedProducts.length) {
@@ -1025,6 +1031,9 @@ export default function HomeScreen() {
           <Text style={styles.mostLovedHeading}>BEST SELLERS</Text>
           <Text style={styles.scrollDirectionText}>Swipe left or right</Text>
         </View>
+        <View style={styles.audienceTabsWrap}>
+          <AudienceTabs value={bestsellersAudience} onChange={setBestsellersAudience} />
+        </View>
         {bestsellersQuery.isLoading ? (
           <View style={styles.gridLoadingWrap}>
             <SkeletonBlock width="47%" height={220} />
@@ -1078,6 +1087,9 @@ export default function HomeScreen() {
         <View style={styles.mostLovedHeaderRow}>
           <Ionicons name="sparkles-outline" size={28} color="#511d00" />
           <Text style={styles.mostLovedHeading}>MOST LOVED</Text>
+        </View>
+        <View style={styles.audienceTabsWrap}>
+          <AudienceTabs value={mostLovedAudience} onChange={setMostLovedAudience} />
         </View>
         {mostLovedQuery.isLoading ? (
           <View style={styles.gridLoadingWrap}>
@@ -1657,6 +1669,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: spacing.xs,
+  },
+  audienceTabsWrap: {
+    alignItems: "center",
+    marginTop: spacing.xs,
   },
   mostLovedTitleWrap: {
     alignItems: "center",

@@ -129,7 +129,7 @@ export class ProductRepository {
         products: ProductWithCategory[];
         total: number;
     }> {
-        const { page = 1, limit = 20, categoryId, search, occasion } = filters;
+        const { page = 1, limit = 20, categoryId, audience, search, occasion } = filters;
         const { skip, take } = this.resolvePagination(page, Math.min(limit, 20));
         const conditions: string[] = [
             `p."status" = 'APPROVED'`,
@@ -147,6 +147,12 @@ export class ProductRepository {
         if (categoryId) {
             conditions.push(`p."category_id" = $${paramIndex}`);
             params.push(categoryId);
+            paramIndex += 1;
+        }
+
+        if (audience) {
+            conditions.push(`p."audience" = $${paramIndex}::"ProductAudience"`);
+            params.push(audience);
             paramIndex += 1;
         }
 
@@ -196,6 +202,7 @@ export class ProductRepository {
                 p."id",
                 p."seller_id" AS "sellerId",
                 p."category_id" AS "categoryId",
+                p."audience" AS "audience",
                 p."title",
                 p."description",
                 p."images",
@@ -390,6 +397,7 @@ export class ProductRepository {
             data: {
                 sellerId,
                 categoryId: data.categoryId,
+                audience: data.audience ?? 'MENS',
                 title: data.title,
                 description: data.description ?? null,
                 sellerPrice: cheapest?.sellerPrice ?? 0,
@@ -434,6 +442,7 @@ export class ProductRepository {
             where: { id },
             data: {
                 ...(data.categoryId !== undefined && { categoryId: data.categoryId }),
+                ...(data.audience !== undefined && { audience: data.audience }),
                 ...(data.title !== undefined && { title: data.title }),
                 ...(data.description !== undefined && { description: data.description }),
                 ...(data.images !== undefined && { images: data.images }),

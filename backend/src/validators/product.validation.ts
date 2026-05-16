@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { createVariantSchema } from './variant.validation.js';
 
+export const productAudienceSchema = z.enum(['MENS', 'KIDS']);
+
 /**
  * Create Product Validation Schema
  * POST /v1/seller/products
@@ -9,6 +11,8 @@ export const createProductSchema = z.object({
     categoryId: z
         .string()
         .min(1, 'Category ID is required'),
+
+    audience: productAudienceSchema.default('MENS'),
 
     title: z
         .string()
@@ -51,6 +55,8 @@ export const updateProductSchema = z.object({
         .string()
         .min(1, 'Category ID is required')
         .optional(),
+
+    audience: productAudienceSchema.optional(),
 
     title: z
         .string()
@@ -102,6 +108,8 @@ export const productQuerySchema = z.object({
     categoryId: z
         .string()
         .optional(),
+
+    audience: productAudienceSchema.optional(),
 
     search: z
         .string()

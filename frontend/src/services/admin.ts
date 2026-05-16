@@ -11,6 +11,7 @@ export interface AdminProduct {
   sellerEmail?: string | null;
   categoryId: string;
   categoryName?: string | null;
+  audience?: "MENS" | "KIDS";
   sellerPrice?: number;
   adminListingPrice?: number | null;
   priceApprovedAt?: string | null;
@@ -322,8 +323,15 @@ export async function getPendingProducts(token?: string | null) {
   );
 }
 
-export async function getAllProducts(token?: string | null) {
-  return apiRequest<{ products: AdminProduct[] }>("/v1/admin/products", {
+export async function getAllProducts(
+  token?: string | null,
+  options?: { audience?: "MENS" | "KIDS" }
+) {
+  const search = new URLSearchParams();
+  if (options?.audience) search.set("audience", options.audience);
+  const qs = search.toString();
+  const path = qs ? `/v1/admin/products?${qs}` : "/v1/admin/products";
+  return apiRequest<{ products: AdminProduct[] }>(path, {
     method: "GET",
     token,
   });

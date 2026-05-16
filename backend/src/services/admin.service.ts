@@ -174,7 +174,7 @@ export class AdminService {
     /**
      * List products pending moderation
      */
-    async listPendingProducts(params?: { page?: number; limit?: number }): Promise<{ products: AdminProduct[] }> {
+    async listPendingProducts(params?: { page?: number; limit?: number; audience?: 'MENS' | 'KIDS' }): Promise<{ products: AdminProduct[] }> {
         const products = await this.adminRepo.findPendingProducts(params);
         return { products };
     }
@@ -182,7 +182,7 @@ export class AdminService {
     /**
      * List all products (admin table view)
      */
-    async listAllProducts(params?: { page?: number; limit?: number }): Promise<{ products: AdminProduct[] }> {
+    async listAllProducts(params?: { page?: number; limit?: number; audience?: 'MENS' | 'KIDS' }): Promise<{ products: AdminProduct[] }> {
         const products = await this.adminRepo.findAllProducts(params);
         return { products };
     }

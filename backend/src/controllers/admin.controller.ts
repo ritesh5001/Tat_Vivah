@@ -35,6 +35,13 @@ function parseDate(value: unknown): Date | undefined {
     return Number.isNaN(d.getTime()) ? undefined : d;
 }
 
+function parseAudienceQuery(value: unknown): 'MENS' | 'KIDS' | undefined {
+    if (typeof value !== 'string') return undefined;
+    const v = value.trim().toUpperCase();
+    if (v === 'MENS' || v === 'KIDS') return v;
+    return undefined;
+}
+
 /**
  * Admin Controller
  * Handles HTTP requests for admin panel
@@ -138,7 +145,8 @@ export const adminController = {
         try {
             const page = parsePositiveInt(req.query['page'], 1);
             const limit = parsePositiveInt(req.query['limit'], 20);
-            const result = await adminService.listPendingProducts({ page, limit });
+            const audience = parseAudienceQuery(req.query['audience']);
+            const result = await adminService.listPendingProducts({ page, limit, ...(audience ? { audience } : {}) });
             res.json(result);
         } catch (error) {
             next(error);
@@ -157,7 +165,8 @@ export const adminController = {
         try {
             const page = parsePositiveInt(req.query['page'], 1);
             const limit = parsePositiveInt(req.query['limit'], 20);
-            const result = await adminService.listAllProducts({ page, limit });
+            const audience = parseAudienceQuery(req.query['audience']);
+            const result = await adminService.listAllProducts({ page, limit, ...(audience ? { audience } : {}) });
             res.json(result);
         } catch (error) {
             next(error);

@@ -160,6 +160,7 @@ model Product {
   id                   String                   @id @default(cuid())
   sellerId             String                   @map("seller_id")
   categoryId           String                   @map("category_id")
+  audience             ProductAudience          @default(MENS)
   title                String
   description          String?
   sellerPrice          Decimal                  @map("seller_price") @db.Decimal(10, 2)
@@ -205,6 +206,8 @@ model Product {
   @@index([sellerId, status])
   @@index([status, deletedByAdmin])
   @@index([isPublished, deletedByAdmin, status, adminListingPrice])
+  @@index([audience])
+  @@index([audience, isPublished, deletedByAdmin, status, adminListingPrice])
   @@map("products")
 }
 
@@ -1210,6 +1213,11 @@ enum ReelStatus {
 }
 
 enum ReelCategory {
+  MENS
+  KIDS
+}
+
+enum ProductAudience {
   MENS
   KIDS
 }
