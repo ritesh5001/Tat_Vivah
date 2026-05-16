@@ -1041,7 +1041,9 @@ export default function HomeScreen() {
           </View>
         ) : repeatedBestsellerCards.length === 0 ? (
           <View style={styles.gridEmptyState}>
-            <Text style={styles.gridEmptyText}>No bestsellers available right now.</Text>
+            <Text style={styles.gridEmptyText}>
+              No {bestsellersAudience === "MENS" ? "mens" : "kids"} bestsellers available right now.
+            </Text>
           </View>
         ) : (
           <FlatList
@@ -1098,7 +1100,9 @@ export default function HomeScreen() {
           </View>
         ) : mostLovedCards.length === 0 ? (
           <View style={styles.gridEmptyState}>
-            <Text style={styles.gridEmptyText}>No loved products available right now.</Text>
+            <Text style={styles.gridEmptyText}>
+              No {mostLovedAudience === "MENS" ? "mens" : "kids"} products available right now.
+            </Text>
           </View>
         ) : (
           <FlatList

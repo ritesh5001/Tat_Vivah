@@ -51,20 +51,17 @@ export function NewArrivalsSection({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 px-0 sm:px-2">
+          <div className="px-0 sm:px-2">
             {products.length > 0 ? (
-              products.map((product) => (
-                <MarketplaceProductCard key={product.id} product={product} />
-              ))
+              <div className="grid grid-cols-2 gap-4">
+                {products.map((product) => (
+                  <MarketplaceProductCard key={product.id} product={product} />
+                ))}
+              </div>
             ) : (
-              ["Modern Fusion", "Heritage Edit"].map((item) => (
-                <div
-                  key={item}
-                  className="flex aspect-3/4 items-end border border-border-soft bg-card p-6"
-                >
-                  <span className="font-serif text-sm text-foreground">{item}</span>
-                </div>
-              ))
+              <div className="border border-border-soft bg-card p-10 text-center text-sm text-muted-foreground">
+                No {audience === "MENS" ? "mens" : "kids"} products available right now.
+              </div>
             )}
           </div>
         </div>
