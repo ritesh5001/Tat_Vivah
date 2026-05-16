@@ -282,6 +282,11 @@ export default function HomeScreen() {
   const occasionCardHeight = Math.round(gridCardWidth / 0.76);
   const vibeCardWidth = Math.min(Math.max((gridPageWidth - spacing.md) / 2, 140), 228);
   const vibeCardHeight = Math.round(vibeCardWidth * 1.32);
+  const topCategoryGap = spacing.xs;
+  const topCategoryCardWidth = (gridPageWidth - topCategoryGap * 3) / 4;
+  const topCategoryImageHeight = Math.round(topCategoryCardWidth * 1.0);
+  const topCategoryLabelHeight = Math.round(topCategoryImageHeight * 0.32);
+  const topCategoryCardHeight = topCategoryImageHeight + topCategoryLabelHeight;
   const categoryCardGap = spacing.md;
   const categoryCardWidth = isPhone
     ? (gridPageWidth - categoryCardGap) / 1.5
@@ -598,6 +603,49 @@ export default function HomeScreen() {
     [navigateTo, gridCardWidth, gridPageWidth, occasionCardHeight]
   );
 
+  const topCategoryCards = React.useMemo<HomeGridCard[]>(
+    () => categoryCards.slice(0, 4),
+    [categoryCards]
+  );
+
+  const renderTopCategoryCard = React.useCallback(
+    (item: HomeGridCard) => (
+      <Pressable
+        key={item.id}
+        style={[
+          styles.topCategoryCard,
+          { width: topCategoryCardWidth, height: topCategoryCardHeight },
+        ]}
+        onPress={() => navigateTo(`/search?q=${encodeURIComponent(item.query)}`)}
+      >
+        <View style={{ width: topCategoryCardWidth, height: topCategoryImageHeight }}>
+          <CachedImage
+            source={item.image}
+            style={{ width: topCategoryCardWidth, height: topCategoryImageHeight }}
+            contentFit="cover"
+          />
+        </View>
+        <View
+          style={[
+            styles.topCategoryLabelWrap,
+            { height: topCategoryLabelHeight, width: topCategoryCardWidth },
+          ]}
+        >
+          <Text style={styles.topCategoryLabel} numberOfLines={1}>
+            {item.title}
+          </Text>
+        </View>
+      </Pressable>
+    ),
+    [
+      navigateTo,
+      topCategoryCardHeight,
+      topCategoryCardWidth,
+      topCategoryImageHeight,
+      topCategoryLabelHeight,
+    ]
+  );
+
   const renderVibeCard = React.useCallback(
     ({ item }: ListRenderItemInfo<HomeGridCard>) => (
       <Pressable
@@ -759,53 +807,14 @@ export default function HomeScreen() {
 
   const listHeader = React.useMemo(() => (
     <>
+      {topCategoryCards.length > 0 ? (
+        <View style={[styles.topCategoryRow, { gap: topCategoryGap }]}>
+          {topCategoryCards.map(renderTopCategoryCard)}
+        </View>
+      ) : null}
+
       <View style={styles.fullBleed}>
         <HomeHeroBanner onPress={() => navigateTo("/marketplace")} />
-      </View>
-
-      <View style={styles.vibeSection}>
-        <View style={styles.vibeHeadingWrap}>
-          <Ionicons name="sparkles-outline" size={30} color="#511d00" />
-          <Text style={styles.vibeTitle}>WHAT&apos;S YOUR VIBE?</Text>
-          <Text style={styles.scrollDirectionText}>Swipe left or right</Text>
-        </View>
-        <FlatList
-          horizontal
-          data={repeatedVibeCards}
-          keyExtractor={(item) => item.id}
-          renderItem={renderVibeCard}
-          initialNumToRender={4}
-          maxToRenderPerBatch={2}
-          windowSize={3}
-          updateCellsBatchingPeriod={24}
-          onEndReached={loadMoreVibe}
-          onEndReachedThreshold={0.5}
-          snapToInterval={vibeCardWidth + spacing.md}
-          decelerationRate="fast"
-          disableIntervalMomentum
-          snapToAlignment="start"
-          onScroll={(event) => {
-            const page = Math.round(
-              event.nativeEvent.contentOffset.x / (vibeCardWidth + spacing.md)
-            );
-            setVibePageIndex((prev) => (prev === page ? prev : page));
-          }}
-          scrollEventThrottle={16}
-          onMomentumScrollEnd={(event) => {
-            const page = Math.round(
-              event.nativeEvent.contentOffset.x / (vibeCardWidth + spacing.md)
-            );
-            setVibePageIndex((prev) => (prev === page ? prev : page));
-          }}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.vibeCarouselContent}
-        />
-        <View style={styles.paginationWrap}>
-          {Array.from({ length: baseVibePagesCount }).map((_, idx) => {
-            const isActive = idx === (vibePageIndex % baseVibePagesCount);
-            return <View key={`vibe-dot-${idx}`} style={[styles.paginationDot, isActive && styles.paginationDotActive]} />;
-          })}
-        </View>
       </View>
 
       <View style={styles.occasionSection}>
@@ -1233,9 +1242,9 @@ export default function HomeScreen() {
     testimonialCardWidth,
     bestsellerPageIndex,
     visibleOccasionPages,
-    repeatedVibeCards,
-    vibePageIndex,
-    vibeCardWidth,
+    topCategoryCards,
+    topCategoryGap,
+    renderTopCategoryCard,
     hasMoreMostLoved,
     hasMostLovedError,
     isMostLovedPrefetching,
@@ -1284,6 +1293,35 @@ const styles = StyleSheet.create({
   },
   fullBleed: {
     marginHorizontal: -spacing.pageHorizontal,
+  },
+  topCategoryRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    paddingHorizontal: spacing.pageHorizontal,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
+  },
+  topCategoryCard: {
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#ddd2c6",
+    backgroundColor: "#f5f1ec",
+  },
+  topCategoryLabelWrap: {
+    borderTopWidth: 1,
+    borderTopColor: "#ddd2c6",
+    backgroundColor: "#f3ece5",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 2,
+  },
+  topCategoryLabel: {
+    fontSize: 9,
+    fontWeight: "600",
+    letterSpacing: 1,
+    textTransform: "uppercase",
+    color: "#4f4741",
   },
   vibeSection: {
     marginTop: 35,
