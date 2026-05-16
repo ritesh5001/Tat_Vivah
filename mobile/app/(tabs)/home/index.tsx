@@ -282,10 +282,13 @@ export default function HomeScreen() {
   const occasionCardHeight = Math.round(gridCardWidth / 0.76);
   const vibeCardWidth = Math.min(Math.max((gridPageWidth - spacing.md) / 2, 140), 228);
   const vibeCardHeight = Math.round(vibeCardWidth * 1.32);
-  const topCategoryGap = spacing.xs;
-  const topCategoryCardWidth = (gridPageWidth - topCategoryGap * 3) / 4;
-  const topCategoryImageHeight = Math.round(topCategoryCardWidth * 1.0);
-  const topCategoryLabelHeight = Math.round(topCategoryImageHeight * 0.32);
+  const topCategoryGap = 8;
+  const topCategoryCardBorder = 1;
+  const topCategoryCardWidth = Math.floor(
+    (gridPageWidth - topCategoryGap * 3 - topCategoryCardBorder * 8) / 4
+  );
+  const topCategoryImageHeight = Math.round(topCategoryCardWidth * 0.88);
+  const topCategoryLabelHeight = Math.round(topCategoryCardWidth * 0.32);
   const topCategoryCardHeight = topCategoryImageHeight + topCategoryLabelHeight;
   const categoryCardGap = spacing.md;
   const categoryCardWidth = isPhone
@@ -523,6 +526,15 @@ export default function HomeScreen() {
   }, [bestsellerCards.length]);
 
   React.useEffect(() => {
+    setMostLovedProducts([]);
+    setMostLovedVisibleCount(0);
+    setMostLovedNextPage(2);
+    setHasMoreMostLoved(true);
+    setHasMostLovedError(false);
+    setPendingMostLovedReveal(false);
+  }, [mostLovedAudience]);
+
+  React.useEffect(() => {
     const products = ((mostLovedQuery.data?.data ?? []) as ProductItem[]);
     if (!mostLovedQuery.data) return;
 
@@ -603,10 +615,7 @@ export default function HomeScreen() {
     [navigateTo, gridCardWidth, gridPageWidth, occasionCardHeight]
   );
 
-  const topCategoryCards = React.useMemo<HomeGridCard[]>(
-    () => categoryCards.slice(0, 4),
-    [categoryCards]
-  );
+  const topCategoryCards = categoryCards;
 
   const renderTopCategoryCard = React.useCallback(
     (item: HomeGridCard) => (
@@ -808,9 +817,17 @@ export default function HomeScreen() {
   const listHeader = React.useMemo(() => (
     <>
       {topCategoryCards.length > 0 ? (
-        <View style={[styles.topCategoryRow, { gap: topCategoryGap }]}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.topCategoryScroll}
+          contentContainerStyle={[
+            styles.topCategoryRow,
+            { gap: topCategoryGap },
+          ]}
+        >
           {topCategoryCards.map(renderTopCategoryCard)}
-        </View>
+        </ScrollView>
       ) : null}
 
       <View style={styles.fullBleed}>
@@ -1294,9 +1311,11 @@ const styles = StyleSheet.create({
   fullBleed: {
     marginHorizontal: -spacing.pageHorizontal,
   },
+  topCategoryScroll: {
+    marginHorizontal: -spacing.pageHorizontal,
+  },
   topCategoryRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "flex-start",
     paddingHorizontal: spacing.pageHorizontal,
     paddingTop: spacing.sm,
