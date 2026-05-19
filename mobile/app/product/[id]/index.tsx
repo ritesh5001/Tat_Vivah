@@ -1198,6 +1198,16 @@ export default function ProductDetailScreen() {
               </Text>
             </View>
           ) : null}
+          {product ? (
+            <Pressable
+              style={styles.tryOnOverlay}
+              onPress={() => router.push({ pathname: "/(tabs)/try-buy", params: { productId: product.id } })}
+              hitSlop={4}
+            >
+              <Ionicons name="scan-outline" size={13} color="#FFFFFF" />
+              <Text style={styles.tryOnOverlayText}>TRY ON</Text>
+            </Pressable>
+          ) : null}
         </View>
 
         {/* Dots indicator */}
@@ -1851,6 +1861,24 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: colors.warmWhite,
     letterSpacing: 1,
+  },
+  tryOnOverlay: {
+    position: "absolute",
+    bottom: 10,
+    left: spacing.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: "rgba(26, 20, 16, 0.80)",
+  },
+  tryOnOverlayText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 10,
+    color: "#FFFFFF",
+    fontWeight: "700",
+    letterSpacing: 1.2,
   },
   dotsRow: {
     flexDirection: "row",

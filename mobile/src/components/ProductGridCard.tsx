@@ -1,5 +1,5 @@
 import * as React from "react";
-import { View, Text, StyleSheet, Pressable, type StyleProp, type ViewStyle } from "react-native";
+import { View, Text, StyleSheet, Pressable, type StyleProp, type ViewStyle, type GestureResponderEvent } from "react-native";
 import { Image } from "./CompatImage";
 import { colors, typography, spacing } from "../theme/tokens";
 import { images } from "../data/images";
@@ -9,6 +9,7 @@ interface ProductGridCardProps {
   product: ProductItem;
   onBuyNow?: (product: ProductItem) => void;
   onExplore?: (product: ProductItem) => void;
+  onTryAndBuy?: (productId: string) => void;
   style?: StyleProp<ViewStyle>;
 }
 
@@ -30,6 +31,7 @@ function seededRandom(seed: string, min: number, max: number): number {
 function ProductGridCardComponent({
   product,
   onExplore,
+  onTryAndBuy,
   style,
 }: ProductGridCardProps) {
   const primaryPrice =
@@ -63,6 +65,10 @@ function ProductGridCardComponent({
     Array.isArray(product.images) && product.images.length > 0 ? product.images[0] : null;
 
   const handlePress = () => onExplore?.(product);
+  const handleTryAndBuy = (e: any) => {
+    e?.stopPropagation?.();
+    onTryAndBuy?.(product.id);
+  };
 
   return (
     <Pressable style={[styles.card, style]} onPress={handlePress}>
@@ -76,9 +82,9 @@ function ProductGridCardComponent({
           cachePolicy="memory-disk"
         />
 
-        <View style={styles.trendingBadge}>
-          <Text style={styles.trendingText}>TRENDING</Text>
-        </View>
+        <Pressable style={styles.trendingBadge} onPress={handleTryAndBuy} hitSlop={6}>
+          <Text style={styles.trendingText}>TRY 'n BUY</Text>
+        </Pressable>
 
         {discountPercent !== null ? (
           <View style={styles.discountBadge}>

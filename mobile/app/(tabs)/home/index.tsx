@@ -275,6 +275,13 @@ export default function HomeScreen() {
     [router]
   );
 
+  const handleTryAndBuy = React.useCallback(
+    (productId: string) => {
+      router.push({ pathname: "/(tabs)/try-buy", params: { productId } });
+    },
+    [router]
+  );
+
   const gridPageWidth = Math.max(width - spacing.pageHorizontal * 2, 280);
   const isPhone = width < 768;
   const gridPageGap = spacing.md;
@@ -716,10 +723,11 @@ export default function HomeScreen() {
       <MarketplaceCard
         product={item.product}
         onPress={(id) => navigateTo(`/product/${id}`)}
+        onTryAndBuy={handleTryAndBuy}
         style={{ width: mostLovedCardWidth }}
       />
     ),
-    [mostLovedCardWidth, navigateTo]
+    [mostLovedCardWidth, navigateTo, handleTryAndBuy]
   );
 
   const renderBestsellerCard = React.useCallback(
@@ -727,10 +735,11 @@ export default function HomeScreen() {
       <MarketplaceCard
         product={item.product}
         onPress={(id) => navigateTo(`/product/${id}`)}
+        onTryAndBuy={handleTryAndBuy}
         style={{ width: bestsellerCardWidth }}
       />
     ),
-    [bestsellerCardWidth, navigateTo]
+    [bestsellerCardWidth, navigateTo, handleTryAndBuy]
   );
 
   const testimonials = React.useMemo(

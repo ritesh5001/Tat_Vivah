@@ -249,6 +249,13 @@ export default function CategoriesScreen() {
     [router]
   );
 
+  const handleTryAndBuy = React.useCallback(
+    (productId: string) => {
+      router.push({ pathname: "/(tabs)/try-buy", params: { productId } });
+    },
+    [router]
+  );
+
   const handleCategorySelect = React.useCallback((categoryId: string | undefined) => {
     setSelectedCategoryId(categoryId);
   }, []);
@@ -304,10 +311,11 @@ export default function CategoriesScreen() {
       <MarketplaceCard
         product={item}
         onPress={() => handleProductPress(item)}
+        onTryAndBuy={handleTryAndBuy}
         style={{ width: cardWidth }}
       />
     ),
-    [cardWidth, handleProductPress]
+    [cardWidth, handleProductPress, handleTryAndBuy]
   );
 
   return (
