@@ -79,10 +79,20 @@ export default function TryBuyScreen() {
     staleTime: 1000 * 60 * 5,
   });
 
-  const products = React.useMemo(
-    () => (productsQuery.data?.data ?? []) as ProductItem[],
-    [productsQuery.data]
-  );
+  const products = React.useMemo(() => {
+    const baseProducts = (productsQuery.data?.data ?? []) as ProductItem[];
+
+    // If a specific product is being loaded, add it to the products array if not already present
+    if (params.productId && targetProductQuery.data) {
+      const targetProduct = targetProductQuery.data as unknown as ProductItem;
+      const productExists = baseProducts.some((p) => p.id === targetProduct.id);
+      if (!productExists) {
+        return [targetProduct, ...baseProducts];
+      }
+    }
+
+    return baseProducts;
+  }, [productsQuery.data, params.productId, targetProductQuery.data]);
 
   React.useEffect(() => {
     if (params.productId && targetProductQuery.data) {
@@ -90,7 +100,7 @@ export default function TryBuyScreen() {
     } else if (!selectedProduct && products.length > 0) {
       setSelectedProduct(products[0]);
     }
-  }, [products, selectedProduct, params.productId, targetProductQuery.data]);
+  }, [products, params.productId, targetProductQuery.data]);
 
   React.useEffect(() => {
     return () => {
