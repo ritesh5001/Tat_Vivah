@@ -823,6 +823,10 @@ export default function ProductDetailScreen() {
     }
   }, [product?.title, productId]);
 
+  const handleNavigateToTryBuy = React.useCallback(() => {
+    router.push({ pathname: "/(tabs)/try-buy", params: { productId } });
+  }, [router, productId]);
+
   const handlePickReviewImages = React.useCallback(async () => {
     if (reviewImages.length >= MAX_REVIEW_IMAGES) {
       setReviewError(`Maximum ${MAX_REVIEW_IMAGES} images allowed.`);
@@ -1198,16 +1202,14 @@ export default function ProductDetailScreen() {
               </Text>
             </View>
           ) : null}
-          {product ? (
-            <Pressable
-              style={styles.tryOnOverlay}
-              onPress={() => router.push({ pathname: "/(tabs)/try-buy", params: { productId: product.id } })}
-              hitSlop={4}
-            >
-              <Ionicons name="scan-outline" size={13} color="#FFFFFF" />
-              <Text style={styles.tryOnOverlayText}>TRY ON</Text>
-            </Pressable>
-          ) : null}
+          <Pressable
+            style={styles.tryOnOverlay}
+            onPress={handleNavigateToTryBuy}
+            hitSlop={4}
+          >
+            <Ionicons name="scan-outline" size={13} color="#FFFFFF" />
+            <Text style={styles.tryOnOverlayText}>TRY ON</Text>
+          </Pressable>
         </View>
 
         {/* Dots indicator */}

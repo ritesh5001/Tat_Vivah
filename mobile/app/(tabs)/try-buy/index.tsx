@@ -74,37 +74,35 @@ export default function TryBuyScreen() {
 
   const targetProductQuery = useQuery({
     queryKey: ["product", params.productId],
-    queryFn: () => getProductById(params.productId!),
+    queryFn: ({ signal }) => getProductById(params.productId!, signal),
     enabled: Boolean(params.productId),
     staleTime: 1000 * 60 * 5,
   });
 
+  const targetProduct = React.useMemo(
+    () => (targetProductQuery.data?.product ?? null) as ProductItem | null,
+    [targetProductQuery.data]
+  );
+
   const products = React.useMemo(() => {
     const baseProducts = (productsQuery.data?.data ?? []) as ProductItem[];
-
-    // If a specific product is being loaded, add it to the products array if not already present
-    if (params.productId && targetProductQuery.data) {
-      const targetProduct = targetProductQuery.data as unknown as ProductItem;
-      const productExists = baseProducts.some((p) => p.id === targetProduct.id);
-      if (!productExists) {
-        return [targetProduct, ...baseProducts];
-      }
+    if (targetProduct && !baseProducts.some((p) => p.id === targetProduct.id)) {
+      return [targetProduct, ...baseProducts];
     }
-
     return baseProducts;
-  }, [productsQuery.data, params.productId, targetProductQuery.data]);
+  }, [productsQuery.data, targetProduct]);
 
   React.useEffect(() => {
-    if (params.productId && targetProductQuery.data) {
-      setSelectedProduct(targetProductQuery.data as unknown as ProductItem);
+    if (params.productId && targetProduct) {
+      setSelectedProduct(targetProduct);
       setTryOnError(null);
       setUserImageUri(null);
       setUserImageAsset(null);
       setTryOnResult(null);
-    } else if (!selectedProduct && products.length > 0) {
+    } else if (!params.productId && !selectedProduct && products.length > 0) {
       setSelectedProduct(products[0]);
     }
-  }, [products, params.productId, targetProductQuery.data]);
+  }, [products, params.productId, targetProduct, selectedProduct]);
 
   React.useEffect(() => {
     return () => {

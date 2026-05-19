@@ -65,7 +65,7 @@ function ProductGridCardComponent({
     Array.isArray(product.images) && product.images.length > 0 ? product.images[0] : null;
 
   const handlePress = () => onExplore?.(product);
-  const handleTryAndBuy = (e: any) => {
+  const handleTryAndBuy = (e: GestureResponderEvent) => {
     e?.stopPropagation?.();
     onTryAndBuy?.(product.id);
   };

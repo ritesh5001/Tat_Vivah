@@ -82,10 +82,10 @@ function MarketplaceCardComponent({
     Array.isArray(product.images) && product.images.length > 0 ? product.images[0] : null;
 
   const handlePress = () => onPress?.(product.id);
-  const handleTryAndBuy = (e: any) => {
+  const handleTryAndBuy = React.useCallback((e: any) => {
     e?.stopPropagation?.();
     onTryAndBuy?.(product.id);
-  };
+  }, [onTryAndBuy, product.id]);
   const handleRemove = () => onRemove?.(product.id);
   const handleToggleWishlist = (e: any) => {
     e?.stopPropagation?.();
