@@ -110,7 +110,8 @@ function MarketplaceCardComponent({
             hitSlop={6}
             style={styles.tryBadge}
           >
-            <Text style={styles.tryBadgeText}>TRY 'n BUY</Text>
+            <Ionicons name="sparkles" size={12} color="#B7956C" />
+            <Text style={styles.tryBadgeText}>TRY ON</Text>
           </Pressable>
         ) : null}
 
@@ -241,15 +242,24 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 8,
     left: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    backgroundColor: "rgba(26, 20, 16, 0.85)",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: "rgba(255, 255, 255, 0.96)",
+    borderRadius: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    shadowColor: "#1A1410",
+    shadowOpacity: 0.18,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 6,
+    elevation: 4,
   },
   tryBadgeText: {
     fontFamily: typography.sansMedium,
     fontSize: 9,
-    letterSpacing: 1.2,
-    color: "#FFFFFF",
+    letterSpacing: 0.6,
+    color: colors.charcoal,
     fontWeight: "700",
   },
   imageFooter: {
