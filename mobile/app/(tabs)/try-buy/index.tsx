@@ -97,6 +97,10 @@ export default function TryBuyScreen() {
   React.useEffect(() => {
     if (params.productId && targetProductQuery.data) {
       setSelectedProduct(targetProductQuery.data as unknown as ProductItem);
+      setTryOnError(null);
+      setUserImageUri(null);
+      setUserImageAsset(null);
+      setTryOnResult(null);
     } else if (!selectedProduct && products.length > 0) {
       setSelectedProduct(products[0]);
     }
