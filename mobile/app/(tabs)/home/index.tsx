@@ -554,7 +554,7 @@ export default function HomeScreen() {
     );
     setHasMostLovedError(false);
     setPendingMostLovedReveal(false);
-  }, [mostLovedQuery.data]);
+  }, [mostLovedAudience, mostLovedQuery.data]);
 
   React.useEffect(() => {
     if (mostLovedQuery.isLoading) return;
@@ -1136,7 +1136,7 @@ export default function HomeScreen() {
         ) : mostLovedCards.length === 0 ? (
           <View style={styles.gridEmptyState}>
             <Text style={styles.gridEmptyText}>
-              No {mostLovedAudience === "MENS" ? "mens" : "kids"} products available right now.
+              No {mostLovedAudience === "MENS" ? "men's" : "kids'"} products available right now.
             </Text>
           </View>
         ) : (

@@ -32,7 +32,7 @@ export function useProductsQuery({
       }),
     staleTime: 5 * 60 * 1000,
     gcTime: 24 * 60 * 60 * 1000,
-    refetchOnMount: false,
+    refetchOnMount: "always",
     refetchOnReconnect: true,
     networkMode: "offlineFirst",
   });
