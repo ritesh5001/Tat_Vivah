@@ -17,7 +17,7 @@
       "bundleIdentifier": "com.zaheen.iqbal.mobile"
     },
     "android": {
-      "versionCode": 7,
+      "versionCode": 8,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/adaptive-icon.png"

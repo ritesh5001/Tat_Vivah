@@ -1306,12 +1306,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.pageHorizontal,
     paddingTop: 0,
     paddingBottom: 0,
-    gap: spacing.xxl,
+    gap: spacing.sm,
   },
   section: {
     gap: spacing.md,
-    marginBottom: spacing.md,
-    marginTop: 35,
+    marginBottom: spacing.xs,
+    marginTop: spacing.xs,
   },
   sectionTitleCenter: {
     color: colors.textPrimary,
@@ -1327,8 +1327,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     paddingHorizontal: spacing.pageHorizontal,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.md,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.xs,
   },
   topCategoryCard: {
     overflow: "hidden",
@@ -1352,7 +1352,7 @@ const styles = StyleSheet.create({
     color: "#4f4741",
   },
   vibeSection: {
-    marginTop: 35,
+    marginTop: spacing.xs,
     gap: spacing.md,
   },
   vibeHeadingWrap: {
@@ -1493,7 +1493,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
     paddingVertical: 0,
     gap: spacing.md,
-    marginTop: 35,
+    marginTop: spacing.xs,
   },
   occasionHeadingWrap: {
     alignItems: "center",
@@ -1618,9 +1618,9 @@ const styles = StyleSheet.create({
     textShadowRadius: 8,
   },
   trustSection: {
-    marginTop: 36,
+    marginTop: spacing.xs,
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.xl,
+    paddingVertical: spacing.sm,
     backgroundColor: colors.muted,
     gap: spacing.md,
   },
@@ -1695,7 +1695,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   collectionSection: {
-    marginTop: 35,
+    marginTop: spacing.xs,
     gap: spacing.md,
   },
   scrollDirectionText: {
@@ -1732,7 +1732,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   mostLovedSection: {
-    marginTop: 35,
+    marginTop: spacing.xs,
     gap: spacing.md,
   },
   mostLovedHeaderRow: {
@@ -1842,7 +1842,7 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_500Medium",
   },
   testimonialSection: {
-    marginTop: 35,
+    marginTop: spacing.xs,
     gap: spacing.md,
   },
   testimonialHeadingBox: {
