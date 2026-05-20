@@ -147,7 +147,7 @@ function pickNewArrivals(products?: (MarketplaceCardProduct & { createdAt?: stri
 function GiftingSection() {
   return (
     <section id="gifting" className="border-t border-border-soft">
-      <div className="mx-auto max-w-6xl px-6 py-16 sm:py-24">
+      <div className="mx-auto max-w-6xl px-6 py-6 sm:py-8">
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="border border-border-soft bg-card p-10 lg:col-span-2 lg:p-12">
             <p className="mb-4 text-xs font-medium uppercase tracking-[0.3em] text-gold">
@@ -212,7 +212,7 @@ function TrustSection() {
 
   return (
     <section className="border-t border-border-soft bg-cream/50 dark:bg-card/50">
-      <div className="mx-auto max-w-6xl px-6 py-10 sm:py-12">
+      <div className="mx-auto max-w-6xl px-6 py-4 sm:py-6">
         <div className="grid grid-cols-3 gap-3 text-center sm:gap-6">
           {trustItems.map((item) => (
             <div key={item.title} className="px-1">

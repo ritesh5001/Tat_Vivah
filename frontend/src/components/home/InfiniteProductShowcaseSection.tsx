@@ -195,8 +195,8 @@ export function InfiniteProductShowcaseSection({
 
   return (
     <section id="product-showcase-infinite" className="border-t border-border-soft bg-cream/50 dark:bg-card/50">
-      <div className="mx-auto max-w-460 px-3 py-12 sm:px-6 sm:py-20 lg:px-10">
-        <div className="mb-10 text-center">
+      <div className="mx-auto max-w-460 px-3 py-6 sm:px-6 sm:py-8 lg:px-10">
+        <div className="mb-6 text-center">
           <p className="mb-2 text-xs font-medium uppercase tracking-[0.3em] text-gold">Explore More</p>
           <h2 className="mb-6 font-serif text-3xl font-light tracking-tight text-foreground sm:text-4xl">
             Product Showcase
@@ -245,7 +245,7 @@ export function InfiniteProductShowcaseSection({
           ) : null}
         </div>
 
-        <div className="mt-10 text-center">
+        <div className="mt-5 text-center">
           <Link
             href="/marketplace"
             className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-gold"

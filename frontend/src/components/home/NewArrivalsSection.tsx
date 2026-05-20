@@ -22,7 +22,7 @@ export function NewArrivalsSection({
 
   return (
     <section id="new" className="border-t border-border-soft bg-cream/50 dark:bg-card/50">
-      <div className="mx-auto max-w-460 px-3 py-12 sm:px-6 sm:py-20 lg:px-10">
+      <div className="mx-auto max-w-460 px-3 py-6 sm:px-6 sm:py-8 lg:px-10">
         <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
           <div className="space-y-6 px-0 sm:px-2">
             <p className="text-xs font-medium uppercase tracking-[0.3em] text-gold">

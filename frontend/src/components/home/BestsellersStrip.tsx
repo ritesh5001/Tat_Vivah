@@ -40,8 +40,8 @@ export function BestsellersStrip({ bestsellers, kidsBestsellers = [] }: Props) {
 
   return (
     <section id="bestsellers" className="border-t border-border-soft">
-      <div className="mx-auto max-w-460 px-3 py-12 sm:px-6 sm:py-20 lg:px-10">
-        <div className="mb-8 text-center">
+      <div className="mx-auto max-w-460 px-3 py-6 sm:px-6 sm:py-8 lg:px-10">
+        <div className="mb-5 text-center">
           <p className="mb-4 text-xs font-medium uppercase tracking-[0.3em] text-gold">Most Loved</p>
           <h2 className="mb-6 font-serif text-3xl font-light tracking-tight text-foreground sm:text-4xl">Bestselling Pieces</h2>
           <AudienceTabs value={audience} onChange={setAudience} />
@@ -64,7 +64,7 @@ export function BestsellersStrip({ bestsellers, kidsBestsellers = [] }: Props) {
           </div>
         )}
 
-        <div className="mt-12 text-center">
+        <div className="mt-6 text-center">
           <Link
             href="/marketplace"
             className="inline-flex items-center gap-2 border-b border-transparent pb-1 text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground transition-colors duration-300 hover:border-gold hover:text-foreground"

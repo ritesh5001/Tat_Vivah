@@ -3,7 +3,7 @@ import Link from "next/link";
 
 export function WeddingSectionBanner() {
   return (
-    <section className="relative mt-24 w-full overflow-hidden md:mt-32">
+    <section className="relative mt-6 w-full overflow-hidden md:mt-8">
       <div className="relative h-[70vh] w-full overflow-hidden aspect-square md:h-[80vh] md:aspect-21/8">
         <div className="absolute inset-0 hidden md:block">
           <Image
