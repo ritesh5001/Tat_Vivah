@@ -21,11 +21,11 @@ import * as ImagePicker from "expo-image-picker";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import {
   getProductById,
+  getProducts,
   type ProductDetail,
   type ProductSummary,
   type ProductVariant,
 } from "../../../src/services/products";
-import { getRelatedProductsFromApi } from "../../../src/services/search";
 import { trackRecentlyViewed } from "../../../src/services/personalization";
 import {
   fetchProductReviews,
@@ -88,6 +88,7 @@ const currency = new Intl.NumberFormat("en-IN", {
 const MAX_REVIEW_IMAGES = 3;
 const MAX_REVIEW_IMAGE_BYTES = 2 * 1024 * 1024;
 const MAX_TRY_ON_IMAGE_BYTES = 8 * 1024 * 1024;
+const RELATED_PRODUCTS_PAGE_SIZE = 8;
 
 // ---------------------------------------------------------------------------
 // Memoised sub-components (extracted from render for FlatList perf)
@@ -485,6 +486,9 @@ export default function ProductDetailScreen() {
 
   const [relatedProducts, setRelatedProducts] = React.useState<ProductSummary[]>([]);
   const [loadingRelated, setLoadingRelated] = React.useState(false);
+  const [loadingMoreRelated, setLoadingMoreRelated] = React.useState(false);
+  const [relatedPage, setRelatedPage] = React.useState(1);
+  const [hasMoreRelated, setHasMoreRelated] = React.useState(false);
   const [tryOnUserImageUri, setTryOnUserImageUri] = React.useState<string | null>(null);
   const [tryOnUserImageAsset, setTryOnUserImageAsset] = React.useState<ReviewImageAsset | null>(null);
   const [tryOnResult, setTryOnResult] = React.useState<TryOnResult | null>(null);
@@ -570,20 +574,38 @@ export default function ProductDetailScreen() {
 
   // ---- Fetch related products ----
   React.useEffect(() => {
-    if (!product?.id) return;
+    const categoryId = product?.categoryId ?? product?.category?.id;
+
+    if (!product?.id || !categoryId) {
+      setRelatedProducts([]);
+      setRelatedPage(1);
+      setHasMoreRelated(false);
+      setLoadingRelated(false);
+      setLoadingMoreRelated(false);
+      return;
+    }
 
     const controller = new AbortController();
     let active = true;
 
     (async () => {
       setLoadingRelated(true);
+      setLoadingMoreRelated(false);
       try {
-        const related = await getRelatedProductsFromApi(product.id, 6, controller.signal);
+        const response = await getProducts({
+          page: 1,
+          limit: RELATED_PRODUCTS_PAGE_SIZE,
+          categoryId,
+          signal: controller.signal,
+        });
         if (!active) return;
-        setRelatedProducts(related ?? []);
+        setRelatedProducts((response.data ?? []).filter((item) => item.id !== product.id));
+        setRelatedPage(response.pagination.page);
+        setHasMoreRelated(response.pagination.page < response.pagination.totalPages);
       } catch (err) {
         if (isAbortError(err) || !active) return;
-        if (active) setRelatedProducts([]);
+        setRelatedProducts([]);
+        setHasMoreRelated(false);
       } finally {
         if (active) setLoadingRelated(false);
       }
@@ -1124,6 +1146,61 @@ export default function ProductDetailScreen() {
     ),
     [handleRelatedPress]
   );
+
+  const handleLoadMoreRelated = React.useCallback(async () => {
+    const categoryId = product?.categoryId ?? product?.category?.id;
+    if (
+      !product?.id ||
+      !categoryId ||
+      loadingRelated ||
+      loadingMoreRelated ||
+      !hasMoreRelated
+    ) {
+      return;
+    }
+
+    setLoadingMoreRelated(true);
+    try {
+      const response = await getProducts({
+        page: relatedPage + 1,
+        limit: RELATED_PRODUCTS_PAGE_SIZE,
+        categoryId,
+      });
+      setRelatedProducts((current) => {
+        const seen = new Set([product.id, ...current.map((item) => item.id)]);
+        const nextItems = (response.data ?? []).filter((item) => {
+          if (seen.has(item.id)) return false;
+          seen.add(item.id);
+          return true;
+        });
+        return [...current, ...nextItems];
+      });
+      setRelatedPage(response.pagination.page);
+      setHasMoreRelated(response.pagination.page < response.pagination.totalPages);
+    } catch (err) {
+      if (isAbortError(err)) return;
+      setHasMoreRelated(false);
+    } finally {
+      setLoadingMoreRelated(false);
+    }
+  }, [
+    hasMoreRelated,
+    loadingMoreRelated,
+    loadingRelated,
+    product?.category?.id,
+    product?.categoryId,
+    product?.id,
+    relatedPage,
+  ]);
+
+  const renderRelatedFooter = React.useCallback(() => {
+    if (!loadingMoreRelated) return null;
+    return (
+      <View style={styles.relatedFooterLoader}>
+        <TatvivahLoader size="sm" color={colors.gold} />
+      </View>
+    );
+  }, [loadingMoreRelated]);
 
   // ---- Variant press handler (avoids inline closure per-item) ----
   const handleVariantPress = React.useCallback((id: string) => {
@@ -1709,7 +1786,9 @@ export default function ProductDetailScreen() {
               <TatvivahLoader size="sm" color={colors.gold} />
             </View>
           ) : relatedProducts.length === 0 ? (
-            <Text style={styles.mutedText}>More products coming soon.</Text>
+            <Text style={styles.mutedText}>
+              More {product.category?.name ?? "category"} products coming soon.
+            </Text>
           ) : (
             <FlatList
               data={relatedProducts}
@@ -1718,6 +1797,12 @@ export default function ProductDetailScreen() {
               keyExtractor={relatedKeyExtractor}
               renderItem={renderRelatedItem}
               contentContainerStyle={styles.relatedListContent}
+              initialNumToRender={4}
+              maxToRenderPerBatch={4}
+              windowSize={5}
+              onEndReached={handleLoadMoreRelated}
+              onEndReachedThreshold={0.5}
+              ListFooterComponent={renderRelatedFooter}
             />
           )}
         </View>
@@ -2753,6 +2838,11 @@ const styles = StyleSheet.create({
   relatedLoadingWrap: {
     marginTop: spacing.md,
     alignItems: "center",
+  },
+  relatedFooterLoader: {
+    width: 64,
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   // Utility
