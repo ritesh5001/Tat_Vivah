@@ -908,50 +908,6 @@ export default function HomeScreen() {
         ) : null}
       </View>
 
-      <View style={styles.trustSection}>
-        <View style={styles.trustHeadingWrap}>
-          <View style={styles.trustHeadingMark} />
-          <Text style={styles.trustEyebrow}>The Tatvivah Promise</Text>
-          <View style={styles.trustHeadingMark} />
-        </View>
-        <Text style={styles.trustHeading}>Why shop with us</Text>
-
-        <View style={styles.trustGrid}>
-          {[
-            {
-              icon: "sparkles-outline" as const,
-              title: "Handcrafted",
-              copy: "Premium fabrics, intricate finishes, and details that photograph beautifully.",
-            },
-            {
-              icon: "shield-checkmark-outline" as const,
-              title: "Verified Sellers",
-              copy: "Curated ateliers across India — every piece vetted for quality and authenticity.",
-            },
-            {
-              icon: "cube-outline" as const,
-              title: "Pan-India Shipping",
-              copy: "Fast, tracked delivery to every pincode with luxury packaging on arrival.",
-            },
-            {
-              icon: "refresh-outline" as const,
-              title: "Easy 7-Day Returns",
-              copy: "Try at home with confidence — return or exchange within a week, no questions.",
-            },
-          ].map((item) => (
-            <View key={item.title} style={styles.trustCard}>
-              <View style={styles.trustIconWrap}>
-                <Ionicons name={item.icon} size={22} color={colors.primaryAccent} />
-              </View>
-              <Text style={styles.trustCardTitle}>{item.title}</Text>
-              <Text style={styles.trustCardCopy} numberOfLines={3}>
-                {item.copy}
-              </Text>
-            </View>
-          ))}
-        </View>
-      </View>
-
       <View style={styles.collectionSection}>
         <View style={styles.sectionHeadRow}>
           <Ionicons name="sparkles-outline" size={28} color="#511d00" />
@@ -1616,78 +1572,6 @@ const styles = StyleSheet.create({
     textShadowColor: "rgba(18, 11, 7, 0.85)",
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 8,
-  },
-  trustSection: {
-    marginTop: spacing.xs,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.muted,
-    gap: spacing.md,
-  },
-  trustHeadingWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-  },
-  trustHeadingMark: {
-    width: 22,
-    height: 1,
-    backgroundColor: colors.primaryAccent,
-  },
-  trustEyebrow: {
-    fontFamily: typography.sansMedium,
-    fontSize: 10,
-    letterSpacing: 2.4,
-    textTransform: "uppercase",
-    color: colors.primaryAccent,
-    fontWeight: "700",
-  },
-  trustHeading: {
-    ...HOME_SECTION_TITLE,
-    fontFamily: typography.serif,
-    color: colors.textPrimary,
-    textAlign: "center",
-    fontWeight: "600",
-    marginBottom: spacing.sm,
-  },
-  trustGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.md,
-  },
-  trustCard: {
-    width: "47%",
-    flexGrow: 1,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: 6,
-  },
-  trustIconWrap: {
-    width: 36,
-    height: 36,
-    borderWidth: 1,
-    borderColor: colors.primaryAccent,
-    backgroundColor: "rgba(184, 149, 108, 0.10)",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 4,
-  },
-  trustCardTitle: {
-    fontFamily: typography.serif,
-    fontSize: 15,
-    fontWeight: "600",
-    color: colors.textPrimary,
-    letterSpacing: 0.2,
-  },
-  trustCardCopy: {
-    fontFamily: typography.sans,
-    fontSize: 11.5,
-    lineHeight: 16,
-    color: colors.textSecondary,
   },
   sectionHeadRow: {
     alignItems: "center",

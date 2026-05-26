@@ -47,6 +47,7 @@ import {
 import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
 import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
 import { WishlistIcon } from "../../../src/components/WishlistIcon";
+import { TatvivahPromise } from "../../../src/components/TatvivahPromise";
 import { impactMedium, impactLight, notifySuccess } from "../../../src/utils/haptics";
 import { AppHeader } from "../../../src/components/AppHeader";
 import { useQuery } from "@tanstack/react-query";
@@ -480,6 +481,7 @@ export default function ProductDetailScreen() {
   const [submitting, setSubmitting] = React.useState(false);
   const [reviewError, setReviewError] = React.useState<string | null>(null);
   const [hasLocalReviewSubmission, setHasLocalReviewSubmission] = React.useState(false);
+  const [isDescriptionOpen, setIsDescriptionOpen] = React.useState(false);
 
   const [relatedProducts, setRelatedProducts] = React.useState<ProductSummary[]>([]);
   const [loadingRelated, setLoadingRelated] = React.useState(false);
@@ -1205,10 +1207,16 @@ export default function ProductDetailScreen() {
           <Pressable
             style={styles.tryOnOverlay}
             onPress={handleNavigateToTryBuy}
-            hitSlop={4}
+            hitSlop={8}
           >
-            <Ionicons name="scan-outline" size={13} color="#FFFFFF" />
-            <Text style={styles.tryOnOverlayText}>TRY ON</Text>
+            <View style={styles.tryOnOverlayIconWrap}>
+              <Ionicons name="scan-outline" size={15} color={colors.warmWhite} />
+            </View>
+            <View>
+              <Text style={styles.tryOnOverlayEyebrow}>Virtual</Text>
+              <Text style={styles.tryOnOverlayText}>Try-On</Text>
+            </View>
+            <Ionicons name="sparkles-outline" size={12} color={colors.gold} />
           </Pressable>
         </View>
 
@@ -1299,12 +1307,32 @@ export default function ProductDetailScreen() {
               product.description ?? "Curated premium listing with verified quality assurance."
             );
             return (
-              <View style={styles.descriptionWrap}>
-                {paragraphs.map((para, idx) => (
-                  <Text key={`desc-${idx}`} style={styles.productDescription}>
-                    {para}
-                  </Text>
-                ))}
+              <View style={styles.descriptionAccordion}>
+                <Pressable
+                  style={styles.descriptionAccordionHeader}
+                  onPress={() => setIsDescriptionOpen((current) => !current)}
+                  hitSlop={6}
+                >
+                  <View style={styles.descriptionTitleRow}>
+                    <Ionicons name="document-text-outline" size={16} color={colors.gold} />
+                    <Text style={styles.descriptionAccordionTitle}>Description</Text>
+                  </View>
+                  <Ionicons
+                    name={isDescriptionOpen ? "chevron-up" : "chevron-down"}
+                    size={18}
+                    color={colors.charcoal}
+                  />
+                </Pressable>
+
+                {isDescriptionOpen ? (
+                  <View style={styles.descriptionWrap}>
+                    {paragraphs.map((para, idx) => (
+                      <Text key={`desc-${idx}`} style={styles.productDescription}>
+                        {para}
+                      </Text>
+                    ))}
+                  </View>
+                ) : null}
               </View>
             );
           })()}
@@ -1559,6 +1587,8 @@ export default function ProductDetailScreen() {
             )}
           </AnimatedPressable>
         </View>
+
+        <TatvivahPromise />
 
         {/* ---- Reviews section ---- */}
         <View style={styles.reviewsCard}>
@@ -1866,21 +1896,48 @@ const styles = StyleSheet.create({
   },
   tryOnOverlay: {
     position: "absolute",
-    bottom: 10,
+    top: spacing.lg,
     left: spacing.lg,
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    backgroundColor: "rgba(26, 20, 16, 0.80)",
+    gap: 8,
+    paddingLeft: 6,
+    paddingRight: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: "rgba(183, 149, 108, 0.70)",
+    backgroundColor: "rgba(255, 252, 248, 0.94)",
+    shadowColor: colors.charcoal,
+    shadowOpacity: 0.14,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  tryOnOverlayIconWrap: {
+    width: 30,
+    height: 30,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.charcoal,
+    borderWidth: 1,
+    borderColor: colors.gold,
+  },
+  tryOnOverlayEyebrow: {
+    fontFamily: typography.sansMedium,
+    fontSize: 8,
+    lineHeight: 10,
+    color: colors.gold,
+    letterSpacing: 1.3,
+    textTransform: "uppercase",
   },
   tryOnOverlayText: {
     fontFamily: typography.sansMedium,
-    fontSize: 10,
-    color: "#FFFFFF",
+    fontSize: 11,
+    lineHeight: 14,
+    color: colors.charcoal,
     fontWeight: "700",
-    letterSpacing: 1.2,
+    letterSpacing: 1.4,
+    textTransform: "uppercase",
   },
   dotsRow: {
     flexDirection: "row",
@@ -2013,8 +2070,38 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.6,
   },
-  descriptionWrap: {
+  descriptionAccordion: {
     marginTop: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.surfaceElevated,
+  },
+  descriptionAccordionHeader: {
+    minHeight: 48,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.md,
+  },
+  descriptionTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  descriptionAccordionTitle: {
+    fontFamily: typography.sansMedium,
+    fontSize: 12,
+    color: colors.charcoal,
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+  },
+  descriptionWrap: {
+    borderTopWidth: 1,
+    borderTopColor: colors.borderSoft,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
     gap: 8,
   },
   productDescription: {

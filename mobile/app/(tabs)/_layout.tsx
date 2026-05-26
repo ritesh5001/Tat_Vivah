@@ -125,14 +125,8 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="try-buy/index"
         options={{
-          title: "Try & Buy",
-          tabBarIcon: ({ color, size, focused }) => (
-            <TabIconScale focused={focused}>
-              <Ionicons name="sparkles-outline" color={color} size={size} />
-            </TabIconScale>
-          ),
+          href: null,
         }}
-        listeners={tabListeners}
       />
       <Tabs.Screen
         name="profile"

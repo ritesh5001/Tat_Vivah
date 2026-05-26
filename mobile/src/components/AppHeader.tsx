@@ -1,5 +1,5 @@
 import * as React from "react";
-import { View, Text, StyleSheet, Pressable, Animated, Easing, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, Pressable, TouchableOpacity } from "react-native";
 import { usePathname, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing, typography } from "../theme/tokens";
@@ -19,15 +19,6 @@ interface AppHeaderProps {
   showCart?: boolean;
 }
 
-const ANNOUNCEMENTS = [
-  "Verified Sellers",
-  "Secure Payments",
-  "Premium Ethnic Wear",
-  "Pan-India Shipping",
-  "Easy Returns",
-  "Authentic Designs",
-];
-
 export function AppHeader({
   variant = "sub",
   title,
@@ -43,8 +34,6 @@ export function AppHeader({
   const router = useRouter();
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = React.useState(false);
-  const [marqueeTrackWidth, setMarqueeTrackWidth] = React.useState(0);
-  const marqueeTranslateX = React.useRef(new Animated.Value(0)).current;
 
   const isMainHeader = variant === "main";
   const shouldShowBack = isMainHeader ? false : (showBack ?? pathname !== "/home");
@@ -53,7 +42,6 @@ export function AppHeader({
   const shouldShowProfile = showProfile ?? false;
   const shouldShowWishlist = showWishlist ?? false;
   const shouldShowCart = showCart ?? isMainHeader;
-  const marqueeItems = React.useMemo(() => [...ANNOUNCEMENTS, ...ANNOUNCEMENTS], []);
   const backFallbackRoute = "/home";
 
   const handleOpenMenu = React.useCallback(() => {
@@ -74,61 +62,8 @@ export function AppHeader({
     router.replace(backFallbackRoute);
   }, [backFallbackRoute, pathname, router]);
 
-  React.useEffect(() => {
-    if (!isMainHeader || marqueeTrackWidth <= 0) return;
-
-    // Keep speed stable across devices (~32 px/sec).
-    const duration = Math.max(12000, Math.round((marqueeTrackWidth / 32) * 1000));
-
-    marqueeTranslateX.setValue(0);
-    const loop = Animated.loop(
-      Animated.timing(marqueeTranslateX, {
-        toValue: -marqueeTrackWidth,
-        duration,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      })
-    );
-    loop.start();
-
-    return () => loop.stop();
-  }, [isMainHeader, marqueeTrackWidth, marqueeTranslateX]);
-
   return (
     <View style={styles.container}>
-      {isMainHeader ? (
-        <View style={styles.marqueeStrip}>
-          <Animated.View
-            style={[styles.marqueeLoop, { transform: [{ translateX: marqueeTranslateX }] }]}
-          >
-            <View
-              style={styles.marqueeTrack}
-              onLayout={(event) => setMarqueeTrackWidth(event.nativeEvent.layout.width)}
-            >
-              {marqueeItems.map((message, index) => (
-                <View key={`mq-a-${index}`} style={styles.announcementItem}>
-                  <View style={styles.announcementDot} />
-                  <Text style={styles.marqueeText} numberOfLines={1}>
-                    {message}
-                  </Text>
-                </View>
-              ))}
-            </View>
-
-            <View style={styles.marqueeTrack}>
-              {marqueeItems.map((message, index) => (
-                <View key={`mq-b-${index}`} style={styles.announcementItem}>
-                  <View style={styles.announcementDot} />
-                  <Text style={styles.marqueeText} numberOfLines={1}>
-                    {message}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          </Animated.View>
-        </View>
-      ) : null}
-
       <View style={styles.row}>
         <View style={[styles.leftSlot, isMainHeader && styles.mainEdgeSlot]}>
           {isMainHeader ? (
@@ -229,44 +164,6 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 1,
     zIndex: 10,
-  },
-  marqueeStrip: {
-    height: 28,
-    backgroundColor: colors.cream,
-    overflow: "hidden",
-    justifyContent: "center",
-    marginBottom: spacing.xs,
-    marginHorizontal: -spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderSoft,
-  },
-  marqueeLoop: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  marqueeTrack: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  announcementItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginRight: 22,
-  },
-  announcementDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 0,
-    backgroundColor: colors.gold,
-    marginRight: 7,
-  },
-  marqueeText: {
-    color: colors.brownSoft,
-    fontFamily: typography.sansMedium,
-    fontSize: 10,
-    letterSpacing: 1.1,
-    textTransform: "uppercase",
-    textAlign: "left",
   },
   row: {
     flexDirection: "row",
