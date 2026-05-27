@@ -6,6 +6,7 @@ import {
   MarketplaceProductCard,
   type MarketplaceCardProduct,
 } from "@/components/marketplace-product-card";
+import { AudienceTabs, type Audience } from "@/components/home/AudienceTabs";
 
 type ProductListResponse = {
   data?: MarketplaceCardProduct[];
@@ -41,25 +42,38 @@ function mergeUniqueProducts(
 
 export function InfiniteProductShowcaseSection({
   initialProducts,
+  kidsProducts,
 }: {
   initialProducts?: MarketplaceCardProduct[];
+  kidsProducts?: MarketplaceCardProduct[];
 }) {
   const hasApi = Boolean(API_BASE_URL);
-  const initialLoadedProducts = React.useMemo(
-    () => mergeUniqueProducts([], (initialProducts ?? []).slice(0, PAGE_SIZE)),
-    [initialProducts]
-  );
+  const [audience, setAudience] = React.useState<Audience>("MENS");
 
-  const [products, setProducts] = React.useState<MarketplaceCardProduct[]>(initialLoadedProducts);
+  const initialForAudience = React.useMemo(() => {
+    const source = audience === "MENS" ? initialProducts : kidsProducts;
+    return mergeUniqueProducts([], (source ?? []).slice(0, PAGE_SIZE));
+  }, [audience, initialProducts, kidsProducts]);
+
+  const [products, setProducts] = React.useState<MarketplaceCardProduct[]>(initialForAudience);
   const [visibleCount, setVisibleCount] = React.useState(
-    Math.min(PAGE_SIZE, initialLoadedProducts.length)
+    Math.min(PAGE_SIZE, initialForAudience.length)
   );
-  const [nextPage, setNextPage] = React.useState(initialLoadedProducts.length > 0 ? 2 : 1);
+  const [nextPage, setNextPage] = React.useState(initialForAudience.length > 0 ? 2 : 1);
   const [isPrefetching, setIsPrefetching] = React.useState(false);
   const [hasError, setHasError] = React.useState(false);
   const [hasMore, setHasMore] = React.useState(hasApi);
   const [pendingReveal, setPendingReveal] = React.useState(false);
   const sentinelRef = React.useRef<HTMLDivElement | null>(null);
+
+  React.useEffect(() => {
+    setProducts(initialForAudience);
+    setVisibleCount(Math.min(PAGE_SIZE, initialForAudience.length));
+    setNextPage(initialForAudience.length > 0 ? 2 : 1);
+    setHasMore(hasApi);
+    setHasError(false);
+    setPendingReveal(false);
+  }, [audience, initialForAudience, hasApi]);
 
   const prefetchNextPage = React.useCallback(async () => {
     if (!API_BASE_URL || isPrefetching || !hasMore) return;
@@ -72,6 +86,7 @@ export function InfiniteProductShowcaseSection({
         page: String(nextPage),
         limit: String(PAGE_SIZE),
         sort: "newest",
+        audience,
       });
 
       const response = await fetch(`${API_BASE_URL}/v1/products?${query.toString()}`, {
@@ -102,7 +117,7 @@ export function InfiniteProductShowcaseSection({
     } finally {
       setIsPrefetching(false);
     }
-  }, [hasMore, isPrefetching, nextPage]);
+  }, [audience, hasMore, isPrefetching, nextPage]);
 
   const displayedProducts = React.useMemo(
     () => products.slice(0, visibleCount),
@@ -111,10 +126,10 @@ export function InfiniteProductShowcaseSection({
 
   React.useEffect(() => {
     if (!API_BASE_URL) return;
-    if (initialLoadedProducts.length > 0) return;
+    if (products.length > 0) return;
 
     void prefetchNextPage();
-  }, [initialLoadedProducts.length, prefetchNextPage]);
+  }, [products.length, prefetchNextPage]);
 
   React.useEffect(() => {
     if (visibleCount > 0) return;
@@ -180,18 +195,21 @@ export function InfiniteProductShowcaseSection({
 
   return (
     <section id="product-showcase-infinite" className="border-t border-border-soft bg-cream/50 dark:bg-card/50">
-      <div className="mx-auto max-w-460 px-3 py-12 sm:px-6 sm:py-20 lg:px-10">
-        <div className="mb-10 text-center">
+      <div className="mx-auto max-w-460 px-3 py-6 sm:px-6 sm:py-8 lg:px-10">
+        <div className="mb-6 text-center">
           <p className="mb-2 text-xs font-medium uppercase tracking-[0.3em] text-gold">Explore More</p>
-          <h2 className="font-serif text-3xl font-light tracking-tight text-foreground sm:text-4xl">
+          <h2 className="mb-6 font-serif text-3xl font-light tracking-tight text-foreground sm:text-4xl">
             Product Showcase
           </h2>
+          <AudienceTabs value={audience} onChange={setAudience} />
         </div>
 
         <div className="px-0 sm:px-2">
           {displayedProducts.length === 0 && !isPrefetching ? (
             <div className="py-16 text-center">
-              <p className="text-sm text-muted-foreground">No products available right now.</p>
+              <p className="text-sm text-muted-foreground">
+                No {audience === "MENS" ? "mens" : "kids"} products available right now.
+              </p>
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-3 lg:grid-cols-4">
@@ -227,7 +245,7 @@ export function InfiniteProductShowcaseSection({
           ) : null}
         </div>
 
-        <div className="mt-10 text-center">
+        <div className="mt-5 text-center">
           <Link
             href="/marketplace"
             className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-gold"

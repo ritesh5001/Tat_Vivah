@@ -1,5 +1,6 @@
 import * as React from "react";
-import { View, Text, StyleSheet, Pressable, type StyleProp, type ViewStyle } from "react-native";
+import { View, Text, StyleSheet, Pressable, type StyleProp, type ViewStyle, type GestureResponderEvent } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { Image } from "./CompatImage";
 import { colors, typography, spacing } from "../theme/tokens";
 import { images } from "../data/images";
@@ -9,6 +10,7 @@ interface ProductGridCardProps {
   product: ProductItem;
   onBuyNow?: (product: ProductItem) => void;
   onExplore?: (product: ProductItem) => void;
+  onTryAndBuy?: (productId: string) => void;
   style?: StyleProp<ViewStyle>;
 }
 
@@ -30,6 +32,7 @@ function seededRandom(seed: string, min: number, max: number): number {
 function ProductGridCardComponent({
   product,
   onExplore,
+  onTryAndBuy,
   style,
 }: ProductGridCardProps) {
   const primaryPrice =
@@ -63,6 +66,10 @@ function ProductGridCardComponent({
     Array.isArray(product.images) && product.images.length > 0 ? product.images[0] : null;
 
   const handlePress = () => onExplore?.(product);
+  const handleTryAndBuy = (e: GestureResponderEvent) => {
+    e?.stopPropagation?.();
+    onTryAndBuy?.(product.id);
+  };
 
   return (
     <Pressable style={[styles.card, style]} onPress={handlePress}>
@@ -76,9 +83,10 @@ function ProductGridCardComponent({
           cachePolicy="memory-disk"
         />
 
-        <View style={styles.trendingBadge}>
-          <Text style={styles.trendingText}>TRENDING</Text>
-        </View>
+        <Pressable style={styles.trendingBadge} onPress={handleTryAndBuy} hitSlop={6}>
+          <Ionicons name="sparkles" size={12} color="#B7956C" />
+          <Text style={styles.trendingText}>TRY ON</Text>
+        </Pressable>
 
         {discountPercent !== null ? (
           <View style={styles.discountBadge}>
@@ -127,7 +135,6 @@ function ProductGridCardComponent({
 
 export const ProductGridCard = React.memo(ProductGridCardComponent);
 
-const TRENDING_BG = "rgba(255,255,255,0.95)";
 const RATING_BG = "rgba(255,255,255,0.92)";
 const DISCOUNT_AMBER = "#B45309";
 const DISCOUNT_BADGE_BG = "#D97706";
@@ -161,14 +168,23 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 8,
     left: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    backgroundColor: TRENDING_BG,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: "rgba(255, 255, 255, 0.96)",
+    borderRadius: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    shadowColor: colors.charcoal,
+    shadowOpacity: 0.18,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 6,
+    elevation: 4,
   },
   trendingText: {
     fontFamily: typography.sansMedium,
     fontSize: 9,
-    letterSpacing: 1.2,
+    letterSpacing: 0.6,
     color: colors.charcoal,
     fontWeight: "700",
   },

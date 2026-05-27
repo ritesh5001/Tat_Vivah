@@ -55,11 +55,6 @@ const NAV_ITEMS: NavItem[] = [
     icon: (color) => <Ionicons name="play-circle-outline" size={22} color={color} />,
   },
   {
-    label: "Try & Buy",
-    path: "/try-buy",
-    icon: (color) => <Ionicons name="sparkles-outline" size={22} color={color} />,
-  },
-  {
     label: "Profile",
     path: "/profile",
     icon: (color) => <Ionicons name="person-outline" size={22} color={color} />,

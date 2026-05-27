@@ -136,6 +136,7 @@ export default function AdminProductsClient({
   );
   const [searchQuery, setSearchQuery] = React.useState("");
   const [categoryFilter, setCategoryFilter] = React.useState("all");
+  const [audienceFilter, setAudienceFilter] = React.useState<"all" | "MENS" | "KIDS">("all");
   const [selectedProduct, setSelectedProduct] = React.useState<any | null>(null);
   const [approvalVariantPrices, setApprovalVariantPrices] = React.useState<
     Record<string, string>
@@ -739,8 +740,11 @@ export default function AdminProductsClient({
       const matchesCategory =
         categoryFilter === "all" || product.categoryId === categoryFilter;
 
+      const matchesAudience =
+        audienceFilter === "all" || product.audience === audienceFilter;
+
       if (!query) {
-        return matchesCategory;
+        return matchesCategory && matchesAudience;
       }
 
       const haystack = [
@@ -753,9 +757,9 @@ export default function AdminProductsClient({
         .join(" ")
         .toLowerCase();
 
-      return matchesCategory && haystack.includes(query);
+      return matchesCategory && matchesAudience && haystack.includes(query);
     });
-  }, [products, searchQuery, categoryFilter]);
+  }, [products, searchQuery, categoryFilter, audienceFilter]);
 
   const visibleProducts = React.useMemo(
     () =>
@@ -844,22 +848,40 @@ export default function AdminProductsClient({
               className="border-0 bg-transparent focus-visible:ring-0 h-10"
             />
           </div>
-          <div className="flex items-center gap-4">
-            <label className="text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
-              Category
-            </label>
-            <select
-              className="h-10 border border-border-soft bg-card px-4 text-sm text-foreground transition focus:border-gold/50"
-              value={categoryFilter}
-              onChange={(event) => setCategoryFilter(event.target.value)}
-            >
-              <option value="all">All categories</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <label className="text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                Audience
+              </label>
+              <select
+                className="h-10 border border-border-soft bg-card px-4 text-sm text-foreground transition focus:border-gold/50"
+                value={audienceFilter}
+                onChange={(event) =>
+                  setAudienceFilter(event.target.value as "all" | "MENS" | "KIDS")
+                }
+              >
+                <option value="all">All</option>
+                <option value="MENS">Mens</option>
+                <option value="KIDS">Kids</option>
+              </select>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                Category
+              </label>
+              <select
+                className="h-10 border border-border-soft bg-card px-4 text-sm text-foreground transition focus:border-gold/50"
+                value={categoryFilter}
+                onChange={(event) => setCategoryFilter(event.target.value)}
+              >
+                <option value="all">All categories</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </motion.div>
 
@@ -1003,7 +1025,14 @@ export default function AdminProductsClient({
                         {product.sellerEmail ?? product.sellerId?.slice(0, 8)}
                       </td>
                       <td className="p-6 text-muted-foreground">
-                        {product.categoryName ?? product.categoryId?.slice(0, 6)}
+                        <div className="flex flex-col gap-1">
+                          <span>
+                            {product.categoryName ?? product.categoryId?.slice(0, 6)}
+                          </span>
+                          <span className="self-start px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider border border-border-soft text-foreground">
+                            {product.audience === "KIDS" ? "Kids" : "Mens"}
+                          </span>
+                        </div>
                       </td>
                       <td className="p-6">
                         <div className="flex flex-col gap-1">

@@ -1,29 +1,14 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React from "react";
 import { Feather } from "@expo/vector-icons";
 import {
-  LayoutChangeEvent,
   Pressable,
   StyleSheet,
   Text,
   View,
   type ImageSourcePropType,
 } from "react-native";
-import Animated, {
-  Easing,
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withTiming,
-} from "react-native-reanimated";
 import { colors, spacing, typography } from "../theme";
 import { CachedImage } from "./CachedImage";
-
-const ANNOUNCEMENT_MESSAGES = [
-  "Enjoy hassle-free returns and exchanges",
-  "Free shipping across India",
-  "New menswear drops every week",
-  "Trusted by 10,000+ grooms",
-] as const;
 
 type NavbarProps = {
   onHamburgerPress?: () => void;
@@ -44,52 +29,8 @@ export function Navbar({
   profileNotificationCount = 0,
   logoSource,
 }: NavbarProps) {
-  const [contentWidth, setContentWidth] = useState(0);
-  const translateX = useSharedValue(0);
-
-  const marqueeText = useMemo(() => {
-    const chunk = `  •  ${ANNOUNCEMENT_MESSAGES.join("  •  ")}  `;
-    return `${chunk}${chunk}`;
-  }, []);
-
-  useEffect(() => {
-    if (contentWidth <= 0) {
-      return;
-    }
-
-    translateX.value = 0;
-    translateX.value = withRepeat(
-      withTiming(-contentWidth / 2, {
-        duration: 16000,
-        easing: Easing.linear,
-      }),
-      -1,
-      false,
-    );
-  }, [contentWidth, translateX]);
-
-  const marqueeAnimatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ translateX: translateX.value }],
-    };
-  });
-
-  const handleContentLayout = (event: LayoutChangeEvent) => {
-    setContentWidth(event.nativeEvent.layout.width);
-  };
-
   return (
     <View style={styles.wrapper}>
-      <View style={styles.announcementBar}>
-        <View style={styles.marqueeViewport}>
-          <Animated.View style={[styles.marqueeTrack, marqueeAnimatedStyle]} onLayout={handleContentLayout}>
-            <Text numberOfLines={1} style={styles.announcementText}>
-              {marqueeText}
-            </Text>
-          </Animated.View>
-        </View>
-      </View>
-
       <View style={styles.mainBar}>
         <Pressable onPress={onHamburgerPress} style={styles.iconButton} hitSlop={8}>
           <Feather name="menu" size={22} color={colors.textPrimary} />
@@ -133,23 +74,6 @@ export function Navbar({
 const styles = StyleSheet.create({
   wrapper: {
     backgroundColor: colors.navbarBackground,
-  },
-  announcementBar: {
-    height: 32,
-    backgroundColor: colors.headerBrown,
-    justifyContent: "center",
-  },
-  marqueeViewport: {
-    overflow: "hidden",
-  },
-  marqueeTrack: {
-    alignSelf: "flex-start",
-  },
-  announcementText: {
-    fontFamily: typography.body,
-    fontSize: 13,
-    color: colors.white,
-    includeFontPadding: false,
   },
   mainBar: {
     height: 60,

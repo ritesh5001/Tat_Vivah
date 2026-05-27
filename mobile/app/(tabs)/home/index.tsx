@@ -34,6 +34,7 @@ import {
 } from "../../../src/services/bestsellers";
 import { getProducts, type ProductItem } from "../../../src/services/products";
 import { MarketplaceCard } from "../../../src/components/MarketplaceCard";
+import { AudienceTabs, type Audience } from "../../../src/components/AudienceTabs";
 
 const MOST_LOVED_PAGE_SIZE = 8;
 const HOME_SECTION_TITLE: TextStyle = {
@@ -227,15 +228,19 @@ export default function HomeScreen() {
     queryFn: getOccasions,
     staleTime: 60 * 1000,
   });
+  const [bestsellersAudience, setBestsellersAudience] = React.useState<Audience>("MENS");
+  const [mostLovedAudience, setMostLovedAudience] = React.useState<Audience>("MENS");
+
   const bestsellersQuery = useQuery({
-    queryKey: ["home-bestsellers"],
-    queryFn: () => getBestsellers(4),
+    queryKey: ["home-bestsellers", bestsellersAudience],
+    queryFn: () => getBestsellers(4, bestsellersAudience),
     staleTime: 60 * 1000,
   });
   const mostLovedQuery = useProductsQuery({
     page: 1,
     limit: MOST_LOVED_PAGE_SIZE,
     sort: "popularity",
+    audience: mostLovedAudience,
   });
 
   const [showScrollTop, setShowScrollTop] = React.useState(false);
@@ -270,6 +275,13 @@ export default function HomeScreen() {
     [router]
   );
 
+  const handleTryAndBuy = React.useCallback(
+    (productId: string) => {
+      router.push({ pathname: "/(tabs)/try-buy", params: { productId } });
+    },
+    [router]
+  );
+
   const gridPageWidth = Math.max(width - spacing.pageHorizontal * 2, 280);
   const isPhone = width < 768;
   const gridPageGap = spacing.md;
@@ -277,6 +289,14 @@ export default function HomeScreen() {
   const occasionCardHeight = Math.round(gridCardWidth / 0.76);
   const vibeCardWidth = Math.min(Math.max((gridPageWidth - spacing.md) / 2, 140), 228);
   const vibeCardHeight = Math.round(vibeCardWidth * 1.32);
+  const topCategoryGap = 8;
+  const topCategoryCardBorder = 1;
+  const topCategoryCardWidth = Math.floor(
+    (gridPageWidth - topCategoryGap * 3 - topCategoryCardBorder * 8) / 4
+  );
+  const topCategoryImageHeight = Math.round(topCategoryCardWidth * 0.88);
+  const topCategoryLabelHeight = Math.round(topCategoryCardWidth * 0.32);
+  const topCategoryCardHeight = topCategoryImageHeight + topCategoryLabelHeight;
   const categoryCardGap = spacing.md;
   const categoryCardWidth = isPhone
     ? (gridPageWidth - categoryCardGap) / 1.5
@@ -453,6 +473,7 @@ export default function HomeScreen() {
         page: mostLovedNextPage,
         limit: MOST_LOVED_PAGE_SIZE,
         sort: "popularity",
+        audience: mostLovedAudience,
       });
       const incoming = (response.data ?? []) as ProductItem[];
       const totalPages = response.pagination?.totalPages;
@@ -470,7 +491,7 @@ export default function HomeScreen() {
     } finally {
       setIsMostLovedPrefetching(false);
     }
-  }, [hasMoreMostLoved, isMostLovedPrefetching, mostLovedNextPage]);
+  }, [hasMoreMostLoved, isMostLovedPrefetching, mostLovedAudience, mostLovedNextPage]);
 
   const revealNextMostLoved = React.useCallback(() => {
     if (mostLovedVisibleCount < mostLovedProducts.length) {
@@ -512,6 +533,15 @@ export default function HomeScreen() {
   }, [bestsellerCards.length]);
 
   React.useEffect(() => {
+    setMostLovedProducts([]);
+    setMostLovedVisibleCount(0);
+    setMostLovedNextPage(2);
+    setHasMoreMostLoved(true);
+    setHasMostLovedError(false);
+    setPendingMostLovedReveal(false);
+  }, [mostLovedAudience]);
+
+  React.useEffect(() => {
     const products = ((mostLovedQuery.data?.data ?? []) as ProductItem[]);
     if (!mostLovedQuery.data) return;
 
@@ -524,7 +554,7 @@ export default function HomeScreen() {
     );
     setHasMostLovedError(false);
     setPendingMostLovedReveal(false);
-  }, [mostLovedQuery.data]);
+  }, [mostLovedAudience, mostLovedQuery.data]);
 
   React.useEffect(() => {
     if (mostLovedQuery.isLoading) return;
@@ -592,6 +622,46 @@ export default function HomeScreen() {
     [navigateTo, gridCardWidth, gridPageWidth, occasionCardHeight]
   );
 
+  const topCategoryCards = categoryCards;
+
+  const renderTopCategoryCard = React.useCallback(
+    (item: HomeGridCard) => (
+      <Pressable
+        key={item.id}
+        style={[
+          styles.topCategoryCard,
+          { width: topCategoryCardWidth, height: topCategoryCardHeight },
+        ]}
+        onPress={() => navigateTo(`/search?q=${encodeURIComponent(item.query)}`)}
+      >
+        <View style={{ width: topCategoryCardWidth, height: topCategoryImageHeight }}>
+          <CachedImage
+            source={item.image}
+            style={{ width: topCategoryCardWidth, height: topCategoryImageHeight }}
+            contentFit="cover"
+          />
+        </View>
+        <View
+          style={[
+            styles.topCategoryLabelWrap,
+            { height: topCategoryLabelHeight, width: topCategoryCardWidth },
+          ]}
+        >
+          <Text style={styles.topCategoryLabel} numberOfLines={1}>
+            {item.title}
+          </Text>
+        </View>
+      </Pressable>
+    ),
+    [
+      navigateTo,
+      topCategoryCardHeight,
+      topCategoryCardWidth,
+      topCategoryImageHeight,
+      topCategoryLabelHeight,
+    ]
+  );
+
   const renderVibeCard = React.useCallback(
     ({ item }: ListRenderItemInfo<HomeGridCard>) => (
       <Pressable
@@ -653,10 +723,11 @@ export default function HomeScreen() {
       <MarketplaceCard
         product={item.product}
         onPress={(id) => navigateTo(`/product/${id}`)}
+        onTryAndBuy={handleTryAndBuy}
         style={{ width: mostLovedCardWidth }}
       />
     ),
-    [mostLovedCardWidth, navigateTo]
+    [mostLovedCardWidth, navigateTo, handleTryAndBuy]
   );
 
   const renderBestsellerCard = React.useCallback(
@@ -664,10 +735,11 @@ export default function HomeScreen() {
       <MarketplaceCard
         product={item.product}
         onPress={(id) => navigateTo(`/product/${id}`)}
+        onTryAndBuy={handleTryAndBuy}
         style={{ width: bestsellerCardWidth }}
       />
     ),
-    [bestsellerCardWidth, navigateTo]
+    [bestsellerCardWidth, navigateTo, handleTryAndBuy]
   );
 
   const testimonials = React.useMemo(
@@ -753,53 +825,22 @@ export default function HomeScreen() {
 
   const listHeader = React.useMemo(() => (
     <>
+      {topCategoryCards.length > 0 ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.topCategoryScroll}
+          contentContainerStyle={[
+            styles.topCategoryRow,
+            { gap: topCategoryGap },
+          ]}
+        >
+          {topCategoryCards.map(renderTopCategoryCard)}
+        </ScrollView>
+      ) : null}
+
       <View style={styles.fullBleed}>
         <HomeHeroBanner onPress={() => navigateTo("/marketplace")} />
-      </View>
-
-      <View style={styles.vibeSection}>
-        <View style={styles.vibeHeadingWrap}>
-          <Ionicons name="sparkles-outline" size={30} color="#511d00" />
-          <Text style={styles.vibeTitle}>WHAT&apos;S YOUR VIBE?</Text>
-          <Text style={styles.scrollDirectionText}>Swipe left or right</Text>
-        </View>
-        <FlatList
-          horizontal
-          data={repeatedVibeCards}
-          keyExtractor={(item) => item.id}
-          renderItem={renderVibeCard}
-          initialNumToRender={4}
-          maxToRenderPerBatch={2}
-          windowSize={3}
-          updateCellsBatchingPeriod={24}
-          onEndReached={loadMoreVibe}
-          onEndReachedThreshold={0.5}
-          snapToInterval={vibeCardWidth + spacing.md}
-          decelerationRate="fast"
-          disableIntervalMomentum
-          snapToAlignment="start"
-          onScroll={(event) => {
-            const page = Math.round(
-              event.nativeEvent.contentOffset.x / (vibeCardWidth + spacing.md)
-            );
-            setVibePageIndex((prev) => (prev === page ? prev : page));
-          }}
-          scrollEventThrottle={16}
-          onMomentumScrollEnd={(event) => {
-            const page = Math.round(
-              event.nativeEvent.contentOffset.x / (vibeCardWidth + spacing.md)
-            );
-            setVibePageIndex((prev) => (prev === page ? prev : page));
-          }}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.vibeCarouselContent}
-        />
-        <View style={styles.paginationWrap}>
-          {Array.from({ length: baseVibePagesCount }).map((_, idx) => {
-            const isActive = idx === (vibePageIndex % baseVibePagesCount);
-            return <View key={`vibe-dot-${idx}`} style={[styles.paginationDot, isActive && styles.paginationDotActive]} />;
-          })}
-        </View>
       </View>
 
       <View style={styles.occasionSection}>
@@ -865,50 +906,6 @@ export default function HomeScreen() {
             })}
           </View>
         ) : null}
-      </View>
-
-      <View style={styles.trustSection}>
-        <View style={styles.trustHeadingWrap}>
-          <View style={styles.trustHeadingMark} />
-          <Text style={styles.trustEyebrow}>The Tatvivah Promise</Text>
-          <View style={styles.trustHeadingMark} />
-        </View>
-        <Text style={styles.trustHeading}>Why shop with us</Text>
-
-        <View style={styles.trustGrid}>
-          {[
-            {
-              icon: "sparkles-outline" as const,
-              title: "Handcrafted",
-              copy: "Premium fabrics, intricate finishes, and details that photograph beautifully.",
-            },
-            {
-              icon: "shield-checkmark-outline" as const,
-              title: "Verified Sellers",
-              copy: "Curated ateliers across India — every piece vetted for quality and authenticity.",
-            },
-            {
-              icon: "cube-outline" as const,
-              title: "Pan-India Shipping",
-              copy: "Fast, tracked delivery to every pincode with luxury packaging on arrival.",
-            },
-            {
-              icon: "refresh-outline" as const,
-              title: "Easy 7-Day Returns",
-              copy: "Try at home with confidence — return or exchange within a week, no questions.",
-            },
-          ].map((item) => (
-            <View key={item.title} style={styles.trustCard}>
-              <View style={styles.trustIconWrap}>
-                <Ionicons name={item.icon} size={22} color={colors.primaryAccent} />
-              </View>
-              <Text style={styles.trustCardTitle}>{item.title}</Text>
-              <Text style={styles.trustCardCopy} numberOfLines={3}>
-                {item.copy}
-              </Text>
-            </View>
-          ))}
-        </View>
       </View>
 
       <View style={styles.collectionSection}>
@@ -1025,6 +1022,9 @@ export default function HomeScreen() {
           <Text style={styles.mostLovedHeading}>BEST SELLERS</Text>
           <Text style={styles.scrollDirectionText}>Swipe left or right</Text>
         </View>
+        <View style={styles.audienceTabsWrap}>
+          <AudienceTabs value={bestsellersAudience} onChange={setBestsellersAudience} />
+        </View>
         {bestsellersQuery.isLoading ? (
           <View style={styles.gridLoadingWrap}>
             <SkeletonBlock width="47%" height={220} />
@@ -1032,7 +1032,9 @@ export default function HomeScreen() {
           </View>
         ) : repeatedBestsellerCards.length === 0 ? (
           <View style={styles.gridEmptyState}>
-            <Text style={styles.gridEmptyText}>No bestsellers available right now.</Text>
+            <Text style={styles.gridEmptyText}>
+              No {bestsellersAudience === "MENS" ? "mens" : "kids"} bestsellers available right now.
+            </Text>
           </View>
         ) : (
           <FlatList
@@ -1079,6 +1081,9 @@ export default function HomeScreen() {
           <Ionicons name="sparkles-outline" size={28} color="#511d00" />
           <Text style={styles.mostLovedHeading}>MOST LOVED</Text>
         </View>
+        <View style={styles.audienceTabsWrap}>
+          <AudienceTabs value={mostLovedAudience} onChange={setMostLovedAudience} />
+        </View>
         {mostLovedQuery.isLoading ? (
           <View style={styles.gridLoadingWrap}>
             <SkeletonBlock width="47%" height={240} />
@@ -1086,7 +1091,9 @@ export default function HomeScreen() {
           </View>
         ) : mostLovedCards.length === 0 ? (
           <View style={styles.gridEmptyState}>
-            <Text style={styles.gridEmptyText}>No loved products available right now.</Text>
+            <Text style={styles.gridEmptyText}>
+              No {mostLovedAudience === "MENS" ? "men's" : "kids'"} products available right now.
+            </Text>
           </View>
         ) : (
           <FlatList
@@ -1217,9 +1224,9 @@ export default function HomeScreen() {
     testimonialCardWidth,
     bestsellerPageIndex,
     visibleOccasionPages,
-    repeatedVibeCards,
-    vibePageIndex,
-    vibeCardWidth,
+    topCategoryCards,
+    topCategoryGap,
+    renderTopCategoryCard,
     hasMoreMostLoved,
     hasMostLovedError,
     isMostLovedPrefetching,
@@ -1255,12 +1262,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.pageHorizontal,
     paddingTop: 0,
     paddingBottom: 0,
-    gap: spacing.xxl,
+    gap: spacing.sm,
   },
   section: {
     gap: spacing.md,
-    marginBottom: spacing.md,
-    marginTop: 35,
+    marginBottom: spacing.xs,
+    marginTop: spacing.xs,
   },
   sectionTitleCenter: {
     color: colors.textPrimary,
@@ -1269,8 +1276,39 @@ const styles = StyleSheet.create({
   fullBleed: {
     marginHorizontal: -spacing.pageHorizontal,
   },
+  topCategoryScroll: {
+    marginHorizontal: -spacing.pageHorizontal,
+  },
+  topCategoryRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    paddingHorizontal: spacing.pageHorizontal,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.xs,
+  },
+  topCategoryCard: {
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#ddd2c6",
+    backgroundColor: "#f5f1ec",
+  },
+  topCategoryLabelWrap: {
+    borderTopWidth: 1,
+    borderTopColor: "#ddd2c6",
+    backgroundColor: "#f3ece5",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 2,
+  },
+  topCategoryLabel: {
+    fontSize: 9,
+    fontWeight: "600",
+    letterSpacing: 1,
+    textTransform: "uppercase",
+    color: "#4f4741",
+  },
   vibeSection: {
-    marginTop: 35,
+    marginTop: spacing.xs,
     gap: spacing.md,
   },
   vibeHeadingWrap: {
@@ -1411,7 +1449,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
     paddingVertical: 0,
     gap: spacing.md,
-    marginTop: 35,
+    marginTop: spacing.xs,
   },
   occasionHeadingWrap: {
     alignItems: "center",
@@ -1535,85 +1573,13 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 8,
   },
-  trustSection: {
-    marginTop: 36,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.xl,
-    backgroundColor: colors.muted,
-    gap: spacing.md,
-  },
-  trustHeadingWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-  },
-  trustHeadingMark: {
-    width: 22,
-    height: 1,
-    backgroundColor: colors.primaryAccent,
-  },
-  trustEyebrow: {
-    fontFamily: typography.sansMedium,
-    fontSize: 10,
-    letterSpacing: 2.4,
-    textTransform: "uppercase",
-    color: colors.primaryAccent,
-    fontWeight: "700",
-  },
-  trustHeading: {
-    ...HOME_SECTION_TITLE,
-    fontFamily: typography.serif,
-    color: colors.textPrimary,
-    textAlign: "center",
-    fontWeight: "600",
-    marginBottom: spacing.sm,
-  },
-  trustGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.md,
-  },
-  trustCard: {
-    width: "47%",
-    flexGrow: 1,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: 6,
-  },
-  trustIconWrap: {
-    width: 36,
-    height: 36,
-    borderWidth: 1,
-    borderColor: colors.primaryAccent,
-    backgroundColor: "rgba(184, 149, 108, 0.10)",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 4,
-  },
-  trustCardTitle: {
-    fontFamily: typography.serif,
-    fontSize: 15,
-    fontWeight: "600",
-    color: colors.textPrimary,
-    letterSpacing: 0.2,
-  },
-  trustCardCopy: {
-    fontFamily: typography.sans,
-    fontSize: 11.5,
-    lineHeight: 16,
-    color: colors.textSecondary,
-  },
   sectionHeadRow: {
     alignItems: "center",
     justifyContent: "center",
     gap: spacing.xs,
   },
   collectionSection: {
-    marginTop: 35,
+    marginTop: spacing.xs,
     gap: spacing.md,
   },
   scrollDirectionText: {
@@ -1650,13 +1616,17 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   mostLovedSection: {
-    marginTop: 35,
+    marginTop: spacing.xs,
     gap: spacing.md,
   },
   mostLovedHeaderRow: {
     alignItems: "center",
     justifyContent: "center",
     gap: spacing.xs,
+  },
+  audienceTabsWrap: {
+    alignItems: "center",
+    marginTop: spacing.xs,
   },
   mostLovedTitleWrap: {
     alignItems: "center",
@@ -1756,7 +1726,7 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_500Medium",
   },
   testimonialSection: {
-    marginTop: 35,
+    marginTop: spacing.xs,
     gap: spacing.md,
   },
   testimonialHeadingBox: {

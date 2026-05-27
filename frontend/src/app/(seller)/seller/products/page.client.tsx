@@ -240,6 +240,7 @@ export default function SellerProductsClient({
   );
   const [form, setForm] = React.useState({
     categoryId: "",
+    audience: "MENS" as "MENS" | "KIDS",
     title: "",
     description: "",
     isPublished: false,
@@ -272,6 +273,7 @@ export default function SellerProductsClient({
   );
   const [editForm, setEditForm] = React.useState({
     categoryId: "",
+    audience: "MENS" as "MENS" | "KIDS",
     title: "",
     description: "",
     isPublished: false,
@@ -493,6 +495,7 @@ export default function SellerProductsClient({
 
       const result = await createSellerProduct({
         categoryId: form.categoryId,
+        audience: form.audience,
         title: form.title.trim(),
         description: form.description || undefined,
         images: images.map((image) => image.url),
@@ -503,6 +506,7 @@ export default function SellerProductsClient({
       toast.success("Your product has been submitted for price and approval.");
       setForm({
         categoryId: "",
+        audience: "MENS",
         title: "",
         description: "",
         isPublished: false,
@@ -574,6 +578,7 @@ export default function SellerProductsClient({
     setEditingProductId(product.id);
     setEditForm({
       categoryId: product.categoryId ?? product.category?.id ?? "",
+      audience: (product.audience as "MENS" | "KIDS") ?? "MENS",
       title: product.title ?? "",
       description: product.description ?? "",
       isPublished: Boolean(product.isPublished),
@@ -590,6 +595,7 @@ export default function SellerProductsClient({
     try {
       const result = await updateSellerProduct(editingProductId, {
         categoryId: editForm.categoryId || undefined,
+        audience: editForm.audience,
         title: editForm.title || undefined,
         description: editForm.description || undefined,
         occasionIds: editForm.occasionIds,
@@ -1352,6 +1358,29 @@ export default function SellerProductsClient({
                     {/* Edit Form */}
                     {editingProductId === product.id && (
                       <div className="space-y-4 p-4 border border-dashed border-border-soft">
+                        <div className="space-y-2">
+                          <Label>Audience</Label>
+                          <div className="flex gap-2">
+                            {(["MENS", "KIDS"] as const).map((opt) => (
+                              <button
+                                key={opt}
+                                type="button"
+                                disabled={product.deletedByAdmin}
+                                onClick={() =>
+                                  setEditForm((prev) => ({ ...prev, audience: opt }))
+                                }
+                                className={`h-10 flex-1 border px-3 text-xs font-medium uppercase tracking-wider transition-colors ${
+                                  editForm.audience === opt
+                                    ? "border-gold bg-gold/10 text-foreground"
+                                    : "border-border-soft bg-card text-muted-foreground hover:text-foreground"
+                                } disabled:opacity-50`}
+                                aria-pressed={editForm.audience === opt}
+                              >
+                                {opt === "MENS" ? "Mens" : "Kids"}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                         <div className="grid gap-4 sm:grid-cols-2">
                           <div className="space-y-2">
                             <Label>Category</Label>
@@ -1966,6 +1995,28 @@ export default function SellerProductsClient({
               </div>
 
               <form className="space-y-6" onSubmit={handleCreateProduct}>
+                <div className="space-y-2">
+                  <Label>Audience</Label>
+                  <div className="flex gap-2">
+                    {(["MENS", "KIDS"] as const).map((opt) => (
+                      <button
+                        key={opt}
+                        type="button"
+                        onClick={() =>
+                          setForm((prev) => ({ ...prev, audience: opt }))
+                        }
+                        className={`h-12 flex-1 border px-4 text-sm font-medium uppercase tracking-wider transition-colors ${
+                          form.audience === opt
+                            ? "border-gold bg-gold/10 text-foreground"
+                            : "border-border-soft bg-card text-muted-foreground hover:text-foreground"
+                        }`}
+                        aria-pressed={form.audience === opt}
+                      >
+                        {opt === "MENS" ? "Mens" : "Kids"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label>Category</Label>

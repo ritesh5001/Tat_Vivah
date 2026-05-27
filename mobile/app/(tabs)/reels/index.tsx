@@ -12,6 +12,7 @@ import {
 import { FlashList, type FlashListRef } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { useIsFocused } from "@react-navigation/native";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { AppText as Text } from "../../../src/components";
 import { ReelItem, type ReelFeedItem } from "../../../src/components/ReelItem";
@@ -24,6 +25,7 @@ const REELS_PAGE_LIMIT = 8;
 
 export default function ReelsScreen() {
   const router = useRouter();
+  const isScreenFocused = useIsFocused();
   const queryClient = useQueryClient();
   const tabBarHeight = useBottomTabBarHeight();
   const { width, height } = useWindowDimensions();
@@ -168,6 +170,12 @@ export default function ReelsScreen() {
     setIsMuted((prev) => !prev);
   }, []);
 
+  React.useEffect(() => {
+    if (!isScreenFocused) {
+      setIsMuted(true);
+    }
+  }, [isScreenFocused]);
+
   const shareReel = React.useCallback((_item: ReelFeedItem) => {
     Alert.alert(
       "Download TatVivah app",
@@ -195,8 +203,8 @@ export default function ReelsScreen() {
         width={itemWidth}
         height={itemHeight}
         tabBarHeight={tabBarHeight}
-        isActive={index === visibleIndex}
-        isMuted={isMuted}
+        isActive={isScreenFocused && index === visibleIndex}
+        isMuted={isMuted || !isScreenFocused}
         shouldPreload={index === visibleIndex + 1}
         shouldKeepInMemory={Math.abs(index - visibleIndex) <= 1}
         liked={likedById[item.id] ?? false}
@@ -207,7 +215,7 @@ export default function ReelsScreen() {
         onPressProduct={handlePressProduct}
       />
     ),
-    [handlePressProduct, isMuted, itemHeight, itemWidth, likeCountsById, likedById, shareReel, tabBarHeight, toggleLike, toggleMute, visibleIndex]
+    [handlePressProduct, isMuted, isScreenFocused, itemHeight, itemWidth, likeCountsById, likedById, shareReel, tabBarHeight, toggleLike, toggleMute, visibleIndex]
   );
 
   const renderCategorySwitcher = () => (

@@ -8,7 +8,7 @@ import { HeroStaticServer } from "@/components/home/HeroStaticServer";
 import { BestsellersStrip } from "@/components/home/BestsellersStrip";
 import { WeddingSectionBanner } from "@/components/home/WeddingSectionBanner";
 import { InfiniteProductShowcaseSection } from "@/components/home/InfiniteProductShowcaseSection";
-import { MarketplaceProductCard } from "@/components/marketplace-product-card";
+import { NewArrivalsSection } from "@/components/home/NewArrivalsSection";
 import { FeaturesMarquee } from "@/components/features-marquee";
 import { SectionReveal } from "@/components/motion/SectionReveal";
 import type { MarketplaceCardProduct } from "@/components/marketplace-product-card";
@@ -144,61 +144,10 @@ function pickNewArrivals(products?: (MarketplaceCardProduct & { createdAt?: stri
     .slice(0, 2);
 }
 
-function NewArrivalsSection({ products }: { products: MarketplaceCardProduct[] }) {
-  return (
-    <section id="new" className="border-t border-border-soft bg-cream/50 dark:bg-card/50">
-      <div className="mx-auto max-w-460 px-3 py-12 sm:px-6 sm:py-20 lg:px-10">
-        <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
-          <div className="space-y-6 px-0 sm:px-2">
-            <p className="text-xs font-medium uppercase tracking-[0.3em] text-gold">
-              New Arrivals
-            </p>
-            <h2 className="font-serif text-3xl font-light tracking-tight text-foreground sm:text-4xl lg:text-5xl">
-              The Heritage
-              <br />
-              <span className="italic">Collection</span>
-            </h2>
-            <p className="max-w-lg text-base leading-relaxed text-muted-foreground">
-              Introducing our latest curation of handwoven masterpieces,
-              each crafted by third-generation artisans from Varanasi and Lucknow.
-              Limited edition pieces that celebrate India&apos;s textile heritage.
-            </p>
-            <div className="pt-4">
-              <Link
-                href="/marketplace"
-                className="inline-flex h-12 items-center justify-center bg-charcoal px-8 text-xs font-medium uppercase tracking-[0.15em] text-ivory transition-all duration-400 hover:bg-brown dark:bg-gold dark:text-charcoal dark:hover:bg-gold-muted"
-              >
-                Discover New Arrivals
-              </Link>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4 px-0 sm:px-2">
-            {products.length > 0 ? (
-              products.map((product) => (
-                <MarketplaceProductCard key={product.id} product={product} />
-              ))
-            ) : (
-              ["Modern Fusion", "Heritage Edit"].map((item) => (
-                <div
-                  key={item}
-                  className="flex aspect-3/4 items-end border border-border-soft bg-card p-6"
-                >
-                  <span className="font-serif text-sm text-foreground">{item}</span>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function GiftingSection() {
   return (
     <section id="gifting" className="border-t border-border-soft">
-      <div className="mx-auto max-w-6xl px-6 py-16 sm:py-24">
+      <div className="mx-auto max-w-6xl px-6 py-6 sm:py-8">
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="border border-border-soft bg-card p-10 lg:col-span-2 lg:p-12">
             <p className="mb-4 text-xs font-medium uppercase tracking-[0.3em] text-gold">
@@ -263,7 +212,7 @@ function TrustSection() {
 
   return (
     <section className="border-t border-border-soft bg-cream/50 dark:bg-card/50">
-      <div className="mx-auto max-w-6xl px-6 py-10 sm:py-12">
+      <div className="mx-auto max-w-6xl px-6 py-4 sm:py-6">
         <div className="grid grid-cols-3 gap-3 text-center sm:gap-6">
           {trustItems.map((item) => (
             <div key={item.title} className="px-1">
@@ -287,15 +236,26 @@ function TrustSection() {
 }
 
 export default async function Home() {
-  const [categories, bestsellers, products, occasions] = await Promise.all([
+  const [
+    categories,
+    bestsellers,
+    kidsBestsellers,
+    products,
+    kidsProducts,
+    occasions,
+  ] = await Promise.all([
     fetchHomeData<CategoryListResponse>("/v1/categories", [CACHE_TAGS.categories]),
-    fetchHomeData<{ products: BestsellerProduct[] }>("/v1/bestsellers?limit=4", [CACHE_TAGS.products]),
-    fetchHomeData<{ data: (MarketplaceCardProduct & { createdAt?: string })[] }>("/v1/products?limit=10", [CACHE_TAGS.products]),
+    fetchHomeData<{ products: BestsellerProduct[] }>("/v1/bestsellers?limit=4&audience=MENS", [CACHE_TAGS.products]),
+    fetchHomeData<{ products: BestsellerProduct[] }>("/v1/bestsellers?limit=4&audience=KIDS", [CACHE_TAGS.products]),
+    fetchHomeData<{ data: (MarketplaceCardProduct & { createdAt?: string })[] }>("/v1/products?limit=10&audience=MENS", [CACHE_TAGS.products]),
+    fetchHomeData<{ data: (MarketplaceCardProduct & { createdAt?: string })[] }>("/v1/products?limit=10&audience=KIDS", [CACHE_TAGS.products]),
     fetchHomeData<{ occasions: Occasion[] }>("/v1/occasions", [CACHE_TAGS.occasions]),
   ]);
 
   const bestsellersProducts = bestsellers?.products ?? [];
+  const kidsBestsellersProducts = kidsBestsellers?.products ?? [];
   const newArrivals = pickNewArrivals(products?.data);
+  const kidsNewArrivals = pickNewArrivals(kidsProducts?.data);
 
   return (
     <>
@@ -315,10 +275,16 @@ export default async function Home() {
           <CategoryCarousel initialCategories={categories?.categories} />
         </SectionReveal>
         <SectionReveal delayMs={40}>
-          <BestsellersStrip bestsellers={bestsellersProducts} />
+          <BestsellersStrip
+            bestsellers={bestsellersProducts}
+            kidsBestsellers={kidsBestsellersProducts}
+          />
         </SectionReveal>
         <SectionReveal delayMs={60}>
-          <ProductShowcaseSection initialProducts={products?.data} />
+          <ProductShowcaseSection
+            initialProducts={products?.data}
+            kidsProducts={kidsProducts?.data}
+          />
         </SectionReveal>
 
         <SectionReveal>
@@ -326,13 +292,19 @@ export default async function Home() {
         </SectionReveal>
 
         <SectionReveal delayMs={40}>
-          <NewArrivalsSection products={newArrivals} />
+          <NewArrivalsSection
+            mensProducts={newArrivals}
+            kidsProducts={kidsNewArrivals}
+          />
         </SectionReveal>
         <SectionReveal>
           <FeaturesMarquee />
         </SectionReveal>
         <SectionReveal delayMs={20}>
-          <InfiniteProductShowcaseSection initialProducts={products?.data} />
+          <InfiniteProductShowcaseSection
+            initialProducts={products?.data}
+            kidsProducts={kidsProducts?.data}
+          />
         </SectionReveal>
         <SectionReveal delayMs={40}>
           <GiftingSection />

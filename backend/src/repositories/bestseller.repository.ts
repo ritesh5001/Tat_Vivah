@@ -15,13 +15,14 @@ export class BestsellerRepository {
         });
     }
 
-    async listPublic(limit: number) {
+    async listPublic(limit: number, audience?: 'MENS' | 'KIDS') {
         return prisma.bestseller.findMany({
             where: {
                 product: {
                     isPublished: true,
                     status: 'APPROVED',
                     deletedByAdmin: false,
+                    ...(audience ? { audience } : {}),
                 },
             },
             orderBy: { position: 'asc' },

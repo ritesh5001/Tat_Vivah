@@ -1,8 +1,11 @@
 import { apiRequest } from "@/services/api";
 
+export type ProductAudience = "MENS" | "KIDS";
+
 export interface SellerProduct {
   id: string;
   title: string;
+  audience?: ProductAudience;
   description?: string | null;
   sellerPrice?: number;
   status?: "PENDING" | "APPROVED" | "REJECTED";
@@ -40,6 +43,7 @@ export interface SellerProductListResponse {
 
 export interface CreateProductPayload {
   categoryId: string;
+  audience?: ProductAudience;
   title: string;
   description?: string;
   isPublished?: boolean;

@@ -16,10 +16,13 @@ export interface BestsellerProduct {
 
 const BESTSELLERS_CACHE_KEY = "bestsellers:v1";
 
-export async function getBestsellers(limit?: number) {
-  const query = typeof limit === "number" ? `?limit=${limit}` : "";
+export async function getBestsellers(limit?: number, audience?: "MENS" | "KIDS") {
+  const search = new URLSearchParams();
+  if (typeof limit === "number") search.set("limit", String(limit));
+  if (audience) search.set("audience", audience);
+  const qs = search.toString();
   return apiRequest<{ products: BestsellerProduct[] }>(
-    `/v1/bestsellers${query}`,
+    qs ? `/v1/bestsellers?${qs}` : "/v1/bestsellers",
     { method: "GET" }
   );
 }

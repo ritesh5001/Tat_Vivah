@@ -21,11 +21,11 @@ import * as ImagePicker from "expo-image-picker";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import {
   getProductById,
+  getProducts,
   type ProductDetail,
   type ProductSummary,
   type ProductVariant,
 } from "../../../src/services/products";
-import { getRelatedProductsFromApi } from "../../../src/services/search";
 import { trackRecentlyViewed } from "../../../src/services/personalization";
 import {
   fetchProductReviews,
@@ -47,6 +47,7 @@ import {
 import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
 import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
 import { WishlistIcon } from "../../../src/components/WishlistIcon";
+import { TatvivahPromise } from "../../../src/components/TatvivahPromise";
 import { impactMedium, impactLight, notifySuccess } from "../../../src/utils/haptics";
 import { AppHeader } from "../../../src/components/AppHeader";
 import { useQuery } from "@tanstack/react-query";
@@ -87,6 +88,7 @@ const currency = new Intl.NumberFormat("en-IN", {
 const MAX_REVIEW_IMAGES = 3;
 const MAX_REVIEW_IMAGE_BYTES = 2 * 1024 * 1024;
 const MAX_TRY_ON_IMAGE_BYTES = 8 * 1024 * 1024;
+const RELATED_PRODUCTS_PAGE_SIZE = 8;
 
 // ---------------------------------------------------------------------------
 // Memoised sub-components (extracted from render for FlatList perf)
@@ -480,9 +482,13 @@ export default function ProductDetailScreen() {
   const [submitting, setSubmitting] = React.useState(false);
   const [reviewError, setReviewError] = React.useState<string | null>(null);
   const [hasLocalReviewSubmission, setHasLocalReviewSubmission] = React.useState(false);
+  const [isDescriptionOpen, setIsDescriptionOpen] = React.useState(false);
 
   const [relatedProducts, setRelatedProducts] = React.useState<ProductSummary[]>([]);
   const [loadingRelated, setLoadingRelated] = React.useState(false);
+  const [loadingMoreRelated, setLoadingMoreRelated] = React.useState(false);
+  const [relatedPage, setRelatedPage] = React.useState(1);
+  const [hasMoreRelated, setHasMoreRelated] = React.useState(false);
   const [tryOnUserImageUri, setTryOnUserImageUri] = React.useState<string | null>(null);
   const [tryOnUserImageAsset, setTryOnUserImageAsset] = React.useState<ReviewImageAsset | null>(null);
   const [tryOnResult, setTryOnResult] = React.useState<TryOnResult | null>(null);
@@ -568,20 +574,38 @@ export default function ProductDetailScreen() {
 
   // ---- Fetch related products ----
   React.useEffect(() => {
-    if (!product?.id) return;
+    const categoryId = product?.categoryId ?? product?.category?.id;
+
+    if (!product?.id || !categoryId) {
+      setRelatedProducts([]);
+      setRelatedPage(1);
+      setHasMoreRelated(false);
+      setLoadingRelated(false);
+      setLoadingMoreRelated(false);
+      return;
+    }
 
     const controller = new AbortController();
     let active = true;
 
     (async () => {
       setLoadingRelated(true);
+      setLoadingMoreRelated(false);
       try {
-        const related = await getRelatedProductsFromApi(product.id, 6, controller.signal);
+        const response = await getProducts({
+          page: 1,
+          limit: RELATED_PRODUCTS_PAGE_SIZE,
+          categoryId,
+          signal: controller.signal,
+        });
         if (!active) return;
-        setRelatedProducts(related ?? []);
+        setRelatedProducts((response.data ?? []).filter((item) => item.id !== product.id));
+        setRelatedPage(response.pagination.page);
+        setHasMoreRelated(response.pagination.page < response.pagination.totalPages);
       } catch (err) {
         if (isAbortError(err) || !active) return;
-        if (active) setRelatedProducts([]);
+        setRelatedProducts([]);
+        setHasMoreRelated(false);
       } finally {
         if (active) setLoadingRelated(false);
       }
@@ -822,6 +846,10 @@ export default function ProductDetailScreen() {
       // no-op on cancel/error
     }
   }, [product?.title, productId]);
+
+  const handleNavigateToTryBuy = React.useCallback(() => {
+    router.push({ pathname: "/(tabs)/try-buy", params: { productId } });
+  }, [router, productId]);
 
   const handlePickReviewImages = React.useCallback(async () => {
     if (reviewImages.length >= MAX_REVIEW_IMAGES) {
@@ -1119,6 +1147,61 @@ export default function ProductDetailScreen() {
     [handleRelatedPress]
   );
 
+  const handleLoadMoreRelated = React.useCallback(async () => {
+    const categoryId = product?.categoryId ?? product?.category?.id;
+    if (
+      !product?.id ||
+      !categoryId ||
+      loadingRelated ||
+      loadingMoreRelated ||
+      !hasMoreRelated
+    ) {
+      return;
+    }
+
+    setLoadingMoreRelated(true);
+    try {
+      const response = await getProducts({
+        page: relatedPage + 1,
+        limit: RELATED_PRODUCTS_PAGE_SIZE,
+        categoryId,
+      });
+      setRelatedProducts((current) => {
+        const seen = new Set([product.id, ...current.map((item) => item.id)]);
+        const nextItems = (response.data ?? []).filter((item) => {
+          if (seen.has(item.id)) return false;
+          seen.add(item.id);
+          return true;
+        });
+        return [...current, ...nextItems];
+      });
+      setRelatedPage(response.pagination.page);
+      setHasMoreRelated(response.pagination.page < response.pagination.totalPages);
+    } catch (err) {
+      if (isAbortError(err)) return;
+      setHasMoreRelated(false);
+    } finally {
+      setLoadingMoreRelated(false);
+    }
+  }, [
+    hasMoreRelated,
+    loadingMoreRelated,
+    loadingRelated,
+    product?.category?.id,
+    product?.categoryId,
+    product?.id,
+    relatedPage,
+  ]);
+
+  const renderRelatedFooter = React.useCallback(() => {
+    if (!loadingMoreRelated) return null;
+    return (
+      <View style={styles.relatedFooterLoader}>
+        <TatvivahLoader size="sm" color={colors.gold} />
+      </View>
+    );
+  }, [loadingMoreRelated]);
+
   // ---- Variant press handler (avoids inline closure per-item) ----
   const handleVariantPress = React.useCallback((id: string) => {
     impactLight();
@@ -1198,6 +1281,20 @@ export default function ProductDetailScreen() {
               </Text>
             </View>
           ) : null}
+          <Pressable
+            style={styles.tryOnOverlay}
+            onPress={handleNavigateToTryBuy}
+            hitSlop={8}
+          >
+            <View style={styles.tryOnOverlayIconWrap}>
+              <Ionicons name="scan-outline" size={15} color={colors.warmWhite} />
+            </View>
+            <View>
+              <Text style={styles.tryOnOverlayEyebrow}>Virtual</Text>
+              <Text style={styles.tryOnOverlayText}>Try-On</Text>
+            </View>
+            <Ionicons name="sparkles-outline" size={12} color={colors.gold} />
+          </Pressable>
         </View>
 
         {/* Dots indicator */}
@@ -1287,12 +1384,32 @@ export default function ProductDetailScreen() {
               product.description ?? "Curated premium listing with verified quality assurance."
             );
             return (
-              <View style={styles.descriptionWrap}>
-                {paragraphs.map((para, idx) => (
-                  <Text key={`desc-${idx}`} style={styles.productDescription}>
-                    {para}
-                  </Text>
-                ))}
+              <View style={styles.descriptionAccordion}>
+                <Pressable
+                  style={styles.descriptionAccordionHeader}
+                  onPress={() => setIsDescriptionOpen((current) => !current)}
+                  hitSlop={6}
+                >
+                  <View style={styles.descriptionTitleRow}>
+                    <Ionicons name="document-text-outline" size={16} color={colors.gold} />
+                    <Text style={styles.descriptionAccordionTitle}>Description</Text>
+                  </View>
+                  <Ionicons
+                    name={isDescriptionOpen ? "chevron-up" : "chevron-down"}
+                    size={18}
+                    color={colors.charcoal}
+                  />
+                </Pressable>
+
+                {isDescriptionOpen ? (
+                  <View style={styles.descriptionWrap}>
+                    {paragraphs.map((para, idx) => (
+                      <Text key={`desc-${idx}`} style={styles.productDescription}>
+                        {para}
+                      </Text>
+                    ))}
+                  </View>
+                ) : null}
               </View>
             );
           })()}
@@ -1548,6 +1665,8 @@ export default function ProductDetailScreen() {
           </AnimatedPressable>
         </View>
 
+        <TatvivahPromise />
+
         {/* ---- Reviews section ---- */}
         <View style={styles.reviewsCard}>
           <Text style={styles.sectionTitle}>Customer Reviews</Text>
@@ -1667,7 +1786,9 @@ export default function ProductDetailScreen() {
               <TatvivahLoader size="sm" color={colors.gold} />
             </View>
           ) : relatedProducts.length === 0 ? (
-            <Text style={styles.mutedText}>More products coming soon.</Text>
+            <Text style={styles.mutedText}>
+              More {product.category?.name ?? "category"} products coming soon.
+            </Text>
           ) : (
             <FlatList
               data={relatedProducts}
@@ -1676,6 +1797,12 @@ export default function ProductDetailScreen() {
               keyExtractor={relatedKeyExtractor}
               renderItem={renderRelatedItem}
               contentContainerStyle={styles.relatedListContent}
+              initialNumToRender={4}
+              maxToRenderPerBatch={4}
+              windowSize={5}
+              onEndReached={handleLoadMoreRelated}
+              onEndReachedThreshold={0.5}
+              ListFooterComponent={renderRelatedFooter}
             />
           )}
         </View>
@@ -1852,6 +1979,51 @@ const styles = StyleSheet.create({
     color: colors.warmWhite,
     letterSpacing: 1,
   },
+  tryOnOverlay: {
+    position: "absolute",
+    top: spacing.lg,
+    left: spacing.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingLeft: 6,
+    paddingRight: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: "rgba(183, 149, 108, 0.70)",
+    backgroundColor: "rgba(255, 252, 248, 0.94)",
+    shadowColor: colors.charcoal,
+    shadowOpacity: 0.14,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  tryOnOverlayIconWrap: {
+    width: 30,
+    height: 30,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.charcoal,
+    borderWidth: 1,
+    borderColor: colors.gold,
+  },
+  tryOnOverlayEyebrow: {
+    fontFamily: typography.sansMedium,
+    fontSize: 8,
+    lineHeight: 10,
+    color: colors.gold,
+    letterSpacing: 1.3,
+    textTransform: "uppercase",
+  },
+  tryOnOverlayText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 11,
+    lineHeight: 14,
+    color: colors.charcoal,
+    fontWeight: "700",
+    letterSpacing: 1.4,
+    textTransform: "uppercase",
+  },
   dotsRow: {
     flexDirection: "row",
     justifyContent: "center",
@@ -1983,8 +2155,38 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.6,
   },
-  descriptionWrap: {
+  descriptionAccordion: {
     marginTop: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.surfaceElevated,
+  },
+  descriptionAccordionHeader: {
+    minHeight: 48,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.md,
+  },
+  descriptionTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  descriptionAccordionTitle: {
+    fontFamily: typography.sansMedium,
+    fontSize: 12,
+    color: colors.charcoal,
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+  },
+  descriptionWrap: {
+    borderTopWidth: 1,
+    borderTopColor: colors.borderSoft,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
     gap: 8,
   },
   productDescription: {
@@ -2636,6 +2838,11 @@ const styles = StyleSheet.create({
   relatedLoadingWrap: {
     marginTop: spacing.md,
     alignItems: "center",
+  },
+  relatedFooterLoader: {
+    width: 64,
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   // Utility

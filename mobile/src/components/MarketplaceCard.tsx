@@ -18,6 +18,7 @@ import { useWishlist } from "../providers/WishlistProvider";
 interface MarketplaceCardProps {
   product: ProductItem;
   onPress?: (id: string) => void;
+  onTryAndBuy?: (productId: string) => void;
   onRemove?: (id: string) => void;
   removing?: boolean;
   style?: StyleProp<ViewStyle>;
@@ -41,6 +42,7 @@ function seededRandom(seed: string, min: number, max: number): number {
 function MarketplaceCardComponent({
   product,
   onPress,
+  onTryAndBuy,
   onRemove,
   removing = false,
   style,
@@ -80,6 +82,10 @@ function MarketplaceCardComponent({
     Array.isArray(product.images) && product.images.length > 0 ? product.images[0] : null;
 
   const handlePress = () => onPress?.(product.id);
+  const handleTryAndBuy = React.useCallback((e: any) => {
+    e?.stopPropagation?.();
+    onTryAndBuy?.(product.id);
+  }, [onTryAndBuy, product.id]);
   const handleRemove = () => onRemove?.(product.id);
   const handleToggleWishlist = (e: any) => {
     e?.stopPropagation?.();
@@ -97,6 +103,17 @@ function MarketplaceCardComponent({
           transition={200}
           cachePolicy="memory-disk"
         />
+
+        {onTryAndBuy ? (
+          <Pressable
+            onPress={handleTryAndBuy}
+            hitSlop={6}
+            style={styles.tryBadge}
+          >
+            <Ionicons name="sparkles" size={12} color="#B7956C" />
+            <Text style={styles.tryBadgeText}>TRY ON</Text>
+          </Pressable>
+        ) : null}
 
         {onRemove ? (
           <Pressable
@@ -220,6 +237,30 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 4,
     elevation: 2,
+  },
+  tryBadge: {
+    position: "absolute",
+    top: 8,
+    left: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: "rgba(255, 255, 255, 0.96)",
+    borderRadius: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    shadowColor: "#1A1410",
+    shadowOpacity: 0.18,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  tryBadgeText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 9,
+    letterSpacing: 0.6,
+    color: colors.charcoal,
+    fontWeight: "700",
   },
   imageFooter: {
     position: "absolute",

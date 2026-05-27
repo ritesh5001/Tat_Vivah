@@ -70,16 +70,18 @@ function ReelItemBase({
   }, [isActive, overlayOpacity]);
 
   React.useEffect(() => {
-    player.muted = isMuted;
-  }, [isMuted, player]);
+    player.muted = isMuted || !isActive;
+  }, [isActive, isMuted, player]);
 
   React.useEffect(() => {
     if (isActive && !isHolding) {
+      player.muted = isMuted;
       player.play();
       return;
     }
+    player.muted = true;
     player.pause();
-  }, [isActive, isHolding, player]);
+  }, [isActive, isHolding, isMuted, player]);
 
   React.useEffect(() => {
     if (!liked) return;
@@ -99,8 +101,10 @@ function ReelItemBase({
       if (singleTapTimerRef.current) {
         clearTimeout(singleTapTimerRef.current);
       }
+      player.muted = true;
+      player.pause();
     };
-  }, []);
+  }, [player]);
 
   const handleVideoTap = React.useCallback(() => {
     const now = Date.now();

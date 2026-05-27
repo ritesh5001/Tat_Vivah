@@ -18,6 +18,7 @@ import {
   getProducts,
   type ProductItem,
 } from "../../../src/services/products";
+import { AudienceTabs, type Audience } from "../../../src/components/AudienceTabs";
 import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
 import { MarketplaceCard } from "../../../src/components/MarketplaceCard";
 import {
@@ -50,6 +51,9 @@ export default function CategoriesScreen() {
   const { width: windowWidth } = useWindowDimensions();
   const params = useLocalSearchParams<{ categoryId?: string }>();
   
+  const [audience, setAudience] = React.useState<Audience>("MENS");
+  const audienceRef = React.useRef<Audience>("MENS");
+  React.useEffect(() => { audienceRef.current = audience; }, [audience]);
   const [selectedCategoryId, setSelectedCategoryId] = React.useState<string | undefined>(
     typeof params.categoryId === "string" ? params.categoryId : undefined
   );
@@ -73,11 +77,12 @@ export default function CategoriesScreen() {
 
   // Fetch featured products (no category filter)
   const { data: featuredData, isLoading: featuredLoading } = useQuery({
-    queryKey: ["products", { limit: FEATURED_LIMIT, featured: true }],
+    queryKey: ["products", { limit: FEATURED_LIMIT, featured: true, audience }],
     queryFn: ({ signal }) =>
       getProducts({
         page: 1,
         limit: FEATURED_LIMIT,
+        audience,
         signal,
       }),
     staleTime: 1000 * 60 * 5,
@@ -90,12 +95,13 @@ export default function CategoriesScreen() {
 
   // Fetch all-category products using the same popularity ordering as homepage.
   const { data: allProductsData, isLoading: allProductsLoading } = useQuery({
-    queryKey: ["marketplace-all-products", { limit: ALL_PRODUCTS_PAGE_SIZE, sort: "popularity" }],
+    queryKey: ["marketplace-all-products", { limit: ALL_PRODUCTS_PAGE_SIZE, sort: "popularity", audience }],
     queryFn: ({ signal }) =>
       getProducts({
         page: 1,
         limit: ALL_PRODUCTS_PAGE_SIZE,
         sort: "popularity",
+        audience,
         signal,
       }),
     staleTime: 1000 * 60 * 5,
@@ -103,12 +109,13 @@ export default function CategoriesScreen() {
 
   // Fetch popular products for selected category only
   const { data: popularData, isLoading: popularLoading } = useQuery({
-    queryKey: ["products", { categoryId: selectedCategoryId, limit: POPULAR_LIMIT }],
+    queryKey: ["products", { categoryId: selectedCategoryId, limit: POPULAR_LIMIT, audience }],
     queryFn: ({ signal }) =>
       getProducts({
         page: 1,
         limit: POPULAR_LIMIT,
         categoryId: selectedCategoryId,
+        audience,
         signal,
       }),
     staleTime: 1000 * 60 * 5,
@@ -139,6 +146,7 @@ export default function CategoriesScreen() {
   const prefetchNextAllProducts = React.useCallback(async () => {
     if (isAllPrefetching || !hasMoreAllProducts) return;
 
+    const requestedAudience = audience;
     setIsAllPrefetching(true);
     setHasAllProductsError(false);
 
@@ -147,7 +155,11 @@ export default function CategoriesScreen() {
         page: allNextPage,
         limit: ALL_PRODUCTS_PAGE_SIZE,
         sort: "popularity",
+        audience: requestedAudience,
       });
+
+      if (audienceRef.current !== requestedAudience) return;
+
       const incoming = (response.data ?? []) as ProductItem[];
       const totalPages = response.pagination?.totalPages;
 
@@ -159,12 +171,13 @@ export default function CategoriesScreen() {
           : incoming.length === ALL_PRODUCTS_PAGE_SIZE) && incoming.length > 0
       );
     } catch {
+      if (audienceRef.current !== requestedAudience) return;
       setHasAllProductsError(true);
       setHasMoreAllProducts(false);
     } finally {
       setIsAllPrefetching(false);
     }
-  }, [allNextPage, hasMoreAllProducts, isAllPrefetching]);
+  }, [allNextPage, audience, hasMoreAllProducts, isAllPrefetching]);
 
   const revealNextAllProducts = React.useCallback(() => {
     if (selectedCategoryId) return;
@@ -249,6 +262,13 @@ export default function CategoriesScreen() {
     [router]
   );
 
+  const handleTryAndBuy = React.useCallback(
+    (productId: string) => {
+      router.push({ pathname: "/(tabs)/try-buy", params: { productId } });
+    },
+    [router]
+  );
+
   const handleCategorySelect = React.useCallback((categoryId: string | undefined) => {
     setSelectedCategoryId(categoryId);
   }, []);
@@ -304,10 +324,11 @@ export default function CategoriesScreen() {
       <MarketplaceCard
         product={item}
         onPress={() => handleProductPress(item)}
+        onTryAndBuy={handleTryAndBuy}
         style={{ width: cardWidth }}
       />
     ),
-    [cardWidth, handleProductPress]
+    [cardWidth, handleProductPress, handleTryAndBuy]
   );
 
   return (
@@ -320,6 +341,10 @@ export default function CategoriesScreen() {
         showWishlist
         showCart
       />
+
+      <View style={styles.audienceBar}>
+        <AudienceTabs value={audience} onChange={setAudience} />
+      </View>
 
       <View style={styles.container}>
         {/* Left Sidebar - Categories */}
@@ -455,6 +480,14 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  audienceBar: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderSoft,
+    backgroundColor: colors.background,
+    alignItems: "center",
   },
   container: {
     flex: 1,

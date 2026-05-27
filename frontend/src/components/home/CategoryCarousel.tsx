@@ -30,8 +30,8 @@ export function CategoryCarousel({ initialCategories }: { initialCategories?: Ca
 
   return (
     <section id="categories" className="border-t border-border-soft bg-[#f3ede7] dark:bg-card">
-      <div className="mx-auto max-w-460 px-3 py-12 sm:px-6 sm:py-20 lg:px-10">
-        <div className="mb-12 text-center">
+      <div className="mx-auto max-w-460 px-3 py-6 sm:px-6 sm:py-8 lg:px-10">
+        <div className="mb-6 text-center">
           <p className="mb-4 text-[11px] font-medium uppercase tracking-[0.34em] text-[#a07a63] dark:text-gold">
             Shop by Category
           </p>
@@ -102,7 +102,7 @@ export function CategoryCarousel({ initialCategories }: { initialCategories?: Ca
           </div>
         )}
 
-        <div className="mt-12 text-center">
+        <div className="mt-6 text-center">
           <Link
             href="/categories"
             className="inline-flex items-center gap-2 border-b border-transparent pb-1 text-xs font-medium uppercase tracking-[0.15em] text-[#7f6859] dark:text-muted-foreground transition-colors duration-300 hover:border-[#b2886d] dark:hover:border-gold hover:text-[#3d2a21] dark:hover:text-foreground"

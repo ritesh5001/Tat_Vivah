@@ -1,5 +1,7 @@
 // Product & Catalog Domain Types
 
+export type ProductAudience = 'MENS' | 'KIDS';
+
 // ============================================================================
 // ENTITY TYPES
 // ============================================================================
@@ -29,6 +31,7 @@ export interface ProductEntity {
     id: string;
     sellerId: string;
     categoryId: string;
+    audience: ProductAudience;
     title: string;
     description: string | null;
     images: string[];
@@ -128,6 +131,7 @@ export interface PublicProductCouponPreview {
 export interface PublicProductWithCategory {
     id: string;
     categoryId: string;
+    audience: ProductAudience;
     title: string;
     description: string | null;
     images: string[];
@@ -147,6 +151,7 @@ export interface PublicProductWithDetails {
     id: string;
     sellerId: string;
     categoryId: string;
+    audience: ProductAudience;
     title: string;
     description: string | null;
     images: string[];
@@ -191,6 +196,7 @@ export interface SellerProductWithDetails extends Omit<ProductEntity, 'adminList
  */
 export interface CreateProductRequest {
     categoryId: string;
+    audience?: ProductAudience | undefined;
     title: string;
     description?: string | undefined;
     isPublished?: boolean | undefined;
@@ -204,6 +210,7 @@ export interface CreateProductRequest {
  */
 export interface UpdateProductRequest {
     categoryId?: string | undefined;
+    audience?: ProductAudience | undefined;
     title?: string | undefined;
     description?: string | undefined;
     images?: string[] | undefined;
@@ -256,6 +263,7 @@ export interface ProductQueryFilters {
     page?: number | undefined;
     limit?: number | undefined;
     categoryId?: string | undefined;
+    audience?: ProductAudience | undefined;
     search?: string | undefined;
     occasion?: string | undefined;
 }

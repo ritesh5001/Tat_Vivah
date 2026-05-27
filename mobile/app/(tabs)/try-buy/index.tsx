@@ -10,7 +10,7 @@ import {
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { Image } from "../../../src/components/CompatImage";
 import { AppHeader } from "../../../src/components/AppHeader";
 import {
@@ -51,6 +51,7 @@ function productImage(product?: ProductItem | null): string {
 export default function TryBuyScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const params = useLocalSearchParams<{ productId?: string }>();
   const { session } = useAuth();
   const token = session?.accessToken ?? null;
   const { isConnected } = useNetworkStatus();
@@ -71,16 +72,37 @@ export default function TryBuyScreen() {
     staleTime: 1000 * 60 * 5,
   });
 
-  const products = React.useMemo(
-    () => (productsQuery.data?.data ?? []) as ProductItem[],
-    [productsQuery.data]
+  const targetProductQuery = useQuery({
+    queryKey: ["product", params.productId],
+    queryFn: ({ signal }) => getProductById(params.productId!, signal),
+    enabled: Boolean(params.productId),
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const targetProduct = React.useMemo(
+    () => (targetProductQuery.data?.product ?? null) as ProductItem | null,
+    [targetProductQuery.data]
   );
 
+  const products = React.useMemo(() => {
+    const baseProducts = (productsQuery.data?.data ?? []) as ProductItem[];
+    if (targetProduct && !baseProducts.some((p) => p.id === targetProduct.id)) {
+      return [targetProduct, ...baseProducts];
+    }
+    return baseProducts;
+  }, [productsQuery.data, targetProduct]);
+
   React.useEffect(() => {
-    if (!selectedProduct && products.length > 0) {
+    if (params.productId && targetProduct) {
+      setSelectedProduct(targetProduct);
+      setTryOnError(null);
+      setUserImageUri(null);
+      setUserImageAsset(null);
+      setTryOnResult(null);
+    } else if (!params.productId && !selectedProduct && products.length > 0) {
       setSelectedProduct(products[0]);
     }
-  }, [products, selectedProduct]);
+  }, [products, params.productId, targetProduct, selectedProduct]);
 
   React.useEffect(() => {
     return () => {

@@ -13,12 +13,14 @@
       "infoPlist": {
         "NSSpeechRecognitionUsageDescription": "Allow TatVivah to convert your speech into search text.",
         "NSMicrophoneUsageDescription": "Allow TatVivah to use your microphone for voice search."
-      }
+      },
+      "bundleIdentifier": "com.zaheen.iqbal.mobile"
     },
     "android": {
       "versionCode": 10,
+      "versionCode": 8,
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#FFFCF8",
         "foregroundImage": "./assets/adaptive-icon.png"
       },
       "edgeToEdgeEnabled": true,

@@ -9,7 +9,12 @@ export const bestsellerController = {
         try {
             const limitParam = req.query['limit'];
             const limit = limitParam ? Number(limitParam) : undefined;
-            const result = await bestsellerService.listPublic(limit);
+            const audienceRaw = req.query['audience'];
+            const audience =
+                typeof audienceRaw === 'string' && (audienceRaw.toUpperCase() === 'MENS' || audienceRaw.toUpperCase() === 'KIDS')
+                    ? (audienceRaw.toUpperCase() as 'MENS' | 'KIDS')
+                    : undefined;
+            const result = await bestsellerService.listPublic(limit, audience);
             res.status(200).json(result);
         } catch (error) {
             next(error);

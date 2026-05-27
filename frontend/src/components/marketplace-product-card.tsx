@@ -262,12 +262,12 @@ export function MarketplaceProductCard({ product }: { product: MarketplaceCardPr
 
         {typeof displayPrice === "number" ? (
           <>
-            <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
-              <span className="text-[0.97rem] font-bold leading-none text-foreground">
+            <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5" suppressHydrationWarning>
+              <span className="text-[0.97rem] font-bold leading-none text-foreground" suppressHydrationWarning>
                 {currency.format(displayPrice)}
               </span>
               {typeof originalPrice === "number" && (
-                <span className="text-[0.80rem] text-muted-foreground/75 line-through decoration-foreground/35 decoration-1">
+                <span className="text-[0.80rem] text-muted-foreground/75 line-through decoration-foreground/35 decoration-1" suppressHydrationWarning>
                   {currency.format(originalPrice)}
                 </span>
               )}
@@ -279,8 +279,8 @@ export function MarketplaceProductCard({ product }: { product: MarketplaceCardPr
             </div>
 
             {typeof couponPrice === "number" && couponPrice < displayPrice && (
-              <div className="inline-flex w-fit items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.05em] text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300 sm:px-2.5 sm:py-1 sm:text-[10px] sm:tracking-[0.06em]">
-                <span>Get it for {currency.format(couponPrice)}</span>
+              <div className="inline-flex w-fit items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.05em] text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300 sm:px-2.5 sm:py-1 sm:text-[10px] sm:tracking-[0.06em]" suppressHydrationWarning>
+                <span suppressHydrationWarning>Get it for {currency.format(couponPrice)}</span>
                 <span className="text-emerald-700/85 dark:text-emerald-300/85">with coupon</span>
               </div>
             )}
