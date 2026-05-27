@@ -52,6 +52,7 @@ import {
     sellerReelRouter,
     adminReelRouter,
     occasionRouter,
+    siteStatusRouter,
 } from './routes/index.js';
 import { searchController } from './controllers/search.controller.js';
 import { apiReference } from "@scalar/express-api-reference";
@@ -252,6 +253,8 @@ export function createApp(): Application {
 
     app.get('/health', healthHandler);
     app.get('/api/health', healthHandler);
+
+    app.use('/v1/site-status', siteStatusRouter);
 
     app.get('/', (_req, res) => {
         res.json({

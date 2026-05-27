@@ -61,3 +61,6 @@ export { adminReelRouter } from './admin-reel.routes.js';
 
 // Occasions
 export { occasionRouter } from './occasion.routes.js';
+
+// Site maintenance state
+export { siteStatusRouter } from './site-status.routes.js';
