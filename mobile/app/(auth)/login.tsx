@@ -56,9 +56,9 @@ export default function LoginScreen() {
   }, [inputType]);
 
   const subHeading = isOtpMode
-    ? "We'll send a one-time code to your email address."
+    ? "We'll send a one-time code to your WhatsApp number."
     : identifierReady
-      ? "Enter your password below, or choose to login with OTP."
+      ? "Enter your password below, or login with a WhatsApp OTP."
       : "Enter your mobile number or email address to sign in.";
 
   const handleLogin = React.useCallback(async () => {
@@ -75,13 +75,14 @@ export default function LoginScreen() {
     setError(null);
     try {
       if (isOtpMode) {
-        if (inputType !== "email") {
-          setError("OTP login requires an email address.");
+        if (inputType !== "phone") {
+          setError("OTP login requires a mobile number.");
           return;
         }
 
-        await requestOtp({ email: trimmed });
-        router.push({ pathname: "/(auth)/verify-otp", params: { method: "email", email: trimmed } });
+        const normalizedPhone = trimmed.replace(/\D/g, "");
+        await requestOtp({ phone: normalizedPhone });
+        router.push({ pathname: "/(auth)/verify-otp", params: { method: "whatsapp", phone: normalizedPhone } });
         return;
       }
 
@@ -138,9 +139,11 @@ export default function LoginScreen() {
                 placeholderTextColor={colors.textSecondary}
                 style={styles.input}
               />
-              <Pressable onPress={() => setUseOtp(true)} style={styles.otpToggleRow}>
-                <Text style={styles.otpToggleText}>Login with OTP instead</Text>
-              </Pressable>
+              {inputType === "phone" && (
+                <Pressable onPress={() => setUseOtp(true)} style={styles.otpToggleRow}>
+                  <Text style={styles.otpToggleText}>Login with WhatsApp OTP instead</Text>
+                </Pressable>
+              )}
             </>
           )}
 

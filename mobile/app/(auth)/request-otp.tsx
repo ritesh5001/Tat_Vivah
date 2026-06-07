@@ -24,21 +24,21 @@ import {
 
 export default function RequestOtpScreen() {
   const router = useRouter();
-  const [email, setEmail] = React.useState("");
+  const [phone, setPhone] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
   const handleRequestOtp = async () => {
-    const trimmed = email.trim().toLowerCase();
-    if (!trimmed) {
-      setError("Please enter your email address.");
+    const normalizedPhone = phone.replace(/\D/g, "");
+    if (!/^\d{10,15}$/.test(normalizedPhone)) {
+      setError("Please enter a valid WhatsApp number.");
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      await requestOtp({ email: trimmed });
-      router.push({ pathname: "/(auth)/verify-otp", params: { method: "email", email: trimmed } });
+      await requestOtp({ phone: normalizedPhone });
+      router.push({ pathname: "/(auth)/verify-otp", params: { method: "whatsapp", phone: normalizedPhone } });
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Failed to send OTP";
@@ -65,20 +65,20 @@ export default function RequestOtpScreen() {
 
         <Text style={styles.title}>Sign in with OTP</Text>
         <Text style={styles.subtitle}>
-          We&apos;ll send a one-time code to your email address.
+          We&apos;ll send a one-time code to your WhatsApp number.
         </Text>
 
         <View style={styles.card}>
-          <Text style={styles.label}>Email address</Text>
+          <Text style={styles.label}>WhatsApp number</Text>
           <TextInput
-            placeholder="you@example.com"
+            placeholder="9876543210"
             placeholderTextColor={colors.brownSoft}
             style={styles.input}
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
+            value={phone}
+            onChangeText={(value) => setPhone(value.replace(/\D/g, ""))}
+            keyboardType="phone-pad"
             autoCapitalize="none"
-            autoComplete="email"
+            autoComplete="tel"
             autoCorrect={false}
             returnKeyType="send"
             onSubmitEditing={handleRequestOtp}

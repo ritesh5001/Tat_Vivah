@@ -43,14 +43,12 @@ export interface MessageResponse {
 
 /** POST /v1/auth/request-otp body */
 export interface RequestOtpPayload {
-  email?: string;
-  phone?: string;
+  phone: string;
 }
 
 /** POST /v1/auth/verify-otp body */
 export interface VerifyOtpPayload {
-  email?: string;
-  phone?: string;
+  phone: string;
   otp: string;
 }
 
@@ -103,7 +101,6 @@ export async function requestOtp(
   payload: RequestOtpPayload
 ): Promise<MessageResponse> {
   console.info("[mobile-auth][request-otp] request", {
-    email: payload.email,
     phone: payload.phone ? "[present]" : "[missing]",
   });
   return apiRequest<MessageResponse>({
@@ -118,7 +115,6 @@ export async function verifyOtp(
   payload: VerifyOtpPayload
 ): Promise<VerifyOtpResponse> {
   console.info("[mobile-auth][verify-otp] request", {
-    email: payload.email,
     phone: payload.phone ? "[present]" : "[missing]",
     otpLength: payload.otp.length,
   });
@@ -151,11 +147,11 @@ export async function logoutUser(
 // ---------------------------------------------------------------------------
 
 export interface ForgotPasswordPayload {
-  email: string;
+  phone: string;
 }
 
 export interface ResetPasswordPayload {
-  email: string;
+  phone: string;
   otp: string;
   newPassword: string;
 }

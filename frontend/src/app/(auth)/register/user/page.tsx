@@ -75,9 +75,9 @@ export default function UserRegisterPage() {
         phone: normalizedPhone,
         password,
       });
-      console.info("[auth-ui][register-user] otp-sent", { email: email.trim().toLowerCase() });
-      toast.success("OTP sent to your email address.");
-      window.location.href = `/verify-otp?email=${encodeURIComponent(email.trim().toLowerCase())}`;
+      console.info("[auth-ui][register-user] otp-sent", { phone: "[present]" });
+      toast.success("OTP sent to your WhatsApp number.");
+      window.location.href = `/verify-otp?phone=${encodeURIComponent(normalizedPhone)}`;
     } catch (error) {
       console.error("[auth-ui][register-user] failed", error);
       toast.error(error instanceof Error ? error.message : "Signup failed");
@@ -177,13 +177,18 @@ export default function UserRegisterPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="phone">Mobile number</Label>
+                  <Label htmlFor="phone">WhatsApp number</Label>
                   <Input
                     id="phone"
+                    type="tel"
+                    inputMode="numeric"
                     placeholder="9876543210"
                     value={phone}
-                    onChange={(event) => setPhone(event.target.value)}
+                    onChange={(event) => setPhone(event.target.value.replace(/\D/g, ""))}
                   />
+                  <p className="text-xs text-muted-foreground">
+                    We&apos;ll send a verification code to this number on WhatsApp.
+                  </p>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">

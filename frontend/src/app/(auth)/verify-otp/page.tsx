@@ -20,7 +20,7 @@ import { heroContainerVariants, heroItemVariants } from "@/lib/motion.config";
 function VerifyOtpContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const prefill = searchParams.get("email") ?? "";
+  const prefill = searchParams.get("phone") ?? "";
 
   const [identifier, setIdentifier] = React.useState(prefill);
   const [otp, setOtp] = React.useState("");
@@ -28,25 +28,25 @@ function VerifyOtpContent() {
   const [sending, setSending] = React.useState(false);
   const submittedOtpRef = React.useRef<string | null>(null);
 
-  // Email-only OTP flow; browser SMS OTP autofill not used.
+  // WhatsApp OTP flow; one-time-code autofill supported on mobile browsers.
 
   const handleVerify = React.useCallback(async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!identifier || !otp) {
-      console.warn("[auth-ui][verify-otp] blocked submit", { hasEmail: Boolean(identifier), hasOtp: Boolean(otp) });
-      toast.error("Enter email and OTP.");
+      console.warn("[auth-ui][verify-otp] blocked submit", { hasPhone: Boolean(identifier), hasOtp: Boolean(otp) });
+      toast.error("Enter your WhatsApp number and OTP.");
       return;
     }
 
     setLoading(true);
     try {
-      console.info("[auth-ui][verify-otp] submit", { email: identifier, otpLength: otp.length });
-      const result = await verifyAuthOtp({ email: identifier, otp });
+      console.info("[auth-ui][verify-otp] submit", { phone: "[present]", otpLength: otp.length });
+      const result = await verifyAuthOtp({ phone: identifier, otp });
       if (result.accessToken && result.refreshToken && result.user) {
         persistAuthCookies(result.accessToken, result.refreshToken, result.user);
 
-        toast.success("Email verified successfully.");
+        toast.success("Number verified successfully.");
 
         const role = result.user.role?.toUpperCase();
         const redirectMap: Record<string, string> = {
@@ -58,7 +58,7 @@ function VerifyOtpContent() {
 
         router.push(redirectMap[role] ?? "/");
       } else {
-        toast.success(result.message ?? `Email verified. Await admin approval.`);
+        toast.success(result.message ?? `Number verified. Await admin approval.`);
         router.push("/login");
       }
     } catch (error) {
@@ -71,15 +71,15 @@ function VerifyOtpContent() {
 
   const handleResend = async () => {
     if (!identifier) {
-      console.warn("[auth-ui][verify-otp] resend blocked", { hasEmail: false });
-      toast.error(`Enter your email address first.`);
+      console.warn("[auth-ui][verify-otp] resend blocked", { hasPhone: false });
+      toast.error(`Enter your WhatsApp number first.`);
       return;
     }
     setSending(true);
     try {
-      console.info("[auth-ui][verify-otp] resend", { email: identifier });
-      await requestAuthOtp({ email: identifier });
-      toast.success(`OTP sent to your email address.`);
+      console.info("[auth-ui][verify-otp] resend", { phone: "[present]" });
+      await requestAuthOtp({ phone: identifier });
+      toast.success(`OTP sent to your WhatsApp number.`);
     } catch (error) {
       console.error("[auth-ui][verify-otp] resend failed", error);
       toast.error(error instanceof Error ? error.message : "OTP request failed");
@@ -117,13 +117,13 @@ function VerifyOtpContent() {
           >
             Confirm your
             <br />
-            <span className="italic">email address</span>.
+            <span className="italic">WhatsApp number</span>.
           </motion.h1>
           <motion.p
             variants={heroItemVariants}
             className="text-base leading-relaxed text-muted-foreground"
           >
-            We sent a 6-digit OTP to your email address. Enter it below to continue with your account.
+            We sent a 6-digit OTP to your WhatsApp number. Enter it below to continue with your account.
           </motion.p>
         </motion.div>
 
@@ -139,18 +139,20 @@ function VerifyOtpContent() {
                 Verify OTP
               </CardTitle>
               <CardDescription>
-                Enter your email address and OTP to continue.
+                Enter your WhatsApp number and OTP to continue.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
               <form className="space-y-5" onSubmit={handleVerify}>
                 <div className="space-y-2">
-                  <Label htmlFor="identifier">Email address</Label>
+                  <Label htmlFor="identifier">WhatsApp number</Label>
                   <Input
                     id="identifier"
-                    placeholder="you@email.com"
+                    type="tel"
+                    inputMode="numeric"
+                    placeholder="9876543210"
                     value={identifier}
-                    onChange={(event) => setIdentifier(event.target.value)}
+                    onChange={(event) => setIdentifier(event.target.value.replace(/\D/g, ""))}
                     disabled={Boolean(prefill)}
                   />
                 </div>
@@ -160,9 +162,10 @@ function VerifyOtpContent() {
                     id="otp"
                     placeholder="Enter 6-digit OTP"
                     value={otp}
-                    onChange={(event) => setOtp(event.target.value)}
-                    autoComplete={undefined}
+                    onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                    autoComplete="one-time-code"
                     inputMode="numeric"
+                    maxLength={6}
                   />
                 </div>
                 <Button className="w-full" size="lg" disabled={loading}>

@@ -2,12 +2,14 @@ import { OtpPurpose } from '@prisma/client';
 import { otpRepository } from '../repositories/otp.repository.js';
 import { generateOtpCode, hashOtp } from '../utils/otp.util.js';
 import { ApiError } from '../errors/ApiError.js';
-import { fast2SmsService, normalizeIndianMobile } from './fast2sms.service.js';
+import { fast2SmsWhatsAppService, normalizeIndianMobile } from './fast2sms.service.js';
 import { sendEmail } from '../notifications/email/resend.client.js';
 import { renderBrandedEmail } from '../notifications/email/templates/layout.js';
 import { authLogger } from '../config/logger.js';
 
 const OTP_EXPIRY_MINUTES = 10;
+
+type OtpContext = 'login' | 'verify' | 'signup' | 'reset';
 
 export type SignupOtpPayload = {
     email: string;
@@ -21,7 +23,84 @@ export type SignupOtpPayload = {
 export class OtpService {
     private readonly logger = authLogger.child({ component: 'otp-service' });
 
-    async sendPhoneOtp(userId: string, phone: string, _mode: 'login' | 'verify' = 'verify'): Promise<void> {
+    /**
+     * Deliver an OTP code: WhatsApp (via Fast2SMS) primary, email fallback.
+     * Falls back to email only when WhatsApp delivery fails AND a fallback
+     * email address is available. Throws if neither channel succeeds.
+     */
+    private async deliverOtp(opts: {
+        phone: string;
+        code: string;
+        context: OtpContext;
+        fallbackEmail?: string | null | undefined;
+    }): Promise<void> {
+        const normalizedPhone = normalizeIndianMobile(opts.phone);
+        try {
+            await fast2SmsWhatsAppService.sendWhatsAppOtp(normalizedPhone, opts.code);
+            this.logger.info({ phone: normalizedPhone, context: opts.context }, 'whatsapp_otp_sent');
+            return;
+        } catch (err) {
+            this.logger.warn(
+                { phone: normalizedPhone, context: opts.context, err: err instanceof Error ? err.message : String(err) },
+                'whatsapp_otp_failed_fallback_email',
+            );
+            const fallbackEmail = opts.fallbackEmail?.trim().toLowerCase();
+            if (!fallbackEmail) {
+                throw err;
+            }
+            const { subject, html } = this.renderOtpEmail(opts.code, opts.context);
+            await sendEmail(fallbackEmail, subject, html);
+            this.logger.info({ email: fallbackEmail, context: opts.context }, 'otp_email_fallback_sent');
+        }
+    }
+
+    private renderOtpEmail(code: string, context: OtpContext): { subject: string; html: string } {
+        if (context === 'reset') {
+            return {
+                subject: 'Reset your TatVivah password',
+                html: renderBrandedEmail({
+                    preheader: 'Your password reset verification code for TatVivah.',
+                    eyebrow: 'Password Recovery',
+                    title: 'Reset Your Password',
+                    message: [
+                        'Use the one-time code below to reset your TatVivah account password.',
+                        `This code expires in ${OTP_EXPIRY_MINUTES} minutes and can only be used once.`,
+                    ],
+                    details: [{ label: 'Reset Code', value: code }],
+                    accentText: 'If you did not request this reset, you can safely ignore this email.',
+                }),
+            };
+        }
+
+        const isLogin = context === 'login';
+        return {
+            subject: isLogin ? 'Your TatVivah login code' : 'Verify your TatVivah account',
+            html: renderBrandedEmail({
+                preheader: isLogin ? 'Your TatVivah login code.' : 'Your TatVivah verification code.',
+                eyebrow: isLogin ? 'Login OTP' : 'Account Verification',
+                title: isLogin ? 'Complete Your Login' : 'Verify Your Account',
+                message: [
+                    isLogin
+                        ? 'Use the one-time code below to sign in to your TatVivah account.'
+                        : 'Use the one-time code below to verify your TatVivah account.',
+                    `This code is valid for ${OTP_EXPIRY_MINUTES} minutes and can only be used once.`,
+                ],
+                details: [{ label: 'Verification Code', value: code }],
+                accentText: 'For your security, never share this code with anyone.',
+            }),
+        };
+    }
+
+    /**
+     * Send an OTP to an existing user's WhatsApp number (login / re-verify).
+     * @param fallbackEmail address used only if WhatsApp delivery fails.
+     */
+    async sendPhoneOtp(
+        userId: string,
+        phone: string,
+        fallbackEmail?: string | null,
+        mode: 'login' | 'verify' = 'login',
+    ): Promise<void> {
         const normalizedPhone = normalizeIndianMobile(phone);
         if (!/^\d{10}$/.test(normalizedPhone)) {
             throw ApiError.badRequest('A valid 10-digit mobile number is required');
@@ -31,7 +110,7 @@ export class OtpService {
         const codeHash = hashOtp(code);
         const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
 
-        this.logger.info({ userId, phone: normalizedPhone, mode: _mode }, 'phone_otp_create');
+        this.logger.info({ userId, phone: normalizedPhone, mode }, 'phone_otp_create');
 
         await otpRepository.createOtp({
             userId,
@@ -41,50 +120,14 @@ export class OtpService {
             expiresAt,
         });
 
-        await fast2SmsService.sendOtp(normalizedPhone, code);
-        this.logger.info({ userId, phone: normalizedPhone, mode: _mode }, 'phone_otp_sent');
+        await this.deliverOtp({ phone: normalizedPhone, code, context: mode, fallbackEmail });
     }
 
-    async sendEmailOtp(userId: string, email: string, mode: 'login' | 'verify' = 'login'): Promise<void> {
-        const normalizedEmail = email.trim().toLowerCase();
-        if (!normalizedEmail) {
-            throw ApiError.badRequest('Email address is required');
-        }
-
-        const code = generateOtpCode();
-        const codeHash = hashOtp(code);
-        const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
-
-        this.logger.info({ userId, email: normalizedEmail, mode }, 'email_otp_create');
-
-        await otpRepository.createOtp({
-            userId,
-            email: normalizedEmail,
-            codeHash,
-            purpose: OtpPurpose.EMAIL_VERIFY,
-            expiresAt,
-        });
-
-        const html = renderBrandedEmail({
-            preheader: mode === 'login'
-                ? 'Your TatVivah login code.'
-                : 'Your TatVivah verification code.',
-            eyebrow: mode === 'login' ? 'Login OTP' : 'Email Verification',
-            title: mode === 'login' ? 'Complete Your Login' : 'Verify Your Email',
-            message: [
-                mode === 'login'
-                    ? 'Use the one-time code below to sign in to your TatVivah account.'
-                    : 'Use the one-time code below to verify your TatVivah email address.',
-                `This code is valid for ${OTP_EXPIRY_MINUTES} minutes and can only be used once.`,
-            ],
-            details: [{ label: 'Verification Code', value: code }],
-            accentText: 'For your security, never share this code with anyone.',
-        });
-
-        await sendEmail(normalizedEmail, mode === 'login' ? 'Your TatVivah login code' : 'Verify your TatVivah account', html);
-        this.logger.info({ userId, email: normalizedEmail, mode }, 'email_otp_sent');
-    }
-
+    /**
+     * Send a signup OTP. The OTP record is keyed by phone and carries the
+     * pending account payload; the account is created on verification.
+     * Delivered to WhatsApp with email fallback.
+     */
     async sendSignupOtp(payload: SignupOtpPayload): Promise<void> {
         const normalizedPhone = normalizeIndianMobile(payload.phone);
         if (!/^\d{10}$/.test(normalizedPhone)) {
@@ -92,18 +135,15 @@ export class OtpService {
         }
 
         const normalizedEmail = payload.email.trim().toLowerCase();
-        if (!normalizedEmail) {
-            throw ApiError.badRequest('Email address is required');
-        }
 
         const code = generateOtpCode();
         const codeHash = hashOtp(code);
         const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
 
-        this.logger.info({ email: normalizedEmail, role: payload.role, hasWhatsapp: Boolean(payload.whatsappNumber) }, 'signup_otp_create');
+        this.logger.info({ phone: normalizedPhone, role: payload.role, hasWhatsapp: Boolean(payload.whatsappNumber) }, 'signup_otp_create');
 
         await otpRepository.createOtp({
-            email: normalizedEmail,
+            email: normalizedPhone,
             codeHash,
             purpose: OtpPurpose.EMAIL_VERIFY,
             expiresAt,
@@ -114,20 +154,34 @@ export class OtpService {
             },
         });
 
-        const html = renderBrandedEmail({
-            preheader: 'Your TatVivah signup verification code.',
-            eyebrow: 'Signup OTP',
-            title: 'Verify Your Email',
-            message: [
-                'Use the one-time code below to complete your TatVivah signup.',
-                `This code is valid for ${OTP_EXPIRY_MINUTES} minutes and can only be used once.`,
-            ],
-            details: [{ label: 'Verification Code', value: code }],
-            accentText: 'For your security, never share this code with anyone.',
+        await this.deliverOtp({ phone: normalizedPhone, code, context: 'signup', fallbackEmail: normalizedEmail });
+    }
+
+    /**
+     * Send a password-reset OTP keyed by phone (purpose PASSWORD_RESET).
+     * Delivered to WhatsApp with email fallback.
+     */
+    async sendPasswordResetOtp(userId: string, phone: string, fallbackEmail?: string | null): Promise<void> {
+        const normalizedPhone = normalizeIndianMobile(phone);
+        if (!/^\d{10}$/.test(normalizedPhone)) {
+            throw ApiError.badRequest('A valid 10-digit mobile number is required');
+        }
+
+        const code = generateOtpCode();
+        const codeHash = hashOtp(code);
+        const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
+
+        this.logger.info({ userId, phone: normalizedPhone }, 'password_reset_otp_create');
+
+        await otpRepository.createOtp({
+            userId,
+            email: normalizedPhone,
+            codeHash,
+            purpose: OtpPurpose.PASSWORD_RESET,
+            expiresAt,
         });
 
-        await sendEmail(normalizedEmail, 'Your TatVivah signup code', html);
-        this.logger.info({ email: normalizedEmail, role: payload.role }, 'signup_otp_sent');
+        await this.deliverOtp({ phone: normalizedPhone, code, context: 'reset', fallbackEmail });
     }
 
     async verifyPhoneOtp(phone: string, code: string) {
@@ -141,24 +195,6 @@ export class OtpService {
         const hashed = hashOtp(code);
         if (otp.codeHash !== hashed) {
             this.logger.warn({ phone: normalizedPhone }, 'phone_otp_invalid_code');
-            throw ApiError.badRequest('Invalid or expired OTP');
-        }
-
-        await otpRepository.markUsed(otp.id);
-        return otp;
-    }
-
-    async verifyEmailOtp(email: string, code: string) {
-        const normalizedEmail = email.trim().toLowerCase();
-        const otp = await otpRepository.findLatestValid(normalizedEmail, OtpPurpose.EMAIL_VERIFY);
-        if (!otp) {
-            this.logger.warn({ email: normalizedEmail }, 'email_otp_not_found');
-            throw ApiError.badRequest('Invalid or expired OTP');
-        }
-
-        const hashed = hashOtp(code);
-        if (otp.codeHash !== hashed) {
-            this.logger.warn({ email: normalizedEmail }, 'email_otp_invalid_code');
             throw ApiError.badRequest('Invalid or expired OTP');
         }
 

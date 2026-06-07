@@ -73,7 +73,7 @@ export default function RegisterScreen() {
         phone: normalizedPhone,
         password,
       });
-      router.replace({ pathname: "/(auth)/verify-otp", params: { method: "email", email: normalizedEmail } });
+      router.replace({ pathname: "/(auth)/verify-otp", params: { method: "whatsapp", phone: normalizedPhone } });
     } catch (err) {
       const message =
         err instanceof ApiError && err.statusCode === 409
@@ -132,15 +132,18 @@ export default function RegisterScreen() {
             autoCapitalize="none"
           />
 
-          <Text style={styles.label}>Phone</Text>
+          <Text style={styles.label}>WhatsApp number</Text>
           <TextInput
-            placeholder="+91 97696 59709"
+            placeholder="9876543210"
             placeholderTextColor={REGISTER_PLACEHOLDER_COLOR}
             style={styles.input}
             value={phone}
-            onChangeText={setPhone}
+            onChangeText={(value) => setPhone(value.replace(/\D/g, ""))}
             keyboardType="phone-pad"
           />
+          <Text style={styles.helperText}>
+            We&apos;ll send a verification code to this number on WhatsApp.
+          </Text>
 
           <Text style={styles.label}>Password</Text>
           <View style={styles.inputRow}>

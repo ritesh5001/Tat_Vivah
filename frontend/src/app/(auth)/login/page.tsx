@@ -122,9 +122,9 @@ export default function LoginPage() {
     setPassword("");
   }, [inputType]);
 
-  const isEmailIdentifier = inputType === "email";
-  const isOtpMode = isMainPortal && useOtp && isEmailIdentifier;
-  const showPasswordField = !isMainPortal || (identifierReady && (!useOtp || !isEmailIdentifier));
+  const isPhoneIdentifier = inputType === "phone";
+  const isOtpMode = isMainPortal && useOtp && isPhoneIdentifier;
+  const showPasswordField = !isMainPortal || (identifierReady && (!useOtp || !isPhoneIdentifier));
 
   const identifierLabel =
     isMainPortal
@@ -143,9 +143,9 @@ export default function LoginPage() {
   const cardDescription =
     isMainPortal
       ? isOtpMode
-        ? "We'll send a one-time code to your email address."
+        ? "We'll send a one-time code to your WhatsApp number."
         : identifierReady
-          ? "Enter your password below, or choose to login with OTP."
+          ? "Enter your password below, or login with a WhatsApp OTP."
           : "Enter your mobile number or email address to continue."
       : content.cardDescription;
 
@@ -163,10 +163,11 @@ export default function LoginPage() {
     setError(null);
     try {
       if (isOtpMode) {
-        console.info("[auth-ui][login] otp-request", { inputType, identifier: trimmed });
-        await requestAuthOtp({ email: trimmed });
-        toast.success("OTP sent to your email address.");
-        router.replace(`/verify-otp?email=${encodeURIComponent(trimmed)}`);
+        const normalizedPhone = trimmed.replace(/\D/g, "");
+        console.info("[auth-ui][login] otp-request", { inputType });
+        await requestAuthOtp({ phone: normalizedPhone });
+        toast.success("OTP sent to your WhatsApp number.");
+        router.replace(`/verify-otp?phone=${encodeURIComponent(normalizedPhone)}`);
         return;
       }
 
@@ -320,14 +321,14 @@ export default function LoginPage() {
                       </button>
                     </div>
 
-                    {/* OTP toggle – only for user portal */}
-                    {isMainPortal && identifierReady && (
+                    {/* OTP toggle – only for user portal, WhatsApp OTP requires a phone number */}
+                    {isMainPortal && isPhoneIdentifier && (
                       <button
                         type="button"
                         onClick={() => setUseOtp(true)}
                         className="text-xs text-muted-foreground hover:text-foreground transition-colors duration-300 underline underline-offset-2"
                       >
-                        Login with OTP instead
+                        Login with WhatsApp OTP instead
                       </button>
                     )}
                   </div>

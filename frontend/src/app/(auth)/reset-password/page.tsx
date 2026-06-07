@@ -22,9 +22,9 @@ import { heroContainerVariants, heroItemVariants } from "@/lib/motion.config";
 function ResetPasswordContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const prefillEmail = searchParams.get("email") ?? "";
+  const prefillPhone = searchParams.get("phone") ?? "";
 
-  const [email] = React.useState(prefillEmail);
+  const [phone] = React.useState(prefillPhone);
   const [otp, setOtp] = React.useState("");
   const [newPassword, setNewPassword] = React.useState("");
   const [confirmPassword, setConfirmPassword] = React.useState("");
@@ -35,7 +35,7 @@ function ResetPasswordContent() {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!email || !otp || !newPassword || !confirmPassword) {
+    if (!phone || !otp || !newPassword || !confirmPassword) {
       toast.error("Please fill all fields.");
       return;
     }
@@ -57,7 +57,7 @@ function ResetPasswordContent() {
 
     setLoading(true);
     try {
-      const result = await resetPassword({ email, otp, newPassword });
+      const result = await resetPassword({ phone, otp, newPassword });
       toast.success(result.message);
       router.push("/login");
     } catch (error) {
@@ -99,7 +99,7 @@ function ResetPasswordContent() {
             variants={heroItemVariants}
             className="text-base leading-relaxed text-muted-foreground mb-8"
           >
-            Enter the 6-digit OTP sent to your email along with your new
+            Enter the 6-digit OTP sent to your WhatsApp number along with your new
             password to regain access to your account.
           </motion.p>
 
@@ -141,13 +141,13 @@ function ResetPasswordContent() {
 
             <CardContent className="space-y-6">
               <form className="space-y-5" onSubmit={handleSubmit}>
-                {/* Email (readonly) */}
+                {/* WhatsApp number (readonly) */}
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email Address</Label>
+                  <Label htmlFor="phone">WhatsApp Number</Label>
                   <Input
-                    id="email"
-                    type="email"
-                    value={email}
+                    id="phone"
+                    type="tel"
+                    value={phone}
                     disabled
                     className="opacity-70"
                   />

@@ -250,13 +250,11 @@ export async function registerAdmin(
 }
 
 export interface RequestAuthOtpPayload {
-  email?: string;
-  phone?: string;
+  phone: string;
 }
 
 export interface VerifyAuthOtpPayload {
-  email?: string;
-  phone?: string;
+  phone: string;
   otp: string;
 }
 
@@ -266,7 +264,6 @@ export async function requestAuthOtp(payload: RequestAuthOtpPayload): Promise<Ot
   }
 
   console.debug("[auth][request-otp] request", {
-    email: payload.email ? payload.email : undefined,
     phone: payload.phone ? "[present]" : undefined,
   });
 
@@ -287,7 +284,7 @@ export async function requestAuthOtp(payload: RequestAuthOtpPayload): Promise<Ot
     throw new Error(message);
   }
 
-  console.info("[auth][request-otp] success", { email: payload.email, phone: payload.phone ? "[present]" : undefined });
+  console.info("[auth][request-otp] success", { phone: payload.phone ? "[present]" : undefined });
 
   return data as OtpRequestResponse;
 }
@@ -298,7 +295,6 @@ export async function verifyAuthOtp(payload: VerifyAuthOtpPayload): Promise<Veri
   }
 
   console.debug("[auth][verify-otp] request", {
-    email: payload.email,
     phone: payload.phone ? "[present]" : undefined,
     otpLength: payload.otp?.length,
   });
@@ -320,7 +316,7 @@ export async function verifyAuthOtp(payload: VerifyAuthOtpPayload): Promise<Veri
     throw new Error(message);
   }
 
-  console.info("[auth][verify-otp] success", { email: payload.email, phone: payload.phone ? "[present]" : undefined });
+  console.info("[auth][verify-otp] success", { phone: payload.phone ? "[present]" : undefined });
 
   return data as VerifyOtpResponse;
 }
@@ -334,7 +330,7 @@ export interface ForgotPasswordResponse {
 }
 
 export interface ResetPasswordPayload {
-  email: string;
+  phone: string;
   otp: string;
   newPassword: string;
 }
@@ -345,14 +341,14 @@ export interface ResetPasswordResponse {
 
 /** POST /v1/auth/forgot-password */
 export async function forgotPassword(
-  email: string
+  phone: string
 ): Promise<ForgotPasswordResponse> {
   if (!API_BASE_URL) throw new Error("API base URL is not configured");
 
   const response = await fetch(`${API_BASE_URL}/v1/auth/forgot-password`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email }),
+    body: JSON.stringify({ phone }),
   });
 
   const data = await response.json().catch(() => null);

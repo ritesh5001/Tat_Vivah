@@ -12,7 +12,7 @@ import {
 
 export default function VerifyOtpScreen() {
   const router = useRouter();
-  const { email } = useLocalSearchParams<{ email?: string }>();
+  const { phone } = useLocalSearchParams<{ phone?: string }>();
   const { signInWithOtp } = useAuth();
   const [otp, setOtp] = React.useState("");
   const [loading, setLoading] = React.useState(false);
@@ -22,12 +22,12 @@ export default function VerifyOtpScreen() {
   const submittedOtpRef = React.useRef<string | null>(null);
 
   const handleVerify = React.useCallback(async () => {
-    const identifier = typeof email === "string" ? email.trim().toLowerCase() : "";
+    const identifier = typeof phone === "string" ? phone.replace(/\D/g, "") : "";
     const code = otp.trim();
 
     if (!identifier) {
-      console.warn("[mobile-auth][verify-otp] missing email");
-      setError("Missing email address. Please request OTP again.");
+      console.warn("[mobile-auth][verify-otp] missing phone");
+      setError("Missing WhatsApp number. Please request OTP again.");
       return;
     }
     if (code.length !== 6) {
@@ -39,8 +39,8 @@ export default function VerifyOtpScreen() {
     setError(null);
     setMessage(null);
     try {
-      console.info("[mobile-auth][verify-otp] submit", { email: identifier, otpLength: code.length });
-      const responseMessage = await signInWithOtp({ email: identifier, otp: code });
+      console.info("[mobile-auth][verify-otp] submit", { phone: "[present]", otpLength: code.length });
+      const responseMessage = await signInWithOtp({ phone: identifier, otp: code });
       if (responseMessage) {
         setMessage(responseMessage);
         return;
@@ -52,13 +52,13 @@ export default function VerifyOtpScreen() {
     } finally {
       setLoading(false);
     }
-  }, [email, otp, signInWithOtp, router]);
+  }, [phone, otp, signInWithOtp, router]);
 
   const handleResend = React.useCallback(async () => {
-    const identifier = typeof email === "string" ? email.trim().toLowerCase() : "";
+    const identifier = typeof phone === "string" ? phone.replace(/\D/g, "") : "";
     if (!identifier) {
-      console.warn("[mobile-auth][verify-otp] resend blocked - missing email");
-      setError(`Missing email address. Please request OTP again.`);
+      console.warn("[mobile-auth][verify-otp] resend blocked - missing phone");
+      setError(`Missing WhatsApp number. Please request OTP again.`);
       return;
     }
 
@@ -66,8 +66,8 @@ export default function VerifyOtpScreen() {
     setError(null);
     setMessage(null);
     try {
-      console.info("[mobile-auth][verify-otp] resend", { email: identifier });
-      const result = await requestOtp({ email: identifier });
+      console.info("[mobile-auth][verify-otp] resend", { phone: "[present]" });
+      const result = await requestOtp({ phone: identifier });
       setMessage(result.message || "OTP sent again.");
     } catch (err) {
       console.error("[mobile-auth][verify-otp] resend failed", err);
@@ -75,7 +75,7 @@ export default function VerifyOtpScreen() {
     } finally {
       setResending(false);
     }
-  }, [email]);
+  }, [phone]);
 
   React.useEffect(() => {
     if (otp.length !== 6 || loading || submittedOtpRef.current === otp) {
@@ -90,7 +90,7 @@ export default function VerifyOtpScreen() {
       <View style={styles.container}>
         <Text style={styles.heading}>VERIFY OTP</Text>
         <Text style={styles.subHeading}>
-          Enter the 6-digit code sent to your email address
+          Enter the 6-digit code sent to your WhatsApp number
         </Text>
 
         <TextInput

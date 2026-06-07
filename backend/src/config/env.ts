@@ -65,9 +65,11 @@ const envSchema = z.object({
     RESEND_API_KEY: z.string().min(1, 'RESEND_API_KEY is required'),
     EMAIL_FROM: z.string().email('EMAIL_FROM must be a valid email'),
 
-    // Fast2SMS
+    // Fast2SMS WhatsApp (OTP delivery)
     FAST2SMS_API_KEY: z.string().min(1, 'FAST2SMS_API_KEY is required').optional(),
-    FAST2SMS_BASE_URL: z.string().url('FAST2SMS_BASE_URL must be a valid URL').default('https://www.fast2sms.com/dev/bulkV2'),
+    FAST2SMS_WHATSAPP_URL: z.string().url('FAST2SMS_WHATSAPP_URL must be a valid URL').default('https://www.fast2sms.com/dev/whatsapp'),
+    FAST2SMS_WHATSAPP_MESSAGE_ID: z.string().optional(),
+    FAST2SMS_WHATSAPP_PHONE_NUMBER_ID: z.string().optional(),
 
     // ImageKit
     IMAGEKIT_PUBLIC_KEY: z.string().optional(),

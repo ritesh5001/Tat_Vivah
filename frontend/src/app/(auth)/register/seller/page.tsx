@@ -74,17 +74,23 @@ export default function SellerRegisterPage() {
       return;
     }
 
+    const normalizedPhone = phone.replace(/\D/g, "");
+    if (!/^\d{10,15}$/.test(normalizedPhone)) {
+      toast.error("Contact number must be 10 to 15 digits.");
+      return;
+    }
+
     setLoading(true);
     try {
       console.info("[auth-ui][register-seller] submit", {
         email: email.trim().toLowerCase(),
-        phone,
-        whatsappNumber,
+        phone: "[present]",
+        whatsappNumber: "[present]",
       });
-      await registerSeller({ email, phone, whatsappNumber, password });
-      console.info("[auth-ui][register-seller] otp-sent", { email: email.trim().toLowerCase() });
-      toast.success("OTP sent to your email address.");
-      window.location.href = `/verify-otp?email=${encodeURIComponent(email.trim().toLowerCase())}`;
+      await registerSeller({ email, phone: normalizedPhone, whatsappNumber, password });
+      console.info("[auth-ui][register-seller] otp-sent", { phone: "[present]" });
+      toast.success("OTP sent to your WhatsApp number.");
+      window.location.href = `/verify-otp?phone=${encodeURIComponent(normalizedPhone)}`;
     } catch (error) {
       console.error("[auth-ui][register-seller] failed", error);
       toast.error(error instanceof Error ? error.message : "Signup failed");
@@ -192,11 +198,16 @@ export default function SellerRegisterPage() {
                   <Label htmlFor="phone" className={theme.label}>Contact Number</Label>
                   <Input
                     id="phone"
+                    type="tel"
+                    inputMode="numeric"
                     placeholder="9876543210"
                     value={phone}
-                    onChange={(event) => setPhone(event.target.value)}
+                    onChange={(event) => setPhone(event.target.value.replace(/\D/g, ""))}
                     className={theme.input}
                   />
+                  <p className="text-xs text-brown/60">
+                    Your verification code will be sent to this number on WhatsApp.
+                  </p>
                 </motion.div>
                 <motion.div className="space-y-2" {...fadeInUp(2)}>
                   <Label htmlFor="whatsappNumber" className={theme.label}>WhatsApp Number</Label>

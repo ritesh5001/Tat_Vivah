@@ -16,10 +16,8 @@ import { env } from '../config/env.js';
 import type { StringValue } from 'ms';
 import ms from 'ms';
 import { otpService, type SignupOtpPayload } from './otp.service.js';
-import { generateOtpCode, hashOtp } from '../utils/otp.util.js';
+import { hashOtp } from '../utils/otp.util.js';
 import { otpRepository } from '../repositories/otp.repository.js';
-import { sendEmail } from '../notifications/email/resend.client.js';
-import { renderBrandedEmail } from '../notifications/email/templates/layout.js';
 import { normalizeIndianMobile } from './fast2sms.service.js';
 import { OtpPurpose } from '@prisma/client';
 import type { Role, UserStatus } from '@prisma/client';
@@ -132,7 +130,7 @@ export class AuthService {
 
         // 4. Return success message (no token, no auto-login)
         return {
-            message: 'OTP sent to your email address',
+            message: 'OTP sent to your WhatsApp number',
         };
     }
 
@@ -174,7 +172,7 @@ export class AuthService {
 
         // 4. Return success message (no token, pending approval)
         return {
-            message: 'OTP sent to your email address. Verify to complete seller registration.',
+            message: 'OTP sent to your WhatsApp number. Verify to complete seller registration.',
         };
     }
 
@@ -279,65 +277,61 @@ export class AuthService {
         }, userAgent, ipAddress);
     }
 
-    async requestOtp(input: { email?: string | undefined }): Promise<{ message: string }> {
-        const normalizedEmail = input.email?.trim().toLowerCase();
-        this.logger.info({ email: normalizedEmail ?? null }, 'request_otp_started');
-        if (!normalizedEmail) {
-            this.logger.warn({ email: normalizedEmail ?? null }, 'request_otp_missing_email');
-            throw ApiError.badRequest('Email is required');
+    async requestOtp(input: { phone?: string | undefined }): Promise<{ message: string }> {
+        const phone = input.phone ? normalizeIndianMobile(input.phone) : undefined;
+        this.logger.info({ phone: phone ? '[present]' : null }, 'request_otp_started');
+        if (!phone) {
+            this.logger.warn({ phone: null }, 'request_otp_missing_phone');
+            throw ApiError.badRequest('Phone number is required');
         }
 
-        const user = await this.repository.findUserByEmail(normalizedEmail);
+        const user = await this.repository.findUserByPhone(phone);
         if (!user) {
-            this.logger.warn({ email: normalizedEmail }, 'request_otp_user_not_found');
+            this.logger.warn({ phone: '[present]' }, 'request_otp_user_not_found');
             throw ApiError.notFound('User not found');
         }
         if (user.status !== 'ACTIVE') {
-            this.logger.warn({ email: normalizedEmail, userId: user.id, status: user.status }, 'request_otp_account_not_active');
+            this.logger.warn({ phone: '[present]', userId: user.id, status: user.status }, 'request_otp_account_not_active');
             throw ApiError.forbidden('Account not active');
         }
-        await otpService.sendEmailOtp(user.id, normalizedEmail, 'login');
-        this.logger.info({ email: normalizedEmail, userId: user.id }, 'request_otp_sent');
-        return { message: 'OTP sent to your email address' };
+        await otpService.sendPhoneOtp(user.id, phone, user.email, 'login');
+        this.logger.info({ phone: '[present]', userId: user.id }, 'request_otp_sent');
+        return { message: 'OTP sent to your WhatsApp number' };
     }
 
-    // NOTE: Phone OTP methods removed — project is email-only OTP across platforms.
-
     async verifyOtp(
-        input: { email?: string | undefined; otp: string },
+        input: { phone?: string | undefined; otp: string },
         userAgent?: string,
         ipAddress?: string,
     ): Promise<LoginResponse | MessageResponse> {
-        const normalizedEmail = input.email?.trim().toLowerCase();
-        this.logger.info({ email: normalizedEmail ?? null, otpLength: input.otp?.length ?? 0 }, 'verify_otp_started');
-        if (!normalizedEmail) {
-            this.logger.warn({ email: normalizedEmail ?? null }, 'verify_otp_missing_email');
-            throw ApiError.badRequest('Email is required');
+        const phone = input.phone ? normalizeIndianMobile(input.phone) : undefined;
+        this.logger.info({ phone: phone ? '[present]' : null, otpLength: input.otp?.length ?? 0 }, 'verify_otp_started');
+        if (!phone) {
+            this.logger.warn({ phone: null }, 'verify_otp_missing_phone');
+            throw ApiError.badRequest('Phone number is required');
         }
 
-        return this.verifyEmailOtp(normalizedEmail, input.otp, userAgent, ipAddress);
+        return this.verifyPhoneOtpFlow(phone, input.otp, userAgent, ipAddress);
     }
 
-    // Phone-based verification flow removed — using email-only OTP.
-
-    private async verifyEmailOtp(
-        email: string,
+    private async verifyPhoneOtpFlow(
+        phone: string,
         code: string,
         userAgent?: string,
         ipAddress?: string,
     ): Promise<LoginResponse | MessageResponse> {
-        this.logger.debug({ email, userAgent: userAgent ?? null, ipAddress: ipAddress ?? null }, 'verify_email_otp_lookup');
-        const otp = await otpService.verifyEmailOtp(email, code);
+        this.logger.debug({ phone: '[present]', userAgent: userAgent ?? null, ipAddress: ipAddress ?? null }, 'verify_phone_otp_lookup');
+        const otp = await otpService.verifyPhoneOtp(phone, code);
         if (!otp.userId) {
             const payload = otp.payload as SignupOtpPayload | null;
             if (!payload) {
-                this.logger.warn({ email }, 'verify_email_otp_missing_payload');
+                this.logger.warn({ phone: '[present]' }, 'verify_phone_otp_missing_payload');
                 throw ApiError.badRequest('Invalid or expired OTP');
             }
 
             const exists = await this.repository.existsByEmailOrPhone(payload.email, payload.phone);
             if (exists) {
-                this.logger.warn({ email: payload.email, phone: payload.phone }, 'verify_email_otp_conflict');
+                this.logger.warn({ email: payload.email, phone: '[present]' }, 'verify_phone_otp_conflict');
                 throw ApiError.conflict('Email or phone already in use');
             }
 
@@ -349,8 +343,8 @@ export class AuthService {
                 passwordHash: payload.passwordHash,
                 role: payload.role,
                 status,
-                isEmailVerified: true,
-                isPhoneVerified: false,
+                isEmailVerified: false,
+                isPhoneVerified: true,
             }).catch((error: any) => {
                 if (error?.code === 'P2002' || String(error?.message ?? '').includes('Unique constraint')) {
                     throw ApiError.conflict('Email or phone already in use');
@@ -359,13 +353,13 @@ export class AuthService {
             });
 
             if (created.role === 'SELLER') {
-                this.logger.info({ email: created.email, userId: created.id, role: created.role }, 'verify_email_otp_seller_created');
+                this.logger.info({ email: created.email, userId: created.id, role: created.role }, 'verify_phone_otp_seller_created');
                 return {
-                    message: 'Email verified. Seller account pending admin approval.',
+                    message: 'Phone verified. Seller account pending admin approval.',
                 };
             }
 
-            this.logger.info({ email: created.email, userId: created.id, role: created.role }, 'verify_email_otp_user_created');
+            this.logger.info({ email: created.email, userId: created.id, role: created.role }, 'verify_phone_otp_user_created');
 
             return this.issueTokens({
                 id: created.id,
@@ -380,18 +374,18 @@ export class AuthService {
 
         const user = await this.repository.findUserById(otp.userId);
         if (!user) {
-            this.logger.warn({ email, userId: otp.userId }, 'verify_email_otp_user_not_found');
+            this.logger.warn({ phone: '[present]', userId: otp.userId }, 'verify_phone_otp_user_not_found');
             throw ApiError.notFound('User not found');
         }
 
         if (user.status !== 'ACTIVE') {
-            this.logger.warn({ email, userId: user.id, status: user.status }, 'verify_email_otp_account_not_active');
+            this.logger.warn({ phone: '[present]', userId: user.id, status: user.status }, 'verify_phone_otp_account_not_active');
             throw ApiError.forbidden('Account not active');
         }
 
-        const updated = user.isEmailVerified
+        const updated = user.isPhoneVerified
             ? user
-            : await this.repository.updateUser(user.id, { isEmailVerified: true });
+            : await this.repository.updateUser(user.id, { isPhoneVerified: true });
 
         return this.issueTokens({
             id: updated.id,
@@ -546,56 +540,29 @@ export class AuthService {
     // PASSWORD RESET FLOW
     // ========================================================================
 
-    private static readonly PASSWORD_RESET_EXPIRY_MINUTES = 10;
-
     /**
-     * Forgot Password — request a password-reset OTP
+     * Forgot Password — request a password-reset OTP (via WhatsApp, email fallback)
      * POST /v1/auth/forgot-password
      *
      * Security:
-     *   - Generic success response regardless of whether the email exists,
+     *   - Generic success response regardless of whether the account exists,
      *     to prevent user-existence enumeration.
-     *   - OTP is hashed (SHA-256) before storage.
+     *   - OTP is hashed (SHA-256) before storage, keyed by phone number.
      *   - Previous unused password-reset OTPs remain (only the latest valid
      *     one is checked during reset).
      */
-    async forgotPassword(email: string): Promise<MessageResponse> {
-        const user = await this.repository.findUserByEmail(email);
+    async forgotPassword(phone: string): Promise<MessageResponse> {
+        const normalizedPhone = normalizeIndianMobile(phone);
+        const user = await this.repository.findUserByPhone(normalizedPhone);
 
         // Always return a generic message to avoid leaking user existence
         if (!user) {
-            return { message: 'If an account with that email exists, an OTP has been sent.' };
+            return { message: 'If an account with that number exists, an OTP has been sent.' };
         }
 
-        const code = generateOtpCode();
-        const codeHash = hashOtp(code);
-        const expiresAt = new Date(
-            Date.now() + AuthService.PASSWORD_RESET_EXPIRY_MINUTES * 60 * 1000
-        );
+        await otpService.sendPasswordResetOtp(user.id, normalizedPhone, user.email);
 
-        await otpRepository.createOtp({
-            userId: user.id,
-            email,
-            codeHash,
-            purpose: OtpPurpose.PASSWORD_RESET,
-            expiresAt,
-        });
-
-        const html = renderBrandedEmail({
-            preheader: 'Your password reset verification code for TatVivah.',
-            eyebrow: 'Password Recovery',
-            title: 'Reset Your Password',
-            message: [
-                'Use the one-time code below to reset your TatVivah account password.',
-                `This code expires in ${AuthService.PASSWORD_RESET_EXPIRY_MINUTES} minutes and can only be used once.`,
-            ],
-            details: [{ label: 'Reset Code', value: code }],
-            accentText: 'If you did not request this reset, you can safely ignore this email.',
-        });
-
-        await sendEmail(email, 'Reset your TatVivah password', html);
-
-        return { message: 'If an account with that email exists, an OTP has been sent.' };
+        return { message: 'If an account with that number exists, an OTP has been sent.' };
     }
 
     /**
@@ -603,19 +570,22 @@ export class AuthService {
      * POST /v1/auth/reset-password
      *
      * Security:
-     *   - Finds the latest valid (non-expired, non-used) PASSWORD_RESET OTP.
+     *   - Finds the latest valid (non-expired, non-used) PASSWORD_RESET OTP
+     *     keyed by phone number.
      *   - Compares the hashed OTP.
      *   - Hashes the new password with bcrypt.
      *   - Marks the OTP as used.
      *   - Invalidates ALL existing login sessions (force re-login).
      */
     async resetPassword(
-        email: string,
+        phone: string,
         otp: string,
         newPassword: string
     ): Promise<MessageResponse> {
+        const normalizedPhone = normalizeIndianMobile(phone);
+
         // 1. Find latest valid password-reset OTP
-        const otpRecord = await otpRepository.findLatestValid(email, OtpPurpose.PASSWORD_RESET);
+        const otpRecord = await otpRepository.findLatestValid(normalizedPhone, OtpPurpose.PASSWORD_RESET);
         if (!otpRecord) {
             throw ApiError.badRequest('Invalid or expired OTP');
         }
@@ -627,7 +597,7 @@ export class AuthService {
         }
 
         // 3. Look up the user
-        const user = await this.repository.findUserByEmail(email);
+        const user = await this.repository.findUserByPhone(normalizedPhone);
         if (!user) {
             throw ApiError.badRequest('Invalid or expired OTP');
         }

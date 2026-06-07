@@ -133,7 +133,7 @@ export class AuthController {
     ): Promise<void> => {
         try {
             const validatedData = requestOtpSchema.parse(req.body);
-            this.logger.info({ email: validatedData.email }, 'request_otp_request_received');
+            this.logger.info({ phone: validatedData.phone ? '[present]' : '[missing]' }, 'request_otp_request_received');
             const result = await this.service.requestOtp(validatedData);
             res.status(200).json(result);
         } catch (error) {
@@ -163,7 +163,7 @@ export class AuthController {
     ): Promise<void> => {
         try {
             const validatedData = verifyOtpSchema.parse(req.body);
-            this.logger.info({ email: validatedData.email, otpLength: validatedData.otp?.length ?? 0 }, 'verify_otp_request_received');
+            this.logger.info({ phone: validatedData.phone ? '[present]' : '[missing]', otpLength: validatedData.otp?.length ?? 0 }, 'verify_otp_request_received');
             const userAgent = req.headers['user-agent'];
             const ipAddress = req.ip ?? req.socket.remoteAddress;
             const result = await this.service.verifyOtp(validatedData, userAgent, ipAddress);
@@ -362,7 +362,7 @@ export class AuthController {
     ): Promise<void> => {
         try {
             const validatedData = forgotPasswordSchema.parse(req.body);
-            const result = await this.service.forgotPassword(validatedData.email);
+            const result = await this.service.forgotPassword(validatedData.phone);
             res.status(200).json(result);
         } catch (error) {
             if (error instanceof ZodError) {
@@ -391,7 +391,7 @@ export class AuthController {
         try {
             const validatedData = resetPasswordSchema.parse(req.body);
             const result = await this.service.resetPassword(
-                validatedData.email,
+                validatedData.phone,
                 validatedData.otp,
                 validatedData.newPassword
             );

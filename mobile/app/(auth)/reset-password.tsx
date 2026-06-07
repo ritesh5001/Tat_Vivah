@@ -31,7 +31,7 @@ const RESEND_COOLDOWN_SECONDS = 60;
 
 export default function ResetPasswordScreen() {
   const router = useRouter();
-  const { email } = useLocalSearchParams<{ email: string }>();
+  const { phone } = useLocalSearchParams<{ phone: string }>();
 
   const [digits, setDigits] = React.useState<string[]>(
     Array(OTP_LENGTH).fill("")
@@ -115,8 +115,8 @@ export default function ResetPasswordScreen() {
 
   // ---------- Submit ----------
   const handleSubmit = async () => {
-    if (!email) {
-      setError("Missing email. Please go back and try again.");
+    if (!phone) {
+      setError("Missing WhatsApp number. Please go back and try again.");
       return;
     }
 
@@ -140,7 +140,7 @@ export default function ResetPasswordScreen() {
     setError(null);
     setSuccess(null);
     try {
-      const result = await resetPassword({ email, otp, newPassword });
+      const result = await resetPassword({ phone, otp, newPassword });
       setSuccess(result.message);
       // Navigate to login after short delay
       setTimeout(() => router.replace("/(auth)/login"), 1500);
@@ -155,10 +155,10 @@ export default function ResetPasswordScreen() {
 
   // ---------- Resend ----------
   const handleResend = async () => {
-    if (countdown > 0 || !email) return;
+    if (countdown > 0 || !phone) return;
     setError(null);
     try {
-      await forgotPassword({ email });
+      await forgotPassword({ phone });
       setCountdown(RESEND_COOLDOWN_SECONDS);
       setDigits(Array(OTP_LENGTH).fill(""));
       inputRefs.current[0]?.focus();
@@ -193,7 +193,7 @@ export default function ResetPasswordScreen() {
         <Text style={styles.title}>Reset password</Text>
         <Text style={styles.subtitle}>
           Enter the 6-digit code sent to{" "}
-          <Text style={styles.emailHighlight}>{email ?? "your email"}</Text>
+          <Text style={styles.emailHighlight}>{phone ?? "your WhatsApp number"}</Text>
           {" "}and set a new password.
         </Text>
 
@@ -296,7 +296,7 @@ export default function ResetPasswordScreen() {
         </View>
 
         <View style={styles.footerRow}>
-          <Text style={styles.footerText}>Wrong email?</Text>
+          <Text style={styles.footerText}>Wrong number?</Text>
           <Pressable onPress={() => router.back()}>
             <Text style={styles.footerLink}>Go back</Text>
           </Pressable>

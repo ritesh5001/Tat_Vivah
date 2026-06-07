@@ -20,22 +20,23 @@ import { heroContainerVariants, heroItemVariants } from "@/lib/motion.config";
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
-  const [email, setEmail] = React.useState("");
+  const [phone, setPhone] = React.useState("");
   const [loading, setLoading] = React.useState(false);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!email) {
-      toast.error("Please enter your email address.");
+    const normalizedPhone = phone.replace(/\D/g, "");
+    if (!normalizedPhone) {
+      toast.error("Please enter your WhatsApp number.");
       return;
     }
 
     setLoading(true);
     try {
-      await forgotPassword(email);
-      toast.success("If an account exists, an OTP has been sent to your email.");
-      router.push(`/reset-password?email=${encodeURIComponent(email)}`);
+      await forgotPassword(normalizedPhone);
+      toast.success("If an account exists, an OTP has been sent to your WhatsApp number.");
+      router.push(`/reset-password?phone=${encodeURIComponent(normalizedPhone)}`);
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Something went wrong"
@@ -75,7 +76,7 @@ export default function ForgotPasswordPage() {
             variants={heroItemVariants}
             className="text-base leading-relaxed text-muted-foreground mb-8"
           >
-            Enter the email address associated with your account and we&apos;ll
+            Enter the WhatsApp number associated with your account and we&apos;ll
             send you a one-time code to set a new password.
           </motion.p>
 
@@ -111,21 +112,22 @@ export default function ForgotPasswordPage() {
                 Forgot Password
               </CardTitle>
               <CardDescription>
-                We&apos;ll send a 6-digit OTP to your registered email.
+                We&apos;ll send a 6-digit OTP to your registered WhatsApp number.
               </CardDescription>
             </CardHeader>
 
             <CardContent className="space-y-6">
               <form className="space-y-5" onSubmit={handleSubmit}>
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email Address</Label>
+                  <Label htmlFor="phone">WhatsApp Number</Label>
                   <Input
-                    id="email"
-                    type="email"
-                    placeholder="you@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    autoComplete="email"
+                    id="phone"
+                    type="tel"
+                    inputMode="numeric"
+                    placeholder="9876543210"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
+                    autoComplete="tel"
                   />
                 </div>
 

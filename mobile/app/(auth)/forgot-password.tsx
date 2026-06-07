@@ -12,41 +12,41 @@ import {
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
-  const [email, setEmail] = React.useState("");
+  const [phone, setPhone] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
   const handleContinue = React.useCallback(async () => {
-    const normalizedEmail = email.trim().toLowerCase();
-    if (!normalizedEmail) {
-      setError("Please enter your email address.");
+    const normalizedPhone = phone.replace(/\D/g, "");
+    if (!/^\d{10,15}$/.test(normalizedPhone)) {
+      setError("Please enter a valid WhatsApp number.");
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      await forgotPassword({ email: normalizedEmail });
-      router.push({ pathname: "/(auth)/reset-password", params: { email: normalizedEmail } });
+      await forgotPassword({ phone: normalizedPhone });
+      router.push({ pathname: "/(auth)/reset-password", params: { phone: normalizedPhone } });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to send reset OTP");
     } finally {
       setLoading(false);
     }
-  }, [email, router]);
+  }, [phone, router]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <AppHeader title="Forgot Password" showMenu showBack />
       <View style={styles.container}>
         <Text style={styles.heading}>FORGOT PASSWORD</Text>
-        <Text style={styles.subHeading}>We&apos;ll send an OTP to your email to reset your password.</Text>
+        <Text style={styles.subHeading}>We&apos;ll send an OTP to your WhatsApp number to reset your password.</Text>
 
         <TextInput
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
+          value={phone}
+          onChangeText={(value) => setPhone(value.replace(/\D/g, ""))}
+          keyboardType="phone-pad"
           autoCapitalize="none"
-          placeholder="Enter email address"
+          placeholder="Enter WhatsApp number"
           placeholderTextColor={colors.textSecondary}
           style={styles.input}
         />
