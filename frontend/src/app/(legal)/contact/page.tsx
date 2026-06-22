@@ -77,7 +77,9 @@ export default function ContactPage() {
                 <p>
                     <strong>Registered Office Address:</strong><br />
                     Tat Vivah Trends Pvt. Ltd.<br />
-                    [Insert Legal Address Here]<br />
+                    C-13, PLT 144, Ashok Mill Compound,<br />
+                    Sant Rohidas Marg, Dharavi,<br />
+                    Mumbai, Maharashtra - 400017<br />
                     India
                 </p>
             </section>
