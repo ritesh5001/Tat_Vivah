@@ -313,7 +313,7 @@ export default function AdminOccasionsPage() {
       setOccasions((prev) =>
         prev.map((occasion) => (occasion.id === id ? result.occasion : occasion))
       );
-      toast.success(result.occasion.isActive ? "Occasion activated." : "Occasion deactivated.");
+      toast.success(result.occasion.isActive ? "Occasion is now visible." : "Occasion hidden from storefront, seller panel & app.");
     } catch (error) {
       setOccasions((prev) =>
         prev.map((occasion) =>
@@ -366,7 +366,7 @@ export default function AdminOccasionsPage() {
           <div className="space-y-4">
             <p className="text-[11px] font-medium uppercase tracking-[0.3em] text-gold">Catalog Settings</p>
             <h1 className="font-serif text-4xl font-light tracking-tight text-foreground sm:text-5xl">Occasion Management</h1>
-            <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">Create and manage shopping occasions like Wedding, Diwali, Haldi, etc.</p>
+            <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">Create and manage shopping occasions like Wedding, Diwali, Haldi, etc. Hiding an occasion removes it from the storefront, seller panel, and mobile app. Show it again anytime.</p>
           </div>
           <Button onClick={() => setShowCreate(true)} className="h-11 px-6">+ New Occasion</Button>
         </div>
@@ -420,11 +420,11 @@ export default function AdminOccasionsPage() {
                       </span>
                     ) : null}
                     <span className={`px-3 py-1 text-[10px] uppercase tracking-wider border ${occasion.isActive ? "border-[#7B9971]/30 text-[#5A7352] bg-[#7B9971]/5" : "border-[#A67575]/30 text-[#7A5656] bg-[#A67575]/5"}`}>
-                      {occasion.isActive ? "Active" : "Inactive"}
+                      {occasion.isActive ? "Visible" : "Hidden"}
                     </span>
                     <Button size="sm" variant="outline" disabled={pendingOccasionIds.includes(occasion.id)} onClick={() => openEdit(occasion)}>Edit</Button>
                     <Button size="sm" variant="outline" disabled={pendingOccasionIds.includes(occasion.id)} className={occasion.isActive ? "border-[#A67575]/40 text-[#7A5656]" : "border-[#7B9971]/40 text-[#5A7352]"} onClick={() => handleToggle(occasion.id)}>
-                      {occasion.isActive ? "Deactivate" : "Activate"}
+                      {occasion.isActive ? "Hide" : "Show"}
                     </Button>
                     <Button size="sm" variant="outline" disabled={pendingOccasionIds.includes(occasion.id)} className="border-red-300/40 text-red-600" onClick={() => handleDelete(occasion.id)}>Delete</Button>
                   </div>

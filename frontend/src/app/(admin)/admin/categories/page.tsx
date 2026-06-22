@@ -477,7 +477,7 @@ export default function AdminCategoriesPage() {
       setCategories((prev) =>
         prev.map((category) => (category.id === id ? result.category : category))
       );
-      toast.success(result.category.isActive ? "Category activated." : "Category deactivated.");
+      toast.success(result.category.isActive ? "Category is now visible." : "Category hidden from storefront, seller panel & app.");
     } catch (error) {
       setCategories((prev) =>
         prev.map((category) =>
@@ -530,7 +530,7 @@ export default function AdminCategoriesPage() {
           <div className="space-y-4">
             <p className="text-[11px] font-medium uppercase tracking-[0.3em] text-gold">Catalog Settings</p>
             <h1 className="font-serif text-4xl font-light tracking-tight text-foreground sm:text-5xl">Category Management</h1>
-            <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">Create, edit, or deactivate product categories across the platform.</p>
+            <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">Create and edit categories. Hiding a category removes it from the storefront, seller panel, and mobile app (its products stay visible). Show it again anytime.</p>
           </div>
           <Button onClick={() => setShowCreate(true)} className="h-11 px-6">+ New Category</Button>
         </div>
@@ -576,11 +576,11 @@ export default function AdminCategoriesPage() {
                       </span>
                     ) : null}
                     <span className={`px-3 py-1 text-[10px] uppercase tracking-wider border ${category.isActive ? "border-[#7B9971]/30 text-[#5A7352] bg-[#7B9971]/5" : "border-[#A67575]/30 text-[#7A5656] bg-[#A67575]/5"}`}>
-                      {category.isActive ? "Active" : "Inactive"}
+                      {category.isActive ? "Visible" : "Hidden"}
                     </span>
                     <Button size="sm" variant="outline" disabled={pendingCategoryIds.includes(category.id)} onClick={() => openEdit(category)}>Edit</Button>
                     <Button size="sm" variant="outline" disabled={pendingCategoryIds.includes(category.id)} className={category.isActive ? "border-[#A67575]/40 text-[#7A5656]" : "border-[#7B9971]/40 text-[#5A7352]"} onClick={() => handleToggle(category.id)}>
-                      {category.isActive ? "Deactivate" : "Activate"}
+                      {category.isActive ? "Hide" : "Show"}
                     </Button>
                     <Button size="sm" variant="outline" disabled={pendingCategoryIds.includes(category.id)} className="border-red-300/40 text-red-600" onClick={() => handleDelete(category.id)}>Delete</Button>
                   </div>
