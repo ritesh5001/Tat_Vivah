@@ -476,11 +476,16 @@ export const returnPolicy: PolicyDocument = {
       id: "refunds",
       title: "Refunds",
       body: (
-        <ul>
-          <li>Refunds are initiated after the returned product passes quality inspection.</li>
-          <li>The amount will be credited to the original payment method within 7-10 business days.</li>
-          <li>For Cash on Delivery (COD) orders, refunds will be processed to the customer’s bank account.</li>
-        </ul>
+        <>
+          <ul>
+            <li>Refunds are initiated after the returned product passes quality inspection.</li>
+            <li>The amount will be credited to the original payment method within 7-10 business days.</li>
+            <li>For Cash on Delivery (COD) orders, refunds will be processed to the customer’s bank account.</li>
+          </ul>
+          <p className="rounded-md border-l-4 border-gold bg-gold/10 px-4 py-3 font-semibold text-charcoal">
+            Exchange/Replacement deliveries will be done within 5-7 business days.
+          </p>
+        </>
       ),
     },
     {
@@ -508,11 +513,16 @@ export const refundPolicy: PolicyDocument = {
       id: "refunds",
       title: "Refund Processing",
       body: (
-        <ul>
-          <li>Refunds are issued after the return is approved or an eligible cancellation is confirmed.</li>
-          <li>Approved refunds are credited to the original payment method within 7-10 business days.</li>
-          <li>COD refunds are issued to the customer’s bank account after verification.</li>
-        </ul>
+        <>
+          <ul>
+            <li>Refunds are issued after the return is approved or an eligible cancellation is confirmed.</li>
+            <li>Approved refunds are credited to the original payment method within 7-10 business days.</li>
+            <li>COD refunds are issued to the customer’s bank account after verification.</li>
+          </ul>
+          <p className="rounded-md border-l-4 border-gold bg-gold/10 px-4 py-3 font-semibold text-charcoal">
+            Exchange/Replacement deliveries will be done within 5-7 business days.
+          </p>
+        </>
       ),
     },
     {

@@ -21,25 +21,26 @@ const quickLinks = [
   { label: "My Account", href: "/login" },
 ];
 
-const collections = [
-  { label: "Wedding Wear", href: "/marketplace" },
-  { label: "Ethnic Kurtas", href: "/marketplace" },
-  { label: "Sherwanis", href: "/marketplace" },
-  { label: "Accessories", href: "/marketplace" },
-  { label: "Festive Edit", href: "/marketplace" },
-];
+// Collections links — temporarily hidden, will be unhidden later
+// const collections = [
+//   { label: "Wedding Wear", href: "/marketplace" },
+//   { label: "Ethnic Kurtas", href: "/marketplace" },
+//   { label: "Sherwanis", href: "/marketplace" },
+//   { label: "Accessories", href: "/marketplace" },
+//   { label: "Festive Edit", href: "/marketplace" },
+// ];
 
 const accordionSections = [
   { title: "Legal", links: policyLinks },
   { title: "Quick Links", links: quickLinks },
-  { title: "Collections", links: collections },
+  // { title: "Collections", links: collections }, // temporarily hidden, will be unhidden later
 ];
 
 export function PublicFooter() {
   return (
     <footer className="relative overflow-hidden border-t border-border-soft bg-cream text-foreground font-sans dark:bg-charcoal">
       <div className="mx-auto w-full max-w-6xl px-6 pt-14">
-        <div className="grid gap-6 pb-10 md:gap-8 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1fr]">
+        <div className="grid gap-6 pb-10 md:gap-8 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr]">
           <div className="min-w-0 pr-0 lg:pr-6">
             <Link href="/" prefetch={false} className="inline-block transition-transform duration-300 hover:-translate-y-1">
               <Image

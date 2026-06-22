@@ -674,7 +674,7 @@ export default async function MarketplacePage({
             </Link>
           </Button>
         </section>
-        {/* SEO Quick Links */}
+        {/* SEO Quick Links — Explore Collections: temporarily hidden, will be unhidden later
         <section className="border-t border-border-soft pt-7 pb-2 sm:pt-12 sm:pb-4">
           <div className="flex flex-col items-center justify-center gap-4 text-center">
             <p className="text-xs font-medium uppercase tracking-[0.2em] text-gold">Explore Collections</p>
@@ -688,6 +688,7 @@ export default async function MarketplacePage({
             </div>
           </div>
         </section>
+        */}
       </div>
     </div>
   );
