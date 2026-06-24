@@ -7,6 +7,7 @@ import { logger } from './config/logger.js';
 import { runInventoryIntegrityCheck } from './jobs/inventoryIntegrity.js';
 import { hashPassword } from './utils/password.util.js';
 import { reelRepository } from './repositories/reel.repository.js';
+import { ensureSiteMaintenanceState } from './services/site-maintenance.service.js';
 
 /** How often to run the stale-order cleanup (10 minutes). */
 const STALE_ORDER_INTERVAL_MS = 10 * 60 * 1000;
@@ -219,6 +220,9 @@ async function bootstrap(): Promise<void> {
 
         // Ensure hardcoded super admin always exists in every environment
         await ensureSuperAdminAccount();
+
+        // Ensure the maintenance flag row exists with a safe default.
+        await ensureSiteMaintenanceState();
 
         // Create Express app
         const app = createApp();

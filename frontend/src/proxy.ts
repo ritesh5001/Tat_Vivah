@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { getMaintenanceState } from "./lib/site-maintenance";
 
 /* ──────────────────────────────────────────────────────────────────────────── */
 /*  SUBDOMAIN ROUTING                                                         */
@@ -170,14 +171,30 @@ const protectedRoutes = [
 ];
 
 const authPages = ["/login", "/register", "/(auth)", "/forgot-password", "/reset-password"];
+const MAINTENANCE_PATH = "/maintenance";
+const SECRET_MAINTENANCE_PATH = "/admin/maintenance";
 
 /* ──────────────────────────────────────────────────────────────────────────── */
 /*  MIDDLEWARE                                                                */
 /* ──────────────────────────────────────────────────────────────────────────── */
 
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const host = request.headers.get("host");
+  const isSecretMaintenancePath = pathname === SECRET_MAINTENANCE_PATH;
+
+  if (pathname !== MAINTENANCE_PATH && !isSecretMaintenancePath) {
+    const maintenanceState = await getMaintenanceState();
+    if (maintenanceState?.maintenanceEnabled) {
+      const maintenanceUrl = request.nextUrl.clone();
+      maintenanceUrl.pathname = MAINTENANCE_PATH;
+      maintenanceUrl.search = "";
+      if (pathname !== "/") {
+        maintenanceUrl.searchParams.set("from", pathname);
+      }
+      return NextResponse.redirect(maintenanceUrl);
+    }
+  }
 
   /* ── STEP 1: Subdomain rewrite (seller / admin) ────────────────────────── */
   const subPrefix = getSubdomainPrefix(host);
@@ -233,7 +250,7 @@ export function proxy(request: NextRequest) {
 
   // PORTAL ISOLATION: On main domain, block /admin/* and /seller/* paths.
   if (!subPrefix && crossDomain) {
-    if (pathname.startsWith("/admin") || pathname.startsWith("/seller")) {
+    if ((pathname.startsWith("/admin") && !isSecretMaintenancePath) || pathname.startsWith("/seller")) {
       const response = NextResponse.redirect(new URL("/", request.url));
       return response;
     }
@@ -255,7 +272,8 @@ export function proxy(request: NextRequest) {
   }
 
   /* ── STEP 3: SESSION LOCK — role must match subdomain ────────────────────── */
-  const isProtected = protectedRoutes.some((route) => pathname.startsWith(route));
+  const isProtected =
+    !isSecretMaintenancePath && protectedRoutes.some((route) => pathname.startsWith(route));
   const isAuthPage = authPages.some((route) => pathname.startsWith(route));
 
   const accessToken = request.cookies.get("tatvivah_access")?.value;
@@ -311,7 +329,7 @@ export function proxy(request: NextRequest) {
       // Correct subdomain (or localhost) → same-origin redirect
       response = NextResponse.redirect(new URL(dashboard, request.url));
     }
-  } else if (!isProtected) {
+  } else if (isSecretMaintenancePath || !isProtected) {
     // Public / non-protected page → allow through
     response = NextResponse.next();
   } else if (!accessToken || !role) {

@@ -130,6 +130,16 @@ model SuperAdminProfile {
   @@map("super_admin_profiles")
 }
 
+/// Global site settings stored as key/value JSON pairs.
+model SiteSetting {
+  key       String   @id
+  value     Json
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("site_settings")
+}
+
 /// Product categories for organizing products
 model Category {
   id              String           @id @default(cuid())
