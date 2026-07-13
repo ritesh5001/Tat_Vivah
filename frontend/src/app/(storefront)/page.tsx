@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Lock, RotateCcw, ShieldCheck } from "lucide-react";
 import { CategoryCarousel } from "@/components/home/CategoryCarousel";
 import { OccasionSection } from "@/components/home/OccasionSection";
@@ -144,47 +143,6 @@ function pickNewArrivals(products?: (MarketplaceCardProduct & { createdAt?: stri
     .slice(0, 2);
 }
 
-function GiftingSection() {
-  return (
-    <section id="gifting" className="border-t border-border-soft">
-      <div className="mx-auto max-w-6xl px-6 py-6 sm:py-8">
-        <div className="grid gap-6 lg:grid-cols-3">
-          <div className="border border-border-soft bg-card p-10 lg:col-span-2 lg:p-12">
-            <p className="mb-4 text-xs font-medium uppercase tracking-[0.3em] text-gold">
-              Thoughtful Gifting
-            </p>
-            <h3 className="mb-4 font-serif text-2xl font-light tracking-tight text-foreground sm:text-3xl">
-              Gift-Ready for Every Occasion
-            </h3>
-            <p className="max-w-xl text-base leading-relaxed text-muted-foreground">
-              From weddings to festivals, our curated gift sets come in
-              premium packaging with personalized notes. Every gift tells
-              a story of heritage and care.
-            </p>
-          </div>
-
-          <div className="flex flex-col justify-between border border-border-soft bg-cream p-10 dark:bg-brown/20">
-            <div>
-              <p className="mb-4 text-xs font-medium uppercase tracking-[0.3em] text-gold">
-                Gift Cards
-              </p>
-              <p className="mb-6 text-sm leading-relaxed text-muted-foreground">
-                Let them choose their own piece of heritage with TatVivah gift cards.
-              </p>
-            </div>
-            <Link
-              href="/marketplace"
-              className="inline-flex h-12 w-full items-center justify-center bg-charcoal px-6 text-xs font-medium uppercase tracking-[0.15em] text-ivory transition-all duration-400 hover:bg-brown dark:bg-gold dark:text-charcoal dark:hover:bg-gold-muted"
-            >
-              Purchase Gift Card
-            </Link>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function TrustSection() {
   const trustItems = [
     {
@@ -305,9 +263,6 @@ export default async function Home() {
             initialProducts={products?.data}
             kidsProducts={kidsProducts?.data}
           />
-        </SectionReveal>
-        <SectionReveal delayMs={40}>
-          <GiftingSection />
         </SectionReveal>
         <SectionReveal delayMs={60}>
           <TrustSection />
