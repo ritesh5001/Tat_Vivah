@@ -3,6 +3,7 @@ import { paymentService } from './payment.service.js';
 import { PaymentProvider, PaymentStatus, PaymentEventType } from '@prisma/client';
 import { ApiError } from '../errors/ApiError.js';
 import { razorpayService, RazorpayWebhookPayload } from './razorpay.service.js';
+import { phonepeService } from './phonepe.service.js';
 import { paymentRepository } from '../repositories/payment.repository.js';
 import { prisma } from '../config/db.js';
 import { paymentLogger } from '../config/logger.js';
@@ -25,6 +26,12 @@ export class WebhookService {
         // 3. Handle RAZORPAY Provider
         if (validProvider === PaymentProvider.RAZORPAY) {
             await this.handleRazorpayWebhook(payload, signature, rawBody || JSON.stringify(payload));
+            return;
+        }
+
+        // 4. Handle PHONEPE Provider
+        if (validProvider === PaymentProvider.PHONEPE) {
+            await this.handlePhonePeWebhook(payload, signature);
             return;
         }
 
@@ -143,6 +150,120 @@ export class WebhookService {
         await paymentService.handlePaymentFailure(payment.id, payload);
 
         paymentLogger.info({ event: 'webhook_payment_failed', paymentId: payment.id }, `Razorpay webhook: payment ${payment.id} marked FAILED`);
+    }
+
+    // ------------------------------------------------------------------
+    // PhonePe webhook
+    //
+    // Auth: PhonePe sends Authorization: SHA256(username:password) where the
+    // credentials are configured on the PhonePe dashboard. The webhook is a
+    // hint only — the authoritative state always comes from a server-to-server
+    // Order Status call before we mark the payment SUCCESS.
+    // ------------------------------------------------------------------
+
+    private async handlePhonePeWebhook(payload: any, authorizationHeader: string) {
+        // 1. Verify Authorization
+        const isValid = phonepeService.verifyWebhookAuthorization(authorizationHeader);
+        if (!isValid) {
+            paymentLogger.error({ event: 'phonepe_webhook_invalid_auth' }, 'PhonePe webhook: invalid authorization');
+            throw new ApiError(401, 'Invalid webhook authorization');
+        }
+
+        // 2. Parse Event
+        const event = phonepeService.parseWebhookEvent(payload);
+        paymentLogger.info(
+            { event: 'phonepe_webhook_received', webhookEvent: event.event, merchantOrderId: event.merchantOrderId },
+            `PhonePe webhook received: ${event.event}`,
+        );
+
+        const isOrderEvent = event.event.startsWith('checkout.order.');
+        if (!isOrderEvent) {
+            // Refund and other lifecycle events are logged for audit only —
+            // refund state is already tracked optimistically at initiation.
+            paymentLogger.info(
+                { event: 'phonepe_webhook_unhandled', webhookEvent: event.event },
+                `PhonePe webhook unhandled event: ${event.event}`,
+            );
+            return;
+        }
+
+        if (!event.merchantOrderId) {
+            paymentLogger.error({ event: 'phonepe_webhook_missing_order' }, 'PhonePe webhook: missing merchantOrderId');
+            return;
+        }
+
+        // 3. Find payment by merchantOrderId (stored as providerOrderId)
+        const payment = await paymentRepository.findByProviderOrderId(event.merchantOrderId);
+        if (!payment) {
+            paymentLogger.error(
+                { event: 'phonepe_webhook_payment_not_found', merchantOrderId: event.merchantOrderId },
+                `PhonePe webhook: payment not found for ${event.merchantOrderId}`,
+            );
+            return;
+        }
+
+        // Idempotency: skip if already in terminal state
+        if (payment.status === PaymentStatus.SUCCESS) {
+            paymentLogger.info(
+                { event: 'phonepe_webhook_already_success', paymentId: payment.id },
+                `PhonePe webhook: payment already successful ${payment.id}`,
+            );
+            return;
+        }
+
+        // Log webhook event for audit
+        await prisma.paymentEvent.create({
+            data: {
+                paymentId: payment.id,
+                type: PaymentEventType.WEBHOOK,
+                payload: payload as any,
+            },
+        });
+
+        if (event.event === 'checkout.order.completed' && event.state === 'COMPLETED') {
+            // Re-confirm with the Order Status API before trusting the webhook
+            const status = await phonepeService.getOrderStatus(event.merchantOrderId);
+            if (status.state !== 'COMPLETED') {
+                paymentLogger.warn(
+                    { event: 'phonepe_webhook_state_mismatch', merchantOrderId: event.merchantOrderId, state: status.state },
+                    'PhonePe webhook: status API disagrees with webhook, skipping',
+                );
+                return;
+            }
+
+            const transactionId =
+                status.paymentDetails?.[0]?.transactionId ?? event.transactionId ?? status.orderId;
+
+            await paymentService.handlePaymentSuccess(
+                payment.id,
+                payment.orderId,
+                transactionId,
+                {
+                    merchantOrderId: event.merchantOrderId,
+                    phonepeOrderId: status.orderId,
+                    transactionId,
+                    source: 'webhook',
+                },
+            );
+
+            paymentLogger.info(
+                { event: 'phonepe_webhook_payment_processed', paymentId: payment.id },
+                `PhonePe webhook: payment ${payment.id} processed`,
+            );
+            return;
+        }
+
+        if (event.event === 'checkout.order.failed') {
+            if (payment.status === PaymentStatus.FAILED) return;
+            await paymentService.handlePaymentFailure(payment.id, {
+                merchantOrderId: event.merchantOrderId,
+                source: 'webhook',
+            });
+            paymentLogger.info(
+                { event: 'phonepe_webhook_payment_failed', paymentId: payment.id },
+                `PhonePe webhook: payment ${payment.id} marked FAILED`,
+            );
+        }
     }
 
     private mapProvider(provider: string): PaymentProvider | null {

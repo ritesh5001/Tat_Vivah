@@ -23,11 +23,20 @@ export class CheckoutController {
                 return;
             }
 
+            // Optional provider/platform selection (defaults preserve old behavior)
+            const requestedProvider = String(req.query.provider ?? '').toUpperCase();
+            const provider =
+                requestedProvider === PaymentProvider.PHONEPE
+                    ? PaymentProvider.PHONEPE
+                    : PaymentProvider.RAZORPAY;
+            const platform = String(req.query.platform ?? '').toUpperCase() === 'MOBILE' ? 'MOBILE' as const : 'WEB' as const;
+
             try {
                 const payment = await paymentService.initiatePayment(
                     userId,
                     result.order.id,
-                    PaymentProvider.RAZORPAY,
+                    provider,
+                    platform,
                 );
 
                 res.status(201).json({

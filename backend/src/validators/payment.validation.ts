@@ -5,7 +5,9 @@ import { PaymentProvider } from '@prisma/client';
 export const initiatePaymentSchema = z.object({
     body: z.object({
         orderId: z.string().uuid().or(z.string().cuid()), // Assuming CUIDs but flexible
-        provider: z.nativeEnum(PaymentProvider)
+        provider: z.nativeEnum(PaymentProvider),
+        // Controls the post-payment redirect target for redirect-flow providers (PhonePe)
+        platform: z.enum(['WEB', 'MOBILE']).optional()
     })
 });
 
@@ -17,10 +19,19 @@ export const verifyPaymentSchema = z.object({
     })
 });
 
+export const verifyPhonePePaymentSchema = z.object({
+    body: z.object({
+        orderId: z.string().min(1)
+    })
+});
+
 export const retryPaymentSchema = z.object({
     params: z.object({
         orderId: z.string().min(1),
     }),
+    body: z.object({
+        platform: z.enum(['WEB', 'MOBILE']).optional(),
+    }).optional(),
 });
 
 export const webhookSchema = z.object({

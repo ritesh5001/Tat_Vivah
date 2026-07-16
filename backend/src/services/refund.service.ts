@@ -9,6 +9,8 @@ import {
 } from '../config/metrics.js';
 import { ApiError } from '../errors/ApiError.js';
 import { isRazorpayConfigured, razorpayClient } from './razorpay.client.js';
+import { isPhonePeConfigured } from './phonepe.client.js';
+import { phonepeService } from './phonepe.service.js';
 
 // ─────────────────────────────────────────────────────────────────
 // Types
@@ -80,6 +82,7 @@ export class RefundService {
                         status: true,
                         provider: true,
                         providerPaymentId: true,
+                        providerOrderId: true,
                     },
                 },
             },
@@ -178,6 +181,26 @@ export class RefundService {
                 refundLogger.error(
                     { orderId, refundId: refund.id, error: error?.message },
                     'razorpay_refund_api_failed',
+                );
+                providerSuccess = false;
+            }
+        } else if (
+            order.payment.provider === PaymentProvider.PHONEPE
+            && order.payment.providerOrderId
+            && isPhonePeConfigured()
+        ) {
+            try {
+                const ppRefund = await phonepeService.initiateRefund(
+                    `rf_${refund.id}`,
+                    order.payment.providerOrderId,
+                    amount / 100, // paise → rupees
+                );
+                razorpayRefundId = ppRefund.refundId ?? null;
+                providerSuccess = true;
+            } catch (error: any) {
+                refundLogger.error(
+                    { orderId, refundId: refund.id, error: error?.message },
+                    'phonepe_refund_api_failed',
                 );
                 providerSuccess = false;
             }

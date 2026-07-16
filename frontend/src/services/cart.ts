@@ -171,7 +171,8 @@ export async function checkoutWithPayment(
     shippingNotes?: string;
     couponCode?: string;
   },
-  token?: string | null
+  token?: string | null,
+  provider: "RAZORPAY" | "PHONEPE" = "RAZORPAY"
 ) {
   return apiRequest<{
     message: string;
@@ -189,11 +190,13 @@ export async function checkoutWithPayment(
       orderId: string;
       amount: number;
       currency: string;
-      key: string;
+      key?: string;
       provider: string;
+      /** PhonePe hosted checkout page (redirect flow). */
+      redirectUrl?: string;
     } | null;
     paymentInitError?: string;
-  }>("/v1/checkout?withPayment=1", {
+  }>(`/v1/checkout?withPayment=1&provider=${provider}`, {
     method: "POST",
     body: payload ?? {},
     token,

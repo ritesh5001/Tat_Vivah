@@ -62,10 +62,13 @@ function getRazorpayConstructor() {
   return (window as Window & { Razorpay?: RazorpayConstructor }).Razorpay ?? null;
 }
 
+type PaymentMethod = "RAZORPAY" | "PHONEPE";
+
 export default function CheckoutPage() {
   const router = useRouter();
   const [loading, setLoading] = React.useState(false);
   const [isPaying, setIsPaying] = React.useState(false);
+  const [paymentMethod, setPaymentMethod] = React.useState<PaymentMethod>("RAZORPAY");
   const [cartTotal, setCartTotal] = React.useState(0);
   const [hasItems, setHasItems] = React.useState(false);
   const [razorpayReady, setRazorpayReady] = React.useState(false);
@@ -243,24 +246,30 @@ export default function CheckoutPage() {
       return;
     }
 
-    const gatewayPromise = razorpayReady
+    const usePhonePe = paymentMethod === "PHONEPE";
+
+    const gatewayPromise = usePhonePe || razorpayReady
       ? Promise.resolve(true)
       : warmRazorpay();
 
     setLoading(true);
     setIsPaying(true);
     try {
-      const orderResult = await checkoutWithPayment({
-        shippingName: shipping.name || undefined,
-        shippingPhone: shipping.phone || undefined,
-        shippingEmail: shipping.email || undefined,
-        shippingAddressLine1: shipping.addressLine1 || undefined,
-        shippingAddressLine2: shipping.addressLine2 || undefined,
-        shippingCity: shipping.city || undefined,
-        shippingPincode: shipping.pincode || undefined,
-        shippingNotes: shipping.notes || undefined,
-        couponCode: appliedCoupon?.code || undefined,
-      });
+      const orderResult = await checkoutWithPayment(
+        {
+          shippingName: shipping.name || undefined,
+          shippingPhone: shipping.phone || undefined,
+          shippingEmail: shipping.email || undefined,
+          shippingAddressLine1: shipping.addressLine1 || undefined,
+          shippingAddressLine2: shipping.addressLine2 || undefined,
+          shippingCity: shipping.city || undefined,
+          shippingPincode: shipping.pincode || undefined,
+          shippingNotes: shipping.notes || undefined,
+          couponCode: appliedCoupon?.code || undefined,
+        },
+        undefined,
+        paymentMethod
+      );
       const orderId = orderResult.order?.id;
       if (!orderId) {
         throw new Error("Order ID missing. Please try again.");
@@ -276,6 +285,17 @@ export default function CheckoutPage() {
         });
       }
 
+      // ---- PhonePe: redirect flow — send the buyer to the hosted page ----
+      if (usePhonePe) {
+        const payment =
+          orderResult.payment ?? (await initiatePayment(orderId, "PHONEPE")).data;
+        if (!payment.redirectUrl) {
+          throw new Error("PhonePe checkout could not be started. Please try again.");
+        }
+        window.location.assign(payment.redirectUrl);
+        return;
+      }
+
       const gatewayReady = await gatewayPromise;
 
       if (!gatewayReady) {
@@ -284,6 +304,9 @@ export default function CheckoutPage() {
       }
 
       const data = orderResult.payment ?? (await initiatePayment(orderId, "RAZORPAY")).data;
+      if (!data.key) {
+        throw new Error("Payment gateway configuration missing. Please try again.");
+      }
 
       const options: RazorpayCheckoutOptions = {
         key: data.key,
@@ -689,6 +712,46 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
+              {/* Payment Method */}
+              <div className="space-y-3">
+                <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                  Payment Method
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod("RAZORPAY")}
+                    onMouseEnter={() => void warmRazorpay()}
+                    disabled={isPaying || loading}
+                    className={`p-4 border text-left transition-all duration-300 ${
+                      paymentMethod === "RAZORPAY"
+                        ? "border-gold bg-gold/5"
+                        : "border-border-soft hover:border-gold/40"
+                    }`}
+                  >
+                    <p className="text-sm font-medium text-foreground">Razorpay</p>
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      Cards, UPI, netbanking &amp; wallets
+                    </p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod("PHONEPE")}
+                    disabled={isPaying || loading}
+                    className={`p-4 border text-left transition-all duration-300 ${
+                      paymentMethod === "PHONEPE"
+                        ? "border-gold bg-gold/5"
+                        : "border-border-soft hover:border-gold/40"
+                    }`}
+                  >
+                    <p className="text-sm font-medium text-foreground">PhonePe</p>
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      UPI, cards &amp; PhonePe wallet
+                    </p>
+                  </button>
+                </div>
+              </div>
+
               <div className="space-y-4">
                 <motion.div
                   whileHover={{ y: -2 }}
@@ -698,9 +761,9 @@ export default function CheckoutPage() {
                     size="lg"
                     className="w-full h-14"
                     onClick={handleCheckout}
-                    onMouseEnter={() => void warmRazorpay()}
-                    onFocus={() => void warmRazorpay()}
-                    onTouchStart={() => void warmRazorpay()}
+                    onMouseEnter={() => paymentMethod === "RAZORPAY" && void warmRazorpay()}
+                    onFocus={() => paymentMethod === "RAZORPAY" && void warmRazorpay()}
+                    onTouchStart={() => paymentMethod === "RAZORPAY" && void warmRazorpay()}
                     disabled={!hasItems || loading || isPaying}
                   >
                     {isPaying ? "Processing Payment..." : loading ? "Processing..." : "Complete Purchase"}
@@ -718,7 +781,7 @@ export default function CheckoutPage() {
                 <div className="flex items-center gap-3">
                   <span className="h-1.5 w-1.5 rounded-full bg-green-600/60" />
                   <span className="text-xs text-muted-foreground">
-                    Secured by Razorpay
+                    Secured by {paymentMethod === "PHONEPE" ? "PhonePe" : "Razorpay"}
                   </span>
                 </div>
                 <div className="flex items-center gap-3">

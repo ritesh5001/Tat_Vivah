@@ -86,6 +86,17 @@ const envSchema = z.object({
     RAZORPAY_KEY_ID: z.string().optional(),
     RAZORPAY_KEY_SECRET: z.string().optional(),
     RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
+
+    // PhonePe PG (Standard Checkout v2)
+    PHONEPE_CLIENT_ID: z.string().optional(),
+    PHONEPE_CLIENT_SECRET: z.string().optional(),
+    PHONEPE_CLIENT_VERSION: z.string().default('1'),
+    PHONEPE_ENV: z.enum(['SANDBOX', 'PRODUCTION']).default('SANDBOX'),
+    // Credentials configured on the PhonePe dashboard for webhook basic-auth
+    PHONEPE_WEBHOOK_USERNAME: z.string().optional(),
+    PHONEPE_WEBHOOK_PASSWORD: z.string().optional(),
+    // Optional deep link the mobile app is redirected to after payment
+    PHONEPE_MOBILE_REDIRECT_URL: z.string().optional(),
 });
 
 /**

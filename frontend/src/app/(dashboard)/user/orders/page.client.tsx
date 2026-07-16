@@ -153,15 +153,25 @@ export default function UserOrdersClient({
   // ---- Retry payment handler ----
   const handleRetryPayment = React.useCallback(async (orderId: string) => {
     if (retryingOrderId) return; // prevent double-click
-    if (!razorpayReadyRef.current) {
-      toast.error("Payment gateway is loading. Please wait.");
-      return;
-    }
 
     setRetryingOrderId(orderId);
     try {
       const paymentResult = await retryPayment(orderId);
       const data = paymentResult.data;
+
+      // PhonePe retries use the redirect flow — no SDK involved
+      if (data.provider === "PHONEPE") {
+        if (!data.redirectUrl) {
+          throw new Error("PhonePe checkout could not be started. Please try again.");
+        }
+        window.location.assign(data.redirectUrl);
+        return;
+      }
+
+      if (!razorpayReadyRef.current) {
+        toast.error("Payment gateway is loading. Please wait.");
+        return;
+      }
 
       const options = {
         key: data.key,

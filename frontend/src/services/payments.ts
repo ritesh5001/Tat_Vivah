@@ -1,6 +1,6 @@
 import { apiRequest } from "@/services/api";
 
-export type PaymentProvider = "RAZORPAY" | "MOCK";
+export type PaymentProvider = "RAZORPAY" | "PHONEPE" | "MOCK";
 
 export interface InitiatePaymentResponse {
   data: {
@@ -8,8 +8,19 @@ export interface InitiatePaymentResponse {
     orderId: string;
     amount: number;
     currency: string;
-    key: string;
+    /** Razorpay key_id (absent for PhonePe). */
+    key?: string;
     provider: string;
+    /** PhonePe hosted checkout page — redirect the buyer here. */
+    redirectUrl?: string;
+  };
+}
+
+export interface PhonePeVerifyResponse {
+  data: {
+    status: "SUCCESS" | "FAILED" | "PENDING";
+    paymentId: string;
+    message: string;
   };
 }
 
@@ -46,6 +57,18 @@ export async function verifyPayment(payload: {
   return apiRequest<VerifyPaymentResponse>("/v1/payments/verify", {
     method: "POST",
     body: payload,
+    token,
+  });
+}
+
+/**
+ * Confirm a PhonePe payment after the redirect back (or while polling).
+ * The backend checks the authoritative state with PhonePe's Order Status API.
+ */
+export async function verifyPhonePePayment(orderId: string, token?: string | null) {
+  return apiRequest<PhonePeVerifyResponse>("/v1/payments/phonepe/verify", {
+    method: "POST",
+    body: { orderId },
     token,
   });
 }

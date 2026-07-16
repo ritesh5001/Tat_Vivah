@@ -3,15 +3,27 @@ import { apiRequest } from "./api";
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
+export type PaymentProvider = "RAZORPAY" | "PHONEPE";
+
 export interface InitiatePaymentResponse {
   data: {
     paymentId: string;
     orderId: string;
     amount: number;
     currency: string;
-    /** Razorpay key_id — required for opening the checkout SDK. */
-    key: string;
+    /** Razorpay key_id — required for opening the checkout SDK (absent for PhonePe). */
+    key?: string;
     provider: string;
+    /** PhonePe hosted checkout page — open this in the browser. */
+    redirectUrl?: string;
+  };
+}
+
+export interface PhonePeVerifyResponse {
+  data: {
+    status: "SUCCESS" | "FAILED" | "PENDING";
+    paymentId: string;
+    message: string;
   };
 }
 
@@ -38,14 +50,30 @@ export interface PaymentDetailsResponse {
 // API calls
 // ---------------------------------------------------------------------------
 
-/** Initiate a Razorpay payment for the given order. */
+/** Initiate a payment for the given order (Razorpay by default). */
 export async function initiatePayment(
   orderId: string,
-  token?: string | null
+  token?: string | null,
+  provider: PaymentProvider = "RAZORPAY"
 ) {
   return apiRequest<InitiatePaymentResponse>("/v1/payments/initiate", {
     method: "POST",
-    body: { orderId, provider: "RAZORPAY" },
+    body: { orderId, provider, platform: "MOBILE" },
+    token,
+  });
+}
+
+/**
+ * Confirm a PhonePe payment after the buyer returns from the browser.
+ * The backend checks the authoritative state with PhonePe's Order Status API.
+ */
+export async function verifyPhonePePayment(
+  orderId: string,
+  token?: string | null
+) {
+  return apiRequest<PhonePeVerifyResponse>("/v1/payments/phonepe/verify", {
+    method: "POST",
+    body: { orderId },
     token,
   });
 }
@@ -68,6 +96,7 @@ export async function retryPayment(
 ) {
   return apiRequest<InitiatePaymentResponse>(`/v1/payments/retry/${orderId}`, {
     method: "POST",
+    body: { platform: "MOBILE" },
     token,
   });
 }

@@ -5,6 +5,9 @@ import { prisma } from '../config/db.js';
 import { ApiError } from '../errors/ApiError.js';
 import { razorpayService } from './razorpay.service.js';
 import { getRazorpayKeyId, isRazorpayConfigured, razorpayClient } from './razorpay.client.js';
+import { phonepeService } from './phonepe.service.js';
+import { isPhonePeConfigured } from './phonepe.client.js';
+import { env } from '../config/env.js';
 import { emitPaymentSuccess, emitPaymentFailed } from '../events/order.events.js';
 import { paymentLogger } from '../config/logger.js';
 import { paymentSuccessTotal, staleCancelTotal, refundSuccessTotal } from '../config/metrics.js';
@@ -28,6 +31,9 @@ function toNumber(value: unknown): number {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : 0;
 }
+
+/** Where the buyer should land after a PhonePe redirect-flow payment. */
+export type PaymentPlatform = 'WEB' | 'MOBILE';
 
 function isTransactionStartTimeout(error: unknown): boolean {
     if (!(error instanceof Error)) return false;
@@ -194,6 +200,29 @@ export class PaymentService {
                 });
                 throw new ApiError(502, `Refund API failed: ${error?.message ?? 'unknown error'}`);
             }
+        } else if (
+            payment.provider === PaymentProvider.PHONEPE
+            && payment.providerOrderId
+            && isPhonePeConfigured()
+        ) {
+            try {
+                await phonepeService.initiateRefund(
+                    `rf_${payment.id}`,
+                    payment.providerOrderId,
+                    payment.amount,
+                );
+            } catch (error: any) {
+                // ── Step 3: Revert DB status on provider failure ─────
+                paymentLogger.error(
+                    { orderId, paymentId: payment.id, error: error?.message },
+                    'refund_provider_failed_reverting',
+                );
+                await prisma.payment.updateMany({
+                    where: { id: payment.id, status: PaymentStatus.REFUNDED },
+                    data: { status: PaymentStatus.SUCCESS },
+                });
+                throw new ApiError(502, `Refund API failed: ${error?.message ?? 'unknown error'}`);
+            }
         }
 
         refundSuccessTotal.inc();
@@ -210,7 +239,24 @@ export class PaymentService {
     // Initiate / Re-initiate payment
     // ------------------------------------------------------------------
 
-    async initiatePayment(userId: string, orderId: string, provider: PaymentProvider) {
+    /**
+     * Build the URL PhonePe redirects the buyer to after checkout.
+     * WEB → frontend callback page; MOBILE → app deep link (if configured).
+     */
+    private buildPhonePeRedirectUrl(orderId: string, platform: PaymentPlatform): string {
+        if (platform === 'MOBILE' && env.PHONEPE_MOBILE_REDIRECT_URL) {
+            const separator = env.PHONEPE_MOBILE_REDIRECT_URL.includes('?') ? '&' : '?';
+            return `${env.PHONEPE_MOBILE_REDIRECT_URL}${separator}orderId=${encodeURIComponent(orderId)}`;
+        }
+
+        if (!env.FRONTEND_BASE_URL) {
+            throw new ApiError(500, 'FRONTEND_BASE_URL must be configured for PhonePe payments');
+        }
+        const base = env.FRONTEND_BASE_URL.replace(/\/$/, '');
+        return `${base}/checkout/phonepe/callback?orderId=${encodeURIComponent(orderId)}`;
+    }
+
+    async initiatePayment(userId: string, orderId: string, provider: PaymentProvider, platform: PaymentPlatform = 'WEB') {
         // 1. Validate Order
         const [order, existingPayment] = await Promise.all([
             this.findOrderForPayment(userId, orderId),
@@ -329,6 +375,36 @@ export class PaymentService {
             };
         }
 
+        // Handle PHONEPE Provider (redirect flow — Standard Checkout v2)
+        if (provider === PaymentProvider.PHONEPE) {
+            if (!isPhonePeConfigured()) {
+                throw new ApiError(500, 'PhonePe is not configured');
+            }
+
+            const merchantOrderId = phonepeService.buildMerchantOrderId(orderId);
+            const redirectUrl = this.buildPhonePeRedirectUrl(orderId, platform);
+
+            const phonepeOrder = await phonepeService.createOrder(
+                payableAmount,
+                merchantOrderId,
+                redirectUrl,
+                { orderId, userId },
+            );
+
+            // Store merchantOrderId so webhooks / status checks can find this payment
+            await paymentRepository.updateProviderOrderId(payment.id, phonepeOrder.merchantOrderId);
+
+            return {
+                paymentId: payment.id,
+                orderId: phonepeOrder.merchantOrderId,
+                phonepeOrderId: phonepeOrder.phonepeOrderId,
+                redirectUrl: phonepeOrder.redirectUrl,
+                amount: phonepeOrder.amount,
+                currency: 'INR',
+                provider: 'PHONEPE'
+            };
+        }
+
         // Handle other providers (placeholder)
         throw new ApiError(400, 'Provider not supported');
     }
@@ -337,7 +413,7 @@ export class PaymentService {
     // Retry payment for a PLACED order with FAILED / INITIATED payment
     // ------------------------------------------------------------------
 
-    async retryPayment(userId: string, orderId: string) {
+    async retryPayment(userId: string, orderId: string, platform: PaymentPlatform = 'WEB') {
         const order = await this.findOrderForPayment(userId, orderId);
         if (!order) {
             throw new ApiError(404, 'Order not found or access denied');
@@ -363,7 +439,7 @@ export class PaymentService {
         }
 
         const provider = existingPayment?.provider ?? PaymentProvider.RAZORPAY;
-        return this.initiatePayment(userId, orderId, provider);
+        return this.initiatePayment(userId, orderId, provider, platform);
     }
 
     // ------------------------------------------------------------------
@@ -436,6 +512,77 @@ export class PaymentService {
         }
 
         return { message: 'Payment verified', paymentId: payment.id };
+    }
+
+    // ------------------------------------------------------------------
+    // Verify PhonePe payment (redirect callback / client polling)
+    //
+    // PhonePe's redirect flow has no client-side signature. The only
+    // trusted confirmation is a server-to-server Order Status call.
+    // ------------------------------------------------------------------
+
+    async verifyPhonePePayment(userId: string, orderId: string): Promise<{
+        status: 'SUCCESS' | 'FAILED' | 'PENDING';
+        paymentId: string;
+        message: string;
+    }> {
+        const payment = await paymentRepository.findPaymentByOrderId(orderId);
+        if (!payment) {
+            throw new ApiError(404, 'Payment not found');
+        }
+        if (payment.userId !== userId) {
+            throw new ApiError(403, 'Unauthorized');
+        }
+
+        // Idempotent — already succeeded (e.g. webhook arrived first)
+        if (payment.status === PaymentStatus.SUCCESS) {
+            return { status: 'SUCCESS', paymentId: payment.id, message: 'Payment already verified' };
+        }
+
+        if (payment.provider !== PaymentProvider.PHONEPE || !payment.providerOrderId) {
+            throw new ApiError(400, 'No PhonePe payment attempt found for this order');
+        }
+
+        const statusResponse = await phonepeService.getOrderStatus(payment.providerOrderId);
+
+        if (statusResponse.state === 'COMPLETED') {
+            const transactionId =
+                statusResponse.paymentDetails?.[0]?.transactionId ?? statusResponse.orderId;
+            try {
+                await this.handlePaymentSuccess(
+                    payment.id,
+                    payment.orderId,
+                    transactionId,
+                    {
+                        merchantOrderId: payment.providerOrderId,
+                        phonepeOrderId: statusResponse.orderId,
+                        transactionId,
+                        source: 'status_check',
+                    },
+                );
+            } catch (error) {
+                if (isTransactionStartTimeout(error)) {
+                    const latest = await paymentRepository.findPaymentById(payment.id);
+                    if (latest?.status === PaymentStatus.SUCCESS) {
+                        return { status: 'SUCCESS', paymentId: payment.id, message: 'Payment already verified' };
+                    }
+                    throw new ApiError(503, 'Payment is being finalized. Please refresh order status in a few seconds.');
+                }
+                throw error;
+            }
+            return { status: 'SUCCESS', paymentId: payment.id, message: 'Payment verified' };
+        }
+
+        if (statusResponse.state === 'FAILED') {
+            await this.handlePaymentFailure(payment.id, {
+                merchantOrderId: payment.providerOrderId,
+                phonepeOrderId: statusResponse.orderId,
+                source: 'status_check',
+            });
+            return { status: 'FAILED', paymentId: payment.id, message: 'Payment failed' };
+        }
+
+        return { status: 'PENDING', paymentId: payment.id, message: 'Payment is still pending' };
     }
 
     // ------------------------------------------------------------------

@@ -17,6 +17,9 @@ export class WebhookController {
         let signature = '';
         if (provider.toLowerCase() === 'razorpay') {
             signature = (req.headers['x-razorpay-signature'] as string) || '';
+        } else if (provider.toLowerCase() === 'phonepe') {
+            // PhonePe sends SHA256(username:password) in the Authorization header
+            signature = (req.headers['authorization'] as string) || '';
         } else {
             signature = (req.headers['x-signature'] as string) || '';
         }

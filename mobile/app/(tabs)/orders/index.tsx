@@ -5,13 +5,19 @@ import {
   FlatList,
   Pressable,
   Modal,
+  Linking,
   type ListRenderItemInfo,
 } from "react-native";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import { listBuyerOrders, type BuyerOrder } from "../../../src/services/orders";
 import { listMyCancellations, requestCancellation } from "../../../src/services/cancellations";
 import { listMyReturns, requestReturn } from "../../../src/services/returns";
-import { getPaymentDetails, retryPayment, verifyPayment } from "../../../src/services/payments";
+import {
+  getPaymentDetails,
+  retryPayment,
+  verifyPayment,
+  verifyPhonePePayment,
+} from "../../../src/services/payments";
 import { isRazorpayAvailable, openRazorpayCheckout } from "../../../src/services/razorpay";
 import { useAuth } from "../../../src/hooks/useAuth";
 import { usePathname, useRouter } from "expo-router";
@@ -33,6 +39,28 @@ const currency = new Intl.NumberFormat("en-IN", {
   currency: "INR",
   maximumFractionDigits: 0,
 });
+
+// PhonePe finishes in the browser / PhonePe app — poll our backend for the outcome.
+const PHONEPE_POLL_INTERVAL_MS = 3000;
+const PHONEPE_MAX_WAIT_MS = 4 * 60 * 1000;
+
+async function waitForPhonePeRetryResult(
+  orderId: string,
+  token: string
+): Promise<"SUCCESS" | "FAILED" | "TIMEOUT"> {
+  const deadline = Date.now() + PHONEPE_MAX_WAIT_MS;
+  while (Date.now() < deadline) {
+    try {
+      const result = await verifyPhonePePayment(orderId, token);
+      if (result.data.status === "SUCCESS") return "SUCCESS";
+      if (result.data.status === "FAILED") return "FAILED";
+    } catch {
+      // Transient error while the user is inside the PhonePe app — keep polling.
+    }
+    await new Promise((resolve) => setTimeout(resolve, PHONEPE_POLL_INTERVAL_MS));
+  }
+  return "TIMEOUT";
+}
 
 type OrdersScreenCache = {
   token: string;
@@ -542,18 +570,44 @@ export default function OrdersScreen() {
   const handleRetryPayment = React.useCallback(async (orderId: string) => {
     if (retryingOrderId) return; // prevent double-tap
     if (!token) return;
-    if (!isRazorpayAvailable()) {
-      showToast(
-        "Razorpay is unavailable in Expo Go. Use a development build to test payments.",
-        "error"
-      );
-      return;
-    }
 
     setRetryingOrderId(orderId);
     try {
       const paymentResult = await retryPayment(orderId, token);
       const { key, orderId: razorpayOrderId, amount, currency } = paymentResult.data;
+
+      // PhonePe retries use the redirect flow — open the hosted page and poll
+      if (paymentResult.data.provider === "PHONEPE") {
+        const redirectUrl = paymentResult.data.redirectUrl;
+        if (!redirectUrl) {
+          throw new Error("PhonePe checkout could not be started. Please try again.");
+        }
+        await Linking.openURL(redirectUrl);
+
+        const outcome = await waitForPhonePeRetryResult(orderId, token);
+        if (outcome === "SUCCESS") {
+          notifySuccess();
+          showToast("Payment successful. Order confirmed.", "success");
+        } else if (outcome === "FAILED") {
+          notifyError();
+          showToast("Payment failed. You can retry anytime.", "error");
+        } else {
+          showToast("Payment pending. Pull to refresh for the final status.", "info");
+        }
+        loadOrders();
+        return;
+      }
+
+      if (!isRazorpayAvailable()) {
+        showToast(
+          "Razorpay is unavailable in Expo Go. Use a development build to test payments.",
+          "error"
+        );
+        return;
+      }
+      if (!key) {
+        throw new Error("Payment gateway configuration missing. Please try again.");
+      }
 
       const razorpayResult = await openRazorpayCheckout({
         key,

@@ -3,7 +3,7 @@ import { Router } from 'express';
 import { paymentController } from '../controllers/payment.controller.js';
 import { authenticate } from '../middlewares/auth.middleware.js';
 import { validateRequest } from '../middlewares/validateRequest.js'; // Assuming this exists or similar
-import { initiatePaymentSchema, verifyPaymentSchema, retryPaymentSchema } from '../validators/payment.validation.js';
+import { initiatePaymentSchema, verifyPaymentSchema, verifyPhonePePaymentSchema, retryPaymentSchema } from '../validators/payment.validation.js';
 
 const router = Router();
 
@@ -20,6 +20,13 @@ router.post(
     '/verify',
     validateRequest(verifyPaymentSchema),
     paymentController.verifyPayment
+);
+
+// PhonePe redirect flow — client asks us to confirm state with PhonePe
+router.post(
+    '/phonepe/verify',
+    validateRequest(verifyPhonePePaymentSchema),
+    paymentController.verifyPhonePePayment
 );
 
 router.post(

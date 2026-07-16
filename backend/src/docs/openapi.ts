@@ -1107,7 +1107,7 @@ export const openApiSpec: OpenAPIObject = {
             post: {
                 tags: ["Payments"],
                 summary: "Initiate payment flow",
-                description: "Starts a payment for an order. Creates a pending payment record and returns provider-specific checkout info. For RAZORPAY, returns order ID and key for frontend checkout.",
+                description: "Starts a payment for an order. Creates a pending payment record and returns provider-specific checkout info. For RAZORPAY, returns order ID and key for frontend checkout. For PHONEPE, returns a redirectUrl to the hosted checkout page.",
                 security: [{ bearerAuth: [] }],
                 requestBody: {
                     required: true,
@@ -1120,8 +1120,13 @@ export const openApiSpec: OpenAPIObject = {
                                     orderId: { type: "string", description: "Order ID to pay for" },
                                     provider: {
                                         type: "string",
-                                        enum: ["MOCK", "RAZORPAY", "STRIPE"],
+                                        enum: ["MOCK", "RAZORPAY", "STRIPE", "PHONEPE"],
                                         description: "Payment provider to use"
+                                    },
+                                    platform: {
+                                        type: "string",
+                                        enum: ["WEB", "MOBILE"],
+                                        description: "PHONEPE only: controls the post-payment redirect target (default WEB)"
                                     },
                                 },
                             },
@@ -1145,8 +1150,9 @@ export const openApiSpec: OpenAPIObject = {
                                                 amount: { type: "number", description: "Amount in smallest currency unit (paise for INR)" },
                                                 currency: { type: "string", example: "INR" },
                                                 key: { type: "string", description: "RAZORPAY only: Public key ID for frontend" },
-                                                provider: { type: "string", enum: ["RAZORPAY", "MOCK"] },
-                                                checkoutUrl: { type: "string", description: "MOCK only: URL for test checkout" }
+                                                provider: { type: "string", enum: ["RAZORPAY", "PHONEPE", "MOCK"] },
+                                                checkoutUrl: { type: "string", description: "MOCK only: URL for test checkout" },
+                                                redirectUrl: { type: "string", description: "PHONEPE only: hosted checkout page to redirect the buyer to" }
                                             }
                                         }
                                     }
@@ -1157,6 +1163,55 @@ export const openApiSpec: OpenAPIObject = {
                     "400": { description: "Order already paid, provider not supported, or invalid request" },
                     "404": { description: "Order not found" },
                     "500": { description: "Razorpay not configured or provider error" },
+                },
+            },
+        },
+
+        "/v1/payments/phonepe/verify": {
+            post: {
+                tags: ["Payments"],
+                summary: "Verify PhonePe payment",
+                description: "Confirms a PhonePe redirect-flow payment by checking the authoritative order state server-to-server with PhonePe's Order Status API. Idempotent — safe to poll while the payment is PENDING.",
+                security: [{ bearerAuth: [] }],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                required: ["orderId"],
+                                properties: {
+                                    orderId: { type: "string", description: "Internal order ID" },
+                                },
+                            },
+                        },
+                    },
+                },
+                responses: {
+                    "200": {
+                        description: "Current payment state",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    type: "object",
+                                    properties: {
+                                        success: { type: "boolean" },
+                                        data: {
+                                            type: "object",
+                                            properties: {
+                                                status: { type: "string", enum: ["SUCCESS", "FAILED", "PENDING"] },
+                                                paymentId: { type: "string" },
+                                                message: { type: "string" },
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    "400": { description: "No PhonePe payment attempt found for this order" },
+                    "403": { description: "Unauthorized" },
+                    "404": { description: "Payment not found" },
                 },
             },
         },

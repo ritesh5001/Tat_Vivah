@@ -7,12 +7,18 @@ import {
   Alert,
   Modal,
   FlatList,
+  Linking,
 } from "react-native";
 import { usePathname, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, radius, spacing, typography, shadow } from "../../src/theme/tokens";
 import { checkout, validateCoupon, type CouponPreview } from "../../src/services/cart";
-import { initiatePayment, verifyPayment } from "../../src/services/payments";
+import {
+  initiatePayment,
+  verifyPayment,
+  verifyPhonePePayment,
+  type PaymentProvider,
+} from "../../src/services/payments";
 import { isRazorpayAvailable, openRazorpayCheckout } from "../../src/services/razorpay";
 import { ApiError } from "../../src/services/api";
 import { useAuth } from "../../src/hooks/useAuth";
@@ -74,6 +80,32 @@ const AddressSelectorRow = React.memo(function AddressSelectorRow({
 });
 
 // ---------------------------------------------------------------------------
+// PhonePe polling — the payment finishes in the browser / PhonePe app, so the
+// only way to learn the outcome is asking our backend, which asks PhonePe.
+// ---------------------------------------------------------------------------
+
+const PHONEPE_POLL_INTERVAL_MS = 3000;
+const PHONEPE_MAX_WAIT_MS = 4 * 60 * 1000;
+
+async function waitForPhonePeResult(
+  orderId: string,
+  token: string
+): Promise<"SUCCESS" | "FAILED" | "TIMEOUT"> {
+  const deadline = Date.now() + PHONEPE_MAX_WAIT_MS;
+  while (Date.now() < deadline) {
+    try {
+      const result = await verifyPhonePePayment(orderId, token);
+      if (result.data.status === "SUCCESS") return "SUCCESS";
+      if (result.data.status === "FAILED") return "FAILED";
+    } catch {
+      // Transient error while the user is inside the PhonePe app — keep polling.
+    }
+    await new Promise((resolve) => setTimeout(resolve, PHONEPE_POLL_INTERVAL_MS));
+  }
+  return "TIMEOUT";
+}
+
+// ---------------------------------------------------------------------------
 // Screen
 // ---------------------------------------------------------------------------
 
@@ -91,6 +123,7 @@ export default function CheckoutScreen() {
   // ---------- Payment guard — prevents double-submit ----------
   const [isPaying, setIsPaying] = React.useState(false);
   const [payLabel, setPayLabel] = React.useState("Starting payment");
+  const [paymentMethod, setPaymentMethod] = React.useState<PaymentProvider>("RAZORPAY");
   const [error, setError] = React.useState<string | null>(null);
   const [taxSummary, setTaxSummary] = React.useState<{
     subTotalAmount: number;
@@ -277,7 +310,7 @@ export default function CheckoutScreen() {
       showToast("Your cart is empty.", "info");
       return;
     }
-    if (!isRazorpayAvailable()) {
+    if (paymentMethod === "RAZORPAY" && !isRazorpayAvailable()) {
       showToast(
         "Razorpay is unavailable in Expo Go. Use a development build to test payments.",
         "error"
@@ -332,9 +365,52 @@ export default function CheckoutScreen() {
         });
       }
 
-      // 2. Initiate Razorpay payment
+      // 2a. PhonePe — redirect flow: open the hosted page, then poll for the result
+      if (paymentMethod === "PHONEPE") {
+        setPayLabel("Opening PhonePe");
+        const phonepePayment = await initiatePayment(orderId, token, "PHONEPE");
+        const redirectUrl = phonepePayment.data.redirectUrl;
+        if (!redirectUrl) {
+          throw new Error("PhonePe checkout could not be started. Please try again.");
+        }
+
+        await Linking.openURL(redirectUrl);
+
+        setPayLabel("Waiting for payment confirmation");
+        const outcome = await waitForPhonePeResult(orderId, token);
+
+        if (!mountedRef.current) return;
+
+        if (outcome === "SUCCESS") {
+          notifySuccess();
+          clearCart();
+          router.replace(`/orders/${orderId}`);
+          setTimeout(() => {
+            void refreshCart();
+          }, 0);
+          return;
+        }
+
+        if (outcome === "FAILED") {
+          setError("Payment failed. You can retry from your orders.");
+          notifyError();
+          showToast("Payment failed. Retry from orders.", "error");
+          router.replace(`/orders/${orderId}`);
+          return;
+        }
+
+        // TIMEOUT — payment may still complete via webhook
+        showToast("Payment pending. Check your orders for the final status.", "info");
+        router.replace(`/orders/${orderId}`);
+        return;
+      }
+
+      // 2b. Initiate Razorpay payment
       const payment = await initiatePayment(orderId, token);
       const { key, orderId: razorpayOrderId, amount, currency } = payment.data;
+      if (!key) {
+        throw new Error("Payment gateway configuration missing. Please try again.");
+      }
 
       // 3. Open Razorpay native checkout
       const prefillName = shipping.name || undefined;
@@ -704,6 +780,41 @@ export default function CheckoutScreen() {
           </View>
         </View>
 
+        {/* ---- Payment Method ---- */}
+        <View style={[styles.card, { marginTop: spacing.md }]}>
+          <Text style={styles.sectionTitle}>Payment Method</Text>
+          <View style={styles.payMethodRow}>
+            <AnimatedPressable
+              style={[
+                styles.payMethodOption,
+                paymentMethod === "RAZORPAY" && styles.payMethodOptionSelected,
+              ]}
+              onPress={() => {
+                setPaymentMethod("RAZORPAY");
+                impactLight();
+              }}
+              disabled={isPaying}
+            >
+              <Text style={styles.payMethodTitle}>Razorpay</Text>
+              <Text style={styles.payMethodDesc}>Cards, UPI & wallets</Text>
+            </AnimatedPressable>
+            <AnimatedPressable
+              style={[
+                styles.payMethodOption,
+                paymentMethod === "PHONEPE" && styles.payMethodOptionSelected,
+              ]}
+              onPress={() => {
+                setPaymentMethod("PHONEPE");
+                impactLight();
+              }}
+              disabled={isPaying}
+            >
+              <Text style={styles.payMethodTitle}>PhonePe</Text>
+              <Text style={styles.payMethodDesc}>UPI & PhonePe wallet</Text>
+            </AnimatedPressable>
+          </View>
+        </View>
+
         {/* ---- CTA ---- */}
         <AnimatedPressable
           style={[
@@ -831,6 +942,35 @@ const styles = StyleSheet.create({
     color: colors.charcoal,
     backgroundColor: colors.surface,
     marginBottom: spacing.md,
+  },
+
+  // Payment method selector
+  payMethodRow: {
+    flexDirection: "row",
+    gap: spacing.sm,
+  },
+  payMethodOption: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: 0,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+  },
+  payMethodOptionSelected: {
+    borderColor: colors.gold,
+    backgroundColor: colors.surfaceElevated,
+  },
+  payMethodTitle: {
+    fontFamily: typography.sansMedium,
+    fontSize: 14,
+    color: colors.charcoal,
+  },
+  payMethodDesc: {
+    marginTop: 2,
+    fontFamily: typography.sans,
+    fontSize: 11,
+    color: colors.brownSoft,
   },
 
   // Selected address display
