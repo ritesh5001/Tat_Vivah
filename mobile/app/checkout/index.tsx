@@ -365,6 +365,22 @@ export default function CheckoutScreen() {
         });
       }
 
+      // 2a-cod. COD — order is CONFIRMED server-side; no online payment now.
+      if (paymentMethod === "COD") {
+        setPayLabel("Placing order");
+        await initiatePayment(orderId, token, "COD");
+
+        if (!mountedRef.current) return;
+        notifySuccess();
+        clearCart();
+        showToast("Order placed! Pay cash on delivery.", "success");
+        router.replace(`/orders/${orderId}`);
+        setTimeout(() => {
+          void refreshCart();
+        }, 0);
+        return;
+      }
+
       // 2a. PhonePe — redirect flow: open the hosted page, then poll for the result
       if (paymentMethod === "PHONEPE") {
         setPayLabel("Opening PhonePe");
@@ -813,6 +829,21 @@ export default function CheckoutScreen() {
               <Text style={styles.payMethodDesc}>UPI & PhonePe wallet</Text>
             </AnimatedPressable>
           </View>
+          <AnimatedPressable
+            style={[
+              styles.payMethodOption,
+              styles.payMethodOptionFull,
+              paymentMethod === "COD" && styles.payMethodOptionSelected,
+            ]}
+            onPress={() => {
+              setPaymentMethod("COD");
+              impactLight();
+            }}
+            disabled={isPaying}
+          >
+            <Text style={styles.payMethodTitle}>Cash on Delivery</Text>
+            <Text style={styles.payMethodDesc}>Pay in cash when your order arrives</Text>
+          </AnimatedPressable>
         </View>
 
         {/* ---- CTA ---- */}
@@ -956,6 +987,10 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderWidth: 1,
     borderColor: colors.borderSoft,
+  },
+  payMethodOptionFull: {
+    flex: undefined,
+    marginTop: spacing.sm,
   },
   payMethodOptionSelected: {
     borderColor: colors.gold,

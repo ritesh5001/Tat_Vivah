@@ -3,7 +3,7 @@ import { apiRequest } from "./api";
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
-export type PaymentProvider = "RAZORPAY" | "PHONEPE";
+export type PaymentProvider = "RAZORPAY" | "PHONEPE" | "COD";
 
 export interface InitiatePaymentResponse {
   data: {
@@ -11,11 +11,13 @@ export interface InitiatePaymentResponse {
     orderId: string;
     amount: number;
     currency: string;
-    /** Razorpay key_id — required for opening the checkout SDK (absent for PhonePe). */
+    /** Razorpay key_id — required for opening the checkout SDK (absent for PhonePe/COD). */
     key?: string;
     provider: string;
     /** PhonePe hosted checkout page — open this in the browser. */
     redirectUrl?: string;
+    /** COD only: order is CONFIRMED immediately, no online payment. */
+    status?: string;
   };
 }
 

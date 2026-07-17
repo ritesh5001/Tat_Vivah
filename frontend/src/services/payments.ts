@@ -1,6 +1,6 @@
 import { apiRequest } from "@/services/api";
 
-export type PaymentProvider = "RAZORPAY" | "PHONEPE" | "MOCK";
+export type PaymentProvider = "RAZORPAY" | "PHONEPE" | "COD" | "MOCK";
 
 export interface InitiatePaymentResponse {
   data: {
@@ -8,11 +8,13 @@ export interface InitiatePaymentResponse {
     orderId: string;
     amount: number;
     currency: string;
-    /** Razorpay key_id (absent for PhonePe). */
+    /** Razorpay key_id (absent for PhonePe/COD). */
     key?: string;
     provider: string;
     /** PhonePe hosted checkout page — redirect the buyer here. */
     redirectUrl?: string;
+    /** COD only: order is CONFIRMED immediately, no online payment. */
+    status?: string;
   };
 }
 

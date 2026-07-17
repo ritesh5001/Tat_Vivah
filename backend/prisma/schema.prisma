@@ -859,6 +859,7 @@ enum PaymentProvider {
   RAZORPAY
   STRIPE
   PHONEPE
+  COD
 }
 
 enum PaymentEventType {

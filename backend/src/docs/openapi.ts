@@ -1120,7 +1120,7 @@ export const openApiSpec: OpenAPIObject = {
                                     orderId: { type: "string", description: "Order ID to pay for" },
                                     provider: {
                                         type: "string",
-                                        enum: ["MOCK", "RAZORPAY", "STRIPE", "PHONEPE"],
+                                        enum: ["MOCK", "RAZORPAY", "STRIPE", "PHONEPE", "COD"],
                                         description: "Payment provider to use"
                                     },
                                     platform: {
@@ -1150,7 +1150,7 @@ export const openApiSpec: OpenAPIObject = {
                                                 amount: { type: "number", description: "Amount in smallest currency unit (paise for INR)" },
                                                 currency: { type: "string", example: "INR" },
                                                 key: { type: "string", description: "RAZORPAY only: Public key ID for frontend" },
-                                                provider: { type: "string", enum: ["RAZORPAY", "PHONEPE", "MOCK"] },
+                                                provider: { type: "string", enum: ["RAZORPAY", "PHONEPE", "COD", "MOCK"] },
                                                 checkoutUrl: { type: "string", description: "MOCK only: URL for test checkout" },
                                                 redirectUrl: { type: "string", description: "PHONEPE only: hosted checkout page to redirect the buyer to" }
                                             }

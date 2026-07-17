@@ -30,7 +30,16 @@ FASHN_POLL_TIMEOUT_MS=115000
 
 ## Payment Gateways
 
-Two providers are supported: Razorpay (SDK/modal flow) and PhonePe (redirect flow, Standard Checkout v2). Buyers pick the provider at checkout on both web and mobile.
+Three payment options are supported: Razorpay (SDK/modal flow), PhonePe (redirect flow, Standard Checkout v2), and COD (Cash on Delivery). Buyers pick the option at checkout on both web and mobile.
+
+### Cash on Delivery (COD)
+
+COD needs no gateway or configuration. When a buyer chooses COD:
+
+1. The order is confirmed immediately (status `PLACED → CONFIRMED`, invoice assigned) so the seller can fulfil it. The `Payment` row is created with `provider = COD`, `status = INITIATED` — no money is collected yet.
+2. Seller settlements are **not** created at this point; the cash hasn't been received.
+3. When the order is marked `DELIVERED` (all shipments delivered), the backend automatically captures the COD payment: `status INITIATED → SUCCESS`, and seller settlements are created. This runs inside the shipment status sync (`ShipmentService.checkAndSyncOrderStatus`).
+4. Refunds on a delivered COD order are recorded in the ledger but settled offline (cash returned to the buyer) — there is no gateway call.
 
 ### Razorpay Environment
 

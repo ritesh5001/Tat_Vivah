@@ -28,7 +28,9 @@ export class CheckoutController {
             const provider =
                 requestedProvider === PaymentProvider.PHONEPE
                     ? PaymentProvider.PHONEPE
-                    : PaymentProvider.RAZORPAY;
+                    : requestedProvider === PaymentProvider.COD
+                        ? PaymentProvider.COD
+                        : PaymentProvider.RAZORPAY;
             const platform = String(req.query.platform ?? '').toUpperCase() === 'MOBILE' ? 'MOBILE' as const : 'WEB' as const;
 
             try {

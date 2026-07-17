@@ -357,6 +357,25 @@ export class PaymentService {
             };
         }
 
+        // Handle COD (Cash on Delivery)
+        //
+        // No online collection happens now. We confirm the order so the seller
+        // can fulfil it, but the payment stays INITIATED — it is only captured
+        // (flipped to SUCCESS, settlements calculated) once the order is
+        // actually DELIVERED, which is where the cash changes hands.
+        if (provider === PaymentProvider.COD) {
+            await this.confirmCodOrder(orderId, payment.id);
+
+            return {
+                paymentId: payment.id,
+                orderId,
+                amount: Math.round(payableAmount * 100),
+                currency: 'INR',
+                provider: 'COD',
+                status: 'CONFIRMED'
+            };
+        }
+
         // Handle RAZORPAY Provider
         if (provider === PaymentProvider.RAZORPAY) {
             const razorpayOrder = await razorpayService.createOrder(
@@ -587,6 +606,124 @@ export class PaymentService {
         }
 
         return { status: 'PENDING', paymentId: payment.id, message: 'Payment is still pending' };
+    }
+
+    // ------------------------------------------------------------------
+    // COD — confirm order at placement (payment stays INITIATED)
+    //
+    // Moves the order PLACED → CONFIRMED and assigns an invoice, mirroring
+    // handlePaymentSuccess, but WITHOUT marking the payment SUCCESS or
+    // creating settlements. Cash is captured on delivery (captureCodPayment).
+    // Idempotent via an optimistic lock on the order status.
+    // ------------------------------------------------------------------
+
+    private async confirmCodOrder(orderId: string, paymentId: string) {
+        const result = await prisma.$transaction(async (tx: any) => {
+            // Only confirm if still PLACED — guards against double-submit and
+            // the stale-order canceller racing us.
+            const updated = await tx.order.updateMany({
+                where: { id: orderId, status: OrderStatus.PLACED },
+                data: { status: OrderStatus.CONFIRMED },
+            });
+
+            if (updated.count === 0) {
+                return { alreadyProcessed: true };
+            }
+
+            // Assign invoice number atomically (same helper as prepaid path)
+            const invoiceNumber = await generateInvoiceNumber(tx as any);
+            await tx.order.update({
+                where: { id: orderId },
+                data: {
+                    invoiceNumber,
+                    invoiceIssuedAt: new Date(),
+                },
+            });
+
+            await tx.paymentEvent.create({
+                data: {
+                    paymentId,
+                    type: PaymentEventType.INITIATED,
+                    payload: { event: 'COD_ORDER_CONFIRMED', orderId },
+                },
+            });
+
+            return { alreadyProcessed: false };
+        }, {
+            maxWait: TX_MAX_WAIT_MS,
+            timeout: TX_TIMEOUT_MS,
+        });
+
+        if (result.alreadyProcessed) return;
+
+        paymentLogger.info({ event: 'cod_order_confirmed', orderId, paymentId }, `COD order confirmed ${orderId}`);
+
+        // Reuse the payment-success notification + confirmation email path.
+        await emitPaymentSuccess(orderId);
+
+        await dispatchFreshness({
+            type: 'payment.updated',
+            entityId: orderId,
+            tags: [
+                CACHE_TAGS.payments,
+                CACHE_TAGS.orders,
+                CACHE_TAGS.userOrders,
+                CACHE_TAGS.sellerOrders,
+                orderTag(orderId),
+            ],
+            audience: { allAuthenticated: true },
+        });
+    }
+
+    // ------------------------------------------------------------------
+    // COD — capture cash on delivery
+    //
+    // Called when an order is marked DELIVERED. Flips the COD payment
+    // INITIATED → SUCCESS and creates seller settlements (idempotent).
+    // No-op for non-COD payments or if already captured.
+    // ------------------------------------------------------------------
+
+    async captureCodPayment(orderId: string) {
+        const payment = await paymentRepository.findPaymentByOrderId(orderId);
+        if (!payment) return;
+        if (payment.provider !== PaymentProvider.COD) return;
+        if (payment.status === PaymentStatus.SUCCESS) return;
+
+        const updated = await prisma.payment.updateMany({
+            where: { id: payment.id, status: { not: PaymentStatus.SUCCESS } },
+            data: {
+                status: PaymentStatus.SUCCESS,
+                providerPaymentId: `cod_${payment.id}`,
+            },
+        });
+
+        // Another caller already captured it → skip duplicate settlement.
+        if (updated.count === 0) return;
+
+        await paymentRepository.createPaymentEvent({
+            paymentId: payment.id,
+            type: PaymentEventType.SUCCESS,
+            payload: { event: 'COD_CASH_COLLECTED', orderId },
+        });
+
+        paymentSuccessTotal.inc();
+        paymentLogger.info({ event: 'cod_payment_captured', orderId, paymentId: payment.id }, `COD cash collected for ${orderId}`);
+
+        // Now that money is in hand, create seller settlements (idempotent).
+        await commissionService.calculateAndStoreSellerSettlement(orderId);
+
+        await dispatchFreshness({
+            type: 'payment.updated',
+            entityId: orderId,
+            tags: [
+                CACHE_TAGS.payments,
+                CACHE_TAGS.orders,
+                CACHE_TAGS.userOrders,
+                CACHE_TAGS.sellerOrders,
+                orderTag(orderId),
+            ],
+            audience: { allAuthenticated: true },
+        });
     }
 
     // ------------------------------------------------------------------

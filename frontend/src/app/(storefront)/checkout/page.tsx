@@ -62,7 +62,7 @@ function getRazorpayConstructor() {
   return (window as Window & { Razorpay?: RazorpayConstructor }).Razorpay ?? null;
 }
 
-type PaymentMethod = "RAZORPAY" | "PHONEPE";
+type PaymentMethod = "RAZORPAY" | "PHONEPE" | "COD";
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -247,8 +247,9 @@ export default function CheckoutPage() {
     }
 
     const usePhonePe = paymentMethod === "PHONEPE";
+    const useCod = paymentMethod === "COD";
 
-    const gatewayPromise = usePhonePe || razorpayReady
+    const gatewayPromise = usePhonePe || useCod || razorpayReady
       ? Promise.resolve(true)
       : warmRazorpay();
 
@@ -283,6 +284,13 @@ export default function CheckoutPage() {
           grandTotal: orderResult.order.grandTotal ?? 0,
           discountAmount: orderResult.order.discountAmount ?? 0,
         });
+      }
+
+      // ---- COD: order is already CONFIRMED server-side, nothing to pay now ----
+      if (useCod) {
+        toast.success("Order placed! Pay cash when your order is delivered.");
+        router.push("/user/orders");
+        return;
       }
 
       // ---- PhonePe: redirect flow — send the buyer to the hosted page ----
@@ -762,6 +770,21 @@ export default function CheckoutPage() {
                       UPI, cards &amp; PhonePe wallet
                     </p>
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod("COD")}
+                    disabled={isPaying || loading}
+                    className={`col-span-2 p-4 border text-left transition-all duration-300 ${
+                      paymentMethod === "COD"
+                        ? "border-gold bg-gold/5"
+                        : "border-border-soft hover:border-gold/40"
+                    }`}
+                  >
+                    <p className="text-sm font-medium text-foreground">Cash on Delivery</p>
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      Pay in cash when your order arrives
+                    </p>
+                  </button>
                 </div>
               </div>
 
@@ -779,7 +802,13 @@ export default function CheckoutPage() {
                     onTouchStart={() => paymentMethod === "RAZORPAY" && void warmRazorpay()}
                     disabled={!hasItems || loading || isPaying}
                   >
-                    {isPaying ? "Processing Payment..." : loading ? "Processing..." : "Complete Purchase"}
+                    {isPaying
+                      ? "Processing..."
+                      : loading
+                        ? "Processing..."
+                        : paymentMethod === "COD"
+                          ? "Place Order (Cash on Delivery)"
+                          : "Complete Purchase"}
                   </Button>
                 </motion.div>
 
@@ -794,7 +823,9 @@ export default function CheckoutPage() {
                 <div className="flex items-center gap-3">
                   <span className="h-1.5 w-1.5 rounded-full bg-green-600/60" />
                   <span className="text-xs text-muted-foreground">
-                    Secured by {paymentMethod === "PHONEPE" ? "PhonePe" : "Razorpay"}
+                    {paymentMethod === "COD"
+                      ? "Cash on Delivery"
+                      : `Secured by ${paymentMethod === "PHONEPE" ? "PhonePe" : "Razorpay"}`}
                   </span>
                 </div>
                 <div className="flex items-center gap-3">

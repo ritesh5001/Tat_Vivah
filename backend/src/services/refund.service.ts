@@ -204,6 +204,21 @@ export class RefundService {
                 );
                 providerSuccess = false;
             }
+        } else if (order.payment.provider === PaymentProvider.COD) {
+            // COD refunds are settled offline (cash returned to the buyer).
+            // We only record the ledger entry here; there is no gateway call.
+            // Guard against the caller trying to refund an order whose cash was
+            // never collected (payment still INITIATED, e.g. cancelled pre-delivery).
+            if (order.payment.status !== PaymentStatus.SUCCESS && order.payment.status !== PaymentStatus.REFUNDED) {
+                refundLogger.warn(
+                    { orderId, refundId: refund.id, paymentStatus: order.payment.status },
+                    'cod_refund_before_collection',
+                );
+                providerSuccess = false;
+            } else {
+                razorpayRefundId = `cod_refund_${refund.id}`;
+                providerSuccess = true;
+            }
         } else if (order.payment.provider === PaymentProvider.MOCK) {
             // Mock provider always succeeds
             razorpayRefundId = `mock_refund_${refund.id}`;

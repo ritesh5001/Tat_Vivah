@@ -172,7 +172,7 @@ export async function checkoutWithPayment(
     couponCode?: string;
   },
   token?: string | null,
-  provider: "RAZORPAY" | "PHONEPE" = "RAZORPAY"
+  provider: "RAZORPAY" | "PHONEPE" | "COD" = "RAZORPAY"
 ) {
   return apiRequest<{
     message: string;
@@ -194,6 +194,8 @@ export async function checkoutWithPayment(
       provider: string;
       /** PhonePe hosted checkout page (redirect flow). */
       redirectUrl?: string;
+      /** COD only: order CONFIRMED immediately. */
+      status?: string;
     } | null;
     paymentInitError?: string;
   }>(`/v1/checkout?withPayment=1&provider=${provider}`, {
