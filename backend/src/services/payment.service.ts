@@ -249,10 +249,14 @@ export class PaymentService {
             return `${env.PHONEPE_MOBILE_REDIRECT_URL}${separator}orderId=${encodeURIComponent(orderId)}`;
         }
 
-        if (!env.FRONTEND_BASE_URL) {
-            throw new ApiError(500, 'FRONTEND_BASE_URL must be configured for PhonePe payments');
-        }
-        const base = env.FRONTEND_BASE_URL.replace(/\/$/, '');
+        // Prefer an explicit PhonePe redirect base, then the general frontend
+        // base. Both are optional in the env schema, so fall back to the known
+        // production storefront rather than throwing and blocking checkout.
+        const rawBase =
+            env.PHONEPE_WEB_REDIRECT_BASE_URL ||
+            env.FRONTEND_BASE_URL ||
+            'https://www.tatvivahtrends.com';
+        const base = rawBase.replace(/\/$/, '');
         return `${base}/checkout/phonepe/callback?orderId=${encodeURIComponent(orderId)}`;
     }
 

@@ -97,6 +97,8 @@ const envSchema = z.object({
     PHONEPE_WEBHOOK_PASSWORD: z.string().optional(),
     // Optional deep link the mobile app is redirected to after payment
     PHONEPE_MOBILE_REDIRECT_URL: z.string().optional(),
+    // Optional override for the web redirect base (defaults to FRONTEND_BASE_URL)
+    PHONEPE_WEB_REDIRECT_BASE_URL: z.string().optional(),
 });
 
 /**

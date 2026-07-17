@@ -349,7 +349,20 @@ export default function CheckoutPage() {
       const razorpay = new RazorpayCheckout(options);
       razorpay.open();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Checkout failed");
+      const message = error instanceof Error ? error.message : "Checkout failed";
+
+      // An empty cart here almost always means a previous attempt already
+      // placed the order (checkout clears the cart). Send the buyer to their
+      // orders instead of leaving them stuck on a dead checkout page.
+      if (/cart is empty/i.test(message)) {
+        toast.error("Your cart is empty. If you just paid, check your orders.", {
+          duration: 8000,
+        });
+        router.push("/user/orders");
+        return;
+      }
+
+      toast.error(message, { duration: 8000 });
     } finally {
       setLoading(false);
       setIsPaying(false);
