@@ -406,7 +406,11 @@ export class AuthService {
      * 1. Verify refresh token JWT signature & expiry
      * 2. Extract userId from payload
      * 3. Find matching session by comparing token hash
-     * 4. If not found → invalidate ALL user sessions (token reuse attack)
+     * 4. If not found / hash mismatch → reject this request only.
+     *    A mismatch is almost always a benign rotation race (two browser
+     *    tabs refreshing the same cookie concurrently), not an attack —
+     *    invalidating other sessions here logged users out of every
+     *    device whenever they had two tabs open.
      * 5. Generate new tokens
      * 6. Update session with new hashed refresh token
      * 7. Return new tokens
@@ -419,15 +423,18 @@ export class AuthService {
         // 2. Look up the specific session by ID (O(1) instead of O(N) bcrypt loop)
         const session = await this.repository.findSessionByIdAndUser(sessionId, userId);
         if (!session) {
-            // No session found — potential token reuse attack
-            await this.repository.deleteAllUserSessions(userId);
+            // Session already deleted (logout, expiry cleanup) — stale cookie.
+            this.logger.warn({ userId, sessionId }, 'refresh_session_not_found');
             throw ApiError.unauthorized('Invalid refresh token');
         }
 
         // 3. Compare refresh token hash (single bcrypt call instead of N)
         const isMatch = await compareToken(refreshToken, session.refreshToken);
         if (!isMatch) {
-            await this.repository.deleteAllUserSessions(userId);
+            // Token was already rotated — concurrent refresh from another
+            // tab/request. Reject without invalidating the session so the
+            // winner's token keeps working; the loser retries client-side.
+            this.logger.warn({ userId, sessionId }, 'refresh_token_rotation_mismatch');
             throw ApiError.unauthorized('Invalid refresh token');
         }
 

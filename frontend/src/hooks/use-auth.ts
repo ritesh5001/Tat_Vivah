@@ -34,12 +34,16 @@ export function useAuth() {
     useEffect(() => {
         const syncAuth = () => {
             const accessToken = readCookie("tatvivah_access");
+            const refreshToken = readCookie("tatvivah_refresh");
             const roleCookie = readCookie("tatvivah_role");
             const userCookie = readCookie("tatvivah_user");
 
             setToken(accessToken);
 
-            if (!accessToken) {
+            // The access cookie expires daily; a live refresh cookie still
+            // means an authenticated session (restored silently on first API
+            // call), so keep showing the user as signed in.
+            if (!accessToken && !refreshToken) {
                 setUser(null);
                 setLoading(false);
                 return;
@@ -55,7 +59,7 @@ export function useAuth() {
                 }
             }
 
-            const decoded = decodeJwtPayload(accessToken);
+            const decoded = accessToken ? decodeJwtPayload(accessToken) : null;
             if (decoded) {
                 setUser(decoded);
             } else if (roleCookie) {

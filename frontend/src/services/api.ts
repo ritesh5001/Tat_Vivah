@@ -97,8 +97,29 @@ function clearAuthCookies() {
  */
 let _refreshPromise: Promise<string | null> | null = null;
 
+async function requestNewTokens(refreshToken: string): Promise<string | null> {
+  const response = await fetch(`${API_BASE_URL}/v1/auth/refresh`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ refreshToken }),
+  });
+
+  if (!response.ok) return null;
+
+  const data = await response.json().catch(() => null);
+  if (!data?.accessToken) return null;
+
+  // Persist new tokens
+  document.cookie = `tatvivah_access=${data.accessToken}; path=/; max-age=86400${COOKIE_ATTRIBUTES_SUFFIX}`;
+  if (data.refreshToken) {
+    document.cookie = `tatvivah_refresh=${data.refreshToken}; path=/; max-age=604800${COOKIE_ATTRIBUTES_SUFFIX}`;
+  }
+
+  return data.accessToken as string;
+}
+
 async function silentRefresh(): Promise<string | null> {
-  // De-duplicate concurrent refresh attempts
+  // De-duplicate concurrent refresh attempts within this tab
   if (_refreshPromise) return _refreshPromise;
 
   _refreshPromise = (async () => {
@@ -106,24 +127,20 @@ async function silentRefresh(): Promise<string | null> {
       const refreshToken = getRefreshToken();
       if (!refreshToken || !API_BASE_URL) return null;
 
-      const response = await fetch(`${API_BASE_URL}/v1/auth/refresh`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refreshToken }),
-      });
+      const accessToken = await requestNewTokens(refreshToken);
+      if (accessToken) return accessToken;
 
-      if (!response.ok) return null;
-
-      const data = await response.json().catch(() => null);
-      if (!data?.accessToken) return null;
-
-      // Persist new tokens
-      document.cookie = `tatvivah_access=${data.accessToken}; path=/; max-age=86400${COOKIE_ATTRIBUTES_SUFFIX}`;
-      if (data.refreshToken) {
-        document.cookie = `tatvivah_refresh=${data.refreshToken}; path=/; max-age=604800${COOKIE_ATTRIBUTES_SUFFIX}`;
+      // Refresh tokens rotate on every use, so a concurrent refresh from
+      // another tab invalidates the token we just sent. If the cookie has
+      // changed since we read it, the other tab won the race — retry once
+      // with the rotated token instead of dropping the session.
+      await new Promise((resolve) => setTimeout(resolve, 750));
+      const latestRefreshToken = getRefreshToken();
+      if (latestRefreshToken && latestRefreshToken !== refreshToken) {
+        return await requestNewTokens(latestRefreshToken);
       }
 
-      return data.accessToken as string;
+      return null;
     } catch {
       return null;
     } finally {

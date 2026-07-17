@@ -27,12 +27,15 @@ export function WishlistHeartButton({
   const [wishlisted, setWishlisted] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
 
+  // Either auth cookie counts: an expired access cookie with a live refresh
+  // cookie is still a valid session (apiRequest refreshes it silently).
+  const hasAuthSession = () =>
+    typeof document !== "undefined" &&
+    /(?:^|; )tatvivah_(access|refresh)=[^;]/.test(document.cookie);
+
   React.useEffect(() => {
     let cancelled = false;
-    const hasToken =
-      typeof document !== "undefined" &&
-      document.cookie.match(/(?:^|; )tatvivah_access=([^;]*)/);
-    if (!hasToken) return;
+    if (!hasAuthSession()) return;
     checkWishlistItems([productId])
       .then((res) => {
         if (!cancelled) setWishlisted(res.wishlisted.includes(productId));
@@ -47,10 +50,7 @@ export function WishlistHeartButton({
     e.preventDefault(); // prevents navigation on card Link
     e.stopPropagation();
 
-    const hasToken =
-      typeof document !== "undefined" &&
-      document.cookie.match(/(?:^|; )tatvivah_access=([^;]*)/);
-    if (!hasToken) {
+    if (!hasAuthSession()) {
       toast.error("Please sign in to save items.");
       startNavigationFeedback();
       router.push("/login?force=1");

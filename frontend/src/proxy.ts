@@ -259,7 +259,11 @@ export function proxy(request: NextRequest) {
   const isAuthPage = authPages.some((route) => pathname.startsWith(route));
 
   const accessToken = request.cookies.get("tatvivah_access")?.value;
+  const refreshToken = request.cookies.get("tatvivah_refresh")?.value;
   const role = request.cookies.get("tatvivah_role")?.value?.toUpperCase();
+  // The access cookie expires daily; a live refresh cookie still means an
+  // authenticated session (the client restores it silently on first API call).
+  const hasSession = Boolean(accessToken || refreshToken);
 
   const forceLogin = request.nextUrl.searchParams.get("force") === "1";
 
@@ -314,8 +318,8 @@ export function proxy(request: NextRequest) {
   } else if (!isProtected) {
     // Public / non-protected page → allow through
     response = NextResponse.next();
-  } else if (!accessToken || !role) {
-    // Protected route with no token → redirect to login
+  } else if (!hasSession || !role) {
+    // Protected route with no session → redirect to login
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("returnTo", pathname);
     response = NextResponse.redirect(loginUrl);

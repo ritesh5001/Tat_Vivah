@@ -110,10 +110,12 @@ export function persistAuthCookies(
 ): void {
   document.cookie = `tatvivah_access=${accessToken}; path=/; max-age=86400${COOKIE_ATTRIBUTES_SUFFIX}`;
   document.cookie = `tatvivah_refresh=${refreshToken}; path=/; max-age=604800${COOKIE_ATTRIBUTES_SUFFIX}`;
-  document.cookie = `tatvivah_role=${user.role}; path=/; max-age=86400${COOKIE_ATTRIBUTES_SUFFIX}`;
+  // role/user must outlive the daily access cookie — they identify the
+  // session for the middleware while the refresh cookie (7d) is still valid.
+  document.cookie = `tatvivah_role=${user.role}; path=/; max-age=604800${COOKIE_ATTRIBUTES_SUFFIX}`;
   document.cookie = `tatvivah_user=${encodeURIComponent(
     JSON.stringify(user)
-  )}; path=/; max-age=86400${COOKIE_ATTRIBUTES_SUFFIX}`;
+  )}; path=/; max-age=604800${COOKIE_ATTRIBUTES_SUFFIX}`;
   window.dispatchEvent(new Event("tatvivah-auth"));
 }
 

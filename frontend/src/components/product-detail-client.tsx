@@ -117,6 +117,16 @@ function swatchColorFromLabel(label: string): string {
   return fallbackHexFromText(normalized);
 }
 
+/**
+ * True when the browser holds either auth cookie. The access cookie expires
+ * daily, but a valid refresh cookie (7 days) lets apiRequest restore the
+ * session silently — so only a missing refresh cookie means "signed out".
+ */
+function hasAuthSession(): boolean {
+  if (typeof document === "undefined") return false;
+  return /(?:^|; )tatvivah_(access|refresh)=[^;]/.test(document.cookie);
+}
+
 export default function ProductDetailClient({
   product,
   onVariantImagesChange,
@@ -160,8 +170,7 @@ export default function ProductDetailClient({
   // Check initial wishlist state
   React.useEffect(() => {
     let cancelled = false;
-    const hasToken = document.cookie.match(/(?:^|; )tatvivah_access=([^;]*)/);
-    if (!hasToken) return;
+    if (!hasAuthSession()) return;
     checkWishlistItems([product.id])
       .then((res) => {
         if (!cancelled) setWishlisted(res.wishlisted.includes(product.id));
@@ -211,8 +220,7 @@ export default function ProductDetailClient({
   }, [product.variants, selectedColor]);
 
   const handleToggleWishlist = async () => {
-    const hasToken = document.cookie.match(/(?:^|; )tatvivah_access=([^;]*)/);
-    if (!hasToken) {
+    if (!hasAuthSession()) {
       toast.error("Please sign in to save items.");
       startNavigationFeedback();
       router.push("/login?force=1");
@@ -302,14 +310,11 @@ export default function ProductDetailClient({
       return;
     }
 
-    if (typeof document !== "undefined") {
-      const hasToken = document.cookie.match(/(?:^|; )tatvivah_access=([^;]*)/);
-      if (!hasToken) {
-        toast.error("Please sign in to add items to cart.");
-        startNavigationFeedback();
-        router.push("/login?force=1");
-        return;
-      }
+    if (!hasAuthSession()) {
+      toast.error("Please sign in to add items to cart.");
+      startNavigationFeedback();
+      router.push("/login?force=1");
+      return;
     }
 
     setLoading(true);
@@ -341,14 +346,11 @@ export default function ProductDetailClient({
       return;
     }
 
-    if (typeof document !== "undefined") {
-      const hasToken = document.cookie.match(/(?:^|; )tatvivah_access=([^;]*)/);
-      if (!hasToken) {
-        toast.error("Please sign in to continue.");
-        startNavigationFeedback();
-        router.push("/login?force=1");
-        return;
-      }
+    if (!hasAuthSession()) {
+      toast.error("Please sign in to continue.");
+      startNavigationFeedback();
+      router.push("/login?force=1");
+      return;
     }
 
     setBuyNowLoading(true);
