@@ -288,6 +288,12 @@ export default function CheckoutPage() {
 
       // ---- COD: order is already CONFIRMED server-side, nothing to pay now ----
       if (useCod) {
+        // If the checkout-time confirmation failed, the order is left PLACED.
+        // Retry once via the explicit initiate endpoint before giving up, so a
+        // transient hiccup doesn't leave a zombie order to be auto-cancelled.
+        if (!orderResult.payment && orderResult.paymentInitError) {
+          await initiatePayment(orderId, "COD");
+        }
         toast.success("Order placed! Pay cash when your order is delivered.");
         router.push("/user/orders");
         return;
