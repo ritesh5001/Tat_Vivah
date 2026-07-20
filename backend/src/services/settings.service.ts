@@ -88,4 +88,35 @@ export const settingsService = {
         );
         return enabled;
     },
+
+    /**
+     * Whether the flat GST charge is currently applied to new orders.
+     * Defaults to `true` (charge applied) when the setting is missing so that
+     * behaviour is preserved even before the row is seeded.
+     */
+    async isGstChargeEnabled(): Promise<boolean> {
+        const raw = await readRaw(SETTING_KEYS.GST_CHARGE_ENABLED);
+        if (raw === null) return true;
+        return raw === 'true';
+    },
+
+    /**
+     * Resolve the flat GST fee (INR) to charge for an order.
+     * Returns 0 when the flat GST charge is disabled or there are no units.
+     */
+    async getFlatGstFee(totalQty: number): Promise<number> {
+        if (totalQty <= 0) return 0;
+        const enabled = await this.isGstChargeEnabled();
+        return enabled ? FLAT_GST_FEE_INR * totalQty : 0;
+    },
+
+    /** Enable or disable the flat GST charge for new orders. */
+    async setGstChargeEnabled(enabled: boolean): Promise<boolean> {
+        await writeRaw(SETTING_KEYS.GST_CHARGE_ENABLED, enabled ? 'true' : 'false');
+        settingsLogger.info(
+            { event: 'gst_charge_toggled', enabled },
+            `Flat GST charge ${enabled ? 'enabled' : 'disabled'} by admin`,
+        );
+        return enabled;
+    },
 };

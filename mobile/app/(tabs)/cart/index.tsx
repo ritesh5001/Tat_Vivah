@@ -19,7 +19,7 @@ import type { CartItemDetails } from "../../../src/services/cart";
 import { AppHeader } from "../../../src/components/AppHeader";
 import { MotionView } from "../../../src/components/motion";
 import { AppText as Text, ScreenContainer as SafeAreaView } from "../../../src/components";
-import { getShippingConfig } from "../../../src/services/shipping";
+import { getShippingConfig, getGstConfig } from "../../../src/services/shipping";
 
 const currency = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -81,8 +81,13 @@ export default function CartScreen() {
     router.push("/checkout");
   }, [isConnected, isMutating, cartItems.length, router, showToast]);
 
-  // Admin-controlled shipping charge. Defaults to the flat fee until resolved.
+  // Admin-controlled shipping / GST charges. Default to the flat fees until
+  // resolved; the backend order total is always the source of truth.
   const [shippingConfig, setShippingConfig] = React.useState<{
+    enabled: boolean;
+    amount: number;
+  }>({ enabled: true, amount: 180 });
+  const [gstConfig, setGstConfig] = React.useState<{
     enabled: boolean;
     amount: number;
   }>({ enabled: true, amount: 180 });
@@ -93,6 +98,13 @@ export default function CartScreen() {
     getShippingConfig(controller.signal)
       .then((config) => {
         if (active) setShippingConfig(config);
+      })
+      .catch(() => {
+        /* Non-fatal: keep the default estimate. */
+      });
+    getGstConfig(controller.signal)
+      .then((config) => {
+        if (active) setGstConfig(config);
       })
       .catch(() => {
         /* Non-fatal: keep the default estimate. */
@@ -109,7 +121,7 @@ export default function CartScreen() {
   );
   const shipping =
     cartItems.length && shippingConfig.enabled ? shippingConfig.amount : 0;
-  const gst = cartItems.length ? 180 : 0;
+  const gst = cartItems.length && gstConfig.enabled ? gstConfig.amount : 0;
   const total = subtotal + shipping + gst;
 
   const renderItem = React.useCallback(
@@ -278,7 +290,14 @@ export default function CartScreen() {
             </View>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>GST</Text>
-              <Text style={styles.summaryValue}>{currency.format(gst)}</Text>
+              <Text
+                style={[
+                  styles.summaryValue,
+                  gst === 0 ? { color: colors.gold } : null,
+                ]}
+              >
+                {gst === 0 ? "FREE" : currency.format(gst)}
+              </Text>
             </View>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryTotal}>Total</Text>

@@ -19,7 +19,7 @@ import {
 } from '../config/metrics.js';
 import { recordReserveAttempt, recordReserveFailure } from '../monitoring/alerts.js';
 import { couponService } from './coupon.service.js';
-import { settingsService } from './settings.service.js';
+import { settingsService, FLAT_GST_FEE_INR } from './settings.service.js';
 import { Prisma } from '@prisma/client';
 import { dispatchFreshness } from '../live/freshness.service.js';
 import { CACHE_TAGS, orderTag, productTag } from '../live/cache-tags.js';
@@ -217,8 +217,11 @@ export class CheckoutService {
             (sum, item) => sum.add(item.lineSubtotal),
             new Prisma.Decimal(0),
         );
-        // Shipping charge can be turned on/off by admins via app settings.
+        // Shipping and flat-GST charges can be turned on/off by admins via app
+        // settings. Resolve both here (outside the transaction) to avoid DB
+        // reads while holding row locks.
         const shippingFee = await settingsService.getShippingFee(itemsWithStock.length > 0);
+        const gstChargeEnabled = await settingsService.isGstChargeEnabled();
 
         // =====================================================================
         // PHASE 2 — Atomic transaction: reserve stock + create order + clear cart
@@ -351,7 +354,9 @@ export class CheckoutService {
             });
 
             const totalQty = itemsWithStock.reduce((sum, item) => sum + item.quantity, 0);
-            const flatGstFee = new Prisma.Decimal(180).mul(totalQty);
+            const flatGstFee = gstChargeEnabled
+                ? new Prisma.Decimal(FLAT_GST_FEE_INR).mul(totalQty)
+                : new Prisma.Decimal(0);
             const orderSubTotal = round2(
                 discountedLines.reduce((sum, item) => sum.add(item.discountedTaxable), new Prisma.Decimal(0)),
             );

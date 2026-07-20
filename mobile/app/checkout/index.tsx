@@ -36,7 +36,7 @@ import {
   AppText as Text,
   ScreenContainer as SafeAreaView,
 } from "../../src/components";
-import { getShippingConfig } from "../../src/services/shipping";
+import { getShippingConfig, getGstConfig } from "../../src/services/shipping";
 
 // ---------------------------------------------------------------------------
 // Address selector row — memoized for FlatList
@@ -134,10 +134,14 @@ export default function CheckoutScreen() {
   } | null>(null);
   const mountedRef = React.useRef(true);
 
-  // ---------- Shipping-charge config (admin-controlled) ----------
-  // Defaults to the flat fee so the estimate matches historical behaviour
+  // ---------- Shipping / GST charge config (admin-controlled) ----------
+  // Defaults to the flat fees so the estimate matches historical behaviour
   // until the config resolves; the backend is always the source of truth.
   const [shippingConfig, setShippingConfig] = React.useState<{
+    enabled: boolean;
+    amount: number;
+  }>({ enabled: true, amount: 180 });
+  const [gstConfig, setGstConfig] = React.useState<{
     enabled: boolean;
     amount: number;
   }>({ enabled: true, amount: 180 });
@@ -151,6 +155,13 @@ export default function CheckoutScreen() {
       .catch(() => {
         // Non-fatal: keep the default estimate. The order total from the
         // backend still reflects the real charge.
+      });
+    getGstConfig(controller.signal)
+      .then((config) => {
+        if (mountedRef.current) setGstConfig(config);
+      })
+      .catch(() => {
+        // Non-fatal: keep the default estimate.
       });
     return () => controller.abort();
   }, []);
@@ -202,7 +213,8 @@ export default function CheckoutScreen() {
   );
   const shippingFee =
     cartItems.length && shippingConfig.enabled ? shippingConfig.amount : 0;
-  const gstFee = cartItems.length ? 180 : 0;
+  const gstFee =
+    cartItems.length && gstConfig.enabled ? gstConfig.amount : 0;
   const displaySubtotal = taxSummary?.subTotalAmount ?? cartSubtotal;
   const displayDiscount = taxSummary?.discountAmount ?? 0;
   const displayGst = gstFee;
@@ -807,7 +819,14 @@ export default function CheckoutScreen() {
           )}
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>GST</Text>
-            <Text style={styles.summaryValue}>₹{displayGst.toFixed(0)}</Text>
+            <Text
+              style={[
+                styles.summaryValue,
+                displayGst === 0 ? { color: colors.gold } : null,
+              ]}
+            >
+              {displayGst === 0 ? "FREE" : `₹${displayGst.toFixed(0)}`}
+            </Text>
           </View>
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Shipping</Text>

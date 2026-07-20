@@ -21,7 +21,7 @@ import {
 } from '../validators/admin.validation.js';
 import { refundService } from '../services/refund.service.js';
 import { commissionService } from '../services/commission.service.js';
-import { settingsService, DEFAULT_SHIPPING_FEE_INR } from '../services/settings.service.js';
+import { settingsService, DEFAULT_SHIPPING_FEE_INR, FLAT_GST_FEE_INR } from '../services/settings.service.js';
 import type { RefundStatus, SettlementStatus } from '@prisma/client';
 
 function parsePositiveInt(value: unknown, fallback: number): number {
@@ -753,6 +753,37 @@ export const adminController = {
             }
             await settingsService.setShippingChargeEnabled(enabled);
             res.json({ enabled, amount: DEFAULT_SHIPPING_FEE_INR });
+        } catch (error) {
+            next(error);
+        }
+    },
+
+    /**
+     * GET /v1/admin/settings/gst
+     * Current flat-GST-charge configuration.
+     */
+    async getGstSetting(_req: Request, res: Response, next: NextFunction) {
+        try {
+            const enabled = await settingsService.isGstChargeEnabled();
+            res.json({ enabled, amount: FLAT_GST_FEE_INR });
+        } catch (error) {
+            next(error);
+        }
+    },
+
+    /**
+     * PUT /v1/admin/settings/gst
+     * Start/stop the flat GST charge for new orders.
+     * Body: { enabled: boolean }
+     */
+    async updateGstSetting(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { enabled } = req.body ?? {};
+            if (typeof enabled !== 'boolean') {
+                throw ApiError.badRequest('`enabled` must be a boolean');
+            }
+            await settingsService.setGstChargeEnabled(enabled);
+            res.json({ enabled, amount: FLAT_GST_FEE_INR });
         } catch (error) {
             next(error);
         }

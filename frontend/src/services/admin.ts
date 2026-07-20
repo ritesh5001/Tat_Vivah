@@ -994,3 +994,26 @@ export async function updateShippingSetting(
     token,
   });
 }
+
+export interface GstSetting {
+  enabled: boolean;
+  amount: number;
+}
+
+export async function getGstSetting(token?: string | null) {
+  return apiRequest<GstSetting>("/v1/admin/settings/gst", {
+    method: "GET",
+    token,
+  });
+}
+
+export async function updateGstSetting(
+  enabled: boolean,
+  token?: string | null
+) {
+  return apiRequest<GstSetting>("/v1/admin/settings/gst", {
+    method: "PUT",
+    body: { enabled },
+    token,
+  });
+}

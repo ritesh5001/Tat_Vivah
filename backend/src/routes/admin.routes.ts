@@ -558,3 +558,23 @@ adminRouter.put(
     authorize('ADMIN', 'SUPER_ADMIN'),
     adminController.updateShippingSetting
 );
+
+/**
+ * GET /v1/admin/settings/gst
+ * Current flat-GST-charge configuration (enabled flag + amount).
+ */
+adminRouter.get(
+    '/settings/gst',
+    authorize('ADMIN', 'SUPER_ADMIN'),
+    adminController.getGstSetting
+);
+
+/**
+ * PUT /v1/admin/settings/gst
+ * Start/stop the flat GST charge for new orders.
+ */
+adminRouter.put(
+    '/settings/gst',
+    authorize('ADMIN', 'SUPER_ADMIN'),
+    adminController.updateGstSetting
+);

@@ -69,3 +69,16 @@ export async function getShippingConfig(
     signal,
   });
 }
+
+export interface GstConfig {
+  enabled: boolean;
+  /** Flat GST fee per unit in INR (0 when disabled). */
+  amount: number;
+}
+
+export async function getGstConfig(signal?: AbortSignal): Promise<GstConfig> {
+  return apiRequest<GstConfig>("/v1/config/gst", {
+    method: "GET",
+    signal,
+  });
+}

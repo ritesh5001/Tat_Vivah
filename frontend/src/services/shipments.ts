@@ -71,6 +71,18 @@ export async function getShippingConfig() {
   });
 }
 
+export interface GstConfig {
+  enabled: boolean;
+  /** Flat GST fee per unit in INR (0 when disabled). */
+  amount: number;
+}
+
+export async function getGstConfig() {
+  return apiRequest<GstConfig>("/v1/config/gst", {
+    method: "GET",
+  });
+}
+
 export async function createShipment(
   orderId: string,
   payload: { carrier: string; trackingNumber: string },
