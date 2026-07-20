@@ -2,7 +2,7 @@
   "expo": {
     "name": "TatVivah",
     "slug": "tatvivah",
-    "version": "1.0.1",
+    "version": "2.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "mobile",
@@ -17,7 +17,7 @@
       "bundleIdentifier": "com.zaheen.iqbal.mobile"
     },
     "android": {
-      "versionCode": 8,
+      "versionCode": 13,
       "adaptiveIcon": {
         "backgroundColor": "#FFFCF8",
         "foregroundImage": "./assets/adaptive-icon.png"
@@ -84,8 +84,9 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "8326af89-8dde-446c-9b49-049a0aff7bb5"
+        "projectId": "13fff0d2-6600-4b3e-9817-6a17f872adc6"
       }
-    }
+    },
+    "owner": "zaheen.iqbal"
   }
 }
