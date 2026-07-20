@@ -61,3 +61,6 @@ export { adminReelRouter } from './admin-reel.routes.js';
 
 // Occasions
 export { occasionRouter } from './occasion.routes.js';
+
+// Public platform config
+export { configRouter } from './config.routes.js';

@@ -534,3 +534,27 @@ adminRouter.patch(
     authorize('ADMIN', 'SUPER_ADMIN'),
     occasionController.toggleOccasion
 );
+
+// ============================================================================
+// PLATFORM SETTINGS (ADMIN + SUPER_ADMIN)
+// ============================================================================
+
+/**
+ * GET /v1/admin/settings/shipping
+ * Current shipping-charge configuration (enabled flag + amount).
+ */
+adminRouter.get(
+    '/settings/shipping',
+    authorize('ADMIN', 'SUPER_ADMIN'),
+    adminController.getShippingSetting
+);
+
+/**
+ * PUT /v1/admin/settings/shipping
+ * Start/stop the flat shipping charge for new orders.
+ */
+adminRouter.put(
+    '/settings/shipping',
+    authorize('ADMIN', 'SUPER_ADMIN'),
+    adminController.updateShippingSetting
+);

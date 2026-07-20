@@ -52,6 +52,7 @@ import {
     sellerReelRouter,
     adminReelRouter,
     occasionRouter,
+    configRouter,
 } from './routes/index.js';
 import { searchController } from './controllers/search.controller.js';
 import { apiReference } from "@scalar/express-api-reference";
@@ -354,6 +355,9 @@ export function createApp(): Application {
     app.use('/v1/reels', reelRouter);
     app.use('/v1/seller/reels', sellerReelRouter);
     app.use('/v1/admin/reels', adminReelRouter);
+
+    // Public platform config (unauthenticated, read-only)
+    app.use('/v1/config', configRouter);
 
     // Related products (mounted on products path)
     app.get('/v1/products/:id/related', searchController.relatedProducts);

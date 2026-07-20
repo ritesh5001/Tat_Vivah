@@ -56,6 +56,21 @@ export async function getOrderTracking(orderId: string, token?: string | null) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Public shipping-charge config (admin-controlled on/off)
+// ---------------------------------------------------------------------------
+export interface ShippingConfig {
+  enabled: boolean;
+  /** Fee to apply per order in INR (0 when disabled). */
+  amount: number;
+}
+
+export async function getShippingConfig() {
+  return apiRequest<ShippingConfig>("/v1/config/shipping", {
+    method: "GET",
+  });
+}
+
 export async function createShipment(
   orderId: string,
   payload: { carrier: string; trackingNumber: string },

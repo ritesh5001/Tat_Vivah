@@ -36,6 +36,7 @@ import {
   AppText as Text,
   ScreenContainer as SafeAreaView,
 } from "../../src/components";
+import { getShippingConfig } from "../../src/services/shipping";
 
 // ---------------------------------------------------------------------------
 // Address selector row — memoized for FlatList
@@ -133,6 +134,27 @@ export default function CheckoutScreen() {
   } | null>(null);
   const mountedRef = React.useRef(true);
 
+  // ---------- Shipping-charge config (admin-controlled) ----------
+  // Defaults to the flat fee so the estimate matches historical behaviour
+  // until the config resolves; the backend is always the source of truth.
+  const [shippingConfig, setShippingConfig] = React.useState<{
+    enabled: boolean;
+    amount: number;
+  }>({ enabled: true, amount: 180 });
+
+  React.useEffect(() => {
+    const controller = new AbortController();
+    getShippingConfig(controller.signal)
+      .then((config) => {
+        if (mountedRef.current) setShippingConfig(config);
+      })
+      .catch(() => {
+        // Non-fatal: keep the default estimate. The order total from the
+        // backend still reflects the real charge.
+      });
+    return () => controller.abort();
+  }, []);
+
   // ---------- Coupon state ----------
   const [couponCode, setCouponCode] = React.useState("");
   const [appliedCoupon, setAppliedCoupon] = React.useState<CouponPreview | null>(null);
@@ -178,7 +200,8 @@ export default function CheckoutScreen() {
     () => cartItems.reduce((sum, item) => sum + item.priceSnapshot * item.quantity, 0),
     [cartItems]
   );
-  const shippingFee = cartItems.length ? 180 : 0;
+  const shippingFee =
+    cartItems.length && shippingConfig.enabled ? shippingConfig.amount : 0;
   const gstFee = cartItems.length ? 180 : 0;
   const displaySubtotal = taxSummary?.subTotalAmount ?? cartSubtotal;
   const displayDiscount = taxSummary?.discountAmount ?? 0;
@@ -788,7 +811,14 @@ export default function CheckoutScreen() {
           </View>
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Shipping</Text>
-            <Text style={styles.summaryValue}>₹{shippingFee.toFixed(0)}</Text>
+            <Text
+              style={[
+                styles.summaryValue,
+                shippingFee === 0 ? { color: colors.gold } : null,
+              ]}
+            >
+              {shippingFee === 0 ? "FREE" : `₹${shippingFee.toFixed(0)}`}
+            </Text>
           </View>
           <View style={[styles.summaryRow, { marginTop: spacing.sm, paddingTop: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.borderSoft }]}>
             <Text style={[styles.summaryLabel, { fontFamily: typography.sansMedium, color: colors.charcoal }]}>Grand Total</Text>

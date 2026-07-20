@@ -11,6 +11,7 @@ import {
   updateCartItem,
   type CartResponse,
 } from "@/services/cart";
+import { getShippingConfig } from "@/services/shipments";
 import { toast } from "sonner";
 import { startNavigationFeedback } from "@/lib/navigation-feedback";
 import { persistCheckoutCartSnapshot } from "@/lib/checkout-snapshot";
@@ -26,6 +27,25 @@ export default function CartPage() {
   const [loading, setLoading] = React.useState(true);
   const [canLoad, setCanLoad] = React.useState(false);
   const [cart, setCart] = React.useState<CartResponse["cart"] | null>(null);
+  // Admin-controlled shipping charge. Defaults to the flat fee until resolved.
+  const [shippingConfig, setShippingConfig] = React.useState<{
+    enabled: boolean;
+    amount: number;
+  }>({ enabled: true, amount: 180 });
+
+  React.useEffect(() => {
+    let active = true;
+    getShippingConfig()
+      .then((config) => {
+        if (active) setShippingConfig(config);
+      })
+      .catch(() => {
+        /* Non-fatal: keep the default estimate. */
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const loadCart = React.useCallback(async () => {
     setLoading(true);
@@ -116,7 +136,8 @@ export default function CartPage() {
         item.quantity,
     0
   );
-  const shipping = items.length > 0 ? 180 : 0;
+  const shipping =
+    items.length > 0 && shippingConfig.enabled ? shippingConfig.amount : 0;
   const total = subtotal + shipping;
   const regularTotal = regularSubtotal + shipping;
 
@@ -305,7 +326,13 @@ export default function CartPage() {
                 </div>
                 <div className="flex items-center justify-between text-muted-foreground">
                   <span>Shipping</span>
-                  <span>{items.length > 0 ? currency.format(shipping) : "—"}</span>
+                  <span>
+                    {items.length === 0
+                      ? "—"
+                      : shipping > 0
+                        ? currency.format(shipping)
+                        : "FREE"}
+                  </span>
                 </div>
                 <div className="h-px bg-border-soft" />
                 <div className="flex items-center justify-between">

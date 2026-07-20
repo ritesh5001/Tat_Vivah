@@ -967,3 +967,30 @@ export async function toggleAdminOccasion(id: string, token?: string | null) {
     }
   );
 }
+
+// ---------------------------------------------------------------------------
+// Platform settings — shipping charge toggle
+// ---------------------------------------------------------------------------
+
+export interface ShippingSetting {
+  enabled: boolean;
+  amount: number;
+}
+
+export async function getShippingSetting(token?: string | null) {
+  return apiRequest<ShippingSetting>("/v1/admin/settings/shipping", {
+    method: "GET",
+    token,
+  });
+}
+
+export async function updateShippingSetting(
+  enabled: boolean,
+  token?: string | null
+) {
+  return apiRequest<ShippingSetting>("/v1/admin/settings/shipping", {
+    method: "PUT",
+    body: { enabled },
+    token,
+  });
+}

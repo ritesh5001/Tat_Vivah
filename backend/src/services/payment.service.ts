@@ -14,12 +14,12 @@ import { paymentSuccessTotal, staleCancelTotal, refundSuccessTotal } from '../co
 import { recordPaymentFailure } from '../monitoring/alerts.js';
 import { generateInvoiceNumber } from '../utils/invoice.util.js';
 import { commissionService } from './commission.service.js';
+import { settingsService, DEFAULT_SHIPPING_FEE_INR } from './settings.service.js';
 import { dispatchFreshness } from '../live/freshness.service.js';
 import { CACHE_TAGS, orderTag } from '../live/cache-tags.js';
 
 /** Maximum age (ms) of a PLACED order eligible for payment retry. */
 const STALE_ORDER_TTL_MS = 30 * 60 * 1000; // 30 minutes
-const DEFAULT_SHIPPING_FEE_INR = 180;
 const TX_MAX_WAIT_MS = 20000;
 const TX_TIMEOUT_MS = 30000;
 
@@ -78,7 +78,7 @@ export class PaymentService {
         subTotalAmount?: number | null;
         totalTaxAmount?: number | null;
         items?: Array<unknown>;
-    }): number {
+    }, shippingChargeEnabled: boolean): number {
         const totalAmount = toNumber(order.totalAmount);
         const grandTotal = toNumber(order.grandTotal);
         const subTotalAmount = toNumber(order.subTotalAmount);
@@ -86,10 +86,13 @@ export class PaymentService {
         const hasItems = Array.isArray(order.items) && order.items.length > 0;
 
         const inferredShippingFromGrand = Math.max(0, grandTotal - subTotalAmount - totalTaxAmount);
+        // Only fall back to the flat fee when the stored totals don't already
+        // encode shipping AND the charge is currently enabled — otherwise a
+        // shipping-free order would be silently re-inflated by the fallback.
         const shippingFee =
             inferredShippingFromGrand > 0
                 ? inferredShippingFromGrand
-                : hasItems
+                : hasItems && shippingChargeEnabled
                     ? DEFAULT_SHIPPING_FEE_INR
                     : 0;
 
@@ -285,7 +288,8 @@ export class PaymentService {
             throw new ApiError(400, 'Order already paid');
         }
 
-        const payableAmount = this.resolvePayableAmount(order as any);
+        const shippingChargeEnabled = await settingsService.isShippingChargeEnabled();
+        const payableAmount = this.resolvePayableAmount(order as any, shippingChargeEnabled);
 
         if (payableAmount > toNumber((order as any).totalAmount)) {
             await prisma.order.update({

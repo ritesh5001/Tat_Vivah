@@ -19,6 +19,7 @@ import {
 } from '../config/metrics.js';
 import { recordReserveAttempt, recordReserveFailure } from '../monitoring/alerts.js';
 import { couponService } from './coupon.service.js';
+import { settingsService } from './settings.service.js';
 import { Prisma } from '@prisma/client';
 import { dispatchFreshness } from '../live/freshness.service.js';
 import { CACHE_TAGS, orderTag, productTag } from '../live/cache-tags.js';
@@ -216,7 +217,8 @@ export class CheckoutService {
             (sum, item) => sum.add(item.lineSubtotal),
             new Prisma.Decimal(0),
         );
-        const shippingFee = itemsWithStock.length > 0 ? 180 : 0;
+        // Shipping charge can be turned on/off by admins via app settings.
+        const shippingFee = await settingsService.getShippingFee(itemsWithStock.length > 0);
 
         // =====================================================================
         // PHASE 2 — Atomic transaction: reserve stock + create order + clear cart

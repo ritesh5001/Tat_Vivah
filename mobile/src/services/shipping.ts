@@ -51,3 +51,21 @@ export async function getOrderTracking(
   );
   return response.data;
 }
+
+// ---------------------------------------------------------------------------
+// Public shipping-charge config (admin-controlled on/off)
+// ---------------------------------------------------------------------------
+export interface ShippingConfig {
+  enabled: boolean;
+  /** Fee to apply per order in INR (0 when disabled). */
+  amount: number;
+}
+
+export async function getShippingConfig(
+  signal?: AbortSignal
+): Promise<ShippingConfig> {
+  return apiRequest<ShippingConfig>("/v1/config/shipping", {
+    method: "GET",
+    signal,
+  });
+}

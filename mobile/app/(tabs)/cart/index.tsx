@@ -19,6 +19,7 @@ import type { CartItemDetails } from "../../../src/services/cart";
 import { AppHeader } from "../../../src/components/AppHeader";
 import { MotionView } from "../../../src/components/motion";
 import { AppText as Text, ScreenContainer as SafeAreaView } from "../../../src/components";
+import { getShippingConfig } from "../../../src/services/shipping";
 
 const currency = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -80,11 +81,34 @@ export default function CartScreen() {
     router.push("/checkout");
   }, [isConnected, isMutating, cartItems.length, router, showToast]);
 
+  // Admin-controlled shipping charge. Defaults to the flat fee until resolved.
+  const [shippingConfig, setShippingConfig] = React.useState<{
+    enabled: boolean;
+    amount: number;
+  }>({ enabled: true, amount: 180 });
+
+  React.useEffect(() => {
+    const controller = new AbortController();
+    let active = true;
+    getShippingConfig(controller.signal)
+      .then((config) => {
+        if (active) setShippingConfig(config);
+      })
+      .catch(() => {
+        /* Non-fatal: keep the default estimate. */
+      });
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, []);
+
   const subtotal = cartItems.reduce(
     (sum, item) => sum + item.priceSnapshot * item.quantity,
     0
   );
-  const shipping = cartItems.length ? 180 : 0;
+  const shipping =
+    cartItems.length && shippingConfig.enabled ? shippingConfig.amount : 0;
   const gst = cartItems.length ? 180 : 0;
   const total = subtotal + shipping + gst;
 
@@ -243,8 +267,13 @@ export default function CartScreen() {
             </View>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Shipping</Text>
-              <Text style={styles.summaryValue}>
-                {currency.format(shipping)}
+              <Text
+                style={[
+                  styles.summaryValue,
+                  shipping === 0 ? { color: colors.gold } : null,
+                ]}
+              >
+                {shipping === 0 ? "FREE" : currency.format(shipping)}
               </Text>
             </View>
             <View style={styles.summaryRow}>

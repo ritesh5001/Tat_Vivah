@@ -1255,3 +1255,13 @@ model ProductOccasion {
   @@index([occasionId])
   @@map("product_occasions")
 }
+
+/// Global key-value store for admin-configurable platform settings
+/// (e.g. whether the shipping charge is currently applied to orders).
+model AppSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("app_settings")
+}

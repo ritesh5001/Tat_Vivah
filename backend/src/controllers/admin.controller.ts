@@ -21,6 +21,7 @@ import {
 } from '../validators/admin.validation.js';
 import { refundService } from '../services/refund.service.js';
 import { commissionService } from '../services/commission.service.js';
+import { settingsService, DEFAULT_SHIPPING_FEE_INR } from '../services/settings.service.js';
 import type { RefundStatus, SettlementStatus } from '@prisma/client';
 
 function parsePositiveInt(value: unknown, fallback: number): number {
@@ -717,6 +718,41 @@ export const adminController = {
             if (typeof status === 'string') filters.status = status as RefundStatus;
             const result = await refundService.listRefunds(filters);
             res.json(result);
+        } catch (error) {
+            next(error);
+        }
+    },
+
+    // =========================================================================
+    // PLATFORM SETTINGS
+    // =========================================================================
+
+    /**
+     * GET /v1/admin/settings/shipping
+     * Current shipping-charge configuration.
+     */
+    async getShippingSetting(_req: Request, res: Response, next: NextFunction) {
+        try {
+            const enabled = await settingsService.isShippingChargeEnabled();
+            res.json({ enabled, amount: DEFAULT_SHIPPING_FEE_INR });
+        } catch (error) {
+            next(error);
+        }
+    },
+
+    /**
+     * PUT /v1/admin/settings/shipping
+     * Start/stop the flat shipping charge for new orders.
+     * Body: { enabled: boolean }
+     */
+    async updateShippingSetting(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { enabled } = req.body ?? {};
+            if (typeof enabled !== 'boolean') {
+                throw ApiError.badRequest('`enabled` must be a boolean');
+            }
+            await settingsService.setShippingChargeEnabled(enabled);
+            res.json({ enabled, amount: DEFAULT_SHIPPING_FEE_INR });
         } catch (error) {
             next(error);
         }

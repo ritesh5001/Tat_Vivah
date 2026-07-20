@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { checkoutWithPayment, getCart, type CouponPreview } from "@/services/cart";
 import { initiatePayment, verifyPayment } from "@/services/payments";
 import { getAddresses, type Address } from "@/services/addresses";
+import { getShippingConfig } from "@/services/shipments";
 import CouponSection from "@/components/checkout/CouponSection";
 import { toast } from "sonner";
 import {
@@ -69,8 +70,18 @@ export default function CheckoutPage() {
   const [loading, setLoading] = React.useState(false);
   const [isPaying, setIsPaying] = React.useState(false);
   const [paymentMethod, setPaymentMethod] = React.useState<PaymentMethod>("RAZORPAY");
-  const [cartTotal, setCartTotal] = React.useState(0);
+  const [subtotal, setSubtotal] = React.useState(0);
   const [hasItems, setHasItems] = React.useState(false);
+  // Shipping charge can be turned off by admins. Default to the flat fee so
+  // the estimate matches historical behaviour until the config resolves; the
+  // backend order total is always the source of truth.
+  const [shippingConfig, setShippingConfig] = React.useState<{
+    enabled: boolean;
+    amount: number;
+  }>({ enabled: true, amount: 180 });
+
+  const shippingFee = hasItems && shippingConfig.enabled ? shippingConfig.amount : 0;
+  const cartTotal = subtotal + shippingFee;
   const [razorpayReady, setRazorpayReady] = React.useState(false);
   const [taxSummary, setTaxSummary] = React.useState<{
     subTotalAmount: number;
@@ -99,11 +110,11 @@ export default function CheckoutPage() {
   const applyCartSnapshot = React.useCallback(
     (items: Array<{ variantId: string; quantity: number; priceSnapshot: number }>) => {
       setHasItems(items.length > 0);
-      const subtotal = items.reduce(
+      const itemsSubtotal = items.reduce(
         (sum, item) => sum + item.priceSnapshot * item.quantity,
         0
       );
-      setCartTotal(subtotal + (items.length > 0 ? 180 : 0));
+      setSubtotal(itemsSubtotal);
 
       const fingerprint = items
         .map((i) => `${i.variantId}:${i.quantity}`)
@@ -238,6 +249,22 @@ export default function CheckoutPage() {
     void loadCart();
     void loadAddresses();
   }, [applyCartSnapshot, applySavedAddresses]);
+
+  // Load the admin-controlled shipping-charge config for an accurate estimate.
+  React.useEffect(() => {
+    let active = true;
+    getShippingConfig()
+      .then((config) => {
+        if (active) setShippingConfig(config);
+      })
+      .catch(() => {
+        // Non-fatal: keep the default estimate. The backend order total still
+        // reflects the real charge.
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleCheckout = async () => {
     if (isPaying) return; // Prevent double-submit
@@ -674,7 +701,7 @@ export default function CheckoutPage() {
               transition={{ delay: 0.25, duration: 0.6 }}
             >
               <CouponSection
-                cartTotal={Math.max(cartTotal - 180, 0)}
+                cartTotal={subtotal}
                 appliedCoupon={appliedCoupon}
                 onApply={setAppliedCoupon}
                 onRemove={() => setAppliedCoupon(null)}
@@ -698,7 +725,7 @@ export default function CheckoutPage() {
               <div className="space-y-4 text-sm">
                 <div className="flex items-center justify-between text-muted-foreground">
                   <span>Subtotal</span>
-                  <span>{currency.format(taxSummary ? taxSummary.subTotalAmount : Math.max(cartTotal - 180, 0))}</span>
+                  <span>{currency.format(taxSummary ? taxSummary.subTotalAmount : subtotal)}</span>
                 </div>
                 {/* Discount row — only after checkout response */}
                 {taxSummary && taxSummary.discountAmount > 0 && (
@@ -726,7 +753,13 @@ export default function CheckoutPage() {
                 )}
                 <div className="flex items-center justify-between text-muted-foreground">
                   <span>Shipping</span>
-                  <span>{hasItems ? "₹180" : "—"}</span>
+                  <span>
+                    {!hasItems
+                      ? "—"
+                      : shippingFee > 0
+                        ? currency.format(shippingFee)
+                        : "FREE"}
+                  </span>
                 </div>
                 <div className="h-px bg-border-soft" />
                 <div className="flex items-center justify-between">
