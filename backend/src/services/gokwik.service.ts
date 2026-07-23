@@ -214,10 +214,13 @@ export class GoKwikService {
         });
     }
 
-    /** Webhook URL GoKwik should post payment events to. */
+    /**
+     * Webhook URL GoKwik should post payment events to.
+     * Must match the mount path in app.ts: `/v1/payments/webhook/:provider`.
+     */
     private getWebhookUrl(): string | null {
         if (!env.BACKEND_PUBLIC_URL) return null;
-        return `${env.BACKEND_PUBLIC_URL.replace(/\/$/, '')}/v1/webhooks/gokwik`;
+        return `${env.BACKEND_PUBLIC_URL.replace(/\/$/, '')}/v1/payments/webhook/gokwik`;
     }
 
     /**

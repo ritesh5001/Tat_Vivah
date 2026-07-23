@@ -58,7 +58,7 @@ BACKEND_PUBLIC_URL=https://...  # required — GoKwik posts webhooks here
 2. The buyer pays on GoKwik's hosted page and returns to `/checkout/gokwik/callback`.
 3. `POST /v1/payments/gokwik/verify` confirms the state server-to-server via GoKwik's status API before the payment is marked SUCCESS. Webhooks provide the same confirmation asynchronously.
 
-**Webhooks** — point GoKwik at `https://<backend-host>/v1/webhooks/gokwik`. Events: `transaction.successful|failure|auto_refund` and `refund.successful|failure|pending|initiated`. Each payload carries an **HMAC-SHA512** digest in `data.hmac`, computed over `merchantReferenceId|paymentId|amount|currency` (transactions) or `merchantReferenceId|paymentId|amount` (refunds). GoKwik retries 3× and expects a response within 10s.
+**Webhooks** — point GoKwik at `https://<backend-host>/v1/payments/webhook/gokwik`. Events: `transaction.successful|failure|auto_refund` and `refund.successful|failure|pending|initiated`. Each payload carries an **HMAC-SHA512** digest in `data.hmac`, computed over `merchantReferenceId|paymentId|amount|currency` (transactions) or `merchantReferenceId|paymentId|amount` (refunds). GoKwik retries 3× and expects a response within 10s.
 
 **Refunds** — GoKwik exposes no public refund API on Payment Links; refunds are raised from the GoKwik dashboard and reported back via `refund.*` webhooks. The refund ledger entry is recorded locally at initiation.
 
@@ -114,7 +114,7 @@ FRONTEND_BASE_URL=https://...    # required — PhonePe redirects buyers to
 ### PhonePe Dashboard Setup
 
 1. Generate API keys (client id/secret) and set `PHONEPE_ENV` to match the key type.
-2. Configure the webhook URL: `https://<backend-host>/v1/webhooks/phonepe` with a username + password, and mirror them in `PHONEPE_WEBHOOK_USERNAME` / `PHONEPE_WEBHOOK_PASSWORD`.
+2. Configure the webhook URL: `https://<backend-host>/v1/payments/webhook/phonepe` with a username + password, and mirror them in `PHONEPE_WEBHOOK_USERNAME` / `PHONEPE_WEBHOOK_PASSWORD`.
 3. Subscribe to the `checkout.order.completed` and `checkout.order.failed` events.
 
 ### Payment Flow (PhonePe)
