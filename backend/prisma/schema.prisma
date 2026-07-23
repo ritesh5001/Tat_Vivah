@@ -3,8 +3,14 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  // Pooled endpoint for the running app (many short-lived connections).
+  url       = env("DATABASE_URL")
+  // Direct (non-pooled) endpoint for migrations. Advisory locks used by
+  // `migrate deploy` are session-scoped and misbehave through PgBouncer, so
+  // migrations must bypass the Neon pooler. Falls back to DATABASE_URL when
+  // DATABASE_URL_DIRECT is unset (Prisma treats an empty value as absent).
+  directUrl = env("DATABASE_URL_DIRECT")
 }
 
 /// Core user table for authentication

@@ -20,7 +20,7 @@
     "start:worker": "node dist/src/worker.js",
     "start:render": "NODE_ENV=production npm run prisma:migrate:deploy && NODE_ENV=production npm run start:api",
     "prisma:generate": "prisma generate",
-    "prisma:migrate:deploy": "prisma migrate deploy",
+    "prisma:migrate:deploy": "node scripts/migrate-deploy.mjs",
     "prisma:validate": "prisma validate",
     "typecheck": "tsc --noEmit",
     "test:auth": "tsx scripts/verify-auth.ts",
