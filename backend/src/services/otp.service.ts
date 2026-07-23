@@ -11,6 +11,9 @@ const OTP_EXPIRY_MINUTES = 10;
 
 type OtpContext = 'login' | 'verify' | 'signup' | 'reset';
 
+/** Which channel an OTP was actually delivered through. */
+export type OtpChannel = 'whatsapp' | 'email';
+
 export type SignupOtpPayload = {
     email: string;
     phone: string;
@@ -33,12 +36,12 @@ export class OtpService {
         code: string;
         context: OtpContext;
         fallbackEmail?: string | null | undefined;
-    }): Promise<void> {
+    }): Promise<OtpChannel> {
         const normalizedPhone = normalizeIndianMobile(opts.phone);
         try {
             await fast2SmsWhatsAppService.sendWhatsAppOtp(normalizedPhone, opts.code);
             this.logger.info({ phone: normalizedPhone, context: opts.context }, 'whatsapp_otp_sent');
-            return;
+            return 'whatsapp';
         } catch (err) {
             this.logger.warn(
                 { phone: normalizedPhone, context: opts.context, err: err instanceof Error ? err.message : String(err) },
@@ -46,11 +49,16 @@ export class OtpService {
             );
             const fallbackEmail = opts.fallbackEmail?.trim().toLowerCase();
             if (!fallbackEmail) {
-                throw err;
+                // Neither channel is usable. Surface a clear error instead of
+                // letting the caller report a false "OTP sent" success.
+                throw ApiError.internal(
+                    'We could not send your OTP right now. Please try again shortly.',
+                );
             }
             const { subject, html } = this.renderOtpEmail(opts.code, opts.context);
             await sendEmail(fallbackEmail, subject, html);
             this.logger.info({ email: fallbackEmail, context: opts.context }, 'otp_email_fallback_sent');
+            return 'email';
         }
     }
 
@@ -100,7 +108,7 @@ export class OtpService {
         phone: string,
         fallbackEmail?: string | null,
         mode: 'login' | 'verify' = 'login',
-    ): Promise<void> {
+    ): Promise<OtpChannel> {
         const normalizedPhone = normalizeIndianMobile(phone);
         if (!/^\d{10}$/.test(normalizedPhone)) {
             throw ApiError.badRequest('A valid 10-digit mobile number is required');
@@ -120,7 +128,7 @@ export class OtpService {
             expiresAt,
         });
 
-        await this.deliverOtp({ phone: normalizedPhone, code, context: mode, fallbackEmail });
+        return this.deliverOtp({ phone: normalizedPhone, code, context: mode, fallbackEmail });
     }
 
     /**

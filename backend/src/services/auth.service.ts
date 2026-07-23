@@ -394,9 +394,14 @@ export class AuthService {
             this.logger.warn({ phone: '[present]', userId: user.id, status: user.status }, 'request_otp_account_not_active');
             throw ApiError.forbidden('Account not active');
         }
-        await otpService.sendPhoneOtp(user.id, phone, user.email, 'login');
-        this.logger.info({ phone: '[present]', userId: user.id }, 'request_otp_sent');
-        return { message: 'OTP sent to your WhatsApp number' };
+        const channel = await otpService.sendPhoneOtp(user.id, phone, user.email, 'login');
+        this.logger.info({ phone: '[present]', userId: user.id, channel }, 'request_otp_sent');
+        return {
+            message:
+                channel === 'email'
+                    ? 'WhatsApp delivery is unavailable — we emailed your OTP instead. Please check your email.'
+                    : 'OTP sent to your WhatsApp number',
+        };
     }
 
     async verifyOtp(
