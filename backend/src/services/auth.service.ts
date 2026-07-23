@@ -19,6 +19,7 @@ import { otpService, type SignupOtpPayload } from './otp.service.js';
 import { hashOtp } from '../utils/otp.util.js';
 import { otpRepository } from '../repositories/otp.repository.js';
 import { normalizeIndianMobile } from './fast2sms.service.js';
+import { kwikpassService } from './kwikpass.service.js';
 import { OtpPurpose } from '@prisma/client';
 import type { Role, UserStatus } from '@prisma/client';
 import { randomUUID } from 'crypto';
@@ -231,6 +232,105 @@ export class AuthService {
      * 4. Generate tokens
      * 5. Create login session with HASHED refresh token
      */
+    /**
+     * Log a buyer in with a KwikPass (GoKwik) identity token.
+     * POST /v1/auth/kwikpass
+     *
+     * The kpToken is a JWE decrypted with our shared secret — decryption
+     * succeeding is the proof of authenticity, so the phone number is taken
+     * ONLY from inside the token, never from the request body.
+     *
+     * Business Rules:
+     * 1. Verify the token and recover the phone number
+     * 2. Find the user by phone; create a passwordless BUYER if none exists
+     * 3. Refuse non-USER roles — sellers/admins must use the password login
+     * 4. Require ACTIVE status
+     * 5. Issue our own access/refresh tokens (same session model as password login)
+     */
+    async loginWithKwikPass(
+        kpToken: string,
+        userAgent?: string,
+        ipAddress?: string,
+    ): Promise<LoginResponse> {
+        const identity = await kwikpassService.verifyToken(kpToken);
+        const phone = normalizeIndianMobile(identity.phone);
+
+        this.logger.info({ event: 'kwikpass_login_started', phone: '[present]' }, 'kwikpass_login_started');
+
+        const existing = await this.repository.findUserByPhone(phone);
+
+        if (existing) {
+            // KwikPass is a buyer-facing login. Staff accounts keep the
+            // password (+OTP) flow so elevated roles can't be obtained here.
+            if (existing.role !== 'USER') {
+                this.logger.warn(
+                    { event: 'kwikpass_login_role_rejected', userId: existing.id, role: existing.role },
+                    'kwikpass_login_non_buyer_rejected',
+                );
+                throw ApiError.forbidden('Please sign in with your email and password.');
+            }
+
+            if (existing.status !== 'ACTIVE') {
+                this.logger.warn(
+                    { event: 'kwikpass_login_inactive', userId: existing.id, status: existing.status },
+                    'kwikpass_login_account_not_active',
+                );
+                throw ApiError.forbidden('Account not active');
+            }
+
+            // The phone is verified by KwikPass's OTP, so reflect that.
+            const user = existing.isPhoneVerified
+                ? existing
+                : await this.repository.updateUser(existing.id, { isPhoneVerified: true });
+
+            return this.issueTokens({
+                id: user.id,
+                email: user.email,
+                phone: user.phone,
+                role: user.role,
+                status: user.status,
+                isEmailVerified: user.isEmailVerified,
+                isPhoneVerified: user.isPhoneVerified,
+            }, userAgent, ipAddress);
+        }
+
+        // No account yet — create a passwordless buyer. The random hash is
+        // unguessable, so the account can only be accessed via KwikPass until
+        // the user sets a password through the normal reset flow.
+        const unusablePasswordHash = await hashPassword(randomUUID() + randomUUID());
+
+        const created = await this.repository.createUser({
+            email: null,
+            phone,
+            whatsappNumber: null,
+            passwordHash: unusablePasswordHash,
+            role: 'USER',
+            status: 'ACTIVE',
+            isEmailVerified: false,
+            isPhoneVerified: true,
+        }).catch((error: any) => {
+            if (error?.code === 'P2002' || String(error?.message ?? '').includes('Unique constraint')) {
+                throw ApiError.conflict('Phone already in use');
+            }
+            throw error;
+        });
+
+        this.logger.info(
+            { event: 'kwikpass_login_user_created', userId: created.id },
+            'kwikpass_login_user_created',
+        );
+
+        return this.issueTokens({
+            id: created.id,
+            email: created.email,
+            phone: created.phone,
+            role: created.role,
+            status: created.status,
+            isEmailVerified: created.isEmailVerified,
+            isPhoneVerified: created.isPhoneVerified,
+        }, userAgent, ipAddress);
+    }
+
     async login(
         identifier: string,
         password: string,

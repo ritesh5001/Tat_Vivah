@@ -172,7 +172,7 @@ export async function checkoutWithPayment(
     couponCode?: string;
   },
   token?: string | null,
-  provider: "RAZORPAY" | "PHONEPE" | "COD" = "RAZORPAY"
+  provider: "GOKWIK" | "RAZORPAY" | "PHONEPE" | "COD" = "RAZORPAY"
 ) {
   return apiRequest<{
     message: string;

@@ -99,6 +99,21 @@ const envSchema = z.object({
     PHONEPE_MOBILE_REDIRECT_URL: z.string().optional(),
     // Optional override for the web redirect base (defaults to FRONTEND_BASE_URL)
     PHONEPE_WEB_REDIRECT_BASE_URL: z.string().optional(),
+
+    // GoKwik — Payment Links API (server-to-server)
+    GOKWIK_APP_ID: z.string().optional(),
+    GOKWIK_APP_SECRET: z.string().optional(),
+    GOKWIK_MERCHANT_ID: z.string().optional(),
+    GOKWIK_ENV: z.enum(['SANDBOX', 'PRODUCTION']).default('SANDBOX'),
+    /** Payment mode for the hosted link: all methods vs UPI deeplink only. */
+    GOKWIK_PAYMENT_MODE: z.enum(['standard', 'upi-deeplink']).default('standard'),
+    /** Public base URL of THIS backend — GoKwik posts webhooks here. */
+    BACKEND_PUBLIC_URL: z.string().url('BACKEND_PUBLIC_URL must be a valid URL').optional(),
+
+    // KwikPass — buyer phone/OTP login (JWE token issued by GoKwik)
+    KWIKPASS_MERCHANT_ID: z.string().optional(),
+    /** Base64url secret used to decrypt the kpToken JWE. Issued by GoKwik. */
+    KWIKPASS_JWE_SECRET: z.string().optional(),
 });
 
 /**

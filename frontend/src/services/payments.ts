@@ -1,6 +1,6 @@
 import { apiRequest } from "@/services/api";
 
-export type PaymentProvider = "RAZORPAY" | "PHONEPE" | "COD" | "MOCK";
+export type PaymentProvider = "GOKWIK" | "RAZORPAY" | "PHONEPE" | "COD" | "MOCK";
 
 export interface InitiatePaymentResponse {
   data: {
@@ -69,6 +69,18 @@ export async function verifyPayment(payload: {
  */
 export async function verifyPhonePePayment(orderId: string, token?: string | null) {
   return apiRequest<PhonePeVerifyResponse>("/v1/payments/phonepe/verify", {
+    method: "POST",
+    body: { orderId },
+    token,
+  });
+}
+
+/**
+ * Confirm a GoKwik payment after the buyer returns from the hosted payment
+ * link. The backend checks the authoritative state with GoKwik's API.
+ */
+export async function verifyGoKwikPayment(orderId: string, token?: string | null) {
+  return apiRequest<PhonePeVerifyResponse>("/v1/payments/gokwik/verify", {
     method: "POST",
     body: { orderId },
     token,

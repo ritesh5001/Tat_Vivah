@@ -159,10 +159,17 @@ export default function UserOrdersClient({
       const paymentResult = await retryPayment(orderId);
       const data = paymentResult.data;
 
-      // PhonePe retries use the redirect flow — no SDK involved
-      if (data.provider === "PHONEPE") {
+      // GoKwik and PhonePe retries use a hosted redirect — no SDK involved
+      if (data.provider === "GOKWIK" || data.provider === "PHONEPE") {
         if (!data.redirectUrl) {
-          throw new Error("PhonePe checkout could not be started. Please try again.");
+          throw new Error("Payment could not be started. Please try again.");
+        }
+        if (data.provider === "GOKWIK") {
+          try {
+            window.sessionStorage.setItem("tatvivah_pending_order", orderId);
+          } catch {
+            // Non-fatal — the callback also accepts orderId via the query string.
+          }
         }
         window.location.assign(data.redirectUrl);
         return;

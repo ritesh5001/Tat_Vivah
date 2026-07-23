@@ -17,6 +17,7 @@ import {
   initiatePayment,
   verifyPayment,
   verifyPhonePePayment,
+  verifyGoKwikPayment,
   type PaymentProvider,
 } from "../../src/services/payments";
 import { isRazorpayAvailable, openRazorpayCheckout } from "../../src/services/razorpay";
@@ -88,18 +89,19 @@ const AddressSelectorRow = React.memo(function AddressSelectorRow({
 const PHONEPE_POLL_INTERVAL_MS = 3000;
 const PHONEPE_MAX_WAIT_MS = 4 * 60 * 1000;
 
-async function waitForPhonePeResult(
+async function waitForRedirectPaymentResult(
   orderId: string,
-  token: string
+  token: string,
+  verify: (orderId: string, token: string) => Promise<{ data: { status: string } }>
 ): Promise<"SUCCESS" | "FAILED" | "TIMEOUT"> {
   const deadline = Date.now() + PHONEPE_MAX_WAIT_MS;
   while (Date.now() < deadline) {
     try {
-      const result = await verifyPhonePePayment(orderId, token);
+      const result = await verify(orderId, token);
       if (result.data.status === "SUCCESS") return "SUCCESS";
       if (result.data.status === "FAILED") return "FAILED";
     } catch {
-      // Transient error while the user is inside the PhonePe app — keep polling.
+      // Transient error while the user is in the payment app — keep polling.
     }
     await new Promise((resolve) => setTimeout(resolve, PHONEPE_POLL_INTERVAL_MS));
   }
@@ -124,7 +126,7 @@ export default function CheckoutScreen() {
   // ---------- Payment guard — prevents double-submit ----------
   const [isPaying, setIsPaying] = React.useState(false);
   const [payLabel, setPayLabel] = React.useState("Starting payment");
-  const [paymentMethod, setPaymentMethod] = React.useState<PaymentProvider>("RAZORPAY");
+  const [paymentMethod, setPaymentMethod] = React.useState<PaymentProvider>("GOKWIK");
   const [error, setError] = React.useState<string | null>(null);
   const [taxSummary, setTaxSummary] = React.useState<{
     subTotalAmount: number;
@@ -400,6 +402,49 @@ export default function CheckoutScreen() {
         });
       }
 
+      // 2a-gokwik. GoKwik — hosted payment link opened in the browser, then polled.
+      if (paymentMethod === "GOKWIK") {
+        setPayLabel("Opening payment");
+        const gokwikPayment = await initiatePayment(orderId, token, "GOKWIK");
+        const redirectUrl = gokwikPayment.data.redirectUrl;
+        if (!redirectUrl) {
+          throw new Error("Payment could not be started. Please try again.");
+        }
+
+        await Linking.openURL(redirectUrl);
+
+        setPayLabel("Waiting for payment confirmation");
+        const outcome = await waitForRedirectPaymentResult(
+          orderId,
+          token,
+          verifyGoKwikPayment
+        );
+
+        if (!mountedRef.current) return;
+
+        if (outcome === "SUCCESS") {
+          notifySuccess();
+          clearCart();
+          router.replace(`/orders/${orderId}`);
+          setTimeout(() => {
+            void refreshCart();
+          }, 0);
+          return;
+        }
+
+        if (outcome === "FAILED") {
+          setError("Payment failed. You can retry from your orders.");
+          notifyError();
+          showToast("Payment failed. Retry from orders.", "error");
+          router.replace(`/orders/${orderId}`);
+          return;
+        }
+
+        showToast("Payment pending. Check your orders for the final status.", "info");
+        router.replace(`/orders/${orderId}`);
+        return;
+      }
+
       // 2a-cod. COD — order is CONFIRMED server-side; no online payment now.
       if (paymentMethod === "COD") {
         setPayLabel("Placing order");
@@ -428,7 +473,11 @@ export default function CheckoutScreen() {
         await Linking.openURL(redirectUrl);
 
         setPayLabel("Waiting for payment confirmation");
-        const outcome = await waitForPhonePeResult(orderId, token);
+        const outcome = await waitForRedirectPaymentResult(
+          orderId,
+          token,
+          verifyPhonePePayment
+        );
 
         if (!mountedRef.current) return;
 
@@ -848,6 +897,24 @@ export default function CheckoutScreen() {
         {/* ---- Payment Method ---- */}
         <View style={[styles.card, { marginTop: spacing.md }]}>
           <Text style={styles.sectionTitle}>Payment Method</Text>
+          <AnimatedPressable
+            style={[
+              styles.payMethodOption,
+              styles.payMethodOptionFull,
+              { marginTop: 0, marginBottom: spacing.sm },
+              paymentMethod === "GOKWIK" && styles.payMethodOptionSelected,
+            ]}
+            onPress={() => {
+              setPaymentMethod("GOKWIK");
+              impactLight();
+            }}
+            disabled={isPaying}
+          >
+            <Text style={styles.payMethodTitle}>Pay Online</Text>
+            <Text style={styles.payMethodDesc}>
+              UPI, cards &amp; wallets — secured by GoKwik
+            </Text>
+          </AnimatedPressable>
           <View style={styles.payMethodRow}>
             <AnimatedPressable
               style={[

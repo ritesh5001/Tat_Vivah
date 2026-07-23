@@ -4,6 +4,7 @@ import { PaymentProvider, PaymentStatus, PaymentEventType } from '@prisma/client
 import { ApiError } from '../errors/ApiError.js';
 import { razorpayService, RazorpayWebhookPayload } from './razorpay.service.js';
 import { phonepeService } from './phonepe.service.js';
+import { gokwikService } from './gokwik.service.js';
 import { paymentRepository } from '../repositories/payment.repository.js';
 import { prisma } from '../config/db.js';
 import { paymentLogger } from '../config/logger.js';
@@ -32,6 +33,12 @@ export class WebhookService {
         // 4. Handle PHONEPE Provider
         if (validProvider === PaymentProvider.PHONEPE) {
             await this.handlePhonePeWebhook(payload, signature);
+            return;
+        }
+
+        // 5. Handle GOKWIK Provider
+        if (validProvider === PaymentProvider.GOKWIK) {
+            await this.handleGoKwikWebhook(payload);
             return;
         }
 
@@ -264,6 +271,142 @@ export class WebhookService {
                 `PhonePe webhook: payment ${payment.id} marked FAILED`,
             );
         }
+    }
+
+    // ------------------------------------------------------------------
+    // GoKwik webhook (Payment Webhooks V3)
+    //
+    // Auth: each event carries an HMAC-SHA512 digest inside data.hmac,
+    // computed over pipe-joined fields. The webhook is treated as a hint —
+    // success is re-confirmed against the Payment Links status API before we
+    // mark anything paid.
+    // ------------------------------------------------------------------
+
+    private async handleGoKwikWebhook(payload: any) {
+        const event = gokwikService.parseWebhookEvent(payload);
+
+        // 1. Verify HMAC
+        if (!gokwikService.verifyWebhookHmac(event.entity, payload?.data ?? {})) {
+            paymentLogger.error(
+                { event: 'gokwik_webhook_invalid_hmac', webhookEvent: event.event },
+                'GoKwik webhook: invalid hmac',
+            );
+            throw new ApiError(401, 'Invalid webhook signature');
+        }
+
+        paymentLogger.info(
+            {
+                event: 'gokwik_webhook_received',
+                webhookEvent: event.event,
+                merchantReferenceId: event.merchantReferenceId,
+            },
+            `GoKwik webhook received: ${event.event}`,
+        );
+
+        if (!event.merchantReferenceId) {
+            paymentLogger.error({ event: 'gokwik_webhook_missing_ref' }, 'GoKwik webhook: missing merchantReferenceId');
+            return;
+        }
+
+        // 2. Find payment by merchantReferenceId (stored as providerOrderId)
+        const payment = await paymentRepository.findByProviderOrderId(event.merchantReferenceId);
+        if (!payment) {
+            paymentLogger.error(
+                { event: 'gokwik_webhook_payment_not_found', merchantReferenceId: event.merchantReferenceId },
+                `GoKwik webhook: payment not found for ${event.merchantReferenceId}`,
+            );
+            return;
+        }
+
+        // 3. Log the event for audit (before any state change)
+        await prisma.paymentEvent.create({
+            data: {
+                paymentId: payment.id,
+                type: PaymentEventType.WEBHOOK,
+                payload: payload as any,
+            },
+        });
+
+        // ── Refund events: ledger is already handled at initiation time,
+        //    so these are recorded for audit only.
+        if (event.entity === 'refund') {
+            paymentLogger.info(
+                { event: 'gokwik_webhook_refund', webhookEvent: event.event, paymentId: payment.id },
+                `GoKwik refund webhook: ${event.event}`,
+            );
+            return;
+        }
+
+        // ── Transaction events
+        if (event.event === 'transaction.successful') {
+            if (payment.status === PaymentStatus.SUCCESS) {
+                paymentLogger.info(
+                    { event: 'gokwik_webhook_already_success', paymentId: payment.id },
+                    `GoKwik webhook: payment already successful ${payment.id}`,
+                );
+                return;
+            }
+
+            // Re-confirm with the status API before trusting the webhook.
+            const link = await gokwikService.getPaymentLink({
+                merchantReferenceId: event.merchantReferenceId,
+            });
+            if (link.status !== 'paid') {
+                paymentLogger.warn(
+                    {
+                        event: 'gokwik_webhook_state_mismatch',
+                        merchantReferenceId: event.merchantReferenceId,
+                        linkStatus: link.status,
+                    },
+                    'GoKwik webhook: status API disagrees with webhook, skipping',
+                );
+                return;
+            }
+
+            await paymentService.handlePaymentSuccess(
+                payment.id,
+                payment.orderId,
+                event.paymentId || link.id,
+                {
+                    merchantReferenceId: event.merchantReferenceId,
+                    gokwikPaymentId: event.paymentId,
+                    method: event.method,
+                    provider: event.provider,
+                    source: 'webhook',
+                },
+            );
+
+            paymentLogger.info(
+                { event: 'gokwik_webhook_payment_processed', paymentId: payment.id },
+                `GoKwik webhook: payment ${payment.id} processed`,
+            );
+            return;
+        }
+
+        if (event.event === 'transaction.failure' || event.event === 'transaction.auto_refund') {
+            // Never downgrade a successful payment (auto_refund is handled by
+            // the refund ledger, not by flipping the payment back to FAILED).
+            if (payment.status === PaymentStatus.SUCCESS || payment.status === PaymentStatus.FAILED) {
+                return;
+            }
+
+            await paymentService.handlePaymentFailure(payment.id, {
+                merchantReferenceId: event.merchantReferenceId,
+                reason: event.description,
+                source: 'webhook',
+            });
+
+            paymentLogger.info(
+                { event: 'gokwik_webhook_payment_failed', paymentId: payment.id },
+                `GoKwik webhook: payment ${payment.id} marked FAILED`,
+            );
+            return;
+        }
+
+        paymentLogger.warn(
+            { event: 'gokwik_webhook_unhandled', webhookEvent: event.event },
+            `GoKwik webhook unhandled event: ${event.event}`,
+        );
     }
 
     private mapProvider(provider: string): PaymentProvider | null {

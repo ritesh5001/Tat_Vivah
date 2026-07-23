@@ -860,6 +860,7 @@ enum PaymentProvider {
   STRIPE
   PHONEPE
   COD
+  GOKWIK
 }
 
 enum PaymentEventType {

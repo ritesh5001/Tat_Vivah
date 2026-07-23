@@ -25,6 +25,12 @@ export const verifyPhonePePaymentSchema = z.object({
     })
 });
 
+export const verifyGoKwikPaymentSchema = z.object({
+    body: z.object({
+        orderId: z.string().min(1)
+    })
+});
+
 export const retryPaymentSchema = z.object({
     params: z.object({
         orderId: z.string().min(1),

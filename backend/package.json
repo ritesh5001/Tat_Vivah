@@ -69,6 +69,7 @@
     "express": "^5.0.1",
     "imagekit": "^6.0.0",
     "ioredis": "^5.9.2",
+    "jose": "^6.2.4",
     "jsonwebtoken": "^9.0.2",
     "ms": "^2.1.3",
     "openapi3-ts": "^4.5.0",

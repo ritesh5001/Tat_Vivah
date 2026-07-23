@@ -26,11 +26,13 @@ export class CheckoutController {
             // Optional provider/platform selection (defaults preserve old behavior)
             const requestedProvider = String(req.query.provider ?? '').toUpperCase();
             const provider =
-                requestedProvider === PaymentProvider.PHONEPE
-                    ? PaymentProvider.PHONEPE
-                    : requestedProvider === PaymentProvider.COD
-                        ? PaymentProvider.COD
-                        : PaymentProvider.RAZORPAY;
+                requestedProvider === PaymentProvider.GOKWIK
+                    ? PaymentProvider.GOKWIK
+                    : requestedProvider === PaymentProvider.PHONEPE
+                        ? PaymentProvider.PHONEPE
+                        : requestedProvider === PaymentProvider.COD
+                            ? PaymentProvider.COD
+                            : PaymentProvider.RAZORPAY;
             const platform = String(req.query.platform ?? '').toUpperCase() === 'MOBILE' ? 'MOBILE' as const : 'WEB' as const;
 
             try {

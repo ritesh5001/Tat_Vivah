@@ -3,7 +3,7 @@ import { Router } from 'express';
 import { paymentController } from '../controllers/payment.controller.js';
 import { authenticate } from '../middlewares/auth.middleware.js';
 import { validateRequest } from '../middlewares/validateRequest.js'; // Assuming this exists or similar
-import { initiatePaymentSchema, verifyPaymentSchema, verifyPhonePePaymentSchema, retryPaymentSchema } from '../validators/payment.validation.js';
+import { initiatePaymentSchema, verifyPaymentSchema, verifyPhonePePaymentSchema, verifyGoKwikPaymentSchema, retryPaymentSchema } from '../validators/payment.validation.js';
 
 const router = Router();
 
@@ -27,6 +27,13 @@ router.post(
     '/phonepe/verify',
     validateRequest(verifyPhonePePaymentSchema),
     paymentController.verifyPhonePePayment
+);
+
+// GoKwik redirect flow — client asks us to confirm state with GoKwik
+router.post(
+    '/gokwik/verify',
+    validateRequest(verifyGoKwikPaymentSchema),
+    paymentController.verifyGoKwikPayment
 );
 
 router.post(

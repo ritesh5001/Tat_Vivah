@@ -63,13 +63,13 @@ function getRazorpayConstructor() {
   return (window as Window & { Razorpay?: RazorpayConstructor }).Razorpay ?? null;
 }
 
-type PaymentMethod = "RAZORPAY" | "PHONEPE" | "COD";
+type PaymentMethod = "GOKWIK" | "RAZORPAY" | "PHONEPE" | "COD";
 
 export default function CheckoutPage() {
   const router = useRouter();
   const [loading, setLoading] = React.useState(false);
   const [isPaying, setIsPaying] = React.useState(false);
-  const [paymentMethod, setPaymentMethod] = React.useState<PaymentMethod>("RAZORPAY");
+  const [paymentMethod, setPaymentMethod] = React.useState<PaymentMethod>("GOKWIK");
   const [subtotal, setSubtotal] = React.useState(0);
   const [hasItems, setHasItems] = React.useState(false);
   // Shipping charge can be turned off by admins. Default to the flat fee so
@@ -273,10 +273,17 @@ export default function CheckoutPage() {
       return;
     }
 
+    const useGoKwik = paymentMethod === "GOKWIK";
     const usePhonePe = paymentMethod === "PHONEPE";
     const useCod = paymentMethod === "COD";
 
-    const gatewayPromise = usePhonePe || useCod || razorpayReady
+    // GoKwik needs a phone number to create the payment link.
+    if (useGoKwik && !/^\d{10}$/.test(shipping.phone.replace(/\D/g, "").slice(-10))) {
+      toast.error("Please enter a valid 10-digit phone number to pay with GoKwik.");
+      return;
+    }
+
+    const gatewayPromise = useGoKwik || usePhonePe || useCod || razorpayReady
       ? Promise.resolve(true)
       : warmRazorpay();
 
@@ -311,6 +318,23 @@ export default function CheckoutPage() {
           grandTotal: orderResult.order.grandTotal ?? 0,
           discountAmount: orderResult.order.discountAmount ?? 0,
         });
+      }
+
+      // ---- GoKwik: redirect flow — send the buyer to the hosted payment link ----
+      if (useGoKwik) {
+        const payment =
+          orderResult.payment ?? (await initiatePayment(orderId, "GOKWIK")).data;
+        if (!payment.redirectUrl) {
+          throw new Error("GoKwik checkout could not be started. Please try again.");
+        }
+        // Remember which order we're paying so the callback page can confirm it.
+        try {
+          window.sessionStorage.setItem("tatvivah_pending_order", orderId);
+        } catch {
+          // Non-fatal — the callback also accepts orderId via the query string.
+        }
+        window.location.assign(payment.redirectUrl);
+        return;
       }
 
       // ---- COD: order is already CONFIRMED server-side, nothing to pay now ----
@@ -780,6 +804,23 @@ export default function CheckoutPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
+                    onClick={() => setPaymentMethod("GOKWIK")}
+                    disabled={isPaying || loading}
+                    className={`col-span-2 p-4 border text-left transition-all duration-300 ${
+                      paymentMethod === "GOKWIK"
+                        ? "border-gold bg-gold/5"
+                        : "border-border-soft hover:border-gold/40"
+                    }`}
+                  >
+                    <p className="text-sm font-medium text-foreground">
+                      Pay Online <span className="text-[10px] text-gold">· Recommended</span>
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      UPI, cards, netbanking &amp; wallets — secured by GoKwik
+                    </p>
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => setPaymentMethod("RAZORPAY")}
                     onMouseEnter={() => void warmRazorpay()}
                     disabled={isPaying || loading}
@@ -864,7 +905,9 @@ export default function CheckoutPage() {
                   <span className="text-xs text-muted-foreground">
                     {paymentMethod === "COD"
                       ? "Cash on Delivery"
-                      : `Secured by ${paymentMethod === "PHONEPE" ? "PhonePe" : "Razorpay"}`}
+                      : paymentMethod === "GOKWIK"
+                        ? "Secured by GoKwik"
+                        : `Secured by ${paymentMethod === "PHONEPE" ? "PhonePe" : "Razorpay"}`}
                   </span>
                 </div>
                 <div className="flex items-center gap-3">

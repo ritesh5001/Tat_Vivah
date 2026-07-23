@@ -51,6 +51,23 @@ export class PaymentController {
         });
     });
 
+    /**
+     * Verify a GoKwik payment after the buyer returns from the hosted
+     * payment link (or while the client polls). Confirms the state via
+     * GoKwik's Payment Links status API.
+     */
+    verifyGoKwikPayment = asyncHandler(async (req: Request, res: Response) => {
+        const { orderId } = req.body;
+        const userId = (req as any).user.userId;
+
+        const result = await paymentService.verifyGoKwikPayment(userId, orderId);
+
+        res.status(200).json({
+            success: true,
+            data: result
+        });
+    });
+
     retryPayment = asyncHandler(async (req: Request, res: Response) => {
         const orderId = req.params.orderId as string;
         const userId = (req as any).user.userId;

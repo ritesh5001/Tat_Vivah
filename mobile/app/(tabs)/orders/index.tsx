@@ -17,6 +17,7 @@ import {
   retryPayment,
   verifyPayment,
   verifyPhonePePayment,
+  verifyGoKwikPayment,
 } from "../../../src/services/payments";
 import { isRazorpayAvailable, openRazorpayCheckout } from "../../../src/services/razorpay";
 import { useAuth } from "../../../src/hooks/useAuth";
@@ -44,18 +45,19 @@ const currency = new Intl.NumberFormat("en-IN", {
 const PHONEPE_POLL_INTERVAL_MS = 3000;
 const PHONEPE_MAX_WAIT_MS = 4 * 60 * 1000;
 
-async function waitForPhonePeRetryResult(
+async function waitForRedirectRetryResult(
   orderId: string,
-  token: string
+  token: string,
+  verify: (orderId: string, token: string) => Promise<{ data: { status: string } }>
 ): Promise<"SUCCESS" | "FAILED" | "TIMEOUT"> {
   const deadline = Date.now() + PHONEPE_MAX_WAIT_MS;
   while (Date.now() < deadline) {
     try {
-      const result = await verifyPhonePePayment(orderId, token);
+      const result = await verify(orderId, token);
       if (result.data.status === "SUCCESS") return "SUCCESS";
       if (result.data.status === "FAILED") return "FAILED";
     } catch {
-      // Transient error while the user is inside the PhonePe app — keep polling.
+      // Transient error while the user is in the payment app — keep polling.
     }
     await new Promise((resolve) => setTimeout(resolve, PHONEPE_POLL_INTERVAL_MS));
   }
@@ -576,15 +578,20 @@ export default function OrdersScreen() {
       const paymentResult = await retryPayment(orderId, token);
       const { key, orderId: razorpayOrderId, amount, currency } = paymentResult.data;
 
-      // PhonePe retries use the redirect flow — open the hosted page and poll
-      if (paymentResult.data.provider === "PHONEPE") {
+      // GoKwik / PhonePe retries use a hosted redirect — open it and poll
+      const retryProvider = paymentResult.data.provider;
+      if (retryProvider === "GOKWIK" || retryProvider === "PHONEPE") {
         const redirectUrl = paymentResult.data.redirectUrl;
         if (!redirectUrl) {
-          throw new Error("PhonePe checkout could not be started. Please try again.");
+          throw new Error("Payment could not be started. Please try again.");
         }
         await Linking.openURL(redirectUrl);
 
-        const outcome = await waitForPhonePeRetryResult(orderId, token);
+        const outcome = await waitForRedirectRetryResult(
+          orderId,
+          token,
+          retryProvider === "GOKWIK" ? verifyGoKwikPayment : verifyPhonePePayment
+        );
         if (outcome === "SUCCESS") {
           notifySuccess();
           showToast("Payment successful. Order confirmed.", "success");

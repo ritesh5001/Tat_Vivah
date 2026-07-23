@@ -204,6 +204,17 @@ export class RefundService {
                 );
                 providerSuccess = false;
             }
+        } else if (order.payment.provider === PaymentProvider.GOKWIK) {
+            // GoKwik does not expose a public refund API on Payment Links —
+            // refunds are raised from the GoKwik dashboard and reported back
+            // via refund.* webhooks. Record the ledger entry here so the order
+            // state is correct; reconciliation happens on the webhook.
+            refundLogger.info(
+                { orderId, refundId: refund.id, amount },
+                'gokwik_refund_recorded_pending_dashboard',
+            );
+            razorpayRefundId = `gokwik_refund_${refund.id}`;
+            providerSuccess = true;
         } else if (order.payment.provider === PaymentProvider.COD) {
             // COD refunds are settled offline (cash returned to the buyer).
             // We only record the ledger entry here; there is no gateway call.

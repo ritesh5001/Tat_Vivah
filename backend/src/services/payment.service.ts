@@ -7,6 +7,8 @@ import { razorpayService } from './razorpay.service.js';
 import { getRazorpayKeyId, isRazorpayConfigured, razorpayClient } from './razorpay.client.js';
 import { phonepeService } from './phonepe.service.js';
 import { isPhonePeConfigured } from './phonepe.client.js';
+import { gokwikService } from './gokwik.service.js';
+import { isGoKwikConfigured } from './gokwik.client.js';
 import { env } from '../config/env.js';
 import { emitPaymentSuccess, emitPaymentFailed } from '../events/order.events.js';
 import { paymentLogger } from '../config/logger.js';
@@ -56,6 +58,9 @@ export class PaymentService {
         grandTotal: number | null;
         subTotalAmount: number | null;
         totalTaxAmount: number | null;
+        shippingName: string | null;
+        shippingPhone: string | null;
+        shippingEmail: string | null;
     } | null> {
         return prisma.order.findFirst({
             where: { id: orderId, userId },
@@ -68,8 +73,41 @@ export class PaymentService {
                 grandTotal: true,
                 subTotalAmount: true,
                 totalTaxAmount: true,
+                shippingName: true,
+                shippingPhone: true,
+                shippingEmail: true,
             },
         });
+    }
+
+    /**
+     * Resolve the buyer's phone for providers that require it (GoKwik).
+     * Falls back to the account phone when the order has no shipping phone.
+     */
+    private async resolveCustomerContact(
+        userId: string,
+        order: { shippingName: string | null; shippingPhone: string | null; shippingEmail: string | null },
+    ): Promise<{ phone: string; name?: string | undefined; email?: string | undefined }> {
+        let phone = order.shippingPhone ?? '';
+        let email = order.shippingEmail ?? undefined;
+        let name = order.shippingName ?? undefined;
+
+        if (!phone || !email) {
+            const user = await prisma.user.findUnique({
+                where: { id: userId },
+                select: { phone: true, email: true },
+            });
+            phone = phone || user?.phone || '';
+            email = email || user?.email || undefined;
+        }
+
+        // GoKwik expects a bare 10-digit Indian number.
+        const normalized = phone.replace(/\D/g, '').slice(-10);
+        if (normalized.length !== 10) {
+            throw new ApiError(400, 'A valid 10-digit phone number is required to pay with GoKwik.');
+        }
+
+        return { phone: normalized, name, email };
     }
 
     private resolvePayableAmount(order: {
@@ -432,6 +470,50 @@ export class PaymentService {
             };
         }
 
+        // Handle GOKWIK Provider (Payment Links — hosted redirect flow)
+        if (provider === PaymentProvider.GOKWIK) {
+            if (!isGoKwikConfigured()) {
+                throw new ApiError(500, 'GoKwik is not configured');
+            }
+
+            const customer = await this.resolveCustomerContact(userId, order);
+            const merchantReferenceId = gokwikService.buildMerchantReferenceId(orderId);
+
+            const link = await gokwikService.createPaymentLink(
+                payableAmount,
+                merchantReferenceId,
+                customer,
+                { orderId },
+            );
+
+            // Store merchantReferenceId so webhooks / status checks find this payment
+            await paymentRepository.updateProviderOrderId(payment.id, link.merchantReferenceId);
+
+            // udf2 is reserved by GoKwik for the merchant order id (settlement APIs).
+            // Best-effort — a failure here must not block the payment.
+            try {
+                await gokwikService.upsertUdfs(link.merchantReferenceId, {
+                    udf1: 'tatvivah',
+                    udf2: orderId,
+                });
+            } catch (error) {
+                paymentLogger.warn(
+                    { event: 'gokwik_udf_upsert_failed', orderId },
+                    'GoKwik UDF upsert failed (non-fatal)',
+                );
+            }
+
+            return {
+                paymentId: payment.id,
+                orderId: link.merchantReferenceId,
+                gokwikLinkId: link.id,
+                redirectUrl: link.shortUrl,
+                amount: Math.round(payableAmount * 100),
+                currency: 'INR',
+                provider: 'GOKWIK'
+            };
+        }
+
         // Handle other providers (placeholder)
         throw new ApiError(400, 'Provider not supported');
     }
@@ -604,6 +686,76 @@ export class PaymentService {
             await this.handlePaymentFailure(payment.id, {
                 merchantOrderId: payment.providerOrderId,
                 phonepeOrderId: statusResponse.orderId,
+                source: 'status_check',
+            });
+            return { status: 'FAILED', paymentId: payment.id, message: 'Payment failed' };
+        }
+
+        return { status: 'PENDING', paymentId: payment.id, message: 'Payment is still pending' };
+    }
+
+    // ------------------------------------------------------------------
+    // Verify GoKwik payment (redirect callback / client polling)
+    //
+    // The hosted link redirect carries no signature, so the only trusted
+    // confirmation is fetching the link state from GoKwik.
+    // ------------------------------------------------------------------
+
+    async verifyGoKwikPayment(userId: string, orderId: string): Promise<{
+        status: 'SUCCESS' | 'FAILED' | 'PENDING';
+        paymentId: string;
+        message: string;
+    }> {
+        const payment = await paymentRepository.findPaymentByOrderId(orderId);
+        if (!payment) {
+            throw new ApiError(404, 'Payment not found');
+        }
+        if (payment.userId !== userId) {
+            throw new ApiError(403, 'Unauthorized');
+        }
+
+        // Idempotent — already succeeded (e.g. webhook arrived first)
+        if (payment.status === PaymentStatus.SUCCESS) {
+            return { status: 'SUCCESS', paymentId: payment.id, message: 'Payment already verified' };
+        }
+
+        if (payment.provider !== PaymentProvider.GOKWIK || !payment.providerOrderId) {
+            throw new ApiError(400, 'No GoKwik payment attempt found for this order');
+        }
+
+        const link = await gokwikService.getPaymentLink({
+            merchantReferenceId: payment.providerOrderId,
+        });
+
+        if (link.status === 'paid') {
+            try {
+                await this.handlePaymentSuccess(
+                    payment.id,
+                    payment.orderId,
+                    link.id,
+                    {
+                        merchantReferenceId: payment.providerOrderId,
+                        gokwikLinkId: link.id,
+                        source: 'status_check',
+                    },
+                );
+            } catch (error) {
+                if (isTransactionStartTimeout(error)) {
+                    const latest = await paymentRepository.findPaymentById(payment.id);
+                    if (latest?.status === PaymentStatus.SUCCESS) {
+                        return { status: 'SUCCESS', paymentId: payment.id, message: 'Payment already verified' };
+                    }
+                    throw new ApiError(503, 'Payment is being finalized. Please refresh order status in a few seconds.');
+                }
+                throw error;
+            }
+            return { status: 'SUCCESS', paymentId: payment.id, message: 'Payment verified' };
+        }
+
+        if (link.status === 'cancelled' || link.status === 'expired') {
+            await this.handlePaymentFailure(payment.id, {
+                merchantReferenceId: payment.providerOrderId,
+                linkStatus: link.status,
                 source: 'status_check',
             });
             return { status: 'FAILED', paymentId: payment.id, message: 'Payment failed' };

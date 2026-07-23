@@ -162,6 +162,37 @@ export async function loginUser(payload: LoginPayload): Promise<LoginResponse> {
   return data as LoginResponse;
 }
 
+/**
+ * Exchange a KwikPass (GoKwik) kpToken for our own session tokens.
+ * The backend decrypts the token and derives the phone number from it,
+ * so nothing sensitive is trusted from the browser.
+ */
+export async function loginWithKwikPass(kpToken: string): Promise<LoginResponse> {
+  if (!API_BASE_URL) {
+    throw new Error("API base URL is not configured");
+  }
+
+  const response = await fetch(`${API_BASE_URL}/v1/auth/kwikpass`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ kpToken }),
+  });
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    const errorMessage =
+      data?.error?.message ?? data?.message ?? "KwikPass login failed";
+    console.error("[auth-api][kwikpass] error", {
+      statusCode: response.status,
+      message: errorMessage,
+    });
+    throw new Error(errorMessage);
+  }
+
+  return data as LoginResponse;
+}
+
 export async function registerUser(
   payload: RegisterUserPayload
 ): Promise<RegisterResponse> {

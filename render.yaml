@@ -26,3 +26,21 @@ services:
         sync: false
       - key: PHONEPE_WEBHOOK_PASSWORD
         sync: false
+      # GoKwik Payment Links. Secrets set in the Render dashboard.
+      - key: GOKWIK_ENV
+        value: PRODUCTION
+      - key: GOKWIK_PAYMENT_MODE
+        value: standard
+      - key: GOKWIK_APP_ID
+        sync: false
+      - key: GOKWIK_APP_SECRET
+        sync: false
+      - key: GOKWIK_MERCHANT_ID
+        sync: false
+      - key: BACKEND_PUBLIC_URL
+        sync: false
+      # KwikPass buyer login (JWE secret issued by GoKwik)
+      - key: KWIKPASS_MERCHANT_ID
+        sync: false
+      - key: KWIKPASS_JWE_SECRET
+        sync: false

@@ -31,6 +31,12 @@ authRouter.post('/admin/register', authenticate, authorize('ADMIN', 'SUPER_ADMIN
 authRouter.post('/login', authController.login);
 
 /**
+ * POST /v1/auth/kwikpass
+ * Exchange a KwikPass (GoKwik) kpToken for our session tokens (buyers only)
+ */
+authRouter.post('/kwikpass', authController.kwikpassLogin);
+
+/**
  * POST /v1/auth/request-otp
  * Request mobile verification OTP
  */

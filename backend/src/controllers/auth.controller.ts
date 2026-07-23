@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import { AuthService, authService } from '../services/auth.service.js';
-import { registerUserSchema, registerSellerSchema, registerAdminSchema, loginSchema, refreshTokenSchema, logoutSchema, requestOtpSchema, verifyOtpSchema, forgotPasswordSchema, resetPasswordSchema } from '../validators/auth.validation.js';
+import { registerUserSchema, registerSellerSchema, registerAdminSchema, loginSchema, kwikpassLoginSchema, refreshTokenSchema, logoutSchema, requestOtpSchema, verifyOtpSchema, forgotPasswordSchema, resetPasswordSchema } from '../validators/auth.validation.js';
 import { ApiError } from '../errors/ApiError.js';
 import { ZodError } from 'zod';
 import { authLogger } from '../config/logger.js';
@@ -225,6 +225,49 @@ export class AuthController {
             }
 
             // Pass other errors to global error handler
+            next(error);
+        }
+    };
+
+    /**
+     * POST /v1/auth/kwikpass
+     * Exchange a KwikPass (GoKwik) kpToken for our own session tokens.
+     * Buyer-only: sellers/admins must use the password login.
+     */
+    kwikpassLogin = async (
+        req: Request,
+        res: Response,
+        next: NextFunction
+    ): Promise<void> => {
+        try {
+            // 1. Validate request body with Zod
+            const validatedData = kwikpassLoginSchema.parse(req.body);
+
+            // 2. Extract request metadata
+            const userAgent = req.headers['user-agent'];
+            const ipAddress = req.ip ?? req.socket.remoteAddress;
+
+            // 3. Call service (business logic)
+            const result = await this.service.loginWithKwikPass(
+                validatedData.kpToken,
+                userAgent,
+                ipAddress
+            );
+
+            // 4. Return success response
+            res.status(200).json(result);
+        } catch (error) {
+            if (error instanceof ZodError) {
+                const details = error.errors.reduce((acc, err) => {
+                    const key = err.path.join('.');
+                    acc[key] = err.message;
+                    return acc;
+                }, {} as Record<string, string>);
+
+                next(ApiError.badRequest('Validation failed', details));
+                return;
+            }
+
             next(error);
         }
     };

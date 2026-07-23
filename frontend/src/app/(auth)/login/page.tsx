@@ -15,6 +15,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { loginUser, persistAuthCookies, requestAuthOtp } from "@/services/auth";
+import { KwikPassLogin } from "@/components/auth/kwikpass-login";
+import { isKwikPassEnabled } from "@/components/auth/kwikpass-provider";
 import { toast } from "sonner";
 import {
   getSubdomain,
@@ -275,6 +277,21 @@ export default function LoginPage() {
             </CardHeader>
 
             <CardContent className="space-y-6">
+              {/* KwikPass OTP login — buyers only. Sellers and admins keep
+                  the password flow, so it is hidden on those portals. */}
+              {isMainPortal && isKwikPassEnabled() && (
+                <>
+                  <KwikPassLogin redirectTo="/user/dashboard" />
+                  <div className="flex items-center gap-3">
+                    <span className="h-px flex-1 bg-border-soft" />
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                      or use password
+                    </span>
+                    <span className="h-px flex-1 bg-border-soft" />
+                  </div>
+                </>
+              )}
+
               <form className="space-y-5" onSubmit={handleSubmit}>
                 {/* Error Display */}
                 {error && (

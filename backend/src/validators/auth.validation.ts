@@ -110,6 +110,21 @@ export const loginSchema = z.object({
 export type LoginInput = z.infer<typeof loginSchema>;
 
 /**
+ * KwikPass Login Validation Schema
+ * POST /v1/auth/kwikpass
+ *
+ * Only the token is accepted — the phone number is read from inside the
+ * decrypted token, never from the client.
+ */
+export const kwikpassLoginSchema = z.object({
+    kpToken: z
+        .string()
+        .min(1, 'kpToken is required'),
+});
+
+export type KwikPassLoginInput = z.infer<typeof kwikpassLoginSchema>;
+
+/**
  * Refresh Token Validation Schema
  * POST /v1/auth/refresh
  */
