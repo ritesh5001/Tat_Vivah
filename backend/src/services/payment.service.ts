@@ -649,7 +649,10 @@ export class PaymentService {
         }
 
         if (payment.provider !== PaymentProvider.PHONEPE || !payment.providerOrderId) {
-            throw new ApiError(400, 'No PhonePe payment attempt found for this order');
+            // Not a PhonePe attempt (or none yet) — report PENDING rather than
+            // erroring, so the orders-page self-heal that probes every provider
+            // doesn't spam 400s.
+            return { status: 'PENDING', paymentId: payment.id, message: 'No PhonePe payment attempt for this order' };
         }
 
         const statusResponse = await phonepeService.getOrderStatus(payment.providerOrderId);
@@ -720,7 +723,9 @@ export class PaymentService {
         }
 
         if (payment.provider !== PaymentProvider.GOKWIK || !payment.providerOrderId) {
-            throw new ApiError(400, 'No GoKwik payment attempt found for this order');
+            // Not a GoKwik attempt (or none yet) — report PENDING rather than
+            // erroring, so the self-heal probing every provider doesn't spam 400s.
+            return { status: 'PENDING', paymentId: payment.id, message: 'No GoKwik payment attempt for this order' };
         }
 
         const link = await gokwikService.getPaymentLink({
