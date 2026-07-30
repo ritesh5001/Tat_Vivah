@@ -47,21 +47,36 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     let productRoutes: MetadataRoute.Sitemap = [];
     try {
         if (API_BASE_URL) {
-            const res = await fetch(`${API_BASE_URL}/v1/products?limit=1000`, {
-                next: { revalidate: 3600 },
-            });
-            if (res.ok) {
+            // The products API caps `limit` at 20, so page through the results.
+            // Previously this requested limit=1000 and got a 400, which the catch
+            // swallowed — leaving the sitemap with no product URLs at all.
+            const PAGE_SIZE = 20;
+            const MAX_PAGES = 100; // safety bound (≈2000 products)
+            const products: any[] = [];
+
+            for (let page = 1; page <= MAX_PAGES; page++) {
+                const res = await fetch(
+                    `${API_BASE_URL}/v1/products?limit=${PAGE_SIZE}&page=${page}`,
+                    { next: { revalidate: 3600 } }
+                );
+                if (!res.ok) break;
+
                 const data = await res.json();
-                const products = data?.data ?? [];
-                productRoutes = products.map((product: any) => ({
-                    url: `${SITE_URL}/product/${product.id}`,
-                    lastModified: product.updatedAt
-                        ? new Date(product.updatedAt)
-                        : new Date(),
-                    changeFrequency: "weekly" as const,
-                    priority: 0.7,
-                }));
+                const batch = data?.data ?? [];
+                products.push(...batch);
+
+                const totalPages = data?.pagination?.totalPages ?? 1;
+                if (batch.length === 0 || page >= totalPages) break;
             }
+
+            productRoutes = products.map((product: any) => ({
+                url: `${SITE_URL}/product/${product.id}`,
+                lastModified: product.updatedAt
+                    ? new Date(product.updatedAt)
+                    : new Date(),
+                changeFrequency: "weekly" as const,
+                priority: 0.7,
+            }));
         }
     } catch {
         /* silently skip if API is not available */

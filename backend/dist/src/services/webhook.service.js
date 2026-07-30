@@ -37,7 +37,10 @@ export class WebhookService {
         }
         const payment = await paymentRepository.findByProviderOrderId(event.merchantOrderId);
         if (!payment) {
-            paymentLogger.error({ event: 'phonepe_webhook_payment_not_found', merchantOrderId: event.merchantOrderId }, `PhonePe webhook: payment not found for ${event.merchantOrderId}`);
+            // Expected for orders that were never created through this app (e.g.
+            // direct API tests on the same merchant account). Not an app error —
+            // we acknowledge the webhook and skip it.
+            paymentLogger.warn({ event: 'phonepe_webhook_payment_not_found', merchantOrderId: event.merchantOrderId }, `PhonePe webhook: no local payment for ${event.merchantOrderId} — skipping`);
             return;
         }
         if (payment.status === PaymentStatus.SUCCESS) {
