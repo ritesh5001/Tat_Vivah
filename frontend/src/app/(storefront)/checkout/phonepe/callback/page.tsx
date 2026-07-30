@@ -13,7 +13,19 @@ type Phase = "verifying" | "success" | "failed" | "pending";
 function PhonePeCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const orderId = searchParams.get("orderId");
+
+  // PhonePe may drop our ?orderId= query param on the return redirect, so fall
+  // back to the id we stashed in sessionStorage before leaving for PhonePe.
+  const [orderId] = React.useState<string | null>(() => {
+    const fromQuery = searchParams.get("orderId");
+    if (fromQuery) return fromQuery;
+    if (typeof window === "undefined") return null;
+    try {
+      return window.sessionStorage.getItem("tatvivah_pending_order");
+    } catch {
+      return null;
+    }
+  });
 
   const [phase, setPhase] = React.useState<Phase>("verifying");
   const [message, setMessage] = React.useState("Confirming your payment with PhonePe…");
@@ -27,6 +39,13 @@ function PhonePeCallbackContent() {
 
     let cancelled = false;
     let attempts = 0;
+    const clearPending = () => {
+      try {
+        window.sessionStorage.removeItem("tatvivah_pending_order");
+      } catch {
+        // ignore
+      }
+    };
 
     const check = async () => {
       try {
@@ -34,15 +53,17 @@ function PhonePeCallbackContent() {
         if (cancelled) return;
 
         if (result.data.status === "SUCCESS") {
+          clearPending();
           setPhase("success");
           setMessage("Payment successful. Your order is confirmed.");
           setTimeout(() => {
-            if (!cancelled) router.push("/user/dashboard");
+            if (!cancelled) router.push("/user/orders");
           }, 2500);
           return;
         }
 
         if (result.data.status === "FAILED") {
+          clearPending();
           setPhase("failed");
           setMessage("Payment failed. You can retry from your orders.");
           return;

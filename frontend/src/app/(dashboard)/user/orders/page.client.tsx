@@ -6,7 +6,12 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { listBuyerOrders, downloadInvoice } from "@/services/orders";
-import { retryPayment, verifyPayment } from "@/services/payments";
+import {
+  retryPayment,
+  verifyPayment,
+  verifyPhonePePayment,
+  verifyGoKwikPayment,
+} from "@/services/payments";
 import { listMyCancellations, requestCancellation } from "@/services/cancellations";
 import { listMyReturns, requestReturn } from "@/services/returns";
 import { useLiveFreshness } from "@/hooks/use-live-freshness";
@@ -132,10 +137,13 @@ export default function UserOrdersClient({
     },
   });
 
-  const orders = ordersData?.orders ?? [];
+  const orders = React.useMemo(() => ordersData?.orders ?? [], [ordersData]);
   const cancellationByOrderId = ordersData?.cancellationByOrderId ?? {};
   const returnByOrderId = ordersData?.returnByOrderId ?? {};
-  const paymentStatusByOrder = ordersData?.paymentStatusByOrder ?? {};
+  const paymentStatusByOrder = React.useMemo(
+    () => ordersData?.paymentStatusByOrder ?? {},
+    [ordersData]
+  );
   const loading = isLoading && !ordersData;
 
   const liveRefreshBlockRef = React.useRef<number>(0);
@@ -149,6 +157,45 @@ export default function UserOrdersClient({
       void mutate();
     },
   });
+
+  // ---- Self-heal pending redirect-flow payments ----
+  // If a buyer paid via PhonePe/GoKwik but never hit the callback page (e.g. the
+  // provider dropped our return param), the order sits PENDING. On load, ask the
+  // backend to reconcile each pending order against the provider's status API.
+  // Non-redirect payments simply return "no attempt found" and are ignored.
+  const healedRef = React.useRef<Set<string>>(new Set());
+  React.useEffect(() => {
+    const pending = orders.filter((o: any) => {
+      const status = paymentStatusByOrder[o.id];
+      return status && status !== "SUCCESS" && status !== "FAILED" && !healedRef.current.has(o.id);
+    });
+    if (pending.length === 0) return;
+
+    let cancelled = false;
+    (async () => {
+      let anyConfirmed = false;
+      for (const order of pending) {
+        healedRef.current.add(order.id);
+        // Try both redirect providers; the wrong one throws and is ignored.
+        for (const verify of [verifyPhonePePayment, verifyGoKwikPayment]) {
+          try {
+            const res = await verify(order.id);
+            if (res.data.status === "SUCCESS" || res.data.status === "FAILED") {
+              anyConfirmed = true;
+              break;
+            }
+          } catch {
+            // Not this provider, or nothing to reconcile — ignore.
+          }
+        }
+      }
+      if (anyConfirmed && !cancelled) void mutate();
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [orders, paymentStatusByOrder, mutate]);
 
   // ---- Retry payment handler ----
   const handleRetryPayment = React.useCallback(async (orderId: string) => {

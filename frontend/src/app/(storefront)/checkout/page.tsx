@@ -362,6 +362,13 @@ export default function CheckoutPage() {
         if (!payment.redirectUrl) {
           throw new Error("PhonePe checkout could not be started. Please try again.");
         }
+        // PhonePe does not reliably preserve our ?orderId= query param on the
+        // return redirect, so stash it. The callback reads this as a fallback.
+        try {
+          window.sessionStorage.setItem("tatvivah_pending_order", orderId);
+        } catch {
+          // Non-fatal — the callback also accepts orderId via the query string.
+        }
         window.location.assign(payment.redirectUrl);
         return;
       }
