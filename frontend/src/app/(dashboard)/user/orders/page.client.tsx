@@ -6,12 +6,6 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { listBuyerOrders, downloadInvoice } from "@/services/orders";
-import {
-  retryPayment,
-  verifyPayment,
-  verifyPhonePePayment,
-  verifyGoKwikPayment,
-} from "@/services/payments";
 import { listMyCancellations, requestCancellation } from "@/services/cancellations";
 import { listMyReturns, requestReturn } from "@/services/returns";
 import { useLiveFreshness } from "@/hooks/use-live-freshness";
@@ -58,7 +52,6 @@ export default function UserOrdersClient({
 }: {
   initialData?: UserOrdersInitialData | null;
 }) {
-  const [retryingOrderId, setRetryingOrderId] = React.useState<string | null>(null);
   const [requestingCancellationIds, setRequestingCancellationIds] = React.useState<Set<string>>(new Set());
   const [cancelModalOrderId, setCancelModalOrderId] = React.useState<string | null>(null);
   const [cancelReason, setCancelReason] = React.useState("");
@@ -66,20 +59,6 @@ export default function UserOrdersClient({
   const [returnReason, setReturnReason] = React.useState("");
   const [requestingReturnIds, setRequestingReturnIds] = React.useState<Set<string>>(new Set());
   const [downloadingInvoiceId, setDownloadingInvoiceId] = React.useState<string | null>(null);
-
-  // Ensure Razorpay SDK is loaded when page mounts
-  const razorpayReadyRef = React.useRef(false);
-  React.useEffect(() => {
-    if (typeof window === "undefined") return;
-    if ((window as any).Razorpay) {
-      razorpayReadyRef.current = true;
-      return;
-    }
-    const script = document.createElement("script");
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
-    script.onload = () => { razorpayReadyRef.current = true; };
-    document.body.appendChild(script);
-  }, []);
 
   const fetchUserOrdersData = React.useCallback(async () => {
     const result = await listBuyerOrders();
@@ -157,117 +136,6 @@ export default function UserOrdersClient({
       void mutate();
     },
   });
-
-  // ---- Self-heal pending redirect-flow payments ----
-  // If a buyer paid via PhonePe/GoKwik but never hit the callback page (e.g. the
-  // provider dropped our return param), the order sits PENDING. On load, ask the
-  // backend to reconcile each pending order against the provider's status API.
-  // Non-redirect payments simply return "no attempt found" and are ignored.
-  const healedRef = React.useRef<Set<string>>(new Set());
-  React.useEffect(() => {
-    const pending = orders.filter((o: any) => {
-      const status = paymentStatusByOrder[o.id];
-      return status && status !== "SUCCESS" && status !== "FAILED" && !healedRef.current.has(o.id);
-    });
-    if (pending.length === 0) return;
-
-    let cancelled = false;
-    (async () => {
-      let anyConfirmed = false;
-      for (const order of pending) {
-        healedRef.current.add(order.id);
-        // Try both redirect providers; the wrong one throws and is ignored.
-        for (const verify of [verifyPhonePePayment, verifyGoKwikPayment]) {
-          try {
-            const res = await verify(order.id);
-            if (res.data.status === "SUCCESS" || res.data.status === "FAILED") {
-              anyConfirmed = true;
-              break;
-            }
-          } catch {
-            // Not this provider, or nothing to reconcile — ignore.
-          }
-        }
-      }
-      if (anyConfirmed && !cancelled) void mutate();
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [orders, paymentStatusByOrder, mutate]);
-
-  // ---- Retry payment handler ----
-  const handleRetryPayment = React.useCallback(async (orderId: string) => {
-    if (retryingOrderId) return; // prevent double-click
-
-    setRetryingOrderId(orderId);
-    try {
-      const paymentResult = await retryPayment(orderId);
-      const data = paymentResult.data;
-
-      // GoKwik and PhonePe retries use a hosted redirect — no SDK involved
-      if (data.provider === "GOKWIK" || data.provider === "PHONEPE") {
-        if (!data.redirectUrl) {
-          throw new Error("Payment could not be started. Please try again.");
-        }
-        if (data.provider === "GOKWIK") {
-          try {
-            window.sessionStorage.setItem("tatvivah_pending_order", orderId);
-          } catch {
-            // Non-fatal — the callback also accepts orderId via the query string.
-          }
-        }
-        window.location.assign(data.redirectUrl);
-        return;
-      }
-
-      if (!razorpayReadyRef.current) {
-        toast.error("Payment gateway is loading. Please wait.");
-        return;
-      }
-
-      const options = {
-        key: data.key,
-        amount: data.amount,
-        currency: data.currency,
-        name: "TatVivah",
-        description: "Complete your purchase",
-        order_id: data.orderId,
-        handler: async (response: any) => {
-          try {
-            await verifyPayment({
-              razorpayOrderId: response.razorpay_order_id,
-              razorpayPaymentId: response.razorpay_payment_id,
-              razorpaySignature: response.razorpay_signature,
-            });
-            toast.success("Payment successful. Order confirmed.");
-            // Refresh order list to reflect new status
-            await mutate();
-          } catch (error) {
-            toast.error(
-              error instanceof Error ? error.message : "Payment verification failed"
-            );
-          }
-        },
-        modal: {
-          ondismiss: () => {
-            toast.message("Payment still pending. You can retry anytime.");
-          },
-        },
-        theme: { color: "#B7956C" },
-      };
-
-      const razorpay = new (window as any).Razorpay(options);
-      razorpay.open();
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Unable to retry payment"
-      );
-    } finally {
-      setRetryingOrderId(null);
-    }
-  }, [retryingOrderId, mutate]);
 
   const openCancellationModal = React.useCallback((orderId: string) => {
     setCancelModalOrderId(orderId);
@@ -523,15 +391,6 @@ export default function UserOrdersClient({
                           {requestingReturn ? "Requesting..." : "Request Return"}
                         </Button>
                       ) : null}
-                      {(label === "PAYMENT FAILED" || label === "PAYMENT PENDING") && (
-                        <Button
-                          size="sm"
-                          onClick={() => handleRetryPayment(order.id)}
-                          disabled={retryingOrderId === order.id}
-                        >
-                          {retryingOrderId === order.id ? "Retrying..." : "Retry Payment"}
-                        </Button>
-                      )}
                       {/* Download Invoice — available for confirmed/shipped/delivered orders */}
                       {(order.status === "CONFIRMED" || order.status === "SHIPPED" || order.status === "DELIVERED") && (
                         <Button

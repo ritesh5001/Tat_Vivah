@@ -13,13 +13,14 @@ export class BestsellerRepository {
             },
         });
     }
-    async listPublic(limit) {
+    async listPublic(limit, audience) {
         return prisma.bestseller.findMany({
             where: {
                 product: {
                     isPublished: true,
                     status: 'APPROVED',
                     deletedByAdmin: false,
+                    ...(audience ? { audience } : {}),
                 },
             },
             orderBy: { position: 'asc' },

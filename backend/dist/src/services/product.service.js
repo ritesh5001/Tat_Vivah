@@ -150,6 +150,7 @@ export class ProductService {
         return {
             id: product.id,
             categoryId: product.categoryId,
+            audience: product.audience ?? 'MENS',
             title: product.title,
             description: product.description ?? null,
             images: product.images ?? [],
@@ -171,6 +172,7 @@ export class ProductService {
             id: product.id,
             sellerId: product.sellerId,
             categoryId: product.categoryId,
+            audience: product.audience ?? 'MENS',
             title: product.title,
             description: product.description ?? null,
             images: product.images ?? [],
@@ -201,6 +203,7 @@ export class ProductService {
             id: product.id,
             sellerId: product.sellerId,
             categoryId: product.categoryId,
+            audience: product.audience ?? 'MENS',
             title: product.title,
             description: product.description ?? null,
             images: product.images ?? [],

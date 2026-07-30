@@ -18,12 +18,12 @@ export declare const reviewQuerySchema: z.ZodObject<{
     sort: z.ZodDefault<z.ZodOptional<z.ZodEnum<["newest", "oldest", "highest", "lowest", "helpful"]>>>;
 }, "strip", z.ZodTypeAny, {
     sort: "oldest" | "highest" | "lowest" | "helpful" | "newest";
-    page: number;
     limit: number;
+    page: number;
 }, {
     sort?: "oldest" | "highest" | "lowest" | "helpful" | "newest" | undefined;
-    page?: string | undefined;
     limit?: string | undefined;
+    page?: string | undefined;
 }>;
 export declare const hideReviewSchema: z.ZodObject<{
     isHidden: z.ZodBoolean;

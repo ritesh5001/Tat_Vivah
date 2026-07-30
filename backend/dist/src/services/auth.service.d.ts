@@ -8,6 +8,7 @@ import type { RegisterUserRequest, RegisterSellerRequest, RegisterAdminRequest, 
 export declare class AuthService {
     private readonly repository;
     constructor(repository: AuthRepository);
+    private readonly logger;
     private issueTokens;
     /**
      * Register a new USER
@@ -54,10 +55,16 @@ export declare class AuthService {
      * 5. Create login session with HASHED refresh token
      */
     login(identifier: string, password: string, userAgent?: string, ipAddress?: string): Promise<LoginResponse>;
-    requestEmailOtp(email: string): Promise<{
+    requestOtp(input: {
+        phone?: string | undefined;
+    }): Promise<{
         message: string;
     }>;
-    verifyEmailOtp(email: string, code: string): Promise<LoginResponse | MessageResponse>;
+    verifyOtp(input: {
+        phone?: string | undefined;
+        otp: string;
+    }, userAgent?: string, ipAddress?: string): Promise<LoginResponse | MessageResponse>;
+    private verifyPhoneOtpFlow;
     /**
      * Refresh tokens with rotation
      * POST /v1/auth/refresh
@@ -66,7 +73,11 @@ export declare class AuthService {
      * 1. Verify refresh token JWT signature & expiry
      * 2. Extract userId from payload
      * 3. Find matching session by comparing token hash
-     * 4. If not found → invalidate ALL user sessions (token reuse attack)
+     * 4. If not found / hash mismatch → reject this request only.
+     *    A mismatch is almost always a benign rotation race (two browser
+     *    tabs refreshing the same cookie concurrently), not an attack —
+     *    invalidating other sessions here logged users out of every
+     *    device whenever they had two tabs open.
      * 5. Generate new tokens
      * 6. Update session with new hashed refresh token
      * 7. Return new tokens
@@ -92,31 +103,31 @@ export declare class AuthService {
      * DELETE /v1/auth/sessions/:sessionId
      */
     revokeSession(userId: string, sessionId: string): Promise<MessageResponse>;
-    private static readonly PASSWORD_RESET_EXPIRY_MINUTES;
     /**
-     * Forgot Password — request a password-reset OTP
+     * Forgot Password — request a password-reset OTP (via WhatsApp, email fallback)
      * POST /v1/auth/forgot-password
      *
      * Security:
-     *   - Generic success response regardless of whether the email exists,
+     *   - Generic success response regardless of whether the account exists,
      *     to prevent user-existence enumeration.
-     *   - OTP is hashed (SHA-256) before storage.
+     *   - OTP is hashed (SHA-256) before storage, keyed by phone number.
      *   - Previous unused password-reset OTPs remain (only the latest valid
      *     one is checked during reset).
      */
-    forgotPassword(email: string): Promise<MessageResponse>;
+    forgotPassword(phone: string): Promise<MessageResponse>;
     /**
      * Reset Password — verify OTP and set a new password
      * POST /v1/auth/reset-password
      *
      * Security:
-     *   - Finds the latest valid (non-expired, non-used) PASSWORD_RESET OTP.
+     *   - Finds the latest valid (non-expired, non-used) PASSWORD_RESET OTP
+     *     keyed by phone number.
      *   - Compares the hashed OTP.
      *   - Hashes the new password with bcrypt.
      *   - Marks the OTP as used.
      *   - Invalidates ALL existing login sessions (force re-login).
      */
-    resetPassword(email: string, otp: string, newPassword: string): Promise<MessageResponse>;
+    resetPassword(phone: string, otp: string, newPassword: string): Promise<MessageResponse>;
 }
 export declare const authService: AuthService;
 //# sourceMappingURL=auth.service.d.ts.map

@@ -159,28 +159,28 @@ export declare class AppointmentService {
         cancelledAppointments: number;
     }>;
     listSellerAvailability(sellerId: string): Promise<{
-        availability: {
+        availability: (import("@prisma/client/runtime/index.js").GetResult<{
             id: string;
-            createdAt: Date;
-            updatedAt: Date;
             sellerId: string;
-            isActive: boolean;
             dayOfWeek: number;
             startTime: string;
             endTime: string;
-        }[];
+            isActive: boolean;
+            createdAt: Date;
+            updatedAt: Date;
+        }, unknown> & {})[];
     }>;
     upsertSellerAvailability(sellerId: string, input: UpsertSellerAvailabilityInput): Promise<{
-        availability: {
+        availability: import("@prisma/client/runtime/index.js").GetResult<{
             id: string;
-            createdAt: Date;
-            updatedAt: Date;
             sellerId: string;
-            isActive: boolean;
             dayOfWeek: number;
             startTime: string;
             endTime: string;
-        };
+            isActive: boolean;
+            createdAt: Date;
+            updatedAt: Date;
+        }, unknown> & {};
     }>;
 }
 export declare const appointmentService: AppointmentService;

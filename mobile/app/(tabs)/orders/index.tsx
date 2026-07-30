@@ -5,21 +5,12 @@ import {
   FlatList,
   Pressable,
   Modal,
-  Linking,
   type ListRenderItemInfo,
 } from "react-native";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import { listBuyerOrders, type BuyerOrder } from "../../../src/services/orders";
 import { listMyCancellations, requestCancellation } from "../../../src/services/cancellations";
 import { listMyReturns, requestReturn } from "../../../src/services/returns";
-import {
-  getPaymentDetails,
-  retryPayment,
-  verifyPayment,
-  verifyPhonePePayment,
-  verifyGoKwikPayment,
-} from "../../../src/services/payments";
-import { isRazorpayAvailable, openRazorpayCheckout } from "../../../src/services/razorpay";
 import { useAuth } from "../../../src/hooks/useAuth";
 import { usePathname, useRouter } from "expo-router";
 import { isAbortError } from "../../../src/services/api";
@@ -40,29 +31,6 @@ const currency = new Intl.NumberFormat("en-IN", {
   currency: "INR",
   maximumFractionDigits: 0,
 });
-
-// PhonePe finishes in the browser / PhonePe app — poll our backend for the outcome.
-const PHONEPE_POLL_INTERVAL_MS = 3000;
-const PHONEPE_MAX_WAIT_MS = 4 * 60 * 1000;
-
-async function waitForRedirectRetryResult(
-  orderId: string,
-  token: string,
-  verify: (orderId: string, token: string) => Promise<{ data: { status: string } }>
-): Promise<"SUCCESS" | "FAILED" | "TIMEOUT"> {
-  const deadline = Date.now() + PHONEPE_MAX_WAIT_MS;
-  while (Date.now() < deadline) {
-    try {
-      const result = await verify(orderId, token);
-      if (result.data.status === "SUCCESS") return "SUCCESS";
-      if (result.data.status === "FAILED") return "FAILED";
-    } catch {
-      // Transient error while the user is in the payment app — keep polling.
-    }
-    await new Promise((resolve) => setTimeout(resolve, PHONEPE_POLL_INTERVAL_MS));
-  }
-  return "TIMEOUT";
-}
 
 type OrdersScreenCache = {
   token: string;
@@ -126,8 +94,6 @@ const OrderCard = React.memo(function OrderCard({
   paymentStyle,
   onPress,
   onTrack,
-  onRetry,
-  isRetrying,
   onRequestCancellation,
   isRequestingCancellation,
   showCancellationRequested,
@@ -140,8 +106,6 @@ const OrderCard = React.memo(function OrderCard({
   paymentStyle: { color: string };
   onPress: (id: string) => void;
   onTrack?: (id: string) => void;
-  onRetry?: (id: string) => void;
-  isRetrying?: boolean;
   onRequestCancellation?: (id: string) => void;
   isRequestingCancellation?: boolean;
   showCancellationRequested?: boolean;
@@ -149,7 +113,6 @@ const OrderCard = React.memo(function OrderCard({
   isRequestingReturn?: boolean;
   returnStatus?: string | null;
 }) {
-  const canRetry = paymentLabel === "PAYMENT FAILED" || paymentLabel === "PAYMENT PENDING";
   const itemCount = order.items?.length ?? 0;
   const firstItemTitle = order.items?.[0]?.productTitle ?? "Item";
   const itemSummary =
@@ -212,17 +175,6 @@ const OrderCard = React.memo(function OrderCard({
           </Pressable>
         ) : null}
       </View>
-      {canRetry && onRetry && (
-        <Pressable
-          style={[styles.retryPaymentButton, isRetrying && styles.retryPaymentButtonDisabled]}
-          onPress={() => { if (!isRetrying) onRetry(order.id); }}
-          disabled={isRetrying}
-        >
-          <Text style={styles.retryPaymentButtonText}>
-            {isRetrying ? "Retrying..." : "Retry Payment"}
-          </Text>
-        </Pressable>
-      )}
       {showCancellationRequested ? (
         <View style={styles.cancellationBadge}>
           <Text style={styles.cancellationBadgeText}>Cancellation Requested</Text>
@@ -269,7 +221,6 @@ export default function OrdersScreen() {
   const [loading, setLoading] = React.useState(true);
   const [fetchError, setFetchError] = React.useState<string | null>(null);
   const [paymentStatus, setPaymentStatus] = React.useState<Record<string, string>>({});
-  const [retryingOrderId, setRetryingOrderId] = React.useState<string | null>(null);
   const [cancellationByOrder, setCancellationByOrder] = React.useState<Record<string, { id: string; status: string }>>({});
   const [cancelModalOrderId, setCancelModalOrderId] = React.useState<string | null>(null);
   const [cancelReason, setCancelReason] = React.useState("");
@@ -364,15 +315,10 @@ export default function OrdersScreen() {
 
       for (let i = 0; i < pendingPaymentOrders.length; i += PAYMENT_STATUS_BATCH_SIZE) {
         const batch = pendingPaymentOrders.slice(i, i + PAYMENT_STATUS_BATCH_SIZE);
-        const batchStatuses = await Promise.all(
-          batch.map(async (order) => {
-            try {
-              const payment = await getPaymentDetails(order.id, token);
-              return [order.id, payment.data?.status ?? ""] as const;
-            } catch {
-              return [order.id, ""] as const;
-            }
-          })
+        // Payment status now comes from the order payload itself (the dedicated
+        // payment endpoint was removed with the gateways).
+        const batchStatuses = batch.map(
+          (order) => [order.id, (order as any).paymentStatus ?? ""] as const
         );
 
         batchStatuses.forEach(([orderId, status]) => {
@@ -568,97 +514,6 @@ export default function OrdersScreen() {
     [router]
   );
 
-  // ---- Retry payment handler ----
-  const handleRetryPayment = React.useCallback(async (orderId: string) => {
-    if (retryingOrderId) return; // prevent double-tap
-    if (!token) return;
-
-    setRetryingOrderId(orderId);
-    try {
-      const paymentResult = await retryPayment(orderId, token);
-      const { key, orderId: razorpayOrderId, amount, currency } = paymentResult.data;
-
-      // GoKwik / PhonePe retries use a hosted redirect — open it and poll
-      const retryProvider = paymentResult.data.provider;
-      if (retryProvider === "GOKWIK" || retryProvider === "PHONEPE") {
-        const redirectUrl = paymentResult.data.redirectUrl;
-        if (!redirectUrl) {
-          throw new Error("Payment could not be started. Please try again.");
-        }
-        await Linking.openURL(redirectUrl);
-
-        const outcome = await waitForRedirectRetryResult(
-          orderId,
-          token,
-          retryProvider === "GOKWIK" ? verifyGoKwikPayment : verifyPhonePePayment
-        );
-        if (outcome === "SUCCESS") {
-          notifySuccess();
-          showToast("Payment successful. Order confirmed.", "success");
-        } else if (outcome === "FAILED") {
-          notifyError();
-          showToast("Payment failed. You can retry anytime.", "error");
-        } else {
-          showToast("Payment pending. Pull to refresh for the final status.", "info");
-        }
-        loadOrders();
-        return;
-      }
-
-      if (!isRazorpayAvailable()) {
-        showToast(
-          "Razorpay is unavailable in Expo Go. Use a development build to test payments.",
-          "error"
-        );
-        return;
-      }
-      if (!key) {
-        throw new Error("Payment gateway configuration missing. Please try again.");
-      }
-
-      const razorpayResult = await openRazorpayCheckout({
-        key,
-        amount,
-        currency,
-        name: "TatVivah",
-        description: "Retry Payment",
-        order_id: razorpayOrderId,
-        theme: { color: "#B8956C" },
-      });
-
-      await verifyPayment(
-        {
-          razorpayOrderId: razorpayResult.razorpay_order_id,
-          razorpayPaymentId: razorpayResult.razorpay_payment_id,
-          razorpaySignature: razorpayResult.razorpay_signature,
-        },
-        token
-      );
-
-      notifySuccess();
-      showToast("Payment successful. Order confirmed.", "success");
-      // Refresh orders to reflect new status
-      loadOrders();
-    } catch (err) {
-      const rawMessage = err instanceof Error ? err.message : "";
-      const wasDismissedByUser = /cancel|dismiss|closed|backpress|back press/i.test(rawMessage);
-
-      if (wasDismissedByUser) {
-        showToast("Payment still pending. You can retry anytime.", "info");
-      } else {
-        notifyError();
-        showToast(
-          err instanceof Error ? err.message : "Payment failed. Please try again.",
-          "error"
-        );
-      }
-    } finally {
-      if (mountedRef.current) {
-        setRetryingOrderId(null);
-      }
-    }
-  }, [retryingOrderId, token, loadOrders, showToast]);
-
   const renderOrderItem = React.useCallback(
     ({ item }: ListRenderItemInfo<BuyerOrder>) => {
       const payment = paymentStatus[item.id];
@@ -673,8 +528,6 @@ export default function OrdersScreen() {
           paymentStyle={getStatusStyle(label)}
           onPress={handleOrderPress}
           onTrack={(id) => router.push(`/orders/${id}/tracking`)}
-          onRetry={handleRetryPayment}
-          isRetrying={retryingOrderId === item.id}
           onRequestCancellation={openCancellationModal}
           isRequestingCancellation={requestingCancellationIds.has(item.id)}
           showCancellationRequested={showCancellationRequested}
@@ -684,7 +537,7 @@ export default function OrdersScreen() {
         />
       );
     },
-    [paymentStatus, cancellationByOrder, returnByOrder, handleOrderPress, handleRetryPayment, retryingOrderId, openCancellationModal, requestingCancellationIds, openReturnModal, requestingReturnIds, router]
+    [paymentStatus, cancellationByOrder, returnByOrder, handleOrderPress, openCancellationModal, requestingCancellationIds, openReturnModal, requestingReturnIds, router]
   );
 
   const keyExtractorOrder = React.useCallback(

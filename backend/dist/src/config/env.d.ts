@@ -9,6 +9,8 @@ declare const envSchema: z.ZodObject<{
     KEEP_ALIVE_TIMEOUT_MS: z.ZodEffects<z.ZodDefault<z.ZodString>, number, string | undefined>;
     HEADERS_TIMEOUT_MS: z.ZodEffects<z.ZodDefault<z.ZodString>, number, string | undefined>;
     REQUEST_TIMEOUT_MS: z.ZodEffects<z.ZodDefault<z.ZodString>, number, string | undefined>;
+    JSON_BODY_LIMIT: z.ZodDefault<z.ZodString>;
+    URLENCODED_BODY_LIMIT: z.ZodDefault<z.ZodString>;
     MAX_REQUESTS_PER_SOCKET: z.ZodEffects<z.ZodDefault<z.ZodString>, number, string | undefined>;
     RUN_BACKGROUND_JOBS: z.ZodEffects<z.ZodOptional<z.ZodString>, boolean | undefined, string | undefined>;
     BACKEND_WARMUP_URL: z.ZodOptional<z.ZodString>;
@@ -30,6 +32,10 @@ declare const envSchema: z.ZodObject<{
     UPSTASH_REDIS_REST_TOKEN: z.ZodOptional<z.ZodString>;
     RESEND_API_KEY: z.ZodString;
     EMAIL_FROM: z.ZodString;
+    FAST2SMS_API_KEY: z.ZodOptional<z.ZodString>;
+    FAST2SMS_WHATSAPP_URL: z.ZodDefault<z.ZodString>;
+    FAST2SMS_WHATSAPP_MESSAGE_ID: z.ZodOptional<z.ZodString>;
+    FAST2SMS_WHATSAPP_PHONE_NUMBER_ID: z.ZodOptional<z.ZodString>;
     IMAGEKIT_PUBLIC_KEY: z.ZodOptional<z.ZodString>;
     IMAGEKIT_PRIVATE_KEY: z.ZodOptional<z.ZodString>;
     IMAGEKIT_URL_ENDPOINT: z.ZodOptional<z.ZodString>;
@@ -37,9 +43,7 @@ declare const envSchema: z.ZodObject<{
     FASHN_TRYON_MODEL: z.ZodDefault<z.ZodEnum<["tryon-max", "tryon-v1.6"]>>;
     FASHN_POLL_INTERVAL_MS: z.ZodEffects<z.ZodDefault<z.ZodString>, number, string | undefined>;
     FASHN_POLL_TIMEOUT_MS: z.ZodEffects<z.ZodDefault<z.ZodString>, number, string | undefined>;
-    RAZORPAY_KEY_ID: z.ZodOptional<z.ZodString>;
-    RAZORPAY_KEY_SECRET: z.ZodOptional<z.ZodString>;
-    RAZORPAY_WEBHOOK_SECRET: z.ZodOptional<z.ZodString>;
+    BACKEND_PUBLIC_URL: z.ZodOptional<z.ZodString>;
 }, "strip", z.ZodTypeAny, {
     NODE_ENV: "development" | "production" | "test";
     PORT: number;
@@ -47,6 +51,8 @@ declare const envSchema: z.ZodObject<{
     KEEP_ALIVE_TIMEOUT_MS: number;
     HEADERS_TIMEOUT_MS: number;
     REQUEST_TIMEOUT_MS: number;
+    JSON_BODY_LIMIT: string;
+    URLENCODED_BODY_LIMIT: string;
     MAX_REQUESTS_PER_SOCKET: number;
     BACKEND_WARMUP_INTERVAL_MS: number;
     PRISMA_LOG_QUERIES: boolean;
@@ -58,6 +64,7 @@ declare const envSchema: z.ZodObject<{
     LIVE_EVENTS_CHANNEL: string;
     RESEND_API_KEY: string;
     EMAIL_FROM: string;
+    FAST2SMS_WHATSAPP_URL: string;
     FASHN_TRYON_MODEL: "tryon-max" | "tryon-v1.6";
     FASHN_POLL_INTERVAL_MS: number;
     FASHN_POLL_TIMEOUT_MS: number;
@@ -71,13 +78,14 @@ declare const envSchema: z.ZodObject<{
     REDIS_URL?: string | undefined;
     UPSTASH_REDIS_REST_URL?: string | undefined;
     UPSTASH_REDIS_REST_TOKEN?: string | undefined;
+    FAST2SMS_API_KEY?: string | undefined;
+    FAST2SMS_WHATSAPP_MESSAGE_ID?: string | undefined;
+    FAST2SMS_WHATSAPP_PHONE_NUMBER_ID?: string | undefined;
     IMAGEKIT_PUBLIC_KEY?: string | undefined;
     IMAGEKIT_PRIVATE_KEY?: string | undefined;
     IMAGEKIT_URL_ENDPOINT?: string | undefined;
     FASHN_API_KEY?: string | undefined;
-    RAZORPAY_KEY_ID?: string | undefined;
-    RAZORPAY_KEY_SECRET?: string | undefined;
-    RAZORPAY_WEBHOOK_SECRET?: string | undefined;
+    BACKEND_PUBLIC_URL?: string | undefined;
 }, {
     DATABASE_URL: string;
     JWT_ACCESS_SECRET: string;
@@ -90,6 +98,8 @@ declare const envSchema: z.ZodObject<{
     KEEP_ALIVE_TIMEOUT_MS?: string | undefined;
     HEADERS_TIMEOUT_MS?: string | undefined;
     REQUEST_TIMEOUT_MS?: string | undefined;
+    JSON_BODY_LIMIT?: string | undefined;
+    URLENCODED_BODY_LIMIT?: string | undefined;
     MAX_REQUESTS_PER_SOCKET?: string | undefined;
     RUN_BACKGROUND_JOBS?: string | undefined;
     BACKEND_WARMUP_URL?: string | undefined;
@@ -106,6 +116,10 @@ declare const envSchema: z.ZodObject<{
     REDIS_URL?: string | undefined;
     UPSTASH_REDIS_REST_URL?: string | undefined;
     UPSTASH_REDIS_REST_TOKEN?: string | undefined;
+    FAST2SMS_API_KEY?: string | undefined;
+    FAST2SMS_WHATSAPP_URL?: string | undefined;
+    FAST2SMS_WHATSAPP_MESSAGE_ID?: string | undefined;
+    FAST2SMS_WHATSAPP_PHONE_NUMBER_ID?: string | undefined;
     IMAGEKIT_PUBLIC_KEY?: string | undefined;
     IMAGEKIT_PRIVATE_KEY?: string | undefined;
     IMAGEKIT_URL_ENDPOINT?: string | undefined;
@@ -113,9 +127,7 @@ declare const envSchema: z.ZodObject<{
     FASHN_TRYON_MODEL?: "tryon-max" | "tryon-v1.6" | undefined;
     FASHN_POLL_INTERVAL_MS?: string | undefined;
     FASHN_POLL_TIMEOUT_MS?: string | undefined;
-    RAZORPAY_KEY_ID?: string | undefined;
-    RAZORPAY_KEY_SECRET?: string | undefined;
-    RAZORPAY_WEBHOOK_SECRET?: string | undefined;
+    BACKEND_PUBLIC_URL?: string | undefined;
 }>;
 /**
  * Parsed and validated environment variables type

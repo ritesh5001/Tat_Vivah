@@ -82,38 +82,11 @@ const envSchema = z.object({
     FASHN_POLL_INTERVAL_MS: z.string().default('3000').transform(Number),
     FASHN_POLL_TIMEOUT_MS: z.string().default('115000').transform(Number),
 
-    // Razorpay
-    RAZORPAY_KEY_ID: z.string().optional(),
-    RAZORPAY_KEY_SECRET: z.string().optional(),
-    RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
-
-    // PhonePe PG (Standard Checkout v2)
-    PHONEPE_CLIENT_ID: z.string().optional(),
-    PHONEPE_CLIENT_SECRET: z.string().optional(),
-    PHONEPE_CLIENT_VERSION: z.string().default('1'),
-    PHONEPE_ENV: z.enum(['SANDBOX', 'PRODUCTION']).default('SANDBOX'),
-    // Credentials configured on the PhonePe dashboard for webhook basic-auth
-    PHONEPE_WEBHOOK_USERNAME: z.string().optional(),
-    PHONEPE_WEBHOOK_PASSWORD: z.string().optional(),
-    // Optional deep link the mobile app is redirected to after payment
-    PHONEPE_MOBILE_REDIRECT_URL: z.string().optional(),
-    // Optional override for the web redirect base (defaults to FRONTEND_BASE_URL)
-    PHONEPE_WEB_REDIRECT_BASE_URL: z.string().optional(),
-
-    // GoKwik — Payment Links API (server-to-server)
-    GOKWIK_APP_ID: z.string().optional(),
-    GOKWIK_APP_SECRET: z.string().optional(),
-    GOKWIK_MERCHANT_ID: z.string().optional(),
-    GOKWIK_ENV: z.enum(['SANDBOX', 'PRODUCTION']).default('SANDBOX'),
-    /** Payment mode for the hosted link: all methods vs UPI deeplink only. */
-    GOKWIK_PAYMENT_MODE: z.enum(['standard', 'upi-deeplink']).default('standard'),
-    /** Public base URL of THIS backend — GoKwik posts webhooks here. */
+    // Public base URL of THIS backend (used for absolute links / webhooks).
     BACKEND_PUBLIC_URL: z.string().url('BACKEND_PUBLIC_URL must be a valid URL').optional(),
 
-    // KwikPass — buyer phone/OTP login (JWE token issued by GoKwik)
-    KWIKPASS_MERCHANT_ID: z.string().optional(),
-    /** Base64url secret used to decrypt the kpToken JWE. Issued by GoKwik. */
-    KWIKPASS_JWE_SECRET: z.string().optional(),
+    // NOTE: Payment gateways have been removed. Add the new gateway's env vars
+    // here when it is integrated.
 });
 
 /**

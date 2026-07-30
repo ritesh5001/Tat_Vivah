@@ -13,6 +13,7 @@ import { createBestsellerSchema, updateBestsellerSchema } from '../validators/be
 import { productIdParamSchema, productRejectSchema, productSetPriceSchema, adminProductUpdateSchema, } from '../validators/admin.validation.js';
 import { refundService } from '../services/refund.service.js';
 import { commissionService } from '../services/commission.service.js';
+import { settingsService, DEFAULT_SHIPPING_FEE_INR, FLAT_GST_FEE_INR } from '../services/settings.service.js';
 function parsePositiveInt(value, fallback) {
     const n = Number(value);
     if (!Number.isFinite(n) || n < 1)
@@ -24,6 +25,14 @@ function parseDate(value) {
         return undefined;
     const d = new Date(value);
     return Number.isNaN(d.getTime()) ? undefined : d;
+}
+function parseAudienceQuery(value) {
+    if (typeof value !== 'string')
+        return undefined;
+    const v = value.trim().toUpperCase();
+    if (v === 'MENS' || v === 'KIDS')
+        return v;
+    return undefined;
 }
 /**
  * Admin Controller
@@ -105,7 +114,8 @@ export const adminController = {
         try {
             const page = parsePositiveInt(req.query['page'], 1);
             const limit = parsePositiveInt(req.query['limit'], 20);
-            const result = await adminService.listPendingProducts({ page, limit });
+            const audience = parseAudienceQuery(req.query['audience']);
+            const result = await adminService.listPendingProducts({ page, limit, ...(audience ? { audience } : {}) });
             res.json(result);
         }
         catch (error) {
@@ -120,7 +130,8 @@ export const adminController = {
         try {
             const page = parsePositiveInt(req.query['page'], 1);
             const limit = parsePositiveInt(req.query['limit'], 20);
-            const result = await adminService.listAllProducts({ page, limit });
+            const audience = parseAudienceQuery(req.query['audience']);
+            const result = await adminService.listAllProducts({ page, limit, ...(audience ? { audience } : {}) });
             res.json(result);
         }
         catch (error) {
@@ -565,6 +576,71 @@ export const adminController = {
                 filters.status = status;
             const result = await refundService.listRefunds(filters);
             res.json(result);
+        }
+        catch (error) {
+            next(error);
+        }
+    },
+    // =========================================================================
+    // PLATFORM SETTINGS
+    // =========================================================================
+    /**
+     * GET /v1/admin/settings/shipping
+     * Current shipping-charge configuration.
+     */
+    async getShippingSetting(_req, res, next) {
+        try {
+            const enabled = await settingsService.isShippingChargeEnabled();
+            res.json({ enabled, amount: DEFAULT_SHIPPING_FEE_INR });
+        }
+        catch (error) {
+            next(error);
+        }
+    },
+    /**
+     * PUT /v1/admin/settings/shipping
+     * Start/stop the flat shipping charge for new orders.
+     * Body: { enabled: boolean }
+     */
+    async updateShippingSetting(req, res, next) {
+        try {
+            const { enabled } = req.body ?? {};
+            if (typeof enabled !== 'boolean') {
+                throw ApiError.badRequest('`enabled` must be a boolean');
+            }
+            await settingsService.setShippingChargeEnabled(enabled);
+            res.json({ enabled, amount: DEFAULT_SHIPPING_FEE_INR });
+        }
+        catch (error) {
+            next(error);
+        }
+    },
+    /**
+     * GET /v1/admin/settings/gst
+     * Current flat-GST-charge configuration.
+     */
+    async getGstSetting(_req, res, next) {
+        try {
+            const enabled = await settingsService.isGstChargeEnabled();
+            res.json({ enabled, amount: FLAT_GST_FEE_INR });
+        }
+        catch (error) {
+            next(error);
+        }
+    },
+    /**
+     * PUT /v1/admin/settings/gst
+     * Start/stop the flat GST charge for new orders.
+     * Body: { enabled: boolean }
+     */
+    async updateGstSetting(req, res, next) {
+        try {
+            const { enabled } = req.body ?? {};
+            if (typeof enabled !== 'boolean') {
+                throw ApiError.badRequest('`enabled` must be a boolean');
+            }
+            await settingsService.setGstChargeEnabled(enabled);
+            res.json({ enabled, amount: FLAT_GST_FEE_INR });
         }
         catch (error) {
             next(error);

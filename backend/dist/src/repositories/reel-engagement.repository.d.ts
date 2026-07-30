@@ -1,78 +1,78 @@
 export declare class ReelEngagementRepository {
-    findLike(reelId: string, userId: string): Promise<{
+    findLike(reelId: string, userId: string): Promise<(import("@prisma/client/runtime/index.js").GetResult<{
         id: string;
-        createdAt: Date;
-        userId: string;
         reelId: string;
-    } | null>;
-    createLike(reelId: string, userId: string): Promise<[{
-        id: string;
-        createdAt: Date;
         userId: string;
-        reelId: string;
-    }, {
-        status: import(".prisma/client", { with: { "resolution-mode": "require" } }).$Enums.ReelStatus;
-        id: string;
         createdAt: Date;
-        updatedAt: Date;
-        productId: string | null;
+    }, unknown> & {}) | null>;
+    createLike(reelId: string, userId: string): Promise<[import("@prisma/client/runtime/index.js").GetResult<{
+        id: string;
+        reelId: string;
+        userId: string;
+        createdAt: Date;
+    }, unknown> & {}, import("@prisma/client/runtime/index.js").GetResult<{
+        id: string;
         sellerId: string;
-        category: import(".prisma/client", { with: { "resolution-mode": "require" } }).$Enums.ReelCategory;
+        productId: string | null;
+        category: import(".prisma/client", { with: { "resolution-mode": "require" } }).ReelCategory;
         videoUrl: string;
         thumbnailUrl: string | null;
         caption: string | null;
+        status: import(".prisma/client", { with: { "resolution-mode": "require" } }).ReelStatus;
         views: number;
         likes: number;
-    }]>;
-    deleteLike(reelId: string, userId: string): Promise<[{
-        id: string;
-        createdAt: Date;
-        userId: string;
-        reelId: string;
-    }, {
-        status: import(".prisma/client", { with: { "resolution-mode": "require" } }).$Enums.ReelStatus;
-        id: string;
         createdAt: Date;
         updatedAt: Date;
-        productId: string | null;
+    }, unknown> & {}]>;
+    deleteLike(reelId: string, userId: string): Promise<[import("@prisma/client/runtime/index.js").GetResult<{
+        id: string;
+        reelId: string;
+        userId: string;
+        createdAt: Date;
+    }, unknown> & {}, import("@prisma/client/runtime/index.js").GetResult<{
+        id: string;
         sellerId: string;
-        category: import(".prisma/client", { with: { "resolution-mode": "require" } }).$Enums.ReelCategory;
+        productId: string | null;
+        category: import(".prisma/client", { with: { "resolution-mode": "require" } }).ReelCategory;
         videoUrl: string;
         thumbnailUrl: string | null;
         caption: string | null;
+        status: import(".prisma/client", { with: { "resolution-mode": "require" } }).ReelStatus;
         views: number;
         likes: number;
-    }]>;
+        createdAt: Date;
+        updatedAt: Date;
+    }, unknown> & {}]>;
     hasUserLiked(reelId: string, userId: string): Promise<boolean>;
     findRecentView(reelId: string, userId: string, since: Date): Promise<{
         id: string;
     } | null>;
-    createView(reelId: string, userId: string | null): Promise<[{
+    createView(reelId: string, userId: string | null): Promise<[import("@prisma/client/runtime/index.js").GetResult<{
         id: string;
-        createdAt: Date;
-        userId: string | null;
         reelId: string;
-    }, {
-        status: import(".prisma/client", { with: { "resolution-mode": "require" } }).$Enums.ReelStatus;
-        id: string;
+        userId: string | null;
         createdAt: Date;
-        updatedAt: Date;
-        productId: string | null;
+    }, unknown> & {}, import("@prisma/client/runtime/index.js").GetResult<{
+        id: string;
         sellerId: string;
-        category: import(".prisma/client", { with: { "resolution-mode": "require" } }).$Enums.ReelCategory;
+        productId: string | null;
+        category: import(".prisma/client", { with: { "resolution-mode": "require" } }).ReelCategory;
         videoUrl: string;
         thumbnailUrl: string | null;
         caption: string | null;
+        status: import(".prisma/client", { with: { "resolution-mode": "require" } }).ReelStatus;
         views: number;
         likes: number;
-    }]>;
-    createProductClick(reelId: string, productId: string, userId: string | null): Promise<{
-        id: string;
         createdAt: Date;
+        updatedAt: Date;
+    }, unknown> & {}]>;
+    createProductClick(reelId: string, productId: string, userId: string | null): Promise<import("@prisma/client/runtime/index.js").GetResult<{
+        id: string;
+        reelId: string;
         userId: string | null;
         productId: string;
-        reelId: string;
-    }>;
+        createdAt: Date;
+    }, unknown> & {}>;
     getReelAnalytics(reelId: string): Promise<{
         totalLikes: number;
         totalViews: number;
@@ -82,7 +82,7 @@ export declare class ReelEngagementRepository {
         reelId: string;
         videoUrl: string;
         caption: string | null;
-        status: import(".prisma/client", { with: { "resolution-mode": "require" } }).$Enums.ReelStatus;
+        status: import(".prisma/client", { with: { "resolution-mode": "require" } }).ReelStatus;
         views: number;
         likes: number;
         productClicks: number;

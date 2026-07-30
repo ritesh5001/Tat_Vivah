@@ -6,8 +6,7 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { checkoutWithPayment, getCart, type CouponPreview } from "@/services/cart";
-import { initiatePayment, verifyPayment } from "@/services/payments";
+import { checkout, getCart, type CouponPreview } from "@/services/cart";
 import { getAddresses, type Address } from "@/services/addresses";
 import { getShippingConfig } from "@/services/shipments";
 import CouponSection from "@/components/checkout/CouponSection";
@@ -25,51 +24,10 @@ const currency = new Intl.NumberFormat("en-IN", {
   maximumFractionDigits: 0,
 });
 
-type RazorpayPaymentResponse = {
-  razorpay_order_id: string;
-  razorpay_payment_id: string;
-  razorpay_signature: string;
-};
-
-type RazorpayCheckoutOptions = {
-  key: string;
-  amount: number;
-  currency: string;
-  name: string;
-  description: string;
-  order_id: string;
-  handler: (response: RazorpayPaymentResponse) => Promise<void>;
-  modal: {
-    ondismiss: () => void;
-  };
-  theme: {
-    color: string;
-  };
-};
-
-type RazorpayInstance = {
-  open: () => void;
-};
-
-type RazorpayConstructor = new (
-  options: RazorpayCheckoutOptions
-) => RazorpayInstance;
-
-function getRazorpayConstructor() {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  return (window as Window & { Razorpay?: RazorpayConstructor }).Razorpay ?? null;
-}
-
-type PaymentMethod = "GOKWIK" | "RAZORPAY" | "PHONEPE" | "COD";
-
 export default function CheckoutPage() {
   const router = useRouter();
   const [loading, setLoading] = React.useState(false);
   const [isPaying, setIsPaying] = React.useState(false);
-  const [paymentMethod, setPaymentMethod] = React.useState<PaymentMethod>("GOKWIK");
   const [subtotal, setSubtotal] = React.useState(0);
   const [hasItems, setHasItems] = React.useState(false);
   // Shipping charge can be turned off by admins. Default to the flat fee so
@@ -82,7 +40,6 @@ export default function CheckoutPage() {
 
   const shippingFee = hasItems && shippingConfig.enabled ? shippingConfig.amount : 0;
   const cartTotal = subtotal + shippingFee;
-  const [razorpayReady, setRazorpayReady] = React.useState(false);
   const [taxSummary, setTaxSummary] = React.useState<{
     subTotalAmount: number;
     totalTaxAmount: number;
@@ -105,7 +62,6 @@ export default function CheckoutPage() {
   // ---- Coupon state ----
   const [appliedCoupon, setAppliedCoupon] = React.useState<CouponPreview | null>(null);
   const cartItemsRef = React.useRef<string>("");
-  const razorpayLoaderRef = React.useRef<Promise<boolean> | null>(null);
 
   const applyCartSnapshot = React.useCallback(
     (items: Array<{ variantId: string; quantity: number; priceSnapshot: number }>) => {
@@ -146,39 +102,6 @@ export default function CheckoutPage() {
       pincode: prev.pincode || defaultAddr.pincode,
     }));
   }, []);
-
-  const loadRazorpayScript = React.useCallback(() => {
-    if (typeof window === "undefined") {
-      return Promise.resolve(false);
-    }
-    if (getRazorpayConstructor()) {
-      return Promise.resolve(true);
-    }
-    if (razorpayLoaderRef.current) {
-      return razorpayLoaderRef.current;
-    }
-
-    razorpayLoaderRef.current = new Promise<boolean>((resolve) => {
-      const script = document.createElement("script");
-      script.src = "https://checkout.razorpay.com/v1/checkout.js";
-      script.async = true;
-      script.onload = () => resolve(true);
-      script.onerror = () => {
-        razorpayLoaderRef.current = null;
-        resolve(false);
-      };
-      document.body.appendChild(script);
-    });
-
-    return razorpayLoaderRef.current;
-  }, []);
-
-  const warmRazorpay = React.useCallback(() => {
-    return loadRazorpayScript().then((ready) => {
-      setRazorpayReady(ready);
-      return ready;
-    });
-  }, [loadRazorpayScript]);
 
   React.useEffect(() => {
     let usedCachedAddresses = false;
@@ -273,44 +196,27 @@ export default function CheckoutPage() {
       return;
     }
 
-    const useGoKwik = paymentMethod === "GOKWIK";
-    const usePhonePe = paymentMethod === "PHONEPE";
-    const useCod = paymentMethod === "COD";
-
-    // GoKwik needs a phone number to create the payment link.
-    if (useGoKwik && !/^\d{10}$/.test(shipping.phone.replace(/\D/g, "").slice(-10))) {
-      toast.error("Please enter a valid 10-digit phone number to pay with GoKwik.");
-      return;
-    }
-
-    const gatewayPromise = useGoKwik || usePhonePe || useCod || razorpayReady
-      ? Promise.resolve(true)
-      : warmRazorpay();
-
     setLoading(true);
     setIsPaying(true);
     try {
-      const orderResult = await checkoutWithPayment(
-        {
-          shippingName: shipping.name || undefined,
-          shippingPhone: shipping.phone || undefined,
-          shippingEmail: shipping.email || undefined,
-          shippingAddressLine1: shipping.addressLine1 || undefined,
-          shippingAddressLine2: shipping.addressLine2 || undefined,
-          shippingCity: shipping.city || undefined,
-          shippingPincode: shipping.pincode || undefined,
-          shippingNotes: shipping.notes || undefined,
-          couponCode: appliedCoupon?.code || undefined,
-        },
-        undefined,
-        paymentMethod
-      );
+      // Payment gateways have been removed. Checkout just places the order.
+      const orderResult = await checkout({
+        shippingName: shipping.name || undefined,
+        shippingPhone: shipping.phone || undefined,
+        shippingEmail: shipping.email || undefined,
+        shippingAddressLine1: shipping.addressLine1 || undefined,
+        shippingAddressLine2: shipping.addressLine2 || undefined,
+        shippingCity: shipping.city || undefined,
+        shippingPincode: shipping.pincode || undefined,
+        shippingNotes: shipping.notes || undefined,
+        couponCode: appliedCoupon?.code || undefined,
+      });
+
       const orderId = orderResult.order?.id;
       if (!orderId) {
         throw new Error("Order ID missing. Please try again.");
       }
 
-      // Store GST summary from backend response
       if (orderResult.order) {
         setTaxSummary({
           subTotalAmount: orderResult.order.subTotalAmount ?? 0,
@@ -320,125 +226,17 @@ export default function CheckoutPage() {
         });
       }
 
-      // ---- GoKwik: redirect flow — send the buyer to the hosted payment link ----
-      if (useGoKwik) {
-        const payment =
-          orderResult.payment ?? (await initiatePayment(orderId, "GOKWIK")).data;
-        if (!payment.redirectUrl) {
-          throw new Error("GoKwik checkout could not be started. Please try again.");
-        }
-        // Remember which order we're paying so the callback page can confirm it.
-        try {
-          window.sessionStorage.setItem("tatvivah_pending_order", orderId);
-        } catch {
-          // Non-fatal — the callback also accepts orderId via the query string.
-        }
-        window.location.assign(payment.redirectUrl);
-        return;
-      }
-
-      // ---- COD: order is already CONFIRMED server-side, nothing to pay now ----
-      if (useCod) {
-        // If the checkout-time confirmation failed, the order is left PLACED.
-        // Retry once via the explicit initiate endpoint before giving up, so a
-        // transient hiccup doesn't leave a zombie order to be auto-cancelled.
-        if (!orderResult.payment && orderResult.paymentInitError) {
-          await initiatePayment(orderId, "COD");
-        }
-        toast.success("Order placed! Pay cash when your order is delivered.");
-        router.push("/user/orders");
-        return;
-      }
-
-      // ---- PhonePe: redirect flow — send the buyer to the hosted page ----
-      if (usePhonePe) {
-        // If checkout-time init failed, surface the REAL backend reason
-        // (e.g. "PhonePe is not configured") instead of a generic message.
-        if (!orderResult.payment && orderResult.paymentInitError) {
-          throw new Error(orderResult.paymentInitError);
-        }
-        const payment =
-          orderResult.payment ?? (await initiatePayment(orderId, "PHONEPE")).data;
-        if (!payment.redirectUrl) {
-          throw new Error("PhonePe checkout could not be started. Please try again.");
-        }
-        // PhonePe does not reliably preserve our ?orderId= query param on the
-        // return redirect, so stash it. The callback reads this as a fallback.
-        try {
-          window.sessionStorage.setItem("tatvivah_pending_order", orderId);
-        } catch {
-          // Non-fatal — the callback also accepts orderId via the query string.
-        }
-        window.location.assign(payment.redirectUrl);
-        return;
-      }
-
-      const gatewayReady = await gatewayPromise;
-
-      if (!gatewayReady) {
-        toast.error("Payment gateway failed to load.");
-        return;
-      }
-
-      const data = orderResult.payment ?? (await initiatePayment(orderId, "RAZORPAY")).data;
-      if (!data.key) {
-        throw new Error("Payment gateway configuration missing. Please try again.");
-      }
-
-      const options: RazorpayCheckoutOptions = {
-        key: data.key,
-        amount: data.amount,
-        currency: data.currency,
-        name: "TatVivah",
-        description: "Complete your purchase",
-        order_id: data.orderId,
-        handler: async (response) => {
-          try {
-            await verifyPayment({
-              razorpayOrderId: response.razorpay_order_id,
-              razorpayPaymentId: response.razorpay_payment_id,
-              razorpaySignature: response.razorpay_signature,
-            });
-            toast.success("Payment successful. Order confirmed.");
-            router.push("/user/dashboard");
-          } catch (error) {
-            toast.error(
-              error instanceof Error
-                ? error.message
-                : "Payment verification failed"
-            );
-          }
-        },
-        modal: {
-          ondismiss: () => {
-            toast.message("Payment pending. You can retry from orders.");
-            router.push("/user/orders");
-          },
-        },
-        theme: { color: "#B7956C" },
-      };
-
-      const RazorpayCheckout = getRazorpayConstructor();
-      if (!RazorpayCheckout) {
-        throw new Error("Payment gateway failed to load.");
-      }
-
-      const razorpay = new RazorpayCheckout(options);
-      razorpay.open();
+      toast.success("Order placed successfully.");
+      router.push("/user/orders");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Checkout failed";
-
-      // An empty cart here almost always means a previous attempt already
-      // placed the order (checkout clears the cart). Send the buyer to their
-      // orders instead of leaving them stuck on a dead checkout page.
       if (/cart is empty/i.test(message)) {
-        toast.error("Your cart is empty. If you just paid, check your orders.", {
+        toast.error("Your cart is empty. Check your orders for recent purchases.", {
           duration: 8000,
         });
         router.push("/user/orders");
         return;
       }
-
       toast.error(message, { duration: 8000 });
     } finally {
       setLoading(false);
@@ -808,78 +606,6 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              {/* Payment Method */}
-              <div className="space-y-3">
-                <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
-                  Payment Method
-                </p>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethod("GOKWIK")}
-                    disabled={isPaying || loading}
-                    className={`col-span-2 p-4 border text-left transition-all duration-300 ${
-                      paymentMethod === "GOKWIK"
-                        ? "border-gold bg-gold/5"
-                        : "border-border-soft hover:border-gold/40"
-                    }`}
-                  >
-                    <p className="text-sm font-medium text-foreground">
-                      Pay Online <span className="text-[10px] text-gold">· Recommended</span>
-                    </p>
-                    <p className="text-[10px] text-muted-foreground mt-1">
-                      UPI, cards, netbanking &amp; wallets — secured by GoKwik
-                    </p>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethod("RAZORPAY")}
-                    onMouseEnter={() => void warmRazorpay()}
-                    disabled={isPaying || loading}
-                    className={`p-4 border text-left transition-all duration-300 ${
-                      paymentMethod === "RAZORPAY"
-                        ? "border-gold bg-gold/5"
-                        : "border-border-soft hover:border-gold/40"
-                    }`}
-                  >
-                    <p className="text-sm font-medium text-foreground">Razorpay</p>
-                    <p className="text-[10px] text-muted-foreground mt-1">
-                      Cards, UPI, netbanking &amp; wallets
-                    </p>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethod("PHONEPE")}
-                    disabled={isPaying || loading}
-                    className={`p-4 border text-left transition-all duration-300 ${
-                      paymentMethod === "PHONEPE"
-                        ? "border-gold bg-gold/5"
-                        : "border-border-soft hover:border-gold/40"
-                    }`}
-                  >
-                    <p className="text-sm font-medium text-foreground">PhonePe</p>
-                    <p className="text-[10px] text-muted-foreground mt-1">
-                      UPI, cards &amp; PhonePe wallet
-                    </p>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethod("COD")}
-                    disabled={isPaying || loading}
-                    className={`col-span-2 p-4 border text-left transition-all duration-300 ${
-                      paymentMethod === "COD"
-                        ? "border-gold bg-gold/5"
-                        : "border-border-soft hover:border-gold/40"
-                    }`}
-                  >
-                    <p className="text-sm font-medium text-foreground">Cash on Delivery</p>
-                    <p className="text-[10px] text-muted-foreground mt-1">
-                      Pay in cash when your order arrives
-                    </p>
-                  </button>
-                </div>
-              </div>
-
               <div className="space-y-4">
                 <motion.div
                   whileHover={{ y: -2 }}
@@ -889,39 +615,20 @@ export default function CheckoutPage() {
                     size="lg"
                     className="w-full h-14"
                     onClick={handleCheckout}
-                    onMouseEnter={() => paymentMethod === "RAZORPAY" && void warmRazorpay()}
-                    onFocus={() => paymentMethod === "RAZORPAY" && void warmRazorpay()}
-                    onTouchStart={() => paymentMethod === "RAZORPAY" && void warmRazorpay()}
                     disabled={!hasItems || loading || isPaying}
                   >
-                    {isPaying
-                      ? "Processing..."
-                      : loading
-                        ? "Processing..."
-                        : paymentMethod === "COD"
-                          ? "Place Order (Cash on Delivery)"
-                          : "Complete Purchase"}
+                    {loading || isPaying ? "Placing Order..." : "Place Order"}
                   </Button>
                 </motion.div>
 
                 <p className="text-center text-[10px] text-muted-foreground leading-relaxed">
-                  By completing this purchase, you agree to our terms of service.
-                  Your payment is secured with industry-standard encryption.
+                  By placing this order, you agree to our terms of service.
+                  Online payment will be available soon.
                 </p>
               </div>
 
               {/* Trust Signals */}
               <div className="pt-4 border-t border-border-soft space-y-4">
-                <div className="flex items-center gap-3">
-                  <span className="h-1.5 w-1.5 rounded-full bg-green-600/60" />
-                  <span className="text-xs text-muted-foreground">
-                    {paymentMethod === "COD"
-                      ? "Cash on Delivery"
-                      : paymentMethod === "GOKWIK"
-                        ? "Secured by GoKwik"
-                        : `Secured by ${paymentMethod === "PHONEPE" ? "PhonePe" : "Razorpay"}`}
-                  </span>
-                </div>
                 <div className="flex items-center gap-3">
                   <span className="h-1.5 w-1.5 rounded-full bg-gold" />
                   <span className="text-xs text-muted-foreground">

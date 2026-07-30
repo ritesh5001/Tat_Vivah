@@ -5,47 +5,47 @@ export declare class ReelService {
     constructor(reelRepo: ReelRepository);
     createReel(sellerId: string, data: CreateReelRequest): Promise<{
         message: string;
-        reel: {
-            status: import(".prisma/client").$Enums.ReelStatus;
+        reel: import("@prisma/client/runtime/index.js").GetResult<{
             id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            productId: string | null;
             sellerId: string;
-            category: import(".prisma/client").$Enums.ReelCategory;
+            productId: string | null;
+            category: import(".prisma/client").ReelCategory;
             videoUrl: string;
             thumbnailUrl: string | null;
             caption: string | null;
+            status: import(".prisma/client").ReelStatus;
             views: number;
             likes: number;
-        };
+            createdAt: Date;
+            updatedAt: Date;
+        }, unknown> & {};
     }>;
     listSellerReels(sellerId: string, filters: ReelQueryFilters): Promise<ReelListResponse>;
     updateSellerReel(reelId: string, sellerId: string, data: UpdateReelRequest): Promise<{
         message: string;
         reel: {
             product: {
-                status: import(".prisma/client").$Enums.ProductStatus;
-                id: string;
-                title: string;
-                sellerPrice: import("@prisma/client/runtime/library").Decimal;
-                adminListingPrice: import("@prisma/client/runtime/library").Decimal | null;
-                images: string[];
+                readonly id: string;
+                readonly title: string;
+                readonly images: string[];
+                readonly adminListingPrice: import("@prisma/client/runtime/index.js").Decimal | null;
+                readonly sellerPrice: import("@prisma/client/runtime/index.js").Decimal;
+                readonly status: import(".prisma/client").ProductStatus;
             } | null;
-        } & {
-            status: import(".prisma/client").$Enums.ReelStatus;
+        } & import("@prisma/client/runtime/index.js").GetResult<{
             id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            productId: string | null;
             sellerId: string;
-            category: import(".prisma/client").$Enums.ReelCategory;
+            productId: string | null;
+            category: import(".prisma/client").ReelCategory;
             videoUrl: string;
             thumbnailUrl: string | null;
             caption: string | null;
+            status: import(".prisma/client").ReelStatus;
             views: number;
             likes: number;
-        };
+            createdAt: Date;
+            updatedAt: Date;
+        }, unknown> & {};
     }>;
     deleteSellerReel(reelId: string, sellerId: string): Promise<{
         message: string;
@@ -53,37 +53,37 @@ export declare class ReelService {
     listAdminReels(filters: ReelQueryFilters): Promise<AdminReelListResponse>;
     approveReel(reelId: string): Promise<{
         message: string;
-        reel: {
-            status: import(".prisma/client").$Enums.ReelStatus;
+        reel: import("@prisma/client/runtime/index.js").GetResult<{
             id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            productId: string | null;
             sellerId: string;
-            category: import(".prisma/client").$Enums.ReelCategory;
+            productId: string | null;
+            category: import(".prisma/client").ReelCategory;
             videoUrl: string;
             thumbnailUrl: string | null;
             caption: string | null;
+            status: import(".prisma/client").ReelStatus;
             views: number;
             likes: number;
-        };
+            createdAt: Date;
+            updatedAt: Date;
+        }, unknown> & {};
     }>;
     rejectReel(reelId: string): Promise<{
         message: string;
-        reel: {
-            status: import(".prisma/client").$Enums.ReelStatus;
+        reel: import("@prisma/client/runtime/index.js").GetResult<{
             id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            productId: string | null;
             sellerId: string;
-            category: import(".prisma/client").$Enums.ReelCategory;
+            productId: string | null;
+            category: import(".prisma/client").ReelCategory;
             videoUrl: string;
             thumbnailUrl: string | null;
             caption: string | null;
+            status: import(".prisma/client").ReelStatus;
             views: number;
             likes: number;
-        };
+            createdAt: Date;
+            updatedAt: Date;
+        }, unknown> & {};
     }>;
     deleteReelAdmin(reelId: string): Promise<{
         message: string;

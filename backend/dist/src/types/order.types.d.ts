@@ -1,8 +1,7 @@
-import type { $Enums } from '@prisma/client';
-import type { Prisma } from '@prisma/client';
-export type OrderStatus = $Enums.OrderStatus;
-export type InventoryMovementType = $Enums.InventoryMovementType;
-export type InventoryMovementReason = $Enums.InventoryMovementReason;
+import type { OrderStatus as PrismaOrderStatus, InventoryMovementType as PrismaInventoryMovementType, InventoryMovementReason as PrismaInventoryMovementReason, Prisma } from '@prisma/client';
+export type OrderStatus = PrismaOrderStatus;
+export type InventoryMovementType = PrismaInventoryMovementType;
+export type InventoryMovementReason = PrismaInventoryMovementReason;
 /**
  * Order entity as returned from database
  */

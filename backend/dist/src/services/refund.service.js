@@ -1,9 +1,8 @@
-import { RefundStatus, PaymentProvider, PaymentStatus } from '@prisma/client';
+import { RefundStatus, PaymentStatus } from '@prisma/client';
 import { prisma } from '../config/db.js';
 import { refundLogger } from '../config/logger.js';
 import { refundCreatedTotal, refundLedgerSuccessTotal, refundFailedTotal, refundOverLimitRejectedTotal, } from '../config/metrics.js';
 import { ApiError } from '../errors/ApiError.js';
-import { isRazorpayConfigured, razorpayClient } from './razorpay.client.js';
 // ─────────────────────────────────────────────────────────────────
 // Refund Service
 //
@@ -54,6 +53,7 @@ export class RefundService {
                         status: true,
                         provider: true,
                         providerPaymentId: true,
+                        providerOrderId: true,
                     },
                 },
             },
@@ -105,30 +105,21 @@ export class RefundService {
         });
         refundCreatedTotal.inc();
         refundLogger.info({ orderId, refundId: refund.id, amount, initiatedBy }, 'refund_pending_created');
-        // ── 4. Call payment provider (outside tx) ───────────────────
+        // ── 4. Record refund (ledger only) ──────────────────────────
+        // Payment gateways have been removed, so there is no external refund
+        // API to call. The refund is recorded in the ledger and the actual
+        // money return is handled manually/offline. A refund can only proceed
+        // once the payment was actually collected (SUCCESS/REFUNDED).
         let razorpayRefundId = null;
         let providerSuccess = false;
-        if (order.payment.provider === PaymentProvider.RAZORPAY
-            && order.payment.providerPaymentId
-            && isRazorpayConfigured()
-            && razorpayClient) {
-            try {
-                const rpRefund = await razorpayClient.payments.refund(order.payment.providerPaymentId, {
-                    amount,
-                    notes: { orderId, refundId: refund.id },
-                });
-                razorpayRefundId = rpRefund.id ?? null;
-                providerSuccess = true;
-            }
-            catch (error) {
-                refundLogger.error({ orderId, refundId: refund.id, error: error?.message }, 'razorpay_refund_api_failed');
-                providerSuccess = false;
-            }
-        }
-        else if (order.payment.provider === PaymentProvider.MOCK) {
-            // Mock provider always succeeds
-            razorpayRefundId = `mock_refund_${refund.id}`;
+        if (order.payment.status === PaymentStatus.SUCCESS
+            || order.payment.status === PaymentStatus.REFUNDED) {
+            razorpayRefundId = `manual_refund_${refund.id}`;
             providerSuccess = true;
+        }
+        else {
+            refundLogger.warn({ orderId, refundId: refund.id, paymentStatus: order.payment.status }, 'refund_before_collection');
+            providerSuccess = false;
         }
         // ── 5. Optimistic update to SUCCESS or FAILED ───────────────
         if (providerSuccess) {

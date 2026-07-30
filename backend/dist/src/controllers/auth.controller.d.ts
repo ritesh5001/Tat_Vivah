@@ -7,6 +7,7 @@ import { AuthService } from '../services/auth.service.js';
  */
 export declare class AuthController {
     private readonly service;
+    private readonly logger;
     constructor(service: AuthService);
     /**
      * POST /v1/auth/register
@@ -25,12 +26,12 @@ export declare class AuthController {
     registerAdmin: (req: Request, res: Response, next: NextFunction) => Promise<void>;
     /**
      * POST /v1/auth/request-otp
-     * Request email verification OTP
+     * Request mobile verification OTP
      */
     requestOtp: (req: Request, res: Response, next: NextFunction) => Promise<void>;
     /**
      * POST /v1/auth/verify-otp
-     * Verify email OTP and activate account
+     * Verify mobile OTP and activate account
      */
     verifyOtp: (req: Request, res: Response, next: NextFunction) => Promise<void>;
     /**

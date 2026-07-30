@@ -143,62 +143,7 @@ export async function checkout(
       couponCode?: string | null;
       discountAmount?: number;
     };
-    payment?: {
-      paymentId: string;
-      orderId: string;
-      amount: number;
-      currency: string;
-      key: string;
-      provider: string;
-    } | null;
-    paymentInitError?: string;
   }>("/v1/checkout", {
-    method: "POST",
-    body: payload ?? {},
-    token,
-  });
-}
-
-export async function checkoutWithPayment(
-  payload?: {
-    shippingName?: string;
-    shippingPhone?: string;
-    shippingEmail?: string;
-    shippingAddressLine1?: string;
-    shippingAddressLine2?: string;
-    shippingCity?: string;
-    shippingPincode?: string;
-    shippingNotes?: string;
-    couponCode?: string;
-  },
-  token?: string | null,
-  provider: "GOKWIK" | "RAZORPAY" | "PHONEPE" | "COD" = "RAZORPAY"
-) {
-  return apiRequest<{
-    message: string;
-    order: {
-      id: string;
-      totalAmount: number;
-      subTotalAmount: number;
-      totalTaxAmount: number;
-      grandTotal: number;
-      couponCode?: string | null;
-      discountAmount?: number;
-    };
-    payment?: {
-      paymentId: string;
-      orderId: string;
-      amount: number;
-      currency: string;
-      key?: string;
-      provider: string;
-      /** PhonePe hosted checkout page (redirect flow). */
-      redirectUrl?: string;
-      /** COD only: order CONFIRMED immediately. */
-      status?: string;
-    } | null;
-    paymentInitError?: string;
-  }>(`/v1/checkout?withPayment=1&provider=${provider}`, {
     method: "POST",
     body: payload ?? {},
     token,

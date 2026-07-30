@@ -50,15 +50,15 @@ export declare const reelQuerySchema: z.ZodObject<{
     category: z.ZodOptional<z.ZodEnum<["MENS", "KIDS"]>>;
     status: z.ZodOptional<z.ZodEnum<["PENDING", "APPROVED", "REJECTED"]>>;
 }, "strip", z.ZodTypeAny, {
-    page: number;
     limit: number;
+    page: number;
     status?: "PENDING" | "APPROVED" | "REJECTED" | undefined;
     category?: "MENS" | "KIDS" | undefined;
 }, {
     status?: "PENDING" | "APPROVED" | "REJECTED" | undefined;
+    limit?: string | undefined;
     category?: "MENS" | "KIDS" | undefined;
     page?: string | undefined;
-    limit?: string | undefined;
 }>;
 export type ReelQueryInput = z.infer<typeof reelQuerySchema>;
 //# sourceMappingURL=reel.validation.d.ts.map

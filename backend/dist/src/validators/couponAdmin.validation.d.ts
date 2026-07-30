@@ -142,17 +142,17 @@ export declare const couponQuerySchema: z.ZodObject<{
     type: z.ZodOptional<z.ZodEnum<["PERCENT", "FLAT"]>>;
     search: z.ZodOptional<z.ZodString>;
 }, "strip", z.ZodTypeAny, {
-    page: number;
     limit: number;
+    page: number;
     type?: "PERCENT" | "FLAT" | undefined;
     search?: string | undefined;
     isActive?: "false" | "true" | undefined;
 }, {
     type?: "PERCENT" | "FLAT" | undefined;
+    limit?: number | undefined;
     search?: string | undefined;
     isActive?: "false" | "true" | undefined;
     page?: number | undefined;
-    limit?: number | undefined;
 }>;
 export type CreateCouponInput = z.infer<typeof createCouponSchema>;
 export type UpdateCouponInput = z.infer<typeof updateCouponSchema>;

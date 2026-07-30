@@ -1,24 +1,24 @@
-import { CancellationStatus } from '@prisma/client';
+import { CancellationStatus, OrderStatus, PaymentStatus } from '@prisma/client';
 export declare class CancellationService {
     private isRetryableTransactionError;
     requestCancellation(userId: string, orderId: string, reason: string): Promise<{
         order: {
-            status: import(".prisma/client").$Enums.OrderStatus;
             id: string;
             userId: string;
+            status: OrderStatus;
         };
-    } & {
-        status: import(".prisma/client").$Enums.CancellationStatus;
-        reason: string;
+    } & import("@prisma/client/runtime/index.js").GetResult<{
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
+        orderId: string;
         userId: string;
+        reason: string;
+        status: CancellationStatus;
         reviewedBy: string | null;
         reviewedAt: Date | null;
         rejectionReason: string | null;
-        orderId: string;
-    }>;
+        createdAt: Date;
+        updatedAt: Date;
+    }, unknown> & {}>;
     getMyCancellations(userId: string): Promise<{
         cancellations: unknown[];
     }>;
@@ -32,14 +32,14 @@ export declare class CancellationService {
     approveCancellation(adminId: string, cancellationId: string): Promise<{
         success: boolean;
         orderId: string;
-        paymentStatus: import(".prisma/client").$Enums.PaymentStatus | null;
+        paymentStatus: PaymentStatus | null;
         refundTriggered: boolean;
         alreadyCancelled: boolean;
     }>;
     approveCancellationBySeller(sellerId: string, cancellationId: string): Promise<{
         success: boolean;
         orderId: string;
-        paymentStatus: import(".prisma/client").$Enums.PaymentStatus | null;
+        paymentStatus: PaymentStatus | null;
         refundTriggered: boolean;
         alreadyCancelled: boolean;
     }>;

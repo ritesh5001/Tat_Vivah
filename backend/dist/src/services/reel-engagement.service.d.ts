@@ -29,7 +29,7 @@ export declare class ReelEngagementService {
         reelId: string;
         videoUrl: string;
         caption: string | null;
-        status: import(".prisma/client").$Enums.ReelStatus;
+        status: import(".prisma/client").ReelStatus;
         views: number;
         likes: number;
         productClicks: number;

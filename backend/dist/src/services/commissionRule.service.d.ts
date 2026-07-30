@@ -13,10 +13,6 @@ export declare class CommissionRuleService {
         isActive?: boolean;
     }): Promise<{
         rules: ({
-            category: {
-                name: string;
-                id: string;
-            } | null;
             seller: {
                 id: string;
                 email: string | null;
@@ -24,43 +20,47 @@ export declare class CommissionRuleService {
                     store_name: string;
                 } | null;
             } | null;
-        } & {
+            category: {
+                id: string;
+                name: string;
+            } | null;
+        } & import("@prisma/client/runtime/index.js").GetResult<{
             id: string;
-            createdAt: Date;
-            updatedAt: Date;
             sellerId: string | null;
             categoryId: string | null;
-            commissionPercent: import("@prisma/client/runtime/library").Decimal;
-            platformFee: import("@prisma/client/runtime/library").Decimal;
+            commissionPercent: import("@prisma/client/runtime/index.js").Decimal;
+            platformFee: import("@prisma/client/runtime/index.js").Decimal;
             isActive: boolean;
-        })[];
+            createdAt: Date;
+            updatedAt: Date;
+        }, unknown> & {})[];
     }>;
     /**
      * Create a new commission rule
      */
-    createRule(input: CreateCommissionRuleInput): Promise<{
+    createRule(input: CreateCommissionRuleInput): Promise<import("@prisma/client/runtime/index.js").GetResult<{
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
         sellerId: string | null;
         categoryId: string | null;
-        commissionPercent: import("@prisma/client/runtime/library").Decimal;
-        platformFee: import("@prisma/client/runtime/library").Decimal;
+        commissionPercent: import("@prisma/client/runtime/index.js").Decimal;
+        platformFee: import("@prisma/client/runtime/index.js").Decimal;
         isActive: boolean;
-    }>;
+        createdAt: Date;
+        updatedAt: Date;
+    }, unknown> & {}>;
     /**
      * Update a commission rule
      */
-    updateRule(id: string, input: UpdateCommissionRuleInput): Promise<{
+    updateRule(id: string, input: UpdateCommissionRuleInput): Promise<import("@prisma/client/runtime/index.js").GetResult<{
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
         sellerId: string | null;
         categoryId: string | null;
-        commissionPercent: import("@prisma/client/runtime/library").Decimal;
-        platformFee: import("@prisma/client/runtime/library").Decimal;
+        commissionPercent: import("@prisma/client/runtime/index.js").Decimal;
+        platformFee: import("@prisma/client/runtime/index.js").Decimal;
         isActive: boolean;
-    }>;
+        createdAt: Date;
+        updatedAt: Date;
+    }, unknown> & {}>;
     /**
      * Delete a commission rule (guard: cannot delete last active global rule)
      */

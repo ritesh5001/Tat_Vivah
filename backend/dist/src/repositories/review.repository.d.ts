@@ -3,6 +3,10 @@ export declare class ReviewRepository {
         skip?: number;
         take?: number;
     }): Promise<({
+        product: {
+            id: string;
+            title: string;
+        };
         user: {
             id: string;
             email: string | null;
@@ -11,36 +15,32 @@ export declare class ReviewRepository {
                 avatar: string | null;
             } | null;
         };
-        product: {
-            id: string;
-            title: string;
-        };
-    } & {
+    } & import("@prisma/client/runtime/index.js").GetResult<{
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        userId: string;
         productId: string;
-        title: string | null;
-        images: string[];
+        userId: string;
         rating: number;
+        title: string | null;
         text: string;
+        images: string[];
         helpfulCount: number;
         isHidden: boolean;
-    })[]>;
-    deleteById(id: string): Promise<{
-        id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
+    }, unknown> & {})[]>;
+    deleteById(id: string): Promise<import("@prisma/client/runtime/index.js").GetResult<{
+        id: string;
         productId: string;
-        title: string | null;
-        images: string[];
+        userId: string;
         rating: number;
+        title: string | null;
         text: string;
+        images: string[];
         helpfulCount: number;
         isHidden: boolean;
-    }>;
+        createdAt: Date;
+        updatedAt: Date;
+    }, unknown> & {}>;
 }
 export declare const reviewRepository: ReviewRepository;
 //# sourceMappingURL=review.repository.d.ts.map

@@ -7,6 +7,23 @@ export function errorMiddleware(err, _req, res, _next) {
     // Log error for debugging (in production, use proper logging)
     console.error('[Error]:', err);
     const prismaError = err;
+    const bodyParserError = err;
+    if (bodyParserError.type === 'entity.too.large' || bodyParserError.status === 413) {
+        const response = {
+            success: false,
+            error: {
+                message: 'Request payload is too large',
+                statusCode: 413,
+                details: {
+                    type: bodyParserError.type,
+                    limit: bodyParserError.limit,
+                    length: bodyParserError.length,
+                },
+            },
+        };
+        res.status(413).json(response);
+        return;
+    }
     if (prismaError.code === 'P1001') {
         const response = {
             success: false,

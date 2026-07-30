@@ -49,67 +49,67 @@ export declare function serializeAddress(row: {
     updated_at: Date;
 }): SerializedAddress;
 export declare class AddressRepository {
-    findAllByUserId(userId: string): Promise<{
+    findAllByUserId(userId: string): Promise<(import("@prisma/client/runtime/index.js").GetResult<{
         id: string;
-        state: string;
-        created_at: Date;
-        updated_at: Date;
         user_id: string;
-        label: import(".prisma/client").$Enums.AddressLabel;
+        label: AddressLabel;
         address_line_1: string;
         address_line_2: string | null;
         city: string;
+        state: string;
         pincode: string;
         country: string;
         is_default: boolean;
-    }[]>;
-    findById(id: string): Promise<{
-        id: string;
-        state: string;
         created_at: Date;
         updated_at: Date;
+    }, unknown> & {})[]>;
+    findById(id: string): Promise<(import("@prisma/client/runtime/index.js").GetResult<{
+        id: string;
         user_id: string;
-        label: import(".prisma/client").$Enums.AddressLabel;
+        label: AddressLabel;
         address_line_1: string;
         address_line_2: string | null;
         city: string;
+        state: string;
         pincode: string;
         country: string;
         is_default: boolean;
-    } | null>;
+        created_at: Date;
+        updated_at: Date;
+    }, unknown> & {}) | null>;
     countByUserId(userId: string): Promise<number>;
     /**
      * Create with transactional default-flag handling.
      * If `isDefault` is true (or first address), unsets existing defaults first.
      */
-    createWithDefaultHandling(data: CreateAddressData): Promise<{
+    createWithDefaultHandling(data: CreateAddressData): Promise<import("@prisma/client/runtime/index.js").GetResult<{
         id: string;
-        state: string;
-        created_at: Date;
-        updated_at: Date;
         user_id: string;
-        label: import(".prisma/client").$Enums.AddressLabel;
+        label: AddressLabel;
         address_line_1: string;
         address_line_2: string | null;
         city: string;
+        state: string;
         pincode: string;
         country: string;
         is_default: boolean;
-    }>;
-    update(id: string, data: UpdateAddressData): Promise<{
-        id: string;
-        state: string;
         created_at: Date;
         updated_at: Date;
+    }, unknown> & {}>;
+    update(id: string, data: UpdateAddressData): Promise<import("@prisma/client/runtime/index.js").GetResult<{
+        id: string;
         user_id: string;
-        label: import(".prisma/client").$Enums.AddressLabel;
+        label: AddressLabel;
         address_line_1: string;
         address_line_2: string | null;
         city: string;
+        state: string;
         pincode: string;
         country: string;
         is_default: boolean;
-    }>;
+        created_at: Date;
+        updated_at: Date;
+    }, unknown> & {}>;
     /**
      * Delete inside a transaction; promote oldest remaining if default was deleted.
      */
@@ -117,20 +117,20 @@ export declare class AddressRepository {
     /**
      * Atomically unset all defaults, then set the specified address.
      */
-    setDefault(userId: string, addressId: string): Promise<{
+    setDefault(userId: string, addressId: string): Promise<import("@prisma/client/runtime/index.js").GetResult<{
         id: string;
-        state: string;
-        created_at: Date;
-        updated_at: Date;
         user_id: string;
-        label: import(".prisma/client").$Enums.AddressLabel;
+        label: AddressLabel;
         address_line_1: string;
         address_line_2: string | null;
         city: string;
+        state: string;
         pincode: string;
         country: string;
         is_default: boolean;
-    }>;
+        created_at: Date;
+        updated_at: Date;
+    }, unknown> & {}>;
 }
 export declare const addressRepository: AddressRepository;
 //# sourceMappingURL=address.repository.d.ts.map

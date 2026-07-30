@@ -31,8 +31,8 @@ export class ApiError extends Error {
     /**
      * Factory method for 403 Forbidden errors
      */
-    static forbidden(message = 'Forbidden') {
-        return new ApiError(403, message);
+    static forbidden(message = 'Forbidden', details) {
+        return new ApiError(403, message, details);
     }
     /**
      * Factory method for 404 Not Found errors

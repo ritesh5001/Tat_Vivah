@@ -161,7 +161,8 @@ export interface CreateSessionData {
  * Data for creating a new user in database
  */
 export interface CreateUserData {
-    email: string;
+    /** Null for phone-only signups; schema allows it. */
+    email: string | null;
     phone: string;
     whatsappNumber?: string | null;
     passwordHash: string;

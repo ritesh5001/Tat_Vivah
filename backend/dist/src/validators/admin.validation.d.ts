@@ -33,6 +33,7 @@ export declare const productSetPriceSchema: z.ZodObject<{
 }>;
 export declare const adminProductUpdateSchema: z.ZodObject<{
     categoryId: z.ZodOptional<z.ZodString>;
+    audience: z.ZodOptional<z.ZodEnum<["MENS", "KIDS"]>>;
     title: z.ZodOptional<z.ZodString>;
     description: z.ZodOptional<z.ZodString>;
     images: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
@@ -103,6 +104,7 @@ export declare const adminProductUpdateSchema: z.ZodObject<{
     }>, "many">>;
 }, "strip", z.ZodTypeAny, {
     categoryId?: string | undefined;
+    audience?: "MENS" | "KIDS" | undefined;
     title?: string | undefined;
     description?: string | undefined;
     sellerPrice?: number | undefined;
@@ -124,6 +126,7 @@ export declare const adminProductUpdateSchema: z.ZodObject<{
     occasionIds?: string[] | undefined;
 }, {
     categoryId?: string | undefined;
+    audience?: "MENS" | "KIDS" | undefined;
     title?: string | undefined;
     description?: string | undefined;
     sellerPrice?: number | undefined;
@@ -160,19 +163,19 @@ export declare const auditLogQuerySchema: z.ZodObject<{
     page: z.ZodDefault<z.ZodNumber>;
     limit: z.ZodDefault<z.ZodNumber>;
 }, "strip", z.ZodTypeAny, {
-    page: number;
     limit: number;
+    page: number;
     actorId?: string | undefined;
     entityType?: "USER" | "PRODUCT" | "ORDER" | "PAYMENT" | undefined;
     entityId?: string | undefined;
     startDate?: string | undefined;
     endDate?: string | undefined;
 }, {
+    limit?: number | undefined;
     actorId?: string | undefined;
     entityType?: "USER" | "PRODUCT" | "ORDER" | "PAYMENT" | undefined;
     entityId?: string | undefined;
     page?: number | undefined;
-    limit?: number | undefined;
     startDate?: string | undefined;
     endDate?: string | undefined;
 }>;

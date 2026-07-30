@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-export declare const prisma: PrismaClient<import(".prisma/client").Prisma.PrismaClientOptions, never, import("@prisma/client/runtime/library").DefaultArgs>;
+export declare const prisma: PrismaClient<import(".prisma/client").Prisma.PrismaClientOptions, never, import(".prisma/client").Prisma.RejectOnNotFound | import(".prisma/client").Prisma.RejectPerOperation | undefined, import("@prisma/client/runtime/index.js").DefaultArgs>;
 export declare const BASE_URL: string;
 export declare const COLORS: {
     green: string;

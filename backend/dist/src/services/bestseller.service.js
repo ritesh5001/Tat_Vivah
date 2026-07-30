@@ -105,13 +105,13 @@ export class BestsellerService {
         }))
             .filter((coupon) => coupon.value > 0);
     }
-    async listPublic(limit = DEFAULT_LIMIT) {
-        const cacheKey = CACHE_KEYS.BESTSELLERS_LIST;
+    async listPublic(limit = DEFAULT_LIMIT, audience) {
+        const cacheKey = audience ? `${CACHE_KEYS.BESTSELLERS_LIST}:${audience}` : CACHE_KEYS.BESTSELLERS_LIST;
         const cached = await getFromCache(cacheKey);
         if (cached) {
             return cached;
         }
-        const items = await bestsellerRepository.listPublic(limit);
+        const items = await bestsellerRepository.listPublic(limit, audience);
         const coupons = await this.getActiveCouponsForSellers(items.map((item) => item.product.sellerId));
         const products = items.map((item) => {
             const cheapestVariant = this.resolveCheapestVariant(item.product.variants ?? []);
@@ -126,6 +126,7 @@ export class BestsellerService {
                 title: item.product.title,
                 image: item.product.images?.[0] ?? null,
                 categoryName: item.product.category?.name ?? null,
+                compareAtPrice: cheapestVariant?.compareAtPrice ?? null,
                 regularPrice,
                 sellerPrice: sellingPrice,
                 adminPrice: sellingPrice,

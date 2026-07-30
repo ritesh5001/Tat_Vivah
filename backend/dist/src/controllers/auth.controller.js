@@ -2,6 +2,7 @@ import { authService } from '../services/auth.service.js';
 import { registerUserSchema, registerSellerSchema, registerAdminSchema, loginSchema, refreshTokenSchema, logoutSchema, requestOtpSchema, verifyOtpSchema, forgotPasswordSchema, resetPasswordSchema } from '../validators/auth.validation.js';
 import { ApiError } from '../errors/ApiError.js';
 import { ZodError } from 'zod';
+import { authLogger } from '../config/logger.js';
 /**
  * Auth Controller
  * Handles HTTP layer for authentication endpoints
@@ -9,6 +10,7 @@ import { ZodError } from 'zod';
  */
 export class AuthController {
     service;
+    logger = authLogger.child({ component: 'auth-controller' });
     constructor(service) {
         this.service = service;
     }
@@ -20,6 +22,7 @@ export class AuthController {
         try {
             // 1. Validate request body with Zod
             const validatedData = registerUserSchema.parse(req.body);
+            this.logger.info({ email: validatedData.email, phone: validatedData.phone ? '[present]' : '[missing]' }, 'register_user_request_received');
             // 2. Call service (business logic)
             const result = await this.service.registerUser(validatedData);
             // 3. Return success response
@@ -28,6 +31,7 @@ export class AuthController {
         catch (error) {
             // Handle Zod validation errors
             if (error instanceof ZodError) {
+                this.logger.warn({ errors: error.errors.map((err) => ({ path: err.path.join('.'), message: err.message })) }, 'register_user_validation_failed');
                 const details = error.errors.reduce((acc, err) => {
                     const key = err.path.join('.');
                     acc[key] = err.message;
@@ -48,6 +52,7 @@ export class AuthController {
         try {
             // 1. Validate request body with Zod
             const validatedData = registerSellerSchema.parse(req.body);
+            this.logger.info({ email: validatedData.email, phone: validatedData.phone ? '[present]' : '[missing]' }, 'register_seller_request_received');
             // 2. Call service (business logic)
             const result = await this.service.registerSeller(validatedData);
             // 3. Return success response
@@ -56,6 +61,7 @@ export class AuthController {
         catch (error) {
             // Handle Zod validation errors
             if (error instanceof ZodError) {
+                this.logger.warn({ errors: error.errors.map((err) => ({ path: err.path.join('.'), message: err.message })) }, 'register_seller_validation_failed');
                 const details = error.errors.reduce((acc, err) => {
                     const key = err.path.join('.');
                     acc[key] = err.message;
@@ -75,11 +81,13 @@ export class AuthController {
     registerAdmin = async (req, res, next) => {
         try {
             const validatedData = registerAdminSchema.parse(req.body);
+            this.logger.info({ email: validatedData.email }, 'register_admin_request_received');
             const result = await this.service.registerAdmin(validatedData);
             res.status(201).json(result);
         }
         catch (error) {
             if (error instanceof ZodError) {
+                this.logger.warn({ errors: error.errors.map((err) => ({ path: err.path.join('.'), message: err.message })) }, 'register_admin_validation_failed');
                 const details = error.errors.reduce((acc, err) => {
                     const key = err.path.join('.');
                     acc[key] = err.message;
@@ -93,16 +101,18 @@ export class AuthController {
     };
     /**
      * POST /v1/auth/request-otp
-     * Request email verification OTP
+     * Request mobile verification OTP
      */
     requestOtp = async (req, res, next) => {
         try {
             const validatedData = requestOtpSchema.parse(req.body);
-            const result = await this.service.requestEmailOtp(validatedData.email);
+            this.logger.info({ phone: validatedData.phone ? '[present]' : '[missing]' }, 'request_otp_request_received');
+            const result = await this.service.requestOtp(validatedData);
             res.status(200).json(result);
         }
         catch (error) {
             if (error instanceof ZodError) {
+                this.logger.warn({ errors: error.errors.map((err) => ({ path: err.path.join('.'), message: err.message })) }, 'request_otp_validation_failed');
                 const details = error.errors.reduce((acc, err) => {
                     const key = err.path.join('.');
                     acc[key] = err.message;
@@ -116,16 +126,20 @@ export class AuthController {
     };
     /**
      * POST /v1/auth/verify-otp
-     * Verify email OTP and activate account
+     * Verify mobile OTP and activate account
      */
     verifyOtp = async (req, res, next) => {
         try {
             const validatedData = verifyOtpSchema.parse(req.body);
-            const result = await this.service.verifyEmailOtp(validatedData.email, validatedData.otp);
+            this.logger.info({ phone: validatedData.phone ? '[present]' : '[missing]', otpLength: validatedData.otp?.length ?? 0 }, 'verify_otp_request_received');
+            const userAgent = req.headers['user-agent'];
+            const ipAddress = req.ip ?? req.socket.remoteAddress;
+            const result = await this.service.verifyOtp(validatedData, userAgent, ipAddress);
             res.status(200).json(result);
         }
         catch (error) {
             if (error instanceof ZodError) {
+                this.logger.warn({ errors: error.errors.map((err) => ({ path: err.path.join('.'), message: err.message })) }, 'verify_otp_validation_failed');
                 const details = error.errors.reduce((acc, err) => {
                     const key = err.path.join('.');
                     acc[key] = err.message;
@@ -268,7 +282,7 @@ export class AuthController {
     forgotPassword = async (req, res, next) => {
         try {
             const validatedData = forgotPasswordSchema.parse(req.body);
-            const result = await this.service.forgotPassword(validatedData.email);
+            const result = await this.service.forgotPassword(validatedData.phone);
             res.status(200).json(result);
         }
         catch (error) {
@@ -291,7 +305,7 @@ export class AuthController {
     resetPassword = async (req, res, next) => {
         try {
             const validatedData = resetPasswordSchema.parse(req.body);
-            const result = await this.service.resetPassword(validatedData.email, validatedData.otp, validatedData.newPassword);
+            const result = await this.service.resetPassword(validatedData.phone, validatedData.otp, validatedData.newPassword);
             res.status(200).json(result);
         }
         catch (error) {

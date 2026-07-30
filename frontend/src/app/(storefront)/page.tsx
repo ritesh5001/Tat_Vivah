@@ -155,8 +155,8 @@ function TrustSection() {
     {
       title: "Secure Payments",
       titleShort: "Payments",
-      desc: "Protected by Razorpay",
-      descShort: "Razorpay",
+      desc: "Safe & encrypted checkout",
+      descShort: "Secure",
       Icon: Lock,
     },
     {

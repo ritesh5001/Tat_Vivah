@@ -21,6 +21,8 @@ const envSchema = z.object({
     KEEP_ALIVE_TIMEOUT_MS: z.string().default('65000').transform(Number),
     HEADERS_TIMEOUT_MS: z.string().default('70000').transform(Number),
     REQUEST_TIMEOUT_MS: z.string().default('120000').transform(Number),
+    JSON_BODY_LIMIT: z.string().default('5mb'),
+    URLENCODED_BODY_LIMIT: z.string().default('5mb'),
     MAX_REQUESTS_PER_SOCKET: z.string().default('1000').transform(Number),
     RUN_BACKGROUND_JOBS: z.string().optional().transform((v) => {
         if (!v)
@@ -57,6 +59,11 @@ const envSchema = z.object({
     // Resend
     RESEND_API_KEY: z.string().min(1, 'RESEND_API_KEY is required'),
     EMAIL_FROM: z.string().email('EMAIL_FROM must be a valid email'),
+    // Fast2SMS WhatsApp (OTP delivery)
+    FAST2SMS_API_KEY: z.string().min(1, 'FAST2SMS_API_KEY is required').optional(),
+    FAST2SMS_WHATSAPP_URL: z.string().url('FAST2SMS_WHATSAPP_URL must be a valid URL').default('https://www.fast2sms.com/dev/whatsapp'),
+    FAST2SMS_WHATSAPP_MESSAGE_ID: z.string().optional(),
+    FAST2SMS_WHATSAPP_PHONE_NUMBER_ID: z.string().optional(),
     // ImageKit
     IMAGEKIT_PUBLIC_KEY: z.string().optional(),
     IMAGEKIT_PRIVATE_KEY: z.string().optional(),
@@ -66,10 +73,10 @@ const envSchema = z.object({
     FASHN_TRYON_MODEL: z.enum(['tryon-max', 'tryon-v1.6']).default('tryon-max'),
     FASHN_POLL_INTERVAL_MS: z.string().default('3000').transform(Number),
     FASHN_POLL_TIMEOUT_MS: z.string().default('115000').transform(Number),
-    // Razorpay
-    RAZORPAY_KEY_ID: z.string().optional(),
-    RAZORPAY_KEY_SECRET: z.string().optional(),
-    RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
+    // Public base URL of THIS backend (used for absolute links / webhooks).
+    BACKEND_PUBLIC_URL: z.string().url('BACKEND_PUBLIC_URL must be a valid URL').optional(),
+    // NOTE: Payment gateways have been removed. Add the new gateway's env vars
+    // here when it is integrated.
 });
 /**
  * Parse and validate environment variables

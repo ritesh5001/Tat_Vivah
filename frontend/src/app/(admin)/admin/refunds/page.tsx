@@ -264,7 +264,7 @@ export default function AdminRefundsPage() {
                   </span>
                   {refund.razorpayRefundId && (
                     <span className="font-mono">
-                      Razorpay: {refund.razorpayRefundId}
+                      Ref: {refund.razorpayRefundId}
                     </span>
                   )}
                 </div>

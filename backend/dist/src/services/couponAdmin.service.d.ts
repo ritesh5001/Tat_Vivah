@@ -3,7 +3,7 @@
  * CRUD operations for admin coupon management
  * Separate from CouponService which handles apply/redeem/validate at checkout
  */
-import { Prisma } from '@prisma/client';
+import { CouponType, Prisma } from '@prisma/client';
 import type { CreateCouponInput, UpdateCouponInput } from '../validators/couponAdmin.validation.js';
 export declare class CouponAdminService {
     /**
@@ -17,9 +17,6 @@ export declare class CouponAdminService {
         search?: string | undefined;
     }): Promise<{
         coupons: ({
-            _count: {
-                redemptions: number;
-            };
             seller: {
                 id: string;
                 email: string | null;
@@ -27,14 +24,14 @@ export declare class CouponAdminService {
                     store_name: string;
                 } | null;
             } | null;
-        } & {
-            value: Prisma.Decimal;
-            code: string;
-            type: import(".prisma/client").$Enums.CouponType;
+            _count: {
+                redemptions: number;
+            };
+        } & import("@prisma/client/runtime/index.js").GetResult<{
             id: string;
-            createdAt: Date;
-            sellerId: string | null;
-            isActive: boolean;
+            code: string;
+            type: CouponType;
+            value: Prisma.Decimal;
             maxDiscountAmount: Prisma.Decimal | null;
             minOrderAmount: Prisma.Decimal;
             usageLimit: number | null;
@@ -42,8 +39,11 @@ export declare class CouponAdminService {
             usedCount: number;
             validFrom: Date;
             validUntil: Date;
+            isActive: boolean;
+            sellerId: string | null;
             firstTimeUserOnly: boolean;
-        })[];
+            createdAt: Date;
+        }, unknown> & {})[];
         pagination: {
             page: number;
             limit: number;
@@ -62,14 +62,11 @@ export declare class CouponAdminService {
                 store_name: string;
             } | null;
         } | null;
-    } & {
-        value: Prisma.Decimal;
-        code: string;
-        type: import(".prisma/client").$Enums.CouponType;
+    } & import("@prisma/client/runtime/index.js").GetResult<{
         id: string;
-        createdAt: Date;
-        sellerId: string | null;
-        isActive: boolean;
+        code: string;
+        type: CouponType;
+        value: Prisma.Decimal;
         maxDiscountAmount: Prisma.Decimal | null;
         minOrderAmount: Prisma.Decimal;
         usageLimit: number | null;
@@ -77,8 +74,11 @@ export declare class CouponAdminService {
         usedCount: number;
         validFrom: Date;
         validUntil: Date;
+        isActive: boolean;
+        sellerId: string | null;
         firstTimeUserOnly: boolean;
-    }>;
+        createdAt: Date;
+    }, unknown> & {}>;
     /**
      * Update an existing coupon
      */
@@ -90,14 +90,11 @@ export declare class CouponAdminService {
                 store_name: string;
             } | null;
         } | null;
-    } & {
-        value: Prisma.Decimal;
-        code: string;
-        type: import(".prisma/client").$Enums.CouponType;
+    } & import("@prisma/client/runtime/index.js").GetResult<{
         id: string;
-        createdAt: Date;
-        sellerId: string | null;
-        isActive: boolean;
+        code: string;
+        type: CouponType;
+        value: Prisma.Decimal;
         maxDiscountAmount: Prisma.Decimal | null;
         minOrderAmount: Prisma.Decimal;
         usageLimit: number | null;
@@ -105,8 +102,11 @@ export declare class CouponAdminService {
         usedCount: number;
         validFrom: Date;
         validUntil: Date;
+        isActive: boolean;
+        sellerId: string | null;
         firstTimeUserOnly: boolean;
-    }>;
+        createdAt: Date;
+    }, unknown> & {}>;
     /**
      * Delete a coupon (only if it has zero redemptions)
      */
@@ -114,14 +114,11 @@ export declare class CouponAdminService {
     /**
      * Toggle coupon active state
      */
-    toggleCoupon(id: string): Promise<{
-        value: Prisma.Decimal;
-        code: string;
-        type: import(".prisma/client").$Enums.CouponType;
+    toggleCoupon(id: string): Promise<import("@prisma/client/runtime/index.js").GetResult<{
         id: string;
-        createdAt: Date;
-        sellerId: string | null;
-        isActive: boolean;
+        code: string;
+        type: CouponType;
+        value: Prisma.Decimal;
         maxDiscountAmount: Prisma.Decimal | null;
         minOrderAmount: Prisma.Decimal;
         usageLimit: number | null;
@@ -129,8 +126,11 @@ export declare class CouponAdminService {
         usedCount: number;
         validFrom: Date;
         validUntil: Date;
+        isActive: boolean;
+        sellerId: string | null;
         firstTimeUserOnly: boolean;
-    }>;
+        createdAt: Date;
+    }, unknown> & {}>;
 }
 export declare const couponAdminService: CouponAdminService;
 //# sourceMappingURL=couponAdmin.service.d.ts.map

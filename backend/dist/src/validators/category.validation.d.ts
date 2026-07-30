@@ -38,9 +38,9 @@ export declare const updateCategorySchema: z.ZodObject<{
     seoTitle: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     seoDescription: z.ZodOptional<z.ZodNullable<z.ZodString>>;
 }, "strip", z.ZodTypeAny, {
-    name?: string | undefined;
     description?: string | null | undefined;
     isActive?: boolean | undefined;
+    name?: string | undefined;
     image?: string | null | undefined;
     bannerImage?: string | null | undefined;
     parentId?: string | null | undefined;
@@ -48,9 +48,9 @@ export declare const updateCategorySchema: z.ZodObject<{
     seoTitle?: string | null | undefined;
     seoDescription?: string | null | undefined;
 }, {
-    name?: string | undefined;
     description?: string | null | undefined;
     isActive?: boolean | undefined;
+    name?: string | undefined;
     image?: string | null | undefined;
     bannerImage?: string | null | undefined;
     parentId?: string | null | undefined;

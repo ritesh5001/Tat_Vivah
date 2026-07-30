@@ -56,6 +56,7 @@ export declare class AdminService {
     listPendingProducts(params?: {
         page?: number;
         limit?: number;
+        audience?: 'MENS' | 'KIDS';
     }): Promise<{
         products: AdminProduct[];
     }>;
@@ -65,6 +66,7 @@ export declare class AdminService {
     listAllProducts(params?: {
         page?: number;
         limit?: number;
+        audience?: 'MENS' | 'KIDS';
     }): Promise<{
         products: AdminProduct[];
     }>;

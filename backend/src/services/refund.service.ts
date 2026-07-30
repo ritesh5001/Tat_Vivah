@@ -1,4 +1,4 @@
-import { RefundInitiator, RefundStatus, PaymentProvider, PaymentStatus } from '@prisma/client';
+import { RefundInitiator, RefundStatus, PaymentStatus } from '@prisma/client';
 import { prisma } from '../config/db.js';
 import { refundLogger } from '../config/logger.js';
 import {
@@ -8,9 +8,6 @@ import {
     refundOverLimitRejectedTotal,
 } from '../config/metrics.js';
 import { ApiError } from '../errors/ApiError.js';
-import { isRazorpayConfigured, razorpayClient } from './razorpay.client.js';
-import { isPhonePeConfigured } from './phonepe.client.js';
-import { phonepeService } from './phonepe.service.js';
 
 // ─────────────────────────────────────────────────────────────────
 // Types
@@ -157,83 +154,26 @@ export class RefundService {
             'refund_pending_created',
         );
 
-        // ── 4. Call payment provider (outside tx) ───────────────────
+        // ── 4. Record refund (ledger only) ──────────────────────────
+        // Payment gateways have been removed, so there is no external refund
+        // API to call. The refund is recorded in the ledger and the actual
+        // money return is handled manually/offline. A refund can only proceed
+        // once the payment was actually collected (SUCCESS/REFUNDED).
         let razorpayRefundId: string | null = null;
         let providerSuccess = false;
 
         if (
-            order.payment.provider === PaymentProvider.RAZORPAY
-            && order.payment.providerPaymentId
-            && isRazorpayConfigured()
-            && razorpayClient
+            order.payment.status === PaymentStatus.SUCCESS
+            || order.payment.status === PaymentStatus.REFUNDED
         ) {
-            try {
-                const rpRefund = await razorpayClient.payments.refund(
-                    order.payment.providerPaymentId,
-                    {
-                        amount,
-                        notes: { orderId, refundId: refund.id },
-                    },
-                );
-                razorpayRefundId = (rpRefund as any).id ?? null;
-                providerSuccess = true;
-            } catch (error: any) {
-                refundLogger.error(
-                    { orderId, refundId: refund.id, error: error?.message },
-                    'razorpay_refund_api_failed',
-                );
-                providerSuccess = false;
-            }
-        } else if (
-            order.payment.provider === PaymentProvider.PHONEPE
-            && order.payment.providerOrderId
-            && isPhonePeConfigured()
-        ) {
-            try {
-                const ppRefund = await phonepeService.initiateRefund(
-                    `rf_${refund.id}`,
-                    order.payment.providerOrderId,
-                    amount / 100, // paise → rupees
-                );
-                razorpayRefundId = ppRefund.refundId ?? null;
-                providerSuccess = true;
-            } catch (error: any) {
-                refundLogger.error(
-                    { orderId, refundId: refund.id, error: error?.message },
-                    'phonepe_refund_api_failed',
-                );
-                providerSuccess = false;
-            }
-        } else if (order.payment.provider === PaymentProvider.GOKWIK) {
-            // GoKwik does not expose a public refund API on Payment Links —
-            // refunds are raised from the GoKwik dashboard and reported back
-            // via refund.* webhooks. Record the ledger entry here so the order
-            // state is correct; reconciliation happens on the webhook.
-            refundLogger.info(
-                { orderId, refundId: refund.id, amount },
-                'gokwik_refund_recorded_pending_dashboard',
+            razorpayRefundId = `manual_refund_${refund.id}`;
+            providerSuccess = true;
+        } else {
+            refundLogger.warn(
+                { orderId, refundId: refund.id, paymentStatus: order.payment.status },
+                'refund_before_collection',
             );
-            razorpayRefundId = `gokwik_refund_${refund.id}`;
-            providerSuccess = true;
-        } else if (order.payment.provider === PaymentProvider.COD) {
-            // COD refunds are settled offline (cash returned to the buyer).
-            // We only record the ledger entry here; there is no gateway call.
-            // Guard against the caller trying to refund an order whose cash was
-            // never collected (payment still INITIATED, e.g. cancelled pre-delivery).
-            if (order.payment.status !== PaymentStatus.SUCCESS && order.payment.status !== PaymentStatus.REFUNDED) {
-                refundLogger.warn(
-                    { orderId, refundId: refund.id, paymentStatus: order.payment.status },
-                    'cod_refund_before_collection',
-                );
-                providerSuccess = false;
-            } else {
-                razorpayRefundId = `cod_refund_${refund.id}`;
-                providerSuccess = true;
-            }
-        } else if (order.payment.provider === PaymentProvider.MOCK) {
-            // Mock provider always succeeds
-            razorpayRefundId = `mock_refund_${refund.id}`;
-            providerSuccess = true;
+            providerSuccess = false;
         }
 
         // ── 5. Optimistic update to SUCCESS or FAILED ───────────────

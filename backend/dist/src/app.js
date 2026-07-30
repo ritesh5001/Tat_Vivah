@@ -7,9 +7,9 @@ import { register, httpRequestDuration, hotEndpointDurationMs, hotEndpointSlowTo
 import { prisma } from './config/db.js';
 import { checkRedisConnection } from './config/redis.js';
 import { logger } from './config/logger.js';
-import { authRouter, sellerRouter, categoryRouter, productRouter, sellerProductRouter, productMediaRouter, imagekitRouter, bestsellerRouter, tryOnRouter, cartRouter, checkoutRouter, couponRouter, orderRouter, sellerOrderRouter, appointmentRouter, cancellationRouter, returnRouter, paymentRouter, webhookRouter, sellerSettlementRouter, adminRouter, 
+import { authRouter, sellerRouter, categoryRouter, productRouter, sellerProductRouter, productMediaRouter, imagekitRouter, bestsellerRouter, tryOnRouter, cartRouter, checkoutRouter, couponRouter, orderRouter, sellerOrderRouter, appointmentRouter, cancellationRouter, returnRouter, paymentRouter, sellerSettlementRouter, adminRouter, 
 // Shipping imports
-shipmentRouter, sellerShipmentRouter, adminShipmentRouter, adminNotificationRouter, reviewRouter, addressRouter, notificationRouter, wishlistRouter, searchRouter, personalizationRouter, liveRouter, sellerAnalyticsRouter, reelRouter, sellerReelRouter, adminReelRouter, occasionRouter, } from './routes/index.js';
+shipmentRouter, sellerShipmentRouter, adminShipmentRouter, adminNotificationRouter, reviewRouter, addressRouter, notificationRouter, wishlistRouter, searchRouter, personalizationRouter, liveRouter, sellerAnalyticsRouter, reelRouter, sellerReelRouter, adminReelRouter, occasionRouter, configRouter, } from './routes/index.js';
 import { searchController } from './controllers/search.controller.js';
 import { apiReference } from "@scalar/express-api-reference";
 import { openApiSpec } from "./docs/openapi.js";
@@ -59,9 +59,9 @@ export function createApp() {
         },
     }));
     // Parse JSON bodies
-    app.use(express.json());
+    app.use(express.json({ limit: env.JSON_BODY_LIMIT }));
     // Parse URL-encoded bodies
-    app.use(express.urlencoded({ extended: true }));
+    app.use(express.urlencoded({ extended: true, limit: env.URLENCODED_BODY_LIMIT }));
     // Enable CORS — support comma-separated origins for multi-subdomain setup
     const corsOrigin = process.env['CORS_ORIGIN'];
     app.use(cors({
@@ -216,7 +216,6 @@ export function createApp() {
     app.use('/v1/cancellations', cancellationRouter);
     app.use('/v1/returns', returnRouter);
     // Payments & Settlement domain
-    app.use('/v1/payments/webhook', webhookRouter); // Must be before /v1/payments to avoid auth middleware capture
     app.use('/v1/payments', paymentRouter);
     app.use('/v1/seller/settlements', sellerSettlementRouter);
     // Reviews domain
@@ -272,6 +271,8 @@ export function createApp() {
     app.use('/v1/reels', reelRouter);
     app.use('/v1/seller/reels', sellerReelRouter);
     app.use('/v1/admin/reels', adminReelRouter);
+    // Public platform config (unauthenticated, read-only)
+    app.use('/v1/config', configRouter);
     // Related products (mounted on products path)
     app.get('/v1/products/:id/related', searchController.relatedProducts);
     // Notification Worker initialization removed to keep API process HTTP-only

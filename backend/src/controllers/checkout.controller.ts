@@ -1,89 +1,24 @@
 import type { Request, Response, NextFunction } from 'express';
-import { PaymentProvider } from '@prisma/client';
 import { checkoutService } from '../services/checkout.service.js';
-import { paymentService } from '../services/payment.service.js';
-import { paymentLogger } from '../config/logger.js';
-import { recordLastPaymentError } from '../monitoring/last-payment-error.js';
 
 /**
  * Checkout Controller
- * Handles HTTP requests for checkout operations
+ *
+ * Payment gateways have been removed. Checkout now only places the order
+ * (reserves inventory, creates the order in PLACED status). Payment will be
+ * re-attached here once a new gateway is integrated.
  */
 export class CheckoutController {
-    /**
-     * Process checkout
-     * POST /v1/checkout
-     */
     async checkout(req: Request, res: Response, next: NextFunction): Promise<void> {
         try {
             const userId = req.user!.userId;
             const { couponCode, ...shipping } = req.body ?? {};
             const result = await checkoutService.checkout(userId, shipping, couponCode);
-            const withPayment = req.query.withPayment === '1';
-            if (!withPayment) {
-                res.status(201).json(result);
-                return;
-            }
-
-            // Optional provider/platform selection (defaults preserve old behavior)
-            const requestedProvider = String(req.query.provider ?? '').toUpperCase();
-            const provider =
-                requestedProvider === PaymentProvider.GOKWIK
-                    ? PaymentProvider.GOKWIK
-                    : requestedProvider === PaymentProvider.PHONEPE
-                        ? PaymentProvider.PHONEPE
-                        : requestedProvider === PaymentProvider.COD
-                            ? PaymentProvider.COD
-                            : PaymentProvider.RAZORPAY;
-            const platform = String(req.query.platform ?? '').toUpperCase() === 'MOBILE' ? 'MOBILE' as const : 'WEB' as const;
-
-            try {
-                const payment = await paymentService.initiatePayment(
-                    userId,
-                    result.order.id,
-                    provider,
-                    platform,
-                );
-
-                res.status(201).json({
-                    ...result,
-                    payment,
-                });
-                return;
-            } catch (paymentError) {
-                // Order is already placed at this point; return order and let client fallback to explicit initiate endpoint.
-                // Log the real cause — otherwise this failure is invisible in prod.
-                const errMessage = paymentError instanceof Error ? paymentError.message : String(paymentError);
-                paymentLogger.error(
-                    {
-                        event: 'checkout_payment_init_failed',
-                        provider,
-                        orderId: result.order.id,
-                        error: errMessage,
-                        stack: paymentError instanceof Error ? paymentError.stack : undefined,
-                    },
-                    'Payment initiation failed during checkout',
-                );
-                recordLastPaymentError({
-                    provider,
-                    orderId: result.order.id,
-                    message: errMessage,
-                    stack: paymentError instanceof Error ? paymentError.stack : undefined,
-                });
-                res.status(201).json({
-                    ...result,
-                    payment: null,
-                    paymentInitError:
-                        paymentError instanceof Error
-                            ? paymentError.message
-                            : 'Payment initialization failed',
-                });
-                return;
-            }
+            res.status(201).json(result);
         } catch (error) {
             next(error);
         }
     }
 }
-// Export singleton instance
+
 export const checkoutController = new CheckoutController();

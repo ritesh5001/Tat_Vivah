@@ -1,67 +1,23 @@
-import { PaymentProvider, PaymentStatus } from '@prisma/client';
+import { PaymentStatus } from '@prisma/client';
 export declare class PaymentService {
-    private findOrderForPayment;
-    private resolvePayableAmount;
     processRefund(orderId: string): Promise<{
         refundTriggered: boolean;
         alreadyRefunded: boolean;
         paymentStatus: PaymentStatus | null;
     }>;
-    initiatePayment(userId: string, orderId: string, provider: PaymentProvider): Promise<{
-        paymentId: string;
-        orderId: string;
-        amount: number;
-        currency: string;
-        key: string;
-        provider: string;
-        providerPaymentId?: never;
-        checkoutUrl?: never;
-    } | {
-        paymentId: string;
-        providerPaymentId: string;
-        checkoutUrl: string;
-        amount: number;
-        currency: string;
-        orderId?: never;
-        key?: never;
-        provider?: never;
-    }>;
-    retryPayment(userId: string, orderId: string): Promise<{
-        paymentId: string;
-        orderId: string;
-        amount: number;
-        currency: string;
-        key: string;
-        provider: string;
-        providerPaymentId?: never;
-        checkoutUrl?: never;
-    } | {
-        paymentId: string;
-        providerPaymentId: string;
-        checkoutUrl: string;
-        amount: number;
-        currency: string;
-        orderId?: never;
-        key?: never;
-        provider?: never;
-    }>;
     getPaymentDetails(orderId: string, userId: string): Promise<{
-        status: import(".prisma/client").$Enums.PaymentStatus;
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        userId: string;
         orderId: string;
+        userId: string;
         amount: number;
         currency: string;
-        provider: import(".prisma/client").$Enums.PaymentProvider;
+        status: PaymentStatus;
+        provider: import(".prisma/client").PaymentProvider;
         providerOrderId: string | null;
         providerPaymentId: string | null;
         providerSignature: string | null;
-    }>;
-    verifyRazorpayPayment(userId: string, razorpayOrderId: string, razorpayPaymentId: string, razorpaySignature: string): Promise<{
-        message: string;
-        paymentId: string;
+        createdAt: Date;
+        updatedAt: Date;
     }>;
     handlePaymentSuccess(paymentId: string, orderId: string, providerPaymentId: string, payload: any, providerSignature?: string): Promise<void>;
     handlePaymentFailure(paymentId: string, payload: any): Promise<void>;

@@ -5,7 +5,7 @@ export declare class BestsellerService {
     private getBestCouponPreview;
     private resolveCheapestVariant;
     private getActiveCouponsForSellers;
-    listPublic(limit?: number): Promise<any>;
+    listPublic(limit?: number, audience?: 'MENS' | 'KIDS'): Promise<any>;
     listAdmin(): Promise<{
         bestsellers: {
             id: string;
@@ -19,20 +19,20 @@ export declare class BestsellerService {
             image: string | null;
         }[];
     }>;
-    add(productId: string, position?: number): Promise<{
+    add(productId: string, position?: number): Promise<import("@prisma/client/runtime/index.js").GetResult<{
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
         productId: string;
         position: number;
-    }>;
-    update(id: string, position: number): Promise<{
-        id: string;
         createdAt: Date;
         updatedAt: Date;
+    }, unknown> & {}>;
+    update(id: string, position: number): Promise<import("@prisma/client/runtime/index.js").GetResult<{
+        id: string;
         productId: string;
         position: number;
-    }>;
+        createdAt: Date;
+        updatedAt: Date;
+    }, unknown> & {}>;
     remove(id: string): Promise<void>;
     removeByProductId(productId: string): Promise<void>;
 }

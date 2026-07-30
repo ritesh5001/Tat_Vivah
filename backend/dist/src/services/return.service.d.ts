@@ -1,4 +1,4 @@
-import { ReturnStatus } from '@prisma/client';
+import { OrderStatus, PaymentStatus, ReturnStatus } from '@prisma/client';
 interface ReturnItemInput {
     orderItemId: string;
     quantity: number;
@@ -6,66 +6,66 @@ interface ReturnItemInput {
 }
 export declare class ReturnService {
     requestReturn(userId: string, orderId: string, reason: string, items: ReturnItemInput[]): Promise<{
-        items: {
-            variantId: string;
-            reason: string | null;
+        items: (import("@prisma/client/runtime/index.js").GetResult<{
             id: string;
-            quantity: number;
             returnRequestId: string;
             orderItemId: string;
-        }[];
-    } & {
-        status: import(".prisma/client").$Enums.ReturnStatus;
-        reason: string;
+            variantId: string;
+            quantity: number;
+            reason: string | null;
+        }, unknown> & {})[];
+    } & import("@prisma/client/runtime/index.js").GetResult<{
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
+        orderId: string;
         userId: string;
+        reason: string;
+        status: ReturnStatus;
+        refundAmount: number | null;
         reviewedBy: string | null;
         reviewedAt: Date | null;
         rejectionReason: string | null;
-        orderId: string;
-        refundAmount: number | null;
-    }>;
+        createdAt: Date;
+        updatedAt: Date;
+    }, unknown> & {}>;
     getMyReturns(userId: string): Promise<{
         returns: unknown[];
     }>;
     getReturnById(userId: string, returnId: string): Promise<{
-        order: {
-            status: import(".prisma/client").$Enums.OrderStatus;
-            id: string;
-            createdAt: Date;
-            totalAmount: number;
-        };
         items: ({
             orderItem: {
-                variantId: string;
                 id: string;
                 productId: string;
+                variantId: string;
                 quantity: number;
                 priceSnapshot: number;
             };
-        } & {
-            variantId: string;
-            reason: string | null;
+        } & import("@prisma/client/runtime/index.js").GetResult<{
             id: string;
-            quantity: number;
             returnRequestId: string;
             orderItemId: string;
-        })[];
-    } & {
-        status: import(".prisma/client").$Enums.ReturnStatus;
-        reason: string;
+            variantId: string;
+            quantity: number;
+            reason: string | null;
+        }, unknown> & {})[];
+        order: {
+            id: string;
+            status: OrderStatus;
+            totalAmount: number;
+            createdAt: Date;
+        };
+    } & import("@prisma/client/runtime/index.js").GetResult<{
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
+        orderId: string;
         userId: string;
+        reason: string;
+        status: ReturnStatus;
+        refundAmount: number | null;
         reviewedBy: string | null;
         reviewedAt: Date | null;
         rejectionReason: string | null;
-        orderId: string;
-        refundAmount: number | null;
-    }>;
+        createdAt: Date;
+        updatedAt: Date;
+    }, unknown> & {}>;
     listReturns(filters: {
         status?: ReturnStatus;
         userId?: string;
@@ -76,7 +76,7 @@ export declare class ReturnService {
     approveReturn(adminId: string, returnId: string): Promise<{
         success: boolean;
         orderId: string;
-        paymentStatus: import(".prisma/client").$Enums.PaymentStatus | null;
+        paymentStatus: PaymentStatus | null;
         alreadyApproved: boolean;
     }>;
     rejectReturn(adminId: string, returnId: string, reason?: string): Promise<{

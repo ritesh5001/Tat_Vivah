@@ -269,4 +269,27 @@ adminRouter.delete('/occasions/:id', authorize('ADMIN', 'SUPER_ADMIN'), occasion
  * Toggle occasion active state
  */
 adminRouter.patch('/occasions/:id/toggle', authorize('ADMIN', 'SUPER_ADMIN'), occasionController.toggleOccasion);
+// ============================================================================
+// PLATFORM SETTINGS (ADMIN + SUPER_ADMIN)
+// ============================================================================
+/**
+ * GET /v1/admin/settings/shipping
+ * Current shipping-charge configuration (enabled flag + amount).
+ */
+adminRouter.get('/settings/shipping', authorize('ADMIN', 'SUPER_ADMIN'), adminController.getShippingSetting);
+/**
+ * PUT /v1/admin/settings/shipping
+ * Start/stop the flat shipping charge for new orders.
+ */
+adminRouter.put('/settings/shipping', authorize('ADMIN', 'SUPER_ADMIN'), adminController.updateShippingSetting);
+/**
+ * GET /v1/admin/settings/gst
+ * Current flat-GST-charge configuration (enabled flag + amount).
+ */
+adminRouter.get('/settings/gst', authorize('ADMIN', 'SUPER_ADMIN'), adminController.getGstSetting);
+/**
+ * PUT /v1/admin/settings/gst
+ * Start/stop the flat GST charge for new orders.
+ */
+adminRouter.put('/settings/gst', authorize('ADMIN', 'SUPER_ADMIN'), adminController.updateGstSetting);
 //# sourceMappingURL=admin.routes.js.map

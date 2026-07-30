@@ -18,7 +18,6 @@ import { ApiError } from '../errors/ApiError.js';
 import { invalidateCache, CACHE_KEYS } from '../utils/cache.util.js';
 import { dispatchFreshness } from '../live/freshness.service.js';
 import { CACHE_TAGS, orderTag } from '../live/cache-tags.js';
-import { paymentService } from './payment.service.js';
 
 export class ShipmentService {
 
@@ -291,16 +290,6 @@ export class ShipmentService {
                     where: { id: orderId },
                     data: { status: newStatus }
                 });
-
-                // On delivery, collect the cash for COD orders (no-op otherwise).
-                // Best-effort: a capture failure must not roll back the delivery.
-                if (newStatus === 'DELIVERED') {
-                    try {
-                        await paymentService.captureCodPayment(orderId);
-                    } catch (err) {
-                        // Logged inside; delivery still stands and can be re-captured.
-                    }
-                }
             }
         }
     }

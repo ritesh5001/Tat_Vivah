@@ -6,14 +6,14 @@ export declare const createCommissionRuleSchema: z.ZodObject<{
     platformFee: z.ZodNumber;
     isActive: z.ZodDefault<z.ZodOptional<z.ZodBoolean>>;
 }, "strip", z.ZodTypeAny, {
-    commissionPercent: number;
     platformFee: number;
+    commissionPercent: number;
     isActive: boolean;
     sellerId?: string | null | undefined;
     categoryId?: string | null | undefined;
 }, {
-    commissionPercent: number;
     platformFee: number;
+    commissionPercent: number;
     sellerId?: string | null | undefined;
     categoryId?: string | null | undefined;
     isActive?: boolean | undefined;
@@ -27,14 +27,14 @@ export declare const updateCommissionRuleSchema: z.ZodObject<{
 }, "strip", z.ZodTypeAny, {
     sellerId?: string | null | undefined;
     categoryId?: string | null | undefined;
-    commissionPercent?: number | undefined;
     platformFee?: number | undefined;
+    commissionPercent?: number | undefined;
     isActive?: boolean | undefined;
 }, {
     sellerId?: string | null | undefined;
     categoryId?: string | null | undefined;
-    commissionPercent?: number | undefined;
     platformFee?: number | undefined;
+    commissionPercent?: number | undefined;
     isActive?: boolean | undefined;
 }>;
 export type CreateCommissionRuleInput = z.infer<typeof createCommissionRuleSchema>;

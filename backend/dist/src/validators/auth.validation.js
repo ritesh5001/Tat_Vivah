@@ -107,39 +107,40 @@ export const logoutSchema = z.object({
  * POST /v1/auth/request-otp
  */
 export const requestOtpSchema = z.object({
-    email: z
+    phone: z
         .string()
-        .email('Invalid email address'),
+        .regex(/^\d{10,15}$/, 'Phone must be 10-15 digits'),
 });
 /**
  * Verify OTP Validation Schema
  * POST /v1/auth/verify-otp
  */
 export const verifyOtpSchema = z.object({
-    email: z
+    phone: z
         .string()
-        .email('Invalid email address'),
+        .regex(/^\d{10,15}$/, 'Phone must be 10-15 digits'),
     otp: z
         .string()
-        .min(4, 'OTP is required'),
+        .length(6, 'OTP must be exactly 6 digits')
+        .regex(/^\d{6}$/, 'OTP must be 6 digits'),
 });
 /**
  * Forgot Password Validation Schema
  * POST /v1/auth/forgot-password
  */
 export const forgotPasswordSchema = z.object({
-    email: z
+    phone: z
         .string()
-        .email('Invalid email address'),
+        .regex(/^\d{10,15}$/, 'Phone must be 10-15 digits'),
 });
 /**
  * Reset Password Validation Schema
  * POST /v1/auth/reset-password
  */
 export const resetPasswordSchema = z.object({
-    email: z
+    phone: z
         .string()
-        .email('Invalid email address'),
+        .regex(/^\d{10,15}$/, 'Phone must be 10-15 digits'),
     otp: z
         .string()
         .length(6, 'OTP must be exactly 6 digits')

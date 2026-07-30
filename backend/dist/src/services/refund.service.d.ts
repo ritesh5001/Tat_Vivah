@@ -18,18 +18,18 @@ export declare class RefundService {
      *  - Final status update uses optimistic lock (WHERE status = PENDING)
      *  - Failed records are NEVER deleted (immutable audit trail)
      */
-    createRefund(input: CreateRefundInput): Promise<{
-        status: import(".prisma/client").$Enums.RefundStatus;
-        reason: string | null;
+    createRefund(input: CreateRefundInput): Promise<import("@prisma/client/runtime/index.js").GetResult<{
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
         orderId: string;
         paymentId: string;
         amount: number;
+        reason: string | null;
+        status: RefundStatus;
         razorpayRefundId: string | null;
-        initiatedBy: import(".prisma/client").$Enums.RefundInitiator;
-    }>;
+        initiatedBy: RefundInitiator;
+        createdAt: Date;
+        updatedAt: Date;
+    }, unknown> & {}>;
     /**
      * List all refunds (admin view).
      */
@@ -39,27 +39,27 @@ export declare class RefundService {
     }): Promise<{
         refunds: ({
             order: {
-                status: import(".prisma/client").$Enums.OrderStatus;
                 id: string;
                 totalAmount: number;
+                status: import(".prisma/client").OrderStatus;
             };
             payment: {
                 id: string;
-                provider: import(".prisma/client").$Enums.PaymentProvider;
+                provider: import(".prisma/client").PaymentProvider;
                 providerPaymentId: string | null;
             };
-        } & {
-            status: import(".prisma/client").$Enums.RefundStatus;
-            reason: string | null;
+        } & import("@prisma/client/runtime/index.js").GetResult<{
             id: string;
-            createdAt: Date;
-            updatedAt: Date;
             orderId: string;
             paymentId: string;
             amount: number;
+            reason: string | null;
+            status: RefundStatus;
             razorpayRefundId: string | null;
-            initiatedBy: import(".prisma/client").$Enums.RefundInitiator;
-        })[];
+            initiatedBy: RefundInitiator;
+            createdAt: Date;
+            updatedAt: Date;
+        }, unknown> & {})[];
     }>;
 }
 export declare const refundService: RefundService;

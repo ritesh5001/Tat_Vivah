@@ -17,7 +17,6 @@ import {
   type BuyerOrderDetail,
   type OrderItem,
 } from "../../../src/services/orders";
-import { getPaymentDetails } from "../../../src/services/payments";
 import { useAuth } from "../../../src/hooks/useAuth";
 import { useToast } from "../../../src/providers/ToastProvider";
 import { ApiError, isAbortError } from "../../../src/services/api";
@@ -157,19 +156,17 @@ export default function OrderDetailScreen() {
       const controller = new AbortController();
       requestAbortRef.current = controller;
       try {
-        const [orderRes, paymentRes] = await Promise.all([
-          getBuyerOrderDetail(orderId, token, controller.signal),
-          getPaymentDetails(orderId, token, controller.signal).catch(() => null),
-        ]);
+        const orderRes = await getBuyerOrderDetail(orderId, token, controller.signal);
         if (!mountedRef.current) return;
         setOrder(orderRes.order);
-        setPaymentStatus(paymentRes?.data?.status ?? null);
+        const nextPaymentStatus = (orderRes.order as any)?.paymentStatus ?? null;
+        setPaymentStatus(nextPaymentStatus);
 
         orderDetailCache.set(cacheKey, {
           token,
           cachedAt: Date.now(),
           order: orderRes.order,
-          paymentStatus: paymentRes?.data?.status ?? null,
+          paymentStatus: nextPaymentStatus,
         });
       } catch (err) {
         if (isAbortError(err) || !mountedRef.current) return;

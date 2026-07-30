@@ -79,11 +79,11 @@ export declare const loginSchema: z.ZodObject<{
     identifier: z.ZodString;
     password: z.ZodString;
 }, "strip", z.ZodTypeAny, {
-    password: string;
     identifier: string;
+    password: string;
 }, {
-    password: string;
     identifier: string;
+    password: string;
 }>;
 export type LoginInput = z.infer<typeof loginSchema>;
 /**
@@ -115,11 +115,11 @@ export type LogoutInput = z.infer<typeof logoutSchema>;
  * POST /v1/auth/request-otp
  */
 export declare const requestOtpSchema: z.ZodObject<{
-    email: z.ZodString;
+    phone: z.ZodString;
 }, "strip", z.ZodTypeAny, {
-    email: string;
+    phone: string;
 }, {
-    email: string;
+    phone: string;
 }>;
 export type RequestOtpInput = z.infer<typeof requestOtpSchema>;
 /**
@@ -127,13 +127,13 @@ export type RequestOtpInput = z.infer<typeof requestOtpSchema>;
  * POST /v1/auth/verify-otp
  */
 export declare const verifyOtpSchema: z.ZodObject<{
-    email: z.ZodString;
+    phone: z.ZodString;
     otp: z.ZodString;
 }, "strip", z.ZodTypeAny, {
-    email: string;
+    phone: string;
     otp: string;
 }, {
-    email: string;
+    phone: string;
     otp: string;
 }>;
 export type VerifyOtpInput = z.infer<typeof verifyOtpSchema>;
@@ -142,11 +142,11 @@ export type VerifyOtpInput = z.infer<typeof verifyOtpSchema>;
  * POST /v1/auth/forgot-password
  */
 export declare const forgotPasswordSchema: z.ZodObject<{
-    email: z.ZodString;
+    phone: z.ZodString;
 }, "strip", z.ZodTypeAny, {
-    email: string;
+    phone: string;
 }, {
-    email: string;
+    phone: string;
 }>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 /**
@@ -154,15 +154,15 @@ export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
  * POST /v1/auth/reset-password
  */
 export declare const resetPasswordSchema: z.ZodObject<{
-    email: z.ZodString;
+    phone: z.ZodString;
     otp: z.ZodString;
     newPassword: z.ZodString;
 }, "strip", z.ZodTypeAny, {
-    email: string;
+    phone: string;
     otp: string;
     newPassword: string;
 }, {
-    email: string;
+    phone: string;
     otp: string;
     newPassword: string;
 }>;

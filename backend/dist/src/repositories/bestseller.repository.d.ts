@@ -7,19 +7,18 @@ export declare class BestsellerRepository {
             seller: {
                 email: string | null;
             };
-        } & {
-            status: import(".prisma/client").$Enums.ProductStatus;
+        } & import("@prisma/client/runtime/index.js").GetResult<{
             id: string;
-            createdAt: Date;
-            updatedAt: Date;
             sellerId: string;
             categoryId: string;
+            audience: import(".prisma/client").ProductAudience;
             title: string;
             description: string | null;
-            sellerPrice: import("@prisma/client/runtime/library").Decimal;
-            adminListingPrice: import("@prisma/client/runtime/library").Decimal | null;
+            sellerPrice: import("@prisma/client/runtime/index.js").Decimal;
+            adminListingPrice: import("@prisma/client/runtime/index.js").Decimal | null;
             priceApprovedAt: Date | null;
             priceApprovedById: string | null;
+            status: import(".prisma/client").ProductStatus;
             rejectionReason: string | null;
             approvedAt: Date | null;
             approvedById: string | null;
@@ -27,53 +26,54 @@ export declare class BestsellerRepository {
             deletedByAdmin: boolean;
             deletedByAdminAt: Date | null;
             deletedByAdminReason: string | null;
+            createdAt: Date;
+            updatedAt: Date;
             taxRate: number;
             hsnCode: string | null;
             images: string[];
-        };
-    } & {
+        }, unknown> & {};
+    } & import("@prisma/client/runtime/index.js").GetResult<{
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
         productId: string;
         position: number;
-    })[]>;
-    listPublic(limit: number): Promise<({
+        createdAt: Date;
+        updatedAt: Date;
+    }, unknown> & {})[]>;
+    listPublic(limit: number, audience?: 'MENS' | 'KIDS'): Promise<({
         product: {
-            category: {
-                name: string;
-            };
-            variants: {
-                status: import(".prisma/client").$Enums.ProductStatus;
+            variants: (import("@prisma/client/runtime/index.js").GetResult<{
                 id: string;
-                createdAt: Date;
-                updatedAt: Date;
                 productId: string;
+                size: string;
+                color: string | null;
+                images: string[];
+                sku: string;
                 sellerPrice: number;
                 adminListingPrice: number | null;
+                price: number;
+                compareAtPrice: number | null;
+                status: import(".prisma/client").ProductStatus;
                 rejectionReason: string | null;
                 approvedAt: Date | null;
                 approvedById: string | null;
-                images: string[];
-                size: string;
-                color: string | null;
-                sku: string;
-                price: number;
-                compareAtPrice: number | null;
-            }[];
-        } & {
-            status: import(".prisma/client").$Enums.ProductStatus;
+                createdAt: Date;
+                updatedAt: Date;
+            }, unknown> & {})[];
+            category: {
+                name: string;
+            };
+        } & import("@prisma/client/runtime/index.js").GetResult<{
             id: string;
-            createdAt: Date;
-            updatedAt: Date;
             sellerId: string;
             categoryId: string;
+            audience: import(".prisma/client").ProductAudience;
             title: string;
             description: string | null;
-            sellerPrice: import("@prisma/client/runtime/library").Decimal;
-            adminListingPrice: import("@prisma/client/runtime/library").Decimal | null;
+            sellerPrice: import("@prisma/client/runtime/index.js").Decimal;
+            adminListingPrice: import("@prisma/client/runtime/index.js").Decimal | null;
             priceApprovedAt: Date | null;
             priceApprovedById: string | null;
+            status: import(".prisma/client").ProductStatus;
             rejectionReason: string | null;
             approvedAt: Date | null;
             approvedById: string | null;
@@ -81,45 +81,47 @@ export declare class BestsellerRepository {
             deletedByAdmin: boolean;
             deletedByAdminAt: Date | null;
             deletedByAdminReason: string | null;
+            createdAt: Date;
+            updatedAt: Date;
             taxRate: number;
             hsnCode: string | null;
             images: string[];
-        };
-    } & {
+        }, unknown> & {};
+    } & import("@prisma/client/runtime/index.js").GetResult<{
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
         productId: string;
         position: number;
-    })[]>;
-    findByProductId(productId: string): Promise<{
-        id: string;
         createdAt: Date;
         updatedAt: Date;
+    }, unknown> & {})[]>;
+    findByProductId(productId: string): Promise<(import("@prisma/client/runtime/index.js").GetResult<{
+        id: string;
         productId: string;
         position: number;
-    } | null>;
-    create(productId: string, position: number): Promise<{
-        id: string;
         createdAt: Date;
         updatedAt: Date;
+    }, unknown> & {}) | null>;
+    create(productId: string, position: number): Promise<import("@prisma/client/runtime/index.js").GetResult<{
+        id: string;
         productId: string;
         position: number;
-    }>;
-    update(id: string, position: number): Promise<{
-        id: string;
         createdAt: Date;
         updatedAt: Date;
+    }, unknown> & {}>;
+    update(id: string, position: number): Promise<import("@prisma/client/runtime/index.js").GetResult<{
+        id: string;
         productId: string;
         position: number;
-    }>;
-    delete(id: string): Promise<{
-        id: string;
         createdAt: Date;
         updatedAt: Date;
+    }, unknown> & {}>;
+    delete(id: string): Promise<import("@prisma/client/runtime/index.js").GetResult<{
+        id: string;
         productId: string;
         position: number;
-    }>;
+        createdAt: Date;
+        updatedAt: Date;
+    }, unknown> & {}>;
     deleteByProductId(productId: string): Promise<import(".prisma/client").Prisma.BatchPayload>;
     getMaxPosition(): Promise<number>;
     countAll(): Promise<number>;

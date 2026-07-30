@@ -7,20 +7,11 @@ import {
   Alert,
   Modal,
   FlatList,
-  Linking,
 } from "react-native";
 import { usePathname, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, radius, spacing, typography, shadow } from "../../src/theme/tokens";
 import { checkout, validateCoupon, type CouponPreview } from "../../src/services/cart";
-import {
-  initiatePayment,
-  verifyPayment,
-  verifyPhonePePayment,
-  verifyGoKwikPayment,
-  type PaymentProvider,
-} from "../../src/services/payments";
-import { isRazorpayAvailable, openRazorpayCheckout } from "../../src/services/razorpay";
 import { ApiError } from "../../src/services/api";
 import { useAuth } from "../../src/hooks/useAuth";
 import { useNetworkStatus } from "../../src/hooks/useNetworkStatus";
@@ -82,33 +73,6 @@ const AddressSelectorRow = React.memo(function AddressSelectorRow({
 });
 
 // ---------------------------------------------------------------------------
-// PhonePe polling — the payment finishes in the browser / PhonePe app, so the
-// only way to learn the outcome is asking our backend, which asks PhonePe.
-// ---------------------------------------------------------------------------
-
-const PHONEPE_POLL_INTERVAL_MS = 3000;
-const PHONEPE_MAX_WAIT_MS = 4 * 60 * 1000;
-
-async function waitForRedirectPaymentResult(
-  orderId: string,
-  token: string,
-  verify: (orderId: string, token: string) => Promise<{ data: { status: string } }>
-): Promise<"SUCCESS" | "FAILED" | "TIMEOUT"> {
-  const deadline = Date.now() + PHONEPE_MAX_WAIT_MS;
-  while (Date.now() < deadline) {
-    try {
-      const result = await verify(orderId, token);
-      if (result.data.status === "SUCCESS") return "SUCCESS";
-      if (result.data.status === "FAILED") return "FAILED";
-    } catch {
-      // Transient error while the user is in the payment app — keep polling.
-    }
-    await new Promise((resolve) => setTimeout(resolve, PHONEPE_POLL_INTERVAL_MS));
-  }
-  return "TIMEOUT";
-}
-
-// ---------------------------------------------------------------------------
 // Screen
 // ---------------------------------------------------------------------------
 
@@ -125,8 +89,7 @@ export default function CheckoutScreen() {
 
   // ---------- Payment guard — prevents double-submit ----------
   const [isPaying, setIsPaying] = React.useState(false);
-  const [payLabel, setPayLabel] = React.useState("Starting payment");
-  const [paymentMethod, setPaymentMethod] = React.useState<PaymentProvider>("GOKWIK");
+  const [payLabel, setPayLabel] = React.useState("Placing order");
   const [error, setError] = React.useState<string | null>(null);
   const [taxSummary, setTaxSummary] = React.useState<{
     subTotalAmount: number;
@@ -347,14 +310,6 @@ export default function CheckoutScreen() {
       showToast("Your cart is empty.", "info");
       return;
     }
-    if (paymentMethod === "RAZORPAY" && !isRazorpayAvailable()) {
-      showToast(
-        "Razorpay is unavailable in Expo Go. Use a development build to test payments.",
-        "error"
-      );
-      setError("Razorpay SDK is not available in Expo Go. Please use a development build.");
-      return;
-    }
 
     // Build shipping payload from selected address or manual fields
     const shippingPayload = selectedAddress
@@ -375,22 +330,19 @@ export default function CheckoutScreen() {
           couponCode: appliedCoupon?.code || undefined,
         };
 
-    setPayLabel("Creating order");
+    setPayLabel("Placing order");
     setIsPaying(true);
     setError(null);
 
-    let createdOrderId: string | null = null;
     try {
-      // 1. Create order via checkout
+      // Payment gateways have been removed. Checkout just places the order.
       const orderResult = await checkout(shippingPayload, token);
 
       const orderId = orderResult.order?.id;
       if (!orderId) {
         throw new Error("Order ID missing. Please try again.");
       }
-      createdOrderId = orderId;
 
-      // Store GST summary from backend response
       if (orderResult.order && mountedRef.current) {
         const toNumber = (value: number | string | null | undefined) =>
           typeof value === "string" ? Number(value) : value ?? 0;
@@ -402,195 +354,29 @@ export default function CheckoutScreen() {
         });
       }
 
-      // 2a-gokwik. GoKwik — hosted payment link opened in the browser, then polled.
-      if (paymentMethod === "GOKWIK") {
-        setPayLabel("Opening payment");
-        const gokwikPayment = await initiatePayment(orderId, token, "GOKWIK");
-        const redirectUrl = gokwikPayment.data.redirectUrl;
-        if (!redirectUrl) {
-          throw new Error("Payment could not be started. Please try again.");
-        }
-
-        await Linking.openURL(redirectUrl);
-
-        setPayLabel("Waiting for payment confirmation");
-        const outcome = await waitForRedirectPaymentResult(
-          orderId,
-          token,
-          verifyGoKwikPayment
-        );
-
-        if (!mountedRef.current) return;
-
-        if (outcome === "SUCCESS") {
-          notifySuccess();
-          clearCart();
-          router.replace(`/orders/${orderId}`);
-          setTimeout(() => {
-            void refreshCart();
-          }, 0);
-          return;
-        }
-
-        if (outcome === "FAILED") {
-          setError("Payment failed. You can retry from your orders.");
-          notifyError();
-          showToast("Payment failed. Retry from orders.", "error");
-          router.replace(`/orders/${orderId}`);
-          return;
-        }
-
-        showToast("Payment pending. Check your orders for the final status.", "info");
-        router.replace(`/orders/${orderId}`);
-        return;
-      }
-
-      // 2a-cod. COD — order is CONFIRMED server-side; no online payment now.
-      if (paymentMethod === "COD") {
-        setPayLabel("Placing order");
-        await initiatePayment(orderId, token, "COD");
-
-        if (!mountedRef.current) return;
-        notifySuccess();
-        clearCart();
-        showToast("Order placed! Pay cash on delivery.", "success");
-        router.replace(`/orders/${orderId}`);
-        setTimeout(() => {
-          void refreshCart();
-        }, 0);
-        return;
-      }
-
-      // 2a. PhonePe — redirect flow: open the hosted page, then poll for the result
-      if (paymentMethod === "PHONEPE") {
-        setPayLabel("Opening PhonePe");
-        const phonepePayment = await initiatePayment(orderId, token, "PHONEPE");
-        const redirectUrl = phonepePayment.data.redirectUrl;
-        if (!redirectUrl) {
-          throw new Error("PhonePe checkout could not be started. Please try again.");
-        }
-
-        await Linking.openURL(redirectUrl);
-
-        setPayLabel("Waiting for payment confirmation");
-        const outcome = await waitForRedirectPaymentResult(
-          orderId,
-          token,
-          verifyPhonePePayment
-        );
-
-        if (!mountedRef.current) return;
-
-        if (outcome === "SUCCESS") {
-          notifySuccess();
-          clearCart();
-          router.replace(`/orders/${orderId}`);
-          setTimeout(() => {
-            void refreshCart();
-          }, 0);
-          return;
-        }
-
-        if (outcome === "FAILED") {
-          setError("Payment failed. You can retry from your orders.");
-          notifyError();
-          showToast("Payment failed. Retry from orders.", "error");
-          router.replace(`/orders/${orderId}`);
-          return;
-        }
-
-        // TIMEOUT — payment may still complete via webhook
-        showToast("Payment pending. Check your orders for the final status.", "info");
-        router.replace(`/orders/${orderId}`);
-        return;
-      }
-
-      // 2b. Initiate Razorpay payment
-      const payment = await initiatePayment(orderId, token);
-      const { key, orderId: razorpayOrderId, amount, currency } = payment.data;
-      if (!key) {
-        throw new Error("Payment gateway configuration missing. Please try again.");
-      }
-
-      // 3. Open Razorpay native checkout
-      const prefillName = shipping.name || undefined;
-      const prefillContact = shipping.phone || undefined;
-      const prefillEmail = shipping.email || undefined;
-
-      setPayLabel("Opening Razorpay");
-      const razorpayResult = await openRazorpayCheckout({
-        key,
-        amount,
-        currency,
-        name: "TatVivah",
-        description: "Order Payment",
-        order_id: razorpayOrderId,
-        theme: { color: "#B8956C" },
-        prefill: {
-          name: prefillName,
-          email: prefillEmail,
-          contact: prefillContact,
-        },
-      });
-
-      // 4. Verify payment on backend — CRITICAL: do NOT navigate before this
-      setPayLabel("Verifying payment");
-      await verifyPayment(
-        {
-          razorpayOrderId: razorpayResult.razorpay_order_id,
-          razorpayPaymentId: razorpayResult.razorpay_payment_id,
-          razorpaySignature: razorpayResult.razorpay_signature,
-        },
-        token
-      );
-
-      // 5. ONLY after verification success: clear cart + navigate
-      if (mountedRef.current) {
-        notifySuccess();
-        clearCart();
-        router.replace(`/orders/${orderId}`);
-        // Keep transition smooth: refresh cart on next tick instead of during navigation.
-        setTimeout(() => {
-          void refreshCart();
-        }, 0);
-      }
+      if (!mountedRef.current) return;
+      notifySuccess();
+      clearCart();
+      showToast("Order placed successfully.", "success");
+      router.replace(`/orders/${orderId}`);
+      setTimeout(() => {
+        void refreshCart();
+      }, 0);
     } catch (err) {
-      if (!mountedRef.current) return; // Component unmounted during payment
-
-      const rawMessage = err instanceof Error ? err.message : "";
-      const wasDismissedByUser = /cancel|dismiss|closed|backpress|back press/i.test(
-        rawMessage
-      );
-
-      if (wasDismissedByUser) {
-        showToast("Payment pending. You can retry from orders.", "info");
-        router.replace("/orders");
-        setError(null);
-        return;
-      }
-
-      const lowered = rawMessage.toLowerCase();
-      const isRazorpayMissing =
-        lowered.includes("razorpay") || lowered.includes("open") || lowered.includes("sdk");
-      const message = isRazorpayMissing
-        ? "Razorpay SDK is not available. Install it and rebuild the app."
-        : err instanceof ApiError
+      if (!mountedRef.current) return;
+      const message =
+        err instanceof ApiError
           ? err.message
           : err instanceof Error
             ? err.message
-            : "Payment failed. Please try again.";
+            : "Checkout failed. Please try again.";
       setError(message);
       notifyError();
       showToast(message, "error");
-
-      if (createdOrderId) {
-        showToast("Order created. Payment pending — retry from orders.", "info");
-        router.replace(`/orders/${createdOrderId}`);
-      }
     } finally {
       if (mountedRef.current) {
         setIsPaying(false);
-        setPayLabel("Starting payment");
+        setPayLabel("Placing order");
       }
     }
   };
@@ -894,74 +680,6 @@ export default function CheckoutScreen() {
           </View>
         </View>
 
-        {/* ---- Payment Method ---- */}
-        <View style={[styles.card, { marginTop: spacing.md }]}>
-          <Text style={styles.sectionTitle}>Payment Method</Text>
-          <AnimatedPressable
-            style={[
-              styles.payMethodOption,
-              styles.payMethodOptionFull,
-              { marginTop: 0, marginBottom: spacing.sm },
-              paymentMethod === "GOKWIK" && styles.payMethodOptionSelected,
-            ]}
-            onPress={() => {
-              setPaymentMethod("GOKWIK");
-              impactLight();
-            }}
-            disabled={isPaying}
-          >
-            <Text style={styles.payMethodTitle}>Pay Online</Text>
-            <Text style={styles.payMethodDesc}>
-              UPI, cards &amp; wallets — secured by GoKwik
-            </Text>
-          </AnimatedPressable>
-          <View style={styles.payMethodRow}>
-            <AnimatedPressable
-              style={[
-                styles.payMethodOption,
-                paymentMethod === "RAZORPAY" && styles.payMethodOptionSelected,
-              ]}
-              onPress={() => {
-                setPaymentMethod("RAZORPAY");
-                impactLight();
-              }}
-              disabled={isPaying}
-            >
-              <Text style={styles.payMethodTitle}>Razorpay</Text>
-              <Text style={styles.payMethodDesc}>Cards, UPI & wallets</Text>
-            </AnimatedPressable>
-            <AnimatedPressable
-              style={[
-                styles.payMethodOption,
-                paymentMethod === "PHONEPE" && styles.payMethodOptionSelected,
-              ]}
-              onPress={() => {
-                setPaymentMethod("PHONEPE");
-                impactLight();
-              }}
-              disabled={isPaying}
-            >
-              <Text style={styles.payMethodTitle}>PhonePe</Text>
-              <Text style={styles.payMethodDesc}>UPI & PhonePe wallet</Text>
-            </AnimatedPressable>
-          </View>
-          <AnimatedPressable
-            style={[
-              styles.payMethodOption,
-              styles.payMethodOptionFull,
-              paymentMethod === "COD" && styles.payMethodOptionSelected,
-            ]}
-            onPress={() => {
-              setPaymentMethod("COD");
-              impactLight();
-            }}
-            disabled={isPaying}
-          >
-            <Text style={styles.payMethodTitle}>Cash on Delivery</Text>
-            <Text style={styles.payMethodDesc}>Pay in cash when your order arrives</Text>
-          </AnimatedPressable>
-        </View>
-
         {/* ---- CTA ---- */}
         <AnimatedPressable
           style={[
@@ -982,7 +700,7 @@ export default function CheckoutScreen() {
                   ? "Cart is empty"
                   : hasAddresses && !selectedAddressId
                     ? "Select address"
-                    : "Complete order"}
+                    : "Place order"}
             </Text>
           )}
         </AnimatedPressable>

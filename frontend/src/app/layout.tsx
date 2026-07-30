@@ -4,7 +4,6 @@ import { Suspense } from "react";
 import "./globals.css";
 import { SITE_URL } from "@/lib/site-config";
 import { NavigationProgress } from "@/components/navigation/NavigationProgress";
-import { KwikPassProvider } from "@/components/auth/kwikpass-provider";
 
 /**
  * Inter - Body text, UI elements
@@ -148,7 +147,6 @@ export default function RootLayout({
             })
           }}
         />
-        <KwikPassProvider />
         {children}
         <Suspense fallback={null}>
           <NavigationProgress />

@@ -8,209 +8,209 @@ export declare class ReelRepository {
         caption?: string | undefined;
         category?: 'MENS' | 'KIDS' | undefined;
         productId?: string | undefined;
-    }): Promise<{
-        status: import(".prisma/client").$Enums.ReelStatus;
+    }): Promise<import("@prisma/client/runtime/index.js").GetResult<{
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        productId: string | null;
         sellerId: string;
-        category: import(".prisma/client").$Enums.ReelCategory;
+        productId: string | null;
+        category: import(".prisma/client").ReelCategory;
         videoUrl: string;
         thumbnailUrl: string | null;
         caption: string | null;
+        status: import(".prisma/client").ReelStatus;
         views: number;
         likes: number;
-    }>;
+        createdAt: Date;
+        updatedAt: Date;
+    }, unknown> & {}>;
     findByIdAndSeller(id: string, sellerId: string): Promise<({
         product: {
-            status: import(".prisma/client").$Enums.ProductStatus;
-            id: string;
-            title: string;
-            sellerPrice: import("@prisma/client/runtime/library").Decimal;
-            adminListingPrice: import("@prisma/client/runtime/library").Decimal | null;
-            images: string[];
+            readonly id: string;
+            readonly title: string;
+            readonly images: string[];
+            readonly adminListingPrice: import("@prisma/client/runtime/index.js").Decimal | null;
+            readonly sellerPrice: import("@prisma/client/runtime/index.js").Decimal;
+            readonly status: import(".prisma/client").ProductStatus;
         } | null;
-    } & {
-        status: import(".prisma/client").$Enums.ReelStatus;
+    } & import("@prisma/client/runtime/index.js").GetResult<{
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        productId: string | null;
         sellerId: string;
-        category: import(".prisma/client").$Enums.ReelCategory;
+        productId: string | null;
+        category: import(".prisma/client").ReelCategory;
         videoUrl: string;
         thumbnailUrl: string | null;
         caption: string | null;
+        status: import(".prisma/client").ReelStatus;
         views: number;
         likes: number;
-    }) | null>;
+        createdAt: Date;
+        updatedAt: Date;
+    }, unknown> & {}) | null>;
     findById(id: string): Promise<({
         product: {
-            status: import(".prisma/client").$Enums.ProductStatus;
-            id: string;
-            title: string;
-            sellerPrice: import("@prisma/client/runtime/library").Decimal;
-            adminListingPrice: import("@prisma/client/runtime/library").Decimal | null;
-            images: string[];
+            readonly id: string;
+            readonly title: string;
+            readonly images: string[];
+            readonly adminListingPrice: import("@prisma/client/runtime/index.js").Decimal | null;
+            readonly sellerPrice: import("@prisma/client/runtime/index.js").Decimal;
+            readonly status: import(".prisma/client").ProductStatus;
         } | null;
         seller: {
-            id: string;
-            email: string | null;
-            seller_profiles: {
-                store_name: string;
+            readonly id: string;
+            readonly email: string | null;
+            readonly seller_profiles: {
+                readonly store_name: string;
             } | null;
         };
-    } & {
-        status: import(".prisma/client").$Enums.ReelStatus;
+    } & import("@prisma/client/runtime/index.js").GetResult<{
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        productId: string | null;
         sellerId: string;
-        category: import(".prisma/client").$Enums.ReelCategory;
+        productId: string | null;
+        category: import(".prisma/client").ReelCategory;
         videoUrl: string;
         thumbnailUrl: string | null;
         caption: string | null;
+        status: import(".prisma/client").ReelStatus;
         views: number;
         likes: number;
-    }) | null>;
+        createdAt: Date;
+        updatedAt: Date;
+    }, unknown> & {}) | null>;
     findBySeller(sellerId: string, filters: ReelQueryFilters): Promise<{
         reels: ({
             product: {
-                status: import(".prisma/client").$Enums.ProductStatus;
-                id: string;
-                title: string;
-                sellerPrice: import("@prisma/client/runtime/library").Decimal;
-                adminListingPrice: import("@prisma/client/runtime/library").Decimal | null;
-                images: string[];
+                readonly id: string;
+                readonly title: string;
+                readonly images: string[];
+                readonly adminListingPrice: import("@prisma/client/runtime/index.js").Decimal | null;
+                readonly sellerPrice: import("@prisma/client/runtime/index.js").Decimal;
+                readonly status: import(".prisma/client").ProductStatus;
             } | null;
-        } & {
-            status: import(".prisma/client").$Enums.ReelStatus;
+        } & import("@prisma/client/runtime/index.js").GetResult<{
             id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            productId: string | null;
             sellerId: string;
-            category: import(".prisma/client").$Enums.ReelCategory;
+            productId: string | null;
+            category: import(".prisma/client").ReelCategory;
             videoUrl: string;
             thumbnailUrl: string | null;
             caption: string | null;
+            status: import(".prisma/client").ReelStatus;
             views: number;
             likes: number;
-        })[];
+            createdAt: Date;
+            updatedAt: Date;
+        }, unknown> & {})[];
         total: number;
     }>;
     findAllAdmin(filters: ReelQueryFilters): Promise<{
         reels: ({
             product: {
-                status: import(".prisma/client").$Enums.ProductStatus;
-                id: string;
-                title: string;
-                sellerPrice: import("@prisma/client/runtime/library").Decimal;
-                adminListingPrice: import("@prisma/client/runtime/library").Decimal | null;
-                images: string[];
+                readonly id: string;
+                readonly title: string;
+                readonly images: string[];
+                readonly adminListingPrice: import("@prisma/client/runtime/index.js").Decimal | null;
+                readonly sellerPrice: import("@prisma/client/runtime/index.js").Decimal;
+                readonly status: import(".prisma/client").ProductStatus;
             } | null;
             seller: {
-                id: string;
-                email: string | null;
-                seller_profiles: {
-                    store_name: string;
+                readonly id: string;
+                readonly email: string | null;
+                readonly seller_profiles: {
+                    readonly store_name: string;
                 } | null;
             };
-        } & {
-            status: import(".prisma/client").$Enums.ReelStatus;
+        } & import("@prisma/client/runtime/index.js").GetResult<{
             id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            productId: string | null;
             sellerId: string;
-            category: import(".prisma/client").$Enums.ReelCategory;
+            productId: string | null;
+            category: import(".prisma/client").ReelCategory;
             videoUrl: string;
             thumbnailUrl: string | null;
             caption: string | null;
+            status: import(".prisma/client").ReelStatus;
             views: number;
             likes: number;
-        })[];
+            createdAt: Date;
+            updatedAt: Date;
+        }, unknown> & {})[];
         total: number;
     }>;
     findPublished(filters: ReelQueryFilters): Promise<{
         reels: ({
             product: {
-                status: import(".prisma/client").$Enums.ProductStatus;
-                id: string;
-                title: string;
-                sellerPrice: import("@prisma/client/runtime/library").Decimal;
-                adminListingPrice: import("@prisma/client/runtime/library").Decimal | null;
-                images: string[];
+                readonly id: string;
+                readonly title: string;
+                readonly images: string[];
+                readonly adminListingPrice: import("@prisma/client/runtime/index.js").Decimal | null;
+                readonly sellerPrice: import("@prisma/client/runtime/index.js").Decimal;
+                readonly status: import(".prisma/client").ProductStatus;
             } | null;
             seller: {
-                id: string;
-                email: string | null;
-                seller_profiles: {
-                    store_name: string;
+                readonly id: string;
+                readonly email: string | null;
+                readonly seller_profiles: {
+                    readonly store_name: string;
                 } | null;
             };
-        } & {
-            status: import(".prisma/client").$Enums.ReelStatus;
+        } & import("@prisma/client/runtime/index.js").GetResult<{
             id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            productId: string | null;
             sellerId: string;
-            category: import(".prisma/client").$Enums.ReelCategory;
+            productId: string | null;
+            category: import(".prisma/client").ReelCategory;
             videoUrl: string;
             thumbnailUrl: string | null;
             caption: string | null;
+            status: import(".prisma/client").ReelStatus;
             views: number;
             likes: number;
-        })[];
+            createdAt: Date;
+            updatedAt: Date;
+        }, unknown> & {})[];
         total: number;
     }>;
     findPublishedById(id: string): Promise<({
         product: {
-            status: import(".prisma/client").$Enums.ProductStatus;
-            id: string;
-            title: string;
-            sellerPrice: import("@prisma/client/runtime/library").Decimal;
-            adminListingPrice: import("@prisma/client/runtime/library").Decimal | null;
-            images: string[];
+            readonly id: string;
+            readonly title: string;
+            readonly images: string[];
+            readonly adminListingPrice: import("@prisma/client/runtime/index.js").Decimal | null;
+            readonly sellerPrice: import("@prisma/client/runtime/index.js").Decimal;
+            readonly status: import(".prisma/client").ProductStatus;
         } | null;
         seller: {
-            id: string;
-            email: string | null;
-            seller_profiles: {
-                store_name: string;
+            readonly id: string;
+            readonly email: string | null;
+            readonly seller_profiles: {
+                readonly store_name: string;
             } | null;
         };
-    } & {
-        status: import(".prisma/client").$Enums.ReelStatus;
+    } & import("@prisma/client/runtime/index.js").GetResult<{
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        productId: string | null;
         sellerId: string;
-        category: import(".prisma/client").$Enums.ReelCategory;
+        productId: string | null;
+        category: import(".prisma/client").ReelCategory;
         videoUrl: string;
         thumbnailUrl: string | null;
         caption: string | null;
+        status: import(".prisma/client").ReelStatus;
         views: number;
         likes: number;
-    }) | null>;
-    updateStatus(id: string, status: 'APPROVED' | 'REJECTED'): Promise<{
-        status: import(".prisma/client").$Enums.ReelStatus;
-        id: string;
         createdAt: Date;
         updatedAt: Date;
-        productId: string | null;
+    }, unknown> & {}) | null>;
+    updateStatus(id: string, status: 'APPROVED' | 'REJECTED'): Promise<import("@prisma/client/runtime/index.js").GetResult<{
+        id: string;
         sellerId: string;
-        category: import(".prisma/client").$Enums.ReelCategory;
+        productId: string | null;
+        category: import(".prisma/client").ReelCategory;
         videoUrl: string;
         thumbnailUrl: string | null;
         caption: string | null;
+        status: import(".prisma/client").ReelStatus;
         views: number;
         likes: number;
-    }>;
+        createdAt: Date;
+        updatedAt: Date;
+    }, unknown> & {}>;
     updateSellerFields(id: string, data: {
         caption?: string | null;
         category?: 'MENS' | 'KIDS';
@@ -218,45 +218,45 @@ export declare class ReelRepository {
         status?: 'PENDING' | 'APPROVED' | 'REJECTED';
     }): Promise<{
         product: {
-            status: import(".prisma/client").$Enums.ProductStatus;
-            id: string;
-            title: string;
-            sellerPrice: import("@prisma/client/runtime/library").Decimal;
-            adminListingPrice: import("@prisma/client/runtime/library").Decimal | null;
-            images: string[];
+            readonly id: string;
+            readonly title: string;
+            readonly images: string[];
+            readonly adminListingPrice: import("@prisma/client/runtime/index.js").Decimal | null;
+            readonly sellerPrice: import("@prisma/client/runtime/index.js").Decimal;
+            readonly status: import(".prisma/client").ProductStatus;
         } | null;
-    } & {
-        status: import(".prisma/client").$Enums.ReelStatus;
+    } & import("@prisma/client/runtime/index.js").GetResult<{
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        productId: string | null;
         sellerId: string;
-        category: import(".prisma/client").$Enums.ReelCategory;
+        productId: string | null;
+        category: import(".prisma/client").ReelCategory;
         videoUrl: string;
         thumbnailUrl: string | null;
         caption: string | null;
+        status: import(".prisma/client").ReelStatus;
         views: number;
         likes: number;
-    }>;
+        createdAt: Date;
+        updatedAt: Date;
+    }, unknown> & {}>;
     incrementViews(id: string): Promise<void>;
     flushReelViews(): Promise<{
         flushed: number;
     }>;
-    delete(id: string): Promise<{
-        status: import(".prisma/client").$Enums.ReelStatus;
+    delete(id: string): Promise<import("@prisma/client/runtime/index.js").GetResult<{
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        productId: string | null;
         sellerId: string;
-        category: import(".prisma/client").$Enums.ReelCategory;
+        productId: string | null;
+        category: import(".prisma/client").ReelCategory;
         videoUrl: string;
         thumbnailUrl: string | null;
         caption: string | null;
+        status: import(".prisma/client").ReelStatus;
         views: number;
         likes: number;
-    }>;
+        createdAt: Date;
+        updatedAt: Date;
+    }, unknown> & {}>;
     existsProduct(productId: string, sellerId: string): Promise<boolean>;
 }
 export declare const reelRepository: ReelRepository;

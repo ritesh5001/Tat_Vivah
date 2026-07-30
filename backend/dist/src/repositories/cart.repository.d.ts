@@ -8,20 +8,20 @@ export declare class CartRepository {
      * Find cart by user ID with items (basic - no product/variant details)
      */
     findByUserId(userId: string): Promise<({
-        items: {
-            variantId: string;
+        items: (import("@prisma/client/runtime/index.js").GetResult<{
             id: string;
-            createdAt: Date;
-            productId: string;
             cartId: string;
+            productId: string;
+            variantId: string;
             quantity: number;
             priceSnapshot: number;
-        }[];
-    } & {
+            createdAt: Date;
+        }, unknown> & {})[];
+    } & import("@prisma/client/runtime/index.js").GetResult<{
         id: string;
-        updatedAt: Date;
         userId: string;
-    }) | null>;
+        updatedAt: Date;
+    }, unknown> & {}) | null>;
     /**
      * Find or create cart for user
      */

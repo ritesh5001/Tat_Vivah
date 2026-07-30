@@ -14,12 +14,12 @@ export declare const updateOccasionSchema: z.ZodObject<{
     image: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     isActive: z.ZodOptional<z.ZodBoolean>;
 }, "strip", z.ZodTypeAny, {
-    name?: string | undefined;
     isActive?: boolean | undefined;
+    name?: string | undefined;
     image?: string | null | undefined;
 }, {
-    name?: string | undefined;
     isActive?: boolean | undefined;
+    name?: string | undefined;
     image?: string | null | undefined;
 }>;
 export type CreateOccasionInput = z.infer<typeof createOccasionSchema>;

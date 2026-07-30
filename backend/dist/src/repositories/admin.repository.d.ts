@@ -32,6 +32,7 @@ export interface AdminProduct {
     sellerEmail: string | null;
     categoryId: string;
     categoryName: string | null;
+    audience: 'MENS' | 'KIDS';
     sellerPrice?: number;
     adminListingPrice?: number | null;
     priceApprovedAt?: Date | null;
@@ -192,7 +193,9 @@ export declare class AdminRepository {
     /**
      * Find all products pending moderation
      */
-    findPendingProducts(params?: PaginationParams): Promise<AdminProduct[]>;
+    findPendingProducts(params?: PaginationParams & {
+        audience?: 'MENS' | 'KIDS';
+    }): Promise<AdminProduct[]>;
     /**
      * Find product by ID with moderation info
      */
@@ -200,7 +203,9 @@ export declare class AdminRepository {
     /**
      * List all products for admin view
      */
-    findAllProducts(params?: PaginationParams): Promise<AdminProduct[]>;
+    findAllProducts(params?: PaginationParams & {
+        audience?: 'MENS' | 'KIDS';
+    }): Promise<AdminProduct[]>;
     /**
      * Soft-delete a product by admin
      */

@@ -18,7 +18,7 @@ export declare class ApiError extends Error {
     /**
      * Factory method for 403 Forbidden errors
      */
-    static forbidden(message?: string): ApiError;
+    static forbidden(message?: string, details?: Record<string, unknown>): ApiError;
     /**
      * Factory method for 404 Not Found errors
      */

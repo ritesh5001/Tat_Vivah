@@ -193,7 +193,7 @@ export interface CreateSessionData {
  * Data for creating a new user in database
  */
 export interface CreateUserData {
-    /** Null for phone-only signups (e.g. KwikPass); schema allows it. */
+    /** Null for phone-only signups; schema allows it. */
     email: string | null;
     phone: string;
     whatsappNumber?: string | null;

@@ -1,153 +1,49 @@
 
 import { paymentRepository } from '../repositories/payment.repository.js';
-import { PaymentProvider, PaymentStatus, PaymentEventType, OrderStatus } from '@prisma/client';
+import { PaymentStatus, PaymentEventType, OrderStatus } from '@prisma/client';
 import { prisma } from '../config/db.js';
 import { ApiError } from '../errors/ApiError.js';
-import { razorpayService } from './razorpay.service.js';
-import { getRazorpayKeyId, isRazorpayConfigured, razorpayClient } from './razorpay.client.js';
-import { phonepeService } from './phonepe.service.js';
-import { isPhonePeConfigured } from './phonepe.client.js';
-import { gokwikService } from './gokwik.service.js';
-import { isGoKwikConfigured } from './gokwik.client.js';
-import { env } from '../config/env.js';
 import { emitPaymentSuccess, emitPaymentFailed } from '../events/order.events.js';
 import { paymentLogger } from '../config/logger.js';
 import { paymentSuccessTotal, staleCancelTotal, refundSuccessTotal } from '../config/metrics.js';
 import { recordPaymentFailure } from '../monitoring/alerts.js';
 import { generateInvoiceNumber } from '../utils/invoice.util.js';
 import { commissionService } from './commission.service.js';
-import { settingsService, DEFAULT_SHIPPING_FEE_INR } from './settings.service.js';
 import { dispatchFreshness } from '../live/freshness.service.js';
 import { CACHE_TAGS, orderTag } from '../live/cache-tags.js';
 
-/** Maximum age (ms) of a PLACED order eligible for payment retry. */
+// =====================================================================
+// Payment service — GATEWAY-NEUTRAL scaffold.
+//
+// All specific payment-gateway integrations (Razorpay, PhonePe, GoKwik,
+// COD, MOCK) have been removed so a new gateway can be built cleanly.
+// This file keeps only the provider-agnostic order plumbing that the rest
+// of the app depends on:
+//   - handlePaymentSuccess  → confirm order + settlements (call from a new
+//                             gateway's verify/webhook once rebuilt)
+//   - handlePaymentFailure  → mark payment FAILED + notify
+//   - processRefund         → mark payment REFUNDED (ledger only; the actual
+//                             money movement is handled by the future gateway)
+//   - cancelStaleOrders     → cron cleanup of unpaid PLACED orders
+//   - getPaymentDetails     → read a payment record
+//
+// There is intentionally NO initiatePayment here yet — that is where the
+// new gateway integration will hook in.
+// =====================================================================
+
+/** Maximum age (ms) of a PLACED order before stale-cleanup cancels it. */
 const STALE_ORDER_TTL_MS = 30 * 60 * 1000; // 30 minutes
 const TX_MAX_WAIT_MS = 20000;
 const TX_TIMEOUT_MS = 30000;
 
-function roundMoney(value: number): number {
-    return Math.round(value * 100) / 100;
-}
-
-function toNumber(value: unknown): number {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : 0;
-}
-
-/** Where the buyer should land after a PhonePe redirect-flow payment. */
-export type PaymentPlatform = 'WEB' | 'MOBILE';
-
-function isTransactionStartTimeout(error: unknown): boolean {
-    if (!(error instanceof Error)) return false;
-    const msg = error.message.toLowerCase();
-    return (
-        msg.includes('unable to start a transaction in the given time') ||
-        msg.includes('transaction api error') ||
-        msg.includes('p2028')
-    );
-}
-
 export class PaymentService {
-
-    private async findOrderForPayment(userId: string, orderId: string): Promise<{
-        id: string;
-        userId: string;
-        status: OrderStatus;
-        createdAt: Date;
-        totalAmount: number;
-        grandTotal: number | null;
-        subTotalAmount: number | null;
-        totalTaxAmount: number | null;
-        shippingName: string | null;
-        shippingPhone: string | null;
-        shippingEmail: string | null;
-    } | null> {
-        return prisma.order.findFirst({
-            where: { id: orderId, userId },
-            select: {
-                id: true,
-                userId: true,
-                status: true,
-                createdAt: true,
-                totalAmount: true,
-                grandTotal: true,
-                subTotalAmount: true,
-                totalTaxAmount: true,
-                shippingName: true,
-                shippingPhone: true,
-                shippingEmail: true,
-            },
-        });
-    }
-
-    /**
-     * Resolve the buyer's phone for providers that require it (GoKwik).
-     * Falls back to the account phone when the order has no shipping phone.
-     */
-    private async resolveCustomerContact(
-        userId: string,
-        order: { shippingName: string | null; shippingPhone: string | null; shippingEmail: string | null },
-    ): Promise<{ phone: string; name?: string | undefined; email?: string | undefined }> {
-        let phone = order.shippingPhone ?? '';
-        let email = order.shippingEmail ?? undefined;
-        let name = order.shippingName ?? undefined;
-
-        if (!phone || !email) {
-            const user = await prisma.user.findUnique({
-                where: { id: userId },
-                select: { phone: true, email: true },
-            });
-            phone = phone || user?.phone || '';
-            email = email || user?.email || undefined;
-        }
-
-        // GoKwik expects a bare 10-digit Indian number.
-        const normalized = phone.replace(/\D/g, '').slice(-10);
-        if (normalized.length !== 10) {
-            throw new ApiError(400, 'A valid 10-digit phone number is required to pay with GoKwik.');
-        }
-
-        return { phone: normalized, name, email };
-    }
-
-    private resolvePayableAmount(order: {
-        totalAmount: number;
-        grandTotal?: number | null;
-        subTotalAmount?: number | null;
-        totalTaxAmount?: number | null;
-        items?: Array<unknown>;
-    }, shippingChargeEnabled: boolean): number {
-        const totalAmount = toNumber(order.totalAmount);
-        const grandTotal = toNumber(order.grandTotal);
-        const subTotalAmount = toNumber(order.subTotalAmount);
-        const totalTaxAmount = toNumber(order.totalTaxAmount);
-        const hasItems = Array.isArray(order.items) && order.items.length > 0;
-
-        const inferredShippingFromGrand = Math.max(0, grandTotal - subTotalAmount - totalTaxAmount);
-        // Only fall back to the flat fee when the stored totals don't already
-        // encode shipping AND the charge is currently enabled — otherwise a
-        // shipping-free order would be silently re-inflated by the fallback.
-        const shippingFee =
-            inferredShippingFromGrand > 0
-                ? inferredShippingFromGrand
-                : hasItems && shippingChargeEnabled
-                    ? DEFAULT_SHIPPING_FEE_INR
-                    : 0;
-
-        const derivedAmount = subTotalAmount + totalTaxAmount + shippingFee;
-        const payableAmount = Math.max(totalAmount, grandTotal, derivedAmount);
-
-        return roundMoney(payableAmount);
-    }
 
     // ------------------------------------------------------------------
     // Refund processing (idempotent, crash-safe)
     //
-    // Architecture (matches RefundService.createRefund pattern):
-    //   1. Optimistic-lock: mark payment REFUNDED in DB first
-    //   2. Call Razorpay (outside tx — no long locks)
-    //   3. If Razorpay fails → revert payment status to SUCCESS
-    //   4. Never send money without a DB record
+    // Ledger-only: marks the payment REFUNDED. With no gateway wired up,
+    // the actual money return is handled manually/offline for now; the new
+    // gateway will add its refund call here when rebuilt.
     // ------------------------------------------------------------------
 
     async processRefund(orderId: string): Promise<{
@@ -176,19 +72,10 @@ export class PaymentService {
             };
         }
 
-        // ── Step 1: Optimistic-lock DB update FIRST ─────────────────
-        // Mark as REFUNDED before calling external provider.
-        // If the provider call fails, we revert. This prevents the
-        // "money refunded but DB still SUCCESS" double-refund bug.
         const updated = await prisma.$transaction(async (tx: any) => {
             const result = await tx.payment.updateMany({
-                where: {
-                    id: payment.id,
-                    status: PaymentStatus.SUCCESS,
-                },
-                data: {
-                    status: PaymentStatus.REFUNDED,
-                },
+                where: { id: payment.id, status: PaymentStatus.SUCCESS },
+                data: { status: PaymentStatus.REFUNDED },
             });
 
             if (result.count === 0) {
@@ -199,10 +86,7 @@ export class PaymentService {
                 data: {
                     paymentId: payment.id,
                     type: PaymentEventType.WEBHOOK,
-                    payload: {
-                        event: 'REFUND_INITIATED',
-                        orderId,
-                    },
+                    payload: { event: 'REFUND_INITIATED', orderId },
                 },
             });
 
@@ -217,55 +101,6 @@ export class PaymentService {
             };
         }
 
-        // ── Step 2: External provider refund (outside tx) ───────────
-        if (
-            payment.provider === PaymentProvider.RAZORPAY
-            && payment.providerPaymentId
-            && isRazorpayConfigured()
-            && razorpayClient
-        ) {
-            try {
-                await razorpayClient.payments.refund(payment.providerPaymentId, {
-                    amount: Math.round(payment.amount * 100),
-                    notes: { orderId },
-                });
-            } catch (error: any) {
-                // ── Step 3: Revert DB status on provider failure ─────
-                paymentLogger.error(
-                    { orderId, paymentId: payment.id, error: error?.message },
-                    'refund_provider_failed_reverting',
-                );
-                await prisma.payment.updateMany({
-                    where: { id: payment.id, status: PaymentStatus.REFUNDED },
-                    data: { status: PaymentStatus.SUCCESS },
-                });
-                throw new ApiError(502, `Refund API failed: ${error?.message ?? 'unknown error'}`);
-            }
-        } else if (
-            payment.provider === PaymentProvider.PHONEPE
-            && payment.providerOrderId
-            && isPhonePeConfigured()
-        ) {
-            try {
-                await phonepeService.initiateRefund(
-                    `rf_${payment.id}`,
-                    payment.providerOrderId,
-                    payment.amount,
-                );
-            } catch (error: any) {
-                // ── Step 3: Revert DB status on provider failure ─────
-                paymentLogger.error(
-                    { orderId, paymentId: payment.id, error: error?.message },
-                    'refund_provider_failed_reverting',
-                );
-                await prisma.payment.updateMany({
-                    where: { id: payment.id, status: PaymentStatus.REFUNDED },
-                    data: { status: PaymentStatus.SUCCESS },
-                });
-                throw new ApiError(502, `Refund API failed: ${error?.message ?? 'unknown error'}`);
-            }
-        }
-
         refundSuccessTotal.inc();
         paymentLogger.info({ orderId, paymentId: payment.id }, 'refund_processed');
 
@@ -277,281 +112,6 @@ export class PaymentService {
     }
 
     // ------------------------------------------------------------------
-    // Initiate / Re-initiate payment
-    // ------------------------------------------------------------------
-
-    /**
-     * Build the URL PhonePe redirects the buyer to after checkout.
-     * WEB → frontend callback page; MOBILE → app deep link (if configured).
-     */
-    private buildPhonePeRedirectUrl(orderId: string, platform: PaymentPlatform): string {
-        if (platform === 'MOBILE' && env.PHONEPE_MOBILE_REDIRECT_URL) {
-            const separator = env.PHONEPE_MOBILE_REDIRECT_URL.includes('?') ? '&' : '?';
-            return `${env.PHONEPE_MOBILE_REDIRECT_URL}${separator}orderId=${encodeURIComponent(orderId)}`;
-        }
-
-        // Prefer an explicit PhonePe redirect base, then the general frontend
-        // base. Both are optional in the env schema, so fall back to the known
-        // production storefront rather than throwing and blocking checkout.
-        const rawBase =
-            env.PHONEPE_WEB_REDIRECT_BASE_URL ||
-            env.FRONTEND_BASE_URL ||
-            'https://www.tatvivahtrends.com';
-        const base = rawBase.replace(/\/$/, '');
-        return `${base}/checkout/phonepe/callback?orderId=${encodeURIComponent(orderId)}`;
-    }
-
-    async initiatePayment(userId: string, orderId: string, provider: PaymentProvider, platform: PaymentPlatform = 'WEB') {
-        // 1. Validate Order
-        const [order, existingPayment] = await Promise.all([
-            this.findOrderForPayment(userId, orderId),
-            paymentRepository.findPaymentByOrderId(orderId),
-        ]);
-        if (!order) {
-            throw new ApiError(404, 'Order not found or access denied');
-        }
-
-        // Only PLACED orders are eligible for payment
-        if (order.status !== OrderStatus.PLACED) {
-            throw new ApiError(400, `Cannot initiate payment for order with status ${order.status}`);
-        }
-
-        // Guard: reject stale orders
-        if (Date.now() - new Date(order.createdAt).getTime() > STALE_ORDER_TTL_MS) {
-            throw new ApiError(410, 'Order has expired. Please place a new order.');
-        }
-
-        // Check for existing successful payment
-        if (existingPayment && existingPayment.status === PaymentStatus.SUCCESS) {
-            throw new ApiError(400, 'Order already paid');
-        }
-
-        const shippingChargeEnabled = await settingsService.isShippingChargeEnabled();
-        const payableAmount = this.resolvePayableAmount(order as any, shippingChargeEnabled);
-
-        if (payableAmount > toNumber((order as any).totalAmount)) {
-            await prisma.order.update({
-                where: { id: order.id },
-                data: {
-                    totalAmount: payableAmount,
-                    grandTotal: Math.max(payableAmount, toNumber((order as any).grandTotal)),
-                },
-            });
-        }
-
-        // Create Payment Record (INITIATED) — reuse row on retry
-        let payment;
-        if (existingPayment) {
-            // Fast path: reuse an existing INITIATED payment with active provider order.
-            if (
-                provider === PaymentProvider.RAZORPAY &&
-                existingPayment.status === PaymentStatus.INITIATED &&
-                existingPayment.provider === provider &&
-                existingPayment.providerOrderId &&
-                roundMoney(existingPayment.amount) === roundMoney(payableAmount)
-            ) {
-                return {
-                    paymentId: existingPayment.id,
-                    orderId: existingPayment.providerOrderId,
-                    amount: Math.round(payableAmount * 100),
-                    currency: existingPayment.currency,
-                    key: getRazorpayKeyId(),
-                    provider: 'RAZORPAY',
-                };
-            }
-
-            payment = await prisma.payment.update({
-                where: { id: existingPayment.id },
-                data: {
-                    status: PaymentStatus.INITIATED,
-                    amount: payableAmount,
-                    providerOrderId: null,
-                    providerPaymentId: null,
-                    providerSignature: null,
-                },
-            });
-        } else {
-            payment = await paymentRepository.createPayment({
-                orderId,
-                userId,
-                amount: payableAmount,
-                currency: 'INR',
-                provider,
-                status: PaymentStatus.INITIATED
-            });
-        }
-
-        // Log Event
-        await paymentRepository.createPaymentEvent({
-            paymentId: payment.id,
-            type: PaymentEventType.INITIATED,
-            payload: { provider, amount: payableAmount }
-        });
-
-        // Handle MOCK Provider
-        if (provider === PaymentProvider.MOCK) {
-            return {
-                paymentId: payment.id,
-                providerPaymentId: `mock_${payment.id}`,
-                checkoutUrl: `https://mock-gateway.com/pay/${payment.id}`,
-                amount: payableAmount,
-                currency: 'INR'
-            };
-        }
-
-        // Handle COD (Cash on Delivery)
-        //
-        // No online collection happens now. We confirm the order so the seller
-        // can fulfil it, but the payment stays INITIATED — it is only captured
-        // (flipped to SUCCESS, settlements calculated) once the order is
-        // actually DELIVERED, which is where the cash changes hands.
-        if (provider === PaymentProvider.COD) {
-            await this.confirmCodOrder(orderId, payment.id);
-
-            return {
-                paymentId: payment.id,
-                orderId,
-                amount: Math.round(payableAmount * 100),
-                currency: 'INR',
-                provider: 'COD',
-                status: 'CONFIRMED'
-            };
-        }
-
-        // Handle RAZORPAY Provider
-        if (provider === PaymentProvider.RAZORPAY) {
-            const razorpayOrder = await razorpayService.createOrder(
-                payableAmount,
-                'INR',
-                orderId,
-                { orderId, userId }
-            );
-
-            // Update payment with Razorpay order ID
-            await paymentRepository.updateProviderOrderId(payment.id, razorpayOrder.razorpayOrderId);
-
-            return {
-                paymentId: payment.id,
-                orderId: razorpayOrder.razorpayOrderId,
-                amount: razorpayOrder.amount,
-                currency: razorpayOrder.currency,
-                key: razorpayOrder.key,
-                provider: 'RAZORPAY'
-            };
-        }
-
-        // Handle PHONEPE Provider (redirect flow — Standard Checkout v2)
-        if (provider === PaymentProvider.PHONEPE) {
-            if (!isPhonePeConfigured()) {
-                throw new ApiError(500, 'PhonePe is not configured');
-            }
-
-            const merchantOrderId = phonepeService.buildMerchantOrderId(orderId);
-            const redirectUrl = this.buildPhonePeRedirectUrl(orderId, platform);
-
-            const phonepeOrder = await phonepeService.createOrder(
-                payableAmount,
-                merchantOrderId,
-                redirectUrl,
-                { orderId, userId },
-            );
-
-            // Store merchantOrderId so webhooks / status checks can find this payment
-            await paymentRepository.updateProviderOrderId(payment.id, phonepeOrder.merchantOrderId);
-
-            return {
-                paymentId: payment.id,
-                orderId: phonepeOrder.merchantOrderId,
-                phonepeOrderId: phonepeOrder.phonepeOrderId,
-                redirectUrl: phonepeOrder.redirectUrl,
-                amount: phonepeOrder.amount,
-                currency: 'INR',
-                provider: 'PHONEPE'
-            };
-        }
-
-        // Handle GOKWIK Provider (Payment Links — hosted redirect flow)
-        if (provider === PaymentProvider.GOKWIK) {
-            if (!isGoKwikConfigured()) {
-                throw new ApiError(500, 'GoKwik is not configured');
-            }
-
-            const customer = await this.resolveCustomerContact(userId, order);
-            const merchantReferenceId = gokwikService.buildMerchantReferenceId(orderId);
-
-            const link = await gokwikService.createPaymentLink(
-                payableAmount,
-                merchantReferenceId,
-                customer,
-                { orderId },
-            );
-
-            // Store merchantReferenceId so webhooks / status checks find this payment
-            await paymentRepository.updateProviderOrderId(payment.id, link.merchantReferenceId);
-
-            // udf2 is reserved by GoKwik for the merchant order id (settlement APIs).
-            // Best-effort — a failure here must not block the payment.
-            try {
-                await gokwikService.upsertUdfs(link.merchantReferenceId, {
-                    udf1: 'tatvivah',
-                    udf2: orderId,
-                });
-            } catch (error) {
-                paymentLogger.warn(
-                    { event: 'gokwik_udf_upsert_failed', orderId },
-                    'GoKwik UDF upsert failed (non-fatal)',
-                );
-            }
-
-            return {
-                paymentId: payment.id,
-                orderId: link.merchantReferenceId,
-                gokwikLinkId: link.id,
-                redirectUrl: link.shortUrl,
-                amount: Math.round(payableAmount * 100),
-                currency: 'INR',
-                provider: 'GOKWIK'
-            };
-        }
-
-        // Handle other providers (placeholder)
-        throw new ApiError(400, 'Provider not supported');
-    }
-
-    // ------------------------------------------------------------------
-    // Retry payment for a PLACED order with FAILED / INITIATED payment
-    // ------------------------------------------------------------------
-
-    async retryPayment(userId: string, orderId: string, platform: PaymentPlatform = 'WEB') {
-        const order = await this.findOrderForPayment(userId, orderId);
-        if (!order) {
-            throw new ApiError(404, 'Order not found or access denied');
-        }
-
-        if (order.status !== OrderStatus.PLACED) {
-            throw new ApiError(400, `Cannot retry payment for order with status ${order.status}`);
-        }
-
-        // Guard: reject stale orders
-        if (Date.now() - new Date(order.createdAt).getTime() > STALE_ORDER_TTL_MS) {
-            throw new ApiError(410, 'Order has expired. Please place a new order.');
-        }
-
-        const existingPayment = await paymentRepository.findPaymentByOrderId(orderId);
-        if (existingPayment && existingPayment.status === PaymentStatus.SUCCESS) {
-            throw new ApiError(400, 'Order already paid');
-        }
-
-        // Only allow retry if payment is FAILED or INITIATED (abandoned)
-        if (existingPayment && existingPayment.status !== PaymentStatus.FAILED && existingPayment.status !== PaymentStatus.INITIATED) {
-            throw new ApiError(400, `Cannot retry payment with status ${existingPayment.status}`);
-        }
-
-        const provider = existingPayment?.provider ?? PaymentProvider.RAZORPAY;
-        return this.initiatePayment(userId, orderId, provider, platform);
-    }
-
-    // ------------------------------------------------------------------
     // Get payment details
     // ------------------------------------------------------------------
 
@@ -560,7 +120,6 @@ export class PaymentService {
         if (!payment) {
             throw new ApiError(404, 'Payment not found');
         }
-        // Verify ownership via userId
         if (payment.userId !== userId) {
             throw new ApiError(403, 'Unauthorized');
         }
@@ -568,328 +127,9 @@ export class PaymentService {
     }
 
     // ------------------------------------------------------------------
-    // Verify Razorpay payment (client-side callback)
-    // ------------------------------------------------------------------
-
-    async verifyRazorpayPayment(
-        userId: string,
-        razorpayOrderId: string,
-        razorpayPaymentId: string,
-        razorpaySignature: string
-    ) {
-        const isValid = razorpayService.verifyPaymentSignature(
-            razorpayOrderId,
-            razorpayPaymentId,
-            razorpaySignature
-        );
-
-        if (!isValid) {
-            throw new ApiError(401, 'Invalid payment signature');
-        }
-
-        const payment = await paymentRepository.findByProviderOrderId(razorpayOrderId);
-        if (!payment) {
-            throw new ApiError(404, 'Payment not found');
-        }
-
-        if (payment.userId !== userId) {
-            throw new ApiError(403, 'Unauthorized');
-        }
-
-        // Idempotent — already succeeded (e.g. webhook arrived first)
-        if (payment.status === PaymentStatus.SUCCESS) {
-            return { message: 'Payment already verified', paymentId: payment.id };
-        }
-
-        try {
-            await this.handlePaymentSuccess(
-                payment.id,
-                payment.orderId,
-                razorpayPaymentId,
-                { razorpayOrderId, razorpayPaymentId },
-                razorpaySignature
-            );
-        } catch (error) {
-            if (isTransactionStartTimeout(error)) {
-                const latest = await paymentRepository.findPaymentById(payment.id);
-                if (latest?.status === PaymentStatus.SUCCESS) {
-                    return { message: 'Payment already verified', paymentId: payment.id };
-                }
-                throw new ApiError(503, 'Payment is being finalized. Please refresh order status in a few seconds.');
-            }
-            throw error;
-        }
-
-        return { message: 'Payment verified', paymentId: payment.id };
-    }
-
-    // ------------------------------------------------------------------
-    // Verify PhonePe payment (redirect callback / client polling)
-    //
-    // PhonePe's redirect flow has no client-side signature. The only
-    // trusted confirmation is a server-to-server Order Status call.
-    // ------------------------------------------------------------------
-
-    async verifyPhonePePayment(userId: string, orderId: string): Promise<{
-        status: 'SUCCESS' | 'FAILED' | 'PENDING';
-        paymentId: string;
-        message: string;
-    }> {
-        const payment = await paymentRepository.findPaymentByOrderId(orderId);
-        if (!payment) {
-            throw new ApiError(404, 'Payment not found');
-        }
-        if (payment.userId !== userId) {
-            throw new ApiError(403, 'Unauthorized');
-        }
-
-        // Idempotent — already succeeded (e.g. webhook arrived first)
-        if (payment.status === PaymentStatus.SUCCESS) {
-            return { status: 'SUCCESS', paymentId: payment.id, message: 'Payment already verified' };
-        }
-
-        if (payment.provider !== PaymentProvider.PHONEPE || !payment.providerOrderId) {
-            // Not a PhonePe attempt (or none yet) — report PENDING rather than
-            // erroring, so the orders-page self-heal that probes every provider
-            // doesn't spam 400s.
-            return { status: 'PENDING', paymentId: payment.id, message: 'No PhonePe payment attempt for this order' };
-        }
-
-        const statusResponse = await phonepeService.getOrderStatus(payment.providerOrderId);
-
-        if (statusResponse.state === 'COMPLETED') {
-            const transactionId =
-                statusResponse.paymentDetails?.[0]?.transactionId ?? statusResponse.orderId;
-            try {
-                await this.handlePaymentSuccess(
-                    payment.id,
-                    payment.orderId,
-                    transactionId,
-                    {
-                        merchantOrderId: payment.providerOrderId,
-                        phonepeOrderId: statusResponse.orderId,
-                        transactionId,
-                        source: 'status_check',
-                    },
-                );
-            } catch (error) {
-                if (isTransactionStartTimeout(error)) {
-                    const latest = await paymentRepository.findPaymentById(payment.id);
-                    if (latest?.status === PaymentStatus.SUCCESS) {
-                        return { status: 'SUCCESS', paymentId: payment.id, message: 'Payment already verified' };
-                    }
-                    throw new ApiError(503, 'Payment is being finalized. Please refresh order status in a few seconds.');
-                }
-                throw error;
-            }
-            return { status: 'SUCCESS', paymentId: payment.id, message: 'Payment verified' };
-        }
-
-        if (statusResponse.state === 'FAILED') {
-            await this.handlePaymentFailure(payment.id, {
-                merchantOrderId: payment.providerOrderId,
-                phonepeOrderId: statusResponse.orderId,
-                source: 'status_check',
-            });
-            return { status: 'FAILED', paymentId: payment.id, message: 'Payment failed' };
-        }
-
-        return { status: 'PENDING', paymentId: payment.id, message: 'Payment is still pending' };
-    }
-
-    // ------------------------------------------------------------------
-    // Verify GoKwik payment (redirect callback / client polling)
-    //
-    // The hosted link redirect carries no signature, so the only trusted
-    // confirmation is fetching the link state from GoKwik.
-    // ------------------------------------------------------------------
-
-    async verifyGoKwikPayment(userId: string, orderId: string): Promise<{
-        status: 'SUCCESS' | 'FAILED' | 'PENDING';
-        paymentId: string;
-        message: string;
-    }> {
-        const payment = await paymentRepository.findPaymentByOrderId(orderId);
-        if (!payment) {
-            throw new ApiError(404, 'Payment not found');
-        }
-        if (payment.userId !== userId) {
-            throw new ApiError(403, 'Unauthorized');
-        }
-
-        // Idempotent — already succeeded (e.g. webhook arrived first)
-        if (payment.status === PaymentStatus.SUCCESS) {
-            return { status: 'SUCCESS', paymentId: payment.id, message: 'Payment already verified' };
-        }
-
-        if (payment.provider !== PaymentProvider.GOKWIK || !payment.providerOrderId) {
-            // Not a GoKwik attempt (or none yet) — report PENDING rather than
-            // erroring, so the self-heal probing every provider doesn't spam 400s.
-            return { status: 'PENDING', paymentId: payment.id, message: 'No GoKwik payment attempt for this order' };
-        }
-
-        const link = await gokwikService.getPaymentLink({
-            merchantReferenceId: payment.providerOrderId,
-        });
-
-        if (link.status === 'paid') {
-            try {
-                await this.handlePaymentSuccess(
-                    payment.id,
-                    payment.orderId,
-                    link.id,
-                    {
-                        merchantReferenceId: payment.providerOrderId,
-                        gokwikLinkId: link.id,
-                        source: 'status_check',
-                    },
-                );
-            } catch (error) {
-                if (isTransactionStartTimeout(error)) {
-                    const latest = await paymentRepository.findPaymentById(payment.id);
-                    if (latest?.status === PaymentStatus.SUCCESS) {
-                        return { status: 'SUCCESS', paymentId: payment.id, message: 'Payment already verified' };
-                    }
-                    throw new ApiError(503, 'Payment is being finalized. Please refresh order status in a few seconds.');
-                }
-                throw error;
-            }
-            return { status: 'SUCCESS', paymentId: payment.id, message: 'Payment verified' };
-        }
-
-        if (link.status === 'cancelled' || link.status === 'expired') {
-            await this.handlePaymentFailure(payment.id, {
-                merchantReferenceId: payment.providerOrderId,
-                linkStatus: link.status,
-                source: 'status_check',
-            });
-            return { status: 'FAILED', paymentId: payment.id, message: 'Payment failed' };
-        }
-
-        return { status: 'PENDING', paymentId: payment.id, message: 'Payment is still pending' };
-    }
-
-    // ------------------------------------------------------------------
-    // COD — confirm order at placement (payment stays INITIATED)
-    //
-    // Moves the order PLACED → CONFIRMED and assigns an invoice, mirroring
-    // handlePaymentSuccess, but WITHOUT marking the payment SUCCESS or
-    // creating settlements. Cash is captured on delivery (captureCodPayment).
-    // Idempotent via an optimistic lock on the order status.
-    // ------------------------------------------------------------------
-
-    private async confirmCodOrder(orderId: string, paymentId: string) {
-        const result = await prisma.$transaction(async (tx: any) => {
-            // Only confirm if still PLACED — guards against double-submit and
-            // the stale-order canceller racing us.
-            const updated = await tx.order.updateMany({
-                where: { id: orderId, status: OrderStatus.PLACED },
-                data: { status: OrderStatus.CONFIRMED },
-            });
-
-            if (updated.count === 0) {
-                return { alreadyProcessed: true };
-            }
-
-            // Assign invoice number atomically (same helper as prepaid path)
-            const invoiceNumber = await generateInvoiceNumber(tx as any);
-            await tx.order.update({
-                where: { id: orderId },
-                data: {
-                    invoiceNumber,
-                    invoiceIssuedAt: new Date(),
-                },
-            });
-
-            await tx.paymentEvent.create({
-                data: {
-                    paymentId,
-                    type: PaymentEventType.INITIATED,
-                    payload: { event: 'COD_ORDER_CONFIRMED', orderId },
-                },
-            });
-
-            return { alreadyProcessed: false };
-        }, {
-            maxWait: TX_MAX_WAIT_MS,
-            timeout: TX_TIMEOUT_MS,
-        });
-
-        if (result.alreadyProcessed) return;
-
-        paymentLogger.info({ event: 'cod_order_confirmed', orderId, paymentId }, `COD order confirmed ${orderId}`);
-
-        // Reuse the payment-success notification + confirmation email path.
-        await emitPaymentSuccess(orderId);
-
-        await dispatchFreshness({
-            type: 'payment.updated',
-            entityId: orderId,
-            tags: [
-                CACHE_TAGS.payments,
-                CACHE_TAGS.orders,
-                CACHE_TAGS.userOrders,
-                CACHE_TAGS.sellerOrders,
-                orderTag(orderId),
-            ],
-            audience: { allAuthenticated: true },
-        });
-    }
-
-    // ------------------------------------------------------------------
-    // COD — capture cash on delivery
-    //
-    // Called when an order is marked DELIVERED. Flips the COD payment
-    // INITIATED → SUCCESS and creates seller settlements (idempotent).
-    // No-op for non-COD payments or if already captured.
-    // ------------------------------------------------------------------
-
-    async captureCodPayment(orderId: string) {
-        const payment = await paymentRepository.findPaymentByOrderId(orderId);
-        if (!payment) return;
-        if (payment.provider !== PaymentProvider.COD) return;
-        if (payment.status === PaymentStatus.SUCCESS) return;
-
-        const updated = await prisma.payment.updateMany({
-            where: { id: payment.id, status: { not: PaymentStatus.SUCCESS } },
-            data: {
-                status: PaymentStatus.SUCCESS,
-                providerPaymentId: `cod_${payment.id}`,
-            },
-        });
-
-        // Another caller already captured it → skip duplicate settlement.
-        if (updated.count === 0) return;
-
-        await paymentRepository.createPaymentEvent({
-            paymentId: payment.id,
-            type: PaymentEventType.SUCCESS,
-            payload: { event: 'COD_CASH_COLLECTED', orderId },
-        });
-
-        paymentSuccessTotal.inc();
-        paymentLogger.info({ event: 'cod_payment_captured', orderId, paymentId: payment.id }, `COD cash collected for ${orderId}`);
-
-        // Now that money is in hand, create seller settlements (idempotent).
-        await commissionService.calculateAndStoreSellerSettlement(orderId);
-
-        await dispatchFreshness({
-            type: 'payment.updated',
-            entityId: orderId,
-            tags: [
-                CACHE_TAGS.payments,
-                CACHE_TAGS.orders,
-                CACHE_TAGS.userOrders,
-                CACHE_TAGS.sellerOrders,
-                orderTag(orderId),
-            ],
-            audience: { allAuthenticated: true },
-        });
-    }
-
-    // ------------------------------------------------------------------
-    // Shared success handler — idempotent via optimistic lock inside tx
-    // Both verify endpoint and webhook converge here.
+    // Shared success handler — idempotent via optimistic lock inside tx.
+    // A future gateway's verify/webhook should converge here to confirm
+    // the order and create settlements.
     // ------------------------------------------------------------------
 
     async handlePaymentSuccess(
@@ -899,12 +139,7 @@ export class PaymentService {
         payload: any,
         providerSignature?: string
     ) {
-        // Optimistic-lock approach: the UPDATE inside the transaction uses a
-        // WHERE clause that includes `status != SUCCESS`. If another concurrent
-        // call already flipped the status, the updateMany returns count === 0
-        // and we bail out without creating duplicate settlements.
-        const result = await prisma.$transaction(async (tx:any) => {
-            // 1. Optimistic-lock update: only flip to SUCCESS if not already SUCCESS
+        const result = await prisma.$transaction(async (tx: any) => {
             const updated = await tx.payment.updateMany({
                 where: { id: paymentId, status: { not: PaymentStatus.SUCCESS } },
                 data: {
@@ -914,21 +149,14 @@ export class PaymentService {
                 }
             });
 
-            // If count === 0, another caller already marked SUCCESS → skip
             if (updated.count === 0) {
                 return { alreadyProcessed: true };
             }
 
-            // 2. Log Event
             await tx.paymentEvent.create({
-                data: {
-                    paymentId,
-                    type: PaymentEventType.SUCCESS,
-                    payload
-                }
+                data: { paymentId, type: PaymentEventType.SUCCESS, payload }
             });
 
-            // 3. Update Order Status + assign invoice number atomically
             const invoiceNumber = await generateInvoiceNumber(tx as any);
             await tx.order.update({
                 where: { id: orderId },
@@ -945,7 +173,6 @@ export class PaymentService {
             timeout: TX_TIMEOUT_MS,
         });
 
-        // Skip notifications if another call already handled this
         if (result.alreadyProcessed) return;
 
         paymentSuccessTotal.inc();
@@ -956,10 +183,7 @@ export class PaymentService {
             providerPaymentId,
         }, `Payment succeeded for order ${orderId}`);
 
-        // Calculate and store seller commission settlements (idempotent)
         await commissionService.calculateAndStoreSellerSettlement(orderId);
-
-        // Trigger Notifications (event-driven, idempotent, best-effort)
         await emitPaymentSuccess(orderId);
 
         await dispatchFreshness({
@@ -977,7 +201,7 @@ export class PaymentService {
     }
 
     // ------------------------------------------------------------------
-    // Shared failure handler — marks payment FAILED + releases inventory
+    // Shared failure handler — marks payment FAILED + notifies buyer.
     // ------------------------------------------------------------------
 
     async handlePaymentFailure(paymentId: string, payload: any) {
@@ -985,22 +209,17 @@ export class PaymentService {
         if (!payment) return;
         if (payment.status === PaymentStatus.SUCCESS) return;
 
-        await prisma.$transaction(async (tx:any) => {
+        await prisma.$transaction(async (tx: any) => {
             await tx.payment.update({
                 where: { id: paymentId },
                 data: { status: PaymentStatus.FAILED }
             });
 
             await tx.paymentEvent.create({
-                data: {
-                    paymentId,
-                    type: PaymentEventType.FAILED,
-                    payload
-                }
+                data: { paymentId, type: PaymentEventType.FAILED, payload }
             });
         });
 
-        // Notify buyer about payment failure (event-driven, idempotent, best-effort)
         if (payment.orderId) {
             await emitPaymentFailed(payment.orderId);
             await dispatchFreshness({
@@ -1023,23 +242,18 @@ export class PaymentService {
             orderId: payment.orderId,
         }, `Payment failed for payment ${paymentId}`);
 
-        // Note: Inventory is NOT released here on purpose.
-        // The order stays PLACED so the buyer can retry payment within the TTL.
-        // Inventory release happens via cancelStaleOrders when the TTL expires.
+        // Inventory is released by cancelStaleOrders when the TTL expires.
     }
 
     // ------------------------------------------------------------------
-    // Stale order auto-cancellation
-    // Cancels PLACED orders older than STALE_ORDER_TTL_MS whose payment
-    // is not SUCCESS, releases reserved inventory, and logs a FAILED event.
+    // Stale order auto-cancellation.
+    // Cancels PLACED orders older than STALE_ORDER_TTL_MS whose payment is
+    // not SUCCESS, releases reserved inventory, and logs a FAILED event.
     // ------------------------------------------------------------------
 
     async cancelStaleOrders() {
         const cutoff = new Date(Date.now() - STALE_ORDER_TTL_MS);
 
-        // Find stale PLACED orders whose payment is not SUCCESS (or has no payment).
-        // Only fetch IDs here — movements are re-fetched inside the tx to avoid
-        // stale data between the outer query and the transactional release.
         const staleOrders = await prisma.order.findMany({
             where: {
                 status: OrderStatus.PLACED,
@@ -1049,9 +263,7 @@ export class PaymentService {
                     { payment: null },
                 ],
             },
-            include: {
-                payment: true,
-            },
+            include: { payment: true },
         });
 
         let cancelledCount = 0;
@@ -1060,38 +272,25 @@ export class PaymentService {
             try {
                 const reserveMovements = await prisma.inventoryMovement.findMany({
                     where: { orderId: order.id, type: 'RESERVE' },
-                    select: {
-                        variantId: true,
-                        quantity: true,
-                    },
+                    select: { variantId: true, quantity: true },
                 });
 
-                const wasCancelled = await prisma.$transaction(async (tx:any) => {
-                    // 1. Optimistic-lock cancel: only flip to CANCELLED if still PLACED.
-                    //    Between the findMany above and this tx, handlePaymentSuccess
-                    //    may have already flipped the order to CONFIRMED — in that case
-                    //    count === 0 and we skip, preventing double-release of inventory.
+                const wasCancelled = await prisma.$transaction(async (tx: any) => {
                     const updated = await tx.order.updateMany({
                         where: { id: order.id, status: OrderStatus.PLACED },
                         data: { status: OrderStatus.CANCELLED },
                     });
 
                     if (updated.count === 0) {
-                        // Order was already confirmed/cancelled by another process — skip
                         return false;
                     }
 
-                    // 2. Release reserved inventory. Reserve movements are immutable
-                    // once written, so reading them before the transaction keeps the
-                    // transaction short and avoids stale interactive handles.
                     for (const movement of reserveMovements) {
-                        // Restore stock
                         await tx.inventory.update({
                             where: { variantId: movement.variantId },
                             data: { stock: { increment: movement.quantity } },
                         });
 
-                        // Create RELEASE movement
                         await tx.inventoryMovement.create({
                             data: {
                                 variantId: movement.variantId,
@@ -1103,7 +302,6 @@ export class PaymentService {
                         });
                     }
 
-                    // 3. Mark payment as FAILED if it's still INITIATED
                     if (order.payment) {
                         const updatedPayment = await tx.payment.updateMany({
                             where: { id: order.payment.id, status: PaymentStatus.INITIATED },
@@ -1135,11 +333,6 @@ export class PaymentService {
                         orderId: order.id,
                         userId: order.userId,
                     }, `Stale order cancelled: ${order.id}`);
-                } else {
-                    paymentLogger.debug({
-                        event: 'stale_order_skip',
-                        orderId: order.id,
-                    }, `Skipped stale order ${order.id} (status already changed)`);
                 }
             } catch (err) {
                 paymentLogger.error({

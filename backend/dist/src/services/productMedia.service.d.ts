@@ -7,27 +7,27 @@ export declare class ProductMediaService {
     /**
      * Add media to a product (seller only, ownership verified)
      */
-    addMedia(productId: string, sellerId: string, input: CreateMediaInput): Promise<{
-        type: import(".prisma/client").$Enums.MediaType;
+    addMedia(productId: string, sellerId: string, input: CreateMediaInput): Promise<import("@prisma/client/runtime/index.js").GetResult<{
         id: string;
-        createdAt: Date;
         productId: string;
-        sortOrder: number;
+        type: import(".prisma/client").MediaType;
         url: string;
         isThumbnail: boolean;
-    }>;
+        sortOrder: number;
+        createdAt: Date;
+    }, unknown> & {}>;
     /**
      * Update media metadata (seller only, ownership verified)
      */
-    updateMedia(mediaId: string, sellerId: string, input: UpdateMediaInput): Promise<{
-        type: import(".prisma/client").$Enums.MediaType;
+    updateMedia(mediaId: string, sellerId: string, input: UpdateMediaInput): Promise<import("@prisma/client/runtime/index.js").GetResult<{
         id: string;
-        createdAt: Date;
         productId: string;
-        sortOrder: number;
+        type: import(".prisma/client").MediaType;
         url: string;
         isThumbnail: boolean;
-    }>;
+        sortOrder: number;
+        createdAt: Date;
+    }, unknown> & {}>;
     /**
      * Delete media (seller only, ownership verified)
      */

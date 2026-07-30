@@ -162,5 +162,27 @@ export declare const adminController: {
      * List all refund ledger entries with optional filters
      */
     listRefunds(req: Request, res: Response, next: NextFunction): Promise<void>;
+    /**
+     * GET /v1/admin/settings/shipping
+     * Current shipping-charge configuration.
+     */
+    getShippingSetting(_req: Request, res: Response, next: NextFunction): Promise<void>;
+    /**
+     * PUT /v1/admin/settings/shipping
+     * Start/stop the flat shipping charge for new orders.
+     * Body: { enabled: boolean }
+     */
+    updateShippingSetting(req: Request, res: Response, next: NextFunction): Promise<void>;
+    /**
+     * GET /v1/admin/settings/gst
+     * Current flat-GST-charge configuration.
+     */
+    getGstSetting(_req: Request, res: Response, next: NextFunction): Promise<void>;
+    /**
+     * PUT /v1/admin/settings/gst
+     * Start/stop the flat GST charge for new orders.
+     * Body: { enabled: boolean }
+     */
+    updateGstSetting(req: Request, res: Response, next: NextFunction): Promise<void>;
 };
 //# sourceMappingURL=admin.controller.d.ts.map

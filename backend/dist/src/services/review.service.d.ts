@@ -12,19 +12,19 @@ export declare class ReviewService {
     /**
      * Create a review (one per user per product)
      */
-    createReview(productId: string, userId: string, input: CreateReviewInput): Promise<{
+    createReview(productId: string, userId: string, input: CreateReviewInput): Promise<import("@prisma/client/runtime/index.js").GetResult<{
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        userId: string;
         productId: string;
-        title: string | null;
-        images: string[];
+        userId: string;
         rating: number;
+        title: string | null;
         text: string;
+        images: string[];
         helpfulCount: number;
         isHidden: boolean;
-    }>;
+        createdAt: Date;
+        updatedAt: Date;
+    }, unknown> & {}>;
     /**
      * Get reviews for a product with pagination, sorting, and rating summary
      */
@@ -39,19 +39,19 @@ export declare class ReviewService {
     /**
      * Set hidden state on a review (admin)
      */
-    setHidden(reviewId: string, isHidden: boolean): Promise<{
+    setHidden(reviewId: string, isHidden: boolean): Promise<import("@prisma/client/runtime/index.js").GetResult<{
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        userId: string;
         productId: string;
-        title: string | null;
-        images: string[];
+        userId: string;
         rating: number;
+        title: string | null;
         text: string;
+        images: string[];
         helpfulCount: number;
         isHidden: boolean;
-    }>;
+        createdAt: Date;
+        updatedAt: Date;
+    }, unknown> & {}>;
     /**
      * List all reviews for admin (includes hidden)
      */
