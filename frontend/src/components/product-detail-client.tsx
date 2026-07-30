@@ -14,6 +14,7 @@ import {
   upsertCheckoutSnapshotItem,
   removeCheckoutSnapshotItem,
 } from "@/lib/checkout-snapshot";
+import { trackPendingCartWrite } from "@/lib/pending-cart";
 import { loginUrlWithReturn } from "@/lib/login-redirect";
 
 interface Variant {
@@ -376,20 +377,41 @@ export default function ProductDetailClient({
       return;
     }
 
-    setBuyNowLoading(true);
-    try {
-      const result = await addCartItem({
-        productId: product.id,
-        variantId: selectedVariant.id,
+    // Navigate FIRST. The add-to-cart round-trip used to block the transition, so
+    // the buyer sat on the product page for its full duration. The request keeps
+    // running across the client-side navigation and /checkout waits for it before
+    // reading the cart or placing the order — instant, without a race.
+    const variantId = selectedVariant.id;
+    if (typeof salePrice === "number") {
+      upsertCheckoutSnapshotItem({
+        variantId,
         quantity: 1,
+        priceSnapshot: salePrice,
       });
+    }
+
+    const cartWrite = addCartItem({
+      productId: product.id,
+      variantId,
+      quantity: 1,
+    }).then((result) => {
+      // Replace the optimistic guess with what the server actually stored.
       upsertCheckoutSnapshotItem({
         variantId: result.item.variantId,
         quantity: result.item.quantity,
         priceSnapshot: result.item.priceSnapshot,
       });
-      startNavigationFeedback();
-      router.push("/checkout");
+      return result;
+    });
+
+    trackPendingCartWrite(cartWrite);
+
+    startNavigationFeedback();
+    router.push("/checkout");
+
+    setBuyNowLoading(true);
+    try {
+      await cartWrite;
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Unable to continue to checkout";

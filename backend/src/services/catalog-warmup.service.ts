@@ -4,6 +4,7 @@ import { categoryService } from './category.service.js';
 import { occasionService } from './occasion.service.js';
 import { bestsellerService } from './bestseller.service.js';
 import { getPhonePeAccessToken, isPhonePeConfigured } from './phonepe.client.js';
+import { settingsService } from './settings.service.js';
 
 const log = logger.child({ module: 'catalog-warmup' });
 
@@ -27,6 +28,10 @@ const log = logger.child({ module: 'catalog-warmup' });
 /** The exact reads the homepage and marketplace pages perform. */
 function warmupTasks(): Array<{ name: string; run: () => Promise<unknown> }> {
     return [
+        // Read by every checkout. Warming them keeps the in-memory settings cache
+        // refreshed ahead of expiry so a buyer never pays for it mid-order.
+        { name: 'settings:shipping', run: () => settingsService.getShippingFee(true) },
+        { name: 'settings:gst', run: () => settingsService.isGstChargeEnabled() },
         { name: 'categories', run: () => categoryService.listCategories() },
         { name: 'occasions', run: () => occasionService.listOccasions() },
         { name: 'bestsellers:MENS', run: () => bestsellerService.listPublic(4, 'MENS') },

@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { checkoutWithPayment, getCart, type CouponPreview } from "@/services/cart";
 import { initiatePayment } from "@/services/payments";
 import { ApiTimeoutError } from "@/services/api";
+import { flushPendingCartWrite } from "@/lib/pending-cart";
 import { getAddresses, type Address } from "@/services/addresses";
 import { getShippingConfig } from "@/services/shipments";
 import CouponSection from "@/components/checkout/CouponSection";
@@ -144,6 +145,8 @@ export default function CheckoutPage() {
 
     const loadCart = async () => {
       try {
+        // Buy Now navigates here while its add-to-cart is still in flight.
+        await flushPendingCartWrite();
         const cartResult = await getCart();
         const items = cartResult.cart.items ?? [];
         applyCartSnapshot(items);
@@ -226,6 +229,10 @@ export default function CheckoutPage() {
     setLoading(true);
     setIsPaying(true);
     try {
+      // Guarantee the Buy Now add-to-cart has landed. Without this the order could
+      // race ahead of it and fail with "Cart is empty".
+      await flushPendingCartWrite();
+
       // Place the order and initiate a PhonePe payment in one call.
       const orderResult = await checkoutWithPayment({
         shippingName: shipping.name || undefined,
