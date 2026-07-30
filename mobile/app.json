@@ -2,7 +2,7 @@
   "expo": {
     "name": "TatVivah",
     "slug": "tatvivah",
-    "version": "2.0",
+    "version": "3.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "mobile",
@@ -17,7 +17,7 @@
       "bundleIdentifier": "com.zaheen.iqbal.mobile"
     },
     "android": {
-      "versionCode": 14,
+      "versionCode": 15,
       "adaptiveIcon": {
         "backgroundColor": "#FFFCF8",
         "foregroundImage": "./assets/adaptive-icon.png",
