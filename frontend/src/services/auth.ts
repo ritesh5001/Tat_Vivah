@@ -1,4 +1,4 @@
-import { COOKIE_ATTRIBUTES_SUFFIX } from "@/lib/site-config";
+import { setSessionCookie, clearSessionCookie } from "@/lib/cookie";
 
 export interface LoginPayload {
   identifier: string;
@@ -93,29 +93,34 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
 export function clearAuthSession(): void {
   if (typeof document === "undefined") return;
-  document.cookie = `tatvivah_access=; path=/; max-age=0${COOKIE_ATTRIBUTES_SUFFIX}`;
-  document.cookie = `tatvivah_refresh=; path=/; max-age=0${COOKIE_ATTRIBUTES_SUFFIX}`;
-  document.cookie = `tatvivah_role=; path=/; max-age=0${COOKIE_ATTRIBUTES_SUFFIX}`;
-  document.cookie = `tatvivah_user=; path=/; max-age=0${COOKIE_ATTRIBUTES_SUFFIX}`;
+  clearSessionCookie("tatvivah_access");
+  clearSessionCookie("tatvivah_refresh");
+  clearSessionCookie("tatvivah_role");
+  clearSessionCookie("tatvivah_user");
   window.dispatchEvent(new Event("tatvivah-auth"));
 }
 
 /**
  * Store all auth cookies after a successful login / token refresh.
+ * Uses setSessionCookie so a domain-scoped write that the browser rejects
+ * falls back to a host-only cookie (prevents the "logged in but bounced to
+ * login" loop on a domain mismatch).
  */
 export function persistAuthCookies(
   accessToken: string,
   refreshToken: string,
   user: { role: string;[key: string]: unknown }
 ): void {
-  document.cookie = `tatvivah_access=${accessToken}; path=/; max-age=86400${COOKIE_ATTRIBUTES_SUFFIX}`;
-  document.cookie = `tatvivah_refresh=${refreshToken}; path=/; max-age=604800${COOKIE_ATTRIBUTES_SUFFIX}`;
+  setSessionCookie("tatvivah_access", accessToken, 86400);
+  setSessionCookie("tatvivah_refresh", refreshToken, 604800);
   // role/user must outlive the daily access cookie — they identify the
   // session for the middleware while the refresh cookie (7d) is still valid.
-  document.cookie = `tatvivah_role=${user.role}; path=/; max-age=604800${COOKIE_ATTRIBUTES_SUFFIX}`;
-  document.cookie = `tatvivah_user=${encodeURIComponent(
-    JSON.stringify(user)
-  )}; path=/; max-age=604800${COOKIE_ATTRIBUTES_SUFFIX}`;
+  setSessionCookie("tatvivah_role", user.role, 604800);
+  setSessionCookie(
+    "tatvivah_user",
+    encodeURIComponent(JSON.stringify(user)),
+    604800
+  );
   window.dispatchEvent(new Event("tatvivah-auth"));
 }
 

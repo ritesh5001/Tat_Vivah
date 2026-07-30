@@ -1,4 +1,4 @@
-import { COOKIE_ATTRIBUTES_SUFFIX } from "@/lib/site-config";
+import { setSessionCookie, clearSessionCookie } from "@/lib/cookie";
 import { reportApiActivity } from "@/lib/navigation-feedback";
 
 type ApiRequestOptions = Omit<RequestInit, "body"> & {
@@ -83,10 +83,10 @@ function getActivityLabel(method: string) {
 
 function clearAuthCookies() {
   if (typeof document === "undefined") return;
-  document.cookie = `tatvivah_access=; path=/; max-age=0${COOKIE_ATTRIBUTES_SUFFIX}`;
-  document.cookie = `tatvivah_refresh=; path=/; max-age=0${COOKIE_ATTRIBUTES_SUFFIX}`;
-  document.cookie = `tatvivah_role=; path=/; max-age=0${COOKIE_ATTRIBUTES_SUFFIX}`;
-  document.cookie = `tatvivah_user=; path=/; max-age=0${COOKIE_ATTRIBUTES_SUFFIX}`;
+  clearSessionCookie("tatvivah_access");
+  clearSessionCookie("tatvivah_refresh");
+  clearSessionCookie("tatvivah_role");
+  clearSessionCookie("tatvivah_user");
   window.dispatchEvent(new Event("tatvivah-auth"));
 }
 
@@ -109,10 +109,10 @@ async function requestNewTokens(refreshToken: string): Promise<string | null> {
   const data = await response.json().catch(() => null);
   if (!data?.accessToken) return null;
 
-  // Persist new tokens
-  document.cookie = `tatvivah_access=${data.accessToken}; path=/; max-age=86400${COOKIE_ATTRIBUTES_SUFFIX}`;
+  // Persist new tokens (host-only fallback if domain-scoped write is rejected)
+  setSessionCookie("tatvivah_access", data.accessToken, 86400);
   if (data.refreshToken) {
-    document.cookie = `tatvivah_refresh=${data.refreshToken}; path=/; max-age=604800${COOKIE_ATTRIBUTES_SUFFIX}`;
+    setSessionCookie("tatvivah_refresh", data.refreshToken, 604800);
   }
 
   return data.accessToken as string;

@@ -30,7 +30,9 @@ const AUTH_PATHS = ["/login", "/register", "/verify-otp", "/forgot-password", "/
  */
 export function buyerReturnPath(): string {
   if (typeof window === "undefined") return "/";
-  const raw = new URLSearchParams(window.location.search).get("redirect");
+  const params = new URLSearchParams(window.location.search);
+  // `redirect` is set by our client bounces; `returnTo` by the middleware.
+  const raw = params.get("redirect") ?? params.get("returnTo");
   if (!raw) return "/";
   if (!raw.startsWith("/") || raw.startsWith("//") || raw.startsWith("/\\")) {
     return "/";

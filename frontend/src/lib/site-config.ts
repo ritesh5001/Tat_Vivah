@@ -57,3 +57,12 @@ export const COOKIE_ATTRIBUTES_SUFFIX =
   process.env.NODE_ENV === "production"
     ? `${effectiveCookieDomain ? `; domain=.${effectiveCookieDomain}` : ""}; SameSite=Lax; Secure`
     : "";
+
+/**
+ * Same as COOKIE_ATTRIBUTES_SUFFIX but WITHOUT the `domain=` attribute, so the
+ * cookie is scoped to the exact current host. Used as a fallback when the
+ * domain-scoped cookie is rejected by the browser (host/domain mismatch), which
+ * otherwise silently drops the session and loops the user back to login.
+ */
+export const COOKIE_ATTRIBUTES_SUFFIX_HOST_ONLY =
+  process.env.NODE_ENV === "production" ? "; SameSite=Lax; Secure" : "";
