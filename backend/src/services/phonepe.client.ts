@@ -121,6 +121,8 @@ export async function phonePeSelfTest(): Promise<{
     clientVersion: string;
     oauthUrl: string;
     tokenOk: boolean;
+    payOk?: boolean;
+    payHasRedirect?: boolean;
     error?: string;
 }> {
     const base = {
@@ -139,11 +141,36 @@ export async function phonePeSelfTest(): Promise<{
     try {
         invalidatePhonePeToken();
         await fetchAccessToken();
-        return { ...base, tokenOk: true };
     } catch (err) {
         return {
             ...base,
             tokenOk: false,
+            error: err instanceof Error ? err.message : String(err),
+        };
+    }
+
+    // Token works — now reproduce a real order creation to surface any /pay error.
+    try {
+        // Lazy import to avoid a circular dependency at module load.
+        const { phonepeService } = await import('./phonepe.service.js');
+        const testOrderId = `selftest${Date.now().toString(36)}`;
+        const merchantOrderId = phonepeService.buildMerchantOrderId(testOrderId);
+        const redirectUrl = `${env.FRONTEND_BASE_URL ?? 'https://www.tatvivahtrends.com'}/checkout/phonepe/callback?orderId=${testOrderId}`;
+        const order = await phonepeService.createOrder(1, merchantOrderId, redirectUrl, {
+            orderId: testOrderId,
+            userId: 'selftest',
+        });
+        return {
+            ...base,
+            tokenOk: true,
+            payOk: true,
+            payHasRedirect: Boolean(order.redirectUrl),
+        };
+    } catch (err) {
+        return {
+            ...base,
+            tokenOk: true,
+            payOk: false,
             error: err instanceof Error ? err.message : String(err),
         };
     }
