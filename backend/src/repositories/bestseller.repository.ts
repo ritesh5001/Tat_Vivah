@@ -1,18 +1,46 @@
 import { prisma } from '../config/db.js';
 
 export class BestsellerRepository {
+    /**
+     * Admin bestseller list.
+     *
+     * One JOIN instead of nested includes: Prisma 4 would resolve
+     * bestseller -> product -> category / seller as four separate statements, and
+     * against a cross-region database each one is a full round-trip. That is absurd
+     * for a list capped at four rows.
+     *
+     * The returned shape intentionally matches the nested version the service maps
+     * over (`item.product.category.name` etc.) so callers are unaffected.
+     */
     async listAdmin() {
-        return prisma.bestseller.findMany({
-            orderBy: { position: 'asc' },
-            include: {
-                product: {
-                    include: {
-                        category: { select: { name: true } },
-                        seller: { select: { email: true } },
-                    },
-                },
+        const rows = await prisma.$queryRaw<Array<Record<string, any>>>`
+            SELECT
+                b."id", b."product_id" AS "productId", b."position",
+                p."title", p."images",
+                p."is_published"     AS "isPublished",
+                p."deleted_by_admin" AS "deletedByAdmin",
+                c."name"             AS "categoryName",
+                u."email"            AS "sellerEmail"
+            FROM "bestsellers" b
+            INNER JOIN "products" p   ON p."id" = b."product_id"
+            LEFT  JOIN "categories" c ON c."id" = p."category_id"
+            LEFT  JOIN "users" u      ON u."id" = p."seller_id"
+            ORDER BY b."position" ASC
+        `;
+
+        return rows.map((row) => ({
+            id: row['id'] as string,
+            productId: row['productId'] as string,
+            position: row['position'] as number,
+            product: {
+                title: row['title'] as string,
+                images: (row['images'] ?? []) as string[],
+                isPublished: row['isPublished'] as boolean,
+                deletedByAdmin: row['deletedByAdmin'] as boolean,
+                category: row['categoryName'] == null ? null : { name: row['categoryName'] as string },
+                seller: row['sellerEmail'] == null ? null : { email: row['sellerEmail'] as string },
             },
-        });
+        }));
     }
 
     async listPublic(limit: number, audience?: 'MENS' | 'KIDS') {

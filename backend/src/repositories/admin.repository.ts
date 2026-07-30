@@ -568,35 +568,114 @@ export class AdminRepository {
      */
     async findAllProducts(params?: PaginationParams & { audience?: 'MENS' | 'KIDS' }): Promise<AdminProduct[]> {
         const { skip, take } = resolvePagination(params);
-        const products = await prisma.product.findMany({
-            where: params?.audience ? { audience: params.audience } : {},
-            include: {
-                seller: {
-                    select: {
-                        email: true,
-                        phone: true,
-                        seller_profiles: {
-                            select: {
-                                store_name: true,
-                            },
-                        },
-                    },
-                },
-                category: { select: { name: true } },
-                occasions: {
-                    select: {
-                        occasionId: true,
-                    },
-                },
-                variants: {
-                    include: { inventory: true },
-                    orderBy: { createdAt: 'asc' },
-                },
+
+        // Written as explicit JOINs rather than nested `include`s. Prisma 4 resolves
+        // every relation with its own statement, so the equivalent typed query cost
+        // seven sequential round-trips (products, users, seller_profiles, categories,
+        // product_occasions, product_variants, inventory). Against a cross-region
+        // database that is seconds of pure waiting on the admin's slowest screen.
+        // This is three statements, two of which run concurrently.
+        const audience = params?.audience;
+
+        const productRows = await prisma.$queryRawUnsafe<Array<Record<string, any>>>(
+            `
+            SELECT
+                p."id", p."title", p."description", p."images",
+                p."seller_id"                AS "sellerId",
+                p."category_id"              AS "categoryId",
+                p."audience"::text           AS "audience",
+                p."seller_price"             AS "sellerPrice",
+                p."admin_listing_price"      AS "adminListingPrice",
+                p."price_approved_at"        AS "priceApprovedAt",
+                p."price_approved_by_id"     AS "priceApprovedById",
+                p."status"::text             AS "status",
+                p."rejection_reason"         AS "rejectionReason",
+                p."approved_at"              AS "approvedAt",
+                p."approved_by_id"           AS "approvedById",
+                p."is_published"             AS "isPublished",
+                p."deleted_by_admin"         AS "deletedByAdmin",
+                p."deleted_by_admin_at"      AS "deletedByAdminAt",
+                p."deleted_by_admin_reason"  AS "deletedByAdminReason",
+                p."created_at"               AS "createdAt",
+                u."email"                    AS "sellerEmail",
+                u."phone"                    AS "sellerPhone",
+                sp."store_name"              AS "sellerName",
+                c."name"                     AS "categoryName"
+            FROM "products" p
+            LEFT JOIN "users" u            ON u."id"       = p."seller_id"
+            LEFT JOIN "seller_profiles" sp ON sp."user_id" = p."seller_id"
+            LEFT JOIN "categories" c       ON c."id"       = p."category_id"
+            ${audience ? `WHERE p."audience" = $3::"ProductAudience"` : ''}
+            ORDER BY p."created_at" DESC
+            LIMIT $1 OFFSET $2
+            `,
+            ...(audience ? [take, skip, audience] : [take, skip]),
+        );
+
+        const productIds = productRows.map((row) => row['id'] as string);
+
+        // Nothing on this page — skip the follow-up queries entirely.
+        if (productIds.length === 0) {
+            return [];
+        }
+
+        const [variantRows, occasionRows] = await Promise.all([
+            prisma.$queryRawUnsafe<Array<Record<string, any>>>(
+                `
+                SELECT
+                    v."id", v."product_id" AS "productId", v."size", v."color", v."images", v."sku",
+                    v."seller_price"        AS "sellerPrice",
+                    v."admin_listing_price" AS "adminListingPrice",
+                    v."price",
+                    v."compare_at_price"    AS "compareAtPrice",
+                    v."status"::text        AS "status",
+                    v."rejection_reason"    AS "rejectionReason",
+                    v."approved_at"         AS "approvedAt",
+                    COALESCE(i."stock", 0)  AS "stock"
+                FROM "product_variants" v
+                LEFT JOIN "inventory" i ON i."variant_id" = v."id"
+                WHERE v."product_id" = ANY($1::text[])
+                ORDER BY v."created_at" ASC
+                `,
+                productIds,
+            ),
+            prisma.productOccasion.findMany({
+                where: { productId: { in: productIds } },
+                select: { productId: true, occasionId: true },
+            }),
+        ]);
+
+        const variantsByProduct = new Map<string, Array<Record<string, any>>>();
+        for (const variant of variantRows) {
+            const key = variant['productId'] as string;
+            const list = variantsByProduct.get(key);
+            if (list) list.push(variant);
+            else variantsByProduct.set(key, [variant]);
+        }
+
+        const occasionsByProduct = new Map<string, string[]>();
+        for (const row of occasionRows) {
+            const list = occasionsByProduct.get(row.productId);
+            if (list) list.push(row.occasionId);
+            else occasionsByProduct.set(row.productId, [row.occasionId]);
+        }
+
+        // Re-shape into the structure the typed query used to produce, so every
+        // caller and the API response stay byte-for-byte identical.
+        const products = productRows.map((row) => ({
+            ...row,
+            seller: {
+                email: row['sellerEmail'],
+                phone: row['sellerPhone'],
+                seller_profiles: row['sellerName'] == null ? null : { store_name: row['sellerName'] },
             },
-            orderBy: { createdAt: 'desc' },
-            skip,
-            take,
-        });
+            category: row['categoryName'] == null ? null : { name: row['categoryName'] },
+            occasions: (occasionsByProduct.get(row['id'] as string) ?? []).map((occasionId) => ({ occasionId })),
+            variants: (variantsByProduct.get(row['id'] as string) ?? []).map((variant) => ({
+                ...variant,
+                inventory: { stock: Number(variant['stock'] ?? 0) },
+            })),
+        })) as any[];
 
         return products.map((product) => ({
             id: product.id,
@@ -618,7 +697,7 @@ export class AdminRepository {
             rejectionReason: product.rejectionReason,
             approvedAt: product.approvedAt,
             approvedById: product.approvedById,
-            variants: product.variants.map((variant) => ({
+            variants: product.variants.map((variant: any) => ({
                 id: variant.id,
                 size: variant.size,
                 color: variant.color,

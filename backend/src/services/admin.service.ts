@@ -182,9 +182,34 @@ export class AdminService {
     /**
      * List all products (admin table view)
      */
+    /**
+     * Admin product list.
+     *
+     * Cached because this is the slowest screen in the dashboard: Prisma expands the
+     * seller / seller_profiles / category / occasions / variants / inventory includes
+     * into seven separate statements, and against a cross-region database that cost
+     * seconds on EVERY view — including simply navigating back to the list.
+     *
+     * The key deliberately sits under the `products:list:` prefix, which
+     * invalidateProductCaches() already wipes. Every admin mutation (approve, reject,
+     * delete, price update) calls it, so an admin still sees their own change
+     * immediately rather than a stale row.
+     */
     async listAllProducts(params?: { page?: number; limit?: number; audience?: 'MENS' | 'KIDS' }): Promise<{ products: AdminProduct[] }> {
+        const page = params?.page ?? 1;
+        const limit = params?.limit ?? 20;
+        const cacheKey = `products:list:admin:${page}:${limit}:${params?.audience ?? '_'}`;
+
+        const cached = await getFromCache<{ products: AdminProduct[] }>(cacheKey);
+        if (cached) {
+            return cached;
+        }
+
         const products = await this.adminRepo.findAllProducts(params);
-        return { products };
+        const response = { products };
+
+        await setCache(cacheKey, response, 300);
+        return response;
     }
 
     /**
