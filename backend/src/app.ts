@@ -12,6 +12,7 @@ import {
 import { prisma } from './config/db.js';
 import { checkRedisConnection } from './config/redis.js';
 import { logger } from './config/logger.js';
+import { isPhonePeConfigured } from './services/phonepe.client.js';
 import type { IntegrityReport } from './jobs/inventoryIntegrity.js';
 import {
     authRouter,
@@ -279,15 +280,33 @@ export function createApp(): Application {
                 select: { status: true, invoiceNumber: true, createdAt: true },
             });
 
+            // Recent payment rows — reveals whether PhonePe order creation is
+            // actually succeeding (providerOrderId set) on this deployment.
+            const recentPayments = await prisma.payment.findMany({
+                where: { createdAt: { gte: since } },
+                orderBy: { createdAt: 'desc' },
+                take: 8,
+                select: { provider: true, status: true, providerOrderId: true, createdAt: true },
+            });
+
             res.set('Cache-Control', 'no-store');
             res.json({
                 windowMinutes: 60,
-                totalLastHour: recent.length ? undefined : 0,
+                phonepeConfigured: isPhonePeConfigured(),
+                phonepeEnv: env.PHONEPE_ENV,
+                phonepeWebhookAuthSet: Boolean(env.PHONEPE_WEBHOOK_USERNAME && env.PHONEPE_WEBHOOK_PASSWORD),
+                frontendBaseUrlSet: Boolean(env.FRONTEND_BASE_URL),
                 byStatus,
                 recent: recent.map((o) => ({
                     status: o.status,
                     hasInvoice: Boolean(o.invoiceNumber),
                     createdAt: o.createdAt,
+                })),
+                recentPayments: recentPayments.map((p) => ({
+                    provider: p.provider,
+                    status: p.status,
+                    hasProviderOrderId: Boolean(p.providerOrderId),
+                    createdAt: p.createdAt,
                 })),
             });
         } catch (err) {

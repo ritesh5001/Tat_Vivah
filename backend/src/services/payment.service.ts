@@ -231,7 +231,14 @@ export class PaymentService {
             return { status: 'SUCCESS', paymentId: payment.id, message: 'Payment already verified' };
         }
         if (payment.provider !== PaymentProvider.PHONEPE || !payment.providerOrderId) {
-            throw new ApiError(400, 'No PhonePe payment attempt found for this order');
+            // No PhonePe attempt on record yet (e.g. order creation failed, or the
+            // order predates PhonePe). Report PENDING instead of throwing so the
+            // orders-page self-heal doesn't spam 400s into the logs.
+            return {
+                status: 'PENDING',
+                paymentId: payment.id,
+                message: 'No PhonePe payment attempt for this order',
+            };
         }
 
         const statusResponse = await phonepeService.getOrderStatus(payment.providerOrderId);
