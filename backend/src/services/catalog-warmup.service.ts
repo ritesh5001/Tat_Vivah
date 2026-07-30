@@ -3,6 +3,7 @@ import { productService } from './product.service.js';
 import { categoryService } from './category.service.js';
 import { occasionService } from './occasion.service.js';
 import { bestsellerService } from './bestseller.service.js';
+import { getPhonePeAccessToken, isPhonePeConfigured } from './phonepe.client.js';
 
 const log = logger.child({ module: 'catalog-warmup' });
 
@@ -71,9 +72,34 @@ async function warmVisibleProductDetails(): Promise<number> {
     return results.filter((result) => result.status === 'fulfilled').length;
 }
 
+/**
+ * Fetch (and cache) the PhonePe OAuth token ahead of time.
+ *
+ * The token is cached in-process until shortly before it expires, but it is fetched
+ * lazily — so after every deploy or restart the first buyer to press Place Order
+ * paid an extra round-trip to PhonePe's identity service while waiting on the
+ * checkout they had already committed to. Doing it here moves that cost off the
+ * critical path entirely.
+ */
+async function warmPhonePeToken(): Promise<boolean> {
+    if (!isPhonePeConfigured()) return false;
+    try {
+        await getPhonePeAccessToken();
+        return true;
+    } catch (err) {
+        // Never fatal: a failure here just means the first checkout refetches it,
+        // which is exactly the old behaviour.
+        log.warn({ event: 'phonepe_token_warmup_failed', err }, 'PhonePe token warmup failed');
+        return false;
+    }
+}
+
 export async function warmCatalogCaches(trigger: 'startup' | 'interval'): Promise<void> {
     const started = Date.now();
     const tasks = warmupTasks();
+
+    // Independent of the catalog reads, so let it run alongside them.
+    const phonepeTokenWarm = warmPhonePeToken();
 
     // Run concurrently: these are independent reads, and serialising them would
     // multiply the cross-region round-trip cost for no benefit.
@@ -86,6 +112,8 @@ export async function warmCatalogCaches(trigger: 'startup' | 'interval'): Promis
     } catch (err) {
         log.warn({ event: 'catalog_warmup_details_failed', err }, 'Product detail warmup failed');
     }
+
+    const tokenWarmed = await phonepeTokenWarm;
 
     const failed = results
         .map((result, index) => ({ result, name: tasks[index]!.name }))
@@ -110,8 +138,9 @@ export async function warmCatalogCaches(trigger: 'startup' | 'interval'): Promis
             trigger,
             warmed: tasks.length,
             warmedDetails,
+            phonepeToken: tokenWarmed,
             durationMs: Date.now() - started,
         },
-        `Catalog cache warmed (${tasks.length} listings + ${warmedDetails} product pages in ${Date.now() - started}ms)`,
+        `Catalog cache warmed (${tasks.length} listings + ${warmedDetails} product pages${tokenWarmed ? ' + PhonePe token' : ''} in ${Date.now() - started}ms)`,
     );
 }

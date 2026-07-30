@@ -20,18 +20,40 @@ function getIntEnv(name: string, fallback: number, min: number, max: number): nu
     return n;
 }
 
+/**
+ * Build the runtime connection URL.
+ *
+ * Prefers DATABASE_URL_DIRECT (Neon's non-pooled endpoint) when it is set.
+ *
+ * This looks backwards — a web server "should" go through PgBouncer — but it was
+ * measured against this Neon project on 2026-07-30 and the pooler is drastically
+ * slower here:
+ *
+ *              SELECT 1     findMany(20)   12 concurrent
+ *   pooled       1623ms         2652ms          6511ms
+ *   direct        275ms          287ms          3655ms
+ *
+ * Roughly 9x worse on single-query latency and still worse under concurrency.
+ * Prisma also disables prepared-statement reuse when `pgbouncer=true`, so every
+ * query re-parses. Concurrency is instead handled by a larger direct pool, which
+ * measured 808ms -> 538ms -> 307ms for 12 parallel queries at limits 5, 10 and 20.
+ *
+ * If you are tempted to "fix" this by switching to the pooled URL, re-run that
+ * benchmark first. The pooler is still required for migrations (advisory locks are
+ * session-scoped), which is handled separately by schema.prisma's `directUrl` and
+ * scripts/migrate-deploy.mjs.
+ */
 function buildPrismaDatabaseUrl(rawUrl: string, directUrl?: string): string {
     try {
-        // Keep DATABASE_URL host untouched unless an explicit DATABASE_URL_DIRECT
-        // is provided. Auto-rewriting Neon "-pooler" hosts to direct endpoints
-        // can break connectivity in managed environments.
-        const sourceUrl = directUrl ? directUrl : rawUrl;
-        const parsed = new URL(sourceUrl);
+        const parsed = new URL(directUrl ? directUrl : rawUrl);
         const isPooledHost = parsed.hostname.includes('-pooler.');
 
         const pooledConnectionLimit = getIntEnv('DB_POOL_CONNECTION_LIMIT', 10, 1, 100);
         const pooledPoolTimeout = getIntEnv('DB_POOL_TIMEOUT', 15, 1, 120);
-        const directConnectionLimit = getIntEnv('DB_DIRECT_CONNECTION_LIMIT', 5, 1, 100);
+        // 20, not 5: measured 12 concurrent queries at 808ms (limit 5), 538ms (10),
+        // 307ms (20). A checkout holds a connection for its whole transaction, so a
+        // small pool makes concurrent orders queue behind each other.
+        const directConnectionLimit = getIntEnv('DB_DIRECT_CONNECTION_LIMIT', 20, 1, 100);
 
         if (isPooledHost) {
             parsed.searchParams.set('pgbouncer', 'true');
@@ -39,7 +61,7 @@ function buildPrismaDatabaseUrl(rawUrl: string, directUrl?: string): string {
             parsed.searchParams.set('pool_timeout', String(pooledPoolTimeout));
         }
 
-        // For non-pooled (direct) connections, keep a smaller default pool size.
+        // Direct endpoint: set the pool size measured above.
         if (!isPooledHost && !parsed.searchParams.has('connection_limit')) {
             parsed.searchParams.set('connection_limit', String(directConnectionLimit));
         }
@@ -51,10 +73,23 @@ function buildPrismaDatabaseUrl(rawUrl: string, directUrl?: string): string {
 }
 
 function createPrismaClient() {
+    const url = buildPrismaDatabaseUrl(env.DATABASE_URL, env.DATABASE_URL_DIRECT);
+
+    // Log which endpoint we actually dialled (never the credentials). Running the
+    // web server against the unpooled endpoint is a silent, hard-to-spot
+    // performance regression, so make it visible at boot.
+    try {
+        const parsed = new URL(url);
+        console.log(
+            `[db] host=${parsed.hostname} pooled=${parsed.hostname.includes('-pooler.')} ` +
+            `connection_limit=${parsed.searchParams.get('connection_limit') ?? 'default'}`,
+        );
+    } catch {
+        // Never let logging break startup.
+    }
+
     const client = new PrismaClient({
-        datasources: {
-            db: { url: buildPrismaDatabaseUrl(env.DATABASE_URL, env.DATABASE_URL_DIRECT) },
-        },
+        datasources: { db: { url } },
         log: env.NODE_ENV === 'development' && env.PRISMA_LOG_QUERIES
             ? [{ emit: 'stdout', level: 'query' }]
             : [],

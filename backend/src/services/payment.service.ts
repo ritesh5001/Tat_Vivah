@@ -157,6 +157,14 @@ export class PaymentService {
 
         const payableAmount = this.resolvePayableAmount(order as any);
 
+        // The merchant order id is generated locally, so it can be persisted in the
+        // same write that creates/resets the payment row. Writing it up front also
+        // closes a real gap: previously it was saved only AFTER PhonePe returned, so
+        // a crash in between left a live PhonePe order that no webhook could ever be
+        // matched to — a paid order that would never be confirmed.
+        const merchantOrderId = phonepeService.buildMerchantOrderId(orderId);
+        const redirectUrl = this.buildPhonePeRedirectUrl(orderId, platform);
+
         // Create/reset the payment row (reuse on retry).
         let payment;
         if (existingPayment) {
@@ -166,7 +174,7 @@ export class PaymentService {
                     status: PaymentStatus.INITIATED,
                     provider: PaymentProvider.PHONEPE,
                     amount: payableAmount,
-                    providerOrderId: null,
+                    providerOrderId: merchantOrderId,
                     providerPaymentId: null,
                     providerSignature: null,
                 },
@@ -179,17 +187,25 @@ export class PaymentService {
                 currency: 'INR',
                 provider: PaymentProvider.PHONEPE,
                 status: PaymentStatus.INITIATED,
+                providerOrderId: merchantOrderId,
             });
         }
 
-        await paymentRepository.createPaymentEvent({
-            paymentId: payment.id,
-            type: PaymentEventType.INITIATED,
-            payload: { provider: 'PHONEPE', amount: payableAmount },
-        });
-
-        const merchantOrderId = phonepeService.buildMerchantOrderId(orderId);
-        const redirectUrl = this.buildPhonePeRedirectUrl(orderId, platform);
+        // Audit trail only — nothing reads it on this path, and the payment row itself
+        // already records the status. Making the buyer wait several cross-region
+        // round-trips for it just delays the redirect to PhonePe.
+        void paymentRepository
+            .createPaymentEvent({
+                paymentId: payment.id,
+                type: PaymentEventType.INITIATED,
+                payload: { provider: 'PHONEPE', amount: payableAmount },
+            })
+            .catch((error) => {
+                paymentLogger.warn(
+                    { event: 'payment_event_write_failed', paymentId: payment.id, error },
+                    'Failed to record INITIATED payment event',
+                );
+            });
 
         const phonepeOrder = await phonepeService.createOrder(
             payableAmount,
@@ -198,7 +214,11 @@ export class PaymentService {
             { orderId, userId },
         );
 
-        await paymentRepository.updateProviderOrderId(payment.id, phonepeOrder.merchantOrderId);
+        // Normally PhonePe echoes back the id we sent, so this write is skipped
+        // entirely. Only reconcile if it ever differs.
+        if (phonepeOrder.merchantOrderId && phonepeOrder.merchantOrderId !== merchantOrderId) {
+            await paymentRepository.updateProviderOrderId(payment.id, phonepeOrder.merchantOrderId);
+        }
 
         return {
             paymentId: payment.id,

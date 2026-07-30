@@ -5,8 +5,25 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { verifyPhonePePayment } from "@/services/payments";
 
-const POLL_INTERVAL_MS = 3000;
-const MAX_POLLS = 20; // ~60s of PENDING before we hand off to the webhook
+/**
+ * Poll fast at first, then back off.
+ *
+ * A payment is usually already COMPLETED by the time PhonePe sends the buyer back,
+ * so the answer normally arrives on the first or second check. A flat 3s interval
+ * made people stare at a spinner for up to three extra seconds after their money had
+ * already moved. Backing off keeps the same overall window (~60s) without hammering
+ * PhonePe's status API for the rare payment that genuinely takes a while.
+ */
+function pollDelayMs(attempt: number): number {
+  if (attempt < 4) return 700;
+  if (attempt < 9) return 1500;
+  return 3000;
+}
+
+const MAX_POLLS = 26; // ~60s of PENDING before we hand off to the webhook
+
+/** How long to let the buyer see the success state before moving them on. */
+const SUCCESS_DWELL_MS = 1200;
 
 type Phase = "verifying" | "success" | "failed" | "pending";
 
@@ -58,7 +75,7 @@ function PhonePeCallbackContent() {
           setMessage("Payment successful. Your order is confirmed.");
           setTimeout(() => {
             if (!cancelled) router.push("/user/orders");
-          }, 2500);
+          }, SUCCESS_DWELL_MS);
           return;
         }
 
@@ -79,7 +96,7 @@ function PhonePeCallbackContent() {
         }
         setTimeout(() => {
           if (!cancelled) void check();
-        }, POLL_INTERVAL_MS);
+        }, pollDelayMs(attempts));
       } catch (error) {
         if (cancelled) return;
         setPhase("failed");
