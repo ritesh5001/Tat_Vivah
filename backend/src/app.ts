@@ -12,6 +12,8 @@ import {
 import { prisma } from './config/db.js';
 import { checkRedisConnection } from './config/redis.js';
 import { logger } from './config/logger.js';
+import { isPhonePeConfigured } from './services/phonepe.client.js';
+import { isGoKwikConfigured } from './services/gokwik.client.js';
 import type { IntegrityReport } from './jobs/inventoryIntegrity.js';
 import {
     authRouter,
@@ -239,6 +241,19 @@ export function createApp(): Application {
         checks.lastStaleCleanup = lastStaleCleanupAt
             ? lastStaleCleanupAt.toISOString()
             : null;
+
+        // Payment provider configuration (booleans only — never secrets).
+        // Lets us confirm which gateways are wired up on THIS deployment.
+        checks.payments = {
+            gokwik: isGoKwikConfigured(),
+            phonepe: {
+                configured: isPhonePeConfigured(),
+                env: env.PHONEPE_ENV,
+                webhookAuth: Boolean(env.PHONEPE_WEBHOOK_USERNAME && env.PHONEPE_WEBHOOK_PASSWORD),
+            },
+            razorpay: Boolean(env.RAZORPAY_KEY_ID && env.RAZORPAY_KEY_SECRET),
+            frontendBaseUrl: Boolean(env.FRONTEND_BASE_URL),
+        };
 
         const overallOk = (checks.db as any)?.status === 'ok'
             && (checks.redis as any)?.status === 'ok';

@@ -352,6 +352,11 @@ export default function CheckoutPage() {
 
       // ---- PhonePe: redirect flow — send the buyer to the hosted page ----
       if (usePhonePe) {
+        // If checkout-time init failed, surface the REAL backend reason
+        // (e.g. "PhonePe is not configured") instead of a generic message.
+        if (!orderResult.payment && orderResult.paymentInitError) {
+          throw new Error(orderResult.paymentInitError);
+        }
         const payment =
           orderResult.payment ?? (await initiatePayment(orderId, "PHONEPE")).data;
         if (!payment.redirectUrl) {
