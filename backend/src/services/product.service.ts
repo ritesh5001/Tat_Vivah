@@ -552,8 +552,28 @@ export class ProductService {
     ): Promise<SellerProductListResponse> {
         const page = Math.max(1, Math.trunc(params?.page ?? 1));
         const limit = Math.min(20, Math.max(1, Math.trunc(params?.limit ?? 20)));
+
+        // The seller's own product list was the slowest screen in the vendor panel and
+        // had no cache at all — CACHE_KEYS.SELLER_PRODUCTS existed but was never used.
+        // Prisma expands the category / variants / inventory includes into four
+        // sequential statements, which against a cross-region database is ~1.2s every
+        // time the seller opens or returns to the page.
+        //
+        // Correctness comes from invalidation, not expiry: the key lives under
+        // `products:seller:*`, which BOTH invalidateProductCaches() and
+        // invalidateSellerPrivateCaches() wipe. Every product/variant/stock mutation
+        // calls one of them, so a seller always sees their own edit immediately.
+        const cacheKey = CACHE_KEYS.SELLER_PRODUCTS(sellerId, page, limit);
+        const cached = await getFromCache<SellerProductListResponse>(cacheKey);
+        if (cached) {
+            return cached;
+        }
+
         const products = await this.productRepo.findBySellerId(sellerId, { page, limit });
-        return { products: products.map((product) => this.toSellerProduct(product)) };
+        const response = { products: products.map((product) => this.toSellerProduct(product)) };
+
+        await setCache(cacheKey, response, 300);
+        return response;
     }
 
     /**

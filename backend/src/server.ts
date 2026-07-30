@@ -8,6 +8,7 @@ import { runInventoryIntegrityCheck } from './jobs/inventoryIntegrity.js';
 import { hashPassword } from './utils/password.util.js';
 import { reelRepository } from './repositories/reel.repository.js';
 import { warmCatalogCaches } from './services/catalog-warmup.service.js';
+import { appointmentService } from './services/appointment.service.js';
 
 /** How often to run the stale-order cleanup (10 minutes). */
 const STALE_ORDER_INTERVAL_MS = 10 * 60 * 1000;
@@ -27,6 +28,11 @@ const WARMUP_REQUEST_TIMEOUT_MS = 8000;
  * the extra queries are irrelevant next to the latency they save shoppers.
  */
 const CATALOG_WARMUP_INTERVAL_MS = 4 * 60 * 1000;
+/**
+ * How often to sweep finished appointments to COMPLETED. This used to run inline
+ * on every appointment list request — a full-table scan plus writes on a read path.
+ */
+const APPOINTMENT_SWEEP_INTERVAL_MS = 5 * 60 * 1000;
 const DB_CONNECT_MAX_ATTEMPTS = 5;
 const DB_CONNECT_BACKOFF_MS = 2500;
 const STARTUP_DB_OPERATION_MAX_ATTEMPTS = 4;
@@ -252,6 +258,7 @@ async function bootstrap(): Promise<void> {
         let reelViewFlushTimer: NodeJS.Timeout | null = null;
         let warmupTimer: NodeJS.Timeout | null = null;
         let catalogWarmupTimer: NodeJS.Timeout | null = null;
+        let appointmentSweepTimer: NodeJS.Timeout | null = null;
 
         if (runBackgroundJobs) {
             // ---- Stale-order cleanup (runs every 10 min) ----
@@ -349,6 +356,12 @@ async function bootstrap(): Promise<void> {
                     logger.warn({ err }, 'Catalog warmup error');
                 });
             }, withIntervalJitter(CATALOG_WARMUP_INTERVAL_MS));
+
+            appointmentSweepTimer = setInterval(() => {
+                void appointmentService.autoCompletePastAppointments().catch((err) => {
+                    logger.warn({ err }, 'Appointment completion sweep error');
+                });
+            }, withIntervalJitter(APPOINTMENT_SWEEP_INTERVAL_MS));
         } else {
             logger.info({ instance: process.env['NODE_APP_INSTANCE'] }, 'Background jobs disabled on this instance');
         }
@@ -368,6 +381,7 @@ async function bootstrap(): Promise<void> {
             if (reelViewFlushTimer) clearInterval(reelViewFlushTimer);
             if (warmupTimer) clearInterval(warmupTimer);
             if (catalogWarmupTimer) clearInterval(catalogWarmupTimer);
+            if (appointmentSweepTimer) clearInterval(appointmentSweepTimer);
 
             server.close(async () => {
                 logger.info('HTTP server closed');
