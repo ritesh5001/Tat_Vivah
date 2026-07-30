@@ -184,7 +184,7 @@ export default function SellerRegisterPage() {
             <CardContent className="space-y-5">
               <form className="space-y-5" onSubmit={handleSubmit}>
                 <motion.div className="space-y-2" {...fadeInUp(0)}>
-                  <Label htmlFor="email" className={theme.label}>Business Email</Label>
+                  <Label htmlFor="email" required className={theme.label}>Business Email</Label>
                   <Input
                     id="email"
                     type="email"
@@ -195,7 +195,7 @@ export default function SellerRegisterPage() {
                   />
                 </motion.div>
                 <motion.div className="space-y-2" {...fadeInUp(1)}>
-                  <Label htmlFor="phone" className={theme.label}>Contact Number</Label>
+                  <Label htmlFor="phone" required className={theme.label}>Contact Number</Label>
                   <Input
                     id="phone"
                     type="tel"
@@ -210,7 +210,7 @@ export default function SellerRegisterPage() {
                   </p>
                 </motion.div>
                 <motion.div className="space-y-2" {...fadeInUp(2)}>
-                  <Label htmlFor="whatsappNumber" className={theme.label}>WhatsApp Number</Label>
+                  <Label htmlFor="whatsappNumber" required className={theme.label}>WhatsApp Number</Label>
                   <Input
                     id="whatsappNumber"
                     placeholder="9876543210"
@@ -221,7 +221,7 @@ export default function SellerRegisterPage() {
                 </motion.div>
                 <motion.div className="grid gap-4 sm:grid-cols-2" {...fadeInUp(3)}>
                   <div className="space-y-2">
-                    <Label htmlFor="password" className={theme.label}>Password</Label>
+                    <Label htmlFor="password" required className={theme.label}>Password</Label>
                     <div className="relative">
                       <Input
                         id="password"
@@ -241,7 +241,7 @@ export default function SellerRegisterPage() {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="confirm" className={theme.label}>Confirm Password</Label>
+                    <Label htmlFor="confirm" required className={theme.label}>Confirm Password</Label>
                     <div className="relative">
                       <Input
                         id="confirm"

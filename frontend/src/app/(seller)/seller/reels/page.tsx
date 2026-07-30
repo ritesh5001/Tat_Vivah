@@ -296,7 +296,7 @@ export default function SellerReelsPage() {
               <form onSubmit={handleCreate} className="space-y-4">
                 {/* Video Upload */}
                 <div>
-                  <Label>Video *</Label>
+                  <Label required>Video</Label>
                   {videoUrl ? (
                     <div className="mt-2 relative rounded-lg overflow-hidden border border-border">
                       <video
@@ -353,7 +353,7 @@ export default function SellerReelsPage() {
                 </div>
 
                 <div>
-                  <Label>Category *</Label>
+                  <Label required>Category</Label>
                   <select
                     className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
                     value={form.category}
@@ -436,7 +436,7 @@ export default function SellerReelsPage() {
                 </div>
 
                 <div>
-                  <Label>Category *</Label>
+                  <Label required>Category</Label>
                   <select
                     className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
                     value={editForm.category}

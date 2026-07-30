@@ -56,7 +56,7 @@ const CommissionFormFields = ({
 }) => (
   <div className="space-y-4">
     <div>
-      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Rule Scope *</Label>
+      <Label className="text-xs uppercase tracking-wider text-muted-foreground" required>Rule Scope</Label>
       <select
         value={values.scope}
         onChange={(e) => onChange("scope", e.target.value)}
@@ -70,7 +70,7 @@ const CommissionFormFields = ({
 
     {values.scope === "CATEGORY" && (
       <div>
-        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Category *</Label>
+        <Label className="text-xs uppercase tracking-wider text-muted-foreground" required>Category</Label>
         <select
           value={values.categoryId}
           onChange={(e) => onChange("categoryId", e.target.value)}
@@ -86,7 +86,7 @@ const CommissionFormFields = ({
 
     {values.scope === "SELLER" && (
       <div>
-        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Seller ID *</Label>
+        <Label className="text-xs uppercase tracking-wider text-muted-foreground" required>Seller ID</Label>
         <Input
           value={values.sellerId}
           onChange={(e) => onChange("sellerId", e.target.value)}
@@ -98,7 +98,7 @@ const CommissionFormFields = ({
 
     <div className="grid grid-cols-2 gap-4">
       <div>
-        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Commission % *</Label>
+        <Label className="text-xs uppercase tracking-wider text-muted-foreground" required>Commission %</Label>
         <Input
           type="number"
           min={0.01}

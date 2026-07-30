@@ -211,7 +211,7 @@ function AddressFormContent() {
 
               {/* Address Line 1 */}
               <div className="space-y-2">
-                <Label htmlFor="addressLine1">
+                <Label htmlFor="addressLine1" required>
                   Address Line 1 <span className="text-[#A67575]">*</span>
                 </Label>
                 <Input
@@ -239,7 +239,7 @@ function AddressFormContent() {
               {/* City + State row */}
               <div className="grid gap-6 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="city">
+                  <Label htmlFor="city" required>
                     City <span className="text-[#A67575]">*</span>
                   </Label>
                   <Input
@@ -252,7 +252,7 @@ function AddressFormContent() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="state">
+                  <Label htmlFor="state" required>
                     State <span className="text-[#A67575]">*</span>
                   </Label>
                   <select
@@ -274,7 +274,7 @@ function AddressFormContent() {
 
               {/* Pincode */}
               <div className="max-w-xs space-y-2">
-                <Label htmlFor="pincode">
+                <Label htmlFor="pincode" required>
                   Pincode <span className="text-[#A67575]">*</span>
                 </Label>
                 <Input

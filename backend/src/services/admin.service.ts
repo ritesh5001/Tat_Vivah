@@ -39,6 +39,7 @@ import {
     sanitizeVariantImages,
 } from './color-variant-images.service.js';
 import { calculateMargin } from '../utils/pricing.util.js';
+import { adminLogger } from '../config/logger.js';
 import { dispatchFreshness } from '../live/freshness.service.js';
 import { CACHE_TAGS, orderTag, productTag } from '../live/cache-tags.js';
 import type {
@@ -265,7 +266,9 @@ export class AdminService {
             }),
         ]);
 
-        await dispatchFreshness({
+        // Fire-and-forget: cache-freshness fan-out is a background concern, and making
+        // the admin's save wait on it added round-trips to an already slow request.
+        void dispatchFreshness({
             type: 'product.updated',
             entityId: productId,
             tags: [
@@ -276,6 +279,8 @@ export class AdminService {
                 productTag(productId),
             ],
             audience: { allAuthenticated: true },
+        }).catch((error) => {
+            adminLogger.warn({ productId, error }, 'product_update_freshness_dispatch_failed');
         });
 
         return {
@@ -564,8 +569,14 @@ export class AdminService {
 
         const variantUpdates: string[] = [];
         if (payload.variants && payload.variants.length > 0) {
+            // One batched read instead of findById() per variant — that loop was a
+            // sequential round-trip per variant before any write happened.
+            const variantsById = await variantRepository.findManyByIds(
+                payload.variants.map((entry) => entry.id),
+            );
+
             for (const variantInput of payload.variants) {
-                const variant = await variantRepository.findById(variantInput.id);
+                const variant = variantsById.get(variantInput.id);
                 if (!variant || variant.productId !== productId) {
                     throw ApiError.badRequest('One or more variant updates are invalid');
                 }
@@ -724,11 +735,16 @@ export class AdminService {
             throw ApiError.internal('Unable to reload product after updates');
         }
 
-        await this.auditSvc.logAction(actorId, 'PRODUCT_UPDATED', 'PRODUCT', productId, {
-            productTitle: product.title,
-            updatedFields,
-            variantUpdates,
-        });
+        // Audit trail — written asynchronously so it never sits on the save path.
+        void this.auditSvc
+            .logAction(actorId, 'PRODUCT_UPDATED', 'PRODUCT', productId, {
+                productTitle: product.title,
+                updatedFields,
+                variantUpdates,
+            })
+            .catch((error) => {
+                adminLogger.warn({ productId, actorId, error }, 'product_update_audit_log_failed');
+            });
 
         return {
             message: 'Product updated successfully',

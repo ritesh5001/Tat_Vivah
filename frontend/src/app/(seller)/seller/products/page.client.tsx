@@ -1359,7 +1359,7 @@ export default function SellerProductsClient({
                     {editingProductId === product.id && (
                       <div className="space-y-4 p-4 border border-dashed border-border-soft">
                         <div className="space-y-2">
-                          <Label>Audience</Label>
+                          <Label required>Audience</Label>
                           <div className="flex gap-2">
                             {(["MENS", "KIDS"] as const).map((opt) => (
                               <button
@@ -1383,7 +1383,7 @@ export default function SellerProductsClient({
                         </div>
                         <div className="grid gap-4 sm:grid-cols-2">
                           <div className="space-y-2">
-                            <Label>Category</Label>
+                            <Label required>Category</Label>
                             <select
                               className="h-12 w-full border border-border-soft bg-card px-3 text-sm text-foreground"
                               value={editForm.categoryId}
@@ -1404,7 +1404,7 @@ export default function SellerProductsClient({
                             </select>
                           </div>
                           <div className="space-y-2">
-                            <Label>Title</Label>
+                            <Label required>Title</Label>
                             <Input
                               value={editForm.title}
                               onChange={(event) =>
@@ -1664,7 +1664,7 @@ export default function SellerProductsClient({
                             {variantEditsOpen[variant.id] ? (
                               <div className="grid gap-3 sm:grid-cols-3 pt-4 border-t border-border-soft">
                                 <div className="space-y-1">
-                                  <Label className="text-xs">Size</Label>
+                                  <Label className="text-xs" required>Size</Label>
                                   <Input
                                     value={variantEdits[variant.id]?.size ?? ""}
                                     onChange={(event) =>
@@ -1677,7 +1677,7 @@ export default function SellerProductsClient({
                                   />
                                 </div>
                                 <div className="space-y-1">
-                                  <Label className="text-xs">SKU</Label>
+                                  <Label className="text-xs" required>SKU</Label>
                                   <Input
                                     value={variantEdits[variant.id]?.sku ?? ""}
                                     onChange={(event) =>
@@ -1703,7 +1703,7 @@ export default function SellerProductsClient({
                                   />
                                 </div>
                                 <div className="space-y-1">
-                                  <Label className="text-xs">Seller Price</Label>
+                                  <Label className="text-xs" required>Seller Price</Label>
                                   <Input
                                     value={variantEdits[variant.id]?.sellerPrice ?? ""}
                                     onChange={(event) =>
@@ -1732,7 +1732,7 @@ export default function SellerProductsClient({
                                   />
                                 </div>
                                 <div className="space-y-1">
-                                  <Label className="text-xs">Stock</Label>
+                                  <Label className="text-xs" required>Stock</Label>
                                   <Input
                                     value={
                                       stockEdits[variant.id] ??
@@ -1796,7 +1796,7 @@ export default function SellerProductsClient({
                       {activeProductId === product.id && (
                         <div className="grid gap-3 sm:grid-cols-2">
                           <div className="space-y-1">
-                            <Label className="text-xs">Size</Label>
+                            <Label className="text-xs" required>Size</Label>
                             <Input
                               placeholder="Size (e.g. M, 42)"
                               value={variantForm.size}
@@ -1824,7 +1824,7 @@ export default function SellerProductsClient({
                             />
                           </div>
                           <div className="space-y-1">
-                            <Label className="text-xs">SKU</Label>
+                            <Label className="text-xs" required>SKU</Label>
                             <Input
                               placeholder="SKU (e.g. KURTA-RED-M)"
                               value={variantForm.sku}
@@ -1838,7 +1838,7 @@ export default function SellerProductsClient({
                             />
                           </div>
                           <div className="space-y-1">
-                            <Label className="text-xs">Seller Price</Label>
+                            <Label className="text-xs" required>Seller Price</Label>
                             <Input
                               type="number"
                               inputMode="decimal"
@@ -1996,7 +1996,7 @@ export default function SellerProductsClient({
 
               <form className="space-y-6" onSubmit={handleCreateProduct}>
                 <div className="space-y-2">
-                  <Label>Audience</Label>
+                  <Label required>Audience</Label>
                   <div className="flex gap-2">
                     {(["MENS", "KIDS"] as const).map((opt) => (
                       <button
@@ -2019,7 +2019,7 @@ export default function SellerProductsClient({
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label>Category</Label>
+                    <Label required>Category</Label>
                     <select
                       className="h-12 w-full border border-border-soft bg-card px-3 text-sm text-foreground"
                       value={form.categoryId}
@@ -2039,7 +2039,7 @@ export default function SellerProductsClient({
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Title</Label>
+                    <Label required>Title</Label>
                     <Input
                       value={form.title}
                       onChange={(event) =>
@@ -2140,7 +2140,7 @@ export default function SellerProductsClient({
 
                         <div className="grid gap-3 sm:grid-cols-2">
                           <div className="space-y-1">
-                            <Label className="text-xs">Size</Label>
+                            <Label className="text-xs" required>Size</Label>
                             <Input
                               value={variant.size}
                               onChange={(event) =>
@@ -2164,7 +2164,7 @@ export default function SellerProductsClient({
                             />
                           </div>
                           <div className="space-y-1">
-                            <Label className="text-xs">SKU</Label>
+                            <Label className="text-xs" required>SKU</Label>
                             <Input
                               value={variant.sku}
                               onChange={(event) =>
@@ -2191,7 +2191,7 @@ export default function SellerProductsClient({
                             />
                           </div>
                           <div className="space-y-1">
-                            <Label className="text-xs">Seller Price</Label>
+                            <Label className="text-xs" required>Seller Price</Label>
                             <Input
                               type="number"
                               min="1"

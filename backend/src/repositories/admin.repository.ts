@@ -484,34 +484,45 @@ export class AdminRepository {
      * Find product by ID with moderation info
      */
     async findProductById(id: string): Promise<AdminProduct | null> {
-        const product = await prisma.product.findUnique({
-            where: { id },
-            include: {
-                seller: {
-                    select: {
-                        email: true,
-                        phone: true,
-                        seller_profiles: {
-                            select: {
-                                store_name: true,
-                            },
-                        },
-                    },
-                },
-                category: { select: { name: true } },
-                occasions: {
-                    select: {
-                        occasionId: true,
-                    },
-                },
-                variants: {
-                    include: { inventory: true },
-                    orderBy: { createdAt: 'asc' },
-                },
-            },
-        });
+        // Same 3-statement path as findAllProducts (see hydrateAdminProductRows).
+        // The nested-include version cost seven round-trips, and this method runs
+        // twice on every admin product save.
+        const productRows = await prisma.$queryRaw<Array<Record<string, any>>>`
+            SELECT
+                p."id", p."title", p."description", p."images",
+                p."seller_id"                AS "sellerId",
+                p."category_id"              AS "categoryId",
+                p."audience"::text           AS "audience",
+                p."seller_price"             AS "sellerPrice",
+                p."admin_listing_price"      AS "adminListingPrice",
+                p."price_approved_at"        AS "priceApprovedAt",
+                p."price_approved_by_id"     AS "priceApprovedById",
+                p."status"::text             AS "status",
+                p."rejection_reason"         AS "rejectionReason",
+                p."approved_at"              AS "approvedAt",
+                p."approved_by_id"           AS "approvedById",
+                p."is_published"             AS "isPublished",
+                p."deleted_by_admin"         AS "deletedByAdmin",
+                p."deleted_by_admin_at"      AS "deletedByAdminAt",
+                p."deleted_by_admin_reason"  AS "deletedByAdminReason",
+                p."created_at"               AS "createdAt",
+                u."email"                    AS "sellerEmail",
+                u."phone"                    AS "sellerPhone",
+                sp."store_name"              AS "sellerName",
+                c."name"                     AS "categoryName"
+            FROM "products" p
+            LEFT JOIN "users" u            ON u."id"       = p."seller_id"
+            LEFT JOIN "seller_profiles" sp ON sp."user_id" = p."seller_id"
+            LEFT JOIN "categories" c       ON c."id"       = p."category_id"
+            WHERE p."id" = ${id}
+        `;
 
+        if (productRows.length === 0) return null;
+
+        const hydrated = await this.hydrateAdminProductRows(productRows);
+        const product = hydrated[0];
         if (!product) return null;
+
 
         return {
             id: product.id,
@@ -533,7 +544,7 @@ export class AdminRepository {
             rejectionReason: product.rejectionReason,
             approvedAt: product.approvedAt,
             approvedById: product.approvedById,
-            variants: product.variants.map((variant) => ({
+            variants: product.variants.map((variant: any) => ({
                 id: variant.id,
                 size: variant.size,
                 color: variant.color,
@@ -566,52 +577,19 @@ export class AdminRepository {
     /**
      * List all products for admin view
      */
-    async findAllProducts(params?: PaginationParams & { audience?: 'MENS' | 'KIDS' }): Promise<AdminProduct[]> {
-        const { skip, take } = resolvePagination(params);
 
-        // Written as explicit JOINs rather than nested `include`s. Prisma 4 resolves
-        // every relation with its own statement, so the equivalent typed query cost
-        // seven sequential round-trips (products, users, seller_profiles, categories,
-        // product_occasions, product_variants, inventory). Against a cross-region
-        // database that is seconds of pure waiting on the admin's slowest screen.
-        // This is three statements, two of which run concurrently.
-        const audience = params?.audience;
-
-        const productRows = await prisma.$queryRawUnsafe<Array<Record<string, any>>>(
-            `
-            SELECT
-                p."id", p."title", p."description", p."images",
-                p."seller_id"                AS "sellerId",
-                p."category_id"              AS "categoryId",
-                p."audience"::text           AS "audience",
-                p."seller_price"             AS "sellerPrice",
-                p."admin_listing_price"      AS "adminListingPrice",
-                p."price_approved_at"        AS "priceApprovedAt",
-                p."price_approved_by_id"     AS "priceApprovedById",
-                p."status"::text             AS "status",
-                p."rejection_reason"         AS "rejectionReason",
-                p."approved_at"              AS "approvedAt",
-                p."approved_by_id"           AS "approvedById",
-                p."is_published"             AS "isPublished",
-                p."deleted_by_admin"         AS "deletedByAdmin",
-                p."deleted_by_admin_at"      AS "deletedByAdminAt",
-                p."deleted_by_admin_reason"  AS "deletedByAdminReason",
-                p."created_at"               AS "createdAt",
-                u."email"                    AS "sellerEmail",
-                u."phone"                    AS "sellerPhone",
-                sp."store_name"              AS "sellerName",
-                c."name"                     AS "categoryName"
-            FROM "products" p
-            LEFT JOIN "users" u            ON u."id"       = p."seller_id"
-            LEFT JOIN "seller_profiles" sp ON sp."user_id" = p."seller_id"
-            LEFT JOIN "categories" c       ON c."id"       = p."category_id"
-            ${audience ? `WHERE p."audience" = $3::"ProductAudience"` : ''}
-            ORDER BY p."created_at" DESC
-            LIMIT $1 OFFSET $2
-            `,
-            ...(audience ? [take, skip, audience] : [take, skip]),
-        );
-
+    /**
+     * Given raw product rows (already joined with seller + category), attach their
+     * variants/inventory and occasions with two further statements and reshape into
+     * the structure the old nested-include query produced.
+     *
+     * Shared by findAllProducts and findProductById so a single-product read costs
+     * three round-trips instead of seven. findProductById runs twice on every admin
+     * product save, so on its own it accounted for fourteen statements.
+     */
+    private async hydrateAdminProductRows(
+        productRows: Array<Record<string, any>>,
+    ): Promise<any[]> {
         const productIds = productRows.map((row) => row['id'] as string);
 
         // Nothing on this page — skip the follow-up queries entirely.
@@ -676,6 +654,56 @@ export class AdminRepository {
                 inventory: { stock: Number(variant['stock'] ?? 0) },
             })),
         })) as any[];
+        return products;
+    }
+
+    async findAllProducts(params?: PaginationParams & { audience?: 'MENS' | 'KIDS' }): Promise<AdminProduct[]> {
+        const { skip, take } = resolvePagination(params);
+
+        // Written as explicit JOINs rather than nested `include`s. Prisma 4 resolves
+        // every relation with its own statement, so the equivalent typed query cost
+        // seven sequential round-trips (products, users, seller_profiles, categories,
+        // product_occasions, product_variants, inventory). Against a cross-region
+        // database that is seconds of pure waiting on the admin's slowest screen.
+        // This is three statements, two of which run concurrently.
+        const audience = params?.audience;
+
+        const productRows = await prisma.$queryRawUnsafe<Array<Record<string, any>>>(
+            `
+            SELECT
+                p."id", p."title", p."description", p."images",
+                p."seller_id"                AS "sellerId",
+                p."category_id"              AS "categoryId",
+                p."audience"::text           AS "audience",
+                p."seller_price"             AS "sellerPrice",
+                p."admin_listing_price"      AS "adminListingPrice",
+                p."price_approved_at"        AS "priceApprovedAt",
+                p."price_approved_by_id"     AS "priceApprovedById",
+                p."status"::text             AS "status",
+                p."rejection_reason"         AS "rejectionReason",
+                p."approved_at"              AS "approvedAt",
+                p."approved_by_id"           AS "approvedById",
+                p."is_published"             AS "isPublished",
+                p."deleted_by_admin"         AS "deletedByAdmin",
+                p."deleted_by_admin_at"      AS "deletedByAdminAt",
+                p."deleted_by_admin_reason"  AS "deletedByAdminReason",
+                p."created_at"               AS "createdAt",
+                u."email"                    AS "sellerEmail",
+                u."phone"                    AS "sellerPhone",
+                sp."store_name"              AS "sellerName",
+                c."name"                     AS "categoryName"
+            FROM "products" p
+            LEFT JOIN "users" u            ON u."id"       = p."seller_id"
+            LEFT JOIN "seller_profiles" sp ON sp."user_id" = p."seller_id"
+            LEFT JOIN "categories" c       ON c."id"       = p."category_id"
+            ${audience ? `WHERE p."audience" = $3::"ProductAudience"` : ''}
+            ORDER BY p."created_at" DESC
+            LIMIT $1 OFFSET $2
+            `,
+            ...(audience ? [take, skip, audience] : [take, skip]),
+        );
+
+        const products = await this.hydrateAdminProductRows(productRows);
 
         return products.map((product) => ({
             id: product.id,

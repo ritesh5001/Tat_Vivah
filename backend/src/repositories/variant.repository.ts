@@ -90,6 +90,36 @@ export class VariantRepository {
     }
 
     /**
+     * Fetch many variants at once, keyed by id.
+     *
+     * Exists to kill an N+1: the admin product-update loop called findById() once per
+     * variant, so editing a product with N variants cost N sequential round-trips
+     * before a single write happened.
+     */
+    async findManyByIds(ids: string[]): Promise<Map<string, ProductVariantEntity>> {
+        if (ids.length === 0) return new Map();
+
+        const variants = await prisma.productVariant.findMany({
+            where: { id: { in: ids } },
+        });
+
+        return new Map(
+            variants.map((variant) => [
+                variant.id,
+                {
+                    ...variant,
+                    sellerPrice: Number(variant.sellerPrice),
+                    adminListingPrice:
+                        variant.adminListingPrice == null ? null : Number(variant.adminListingPrice),
+                    price: Number(variant.price),
+                    compareAtPrice:
+                        variant.compareAtPrice == null ? null : Number(variant.compareAtPrice),
+                } as ProductVariantEntity,
+            ]),
+        );
+    }
+
+    /**
      * Find variant by ID with inventory
      */
     async findByIdWithInventory(id: string): Promise<VariantWithInventory | null> {

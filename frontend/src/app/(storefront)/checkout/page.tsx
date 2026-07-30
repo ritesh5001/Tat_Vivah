@@ -198,7 +198,27 @@ export default function CheckoutPage() {
 
   const handleCheckout = async () => {
     if (isPaying) return; // Prevent double-submit
-    if (shipping.pincode && !/^\d{6}$/.test(shipping.pincode.trim())) {
+    // These are the fields the order genuinely cannot ship without, and they are
+    // the ones marked with a red asterisk. Only the pincode was previously checked,
+    // so an order could be placed with no name or address at all.
+    const missing = (
+      [
+        ["Full name", shipping.name],
+        ["Phone", shipping.phone],
+        ["Address", shipping.addressLine1],
+        ["City", shipping.city],
+        ["Pincode", shipping.pincode],
+      ] as const
+    )
+      .filter(([, value]) => !value?.trim())
+      .map(([field]) => field);
+
+    if (missing.length > 0) {
+      toast.error(`Please fill in: ${missing.join(", ")}`);
+      return;
+    }
+
+    if (!/^\d{6}$/.test(shipping.pincode.trim())) {
       toast.error("Please enter a valid 6-digit pincode");
       return;
     }
@@ -440,7 +460,7 @@ export default function CheckoutPage() {
               <div className="space-y-6">
                 <div className="grid gap-6 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="name">Full Name</Label>
+                    <Label htmlFor="name" required>Full Name</Label>
                     <Input
                       id="name"
                       placeholder="Aarav Sharma"
@@ -454,7 +474,7 @@ export default function CheckoutPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="phone">Phone</Label>
+                    <Label htmlFor="phone" required>Phone</Label>
                     <Input
                       id="phone"
                       placeholder="+91 97696 59709"
@@ -488,7 +508,7 @@ export default function CheckoutPage() {
 
                 <div className="grid gap-6 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="address">Address Line 1</Label>
+                    <Label htmlFor="address" required>Address Line 1</Label>
                     <Input
                       id="address"
                       placeholder="House no, street"
@@ -502,7 +522,7 @@ export default function CheckoutPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="pincode">Pincode</Label>
+                    <Label htmlFor="pincode" required>Pincode</Label>
                     <Input
                       id="pincode"
                       placeholder="380001"
@@ -518,7 +538,7 @@ export default function CheckoutPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="city">City</Label>
+                    <Label htmlFor="city" required>City</Label>
                     <Input
                       id="city"
                       placeholder="Ahmedabad"

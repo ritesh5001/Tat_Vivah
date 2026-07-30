@@ -45,7 +45,7 @@ const CouponFormFields = ({
   <div className="space-y-4">
     <div className="grid grid-cols-2 gap-4">
       <div>
-        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Code *</Label>
+        <Label className="text-xs uppercase tracking-wider text-muted-foreground" required>Code</Label>
         <Input
           value={values.code ?? ""}
           onChange={(e) => onChange("code", e.target.value.toUpperCase())}
@@ -54,7 +54,7 @@ const CouponFormFields = ({
         />
       </div>
       <div>
-        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Type *</Label>
+        <Label className="text-xs uppercase tracking-wider text-muted-foreground" required>Type</Label>
         <select
           value={values.type ?? "PERCENT"}
           onChange={(e) => onChange("type", e.target.value)}
@@ -68,8 +68,8 @@ const CouponFormFields = ({
 
     <div className="grid grid-cols-2 gap-4">
       <div>
-        <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-          Value * {values.type === "PERCENT" ? "(%)" : "(₹)"}
+        <Label className="text-xs uppercase tracking-wider text-muted-foreground" required>
+          Value {values.type === "PERCENT" ? "(%)" : "(₹)"}
         </Label>
         <Input
           type="number"
@@ -131,7 +131,7 @@ const CouponFormFields = ({
 
     <div className="grid grid-cols-2 gap-4">
       <div>
-        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Valid From *</Label>
+        <Label className="text-xs uppercase tracking-wider text-muted-foreground" required>Valid From</Label>
         <Input
           type="datetime-local"
           value={values.validFrom ?? ""}
@@ -140,7 +140,7 @@ const CouponFormFields = ({
         />
       </div>
       <div>
-        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Valid Until *</Label>
+        <Label className="text-xs uppercase tracking-wider text-muted-foreground" required>Valid Until</Label>
         <Input
           type="datetime-local"
           value={values.validUntil ?? ""}

@@ -73,7 +73,7 @@ const CategoryFormFields = ({
 }) => (
   <div className="space-y-4">
     <div>
-      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Name *</Label>
+      <Label className="text-xs uppercase tracking-wider text-muted-foreground" required>Name</Label>
       <Input value={values.name ?? ""} onChange={(e) => onChange("name", e.target.value)} className="mt-1 h-11" placeholder="Category name" />
     </div>
     <div>

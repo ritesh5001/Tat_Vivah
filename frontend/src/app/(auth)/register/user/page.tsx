@@ -158,7 +158,7 @@ export default function UserRegisterPage() {
             <CardContent className="space-y-5">
               <form className="space-y-5" onSubmit={handleSubmit}>
                 <div className="space-y-2">
-                  <Label htmlFor="name">Full name</Label>
+                  <Label htmlFor="name" required>Full name</Label>
                   <Input
                     id="name"
                     placeholder="Aarav Sharma"
@@ -167,7 +167,7 @@ export default function UserRegisterPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email address</Label>
+                  <Label htmlFor="email" required>Email address</Label>
                   <Input
                     id="email"
                     type="email"
@@ -177,7 +177,7 @@ export default function UserRegisterPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="phone">Mobile number</Label>
+                  <Label htmlFor="phone" required>Mobile number</Label>
                   <Input
                     id="phone"
                     type="tel"
@@ -192,7 +192,7 @@ export default function UserRegisterPage() {
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="password">Password</Label>
+                    <Label htmlFor="password" required>Password</Label>
                     <div className="relative">
                       <Input
                         id="password"
@@ -214,7 +214,7 @@ export default function UserRegisterPage() {
                     </p>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="confirm">Confirm password</Label>
+                    <Label htmlFor="confirm" required>Confirm password</Label>
                     <div className="relative">
                       <Input
                         id="confirm"

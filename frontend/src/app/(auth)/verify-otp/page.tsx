@@ -146,7 +146,7 @@ function VerifyOtpContent() {
             <CardContent className="space-y-5">
               <form className="space-y-5" onSubmit={handleVerify}>
                 <div className="space-y-2">
-                  <Label htmlFor="identifier">Mobile number</Label>
+                  <Label htmlFor="identifier" required>Mobile number</Label>
                   <Input
                     id="identifier"
                     type="tel"
@@ -158,7 +158,7 @@ function VerifyOtpContent() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="otp">OTP</Label>
+                  <Label htmlFor="otp" required>OTP</Label>
                   <Input
                     id="otp"
                     placeholder="Enter 6-digit OTP"

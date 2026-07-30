@@ -6,6 +6,7 @@ import { Search, X } from "lucide-react";
 import ImageKit from "imagekit-javascript";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { RequiredMark } from "@/components/ui/label";
 import { deleteProduct, getAllProducts, updateProductDetails } from "@/services/admin";
 import type {
   AdminProductUpdatePayload,
@@ -619,6 +620,17 @@ export default function AdminProductsClient({
     const sanitizedImages = editImages
       .map((url) => url.trim())
       .filter(Boolean);
+    // Marked required in the form, so enforce it here — previously a listing could
+    // be saved with an empty title or no category.
+    if (!editForm.title.trim()) {
+      toast.error("Title is required.");
+      return;
+    }
+    if (!editForm.categoryId) {
+      toast.error("Please select a category.");
+      return;
+    }
+
     if (sanitizedImages.length === 0) {
       toast.error("Add at least one product image.");
       return;
@@ -721,12 +733,21 @@ export default function AdminProductsClient({
     setIsSavingEdit(true);
     try {
       await updateProductDetails(editingProduct.id, payload);
-      toast.success("Product updated successfully.");
+
+      toast.success(`"${editingProduct.title}" saved.`, {
+        description: "Your changes are live.",
+        duration: 5000,
+      });
       resetEditModalState();
-      await mutate();
+
+      // Refresh the list in the background. Awaiting it kept the spinner running
+      // through a full re-fetch of a list the save had just invalidated, so the
+      // admin sat watching a "saving" state long after the save had finished.
+      void mutate();
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Unable to save product"
+        error instanceof Error ? error.message : "Unable to save product",
+        { duration: 8000 }
       );
     } finally {
       setIsSavingEdit(false);
@@ -1276,7 +1297,7 @@ export default function AdminProductsClient({
               <div className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-1">
                   <label className="flex flex-col gap-2 text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
-                    Category
+                    <span>Category<RequiredMark /></span>
                     <select
                       value={editForm.categoryId}
                       onChange={(event) =>
@@ -1335,7 +1356,7 @@ export default function AdminProductsClient({
                 </div>
 
                 <label className="flex flex-col gap-2 text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
-                  Title
+                  <span>Title<RequiredMark /></span>
                   <Input
                     value={editForm.title}
                     onChange={(event) =>
@@ -1533,7 +1554,7 @@ export default function AdminProductsClient({
                           </p>
                           <div className="mt-3 grid gap-3 md:grid-cols-3">
                             <label className="flex flex-col gap-2 text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
-                              Size
+                              <span>Size<RequiredMark /></span>
                               <Input
                                 value={
                                   variantEditValues[variant.id]?.size ??
@@ -1549,7 +1570,7 @@ export default function AdminProductsClient({
                               />
                             </label>
                             <label className="flex flex-col gap-2 text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
-                              SKU
+                              <span>SKU<RequiredMark /></span>
                               <Input
                                 value={
                                   variantEditValues[variant.id]?.sku ??
@@ -1586,7 +1607,7 @@ export default function AdminProductsClient({
                               </select>
                             </label>
                             <label className="flex flex-col gap-2 text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
-                              Seller Price
+                              <span>Seller Price<RequiredMark /></span>
                               <Input
                                 type="number"
                                 min="1"
@@ -1607,7 +1628,7 @@ export default function AdminProductsClient({
                               />
                             </label>
                             <label className="flex flex-col gap-2 text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
-                              Admin Price
+                              <span>Admin Price<RequiredMark /></span>
                               <Input
                                 type="number"
                                 min="0"
@@ -1649,7 +1670,7 @@ export default function AdminProductsClient({
                               />
                             </label>
                             <label className="flex flex-col gap-2 text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
-                              Stock
+                              <span>Stock<RequiredMark /></span>
                               <Input
                                 type="number"
                                 min="0"

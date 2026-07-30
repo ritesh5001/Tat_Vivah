@@ -293,7 +293,7 @@ export default function LoginPage() {
 
                 {/* Unified identifier input – auto-detects phone vs email */}
                 <div className="space-y-2">
-                  <Label htmlFor="identifier">{identifierLabel}</Label>
+                  <Label htmlFor="identifier" required>{identifierLabel}</Label>
                   <Input
                     id="identifier"
                     type={isMainPortal && inputType === "phone" ? "tel" : "text"}
@@ -310,7 +310,7 @@ export default function LoginPage() {
                 {/* Password field – shown once identifier type is known and not in OTP mode */}
                 {showPasswordField && (
                   <div className="space-y-2">
-                    <Label htmlFor="password">Password</Label>
+                    <Label htmlFor="password" required>Password</Label>
                     <div className="relative">
                       <Input
                         id="password"

@@ -119,7 +119,7 @@ export default function ForgotPasswordPage() {
             <CardContent className="space-y-6">
               <form className="space-y-5" onSubmit={handleSubmit}>
                 <div className="space-y-2">
-                  <Label htmlFor="phone">Mobile Number</Label>
+                  <Label htmlFor="phone" required>Mobile Number</Label>
                   <Input
                     id="phone"
                     type="tel"

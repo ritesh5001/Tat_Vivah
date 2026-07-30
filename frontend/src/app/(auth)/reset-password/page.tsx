@@ -143,7 +143,7 @@ function ResetPasswordContent() {
               <form className="space-y-5" onSubmit={handleSubmit}>
                 {/* Mobile number (readonly) */}
                 <div className="space-y-2">
-                  <Label htmlFor="phone">Mobile Number</Label>
+                  <Label htmlFor="phone" required>Mobile Number</Label>
                   <Input
                     id="phone"
                     type="tel"
@@ -155,7 +155,7 @@ function ResetPasswordContent() {
 
                 {/* OTP */}
                 <div className="space-y-2">
-                  <Label htmlFor="otp">OTP</Label>
+                  <Label htmlFor="otp" required>OTP</Label>
                   <Input
                     id="otp"
                     placeholder="Enter 6-digit OTP"
@@ -171,7 +171,7 @@ function ResetPasswordContent() {
 
                 {/* New Password */}
                 <div className="space-y-2">
-                  <Label htmlFor="newPassword">New Password</Label>
+                  <Label htmlFor="newPassword" required>New Password</Label>
                   <div className="relative">
                     <Input
                       id="newPassword"
@@ -197,7 +197,7 @@ function ResetPasswordContent() {
 
                 {/* Confirm Password */}
                 <div className="space-y-2">
-                  <Label htmlFor="confirmPassword">Confirm Password</Label>
+                  <Label htmlFor="confirmPassword" required>Confirm Password</Label>
                   <div className="relative">
                     <Input
                       id="confirmPassword"
