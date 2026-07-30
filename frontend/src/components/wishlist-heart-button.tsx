@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { toggleWishlistItem, checkWishlistItems } from "@/services/wishlist";
 import { startNavigationFeedback } from "@/lib/navigation-feedback";
+import { loginUrlWithReturn } from "@/lib/login-redirect";
 
 interface WishlistHeartButtonProps {
   productId: string;
@@ -53,7 +54,7 @@ export function WishlistHeartButton({
     if (!hasAuthSession()) {
       toast.error("Please sign in to save items.");
       startNavigationFeedback();
-      router.push("/login?force=1");
+      router.push(loginUrlWithReturn());
       return;
     }
 

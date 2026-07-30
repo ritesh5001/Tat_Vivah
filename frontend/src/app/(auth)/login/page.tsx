@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { loginUser, persistAuthCookies, requestAuthOtp } from "@/services/auth";
 import { KwikPassLogin } from "@/components/auth/kwikpass-login";
 import { isKwikPassEnabled } from "@/components/auth/kwikpass-provider";
+import { buyerReturnPath } from "@/lib/login-redirect";
 import { toast } from "sonner";
 import {
   getSubdomain,
@@ -169,7 +170,10 @@ export default function LoginPage() {
         console.info("[auth-ui][login] otp-request", { inputType });
         await requestAuthOtp({ phone: normalizedPhone });
         toast.success("OTP sent to your WhatsApp number.");
-        router.replace(`/verify-otp?phone=${encodeURIComponent(normalizedPhone)}`);
+        // Carry the return target through the OTP step.
+        const ret = buyerReturnPath();
+        const retParam = ret !== "/" ? `&redirect=${encodeURIComponent(ret)}` : "";
+        router.replace(`/verify-otp?phone=${encodeURIComponent(normalizedPhone)}${retParam}`);
         return;
       }
 
@@ -202,14 +206,17 @@ export default function LoginPage() {
       persistAuthCookies(result.accessToken, result.refreshToken, result.user);
       toast.success(content.successToast);
 
-      const redirectMap: Record<string, string> = {
+      // Staff go to their dashboards. Buyers return to wherever they came from
+      // (a `redirect` param set when a protected action bounced them here), or
+      // to the homepage — never the account dashboard.
+      const staffDestination: Record<string, string> = {
         ADMIN: "/admin/dashboard",
         SUPER_ADMIN: "/admin/dashboard",
         SELLER: "/seller/dashboard",
-        USER: "/user/dashboard",
       };
 
-      router.replace(redirectMap[role] ?? "/");
+      const destination = staffDestination[role] ?? buyerReturnPath();
+      router.replace(destination);
     } catch (error) {
       console.error("[auth-ui][login] error", error);
       
@@ -281,7 +288,7 @@ export default function LoginPage() {
                   the password flow, so it is hidden on those portals. */}
               {isMainPortal && isKwikPassEnabled() && (
                 <>
-                  <KwikPassLogin redirectTo="/user/dashboard" />
+                  <KwikPassLogin redirectTo={buyerReturnPath()} />
                   <div className="flex items-center gap-3">
                     <span className="h-px flex-1 bg-border-soft" />
                     <span className="text-[10px] uppercase tracking-wider text-muted-foreground">

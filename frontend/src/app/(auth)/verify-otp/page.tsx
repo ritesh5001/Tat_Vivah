@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { requestAuthOtp, verifyAuthOtp, persistAuthCookies } from "@/services/auth";
 import { toast } from "sonner";
 import { heroContainerVariants, heroItemVariants } from "@/lib/motion.config";
+import { buyerReturnPath } from "@/lib/login-redirect";
 
 function VerifyOtpContent() {
   const router = useRouter();
@@ -49,14 +50,14 @@ function VerifyOtpContent() {
         toast.success("Number verified successfully.");
 
         const role = result.user.role?.toUpperCase();
-        const redirectMap: Record<string, string> = {
+        // Staff → dashboards; buyers → where they came from, else homepage.
+        const staffDestination: Record<string, string> = {
           ADMIN: "/admin/dashboard",
           SUPER_ADMIN: "/admin/dashboard",
           SELLER: "/seller/dashboard",
-          USER: "/user/dashboard",
         };
 
-        router.push(redirectMap[role] ?? "/");
+        router.push(staffDestination[role] ?? buyerReturnPath());
       } else {
         toast.success(result.message ?? `Number verified. Await admin approval.`);
         router.push("/login");

@@ -11,6 +11,7 @@ import { toggleWishlistItem, checkWishlistItems } from "@/services/wishlist";
 import { createAppointment } from "@/services/appointments";
 import { startNavigationFeedback } from "@/lib/navigation-feedback";
 import { upsertCheckoutSnapshotItem } from "@/lib/checkout-snapshot";
+import { loginUrlWithReturn } from "@/lib/login-redirect";
 
 interface Variant {
   id: string;
@@ -223,7 +224,7 @@ export default function ProductDetailClient({
     if (!hasAuthSession()) {
       toast.error("Please sign in to save items.");
       startNavigationFeedback();
-      router.push("/login?force=1");
+      router.push(loginUrlWithReturn());
       return;
     }
     setWishlistLoading(true);
@@ -313,7 +314,7 @@ export default function ProductDetailClient({
     if (!hasAuthSession()) {
       toast.error("Please sign in to add items to cart.");
       startNavigationFeedback();
-      router.push("/login?force=1");
+      router.push(loginUrlWithReturn());
       return;
     }
 
@@ -331,7 +332,7 @@ export default function ProductDetailClient({
       if (/access token required|unauthorized/i.test(message)) {
         toast.error("Please sign in to add items to cart.");
         startNavigationFeedback();
-        router.push("/login?force=1");
+        router.push(loginUrlWithReturn());
         return;
       }
       toast.error(message);
@@ -349,7 +350,7 @@ export default function ProductDetailClient({
     if (!hasAuthSession()) {
       toast.error("Please sign in to continue.");
       startNavigationFeedback();
-      router.push("/login?force=1");
+      router.push(loginUrlWithReturn());
       return;
     }
 
@@ -373,7 +374,7 @@ export default function ProductDetailClient({
       if (/access token required|unauthorized/i.test(message)) {
         toast.error("Please sign in to continue.");
         startNavigationFeedback();
-        router.push("/login?force=1");
+        router.push(loginUrlWithReturn());
         return;
       }
       toast.error(message);
@@ -420,7 +421,7 @@ export default function ProductDetailClient({
     if (!hasToken || role !== "USER") {
       toast.error("Please sign in as a customer to book a video call.");
       startNavigationFeedback();
-      router.push("/login?force=1");
+      router.push(loginUrlWithReturn());
       return;
     }
 

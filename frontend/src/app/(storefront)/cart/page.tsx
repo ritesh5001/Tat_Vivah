@@ -15,6 +15,7 @@ import { getShippingConfig } from "@/services/shipments";
 import { toast } from "sonner";
 import { startNavigationFeedback } from "@/lib/navigation-feedback";
 import { persistCheckoutCartSnapshot } from "@/lib/checkout-snapshot";
+import { loginUrlWithReturn } from "@/lib/login-redirect";
 
 const currency = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -57,7 +58,7 @@ export default function CartPage() {
       if (/access token required|unauthorized|authentication/i.test(message)) {
         toast.error("Please sign in to view your cart.");
         startNavigationFeedback();
-        router.push("/login?force=1");
+        router.push(loginUrlWithReturn());
         return;
       }
       toast.error(message);
@@ -79,7 +80,7 @@ export default function CartPage() {
     if (!token) {
       toast.error("Please sign in to view your cart.");
       startNavigationFeedback();
-      router.push("/login?force=1");
+      router.push(loginUrlWithReturn());
       return;
     }
 
