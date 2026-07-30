@@ -3,6 +3,7 @@ import { PaymentProvider } from '@prisma/client';
 import { checkoutService } from '../services/checkout.service.js';
 import { paymentService } from '../services/payment.service.js';
 import { paymentLogger } from '../config/logger.js';
+import { recordLastPaymentError } from '../monitoring/last-payment-error.js';
 
 /**
  * Checkout Controller
@@ -52,16 +53,23 @@ export class CheckoutController {
             } catch (paymentError) {
                 // Order is already placed at this point; return order and let client fallback to explicit initiate endpoint.
                 // Log the real cause — otherwise this failure is invisible in prod.
+                const errMessage = paymentError instanceof Error ? paymentError.message : String(paymentError);
                 paymentLogger.error(
                     {
                         event: 'checkout_payment_init_failed',
                         provider,
                         orderId: result.order.id,
-                        error: paymentError instanceof Error ? paymentError.message : String(paymentError),
+                        error: errMessage,
                         stack: paymentError instanceof Error ? paymentError.stack : undefined,
                     },
                     'Payment initiation failed during checkout',
                 );
+                recordLastPaymentError({
+                    provider,
+                    orderId: result.order.id,
+                    message: errMessage,
+                    stack: paymentError instanceof Error ? paymentError.stack : undefined,
+                });
                 res.status(201).json({
                     ...result,
                     payment: null,

@@ -13,6 +13,7 @@ import { prisma } from './config/db.js';
 import { checkRedisConnection } from './config/redis.js';
 import { logger } from './config/logger.js';
 import { isPhonePeConfigured, phonePeSelfTest } from './services/phonepe.client.js';
+import { getLastPaymentError } from './monitoring/last-payment-error.js';
 import { isGoKwikConfigured } from './services/gokwik.client.js';
 import type { IntegrityReport } from './jobs/inventoryIntegrity.js';
 import {
@@ -280,7 +281,7 @@ export function createApp(): Application {
         }
         const result = await phonePeSelfTest();
         res.set('Cache-Control', 'no-store');
-        res.json(result);
+        res.json({ ...result, lastCheckoutPaymentError: getLastPaymentError() });
     });
 
     app.get('/', (_req, res) => {
