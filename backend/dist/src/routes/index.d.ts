@@ -22,6 +22,7 @@ export { appointmentRouter } from './appointment.routes.js';
 export { cancellationRouter } from './cancellation.routes.js';
 export { returnRouter } from './return.routes.js';
 export { paymentRoutes as paymentRouter } from './payment.routes.js';
+export { webhookRoutes as webhookRouter } from './webhook.routes.js';
 export { sellerSettlementRoutes as sellerSettlementRouter } from './seller-settlement.routes.js';
 export { shipmentRoutes as shipmentRouter } from './shipment.routes.js';
 export { sellerShipmentRouter } from './seller-shipment.routes.js';

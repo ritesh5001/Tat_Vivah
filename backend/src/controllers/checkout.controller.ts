@@ -6,11 +6,11 @@ import { paymentLogger } from '../config/logger.js';
 /**
  * Checkout Controller
  *
- * Payment gateways have been removed. Checkout places the order and — since
- * there is no online payment step to confirm it — immediately confirms the
- * order (PLACED → CONFIRMED + invoice) so it is fulfillable and not
- * auto-cancelled by the stale-order sweep. Payment will be re-attached here
- * once a new gateway is integrated.
+ * Places the order (PLACED) and, when `withPayment=1`, initiates a PhonePe
+ * payment and returns its redirectUrl. The order is confirmed only after the
+ * payment succeeds (verify endpoint / webhook). If payment initiation fails,
+ * the order is returned without payment so the client can retry via
+ * /v1/payments/initiate; an unpaid order is swept by cancelStaleOrders.
  */
 export class CheckoutController {
     async checkout(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -19,27 +19,35 @@ export class CheckoutController {
             const { couponCode, ...shipping } = req.body ?? {};
             const result = await checkoutService.checkout(userId, shipping, couponCode);
 
-            // Confirm the order (no payment gateway to do it). Best-effort:
-            // a confirm failure must not fail the checkout — the order exists.
-            let confirmed = false;
-            try {
-                await paymentService.confirmOrderWithoutPayment(result.order.id);
-                confirmed = true;
-            } catch (confirmError) {
-                paymentLogger.error(
-                    {
-                        event: 'order_confirm_failed',
-                        orderId: result.order.id,
-                        error: confirmError instanceof Error ? confirmError.message : String(confirmError),
-                    },
-                    'Failed to confirm order after checkout',
-                );
+            const withPayment = req.query.withPayment === '1';
+            if (!withPayment) {
+                res.status(201).json(result);
+                return;
             }
 
-            res.status(201).json({
-                ...result,
-                order: { ...result.order, status: confirmed ? 'CONFIRMED' : result.order.status },
-            });
+            const platform = String(req.query.platform ?? '').toUpperCase() === 'MOBILE'
+                ? 'MOBILE' as const
+                : 'WEB' as const;
+
+            try {
+                const payment = await paymentService.initiatePayment(userId, result.order.id, platform);
+                res.status(201).json({ ...result, payment });
+            } catch (paymentError) {
+                paymentLogger.error(
+                    {
+                        event: 'checkout_payment_init_failed',
+                        orderId: result.order.id,
+                        error: paymentError instanceof Error ? paymentError.message : String(paymentError),
+                    },
+                    'Payment initiation failed during checkout',
+                );
+                res.status(201).json({
+                    ...result,
+                    payment: null,
+                    paymentInitError:
+                        paymentError instanceof Error ? paymentError.message : 'Payment initialization failed',
+                });
+            }
         } catch (error) {
             next(error);
         }

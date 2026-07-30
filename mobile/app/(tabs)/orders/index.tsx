@@ -5,10 +5,12 @@ import {
   FlatList,
   Pressable,
   Modal,
+  Linking,
   type ListRenderItemInfo,
 } from "react-native";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import { listBuyerOrders, type BuyerOrder } from "../../../src/services/orders";
+import { retryPayment, verifyPhonePePayment } from "../../../src/services/payments";
 import { listMyCancellations, requestCancellation } from "../../../src/services/cancellations";
 import { listMyReturns, requestReturn } from "../../../src/services/returns";
 import { useAuth } from "../../../src/hooks/useAuth";
@@ -25,6 +27,27 @@ import {
   AppText as Text,
   ScreenContainer as SafeAreaView,
 } from "../../../src/components";
+
+const PHONEPE_POLL_INTERVAL_MS = 3000;
+const PHONEPE_MAX_WAIT_MS = 4 * 60 * 1000;
+
+async function waitForPhonePeRetryResult(
+  orderId: string,
+  token: string
+): Promise<"SUCCESS" | "FAILED" | "TIMEOUT"> {
+  const deadline = Date.now() + PHONEPE_MAX_WAIT_MS;
+  while (Date.now() < deadline) {
+    try {
+      const result = await verifyPhonePePayment(orderId, token);
+      if (result.data.status === "SUCCESS") return "SUCCESS";
+      if (result.data.status === "FAILED") return "FAILED";
+    } catch {
+      // Transient error while the buyer is in the PhonePe app — keep polling.
+    }
+    await new Promise((resolve) => setTimeout(resolve, PHONEPE_POLL_INTERVAL_MS));
+  }
+  return "TIMEOUT";
+}
 
 const currency = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -94,6 +117,8 @@ const OrderCard = React.memo(function OrderCard({
   paymentStyle,
   onPress,
   onTrack,
+  onRetry,
+  isRetrying,
   onRequestCancellation,
   isRequestingCancellation,
   showCancellationRequested,
@@ -106,6 +131,8 @@ const OrderCard = React.memo(function OrderCard({
   paymentStyle: { color: string };
   onPress: (id: string) => void;
   onTrack?: (id: string) => void;
+  onRetry?: (id: string) => void;
+  isRetrying?: boolean;
   onRequestCancellation?: (id: string) => void;
   isRequestingCancellation?: boolean;
   showCancellationRequested?: boolean;
@@ -113,6 +140,7 @@ const OrderCard = React.memo(function OrderCard({
   isRequestingReturn?: boolean;
   returnStatus?: string | null;
 }) {
+  const canRetry = paymentLabel === "PAYMENT PENDING" || paymentLabel === "PAYMENT FAILED";
   const itemCount = order.items?.length ?? 0;
   const firstItemTitle = order.items?.[0]?.productTitle ?? "Item";
   const itemSummary =
@@ -175,6 +203,17 @@ const OrderCard = React.memo(function OrderCard({
           </Pressable>
         ) : null}
       </View>
+      {canRetry && onRetry ? (
+        <Pressable
+          style={[styles.retryPaymentButton, isRetrying && styles.retryPaymentButtonDisabled]}
+          onPress={() => { if (!isRetrying) onRetry(order.id); }}
+          disabled={isRetrying}
+        >
+          <Text style={styles.retryPaymentButtonText}>
+            {isRetrying ? "Opening…" : "Retry Payment"}
+          </Text>
+        </Pressable>
+      ) : null}
       {showCancellationRequested ? (
         <View style={styles.cancellationBadge}>
           <Text style={styles.cancellationBadgeText}>Cancellation Requested</Text>
@@ -507,6 +546,38 @@ export default function OrdersScreen() {
     }
   }, [returnModalOrderId, returnReason, orders, closeReturnModal, loadOrders, lockReturn, showToast, token, unlockReturn]);
 
+  // ---- Retry payment: open PhonePe in browser, then poll for the result ----
+  const [retryingOrderId, setRetryingOrderId] = React.useState<string | null>(null);
+  const handleRetryPayment = React.useCallback(async (orderId: string) => {
+    if (retryingOrderId || !token) return;
+    setRetryingOrderId(orderId);
+    try {
+      const result = await retryPayment(orderId, token);
+      const redirectUrl = result.data.redirectUrl;
+      if (!redirectUrl) {
+        throw new Error("Payment could not be started. Please try again.");
+      }
+      await Linking.openURL(redirectUrl);
+
+      const outcome = await waitForPhonePeRetryResult(orderId, token);
+      if (outcome === "SUCCESS") {
+        notifySuccess();
+        showToast("Payment successful. Order confirmed.", "success");
+      } else if (outcome === "FAILED") {
+        notifyError();
+        showToast("Payment failed. You can retry anytime.", "error");
+      } else {
+        showToast("Payment pending. Pull to refresh for the final status.", "info");
+      }
+      loadOrders();
+    } catch (err) {
+      notifyError();
+      showToast(err instanceof Error ? err.message : "Unable to retry payment", "error");
+    } finally {
+      if (mountedRef.current) setRetryingOrderId(null);
+    }
+  }, [retryingOrderId, token, loadOrders, showToast]);
+
   const handleOrderPress = React.useCallback(
     (orderId: string) => {
       router.push(`/orders/${orderId}`);
@@ -528,6 +599,8 @@ export default function OrdersScreen() {
           paymentStyle={getStatusStyle(label)}
           onPress={handleOrderPress}
           onTrack={(id) => router.push(`/orders/${id}/tracking`)}
+          onRetry={handleRetryPayment}
+          isRetrying={retryingOrderId === item.id}
           onRequestCancellation={openCancellationModal}
           isRequestingCancellation={requestingCancellationIds.has(item.id)}
           showCancellationRequested={showCancellationRequested}
@@ -537,7 +610,7 @@ export default function OrdersScreen() {
         />
       );
     },
-    [paymentStatus, cancellationByOrder, returnByOrder, handleOrderPress, openCancellationModal, requestingCancellationIds, openReturnModal, requestingReturnIds, router]
+    [paymentStatus, cancellationByOrder, returnByOrder, handleOrderPress, handleRetryPayment, retryingOrderId, openCancellationModal, requestingCancellationIds, openReturnModal, requestingReturnIds, router]
   );
 
   const keyExtractorOrder = React.useCallback(

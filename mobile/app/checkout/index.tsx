@@ -7,11 +7,13 @@ import {
   Alert,
   Modal,
   FlatList,
+  Linking,
 } from "react-native";
 import { usePathname, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, radius, spacing, typography, shadow } from "../../src/theme/tokens";
 import { checkout, validateCoupon, type CouponPreview } from "../../src/services/cart";
+import { initiatePayment, verifyPhonePePayment } from "../../src/services/payments";
 import { ApiError } from "../../src/services/api";
 import { useAuth } from "../../src/hooks/useAuth";
 import { useNetworkStatus } from "../../src/hooks/useNetworkStatus";
@@ -73,6 +75,32 @@ const AddressSelectorRow = React.memo(function AddressSelectorRow({
 });
 
 // ---------------------------------------------------------------------------
+// PhonePe polling — payment finishes in the browser, so we ask our backend
+// (which asks PhonePe) for the outcome.
+// ---------------------------------------------------------------------------
+
+const PHONEPE_POLL_INTERVAL_MS = 3000;
+const PHONEPE_MAX_WAIT_MS = 4 * 60 * 1000;
+
+async function waitForPhonePeResult(
+  orderId: string,
+  token: string
+): Promise<"SUCCESS" | "FAILED" | "TIMEOUT"> {
+  const deadline = Date.now() + PHONEPE_MAX_WAIT_MS;
+  while (Date.now() < deadline) {
+    try {
+      const result = await verifyPhonePePayment(orderId, token);
+      if (result.data.status === "SUCCESS") return "SUCCESS";
+      if (result.data.status === "FAILED") return "FAILED";
+    } catch {
+      // Transient error while the buyer is in the PhonePe app — keep polling.
+    }
+    await new Promise((resolve) => setTimeout(resolve, PHONEPE_POLL_INTERVAL_MS));
+  }
+  return "TIMEOUT";
+}
+
+// ---------------------------------------------------------------------------
 // Screen
 // ---------------------------------------------------------------------------
 
@@ -91,7 +119,9 @@ export default function CheckoutScreen() {
   const [isPaying, setIsPaying] = React.useState(false);
   const [payLabel, setPayLabel] = React.useState("Placing order");
   const [error, setError] = React.useState<string | null>(null);
-  const [taxSummary, setTaxSummary] = React.useState<{
+  // Totals shown here are the pre-checkout estimate; the backend order is the
+  // source of truth. We navigate away after placing the order.
+  const [taxSummary] = React.useState<{
     subTotalAmount: number;
     totalTaxAmount: number;
     grandTotal: number;
@@ -335,33 +365,49 @@ export default function CheckoutScreen() {
     setError(null);
 
     try {
-      // Payment gateways have been removed. Checkout just places the order.
+      // 1. Create the order (PLACED).
       const orderResult = await checkout(shippingPayload, token);
-
       const orderId = orderResult.order?.id;
       if (!orderId) {
         throw new Error("Order ID missing. Please try again.");
       }
 
-      if (orderResult.order && mountedRef.current) {
-        const toNumber = (value: number | string | null | undefined) =>
-          typeof value === "string" ? Number(value) : value ?? 0;
-        setTaxSummary({
-          subTotalAmount: toNumber(orderResult.order.subTotalAmount),
-          totalTaxAmount: toNumber(orderResult.order.totalTaxAmount),
-          grandTotal: toNumber(orderResult.order.grandTotal),
-          discountAmount: toNumber(orderResult.order.discountAmount),
-        });
+      // 2. Initiate PhonePe and open the hosted page in the browser.
+      setPayLabel("Opening PhonePe");
+      const phonepePayment = await initiatePayment(orderId, token);
+      const redirectUrl = phonepePayment.data.redirectUrl;
+      if (!redirectUrl) {
+        throw new Error("Payment could not be started. Please try again.");
+      }
+      await Linking.openURL(redirectUrl);
+
+      // 3. Poll our backend for the outcome while the buyer pays.
+      setPayLabel("Waiting for payment confirmation");
+      const outcome = await waitForPhonePeResult(orderId, token);
+      if (!mountedRef.current) return;
+
+      if (outcome === "SUCCESS") {
+        notifySuccess();
+        clearCart();
+        showToast("Payment successful. Order confirmed.", "success");
+        router.replace(`/orders/${orderId}`);
+        setTimeout(() => {
+          void refreshCart();
+        }, 0);
+        return;
       }
 
-      if (!mountedRef.current) return;
-      notifySuccess();
-      clearCart();
-      showToast("Order placed successfully.", "success");
+      if (outcome === "FAILED") {
+        setError("Payment failed. You can retry from your orders.");
+        notifyError();
+        showToast("Payment failed. Retry from orders.", "error");
+        router.replace(`/orders/${orderId}`);
+        return;
+      }
+
+      // TIMEOUT — payment may still complete via webhook.
+      showToast("Payment pending. Check your orders for the final status.", "info");
       router.replace(`/orders/${orderId}`);
-      setTimeout(() => {
-        void refreshCart();
-      }, 0);
     } catch (err) {
       if (!mountedRef.current) return;
       const message =
@@ -700,7 +746,7 @@ export default function CheckoutScreen() {
                   ? "Cart is empty"
                   : hasAddresses && !selectedAddressId
                     ? "Select address"
-                    : "Place order"}
+                    : "Proceed to Payment"}
             </Text>
           )}
         </AnimatedPressable>

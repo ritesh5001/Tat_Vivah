@@ -32,6 +32,7 @@ import {
     cancellationRouter,
     returnRouter,
     paymentRouter,
+    webhookRouter,
     sellerSettlementRouter,
     adminRouter,
     // Shipping imports
@@ -330,6 +331,7 @@ export function createApp(): Application {
     app.use('/v1/returns', returnRouter);
 
     // Payments & Settlement domain
+    app.use('/v1/payments/webhook', webhookRouter); // before /v1/payments to skip auth
     app.use('/v1/payments', paymentRouter);
     app.use('/v1/seller/settlements', sellerSettlementRouter);
 

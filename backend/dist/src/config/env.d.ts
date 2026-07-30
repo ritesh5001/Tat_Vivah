@@ -44,6 +44,14 @@ declare const envSchema: z.ZodObject<{
     FASHN_POLL_INTERVAL_MS: z.ZodEffects<z.ZodDefault<z.ZodString>, number, string | undefined>;
     FASHN_POLL_TIMEOUT_MS: z.ZodEffects<z.ZodDefault<z.ZodString>, number, string | undefined>;
     BACKEND_PUBLIC_URL: z.ZodOptional<z.ZodString>;
+    PHONEPE_CLIENT_ID: z.ZodOptional<z.ZodString>;
+    PHONEPE_CLIENT_SECRET: z.ZodOptional<z.ZodString>;
+    PHONEPE_CLIENT_VERSION: z.ZodDefault<z.ZodString>;
+    PHONEPE_ENV: z.ZodDefault<z.ZodEnum<["SANDBOX", "PRODUCTION"]>>;
+    PHONEPE_WEBHOOK_USERNAME: z.ZodOptional<z.ZodString>;
+    PHONEPE_WEBHOOK_PASSWORD: z.ZodOptional<z.ZodString>;
+    PHONEPE_MOBILE_REDIRECT_URL: z.ZodOptional<z.ZodString>;
+    PHONEPE_WEB_REDIRECT_BASE_URL: z.ZodOptional<z.ZodString>;
 }, "strip", z.ZodTypeAny, {
     NODE_ENV: "development" | "production" | "test";
     PORT: number;
@@ -68,6 +76,8 @@ declare const envSchema: z.ZodObject<{
     FASHN_TRYON_MODEL: "tryon-max" | "tryon-v1.6";
     FASHN_POLL_INTERVAL_MS: number;
     FASHN_POLL_TIMEOUT_MS: number;
+    PHONEPE_CLIENT_VERSION: string;
+    PHONEPE_ENV: "SANDBOX" | "PRODUCTION";
     RUN_BACKGROUND_JOBS?: boolean | undefined;
     BACKEND_WARMUP_URL?: string | undefined;
     DATABASE_URL_DIRECT?: string | undefined;
@@ -86,6 +96,12 @@ declare const envSchema: z.ZodObject<{
     IMAGEKIT_URL_ENDPOINT?: string | undefined;
     FASHN_API_KEY?: string | undefined;
     BACKEND_PUBLIC_URL?: string | undefined;
+    PHONEPE_CLIENT_ID?: string | undefined;
+    PHONEPE_CLIENT_SECRET?: string | undefined;
+    PHONEPE_WEBHOOK_USERNAME?: string | undefined;
+    PHONEPE_WEBHOOK_PASSWORD?: string | undefined;
+    PHONEPE_MOBILE_REDIRECT_URL?: string | undefined;
+    PHONEPE_WEB_REDIRECT_BASE_URL?: string | undefined;
 }, {
     DATABASE_URL: string;
     JWT_ACCESS_SECRET: string;
@@ -128,6 +144,14 @@ declare const envSchema: z.ZodObject<{
     FASHN_POLL_INTERVAL_MS?: string | undefined;
     FASHN_POLL_TIMEOUT_MS?: string | undefined;
     BACKEND_PUBLIC_URL?: string | undefined;
+    PHONEPE_CLIENT_ID?: string | undefined;
+    PHONEPE_CLIENT_SECRET?: string | undefined;
+    PHONEPE_CLIENT_VERSION?: string | undefined;
+    PHONEPE_ENV?: "SANDBOX" | "PRODUCTION" | undefined;
+    PHONEPE_WEBHOOK_USERNAME?: string | undefined;
+    PHONEPE_WEBHOOK_PASSWORD?: string | undefined;
+    PHONEPE_MOBILE_REDIRECT_URL?: string | undefined;
+    PHONEPE_WEB_REDIRECT_BASE_URL?: string | undefined;
 }>;
 /**
  * Parsed and validated environment variables type

@@ -7,7 +7,7 @@ import { register, httpRequestDuration, hotEndpointDurationMs, hotEndpointSlowTo
 import { prisma } from './config/db.js';
 import { checkRedisConnection } from './config/redis.js';
 import { logger } from './config/logger.js';
-import { authRouter, sellerRouter, categoryRouter, productRouter, sellerProductRouter, productMediaRouter, imagekitRouter, bestsellerRouter, tryOnRouter, cartRouter, checkoutRouter, couponRouter, orderRouter, sellerOrderRouter, appointmentRouter, cancellationRouter, returnRouter, paymentRouter, sellerSettlementRouter, adminRouter, 
+import { authRouter, sellerRouter, categoryRouter, productRouter, sellerProductRouter, productMediaRouter, imagekitRouter, bestsellerRouter, tryOnRouter, cartRouter, checkoutRouter, couponRouter, orderRouter, sellerOrderRouter, appointmentRouter, cancellationRouter, returnRouter, paymentRouter, webhookRouter, sellerSettlementRouter, adminRouter, 
 // Shipping imports
 shipmentRouter, sellerShipmentRouter, adminShipmentRouter, adminNotificationRouter, reviewRouter, addressRouter, notificationRouter, wishlistRouter, searchRouter, personalizationRouter, liveRouter, sellerAnalyticsRouter, reelRouter, sellerReelRouter, adminReelRouter, occasionRouter, configRouter, } from './routes/index.js';
 import { searchController } from './controllers/search.controller.js';
@@ -256,6 +256,7 @@ export function createApp() {
     app.use('/v1/cancellations', cancellationRouter);
     app.use('/v1/returns', returnRouter);
     // Payments & Settlement domain
+    app.use('/v1/payments/webhook', webhookRouter); // before /v1/payments to skip auth
     app.use('/v1/payments', paymentRouter);
     app.use('/v1/seller/settlements', sellerSettlementRouter);
     // Reviews domain

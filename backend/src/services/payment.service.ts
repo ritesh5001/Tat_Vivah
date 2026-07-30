@@ -1,6 +1,6 @@
 
 import { paymentRepository } from '../repositories/payment.repository.js';
-import { PaymentStatus, PaymentEventType, OrderStatus } from '@prisma/client';
+import { PaymentStatus, PaymentEventType, PaymentProvider, OrderStatus } from '@prisma/client';
 import { prisma } from '../config/db.js';
 import { ApiError } from '../errors/ApiError.js';
 import { emitPaymentSuccess, emitPaymentFailed } from '../events/order.events.js';
@@ -11,32 +11,265 @@ import { generateInvoiceNumber } from '../utils/invoice.util.js';
 import { commissionService } from './commission.service.js';
 import { dispatchFreshness } from '../live/freshness.service.js';
 import { CACHE_TAGS, orderTag } from '../live/cache-tags.js';
+import { phonepeService } from './phonepe.service.js';
+import { isPhonePeConfigured } from './phonepe.client.js';
+import { env } from '../config/env.js';
 
 // =====================================================================
-// Payment service — GATEWAY-NEUTRAL scaffold.
+// Payment service.
 //
-// All specific payment-gateway integrations (Razorpay, PhonePe, GoKwik,
-// COD, MOCK) have been removed so a new gateway can be built cleanly.
-// This file keeps only the provider-agnostic order plumbing that the rest
-// of the app depends on:
-//   - handlePaymentSuccess  → confirm order + settlements (call from a new
-//                             gateway's verify/webhook once rebuilt)
+// Active gateway: PhonePe (Standard Checkout v2, redirect flow).
+//   - initiatePayment       → create a PhonePe order, return its redirectUrl
+//   - verifyPhonePePayment  → confirm state server-to-server, then confirm order
+//   - handlePaymentSuccess  → confirm order + settlements (verify + webhook)
 //   - handlePaymentFailure  → mark payment FAILED + notify
-//   - processRefund         → mark payment REFUNDED (ledger only; the actual
-//                             money movement is handled by the future gateway)
+//   - processRefund         → mark REFUNDED + call PhonePe refund
 //   - cancelStaleOrders     → cron cleanup of unpaid PLACED orders
-//   - getPaymentDetails     → read a payment record
-//
-// There is intentionally NO initiatePayment here yet — that is where the
-// new gateway integration will hook in.
 // =====================================================================
 
 /** Maximum age (ms) of a PLACED order before stale-cleanup cancels it. */
 const STALE_ORDER_TTL_MS = 30 * 60 * 1000; // 30 minutes
 const TX_MAX_WAIT_MS = 20000;
 const TX_TIMEOUT_MS = 30000;
+const DEFAULT_SHIPPING_FEE_INR = 180;
+
+/** Where the buyer lands after a PhonePe redirect-flow payment. */
+export type PaymentPlatform = 'WEB' | 'MOBILE';
+
+function roundMoney(value: number): number {
+    return Math.round(value * 100) / 100;
+}
+
+function toNumber(value: unknown): number {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function isTransactionStartTimeout(error: unknown): boolean {
+    if (!(error instanceof Error)) return false;
+    const msg = error.message.toLowerCase();
+    return (
+        msg.includes('unable to start a transaction in the given time') ||
+        msg.includes('transaction api error') ||
+        msg.includes('p2028')
+    );
+}
 
 export class PaymentService {
+
+    private async findOrderForPayment(userId: string, orderId: string) {
+        return prisma.order.findFirst({
+            where: { id: orderId, userId },
+            select: {
+                id: true,
+                userId: true,
+                status: true,
+                createdAt: true,
+                totalAmount: true,
+                grandTotal: true,
+                subTotalAmount: true,
+                totalTaxAmount: true,
+            },
+        });
+    }
+
+    private resolvePayableAmount(order: {
+        totalAmount: number;
+        grandTotal?: number | null;
+        subTotalAmount?: number | null;
+        totalTaxAmount?: number | null;
+    }): number {
+        const totalAmount = toNumber(order.totalAmount);
+        const grandTotal = toNumber(order.grandTotal);
+        const subTotalAmount = toNumber(order.subTotalAmount);
+        const totalTaxAmount = toNumber(order.totalTaxAmount);
+
+        const inferredShipping = Math.max(0, grandTotal - subTotalAmount - totalTaxAmount);
+        const shippingFee = inferredShipping > 0 ? inferredShipping : DEFAULT_SHIPPING_FEE_INR;
+        const derivedAmount = subTotalAmount + totalTaxAmount + shippingFee;
+
+        return roundMoney(Math.max(totalAmount, grandTotal, derivedAmount));
+    }
+
+    /**
+     * Where PhonePe redirects the buyer after checkout.
+     * WEB → frontend callback page; MOBILE → app deep link (if configured).
+     */
+    private buildPhonePeRedirectUrl(orderId: string, platform: PaymentPlatform): string {
+        if (platform === 'MOBILE' && env.PHONEPE_MOBILE_REDIRECT_URL) {
+            const sep = env.PHONEPE_MOBILE_REDIRECT_URL.includes('?') ? '&' : '?';
+            return `${env.PHONEPE_MOBILE_REDIRECT_URL}${sep}orderId=${encodeURIComponent(orderId)}`;
+        }
+        const rawBase =
+            env.PHONEPE_WEB_REDIRECT_BASE_URL ||
+            env.FRONTEND_BASE_URL ||
+            'https://www.tatvivahtrends.com';
+        const base = rawBase.replace(/\/$/, '');
+        return `${base}/checkout/phonepe/callback?orderId=${encodeURIComponent(orderId)}`;
+    }
+
+    // ------------------------------------------------------------------
+    // Initiate a PhonePe payment for a PLACED order.
+    // Creates/reuses the payment row, creates the PhonePe order, and returns
+    // the redirectUrl the client sends the buyer to.
+    // ------------------------------------------------------------------
+
+    async initiatePayment(userId: string, orderId: string, platform: PaymentPlatform = 'WEB') {
+        if (!isPhonePeConfigured()) {
+            throw new ApiError(500, 'PhonePe is not configured');
+        }
+
+        const [order, existingPayment] = await Promise.all([
+            this.findOrderForPayment(userId, orderId),
+            paymentRepository.findPaymentByOrderId(orderId),
+        ]);
+
+        if (!order) {
+            throw new ApiError(404, 'Order not found or access denied');
+        }
+        if (order.status !== OrderStatus.PLACED) {
+            throw new ApiError(400, `Cannot initiate payment for order with status ${order.status}`);
+        }
+        if (Date.now() - new Date(order.createdAt).getTime() > STALE_ORDER_TTL_MS) {
+            throw new ApiError(410, 'Order has expired. Please place a new order.');
+        }
+        if (existingPayment && existingPayment.status === PaymentStatus.SUCCESS) {
+            throw new ApiError(400, 'Order already paid');
+        }
+
+        const payableAmount = this.resolvePayableAmount(order as any);
+
+        // Create/reset the payment row (reuse on retry).
+        let payment;
+        if (existingPayment) {
+            payment = await prisma.payment.update({
+                where: { id: existingPayment.id },
+                data: {
+                    status: PaymentStatus.INITIATED,
+                    provider: PaymentProvider.PHONEPE,
+                    amount: payableAmount,
+                    providerOrderId: null,
+                    providerPaymentId: null,
+                    providerSignature: null,
+                },
+            });
+        } else {
+            payment = await paymentRepository.createPayment({
+                orderId,
+                userId,
+                amount: payableAmount,
+                currency: 'INR',
+                provider: PaymentProvider.PHONEPE,
+                status: PaymentStatus.INITIATED,
+            });
+        }
+
+        await paymentRepository.createPaymentEvent({
+            paymentId: payment.id,
+            type: PaymentEventType.INITIATED,
+            payload: { provider: 'PHONEPE', amount: payableAmount },
+        });
+
+        const merchantOrderId = phonepeService.buildMerchantOrderId(orderId);
+        const redirectUrl = this.buildPhonePeRedirectUrl(orderId, platform);
+
+        const phonepeOrder = await phonepeService.createOrder(
+            payableAmount,
+            merchantOrderId,
+            redirectUrl,
+            { orderId, userId },
+        );
+
+        await paymentRepository.updateProviderOrderId(payment.id, phonepeOrder.merchantOrderId);
+
+        return {
+            paymentId: payment.id,
+            orderId: phonepeOrder.merchantOrderId,
+            phonepeOrderId: phonepeOrder.phonepeOrderId,
+            redirectUrl: phonepeOrder.redirectUrl,
+            amount: phonepeOrder.amount,
+            currency: 'INR',
+            provider: 'PHONEPE',
+        };
+    }
+
+    /** Retry payment for a PLACED order whose payment is FAILED/INITIATED. */
+    async retryPayment(userId: string, orderId: string, platform: PaymentPlatform = 'WEB') {
+        const order = await this.findOrderForPayment(userId, orderId);
+        if (!order) {
+            throw new ApiError(404, 'Order not found or access denied');
+        }
+        if (order.status !== OrderStatus.PLACED) {
+            throw new ApiError(400, `Cannot retry payment for order with status ${order.status}`);
+        }
+        const existingPayment = await paymentRepository.findPaymentByOrderId(orderId);
+        if (existingPayment && existingPayment.status === PaymentStatus.SUCCESS) {
+            throw new ApiError(400, 'Order already paid');
+        }
+        return this.initiatePayment(userId, orderId, platform);
+    }
+
+    // ------------------------------------------------------------------
+    // Verify a PhonePe payment (redirect callback / client polling).
+    // The redirect carries no signature, so the trusted confirmation is a
+    // server-to-server Order Status call.
+    // ------------------------------------------------------------------
+
+    async verifyPhonePePayment(userId: string, orderId: string): Promise<{
+        status: 'SUCCESS' | 'FAILED' | 'PENDING';
+        paymentId: string;
+        message: string;
+    }> {
+        const payment = await paymentRepository.findPaymentByOrderId(orderId);
+        if (!payment) {
+            throw new ApiError(404, 'Payment not found');
+        }
+        if (payment.userId !== userId) {
+            throw new ApiError(403, 'Unauthorized');
+        }
+        if (payment.status === PaymentStatus.SUCCESS) {
+            return { status: 'SUCCESS', paymentId: payment.id, message: 'Payment already verified' };
+        }
+        if (payment.provider !== PaymentProvider.PHONEPE || !payment.providerOrderId) {
+            throw new ApiError(400, 'No PhonePe payment attempt found for this order');
+        }
+
+        const statusResponse = await phonepeService.getOrderStatus(payment.providerOrderId);
+
+        if (statusResponse.state === 'COMPLETED') {
+            const transactionId =
+                statusResponse.paymentDetails?.[0]?.transactionId ?? statusResponse.orderId;
+            try {
+                await this.handlePaymentSuccess(
+                    payment.id,
+                    payment.orderId,
+                    transactionId,
+                    { merchantOrderId: payment.providerOrderId, phonepeOrderId: statusResponse.orderId, source: 'status_check' },
+                );
+            } catch (error) {
+                if (isTransactionStartTimeout(error)) {
+                    const latest = await paymentRepository.findPaymentById(payment.id);
+                    if (latest?.status === PaymentStatus.SUCCESS) {
+                        return { status: 'SUCCESS', paymentId: payment.id, message: 'Payment already verified' };
+                    }
+                    throw new ApiError(503, 'Payment is being finalized. Please refresh order status in a few seconds.');
+                }
+                throw error;
+            }
+            return { status: 'SUCCESS', paymentId: payment.id, message: 'Payment verified' };
+        }
+
+        if (statusResponse.state === 'FAILED') {
+            await this.handlePaymentFailure(payment.id, {
+                merchantOrderId: payment.providerOrderId,
+                phonepeOrderId: statusResponse.orderId,
+                source: 'status_check',
+            });
+            return { status: 'FAILED', paymentId: payment.id, message: 'Payment failed' };
+        }
+
+        return { status: 'PENDING', paymentId: payment.id, message: 'Payment is still pending' };
+    }
 
     // ------------------------------------------------------------------
     // Refund processing (idempotent, crash-safe)
@@ -101,6 +334,32 @@ export class PaymentService {
             };
         }
 
+        // Call PhonePe refund outside the tx. On failure, revert to SUCCESS so
+        // we never leave a REFUNDED row without an actual refund.
+        if (
+            payment.provider === PaymentProvider.PHONEPE
+            && payment.providerOrderId
+            && isPhonePeConfigured()
+        ) {
+            try {
+                await phonepeService.initiateRefund(
+                    `rf_${payment.id}`,
+                    payment.providerOrderId,
+                    payment.amount,
+                );
+            } catch (error: any) {
+                paymentLogger.error(
+                    { orderId, paymentId: payment.id, error: error?.message },
+                    'refund_provider_failed_reverting',
+                );
+                await prisma.payment.updateMany({
+                    where: { id: payment.id, status: PaymentStatus.REFUNDED },
+                    data: { status: PaymentStatus.SUCCESS },
+                });
+                throw new ApiError(502, `Refund API failed: ${error?.message ?? 'unknown error'}`);
+            }
+        }
+
         refundSuccessTotal.inc();
         paymentLogger.info({ orderId, paymentId: payment.id }, 'refund_processed');
 
@@ -124,58 +383,6 @@ export class PaymentService {
             throw new ApiError(403, 'Unauthorized');
         }
         return payment;
-    }
-
-    // ------------------------------------------------------------------
-    // Confirm an order that has no online payment step.
-    //
-    // With the payment gateways removed, checkout can't collect money, so an
-    // order would otherwise sit PLACED forever and be auto-cancelled by
-    // cancelStaleOrders after 30 min. This moves the order PLACED → CONFIRMED
-    // and assigns an invoice so it is fulfillable and not stale-cancelled.
-    // Idempotent via an optimistic lock on the order status.
-    // ------------------------------------------------------------------
-
-    async confirmOrderWithoutPayment(orderId: string): Promise<void> {
-        const result = await prisma.$transaction(async (tx: any) => {
-            const updated = await tx.order.updateMany({
-                where: { id: orderId, status: OrderStatus.PLACED },
-                data: { status: OrderStatus.CONFIRMED },
-            });
-
-            if (updated.count === 0) {
-                return { alreadyProcessed: true };
-            }
-
-            const invoiceNumber = await generateInvoiceNumber(tx as any);
-            await tx.order.update({
-                where: { id: orderId },
-                data: { invoiceNumber, invoiceIssuedAt: new Date() },
-            });
-
-            return { alreadyProcessed: false };
-        }, {
-            maxWait: TX_MAX_WAIT_MS,
-            timeout: TX_TIMEOUT_MS,
-        });
-
-        if (result.alreadyProcessed) return;
-
-        paymentLogger.info({ event: 'order_confirmed_no_payment', orderId }, `Order confirmed (no payment): ${orderId}`);
-
-        // No payment happened, so we intentionally do NOT send a
-        // "payment received" notification — just refresh the live views.
-        await dispatchFreshness({
-            type: 'order.updated',
-            entityId: orderId,
-            tags: [
-                CACHE_TAGS.orders,
-                CACHE_TAGS.userOrders,
-                CACHE_TAGS.sellerOrders,
-                orderTag(orderId),
-            ],
-            audience: { allAuthenticated: true },
-        });
     }
 
     // ------------------------------------------------------------------

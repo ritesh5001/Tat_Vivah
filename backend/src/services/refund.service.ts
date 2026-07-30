@@ -1,6 +1,8 @@
-import { RefundInitiator, RefundStatus, PaymentStatus } from '@prisma/client';
+import { RefundInitiator, RefundStatus, PaymentStatus, PaymentProvider } from '@prisma/client';
 import { prisma } from '../config/db.js';
 import { refundLogger } from '../config/logger.js';
+import { phonepeService } from './phonepe.service.js';
+import { isPhonePeConfigured } from './phonepe.client.js';
 import {
     refundCreatedTotal,
     refundLedgerSuccessTotal,
@@ -154,26 +156,46 @@ export class RefundService {
             'refund_pending_created',
         );
 
-        // ── 4. Record refund (ledger only) ──────────────────────────
-        // Payment gateways have been removed, so there is no external refund
-        // API to call. The refund is recorded in the ledger and the actual
-        // money return is handled manually/offline. A refund can only proceed
-        // once the payment was actually collected (SUCCESS/REFUNDED).
+        // ── 4. Call the payment provider (outside tx) ───────────────
+        // A refund can only proceed once the payment was actually collected.
+        // razorpayRefundId is the historical column name; it stores the
+        // provider refund id (PhonePe) or a manual marker.
         let razorpayRefundId: string | null = null;
         let providerSuccess = false;
 
         if (
-            order.payment.status === PaymentStatus.SUCCESS
-            || order.payment.status === PaymentStatus.REFUNDED
+            order.payment.status !== PaymentStatus.SUCCESS
+            && order.payment.status !== PaymentStatus.REFUNDED
         ) {
-            razorpayRefundId = `manual_refund_${refund.id}`;
-            providerSuccess = true;
-        } else {
             refundLogger.warn(
                 { orderId, refundId: refund.id, paymentStatus: order.payment.status },
                 'refund_before_collection',
             );
             providerSuccess = false;
+        } else if (
+            order.payment.provider === PaymentProvider.PHONEPE
+            && order.payment.providerOrderId
+            && isPhonePeConfigured()
+        ) {
+            try {
+                const ppRefund = await phonepeService.initiateRefund(
+                    `rf_${refund.id}`,
+                    order.payment.providerOrderId,
+                    amount / 100, // paise → rupees
+                );
+                razorpayRefundId = ppRefund.refundId ?? null;
+                providerSuccess = true;
+            } catch (error: any) {
+                refundLogger.error(
+                    { orderId, refundId: refund.id, error: error?.message },
+                    'phonepe_refund_api_failed',
+                );
+                providerSuccess = false;
+            }
+        } else {
+            // No provider attempt on record — settle the ledger manually.
+            razorpayRefundId = `manual_refund_${refund.id}`;
+            providerSuccess = true;
         }
 
         // ── 5. Optimistic update to SUCCESS or FAILED ───────────────

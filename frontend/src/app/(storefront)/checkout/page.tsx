@@ -6,7 +6,8 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { checkout, getCart, type CouponPreview } from "@/services/cart";
+import { checkoutWithPayment, getCart, type CouponPreview } from "@/services/cart";
+import { initiatePayment } from "@/services/payments";
 import { getAddresses, type Address } from "@/services/addresses";
 import { getShippingConfig } from "@/services/shipments";
 import CouponSection from "@/components/checkout/CouponSection";
@@ -201,8 +202,8 @@ export default function CheckoutPage() {
     setLoading(true);
     setIsPaying(true);
     try {
-      // Payment gateways have been removed. Checkout just places the order.
-      const orderResult = await checkout({
+      // Place the order and initiate a PhonePe payment in one call.
+      const orderResult = await checkoutWithPayment({
         shippingName: shipping.name || undefined,
         shippingPhone: shipping.phone || undefined,
         shippingEmail: shipping.email || undefined,
@@ -219,11 +220,27 @@ export default function CheckoutPage() {
         throw new Error("Order ID missing. Please try again.");
       }
 
-      // Success — navigate away. Keep the button disabled (do NOT reset
-      // isPaying) so a slow navigation can't be double-submitted into a
-      // "cart is empty" error on the now-consumed cart.
-      toast.success("Order placed successfully.");
-      router.push("/user/orders");
+      // If payment init failed at checkout time, surface the real reason and
+      // retry once via the explicit initiate endpoint before giving up.
+      if (!orderResult.payment && orderResult.paymentInitError) {
+        throw new Error(orderResult.paymentInitError);
+      }
+      const payment =
+        orderResult.payment ?? (await initiatePayment(orderId)).data;
+      if (!payment.redirectUrl) {
+        throw new Error("Payment could not be started. Please try again.");
+      }
+
+      // PhonePe may drop our ?orderId= on the return redirect — stash it so the
+      // callback can still confirm the payment.
+      try {
+        window.sessionStorage.setItem("tatvivah_pending_order", orderId);
+      } catch {
+        // Non-fatal — the callback also accepts orderId via the query string.
+      }
+
+      // Redirect to PhonePe. Keep the button disabled (we're leaving the page).
+      window.location.assign(payment.redirectUrl);
       return;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Checkout failed";
@@ -235,7 +252,6 @@ export default function CheckoutPage() {
         return;
       }
       toast.error(message, { duration: 8000 });
-      // Only re-enable the button when we are staying on the page (real error).
       setLoading(false);
       setIsPaying(false);
     }
@@ -614,18 +630,24 @@ export default function CheckoutPage() {
                     onClick={handleCheckout}
                     disabled={!hasItems || loading || isPaying}
                   >
-                    {loading || isPaying ? "Placing Order..." : "Place Order"}
+                    {loading || isPaying ? "Redirecting to PhonePe..." : "Proceed to Payment"}
                   </Button>
                 </motion.div>
 
                 <p className="text-center text-[10px] text-muted-foreground leading-relaxed">
-                  By placing this order, you agree to our terms of service.
-                  Online payment will be available soon.
+                  By proceeding, you agree to our terms of service. You&apos;ll
+                  be redirected to PhonePe to complete payment securely.
                 </p>
               </div>
 
               {/* Trust Signals */}
               <div className="pt-4 border-t border-border-soft space-y-4">
+                <div className="flex items-center gap-3">
+                  <span className="h-1.5 w-1.5 rounded-full bg-green-600/60" />
+                  <span className="text-xs text-muted-foreground">
+                    Secured by PhonePe
+                  </span>
+                </div>
                 <div className="flex items-center gap-3">
                   <span className="h-1.5 w-1.5 rounded-full bg-gold" />
                   <span className="text-xs text-muted-foreground">

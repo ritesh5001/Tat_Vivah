@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { listBuyerOrders, downloadInvoice } from "@/services/orders";
+import { retryPayment, verifyPhonePePayment } from "@/services/payments";
 import { listMyCancellations, requestCancellation } from "@/services/cancellations";
 import { listMyReturns, requestReturn } from "@/services/returns";
 import { useLiveFreshness } from "@/hooks/use-live-freshness";
@@ -136,6 +137,63 @@ export default function UserOrdersClient({
       void mutate();
     },
   });
+
+  // ---- Self-heal pending PhonePe payments ----
+  // If a buyer paid but never hit the callback (e.g. PhonePe dropped the return
+  // param), the order sits PLACED/PENDING. On load, reconcile each pending
+  // order against PhonePe's status API via the backend.
+  const healedRef = React.useRef<Set<string>>(new Set());
+  React.useEffect(() => {
+    const pending = orders.filter((o: any) => {
+      const status = paymentStatusByOrder[o.id];
+      return status && status !== "SUCCESS" && status !== "FAILED" && !healedRef.current.has(o.id);
+    });
+    if (pending.length === 0) return;
+
+    let cancelled = false;
+    (async () => {
+      let anyConfirmed = false;
+      for (const order of pending) {
+        healedRef.current.add(order.id);
+        try {
+          const res = await verifyPhonePePayment(order.id);
+          if (res.data.status === "SUCCESS" || res.data.status === "FAILED") {
+            anyConfirmed = true;
+          }
+        } catch {
+          // No PhonePe attempt for this order, or nothing to reconcile — ignore.
+        }
+      }
+      if (anyConfirmed && !cancelled) void mutate();
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [orders, paymentStatusByOrder, mutate]);
+
+  // ---- Retry payment (redirect back to PhonePe) ----
+  const [retryingOrderId, setRetryingOrderId] = React.useState<string | null>(null);
+  const handleRetryPayment = React.useCallback(async (orderId: string) => {
+    if (retryingOrderId) return;
+    setRetryingOrderId(orderId);
+    try {
+      const result = await retryPayment(orderId);
+      const redirectUrl = result.data.redirectUrl;
+      if (!redirectUrl) {
+        throw new Error("Payment could not be started. Please try again.");
+      }
+      try {
+        window.sessionStorage.setItem("tatvivah_pending_order", orderId);
+      } catch {
+        // Non-fatal.
+      }
+      window.location.assign(redirectUrl);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to retry payment");
+      setRetryingOrderId(null);
+    }
+  }, [retryingOrderId]);
 
   const openCancellationModal = React.useCallback((orderId: string) => {
     setCancelModalOrderId(orderId);
@@ -391,6 +449,16 @@ export default function UserOrdersClient({
                           {requestingReturn ? "Requesting..." : "Request Return"}
                         </Button>
                       ) : null}
+                      {/* Retry Payment — for unpaid PLACED orders */}
+                      {(label === "PAYMENT PENDING" || label === "PAYMENT FAILED") && (
+                        <Button
+                          size="sm"
+                          disabled={retryingOrderId === order.id}
+                          onClick={() => handleRetryPayment(order.id)}
+                        >
+                          {retryingOrderId === order.id ? "Redirecting..." : "Retry Payment"}
+                        </Button>
+                      )}
                       {/* Download Invoice — available for confirmed/shipped/delivered orders */}
                       {(order.status === "CONFIRMED" || order.status === "SHIPPED" || order.status === "DELIVERED") && (
                         <Button

@@ -1,4 +1,4 @@
-import { RefundInitiator, RefundStatus } from '@prisma/client';
+import { RefundInitiator, RefundStatus, PaymentProvider } from '@prisma/client';
 interface CreateRefundInput {
     orderId: string;
     /** Amount in paise (integer). 100 paise = ₹1 */
@@ -45,7 +45,7 @@ export declare class RefundService {
             };
             payment: {
                 id: string;
-                provider: import(".prisma/client").PaymentProvider;
+                provider: PaymentProvider;
                 providerPaymentId: string | null;
             };
         } & import("@prisma/client/runtime/index.js").GetResult<{
