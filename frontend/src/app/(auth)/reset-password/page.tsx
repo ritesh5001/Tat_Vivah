@@ -99,7 +99,7 @@ function ResetPasswordContent() {
             variants={heroItemVariants}
             className="text-base leading-relaxed text-muted-foreground mb-8"
           >
-            Enter the 6-digit OTP sent to your WhatsApp number along with your new
+            Enter the 6-digit OTP sent to your mobile number along with your new
             password to regain access to your account.
           </motion.p>
 
@@ -141,9 +141,9 @@ function ResetPasswordContent() {
 
             <CardContent className="space-y-6">
               <form className="space-y-5" onSubmit={handleSubmit}>
-                {/* WhatsApp number (readonly) */}
+                {/* Mobile number (readonly) */}
                 <div className="space-y-2">
-                  <Label htmlFor="phone">WhatsApp Number</Label>
+                  <Label htmlFor="phone">Mobile Number</Label>
                   <Input
                     id="phone"
                     type="tel"

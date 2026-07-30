@@ -27,3 +27,30 @@ services:
         sync: false
       - key: PHONEPE_WEBHOOK_PASSWORD
         sync: false
+      # AquaSMS — SMS OTP delivery. Non-secret values are pinned here; the
+      # username, API key and DLT ids are set in the Render dashboard.
+      #
+      # SMS stays OFF until AQUASMS_DLT_PE_ID and AQUASMS_DLT_TEMPLATE_ID are
+      # both set, and OTPs fall back to email. That is intentional: without DLT
+      # registration the provider bills the message but Indian operators drop
+      # it, so users would receive no code at all.
+      - key: AQUASMS_BASE_URL
+        value: https://login.aquasms.com
+      - key: AQUASMS_SMS_TYPE
+        value: TRANS
+      - key: AQUASMS_TIMEOUT_MS
+        value: "20000"
+      - key: AQUASMS_ALLOW_NON_DLT
+        value: "false"
+      - key: AQUASMS_USERNAME
+        sync: false
+      - key: AQUASMS_API_KEY
+        sync: false
+      - key: AQUASMS_SENDER_ID
+        sync: false
+      - key: AQUASMS_DLT_PE_ID
+        sync: false
+      - key: AQUASMS_DLT_TEMPLATE_ID
+        sync: false
+      - key: AQUASMS_OTP_TEMPLATE
+        sync: false

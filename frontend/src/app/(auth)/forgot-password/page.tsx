@@ -28,14 +28,14 @@ export default function ForgotPasswordPage() {
 
     const normalizedPhone = phone.replace(/\D/g, "");
     if (!normalizedPhone) {
-      toast.error("Please enter your WhatsApp number.");
+      toast.error("Please enter your mobile number.");
       return;
     }
 
     setLoading(true);
     try {
       await forgotPassword(normalizedPhone);
-      toast.success("If an account exists, an OTP has been sent to your WhatsApp number.");
+      toast.success("If an account exists, an OTP has been sent to your mobile number.");
       router.push(`/reset-password?phone=${encodeURIComponent(normalizedPhone)}`);
     } catch (error) {
       toast.error(
@@ -76,7 +76,7 @@ export default function ForgotPasswordPage() {
             variants={heroItemVariants}
             className="text-base leading-relaxed text-muted-foreground mb-8"
           >
-            Enter the WhatsApp number associated with your account and we&apos;ll
+            Enter the mobile number associated with your account and we&apos;ll
             send you a one-time code to set a new password.
           </motion.p>
 
@@ -112,14 +112,14 @@ export default function ForgotPasswordPage() {
                 Forgot Password
               </CardTitle>
               <CardDescription>
-                We&apos;ll send a 6-digit OTP to your registered WhatsApp number.
+                We&apos;ll send a 6-digit OTP to your registered mobile number.
               </CardDescription>
             </CardHeader>
 
             <CardContent className="space-y-6">
               <form className="space-y-5" onSubmit={handleSubmit}>
                 <div className="space-y-2">
-                  <Label htmlFor="phone">WhatsApp Number</Label>
+                  <Label htmlFor="phone">Mobile Number</Label>
                   <Input
                     id="phone"
                     type="tel"

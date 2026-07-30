@@ -144,9 +144,9 @@ export default function LoginPage() {
   const cardDescription =
     isMainPortal
       ? isOtpMode
-        ? "We'll send a one-time code to your WhatsApp number."
+        ? "We'll send a one-time code to your mobile number."
         : identifierReady
-          ? "Enter your password below, or login with a WhatsApp OTP."
+          ? "Enter your password below, or login with an SMS OTP."
           : "Enter your mobile number or email address to continue."
       : content.cardDescription;
 
@@ -167,7 +167,7 @@ export default function LoginPage() {
         const normalizedPhone = trimmed.replace(/\D/g, "");
         console.info("[auth-ui][login] otp-request", { inputType });
         await requestAuthOtp({ phone: normalizedPhone });
-        toast.success("OTP sent to your WhatsApp number.");
+        toast.success("OTP sent to your mobile number.");
         // Carry the return target through the OTP step.
         const ret = buyerReturnPath();
         const retParam = ret !== "/" ? `&redirect=${encodeURIComponent(ret)}` : "";
@@ -329,14 +329,14 @@ export default function LoginPage() {
                       </button>
                     </div>
 
-                    {/* OTP toggle – only for user portal, WhatsApp OTP requires a phone number */}
+                    {/* OTP toggle – only for user portal, SMS OTP requires a phone number */}
                     {isMainPortal && isPhoneIdentifier && (
                       <button
                         type="button"
                         onClick={() => setUseOtp(true)}
                         className="text-xs text-muted-foreground hover:text-foreground transition-colors duration-300 underline underline-offset-2"
                       >
-                        Login with WhatsApp OTP instead
+                        Login with SMS OTP instead
                       </button>
                     )}
                   </div>

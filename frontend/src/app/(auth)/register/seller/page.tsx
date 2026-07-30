@@ -89,7 +89,7 @@ export default function SellerRegisterPage() {
       });
       await registerSeller({ email, phone: normalizedPhone, whatsappNumber, password });
       console.info("[auth-ui][register-seller] otp-sent", { phone: "[present]" });
-      toast.success("OTP sent to your WhatsApp number.");
+      toast.success("OTP sent to your mobile number.");
       window.location.href = `/verify-otp?phone=${encodeURIComponent(normalizedPhone)}`;
     } catch (error) {
       console.error("[auth-ui][register-seller] failed", error);
@@ -206,7 +206,7 @@ export default function SellerRegisterPage() {
                     className={theme.input}
                   />
                   <p className="text-xs text-brown/60">
-                    Your verification code will be sent to this number on WhatsApp.
+                    Buyers use this number to reach you on WhatsApp for video appointments.
                   </p>
                 </motion.div>
                 <motion.div className="space-y-2" {...fadeInUp(2)}>

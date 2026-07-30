@@ -65,11 +65,44 @@ const envSchema = z.object({
     RESEND_API_KEY: z.string().min(1, 'RESEND_API_KEY is required'),
     EMAIL_FROM: z.string().email('EMAIL_FROM must be a valid email'),
 
-    // Fast2SMS WhatsApp (OTP delivery)
-    FAST2SMS_API_KEY: z.string().min(1, 'FAST2SMS_API_KEY is required').optional(),
-    FAST2SMS_WHATSAPP_URL: z.string().url('FAST2SMS_WHATSAPP_URL must be a valid URL').default('https://www.fast2sms.com/dev/whatsapp'),
-    FAST2SMS_WHATSAPP_MESSAGE_ID: z.string().optional(),
-    FAST2SMS_WHATSAPP_PHONE_NUMBER_ID: z.string().optional(),
+    // AquaSMS (SMS OTP delivery)
+    AQUASMS_USERNAME: z.string().optional(),
+    AQUASMS_API_KEY: z.string().optional(),
+    /** DLT-registered sender id / header, e.g. TATVIV. Required to send. */
+    AQUASMS_SENDER_ID: z.string().optional(),
+    /**
+     * HTTPS by default. The provider documents http:// URLs, but an OTP, the
+     * recipient's number and the API key all travel in the query string — those
+     * must not cross the network in the clear.
+     */
+    AQUASMS_BASE_URL: z
+        .string()
+        .url('AQUASMS_BASE_URL must be a valid URL')
+        .default('https://login.aquasms.com')
+        .transform((url) => url.replace(/\/+$/, '')),
+    /** TRANS for transactional (OTP) traffic; PROMO is promotional and DND-filtered. */
+    AQUASMS_SMS_TYPE: z.string().default('TRANS'),
+    /** DLT principal entity id — required by Indian operators for transactional SMS. */
+    AQUASMS_DLT_PE_ID: z.string().optional(),
+    /** DLT-approved template id matching AQUASMS_OTP_TEMPLATE exactly. */
+    AQUASMS_DLT_TEMPLATE_ID: z.string().optional(),
+    /**
+     * OTP message body. {otp} is substituted; every other character must match the
+     * DLT-approved template exactly or operators reject the message.
+     */
+    AQUASMS_OTP_TEMPLATE: z
+        .string()
+        .default('{otp} is your OTP for TatVivah. Valid for 10 minutes. Do not share it with anyone.'),
+    AQUASMS_TIMEOUT_MS: z.string().default('20000').transform(Number),
+    /**
+     * Escape hatch: treat SMS as usable even without DLT ids. Off by default because
+     * Indian operators drop non-DLT commercial SMS while the provider still reports
+     * success and bills for it. Only enable once real delivery has been confirmed.
+     */
+    AQUASMS_ALLOW_NON_DLT: z
+        .string()
+        .default('false')
+        .transform((v) => v.toLowerCase() === 'true'),
 
     // ImageKit
     IMAGEKIT_PUBLIC_KEY: z.string().optional(),

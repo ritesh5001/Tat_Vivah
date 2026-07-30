@@ -29,14 +29,14 @@ function VerifyOtpContent() {
   const [sending, setSending] = React.useState(false);
   const submittedOtpRef = React.useRef<string | null>(null);
 
-  // WhatsApp OTP flow; one-time-code autofill supported on mobile browsers.
+  // SMS OTP flow; one-time-code autofill supported on mobile browsers.
 
   const handleVerify = React.useCallback(async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!identifier || !otp) {
       console.warn("[auth-ui][verify-otp] blocked submit", { hasPhone: Boolean(identifier), hasOtp: Boolean(otp) });
-      toast.error("Enter your WhatsApp number and OTP.");
+      toast.error("Enter your mobile number and OTP.");
       return;
     }
 
@@ -73,14 +73,14 @@ function VerifyOtpContent() {
   const handleResend = async () => {
     if (!identifier) {
       console.warn("[auth-ui][verify-otp] resend blocked", { hasPhone: false });
-      toast.error(`Enter your WhatsApp number first.`);
+      toast.error(`Enter your mobile number first.`);
       return;
     }
     setSending(true);
     try {
       console.info("[auth-ui][verify-otp] resend", { phone: "[present]" });
       await requestAuthOtp({ phone: identifier });
-      toast.success(`OTP sent to your WhatsApp number.`);
+      toast.success(`OTP sent to your mobile number.`);
     } catch (error) {
       console.error("[auth-ui][verify-otp] resend failed", error);
       toast.error(error instanceof Error ? error.message : "OTP request failed");
@@ -118,13 +118,13 @@ function VerifyOtpContent() {
           >
             Confirm your
             <br />
-            <span className="italic">WhatsApp number</span>.
+            <span className="italic">mobile number</span>.
           </motion.h1>
           <motion.p
             variants={heroItemVariants}
             className="text-base leading-relaxed text-muted-foreground"
           >
-            We sent a 6-digit OTP to your WhatsApp number. Enter it below to continue with your account.
+            We sent a 6-digit OTP to your mobile number. Enter it below to continue with your account.
           </motion.p>
         </motion.div>
 
@@ -140,13 +140,13 @@ function VerifyOtpContent() {
                 Verify OTP
               </CardTitle>
               <CardDescription>
-                Enter your WhatsApp number and OTP to continue.
+                Enter your mobile number and OTP to continue.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
               <form className="space-y-5" onSubmit={handleVerify}>
                 <div className="space-y-2">
-                  <Label htmlFor="identifier">WhatsApp number</Label>
+                  <Label htmlFor="identifier">Mobile number</Label>
                   <Input
                     id="identifier"
                     type="tel"

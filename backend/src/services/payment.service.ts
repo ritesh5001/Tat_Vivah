@@ -31,7 +31,9 @@ import { env } from '../config/env.js';
 const STALE_ORDER_TTL_MS = 30 * 60 * 1000; // 30 minutes
 const TX_MAX_WAIT_MS = 20000;
 const TX_TIMEOUT_MS = 30000;
-const DEFAULT_SHIPPING_FEE_INR = 180;
+// No fee constants here on purpose. Pricing belongs to checkout/settings.service; a
+// second copy of the shipping fee in this file is what let payments drift ₹180 above
+// the order total.
 
 /** Where the buyer lands after a PhonePe redirect-flow payment. */
 export type PaymentPlatform = 'WEB' | 'MOBILE';
@@ -73,22 +75,38 @@ export class PaymentService {
         });
     }
 
+    /**
+     * The amount to charge for an order.
+     *
+     * This is `grandTotal` and nothing else. Checkout is the single place that prices an
+     * order: it applies the coupon, computes CGST/SGST/IGST, adds the flat GST fee and
+     * the shipping fee (when the admin has them enabled) and writes the result to
+     * `grandTotal` — so re-deriving anything here can only disagree with what the buyer
+     * was shown.
+     *
+     * A previous version tried to be defensive by taking
+     * `max(totalAmount, grandTotal, subTotal + tax + shipping)`, inferring the shipping
+     * fee as `grandTotal - subTotal - tax` and falling back to a hardcoded ₹180 when
+     * that came out as 0. But 0 is the correct, normal answer whenever the admin has the
+     * shipping charge switched off — so the fallback fired on ordinary orders and
+     * charged every buyer ₹180 more than their order total.
+     */
     private resolvePayableAmount(order: {
         totalAmount: number;
         grandTotal?: number | null;
-        subTotalAmount?: number | null;
-        totalTaxAmount?: number | null;
     }): number {
-        const totalAmount = toNumber(order.totalAmount);
         const grandTotal = toNumber(order.grandTotal);
-        const subTotalAmount = toNumber(order.subTotalAmount);
-        const totalTaxAmount = toNumber(order.totalTaxAmount);
+        if (grandTotal > 0) {
+            return roundMoney(grandTotal);
+        }
 
-        const inferredShipping = Math.max(0, grandTotal - subTotalAmount - totalTaxAmount);
-        const shippingFee = inferredShipping > 0 ? inferredShipping : DEFAULT_SHIPPING_FEE_INR;
-        const derivedAmount = subTotalAmount + totalTaxAmount + shippingFee;
+        // Older orders written before grandTotal existed only carry totalAmount.
+        const totalAmount = toNumber(order.totalAmount);
+        if (totalAmount > 0) {
+            return roundMoney(totalAmount);
+        }
 
-        return roundMoney(Math.max(totalAmount, grandTotal, derivedAmount));
+        throw new ApiError(500, 'Order has no payable amount');
     }
 
     /**

@@ -33,13 +33,15 @@ export default function CheckoutPage() {
   const [isPaying, setIsPaying] = React.useState(false);
   const [subtotal, setSubtotal] = React.useState(0);
   const [hasItems, setHasItems] = React.useState(false);
-  // Shipping charge can be turned off by admins. Default to the flat fee so
-  // the estimate matches historical behaviour until the config resolves; the
-  // backend order total is always the source of truth.
+  // Shipping charge can be turned off by admins, so it is not known until
+  // /v1/config/shipping resolves. Start at zero rather than assuming the flat fee:
+  // guessing a charge shows the buyer a total higher than what they are actually
+  // charged, which is exactly the kind of mismatch that erodes trust at checkout.
+  // The backend order total remains the source of truth.
   const [shippingConfig, setShippingConfig] = React.useState<{
     enabled: boolean;
     amount: number;
-  }>({ enabled: true, amount: 180 });
+  }>({ enabled: false, amount: 0 });
 
   const shippingFee = hasItems && shippingConfig.enabled ? shippingConfig.amount : 0;
   const cartTotal = subtotal + shippingFee;

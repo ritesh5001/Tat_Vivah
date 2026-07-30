@@ -18,7 +18,7 @@ import ms from 'ms';
 import { otpService, type SignupOtpPayload } from './otp.service.js';
 import { hashOtp } from '../utils/otp.util.js';
 import { otpRepository } from '../repositories/otp.repository.js';
-import { normalizeIndianMobile } from './fast2sms.service.js';
+import { normalizeIndianMobile } from '../utils/phone.util.js';
 import { OtpPurpose } from '@prisma/client';
 import type { Role, UserStatus } from '@prisma/client';
 import { randomUUID } from 'crypto';
@@ -130,7 +130,7 @@ export class AuthService {
 
         // 4. Return success message (no token, no auto-login)
         return {
-            message: 'OTP sent to your WhatsApp number',
+            message: 'OTP sent to your mobile number',
         };
     }
 
@@ -172,7 +172,7 @@ export class AuthService {
 
         // 4. Return success message (no token, pending approval)
         return {
-            message: 'OTP sent to your WhatsApp number. Verify to complete seller registration.',
+            message: 'OTP sent to your mobile number. Verify to complete seller registration.',
         };
     }
 
@@ -299,8 +299,8 @@ export class AuthService {
         return {
             message:
                 channel === 'email'
-                    ? 'WhatsApp delivery is unavailable — we emailed your OTP instead. Please check your email.'
-                    : 'OTP sent to your WhatsApp number',
+                    ? 'SMS delivery is unavailable — we emailed your OTP instead. Please check your email.'
+                    : 'OTP sent to your mobile number',
         };
     }
 
@@ -553,7 +553,7 @@ export class AuthService {
     // ========================================================================
 
     /**
-     * Forgot Password — request a password-reset OTP (via WhatsApp, email fallback)
+     * Forgot Password — request a password-reset OTP (via SMS, email fallback)
      * POST /v1/auth/forgot-password
      *
      * Security:
