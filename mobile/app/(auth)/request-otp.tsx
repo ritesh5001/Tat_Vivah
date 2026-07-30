@@ -1,4 +1,5 @@
 import * as React from "react";
+import { FieldLabel } from "../../src/components/FieldLabel";
 import {
   View,
   StyleSheet,
@@ -31,7 +32,7 @@ export default function RequestOtpScreen() {
   const handleRequestOtp = async () => {
     const normalizedPhone = phone.replace(/\D/g, "");
     if (!/^\d{10,15}$/.test(normalizedPhone)) {
-      setError("Please enter a valid WhatsApp number.");
+      setError("Please enter a valid mobile number.");
       return;
     }
     setLoading(true);
@@ -65,11 +66,11 @@ export default function RequestOtpScreen() {
 
         <Text style={styles.title}>Sign in with OTP</Text>
         <Text style={styles.subtitle}>
-          We&apos;ll send a one-time code to your WhatsApp number.
+          We&apos;ll send a one-time code to your mobile number.
         </Text>
 
         <View style={styles.card}>
-          <Text style={styles.label}>WhatsApp number</Text>
+          <FieldLabel required>Mobile number</FieldLabel>
           <TextInput
             placeholder="9876543210"
             placeholderTextColor={colors.brownSoft}

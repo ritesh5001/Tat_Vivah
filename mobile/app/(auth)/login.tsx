@@ -1,4 +1,5 @@
 import React from "react";
+import { FieldLabel } from "../../src/components/FieldLabel";
 import {
   Pressable,
   ScrollView,
@@ -56,9 +57,9 @@ export default function LoginScreen() {
   }, [inputType]);
 
   const subHeading = isOtpMode
-    ? "We'll send a one-time code to your WhatsApp number."
+    ? "We'll send a one-time code to your mobile number."
     : identifierReady
-      ? "Enter your password below, or login with a WhatsApp OTP."
+      ? "Enter your password below, or login with an SMS OTP."
       : "Enter your mobile number or email address to sign in.";
 
   const handleLogin = React.useCallback(async () => {
@@ -109,13 +110,13 @@ export default function LoginScreen() {
 
         <View style={styles.formCard}>
           {/* Unified identifier input */}
-          <Text style={styles.label}>
+          <FieldLabel required>
             {inputType === "phone"
               ? "Mobile Number"
               : inputType === "email"
                 ? "Email Address"
                 : "Mobile Number or Email"}
-          </Text>
+          </FieldLabel>
           <TextInput
             value={identifier}
             onChangeText={setIdentifier}
@@ -130,7 +131,7 @@ export default function LoginScreen() {
           {/* Password field – visible once identifier is detected and not in OTP mode */}
           {identifierReady && !isOtpMode && (
             <>
-              <Text style={styles.label}>Password</Text>
+              <FieldLabel required>Password</FieldLabel>
               <TextInput
                 value={password}
                 onChangeText={setPassword}
@@ -141,7 +142,7 @@ export default function LoginScreen() {
               />
               {inputType === "phone" && (
                 <Pressable onPress={() => setUseOtp(true)} style={styles.otpToggleRow}>
-                  <Text style={styles.otpToggleText}>Login with WhatsApp OTP instead</Text>
+                  <Text style={styles.otpToggleText}>Login with SMS OTP instead</Text>
                 </Pressable>
               )}
             </>

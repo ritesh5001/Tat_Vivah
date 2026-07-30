@@ -1,4 +1,5 @@
 import * as React from "react";
+import { FieldLabel } from "../../src/components/FieldLabel";
 import {
   View,
   StyleSheet,
@@ -113,7 +114,7 @@ export default function RegisterScreen() {
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.label}>Full name</Text>
+          <FieldLabel required>Full name</FieldLabel>
           <TextInput
             placeholder="Enter your name"
             placeholderTextColor={REGISTER_PLACEHOLDER_COLOR}
@@ -122,7 +123,7 @@ export default function RegisterScreen() {
             onChangeText={setFullName}
           />
 
-          <Text style={styles.label}>Email</Text>
+          <FieldLabel required>Email</FieldLabel>
           <TextInput
             placeholder="you@example.com"
             placeholderTextColor={REGISTER_PLACEHOLDER_COLOR}
@@ -132,7 +133,7 @@ export default function RegisterScreen() {
             autoCapitalize="none"
           />
 
-          <Text style={styles.label}>WhatsApp number</Text>
+          <FieldLabel required>Mobile number</FieldLabel>
           <TextInput
             placeholder="9876543210"
             placeholderTextColor={REGISTER_PLACEHOLDER_COLOR}
@@ -142,10 +143,10 @@ export default function RegisterScreen() {
             keyboardType="phone-pad"
           />
           <Text style={styles.helperText}>
-            We&apos;ll send a verification code to this number on WhatsApp.
+            We&apos;ll send a verification code to this number by SMS.
           </Text>
 
-          <Text style={styles.label}>Password</Text>
+          <FieldLabel required>Password</FieldLabel>
           <View style={styles.inputRow}>
             <TextInput
               placeholder="Create a password"
@@ -163,7 +164,7 @@ export default function RegisterScreen() {
             Use at least 8 characters, 1 uppercase letter, and 1 number.
           </Text>
 
-          <Text style={styles.label}>Confirm password</Text>
+          <FieldLabel required>Confirm password</FieldLabel>
           <View style={styles.inputRow}>
             <TextInput
               placeholder="Re-enter password"

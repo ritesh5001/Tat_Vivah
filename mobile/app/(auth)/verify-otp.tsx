@@ -27,7 +27,7 @@ export default function VerifyOtpScreen() {
 
     if (!identifier) {
       console.warn("[mobile-auth][verify-otp] missing phone");
-      setError("Missing WhatsApp number. Please request OTP again.");
+      setError("Missing mobile number. Please request OTP again.");
       return;
     }
     if (code.length !== 6) {
@@ -58,7 +58,7 @@ export default function VerifyOtpScreen() {
     const identifier = typeof phone === "string" ? phone.replace(/\D/g, "") : "";
     if (!identifier) {
       console.warn("[mobile-auth][verify-otp] resend blocked - missing phone");
-      setError(`Missing WhatsApp number. Please request OTP again.`);
+      setError(`Missing mobile number. Please request OTP again.`);
       return;
     }
 
@@ -90,7 +90,7 @@ export default function VerifyOtpScreen() {
       <View style={styles.container}>
         <Text style={styles.heading}>VERIFY OTP</Text>
         <Text style={styles.subHeading}>
-          Enter the 6-digit code sent to your WhatsApp number
+          Enter the 6-digit code sent to your mobile number
         </Text>
 
         <TextInput

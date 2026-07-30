@@ -19,7 +19,7 @@ export default function ForgotPasswordScreen() {
   const handleContinue = React.useCallback(async () => {
     const normalizedPhone = phone.replace(/\D/g, "");
     if (!/^\d{10,15}$/.test(normalizedPhone)) {
-      setError("Please enter a valid WhatsApp number.");
+      setError("Please enter a valid mobile number.");
       return;
     }
     setLoading(true);
@@ -39,14 +39,14 @@ export default function ForgotPasswordScreen() {
       <AppHeader title="Forgot Password" showMenu showBack />
       <View style={styles.container}>
         <Text style={styles.heading}>FORGOT PASSWORD</Text>
-        <Text style={styles.subHeading}>We&apos;ll send an OTP to your WhatsApp number to reset your password.</Text>
+        <Text style={styles.subHeading}>We&apos;ll send an OTP to your mobile number to reset your password.</Text>
 
         <TextInput
           value={phone}
           onChangeText={(value) => setPhone(value.replace(/\D/g, ""))}
           keyboardType="phone-pad"
           autoCapitalize="none"
-          placeholder="Enter WhatsApp number"
+          placeholder="Enter mobile number"
           placeholderTextColor={colors.textSecondary}
           style={styles.input}
         />

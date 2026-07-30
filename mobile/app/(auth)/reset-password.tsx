@@ -1,4 +1,5 @@
 import * as React from "react";
+import { FieldLabel } from "../../src/components/FieldLabel";
 import {
   View,
   StyleSheet,
@@ -116,7 +117,7 @@ export default function ResetPasswordScreen() {
   // ---------- Submit ----------
   const handleSubmit = async () => {
     if (!phone) {
-      setError("Missing WhatsApp number. Please go back and try again.");
+      setError("Missing mobile number. Please go back and try again.");
       return;
     }
 
@@ -193,13 +194,13 @@ export default function ResetPasswordScreen() {
         <Text style={styles.title}>Reset password</Text>
         <Text style={styles.subtitle}>
           Enter the 6-digit code sent to{" "}
-          <Text style={styles.emailHighlight}>{phone ?? "your WhatsApp number"}</Text>
+          <Text style={styles.emailHighlight}>{phone ?? "your mobile number"}</Text>
           {" "}and set a new password.
         </Text>
 
         <View style={styles.card}>
           {/* OTP digits */}
-          <Text style={styles.label}>OTP Code</Text>
+          <FieldLabel required>OTP Code</FieldLabel>
           <View style={styles.otpRow}>
             {digits.map((digit, i) => (
               <TextInput
@@ -227,7 +228,7 @@ export default function ResetPasswordScreen() {
           </View>
 
           {/* New password */}
-          <Text style={styles.label}>New Password</Text>
+          <FieldLabel required>New Password</FieldLabel>
           <View style={styles.inputRow}>
             <TextInput
               ref={passwordRef}
@@ -246,7 +247,7 @@ export default function ResetPasswordScreen() {
           </View>
 
           {/* Confirm password */}
-          <Text style={styles.label}>Confirm Password</Text>
+          <FieldLabel required>Confirm Password</FieldLabel>
           <View style={styles.inputRow}>
             <TextInput
               placeholder="Re-enter password"

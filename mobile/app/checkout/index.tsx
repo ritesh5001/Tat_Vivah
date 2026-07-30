@@ -12,6 +12,7 @@ import {
 import { usePathname, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, radius, spacing, typography, shadow } from "../../src/theme/tokens";
+import { FieldLabel } from "../../src/components/FieldLabel";
 import { flushPendingCartWrite } from "../../src/lib/pending-cart";
 import { checkoutWithPayment, validateCoupon, type CouponPreview } from "../../src/services/cart";
 import { initiatePayment, verifyPhonePePayment } from "../../src/services/payments";
@@ -215,6 +216,7 @@ export default function CheckoutScreen() {
     addressLine1: "",
     addressLine2: "",
     city: "",
+    pincode: "",
     notes: "",
   });
 
@@ -358,12 +360,47 @@ export default function CheckoutScreen() {
       return;
     }
 
-    // Build shipping payload from selected address or manual fields
+    // These are the fields an order genuinely cannot ship without — the ones marked
+    // with a red asterisk. Nothing was validated before, so an order could be placed
+    // with no recipient, no address and no pincode at all.
+    if (!selectedAddress) {
+      const missing = (
+        [
+          ["Full name", shipping.name],
+          ["Phone", shipping.phone],
+          ["Address line 1", shipping.addressLine1],
+          ["City", shipping.city],
+          ["Pincode", shipping.pincode],
+        ] as const
+      )
+        .filter(([, value]) => !value?.trim())
+        .map(([field]) => field);
+
+      if (missing.length > 0) {
+        showToast(`Please fill in: ${missing.join(", ")}`, "info");
+        return;
+      }
+
+      if (!/^\d{6}$/.test(shipping.pincode.trim())) {
+        showToast("Please enter a valid 6-digit pincode", "info");
+        return;
+      }
+    }
+
+    // Build shipping payload from selected address or manual fields.
+    // The saved-address branch previously sent only the address lines and city —
+    // no recipient name, no phone and no pincode — which left those orders
+    // effectively undeliverable.
     const shippingPayload = selectedAddress
       ? {
+          shippingName: shipping.name?.trim() || undefined,
+          shippingPhone: shipping.phone?.trim() || undefined,
+          shippingEmail: shipping.email?.trim() || undefined,
           shippingAddressLine1: selectedAddress.addressLine1,
           shippingAddressLine2: selectedAddress.addressLine2 || undefined,
           shippingCity: selectedAddress.city,
+          shippingPincode: selectedAddress.pincode || undefined,
+          shippingNotes: shipping.notes?.trim() || undefined,
           couponCode: appliedCoupon?.code || undefined,
         }
       : {
@@ -373,6 +410,7 @@ export default function CheckoutScreen() {
           shippingAddressLine1: shipping.addressLine1 || undefined,
           shippingAddressLine2: shipping.addressLine2 || undefined,
           shippingCity: shipping.city || undefined,
+          shippingPincode: shipping.pincode || undefined,
           shippingNotes: shipping.notes || undefined,
           couponCode: appliedCoupon?.code || undefined,
         };
@@ -557,7 +595,7 @@ export default function CheckoutScreen() {
               </AnimatedPressable>
             </View>
 
-            <Text style={styles.label}>Full name</Text>
+            <FieldLabel required>Full name</FieldLabel>
             <TextInput
               style={styles.input}
               placeholder="Aarav Sharma"
@@ -569,7 +607,7 @@ export default function CheckoutScreen() {
               editable={!isPaying}
             />
 
-            <Text style={styles.label}>Phone</Text>
+            <FieldLabel required>Phone</FieldLabel>
             <TextInput
               style={styles.input}
               placeholder="+91 97696 59709"
@@ -582,7 +620,7 @@ export default function CheckoutScreen() {
               editable={!isPaying}
             />
 
-            <Text style={styles.label}>Email</Text>
+            <FieldLabel>Email</FieldLabel>
             <TextInput
               style={styles.input}
               placeholder="you@email.com"
@@ -595,7 +633,7 @@ export default function CheckoutScreen() {
               editable={!isPaying}
             />
 
-            <Text style={styles.label}>Address line 1</Text>
+            <FieldLabel required>Address line 1</FieldLabel>
             <TextInput
               style={styles.input}
               placeholder="House, street, area"
@@ -607,7 +645,7 @@ export default function CheckoutScreen() {
               editable={!isPaying}
             />
 
-            <Text style={styles.label}>Address line 2</Text>
+            <FieldLabel>Address line 2</FieldLabel>
             <TextInput
               style={styles.input}
               placeholder="Apartment, landmark"
@@ -619,7 +657,7 @@ export default function CheckoutScreen() {
               editable={!isPaying}
             />
 
-            <Text style={styles.label}>City</Text>
+            <FieldLabel required>City</FieldLabel>
             <TextInput
               style={styles.input}
               placeholder="City"
@@ -630,12 +668,29 @@ export default function CheckoutScreen() {
               }
               editable={!isPaying}
             />
+
+            <FieldLabel required>Pincode</FieldLabel>
+            <TextInput
+              style={styles.input}
+              placeholder="6-digit pincode"
+              placeholderTextColor={colors.brownSoft}
+              keyboardType="number-pad"
+              maxLength={6}
+              value={shipping.pincode}
+              onChangeText={(value) =>
+                setShipping((prev) => ({
+                  ...prev,
+                  pincode: value.replace(/[^0-9]/g, ""),
+                }))
+              }
+              editable={!isPaying}
+            />
           </View>
         )}
 
         {/* ---- Notes (always visible) ---- */}
         <View style={[styles.card, { marginTop: spacing.md }]}>
-          <Text style={styles.label}>Order notes (optional)</Text>
+          <FieldLabel>Order notes (optional)</FieldLabel>
           <TextInput
             style={[styles.input, { height: 72, textAlignVertical: "top" }]}
             placeholder="Special instructions…"
