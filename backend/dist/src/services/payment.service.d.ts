@@ -19,6 +19,7 @@ export declare class PaymentService {
         createdAt: Date;
         updatedAt: Date;
     }>;
+    confirmOrderWithoutPayment(orderId: string): Promise<void>;
     handlePaymentSuccess(paymentId: string, orderId: string, providerPaymentId: string, payload: any, providerSignature?: string): Promise<void>;
     handlePaymentFailure(paymentId: string, payload: any): Promise<void>;
     cancelStaleOrders(): Promise<{

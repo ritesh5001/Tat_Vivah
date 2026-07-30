@@ -127,6 +127,58 @@ export class PaymentService {
     }
 
     // ------------------------------------------------------------------
+    // Confirm an order that has no online payment step.
+    //
+    // With the payment gateways removed, checkout can't collect money, so an
+    // order would otherwise sit PLACED forever and be auto-cancelled by
+    // cancelStaleOrders after 30 min. This moves the order PLACED → CONFIRMED
+    // and assigns an invoice so it is fulfillable and not stale-cancelled.
+    // Idempotent via an optimistic lock on the order status.
+    // ------------------------------------------------------------------
+
+    async confirmOrderWithoutPayment(orderId: string): Promise<void> {
+        const result = await prisma.$transaction(async (tx: any) => {
+            const updated = await tx.order.updateMany({
+                where: { id: orderId, status: OrderStatus.PLACED },
+                data: { status: OrderStatus.CONFIRMED },
+            });
+
+            if (updated.count === 0) {
+                return { alreadyProcessed: true };
+            }
+
+            const invoiceNumber = await generateInvoiceNumber(tx as any);
+            await tx.order.update({
+                where: { id: orderId },
+                data: { invoiceNumber, invoiceIssuedAt: new Date() },
+            });
+
+            return { alreadyProcessed: false };
+        }, {
+            maxWait: TX_MAX_WAIT_MS,
+            timeout: TX_TIMEOUT_MS,
+        });
+
+        if (result.alreadyProcessed) return;
+
+        paymentLogger.info({ event: 'order_confirmed_no_payment', orderId }, `Order confirmed (no payment): ${orderId}`);
+
+        // No payment happened, so we intentionally do NOT send a
+        // "payment received" notification — just refresh the live views.
+        await dispatchFreshness({
+            type: 'order.updated',
+            entityId: orderId,
+            tags: [
+                CACHE_TAGS.orders,
+                CACHE_TAGS.userOrders,
+                CACHE_TAGS.sellerOrders,
+                orderTag(orderId),
+            ],
+            audience: { allAuthenticated: true },
+        });
+    }
+
+    // ------------------------------------------------------------------
     // Shared success handler — idempotent via optimistic lock inside tx.
     // A future gateway's verify/webhook should converge here to confirm
     // the order and create settlements.

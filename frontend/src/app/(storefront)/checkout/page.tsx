@@ -40,7 +40,9 @@ export default function CheckoutPage() {
 
   const shippingFee = hasItems && shippingConfig.enabled ? shippingConfig.amount : 0;
   const cartTotal = subtotal + shippingFee;
-  const [taxSummary, setTaxSummary] = React.useState<{
+  // Order totals shown here are the pre-checkout estimate; the backend order
+  // is the source of truth. We navigate away on success, so no live update.
+  const [taxSummary] = React.useState<{
     subTotalAmount: number;
     totalTaxAmount: number;
     grandTotal: number;
@@ -217,17 +219,12 @@ export default function CheckoutPage() {
         throw new Error("Order ID missing. Please try again.");
       }
 
-      if (orderResult.order) {
-        setTaxSummary({
-          subTotalAmount: orderResult.order.subTotalAmount ?? 0,
-          totalTaxAmount: orderResult.order.totalTaxAmount ?? 0,
-          grandTotal: orderResult.order.grandTotal ?? 0,
-          discountAmount: orderResult.order.discountAmount ?? 0,
-        });
-      }
-
+      // Success — navigate away. Keep the button disabled (do NOT reset
+      // isPaying) so a slow navigation can't be double-submitted into a
+      // "cart is empty" error on the now-consumed cart.
       toast.success("Order placed successfully.");
       router.push("/user/orders");
+      return;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Checkout failed";
       if (/cart is empty/i.test(message)) {
@@ -238,7 +235,7 @@ export default function CheckoutPage() {
         return;
       }
       toast.error(message, { duration: 8000 });
-    } finally {
+      // Only re-enable the button when we are staying on the page (real error).
       setLoading(false);
       setIsPaying(false);
     }
