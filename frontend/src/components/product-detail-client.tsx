@@ -10,7 +10,10 @@ import { addCartItem } from "@/services/cart";
 import { toggleWishlistItem, checkWishlistItems } from "@/services/wishlist";
 import { createAppointment } from "@/services/appointments";
 import { startNavigationFeedback } from "@/lib/navigation-feedback";
-import { upsertCheckoutSnapshotItem } from "@/lib/checkout-snapshot";
+import {
+  upsertCheckoutSnapshotItem,
+  removeCheckoutSnapshotItem,
+} from "@/lib/checkout-snapshot";
 import { loginUrlWithReturn } from "@/lib/login-redirect";
 
 interface Variant {
@@ -137,7 +140,6 @@ export default function ProductDetailClient({
   const [selectedVariantId, setSelectedVariantId] = React.useState(
     product.variants?.[0]?.id ?? ""
   );
-  const [loading, setLoading] = React.useState(false);
   const [buyNowLoading, setBuyNowLoading] = React.useState(false);
   const [wishlisted, setWishlisted] = React.useState(false);
   const [wishlistLoading, setWishlistLoading] = React.useState(false);
@@ -318,27 +320,47 @@ export default function ProductDetailClient({
       return;
     }
 
-    setLoading(true);
-    try {
-      await addCartItem({
-        productId: product.id,
-        variantId: selectedVariant.id,
+    // Optimistic. Adding to a cart is a single insert that essentially only fails on
+    // an expired session or a sold-out variant, and blocking the button on a
+    // cross-region round-trip made a one-tap action feel broken. Confirm now, reconcile
+    // in the background, and correct loudly if the server disagrees.
+    const variantId = selectedVariant.id;
+    toast.success("Added to cart.");
+    if (typeof salePrice === "number") {
+      // Only seed the snapshot when we know the price — a placeholder would show a
+      // wrong estimated total on /checkout. The server response corrects it below.
+      upsertCheckoutSnapshotItem({
+        variantId,
         quantity: 1,
+        priceSnapshot: salePrice,
       });
-      toast.success("Added to cart.");
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Unable to add to cart";
-      if (/access token required|unauthorized/i.test(message)) {
-        toast.error("Please sign in to add items to cart.");
-        startNavigationFeedback();
-        router.push(loginUrlWithReturn());
-        return;
-      }
-      toast.error(message);
-    } finally {
-      setLoading(false);
     }
+
+    void addCartItem({
+      productId: product.id,
+      variantId,
+      quantity: 1,
+    })
+      .then((result) => {
+        // Replace the guess with what the server actually stored.
+        upsertCheckoutSnapshotItem({
+          variantId: result.item.variantId,
+          quantity: result.item.quantity,
+          priceSnapshot: result.item.priceSnapshot,
+        });
+      })
+      .catch((error: unknown) => {
+        removeCheckoutSnapshotItem(variantId);
+        const message =
+          error instanceof Error ? error.message : "Unable to add to cart";
+        if (/access token required|unauthorized/i.test(message)) {
+          toast.error("Your session expired — please sign in again.");
+          startNavigationFeedback();
+          router.push(loginUrlWithReturn());
+          return;
+        }
+        toast.error(`Couldn't add to cart: ${message}`, { duration: 8000 });
+      });
   };
 
   const handleBuyNow = async () => {
@@ -642,10 +664,10 @@ export default function ProductDetailClient({
               size="lg"
               variant="outline"
               onClick={handleAddToCart}
-              disabled={loading || buyNowLoading}
+              disabled={buyNowLoading}
               className="w-full h-14 border border-gold/40 bg-[#fefaf6] dark:bg-brown/20 text-[#d85025] hover:bg-cream dark:hover:bg-brown/40 hover:text-[#b03d19] font-medium tracking-widest uppercase text-[13px] transition-colors"
             >
-              {loading ? "Adding..." : "Add to Cart"}
+              Add to Cart
             </Button>
           </motion.div>
 
@@ -653,7 +675,7 @@ export default function ProductDetailClient({
             <Button
               size="lg"
               onClick={handleBuyNow}
-              disabled={buyNowLoading || loading}
+              disabled={buyNowLoading}
               className="w-full h-14 bg-[#d85025] hover:bg-[#b03d19] text-white font-medium tracking-widest uppercase text-[13px] border-none transition-colors"
             >
               {buyNowLoading ? "Processing..." : "Buy Now"}

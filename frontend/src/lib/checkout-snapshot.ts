@@ -71,3 +71,18 @@ export function upsertCheckoutSnapshotItem(item: CheckoutSnapshotItem) {
   next.push(item);
   persistCheckoutCartSnapshot(next);
 }
+
+/**
+ * Drop a single variant from the snapshot. Used to roll back an optimistic
+ * add-to-cart when the server rejects it, so the cached view never claims to hold
+ * something the real cart does not.
+ */
+export function removeCheckoutSnapshotItem(variantId: string) {
+  const existing = readCheckoutCartSnapshot();
+  if (!existing) {
+    return;
+  }
+  persistCheckoutCartSnapshot(
+    existing.filter((entry) => entry.variantId !== variantId)
+  );
+}

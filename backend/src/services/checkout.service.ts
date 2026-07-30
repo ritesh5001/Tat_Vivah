@@ -70,18 +70,26 @@ export class CheckoutService {
         // PHASE 1 — Read-only validation (outside transaction)
         // =====================================================================
 
-        const [cart, buyer] = await Promise.all([
-            this.cartRepo.getCartWithDetails(userId),
+        // One batched load (2 queries) covers the cart, its products, each product's
+        // taxRate, the seller's state and the exact variants with pricing + stock.
+        // The buyer's state and the two app settings are independent of all of it, so
+        // they ride along in the same round-trip instead of being awaited in series.
+        const [cartRows, buyer, shippingFee, gstChargeEnabled] = await Promise.all([
+            this.cartRepo.getCartForCheckout(userId),
             prisma.user.findUnique({
                 where: { id: userId },
                 select: { state: true },
             }),
+            settingsService.getShippingFee(true),
+            settingsService.isGstChargeEnabled(),
         ]);
-        if (!cart || cart.items.length === 0) {
+        if (cartRows.length === 0) {
             throw ApiError.badRequest('Cart is empty');
         }
 
-        if (cart.items.length > MAX_CHECKOUT_ITEMS) {
+        const cartId = cartRows[0]!.cartId;
+
+        if (cartRows.length > MAX_CHECKOUT_ITEMS) {
             throw ApiError.badRequest(`Cart cannot contain more than ${MAX_CHECKOUT_ITEMS} items per checkout`);
         }
 
@@ -103,98 +111,49 @@ export class CheckoutService {
 
         const buyerState = buyer?.state ?? '';
 
-        const productIds = cart.items.map((i) => i.productId);
-        const sellerIds = [
-            ...new Set(
-                cart.items
-                    .map((i) => i.product?.sellerId)
-                    .filter((sellerId): sellerId is string => Boolean(sellerId))
-            ),
-        ];
+        // Each row already carries its product, variant, stock and seller state from the
+        // single JOIN above — no further queries, no lookup maps needed.
+        for (const item of cartRows) {
+            const title = item.productTitle ?? 'this item';
 
-        const [productTaxRates, sellerProfiles] = await Promise.all([
-            prisma.product.findMany({
-                where: { id: { in: productIds } },
-                select: { id: true, taxRate: true },
-            }),
-            prisma.seller_profiles.findMany({
-                where: { user_id: { in: sellerIds } },
-                select: { user_id: true, state: true },
-            }),
-        ]);
-
-        const variants = await prisma.productVariant.findMany({
-            where: { id: { in: [...new Set(cart.items.map((item) => item.variantId))] } },
-            select: {
-                id: true,
-                sellerPrice: true,
-                adminListingPrice: true,
-                price: true,
-                status: true,
-            },
-        });
-
-        const taxRateMap = new Map(
-            productTaxRates.map((p) => [p.id, p.taxRate ?? 0])
-        );
-
-        const sellerStateMap = new Map(
-            sellerProfiles.map((s) => [s.user_id, s.state ?? ''])
-        );
-
-        const variantMap = new Map(
-            variants.map((variant) => [
-                variant.id,
-                {
-                    sellerPrice: Number(variant.sellerPrice),
-                    adminListingPrice:
-                        variant.adminListingPrice == null ? null : Number(variant.adminListingPrice),
-                    price: Number(variant.price),
-                    status: variant.status,
-                },
-            ])
-        );
-
-        for (const item of cart.items) {
-            const availableStock = item.variant?.inventory?.stock ?? 0;
-
-            if (!item.product || !item.variant) {
-                validationErrors.push(`Product or variant not found for item ${item.id}`);
+            if (item.sellerId == null || item.variantStatus == null || item.variantPrice == null) {
+                validationErrors.push(`Product or variant not found for item ${item.itemId}`);
                 continue;
             }
 
-            const variantPricing = variantMap.get(item.variantId);
-            if (!variantPricing) {
-                validationErrors.push(`Pricing could not be resolved for ${item.product.title}`);
+            const availableStock = item.stock;
+
+            if (item.productDeleted || item.productStatus !== 'APPROVED') {
+                validationErrors.push(`${title} is no longer available for purchase`);
                 continue;
             }
 
-            if (variantPricing.status !== 'APPROVED') {
-                validationErrors.push(`Selected variant is pending approval for ${item.product.title}`);
+            if (item.variantStatus !== 'APPROVED') {
+                validationErrors.push(`Selected variant is pending approval for ${title}`);
                 continue;
             }
 
-            const adminListingPrice = variantPricing.price;
-            const sellerPrice = variantPricing.sellerPrice;
+            const adminListingPrice = Number(item.variantPrice);
+            const sellerPrice = Number(item.variantSellerPrice ?? 0);
             const margin = adminListingPrice - sellerPrice;
 
             if (margin < 0) {
-                validationErrors.push(`Invalid pricing state for ${item.product.title}`);
+                validationErrors.push(`Invalid pricing state for ${title}`);
                 continue;
             }
 
-            const productTaxRate = taxRateMap.get(item.productId) ?? 0;
-            const sellerState = sellerStateMap.get(item.product.sellerId) ?? '';
+            const productTaxRate = item.taxRate ?? 0;
+            const sellerState = item.sellerState;
 
             if (item.quantity > availableStock) {
                 validationErrors.push(
-                    `Insufficient stock for ${item.product.title}: Available ${availableStock}, Requested ${item.quantity}`
+                    `Insufficient stock for ${title}: Available ${availableStock}, Requested ${item.quantity}`
                 );
             } else {
                 itemsWithStock.push({
                     variantId: item.variantId,
                     productId: item.productId,
-                    sellerId: item.product.sellerId,
+                    sellerId: item.sellerId,
                     quantity: item.quantity,
                     priceSnapshot: adminListingPrice,
                     sellerPriceSnapshot: sellerPrice,
@@ -217,11 +176,8 @@ export class CheckoutService {
             (sum, item) => sum.add(item.lineSubtotal),
             new Prisma.Decimal(0),
         );
-        // Shipping and flat-GST charges can be turned on/off by admins via app
-        // settings. Resolve both here (outside the transaction) to avoid DB
-        // reads while holding row locks.
-        const shippingFee = await settingsService.getShippingFee(itemsWithStock.length > 0);
-        const gstChargeEnabled = await settingsService.isGstChargeEnabled();
+        // shippingFee and gstChargeEnabled were resolved in the batched load above —
+        // outside the transaction, so no DB reads happen while holding row locks.
 
         // =====================================================================
         // PHASE 2 — Atomic transaction: reserve stock + create order + clear cart
@@ -409,7 +365,12 @@ export class CheckoutService {
                         })),
                     },
                 },
-                include: { items: true },
+                // Deliberately no `include: { items: true }` — Prisma 4 satisfies an
+                // include by re-SELECTing the row and its relation after the INSERT,
+                // which cost two extra round-trips *inside* the transaction (where
+                // every statement is strictly serial). Nothing needs the persisted
+                // items: the response omits them, and the only consumer is the GST log
+                // below, which is computed from `discountedLines` we already hold.
             });
 
             if (appliedCoupon && totalDiscount.gt(0)) {
@@ -433,12 +394,17 @@ export class CheckoutService {
                 })),
             });
 
-            // 2d. Clear cart
-            await tx.cartItem.deleteMany({
-                where: { cartId: cart.id },
-            });
+            // 2d. Clear cart. Raw DELETE on purpose: Prisma 4's deleteMany issued two
+            //     SELECTs to collect ids and then deleted by id — three serial
+            //     round-trips inside the transaction to do one thing.
+            await tx.$executeRaw`DELETE FROM "cart_items" WHERE "cart_id" = ${cartId}`;
 
-            return created;
+            // Carry the intra-state flag out instead of re-reading order items later.
+            const hasIntraState = discountedLines.some(
+                (line) => line.cgst.gt(0) || line.sgst.gt(0),
+            );
+
+            return { ...created, hasIntraState };
         }, {
             maxWait: 20000,
             timeout: 20000,
@@ -502,7 +468,7 @@ export class CheckoutService {
         }, `Checkout succeeded — order ${order.id}`);
 
         // Structured GST log
-        const hasIntraState = order.items.some((i) => i.cgstAmount > 0 || i.sgstAmount > 0);
+        const hasIntraState = order.hasIntraState;
         checkoutLogger.info({
             event: 'gst_calculated',
             orderId: order.id,

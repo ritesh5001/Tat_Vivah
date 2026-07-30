@@ -41,8 +41,13 @@ export class CartService {
      * Validates stock availability and snapshots price
      */
     async addItem(userId: string, data: AddCartItemRequest): Promise<CartItemResponse> {
-        // 1. Validate variant exists and get price
-        const variant = await this.variantRepo.findByIdWithProduct(data.variantId);
+        // 1. Validate the variant and resolve the cart concurrently — the two lookups
+        //    are independent, and running them in series paid two full cross-region
+        //    round-trips for no reason.
+        const [variant, cart] = await Promise.all([
+            this.variantRepo.findByIdWithProduct(data.variantId),
+            this.cartRepo.findOrCreateByUserId(userId),
+        ]);
         if (!variant) {
             throw ApiError.notFound('Variant not found');
         }
@@ -65,16 +70,13 @@ export class CartService {
             );
         }
 
-        // 4. Get or create cart
-        const cart = await this.cartRepo.findOrCreateByUserId(userId);
-
-        // 5. Add/update item with price snapshot
+        // 4. Add/update item with price snapshot (cart was resolved in step 1)
         const item = await this.cartRepo.addItem(cart.id, {
             ...data,
             priceSnapshot: Number(variant.price),
         });
 
-        // 6. Invalidate cache
+        // 5. Invalidate cache
         await invalidateCache(CACHE_KEYS.CART(userId));
 
         return {
