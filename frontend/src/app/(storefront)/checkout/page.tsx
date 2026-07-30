@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { checkoutWithPayment, getCart, type CouponPreview } from "@/services/cart";
 import { initiatePayment } from "@/services/payments";
+import { ApiTimeoutError } from "@/services/api";
 import { getAddresses, type Address } from "@/services/addresses";
 import { getShippingConfig } from "@/services/shipments";
 import CouponSection from "@/components/checkout/CouponSection";
@@ -251,13 +252,30 @@ export default function CheckoutPage() {
       return;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Checkout failed";
+
+      // A timeout is NOT a failure — the server may have placed the order (and
+      // consumed the cart) while we stopped listening. Re-submitting here is what
+      // produced the "Cart is empty" error. Hand the buyer to their orders page,
+      // where the pending order self-heals and offers Retry Payment.
+      if (error instanceof ApiTimeoutError) {
+        clearCheckoutCartSnapshot();
+        toast.error(
+          "The payment page took too long to open. Check your orders — if the order was placed, you can finish paying from there.",
+          { duration: 10000 }
+        );
+        router.push("/user/orders");
+        return;
+      }
+
       if (/cart is empty/i.test(message)) {
+        clearCheckoutCartSnapshot();
         toast.error("Your cart is empty. Check your orders for recent purchases.", {
           duration: 8000,
         });
         router.push("/user/orders");
         return;
       }
+
       toast.error(message, { duration: 8000 });
       setLoading(false);
       setIsPaying(false);

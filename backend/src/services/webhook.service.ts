@@ -50,7 +50,33 @@ export class WebhookService {
             return;
         }
 
-        const payment = await paymentRepository.findByProviderOrderId(event.merchantOrderId);
+        let payment = await paymentRepository.findByProviderOrderId(event.merchantOrderId);
+
+        if (!payment) {
+            // Payment.providerOrderId holds only the LATEST attempt's merchantOrderId,
+            // so a webhook for an earlier attempt finds nothing. That is a money-loss
+            // path: a buyer who completes attempt #1 after opening attempt #2 would
+            // never have their order confirmed, and the stale-order sweep would cancel
+            // a paid order. Recover the order from the merchantOrderId prefix.
+            const derivedOrderId = phonepeService.parseOrderIdFromMerchantOrderId(event.merchantOrderId);
+            if (derivedOrderId) {
+                const candidate = await paymentRepository.findPaymentByOrderId(derivedOrderId);
+                if (candidate && candidate.provider === PaymentProvider.PHONEPE) {
+                    payment = candidate;
+                    paymentLogger.info(
+                        {
+                            event: 'phonepe_webhook_matched_by_prefix',
+                            merchantOrderId: event.merchantOrderId,
+                            orderId: derivedOrderId,
+                            paymentId: candidate.id,
+                            currentProviderOrderId: candidate.providerOrderId,
+                        },
+                        `PhonePe webhook: matched superseded attempt ${event.merchantOrderId} to order ${derivedOrderId}`,
+                    );
+                }
+            }
+        }
+
         if (!payment) {
             // Expected for orders that were never created through this app (e.g.
             // direct API tests on the same merchant account). Not an app error —
@@ -94,6 +120,23 @@ export class WebhookService {
 
         if (event.event === 'checkout.order.failed') {
             if (payment.status === PaymentStatus.FAILED) return;
+
+            // Only the CURRENT attempt may fail the payment. A failure webhook for a
+            // superseded attempt (buyer abandoned it and started a retry) must not kill
+            // the retry that is still in flight — or worse, one that already succeeded.
+            if (payment.providerOrderId !== event.merchantOrderId) {
+                paymentLogger.info(
+                    {
+                        event: 'phonepe_webhook_stale_failure_ignored',
+                        merchantOrderId: event.merchantOrderId,
+                        currentProviderOrderId: payment.providerOrderId,
+                        paymentId: payment.id,
+                    },
+                    `PhonePe webhook: ignoring failure for superseded attempt ${event.merchantOrderId}`,
+                );
+                return;
+            }
+
             await paymentService.handlePaymentFailure(payment.id, {
                 merchantOrderId: event.merchantOrderId,
                 source: 'webhook',

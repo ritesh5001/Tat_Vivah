@@ -1,4 +1,4 @@
-import { apiRequest } from "@/services/api";
+import { apiRequest, CHECKOUT_REQUEST_TIMEOUT_MS } from "@/services/api";
 
 export interface InitiatePaymentResponse {
   data: {
@@ -31,6 +31,7 @@ export async function initiatePayment(orderId: string, token?: string | null) {
     method: "POST",
     body: { orderId, platform: "WEB" },
     token,
+    timeoutMs: CHECKOUT_REQUEST_TIMEOUT_MS,
   });
 }
 
@@ -51,6 +52,7 @@ export async function retryPayment(orderId: string, token?: string | null) {
     method: "POST",
     body: { platform: "WEB" },
     token,
+    timeoutMs: CHECKOUT_REQUEST_TIMEOUT_MS,
   });
 }
 

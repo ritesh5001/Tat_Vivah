@@ -1,4 +1,4 @@
-import { apiRequest } from "@/services/api";
+import { apiRequest, CHECKOUT_REQUEST_TIMEOUT_MS } from "@/services/api";
 
 export interface CartItemDetails {
   id: string;
@@ -189,5 +189,6 @@ export async function checkoutWithPayment(
     method: "POST",
     body: payload ?? {},
     token,
+    timeoutMs: CHECKOUT_REQUEST_TIMEOUT_MS,
   });
 }

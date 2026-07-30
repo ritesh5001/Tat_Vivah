@@ -103,6 +103,21 @@ export class PhonePeService {
     }
 
     /**
+     * Inverse of buildMerchantOrderId: recover our local order id from a PhonePe
+     * merchantOrderId (`<orderId>_<base36 timestamp>`). Order ids are cuids, so they
+     * contain no underscores — splitting at the LAST underscore is unambiguous.
+     *
+     * Needed because a retry mints a fresh merchantOrderId and overwrites
+     * Payment.providerOrderId, leaving webhooks for earlier attempts unmatchable.
+     */
+    parseOrderIdFromMerchantOrderId(merchantOrderId: string): string | null {
+        const separator = merchantOrderId.lastIndexOf('_');
+        if (separator <= 0) return null;
+        const candidate = merchantOrderId.slice(0, separator);
+        return candidate.length > 0 ? candidate : null;
+    }
+
+    /**
      * Create a PhonePe Standard Checkout order.
      * @param amount - rupees (converted to paise internally)
      */

@@ -4,6 +4,12 @@ import { reportApiActivity } from "@/lib/navigation-feedback";
 type ApiRequestOptions = Omit<RequestInit, "body"> & {
   body?: unknown;
   token?: string | null;
+  /**
+   * Override the default request timeout. Use a long timeout for operations
+   * that legitimately take many seconds (order placement, payment initiation),
+   * where aborting early leaves the server-side work half-observed.
+   */
+  timeoutMs?: number;
   /** Internal flag to prevent infinite refresh loops */
   _isRetry?: boolean;
 };
@@ -13,7 +19,36 @@ const API_BASE_URL =
   (process.env.NODE_ENV === "development" ? "http://localhost:5000" : "");
 
 const DEV_FALLBACK_API_BASE_URL = "http://localhost:5000";
-const API_REQUEST_TIMEOUT_MS = 15000;
+
+/**
+ * Default request timeout. Measured latencies against the live stack: ~2.5s for a
+ * cart read, ~7s to add a cart item — the API and its Postgres are in different
+ * regions, so every query pays a real round-trip. The previous 15s left under 2x
+ * headroom on an already-warm request, which surfaced as buttons that "did
+ * nothing" because the client gave up on work the server went on to complete.
+ */
+const API_REQUEST_TIMEOUT_MS = 30000;
+
+/**
+ * Timeout for order/payment mutations. Placing an order does cart validation,
+ * an inventory-reserving transaction, GST calculation, then a PhonePe OAuth +
+ * order-create round-trip. On a cold/slow backend that comfortably exceeds the
+ * default 15s — and aborting mid-flight strands an order the client never
+ * learns about. Give these calls real headroom.
+ */
+export const CHECKOUT_REQUEST_TIMEOUT_MS = 90000;
+
+/**
+ * Thrown when a request is aborted by our own timeout. Distinct from a generic
+ * failure because the server may have completed the work — never treat this as
+ * "nothing happened" for a mutation.
+ */
+export class ApiTimeoutError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ApiTimeoutError";
+  }
+}
 
 export const swrConfig = {
   dedupingInterval: 5000,
@@ -195,7 +230,7 @@ export async function apiRequest<T>(
     throw new Error("API base URL is not configured");
   }
 
-  const { body, token, headers, _isRetry, ...rest } = options;
+  const { body, token, headers, timeoutMs, _isRetry, ...rest } = options;
   const method = normalizeMethod(rest.method);
   const shouldTrackActivity =
     typeof window !== "undefined" && isMutationMethod(method) && !_isRetry;
@@ -233,7 +268,10 @@ export async function apiRequest<T>(
           ...rest,
           headers: finalHeaders,
           body: body ? JSON.stringify(body) : undefined,
-          signal: withTimeout(rest.signal ?? null, API_REQUEST_TIMEOUT_MS),
+          signal: withTimeout(
+            rest.signal ?? null,
+            timeoutMs ?? API_REQUEST_TIMEOUT_MS
+          ),
         });
 
         const data = await response.json().catch(() => null);
@@ -264,11 +302,22 @@ export async function apiRequest<T>(
           error instanceof Error
             ? error
             : new Error("Network request failed");
+
+        // A timed-out mutation may already have been applied server-side. Re-sending
+        // it to the next base URL could place a second order / take a second payment,
+        // so stop here and let the caller reconcile.
+        if (lastError.name === "AbortError" && isMutationMethod(method)) {
+          break;
+        }
       }
     }
 
     if (lastError?.name === "AbortError") {
-      throw new Error("Request timed out. Please check backend/API URL and try again.");
+      // Distinguishable type: a timed-out mutation may well have SUCCEEDED on the
+      // server. Callers that create orders must reconcile rather than re-submit.
+      throw new ApiTimeoutError(
+        "The server took too long to respond. Your request may still have gone through."
+      );
     }
 
     throw new Error("Unable to reach API. Please check backend server and API base URL.");
