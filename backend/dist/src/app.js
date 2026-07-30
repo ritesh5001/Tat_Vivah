@@ -185,6 +185,46 @@ export function createApp() {
     };
     app.get('/health', healthHandler);
     app.get('/api/health', healthHandler);
+    // Temporary gated diagnostic: order status distribution for the last hour,
+    // so we can confirm checkout auto-confirms orders (no PII, aggregate only).
+    // Call: /health/orders?token=<JWT_ACCESS_SECRET first 12 chars>
+    app.get('/health/orders', async (req, res) => {
+        if (req.query.token !== env.JWT_ACCESS_SECRET.slice(0, 12)) {
+            res.status(404).json({ error: 'Not found' });
+            return;
+        }
+        try {
+            const since = new Date(Date.now() - 60 * 60 * 1000);
+            const grouped = await prisma.order.groupBy({
+                by: ['status'],
+                where: { createdAt: { gte: since } },
+                _count: { _all: true },
+            });
+            const byStatus = {};
+            for (const g of grouped)
+                byStatus[g.status] = g._count._all;
+            const recent = await prisma.order.findMany({
+                where: { createdAt: { gte: since } },
+                orderBy: { createdAt: 'desc' },
+                take: 8,
+                select: { status: true, invoiceNumber: true, createdAt: true },
+            });
+            res.set('Cache-Control', 'no-store');
+            res.json({
+                windowMinutes: 60,
+                totalLastHour: recent.length ? undefined : 0,
+                byStatus,
+                recent: recent.map((o) => ({
+                    status: o.status,
+                    hasInvoice: Boolean(o.invoiceNumber),
+                    createdAt: o.createdAt,
+                })),
+            });
+        }
+        catch (err) {
+            res.status(500).json({ error: err instanceof Error ? err.message : 'diagnostic failed' });
+        }
+    });
     app.get('/', (_req, res) => {
         res.json({
             message: 'Welcome to TatVivah API',
