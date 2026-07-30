@@ -12,7 +12,7 @@ import {
 import { prisma } from './config/db.js';
 import { checkRedisConnection } from './config/redis.js';
 import { logger } from './config/logger.js';
-import { isPhonePeConfigured } from './services/phonepe.client.js';
+import { isPhonePeConfigured, phonePeSelfTest } from './services/phonepe.client.js';
 import { isGoKwikConfigured } from './services/gokwik.client.js';
 import type { IntegrityReport } from './jobs/inventoryIntegrity.js';
 import {
@@ -268,6 +268,20 @@ export function createApp(): Application {
 
     app.get('/health', healthHandler);
     app.get('/api/health', healthHandler);
+
+    // Temporary PhonePe diagnostic: performs a live OAuth token fetch and
+    // reports a SAFE summary (no secrets). Gated by a token so it isn't public.
+    // Call: /health/phonepe?token=<JWT_ACCESS_SECRET first 12 chars>
+    app.get('/health/phonepe', async (req: express.Request, res: express.Response) => {
+        const expected = env.JWT_ACCESS_SECRET.slice(0, 12);
+        if (req.query.token !== expected) {
+            res.status(404).json({ error: 'Not found' });
+            return;
+        }
+        const result = await phonePeSelfTest();
+        res.set('Cache-Control', 'no-store');
+        res.json(result);
+    });
 
     app.get('/', (_req, res) => {
         res.json({

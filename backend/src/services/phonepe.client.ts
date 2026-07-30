@@ -109,6 +109,46 @@ export function invalidatePhonePeToken(): void {
     cachedToken = null;
 }
 
+/**
+ * Diagnostic: attempt a live OAuth token fetch and report a SAFE summary
+ * (no secrets). Used by the health endpoint to reveal why PhonePe fails in
+ * production without needing server access.
+ */
+export async function phonePeSelfTest(): Promise<{
+    configured: boolean;
+    env: string;
+    clientIdPrefix: string;
+    clientVersion: string;
+    oauthUrl: string;
+    tokenOk: boolean;
+    error?: string;
+}> {
+    const base = {
+        configured: isPhonePeConfigured(),
+        env: env.PHONEPE_ENV,
+        // First 6 chars only — enough to tell prod vs sandbox key, not a secret.
+        clientIdPrefix: (env.PHONEPE_CLIENT_ID ?? '').slice(0, 6),
+        clientVersion: env.PHONEPE_CLIENT_VERSION,
+        oauthUrl: getOAuthUrl(),
+    };
+
+    if (!isPhonePeConfigured()) {
+        return { ...base, tokenOk: false, error: 'not configured' };
+    }
+
+    try {
+        invalidatePhonePeToken();
+        await fetchAccessToken();
+        return { ...base, tokenOk: true };
+    } catch (err) {
+        return {
+            ...base,
+            tokenOk: false,
+            error: err instanceof Error ? err.message : String(err),
+        };
+    }
+}
+
 if (!isPhonePeConfigured()) {
     console.warn('[PhonePe] Warning: PhonePe credentials not configured. PhonePe payments will not work.');
 }
