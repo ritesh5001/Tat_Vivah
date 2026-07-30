@@ -154,3 +154,53 @@ export async function checkout(
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
 }
+
+/**
+ * Place the order AND initiate the PhonePe payment in a single request.
+ *
+ * The app used to POST /v1/checkout and then POST /v1/payments/initiate, which
+ * meant the buyer waited two full server round-trips (plus mobile network
+ * latency) between tapping Place Order and PhonePe opening. The backend already
+ * supports doing both in one call, which is what the website uses.
+ */
+export async function checkoutWithPayment(
+  payload?: {
+    shippingName?: string;
+    shippingPhone?: string;
+    shippingEmail?: string;
+    shippingAddressLine1?: string;
+    shippingAddressLine2?: string;
+    shippingCity?: string;
+    shippingPincode?: string;
+    shippingNotes?: string;
+    couponCode?: string;
+  },
+  token?: string | null
+) {
+  return apiRequest<{
+    message: string;
+    order: {
+      id: string;
+      totalAmount: number;
+      subTotalAmount: number;
+      totalTaxAmount: number;
+      grandTotal: number;
+      couponCode?: string | null;
+      discountAmount?: number;
+    };
+    payment?: {
+      paymentId: string;
+      orderId: string;
+      redirectUrl?: string;
+      amount: number;
+      currency: string;
+      provider: string;
+    } | null;
+    paymentInitError?: string;
+  }>({
+    url: "/v1/checkout?withPayment=1",
+    method: "POST",
+    data: payload ?? {},
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  });
+}

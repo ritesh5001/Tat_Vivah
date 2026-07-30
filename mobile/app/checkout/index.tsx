@@ -12,7 +12,8 @@ import {
 import { usePathname, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, radius, spacing, typography, shadow } from "../../src/theme/tokens";
-import { checkout, validateCoupon, type CouponPreview } from "../../src/services/cart";
+import { flushPendingCartWrite } from "../../src/lib/pending-cart";
+import { checkoutWithPayment, validateCoupon, type CouponPreview } from "../../src/services/cart";
 import { initiatePayment, verifyPhonePePayment } from "../../src/services/payments";
 import { ApiError } from "../../src/services/api";
 import { useAuth } from "../../src/hooks/useAuth";
@@ -79,7 +80,19 @@ const AddressSelectorRow = React.memo(function AddressSelectorRow({
 // (which asks PhonePe) for the outcome.
 // ---------------------------------------------------------------------------
 
-const PHONEPE_POLL_INTERVAL_MS = 3000;
+/**
+ * Poll fast at first, then back off.
+ *
+ * A payment is usually already COMPLETED by the time the buyer switches back from
+ * PhonePe, so the answer normally arrives on the first or second check. A flat 3s
+ * interval left people staring at "Waiting for payment confirmation" for up to
+ * three extra seconds after their money had already moved.
+ */
+function phonepePollDelayMs(attempt: number): number {
+  if (attempt < 4) return 700;
+  if (attempt < 9) return 1500;
+  return 3000;
+}
 const PHONEPE_MAX_WAIT_MS = 4 * 60 * 1000;
 
 async function waitForPhonePeResult(
@@ -87,6 +100,7 @@ async function waitForPhonePeResult(
   token: string
 ): Promise<"SUCCESS" | "FAILED" | "TIMEOUT"> {
   const deadline = Date.now() + PHONEPE_MAX_WAIT_MS;
+  let attempt = 0;
   while (Date.now() < deadline) {
     try {
       const result = await verifyPhonePePayment(orderId, token);
@@ -95,7 +109,10 @@ async function waitForPhonePeResult(
     } catch {
       // Transient error while the buyer is in the PhonePe app — keep polling.
     }
-    await new Promise((resolve) => setTimeout(resolve, PHONEPE_POLL_INTERVAL_MS));
+    await new Promise((resolve) =>
+      setTimeout(resolve, phonepePollDelayMs(attempt))
+    );
+    attempt += 1;
   }
   return "TIMEOUT";
 }
@@ -365,17 +382,31 @@ export default function CheckoutScreen() {
     setError(null);
 
     try {
-      // 1. Create the order (PLACED).
-      const orderResult = await checkout(shippingPayload, token);
+      // Buy Now navigates here while its add-to-cart may still be in flight.
+      // Without this the order could race ahead of it and fail with "Cart is empty".
+      await flushPendingCartWrite();
+
+      // 1. Place the order AND start the PhonePe payment in ONE request. Doing
+      //    these as two sequential calls meant the buyer waited for two full
+      //    round-trips before PhonePe opened.
+      const orderResult = await checkoutWithPayment(shippingPayload, token);
       const orderId = orderResult.order?.id;
       if (!orderId) {
         throw new Error("Order ID missing. Please try again.");
       }
 
-      // 2. Initiate PhonePe and open the hosted page in the browser.
+      if (!orderResult.payment && orderResult.paymentInitError) {
+        throw new Error(orderResult.paymentInitError);
+      }
+
       setPayLabel("Opening PhonePe");
-      const phonepePayment = await initiatePayment(orderId, token);
-      const redirectUrl = phonepePayment.data.redirectUrl;
+
+      // Fall back to the standalone initiate endpoint only if the combined call
+      // could not start the payment for some reason.
+      const redirectUrl =
+        orderResult.payment?.redirectUrl ??
+        (await initiatePayment(orderId, token)).data.redirectUrl;
+
       if (!redirectUrl) {
         throw new Error("Payment could not be started. Please try again.");
       }

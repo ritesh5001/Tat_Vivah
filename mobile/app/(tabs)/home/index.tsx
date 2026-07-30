@@ -1,4 +1,5 @@
 import React from "react";
+import { prefetchProduct } from "../../../src/lib/prefetch-product";
 import {
   FlatList,
   ListRenderItemInfo,
@@ -21,7 +22,7 @@ import { CachedImage } from "../../../src/components/CachedImage";
 import { SkeletonBlock } from "../../../src/components/Skeleton";
 import { images } from "../../../src/data/images";
 import { AppText as Text, HomeHeroBanner, ScreenContainer as SafeAreaView } from "../../../src/components";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   getCategories,
   getOccasions,
@@ -216,17 +217,22 @@ function mergeUniqueProducts(current: ProductItem[], incoming: ProductItem[]): P
 
 export default function HomeScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { width } = useWindowDimensions();
 
+  // Catalog data barely changes and the API caches it for 30 minutes, so the old
+  // 1-minute staleTime meant the home screen refetched — and flashed a loader —
+  // almost every time the app was reopened. 10 minutes matches the global default,
+  // so the persisted cache paints instantly on launch instead.
   const categoriesQuery = useQuery({
     queryKey: ["home-categories"],
     queryFn: getCategories,
-    staleTime: 60 * 1000,
+    staleTime: 10 * 60 * 1000,
   });
   const occasionsQuery = useQuery({
     queryKey: ["home-occasions"],
     queryFn: getOccasions,
-    staleTime: 60 * 1000,
+    staleTime: 10 * 60 * 1000,
   });
   const [bestsellersAudience, setBestsellersAudience] = React.useState<Audience>("MENS");
   const [mostLovedAudience, setMostLovedAudience] = React.useState<Audience>("MENS");
@@ -234,7 +240,7 @@ export default function HomeScreen() {
   const bestsellersQuery = useQuery({
     queryKey: ["home-bestsellers", bestsellersAudience],
     queryFn: () => getBestsellers(4, bestsellersAudience),
-    staleTime: 60 * 1000,
+    staleTime: 10 * 60 * 1000,
   });
   const mostLovedQuery = useProductsQuery({
     page: 1,
@@ -273,6 +279,19 @@ export default function HomeScreen() {
       router.push(to as any);
     },
     [router]
+  );
+
+  /**
+   * Product taps go through here so the detail fetch starts at tap time and
+   * overlaps the navigation animation, instead of only beginning once the
+   * product screen has mounted.
+   */
+  const openProduct = React.useCallback(
+    (id: string) => {
+      prefetchProduct(queryClient, id);
+      router.push(`/product/${id}` as any);
+    },
+    [queryClient, router]
   );
 
   const handleTryAndBuy = React.useCallback(
@@ -722,24 +741,24 @@ export default function HomeScreen() {
     ({ item }: ListRenderItemInfo<HomeProductCard>) => (
       <MarketplaceCard
         product={item.product}
-        onPress={(id) => navigateTo(`/product/${id}`)}
+        onPress={openProduct}
         onTryAndBuy={handleTryAndBuy}
         style={{ width: mostLovedCardWidth }}
       />
     ),
-    [mostLovedCardWidth, navigateTo, handleTryAndBuy]
+    [mostLovedCardWidth, openProduct, handleTryAndBuy]
   );
 
   const renderBestsellerCard = React.useCallback(
     ({ item }: ListRenderItemInfo<HomeProductCard>) => (
       <MarketplaceCard
         product={item.product}
-        onPress={(id) => navigateTo(`/product/${id}`)}
+        onPress={openProduct}
         onTryAndBuy={handleTryAndBuy}
         style={{ width: bestsellerCardWidth }}
       />
     ),
-    [bestsellerCardWidth, navigateTo, handleTryAndBuy]
+    [bestsellerCardWidth, openProduct, handleTryAndBuy]
   );
 
   const testimonials = React.useMemo(

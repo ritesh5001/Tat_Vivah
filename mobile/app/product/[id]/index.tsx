@@ -1,4 +1,5 @@
 import * as React from "react";
+import { prefetchProduct } from "../../../src/lib/prefetch-product";
 import {
   View,
   StyleSheet,
@@ -16,6 +17,7 @@ import {
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Image } from "../../../src/components/CompatImage";
+import { trackPendingCartWrite } from "../../../src/lib/pending-cart";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
@@ -50,7 +52,7 @@ import { WishlistIcon } from "../../../src/components/WishlistIcon";
 import { TatvivahPromise } from "../../../src/components/TatvivahPromise";
 import { impactMedium, impactLight, notifySuccess } from "../../../src/utils/haptics";
 import { AppHeader } from "../../../src/components/AppHeader";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
   runOnJS,
@@ -454,6 +456,7 @@ function mimeTypeFromAsset(asset: ImagePicker.ImagePickerAsset): string {
 
 export default function ProductDetailScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { width: windowWidth } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
@@ -812,15 +815,23 @@ export default function ProductDetailScreen() {
       return;
     }
 
+    // Navigate FIRST. The cart store already updates optimistically, so the
+    // checkout screen shows the item straight away; awaiting the network round-trip
+    // here just made the buyer wait on the product screen before anything moved.
+    // Checkout waits for this write before placing the order, so there is no race.
+    const cartWrite = addToCart({
+      productId: product.id,
+      variantId: fallbackVariant.id,
+      quantity: 1,
+    });
+    trackPendingCartWrite(cartWrite);
+
+    impactMedium();
+    router.push("/checkout");
+
     setAdding(true);
     try {
-      await addToCart({
-        productId: product.id,
-        variantId: fallbackVariant.id,
-        quantity: 1,
-      });
-      impactMedium();
-      router.push("/checkout");
+      await cartWrite;
     } catch {
       // CartProvider handles toast messaging
     } finally {
@@ -1135,9 +1146,10 @@ export default function ProductDetailScreen() {
 
   const handleRelatedPress = React.useCallback(
     (id: string) => {
+      prefetchProduct(queryClient, id);
       router.push({ pathname: "/product/[id]", params: { id } });
     },
-    [router]
+    [queryClient, router]
   );
 
   const renderRelatedItem = React.useCallback(

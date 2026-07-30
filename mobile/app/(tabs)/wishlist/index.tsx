@@ -1,4 +1,6 @@
 import * as React from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { prefetchProduct } from "../../../src/lib/prefetch-product";
 import {
   View,
   StyleSheet,
@@ -68,6 +70,7 @@ const WishlistCard = React.memo(function WishlistCard({
 
 export default function WishlistScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { session } = useAuth();
   const token = session?.accessToken ?? null;
   const {
@@ -81,9 +84,10 @@ export default function WishlistScreen() {
 
   const handlePress = React.useCallback(
     (productId: string) => {
+      prefetchProduct(queryClient, productId);
       router.push(`/product/${productId}`);
     },
-    [router]
+    [queryClient, router]
   );
 
   const handleRemove = React.useCallback(

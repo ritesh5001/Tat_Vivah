@@ -1,4 +1,5 @@
 import * as React from "react";
+import { prefetchProduct } from "../../../src/lib/prefetch-product";
 import {
   View,
   StyleSheet,
@@ -9,7 +10,7 @@ import {
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Image } from "../../../src/components/CompatImage";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing, typography } from "../../../src/theme/tokens";
 import { AppHeader } from "../../../src/components/AppHeader";
@@ -48,6 +49,7 @@ function mergeUniqueProducts(current: ProductItem[], incoming: ProductItem[]): P
 
 export default function CategoriesScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { width: windowWidth } = useWindowDimensions();
   const params = useLocalSearchParams<{ categoryId?: string }>();
   
@@ -257,9 +259,10 @@ export default function CategoriesScreen() {
 
   const handleProductPress = React.useCallback(
     (product: ProductItem) => {
+      prefetchProduct(queryClient, product.id);
       router.push(`/product/${product.id}`);
     },
-    [router]
+    [queryClient, router]
   );
 
   const handleTryAndBuy = React.useCallback(
