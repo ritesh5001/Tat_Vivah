@@ -14,6 +14,16 @@ services:
         value: "false"
       - key: BACKEND_PUBLIC_URL
         sync: false
+      # Self-ping keeps the instance from idling out. Render free services spin
+      # down after ~15 minutes without inbound traffic, and the next visitor then
+      # waits ~50s for a cold start — the single largest source of slow page
+      # loads. The ping code already existed but never ran because this URL was
+      # unset. Must be the service's own PUBLIC url, not localhost, or it does
+      # not count as inbound traffic.
+      - key: BACKEND_WARMUP_URL
+        sync: false
+      - key: BACKEND_WARMUP_INTERVAL_MS
+        value: "240000"
       # PhonePe PG (Standard Checkout v2). Secrets set in the Render dashboard.
       - key: PHONEPE_ENV
         value: PRODUCTION

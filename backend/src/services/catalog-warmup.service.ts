@@ -1,0 +1,117 @@
+import { logger } from '../config/logger.js';
+import { productService } from './product.service.js';
+import { categoryService } from './category.service.js';
+import { occasionService } from './occasion.service.js';
+import { bestsellerService } from './bestseller.service.js';
+
+const log = logger.child({ module: 'catalog-warmup' });
+
+/**
+ * Pre-populate the Redis cache for the storefront's hot reads.
+ *
+ * Why this exists: the API, Postgres and Redis are all in different places, so a
+ * cache HIT costs ~60ms while a MISS costs seconds (one Redis round-trip, three
+ * Postgres statements, then a Redis write — each a separate network hop). Warm,
+ * the storefront endpoints answer in 60-90ms; cold they take 2-6s.
+ *
+ * Without this, every deploy empties the cache and the next real visitor pays that
+ * cost on every endpoint the homepage touches. Warming on boot and just often
+ * enough to stay ahead of expiry means a shopper should essentially never be the
+ * one who refills the cache.
+ *
+ * Entirely best-effort: warming is an optimisation, never a reason to fail boot or
+ * take the process down.
+ */
+
+/** The exact reads the homepage and marketplace pages perform. */
+function warmupTasks(): Array<{ name: string; run: () => Promise<unknown> }> {
+    return [
+        { name: 'categories', run: () => categoryService.listCategories() },
+        { name: 'occasions', run: () => occasionService.listOccasions() },
+        { name: 'bestsellers:MENS', run: () => bestsellerService.listPublic(4, 'MENS') },
+        { name: 'bestsellers:KIDS', run: () => bestsellerService.listPublic(4, 'KIDS') },
+        // These must mirror the page requests EXACTLY. The cache key includes page,
+        // limit and every filter, so warming limit=20 does nothing for a page that
+        // asks for limit=9 — it just silently misses and pays the cold read.
+        //
+        //   limit 20 -> shared PRODUCTS_LIST key (API default)
+        //   limit  9 -> /marketplace  (shop page, first page unfiltered)
+        //   limit 10 -> homepage rails, per audience
+        { name: 'products:default', run: () => productService.listProducts({ page: 1, limit: 20 } as never) },
+        { name: 'products:marketplace', run: () => productService.listProducts({ page: 1, limit: 9 } as never) },
+        { name: 'products:MENS', run: () => productService.listProducts({ page: 1, limit: 10, audience: 'MENS' } as never) },
+        { name: 'products:KIDS', run: () => productService.listProducts({ page: 1, limit: 10, audience: 'KIDS' } as never) },
+    ];
+}
+
+/**
+ * How many product detail pages to keep warm. These are the products actually
+ * reachable from the homepage and the first marketplace page, which is where
+ * essentially all product clicks start. Warming the entire catalogue would be
+ * wasted work on items nobody opens.
+ */
+const WARM_PRODUCT_DETAIL_LIMIT = 24;
+
+/** Warm detail pages for the products a shopper is most likely to click into. */
+async function warmVisibleProductDetails(): Promise<number> {
+    const listing = (await productService.listProducts({ page: 1, limit: 20 } as never)) as {
+        data?: Array<{ id?: string }>;
+    };
+
+    const ids = (listing.data ?? [])
+        .map((product) => product.id)
+        .filter((id): id is string => Boolean(id))
+        .slice(0, WARM_PRODUCT_DETAIL_LIMIT);
+
+    if (ids.length === 0) return 0;
+
+    const results = await Promise.allSettled(
+        ids.map((id) => productService.getProductById(id)),
+    );
+    return results.filter((result) => result.status === 'fulfilled').length;
+}
+
+export async function warmCatalogCaches(trigger: 'startup' | 'interval'): Promise<void> {
+    const started = Date.now();
+    const tasks = warmupTasks();
+
+    // Run concurrently: these are independent reads, and serialising them would
+    // multiply the cross-region round-trip cost for no benefit.
+    const results = await Promise.allSettled(tasks.map((task) => task.run()));
+
+    // Detail pages depend on the listing, so they run after it.
+    let warmedDetails = 0;
+    try {
+        warmedDetails = await warmVisibleProductDetails();
+    } catch (err) {
+        log.warn({ event: 'catalog_warmup_details_failed', err }, 'Product detail warmup failed');
+    }
+
+    const failed = results
+        .map((result, index) => ({ result, name: tasks[index]!.name }))
+        .filter((entry) => entry.result.status === 'rejected');
+
+    if (failed.length > 0) {
+        log.warn(
+            {
+                event: 'catalog_warmup_partial',
+                trigger,
+                failed: failed.map((entry) => entry.name),
+                durationMs: Date.now() - started,
+            },
+            `Catalog warmup: ${tasks.length - failed.length}/${tasks.length} succeeded`,
+        );
+        return;
+    }
+
+    log.info(
+        {
+            event: 'catalog_warmup_ok',
+            trigger,
+            warmed: tasks.length,
+            warmedDetails,
+            durationMs: Date.now() - started,
+        },
+        `Catalog cache warmed (${tasks.length} listings + ${warmedDetails} product pages in ${Date.now() - started}ms)`,
+    );
+}

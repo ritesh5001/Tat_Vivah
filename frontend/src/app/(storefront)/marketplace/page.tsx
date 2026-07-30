@@ -197,6 +197,24 @@ export default async function MarketplacePage({
   const search = resolvedParams?.search?.trim();
   const sort = resolvedParams?.sort?.trim();
 
+  // The products query only depends on categories when a category filter is
+  // present (the slug has to be resolved to an id first). With no category
+  // selected — the common case, including the default /marketplace landing —
+  // there is no dependency, so start the products request alongside the other
+  // two instead of waiting a full round-trip for them to finish first.
+  const needsCategoryResolution = Boolean(categoryIdParam || categorySlugParam);
+
+  const unfilteredProductsPromise = needsCategoryResolution
+    ? null
+    : fetchProducts({
+      page,
+      limit: 9,
+      occasion: occasionSlug,
+      audience,
+      search,
+      sort,
+    });
+
   const [categories, occasions] = await Promise.all([
     fetchCategories(),
     fetchOccasions(),
@@ -215,16 +233,19 @@ export default async function MarketplacePage({
   const selectedCategoryId =
     selectedCategoryById?.id ?? selectedCategoryBySlug?.id;
 
-  const productsResponse = await fetchProducts({
-    page,
-    limit: 9,
-    categoryId: selectedCategoryId,
-    categorySlug: selectedCategoryById?.slug ?? selectedCategoryBySlug?.slug ?? categorySlugParam,
-    occasion: occasionSlug,
-    audience,
-    search,
-    sort,
-  });
+  // Reuse the request started before the category lookup when no category filter
+  // was applied; otherwise resolve it now that we know the category id.
+  const productsResponse = await (unfilteredProductsPromise ??
+    fetchProducts({
+      page,
+      limit: 9,
+      categoryId: selectedCategoryId,
+      categorySlug: selectedCategoryById?.slug ?? selectedCategoryBySlug?.slug ?? categorySlugParam,
+      occasion: occasionSlug,
+      audience,
+      search,
+      sort,
+    }));
 
   const products = productsResponse?.data ?? [];
   const pagination = productsResponse?.pagination ?? {

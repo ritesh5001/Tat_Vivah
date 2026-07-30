@@ -428,7 +428,11 @@ export class ProductService {
             },
         };
 
-        await setCache(cacheKey, response, page === 1 ? 300 : 180);
+        // 30 min TTL. Freshness comes from invalidateProductCaches(), which every
+        // product mutation calls — expiry is only a backstop. A short TTL just
+        // guaranteed that a shopper would periodically pay the multi-second cold
+        // read against a remote database for no correctness benefit.
+        await setCache(cacheKey, response, page === 1 ? 1800 : 900);
 
         return response;
     }
@@ -454,7 +458,11 @@ export class ProductService {
         const response: ProductDetailResponse = { product: this.toPublicProductDetail(product, coupons) };
 
         // Cache the result
-        await setCache(cacheKey, response, 300);
+        // 30 min TTL. Freshness comes from invalidateProductCaches(), which every
+        // product mutation calls — expiry is only a backstop. A short TTL just
+        // guaranteed that a shopper would periodically pay the multi-second cold
+        // read against a remote database for no correctness benefit.
+        await setCache(cacheKey, response, 1800);
 
         return response;
     }
