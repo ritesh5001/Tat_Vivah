@@ -281,7 +281,14 @@ export function createApp(): Application {
         }
         const result = await phonePeSelfTest();
         res.set('Cache-Control', 'no-store');
-        res.json({ ...result, lastCheckoutPaymentError: getLastPaymentError() });
+        res.json({
+            ...result,
+            lastCheckoutPaymentError: getLastPaymentError(),
+            auth: {
+                accessTokenExpiry: env.ACCESS_TOKEN_EXPIRY,
+                refreshTokenExpiry: env.REFRESH_TOKEN_EXPIRY,
+            },
+        });
     });
 
     app.get('/', (_req, res) => {
