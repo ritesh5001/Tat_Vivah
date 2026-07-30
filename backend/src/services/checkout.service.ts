@@ -186,48 +186,66 @@ export class CheckoutService {
         checkoutLogger.info({ event: 'checkout_attempt', userId, itemCount: itemsWithStock.length }, 'Checkout attempt started');
 
         const order = await prisma.$transaction(async (tx) => {
-            // 2a. Atomic stock reservation — decrement only if sufficient stock
-            //     Uses updateMany with WHERE stock >= qty. If count === 0 the
-            //     variant ran out of stock between validation and this point.
-            //     We fail the ENTIRE checkout on the first insufficient item
-            //     (all-or-nothing — no partial reservations).
+            // 2a. Atomic stock reservation — decrement only where there is enough
+            //     stock, for EVERY item in a single statement.
+            //
+            //     This was a loop issuing one updateMany per item. Inside a
+            //     transaction those run strictly one after another, and a round-trip
+            //     from the API to the database costs ~2.3s in production — so a
+            //     three-item cart spent ~7s here alone.
+            //
+            //     The guard is unchanged: `stock >= qty` per row, and we still fail
+            //     the whole checkout unless every item was reserved. RETURNING tells
+            //     us exactly which ones succeeded, so the error stays specific, and
+            //     throwing still rolls the transaction back — no partial reservation.
             for (const item of itemsWithStock) {
                 recordReserveAttempt();
                 inventoryReserveAttemptTotal.inc({ variantId: item.variantId });
-
-                const result = await tx.inventory.updateMany({
-                    where: {
-                        variantId: item.variantId,
-                        stock: { gte: item.quantity },
-                    },
-                    data: {
-                        stock: { decrement: item.quantity },
-                    },
-                });
-
-                if (result.count === 0) {
-                    // Another checkout claimed this stock — throw to rollback tx
-                    recordReserveFailure(item.variantId);
-                    checkoutFailTotal.inc({ reason: 'out_of_stock' });
-                    inventoryLogger.warn({
-                        event: 'inventory_reserve_failed',
-                        userId,
-                        variantId: item.variantId,
-                        qty: item.quantity,
-                    }, `Reserve failed for variant ${item.variantId}`);
-                    throw new ApiError(
-                        409,
-                        `Insufficient stock for variant ${item.variantId}. Please refresh and try again.`
-                    );
-                }
-
-                inventoryLogger.info({
-                    event: 'inventory_reserve_success',
-                    userId,
-                    variantId: item.variantId,
-                    qty: item.quantity,
-                }, `Reserved ${item.quantity} units of variant ${item.variantId}`);
             }
+
+            const reserveValues = Prisma.join(
+                itemsWithStock.map(
+                    (item) => Prisma.sql`(${item.variantId}, ${item.quantity}::int)`,
+                ),
+            );
+
+            const reservedRows = await tx.$queryRaw<Array<{ variant_id: string }>>(
+                Prisma.sql`
+                    UPDATE "inventory" AS i
+                    SET "stock" = i."stock" - req.qty,
+                        "updated_at" = NOW()
+                    FROM (VALUES ${reserveValues}) AS req(variant_id, qty)
+                    WHERE i."variant_id" = req.variant_id
+                      AND i."stock" >= req.qty
+                    RETURNING i."variant_id" AS variant_id
+                `,
+            );
+
+            if (reservedRows.length !== itemsWithStock.length) {
+                const reserved = new Set(reservedRows.map((row) => row.variant_id));
+                const failed = itemsWithStock.find((item) => !reserved.has(item.variantId));
+                const variantId = failed?.variantId ?? 'unknown';
+
+                recordReserveFailure(variantId);
+                checkoutFailTotal.inc({ reason: 'out_of_stock' });
+                inventoryLogger.warn({
+                    event: 'inventory_reserve_failed',
+                    userId,
+                    variantId,
+                    qty: failed?.quantity,
+                }, `Reserve failed for variant ${variantId}`);
+                throw new ApiError(
+                    409,
+                    `Insufficient stock for variant ${variantId}. Please refresh and try again.`,
+                );
+            }
+
+            inventoryLogger.info({
+                event: 'inventory_reserve_success',
+                userId,
+                variantIds: itemsWithStock.map((item) => item.variantId),
+                items: itemsWithStock.length,
+            }, `Reserved ${itemsWithStock.length} variant(s) in one statement`);
 
             const uniqueSellerIds = Array.from(new Set(itemsWithStock.map((item) => item.sellerId)));
 
@@ -346,24 +364,10 @@ export class CheckoutService {
                     shippingPincode: shipping?.shippingPincode ?? null,
                     shippingNotes: shipping?.shippingNotes ?? null,
                     status: 'PLACED',
-                    items: {
-                        create: discountedLines.map((item) => ({
-                            sellerId: item.sellerId,
-                            productId: item.productId,
-                            variantId: item.variantId,
-                            quantity: item.quantity,
-                            priceSnapshot: item.priceSnapshot,
-                            sellerPriceSnapshot: item.sellerPriceSnapshot,
-                            adminPriceSnapshot: item.adminPriceSnapshot,
-                            platformMargin: item.platformMargin,
-                            taxRate: item.taxRate,
-                            taxableAmount: Number(item.discountedTaxable.toString()),
-                            cgstAmount: Number(item.cgst.toString()),
-                            sgstAmount: Number(item.sgst.toString()),
-                            igstAmount: Number(item.igst.toString()),
-                            totalAmount: Number(item.lineTotal.toString()),
-                        })),
-                    },
+                    // Items are inserted separately with createMany below. A nested
+                    // `items: { create: [...] }` makes Prisma 4 issue one INSERT per
+                    // item, serially inside the transaction — a three-item cart paid
+                    // three round-trips where one will do.
                 },
                 // Deliberately no `include: { items: true }` — Prisma 4 satisfies an
                 // include by re-SELECTing the row and its relation after the INSERT,
@@ -371,6 +375,27 @@ export class CheckoutService {
                 // every statement is strictly serial). Nothing needs the persisted
                 // items: the response omits them, and the only consumer is the GST log
                 // below, which is computed from `discountedLines` we already hold.
+            });
+
+            // All order items in ONE statement.
+            await tx.orderItem.createMany({
+                data: discountedLines.map((item) => ({
+                    orderId: created.id,
+                    sellerId: item.sellerId,
+                    productId: item.productId,
+                    variantId: item.variantId,
+                    quantity: item.quantity,
+                    priceSnapshot: item.priceSnapshot,
+                    sellerPriceSnapshot: item.sellerPriceSnapshot,
+                    adminPriceSnapshot: item.adminPriceSnapshot,
+                    platformMargin: item.platformMargin,
+                    taxRate: item.taxRate,
+                    taxableAmount: Number(item.discountedTaxable.toString()),
+                    cgstAmount: Number(item.cgst.toString()),
+                    sgstAmount: Number(item.sgst.toString()),
+                    igstAmount: Number(item.igst.toString()),
+                    totalAmount: Number(item.lineTotal.toString()),
+                })),
             });
 
             if (appliedCoupon && totalDiscount.gt(0)) {
