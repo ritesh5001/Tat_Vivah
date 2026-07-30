@@ -23,6 +23,19 @@ export function persistCheckoutCartSnapshot(items: CheckoutSnapshotItem[]) {
   );
 }
 
+/**
+ * Drop the cached cart snapshot. Call this once an order has been placed — the
+ * server-side cart is now empty, and a stale snapshot would otherwise make the
+ * checkout page think items still exist (re-enabling "Proceed to Payment" on a
+ * Back-navigation and producing a "Cart is empty" 400 on the second submit).
+ */
+export function clearCheckoutCartSnapshot() {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.sessionStorage.removeItem(CHECKOUT_CART_SNAPSHOT_KEY);
+}
+
 export function readCheckoutCartSnapshot() {
   if (typeof window === "undefined") {
     return null;

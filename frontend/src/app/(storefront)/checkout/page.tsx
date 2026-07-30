@@ -17,6 +17,7 @@ import {
   CHECKOUT_ADDRESS_CACHE_TTL_MS,
   persistCheckoutCartSnapshot,
   readCheckoutCartSnapshot,
+  clearCheckoutCartSnapshot,
 } from "@/lib/checkout-snapshot";
 
 const currency = new Intl.NumberFormat("en-IN", {
@@ -230,6 +231,12 @@ export default function CheckoutPage() {
       if (!payment.redirectUrl) {
         throw new Error("Payment could not be started. Please try again.");
       }
+
+      // The server-side cart is now consumed. Drop the cached snapshot so a
+      // Back-navigation can't re-enable this button and double-submit into a
+      // "Cart is empty" error.
+      clearCheckoutCartSnapshot();
+      setHasItems(false);
 
       // PhonePe may drop our ?orderId= on the return redirect — stash it so the
       // callback can still confirm the payment.
