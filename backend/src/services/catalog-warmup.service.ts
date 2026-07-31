@@ -5,6 +5,7 @@ import { occasionService } from './occasion.service.js';
 import { bestsellerService } from './bestseller.service.js';
 import { getPhonePeAccessToken, isPhonePeConfigured } from './phonepe.client.js';
 import { settingsService } from './settings.service.js';
+import { searchService } from './search.service.js';
 
 const log = logger.child({ module: 'catalog-warmup' });
 
@@ -58,6 +59,12 @@ function warmupTasks(): Array<{ name: string; run: () => Promise<unknown> }> {
  */
 const WARM_PRODUCT_DETAIL_LIMIT = 24;
 
+/**
+ * How many warmup reads may be in flight at once. Kept well under the Prisma
+ * connection limit so background warming never competes with live traffic.
+ */
+const WARM_CONCURRENCY = 4;
+
 /** Warm detail pages for the products a shopper is most likely to click into. */
 async function warmVisibleProductDetails(): Promise<number> {
     const listing = (await productService.listProducts({ page: 1, limit: 20 } as never)) as {
@@ -71,10 +78,36 @@ async function warmVisibleProductDetails(): Promise<number> {
 
     if (ids.length === 0) return 0;
 
-    const results = await Promise.allSettled(
-        ids.map((id) => productService.getProductById(id)),
-    );
-    return results.filter((result) => result.status === 'fulfilled').length;
+    // Warm the detail page AND its "You may also like" rail. Related products are
+    // cached per product id, so with a catalogue this size almost every product page
+    // was a cache miss — the rail is one of the last things to appear on the page.
+    //
+    // Run these a few at a time rather than all at once. Firing every product's
+    // detail + rail concurrently exhausted the Prisma connection pool ("Timed out
+    // fetching a new connection", limit 20) and would have starved real requests
+    // during warmup. Warming is background work; it must never crowd out a shopper.
+    const jobs = ids.flatMap((id) => [
+        () => productService.getProductById(id),
+        () => searchService.getRelatedProducts(id, 4),
+    ]);
+
+    let warmed = 0;
+    const queue = [...jobs];
+    const workers = Array.from({ length: WARM_CONCURRENCY }, async () => {
+        while (queue.length > 0) {
+            const job = queue.shift();
+            if (!job) return;
+            try {
+                await job();
+                warmed += 1;
+            } catch {
+                // Best-effort: a single cold entry is not worth failing the sweep.
+            }
+        }
+    });
+
+    await Promise.all(workers);
+    return warmed;
 }
 
 /**

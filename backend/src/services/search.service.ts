@@ -359,17 +359,12 @@ export class SearchService {
             return cached;
         }
 
-        // Find the product's category
-        const product = await prisma.product.findUnique({
-            where: { id: productId },
-            select: { categoryId: true },
-        });
-
-        if (!product) {
-            throw ApiError.notFound('Product not found');
-        }
-
         // Same category, exclude self, deterministic latest-first ordering.
+        //
+        // The source product's category is resolved with a subquery rather than a
+        // separate findUnique. That lookup existed only to read one column, and a
+        // round-trip to the database is the dominant cost of this endpoint — the
+        // query itself runs in well under a millisecond.
         const rows = await prisma.$queryRawUnsafe<RelatedProductItem[]>(
             `SELECT
                 p."id",
@@ -381,17 +376,29 @@ export class SearchService {
                 json_build_object('id', c."id", 'name', c."name") AS category
             FROM "products" p
             LEFT JOIN "categories" c ON c."id" = p."category_id"
-            WHERE p."category_id" = $1
+            WHERE p."category_id" = (SELECT "category_id" FROM "products" WHERE "id" = $1)
               AND p."id" != $2
               AND p."is_published" = true
               AND p."deleted_by_admin" = false
                             AND p."admin_listing_price" IS NOT NULL
             ORDER BY p."created_at" DESC
             LIMIT $3`,
-            product.categoryId,
+            productId,
             productId,
             safeLimit,
         );
+
+        // Only pay for an existence check when nothing came back, so a genuinely
+        // missing product still 404s instead of silently returning bestsellers.
+        if (rows.length === 0) {
+            const exists = await prisma.product.findUnique({
+                where: { id: productId },
+                select: { id: true },
+            });
+            if (!exists) {
+                throw ApiError.notFound('Product not found');
+            }
+        }
 
         // Convert decimals
         let data = rows.map((row: any) => ({
