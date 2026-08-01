@@ -117,9 +117,11 @@ export default function LoginPage() {
   const inputType = detectInputType(identifier);
   const identifierReady = inputType !== "unknown";
 
-  // Reset OTP preference when detected type changes so UX stays clean
+  // Pick the method that fits what they typed: a mobile number defaults to SMS
+  // OTP (they may well not have a password — accounts can be created via OTP),
+  // an email defaults to password. Both toggles remain available below.
   React.useEffect(() => {
-    setUseOtp(false);
+    setUseOtp(inputType === "phone");
     setPassword("");
   }, [inputType]);
 
@@ -146,7 +148,9 @@ export default function LoginPage() {
       ? isOtpMode
         ? "We'll send a one-time code to your mobile number."
         : identifierReady
-          ? "Enter your password below, or login with an SMS OTP."
+          ? inputType === "phone"
+            ? "We'll text you a one-time code. You can use a password instead."
+            : "Enter your password below."
           : "Enter your mobile number or email address to continue."
       : content.cardDescription;
 

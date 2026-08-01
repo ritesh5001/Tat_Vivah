@@ -220,7 +220,16 @@ export default function ResetPasswordScreen() {
                 }}
                 onKeyPress={(e) => handleKeyPress(e, i)}
                 keyboardType="number-pad"
-                maxLength={1}
+                // The first box accepts the whole code so SMS autofill and paste
+                // actually work: with maxLength={1} the OS delivered six digits and
+                // the field kept one, so handlePaste() never saw a full code. It
+                // distributes the digits across the boxes from here.
+                maxLength={i === 0 ? OTP_LENGTH : 1}
+                // Platform autofill hints — iOS surfaces the code above the
+                // keyboard, Android offers it through the autofill framework.
+                textContentType={i === 0 ? "oneTimeCode" : "none"}
+                autoComplete={i === 0 ? "sms-otp" : "off"}
+                importantForAutofill={i === 0 ? "yes" : "no"}
                 selectTextOnFocus
                 editable={!loading}
               />
