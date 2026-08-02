@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { colors, spacing, typography } from "../../src/theme";
 import { requestOtp } from "../../src/services/auth";
 import { useAuth } from "../../src/hooks/useAuth";
+import { useSmsOtpAutofill, getSmsAppHash } from "../../src/hooks/useSmsOtpAutofill";
 import {
   AppInput as TextInput,
   AppText as Text,
@@ -77,6 +78,26 @@ export default function VerifyOtpScreen() {
     }
   }, [phone]);
 
+  // Read the code straight out of the incoming SMS (Android, no permission).
+  // Combined with the auto-submit below this makes verification hands-free: the
+  // message arrives, the field fills, and the code is submitted.
+  useSmsOtpAutofill(
+    React.useCallback((code: string) => {
+      setOtp(code);
+      setError(null);
+    }, []),
+    { enabled: !loading, length: 6 },
+  );
+
+  // Dev-only: the SMS Retriever app hash must be appended to the OTP message or
+  // auto-read never fires. It depends on the signing key, so a debug build and a
+  // Play-signed release produce DIFFERENT hashes — read it from the build you ship.
+  const [smsAppHash, setSmsAppHash] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    if (!__DEV__) return;
+    void getSmsAppHash().then(setSmsAppHash);
+  }, []);
+
   React.useEffect(() => {
     if (otp.length !== 6 || loading || submittedOtpRef.current === otp) {
       return;
@@ -92,6 +113,12 @@ export default function VerifyOtpScreen() {
         <Text style={styles.subHeading}>
           Enter the 6-digit code sent to your mobile number
         </Text>
+
+        {__DEV__ && smsAppHash ? (
+          <Text style={styles.devHash} selectable>
+            SMS app hash (dev build): {smsAppHash}
+          </Text>
+        ) : null}
 
         <TextInput
           value={otp}
@@ -143,6 +170,13 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: "center",
     marginBottom: spacing.xl,
+  },
+  devHash: {
+    fontFamily: typography.body,
+    fontSize: 11,
+    color: colors.textSecondary,
+    textAlign: "center",
+    marginBottom: spacing.md,
   },
   input: {
     height: 48,
