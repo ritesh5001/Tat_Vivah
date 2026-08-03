@@ -6,6 +6,7 @@ import {
   Pressable,
   Dimensions,
   Modal,
+  Linking,
 } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { useQueryClient } from "@tanstack/react-query";
@@ -21,6 +22,24 @@ import {
   type ProductSummary,
 } from "../../../src/services/products";
 import { isAbortError } from "../../../src/services/api";
+
+/**
+ * Speech recognition is a native module, so it is absent in Expo Go and in any
+ * build made before `expo-speech-recognition` was added. Resolve it once here:
+ * a failed require must leave voice search disabled, never crash the screen.
+ *
+ * Loaded at module scope (not in an effect) so `speechModuleRef` is populated
+ * before the listener effect below runs on the first commit.
+ */
+const speechRecognitionModule: any = (() => {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const mod = require("expo-speech-recognition");
+    return mod?.ExpoSpeechRecognitionModule ?? null;
+  } catch {
+    return null;
+  }
+})();
 import { SkeletonProductCard } from "../../../src/components/Skeleton";
 import { MarketplaceCard } from "../../../src/components/MarketplaceCard";
 import { getSuggestions, type SuggestionItem, type SortOption } from "../../../src/services/search";
@@ -63,11 +82,14 @@ type SpeechErrorEvent = {
   error?: string;
 };
 
+type SpeechPermission = { granted: boolean; canAskAgain?: boolean };
+
 type SpeechRecognitionModuleLike = {
   isRecognitionAvailable: () => boolean;
   stop: () => void;
   start: (options?: Record<string, unknown>) => void;
-  requestPermissionsAsync: () => Promise<{ granted: boolean }>;
+  requestPermissionsAsync: () => Promise<SpeechPermission>;
+  getPermissionsAsync?: () => Promise<SpeechPermission>;
   addListener?: (
     eventName: string,
     listener: (event?: unknown) => void
@@ -188,11 +210,25 @@ export default function SearchScreen() {
   }, []);
 
   React.useEffect(() => {
-    // Speech recognition disabled — native module unavailable in dev environment
-    // Original code attempted to load expo-speech-recognition, which requires native compilation
-    // Voice search can be re-enabled by properly setting up native modules
-    speechModuleRef.current = null;
-    setVoiceSupported(false);
+    if (!speechRecognitionModule) {
+      speechModuleRef.current = null;
+      setVoiceSupported(false);
+      return;
+    }
+
+    // The module can be present while the device still has no recogniser — an
+    // Android build without Google's speech services, for instance.
+    let available = true;
+    try {
+      if (typeof speechRecognitionModule.isRecognitionAvailable === "function") {
+        available = Boolean(speechRecognitionModule.isRecognitionAvailable());
+      }
+    } catch {
+      available = false;
+    }
+
+    speechModuleRef.current = available ? speechRecognitionModule : null;
+    setVoiceSupported(available);
   }, []);
 
   React.useEffect(() => {
@@ -396,11 +432,24 @@ export default function SearchScreen() {
         return;
       }
 
-      const permission = await speechModule.requestPermissionsAsync();
-      if (!permission.granted) {
-        const message = "Microphone permission is required for voice search.";
+      // Ask only when we do not already hold it, so the sheet is not shown on
+      // every tap; if the user has permanently denied it, the OS will not
+      // re-prompt and the only route left is the Settings app.
+      let permission = await speechModule.getPermissionsAsync?.();
+      if (!permission?.granted) {
+        permission = await speechModule.requestPermissionsAsync();
+      }
+
+      if (!permission?.granted) {
+        const canAskAgain = permission?.canAskAgain !== false;
+        const message = canAskAgain
+          ? "Microphone permission is required for voice search."
+          : "Microphone access is blocked. Enable it in Settings to use voice search.";
         setVoiceError(message);
         showToast(message, "error");
+        if (!canAskAgain) {
+          void Linking.openSettings().catch(() => undefined);
+        }
         return;
       }
 
