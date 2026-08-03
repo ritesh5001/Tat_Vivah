@@ -21,6 +21,23 @@ export class InventoryRepository {
     }
 
     /**
+     * Set stock for several variants in one round trip.
+     */
+    async setStockMany(entries: Array<{ variantId: string; stock: number }>): Promise<void> {
+        if (entries.length === 0) return;
+
+        await prisma.$transaction(
+            entries.map(({ variantId, stock }) =>
+                prisma.inventory.upsert({
+                    where: { variantId },
+                    update: { stock },
+                    create: { variantId, stock },
+                }),
+            ),
+        );
+    }
+
+    /**
      * Find inventory by variant ID
      */
     async findByVariantId(variantId: string): Promise<InventoryEntity | null> {

@@ -90,36 +90,6 @@ export class VariantRepository {
     }
 
     /**
-     * Fetch many variants at once, keyed by id.
-     *
-     * Exists to kill an N+1: the admin product-update loop called findById() once per
-     * variant, so editing a product with N variants cost N sequential round-trips
-     * before a single write happened.
-     */
-    async findManyByIds(ids: string[]): Promise<Map<string, ProductVariantEntity>> {
-        if (ids.length === 0) return new Map();
-
-        const variants = await prisma.productVariant.findMany({
-            where: { id: { in: ids } },
-        });
-
-        return new Map(
-            variants.map((variant) => [
-                variant.id,
-                {
-                    ...variant,
-                    sellerPrice: Number(variant.sellerPrice),
-                    adminListingPrice:
-                        variant.adminListingPrice == null ? null : Number(variant.adminListingPrice),
-                    price: Number(variant.price),
-                    compareAtPrice:
-                        variant.compareAtPrice == null ? null : Number(variant.compareAtPrice),
-                } as ProductVariantEntity,
-            ]),
-        );
-    }
-
-    /**
      * Find variant by ID with inventory
      */
     async findByIdWithInventory(id: string): Promise<VariantWithInventory | null> {
@@ -213,6 +183,53 @@ export class VariantRepository {
         };
     }
 
+    private buildUpdateData(
+        data: UpdateVariantRequest,
+        current: { sellerPrice: number; adminListingPrice: number | null },
+    ) {
+        return {
+            ...(data.size !== undefined && { size: this.normalizeSize(data.size) }),
+            ...(data.color !== undefined && { color: this.normalizeColor(data.color) }),
+            ...(data.sku !== undefined && { sku: data.sku.trim() }),
+            ...(data.images !== undefined && { images: data.images }),
+            ...(data.sellerPrice !== undefined && { sellerPrice: data.sellerPrice }),
+            ...(data.adminListingPrice !== undefined && { adminListingPrice: data.adminListingPrice }),
+            ...(data.compareAtPrice !== undefined && { compareAtPrice: data.compareAtPrice }),
+            ...(data.status !== undefined && { status: data.status }),
+            ...(data.rejectionReason !== undefined && { rejectionReason: data.rejectionReason }),
+            ...(data.approvedAt !== undefined && { approvedAt: data.approvedAt }),
+            ...(data.approvedById !== undefined && { approvedById: data.approvedById }),
+            price: this.resolveEffectivePrice({
+                sellerPrice: data.sellerPrice,
+                adminListingPrice: data.adminListingPrice,
+                current,
+            }),
+        };
+    }
+
+    /**
+     * Update several variants in one round trip. Callers pass the current prices
+     * they already hold so no per-variant read is needed to resolve `price`.
+     */
+    async updateMany(
+        updates: Array<{
+            id: string;
+            data: UpdateVariantRequest;
+            current: { sellerPrice: number; adminListingPrice: number | null };
+        }>,
+    ): Promise<void> {
+        if (updates.length === 0) return;
+
+        await prisma.$transaction(
+            updates.map(({ id, data, current }) =>
+                prisma.productVariant.update({
+                    where: { id },
+                    data: this.buildUpdateData(data, current),
+                }),
+            ),
+        );
+    }
+
     /**
      * Update a variant
      */
@@ -229,31 +246,12 @@ export class VariantRepository {
             throw new Error(`Variant ${id} not found`);
         }
 
-        const nextPrice = this.resolveEffectivePrice({
-            sellerPrice: data.sellerPrice,
-            adminListingPrice: data.adminListingPrice,
-            current: {
-                sellerPrice: Number(current.sellerPrice),
-                adminListingPrice: current.adminListingPrice == null ? null : Number(current.adminListingPrice),
-            },
-        });
-
         const variant = await prisma.productVariant.update({
             where: { id },
-            data: {
-                ...(data.size !== undefined && { size: this.normalizeSize(data.size) }),
-                ...(data.color !== undefined && { color: this.normalizeColor(data.color) }),
-                ...(data.sku !== undefined && { sku: data.sku.trim() }),
-                ...(data.images !== undefined && { images: data.images }),
-                ...(data.sellerPrice !== undefined && { sellerPrice: data.sellerPrice }),
-                ...(data.adminListingPrice !== undefined && { adminListingPrice: data.adminListingPrice }),
-                ...(data.compareAtPrice !== undefined && { compareAtPrice: data.compareAtPrice }),
-                ...(data.status !== undefined && { status: data.status }),
-                ...(data.rejectionReason !== undefined && { rejectionReason: data.rejectionReason }),
-                ...(data.approvedAt !== undefined && { approvedAt: data.approvedAt }),
-                ...(data.approvedById !== undefined && { approvedById: data.approvedById }),
-                price: nextPrice,
-            },
+            data: this.buildUpdateData(data, {
+                sellerPrice: Number(current.sellerPrice),
+                adminListingPrice: current.adminListingPrice == null ? null : Number(current.adminListingPrice),
+            }),
         });
 
         return {

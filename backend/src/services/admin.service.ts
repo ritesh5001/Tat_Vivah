@@ -506,7 +506,13 @@ export class AdminService {
         actorId: string,
         payload: AdminProductUpdateInput
     ): Promise<{ message: string; product: AdminProduct }> {
-        const product = await this.adminRepo.findProductById(productId);
+        const [product, categoryExists] = await Promise.all([
+            this.adminRepo.findProductById(productId),
+            payload.categoryId
+                ? categoryRepository.existsAndActive(payload.categoryId)
+                : Promise.resolve(true),
+        ]);
+
         if (!product) {
             throw ApiError.notFound('Product not found');
         }
@@ -515,11 +521,8 @@ export class AdminService {
             throw ApiError.badRequest('Deleted products cannot be updated');
         }
 
-        if (payload.categoryId) {
-            const categoryExists = await categoryRepository.existsAndActive(payload.categoryId);
-            if (!categoryExists) {
-                throw ApiError.badRequest('Invalid category ID');
-            }
+        if (!categoryExists) {
+            throw ApiError.badRequest('Invalid category ID');
         }
 
         const updatePayload: UpdateProductRequest = {};
@@ -545,14 +548,8 @@ export class AdminService {
             updatePayload.isPublished = payload.isPublished;
             updatedFields.push('isPublished');
         }
-
         if (payload.occasionIds !== undefined) {
-            await occasionService.syncProductOccasions(productId, payload.occasionIds ?? []);
             updatedFields.push('occasionIds');
-        }
-
-        if (Object.keys(updatePayload).length > 0) {
-            await productRepository.update(productId, updatePayload);
         }
 
         const workingVariants = (product.variants ?? []).map((variant) => ({
@@ -568,21 +565,23 @@ export class AdminService {
         }));
 
         const variantUpdates: string[] = [];
-        if (payload.variants && payload.variants.length > 0) {
-            // One batched read instead of findById() per variant — that loop was a
-            // sequential round-trip per variant before any write happened.
-            const variantsById = await variantRepository.findManyByIds(
-                payload.variants.map((entry) => entry.id),
-            );
+        // Writes are collected here and flushed in one batch below. Issuing them
+        // inside the loop cost two sequential round trips per variant.
+        const variantWrites: Array<{
+            id: string;
+            data: UpdateVariantRequest;
+            current: { sellerPrice: number; adminListingPrice: number | null };
+        }> = [];
+        const stockWrites: Array<{ variantId: string; stock: number }> = [];
 
+        if (payload.variants && payload.variants.length > 0) {
             for (const variantInput of payload.variants) {
-                const variant = variantsById.get(variantInput.id);
-                if (!variant || variant.productId !== productId) {
+                const variant = workingVariants.find((entry) => entry.id === variantInput.id);
+                if (!variant) {
                     throw ApiError.badRequest('One or more variant updates are invalid');
                 }
 
-                const workingVariant = workingVariants.find((entry) => entry.id === variantInput.id);
-                const currentColor = workingVariant?.color ?? variant.color ?? null;
+                const currentColor = variant.color ?? null;
                 const nextColor = variantInput.color !== undefined ? variantInput.color : currentColor;
                 const siblingVariants = workingVariants.filter((entry) => entry.id !== variantInput.id);
                 const inferredImages =
@@ -595,7 +594,7 @@ export class AdminService {
                             }
 
                             if (normalizeVariantColorKey(currentColor) === normalizeVariantColorKey(nextColor)) {
-                                return sanitizeVariantImages(workingVariant?.images ?? variant.images);
+                                return sanitizeVariantImages(variant.images);
                             }
 
                             return [];
@@ -632,7 +631,7 @@ export class AdminService {
                     variantPayload.approvedById = actorId;
                 }
 
-                const nextSellerPrice = variantInput.sellerPrice ?? Number(variant.sellerPrice);
+                const nextSellerPrice = variantInput.sellerPrice ?? variant.sellerPrice;
                 const nextAdminListingPrice =
                     variantInput.adminListingPrice !== undefined
                         ? variantInput.adminListingPrice
@@ -658,10 +657,17 @@ export class AdminService {
                     throw ApiError.badRequest(`Compare-at price must be greater than effective selling price for variant ${variant.sku}`);
                 }
 
-                await variantRepository.update(variantInput.id, variantPayload);
+                variantWrites.push({
+                    id: variantInput.id,
+                    data: variantPayload,
+                    current: {
+                        sellerPrice: variant.sellerPrice,
+                        adminListingPrice: variant.adminListingPrice,
+                    },
+                });
 
                 if (variantInput.stock !== undefined) {
-                    await inventoryRepository.updateStock(variantInput.id, variantInput.stock);
+                    stockWrites.push({ variantId: variantInput.id, stock: variantInput.stock });
                 }
 
                 const workingIndex = workingVariants.findIndex((entry) => entry.id === variantInput.id);
@@ -701,39 +707,65 @@ export class AdminService {
                     continue;
                 }
 
-                await variantRepository.update(normalizedVariant.id, {
-                    images: normalizedVariant.images,
-                });
+                const pendingWrite = variantWrites.find((entry) => entry.id === normalizedVariant.id);
+                if (pendingWrite) {
+                    pendingWrite.data.images = normalizedVariant.images;
+                } else {
+                    variantWrites.push({
+                        id: normalizedVariant.id,
+                        data: { images: normalizedVariant.images },
+                        current: {
+                            sellerPrice: currentVariant.sellerPrice,
+                            adminListingPrice: currentVariant.adminListingPrice,
+                        },
+                    });
+                }
 
                 currentVariant.images = normalizedVariant.images;
             }
         }
 
+        const writes: Array<Promise<unknown>> = [
+            variantRepository.updateMany(variantWrites),
+            inventoryRepository.setStockMany(stockWrites),
+        ];
+        if (payload.occasionIds !== undefined) {
+            writes.push(occasionService.syncProductOccasions(productId, payload.occasionIds ?? []));
+        }
+        if (Object.keys(updatePayload).length > 0) {
+            writes.push(productRepository.update(productId, updatePayload));
+        }
+        await Promise.all(writes);
+
         await productRepository.syncVariantSummary(productId);
 
-        await Promise.allSettled([
+        // The admin list is served from cache, so its invalidation has to land
+        // before the client refetches. Everything else is broadcast/analytics work
+        // that no longer holds the response open.
+        const [refreshed] = await Promise.all([
+            this.adminRepo.findProductById(productId),
             invalidateProductCaches(productId),
-            invalidateCache(CACHE_KEYS.ADMIN_STATS),
-            invalidateCacheByPattern('admin:profit:*'),
         ]);
-
-        await dispatchFreshness({
-            type: 'product.updated',
-            entityId: productId,
-            tags: [
-                CACHE_TAGS.products,
-                CACHE_TAGS.search,
-                CACHE_TAGS.sellerProducts,
-                CACHE_TAGS.adminProducts,
-                productTag(productId),
-            ],
-            audience: { allAuthenticated: true },
-        });
-
-        const refreshed = await this.adminRepo.findProductById(productId);
         if (!refreshed) {
             throw ApiError.internal('Unable to reload product after updates');
         }
+
+        void Promise.allSettled([
+            invalidateCache(CACHE_KEYS.ADMIN_STATS),
+            invalidateCacheByPattern('admin:profit:*'),
+            dispatchFreshness({
+                type: 'product.updated',
+                entityId: productId,
+                tags: [
+                    CACHE_TAGS.products,
+                    CACHE_TAGS.search,
+                    CACHE_TAGS.sellerProducts,
+                    CACHE_TAGS.adminProducts,
+                    productTag(productId),
+                ],
+                audience: { allAuthenticated: true },
+            }),
+        ]);
 
         // Audit trail — written asynchronously so it never sits on the save path.
         void this.auditSvc

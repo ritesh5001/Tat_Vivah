@@ -732,7 +732,15 @@ export default function AdminProductsClient({
 
     setIsSavingEdit(true);
     try {
-      await updateProductDetails(editingProduct.id, payload);
+      const { product: saved } = await updateProductDetails(editingProduct.id, payload);
+
+      // Paint the saved row from the response so the table updates without waiting
+      // on the background refetch below.
+      setProducts((prev) =>
+        prev.map((product) =>
+          product.id === saved.id ? { ...product, ...saved } : product
+        )
+      );
 
       toast.success(`"${editingProduct.title}" saved.`, {
         description: "Your changes are live.",
