@@ -29,7 +29,6 @@ import {
 
 const COLS = 2;
 const FEATURED_LIMIT = 9;
-const POPULAR_LIMIT = 12;
 const ALL_PRODUCTS_PAGE_SIZE = 8;
 
 function mergeUniqueProducts(current: ProductItem[], incoming: ProductItem[]): ProductItem[] {
@@ -59,6 +58,8 @@ export default function CategoriesScreen() {
   const [selectedCategoryId, setSelectedCategoryId] = React.useState<string | undefined>(
     typeof params.categoryId === "string" ? params.categoryId : undefined
   );
+  const selectedCategoryRef = React.useRef<string | undefined>(undefined);
+  React.useEffect(() => { selectedCategoryRef.current = selectedCategoryId; }, [selectedCategoryId]);
   const [allProducts, setAllProducts] = React.useState<ProductItem[]>([]);
   const [allVisibleCount, setAllVisibleCount] = React.useState(0);
   const [allNextPage, setAllNextPage] = React.useState(2);
@@ -97,37 +98,21 @@ export default function CategoriesScreen() {
 
   // Fetch all-category products using the same popularity ordering as homepage.
   const { data: allProductsData, isLoading: allProductsLoading } = useQuery({
-    queryKey: ["marketplace-all-products", { limit: ALL_PRODUCTS_PAGE_SIZE, sort: "popularity", audience }],
+    queryKey: [
+      "marketplace-all-products",
+      { limit: ALL_PRODUCTS_PAGE_SIZE, sort: "popularity", audience, categoryId: selectedCategoryId },
+    ],
     queryFn: ({ signal }) =>
       getProducts({
         page: 1,
         limit: ALL_PRODUCTS_PAGE_SIZE,
         sort: "popularity",
         audience,
-        signal,
-      }),
-    staleTime: 1000 * 60 * 5,
-  });
-
-  // Fetch popular products for selected category only
-  const { data: popularData, isLoading: popularLoading } = useQuery({
-    queryKey: ["products", { categoryId: selectedCategoryId, limit: POPULAR_LIMIT, audience }],
-    queryFn: ({ signal }) =>
-      getProducts({
-        page: 1,
-        limit: POPULAR_LIMIT,
         categoryId: selectedCategoryId,
-        audience,
         signal,
       }),
     staleTime: 1000 * 60 * 5,
-    enabled: Boolean(selectedCategoryId),
   });
-
-  const popularProducts = React.useMemo<ProductItem[]>(
-    () => (popularData?.data as ProductItem[]) ?? [],
-    [popularData]
-  );
 
   const sidebarWidth = Math.max(72, Math.round(windowWidth * 0.18));
   const contentWidth = windowWidth - sidebarWidth;
@@ -149,6 +134,7 @@ export default function CategoriesScreen() {
     if (isAllPrefetching || !hasMoreAllProducts) return;
 
     const requestedAudience = audience;
+    const requestedCategoryId = selectedCategoryId;
     setIsAllPrefetching(true);
     setHasAllProductsError(false);
 
@@ -158,9 +144,16 @@ export default function CategoriesScreen() {
         limit: ALL_PRODUCTS_PAGE_SIZE,
         sort: "popularity",
         audience: requestedAudience,
+        categoryId: requestedCategoryId,
       });
 
-      if (audienceRef.current !== requestedAudience) return;
+      // Drop the page if the user switched audience or category while it was in flight.
+      if (
+        audienceRef.current !== requestedAudience ||
+        selectedCategoryRef.current !== requestedCategoryId
+      ) {
+        return;
+      }
 
       const incoming = (response.data ?? []) as ProductItem[];
       const totalPages = response.pagination?.totalPages;
@@ -173,17 +166,20 @@ export default function CategoriesScreen() {
           : incoming.length === ALL_PRODUCTS_PAGE_SIZE) && incoming.length > 0
       );
     } catch {
-      if (audienceRef.current !== requestedAudience) return;
+      if (
+        audienceRef.current !== requestedAudience ||
+        selectedCategoryRef.current !== requestedCategoryId
+      ) {
+        return;
+      }
       setHasAllProductsError(true);
       setHasMoreAllProducts(false);
     } finally {
       setIsAllPrefetching(false);
     }
-  }, [allNextPage, audience, hasMoreAllProducts, isAllPrefetching]);
+  }, [allNextPage, audience, hasMoreAllProducts, isAllPrefetching, selectedCategoryId]);
 
   const revealNextAllProducts = React.useCallback(() => {
-    if (selectedCategoryId) return;
-
     if (allVisibleCount < allProducts.length) {
       setAllVisibleCount((previous) =>
         Math.min(previous + ALL_PRODUCTS_PAGE_SIZE, allProducts.length)
@@ -195,13 +191,7 @@ export default function CategoriesScreen() {
       setPendingAllReveal(true);
       void prefetchNextAllProducts();
     }
-  }, [
-    allProducts.length,
-    allVisibleCount,
-    hasMoreAllProducts,
-    prefetchNextAllProducts,
-    selectedCategoryId,
-  ]);
+  }, [allProducts.length, allVisibleCount, hasMoreAllProducts, prefetchNextAllProducts]);
 
   React.useEffect(() => {
     const products = ((allProductsData?.data ?? []) as ProductItem[]);
@@ -218,11 +208,13 @@ export default function CategoriesScreen() {
     setPendingAllReveal(false);
   }, [allProductsData]);
 
+  // Keep two batches loaded beyond what is on screen. One batch of headroom
+  // meant the reveal at the bottom still had to wait on a request; two means the
+  // next batch is already in hand by the time the user scrolls to it.
   React.useEffect(() => {
-    if (selectedCategoryId) return;
     if (allProductsLoading) return;
     if (!hasMoreAllProducts || isAllPrefetching) return;
-    if (allProducts.length - allVisibleCount >= ALL_PRODUCTS_PAGE_SIZE) return;
+    if (allProducts.length - allVisibleCount >= ALL_PRODUCTS_PAGE_SIZE * 2) return;
 
     void prefetchNextAllProducts();
   }, [
@@ -232,7 +224,6 @@ export default function CategoriesScreen() {
     hasMoreAllProducts,
     isAllPrefetching,
     prefetchNextAllProducts,
-    selectedCategoryId,
   ]);
 
   React.useEffect(() => {
@@ -284,7 +275,6 @@ export default function CategoriesScreen() {
         layoutMeasurement: { height: number };
       };
     }) => {
-      if (selectedCategoryId) return;
       const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
       const distanceFromBottom =
         contentSize.height - (contentOffset.y + layoutMeasurement.height);
@@ -292,7 +282,7 @@ export default function CategoriesScreen() {
         revealNextAllProducts();
       }
     },
-    [revealNextAllProducts, selectedCategoryId]
+    [revealNextAllProducts]
   );
 
   const renderCategoryItem = React.useCallback(
@@ -430,45 +420,43 @@ export default function CategoriesScreen() {
                 </View>
                 <Text style={styles.categoryHeaderTitle}>{selectedCategory.name}</Text>
                 <Text style={styles.categoryHeaderMeta}>
-                  {popularLoading
+                  {allProductsLoading
                     ? "Loading…"
-                    : `${popularProducts.length} ${popularProducts.length === 1 ? "piece" : "pieces"} curated for you`}
+                    : `${allProducts.length}${hasMoreAllProducts ? "+" : ""} ${allProducts.length === 1 ? "piece" : "pieces"} curated for you`}
                 </Text>
               </View>
             ) : (
               <Text style={styles.sectionTitle}>All Products</Text>
             )}
-            {popularLoading ? (
+            {allProductsLoading ? (
               <View style={styles.loadingWrap}>
                 <TatvivahLoader size="sm" color={colors.gold} />
               </View>
-            ) : selectedCategoryId && popularProducts.length === 0 ? (
-              <Text style={styles.emptyText}>No products in this category</Text>
-            ) : !selectedCategoryId && allProductsLoading ? (
-              <View style={styles.loadingWrap}>
-                <TatvivahLoader size="sm" color={colors.gold} />
-              </View>
-            ) : !selectedCategoryId && visibleAllProducts.length === 0 ? (
-              <Text style={styles.emptyText}>No products available right now</Text>
+            ) : visibleAllProducts.length === 0 ? (
+              <Text style={styles.emptyText}>
+                {selectedCategoryId
+                  ? "No products in this category"
+                  : "No products available right now"}
+              </Text>
             ) : (
               <View style={styles.grid}>
-                {(selectedCategoryId ? popularProducts : visibleAllProducts).map((product, idx) => (
+                {visibleAllProducts.map((product, idx) => (
                   <View key={`popular-${product.id}-${idx}`} style={{ width: cardWidth }}>
                     {renderProductCard({ item: product })}
                   </View>
                 ))}
               </View>
             )}
-            {!selectedCategoryId ? (
-              hasAllProductsError ? (
-                <Text style={styles.statusText}>Could not load more products right now.</Text>
-              ) : isAllPrefetching ? (
-                <Text style={styles.statusText}>Loading next products...</Text>
-              ) : hasMoreAllProducts ? (
-                <Text style={styles.statusText}>Scroll down to reveal more products</Text>
-              ) : visibleAllProducts.length > 0 ? (
-                <Text style={styles.statusText}>You have reached the end.</Text>
-              ) : null
+            {hasAllProductsError ? (
+              <Text style={styles.statusText}>Could not load more products right now.</Text>
+            ) : hasMoreAllProducts || allVisibleCount < allProducts.length ? (
+              // A spinner rather than an instruction: the next batch is already
+              // being fetched, the user just has to keep scrolling.
+              <View style={styles.loadingWrap}>
+                <TatvivahLoader size="sm" color={colors.gold} />
+              </View>
+            ) : visibleAllProducts.length > 0 ? (
+              <Text style={styles.statusText}>You have reached the end.</Text>
             ) : null}
           </View>
 

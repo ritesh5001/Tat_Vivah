@@ -99,6 +99,7 @@ export interface AdminProduct {
         id: string;
         size: string;
         color: string | null;
+        colorHex: string | null;
         images: string[];
         sku: string;
         sellerPrice: number;
@@ -455,6 +456,7 @@ export class AdminRepository {
                 id: variant.id,
                 size: variant.size,
                 color: variant.color,
+                colorHex: variant.colorHex ?? null,
                 images: variant.images,
                 sku: variant.sku,
                 sellerPrice: Number(variant.sellerPrice),
@@ -548,6 +550,7 @@ export class AdminRepository {
                 id: variant.id,
                 size: variant.size,
                 color: variant.color,
+                colorHex: variant.colorHex ?? null,
                 images: variant.images,
                 sku: variant.sku,
                 sellerPrice: Number(variant.sellerPrice),
@@ -601,7 +604,8 @@ export class AdminRepository {
             prisma.$queryRawUnsafe<Array<Record<string, any>>>(
                 `
                 SELECT
-                    v."id", v."product_id" AS "productId", v."size", v."color", v."images", v."sku",
+                    v."id", v."product_id" AS "productId", v."size", v."color",
+                    v."color_hex" AS "colorHex", v."images", v."sku",
                     v."seller_price"        AS "sellerPrice",
                     v."admin_listing_price" AS "adminListingPrice",
                     v."price",
@@ -729,6 +733,7 @@ export class AdminRepository {
                 id: variant.id,
                 size: variant.size,
                 color: variant.color,
+                colorHex: variant.colorHex ?? null,
                 images: variant.images,
                 sku: variant.sku,
                 sellerPrice: Number(variant.sellerPrice),

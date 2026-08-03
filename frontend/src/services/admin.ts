@@ -24,6 +24,7 @@ export interface AdminProduct {
     id: string;
     size: string;
     color?: string | null;
+    colorHex?: string | null;
     images?: string[];
     sku: string;
     sellerPrice: number;
@@ -53,6 +54,7 @@ export interface AdminProductVariantUpdatePayload {
   id: string;
   size?: string;
   color?: string | null;
+  colorHex?: string | null;
   sku?: string;
   images?: string[];
   sellerPrice?: number;

@@ -287,6 +287,9 @@ model ProductVariant {
   productId         String        @map("product_id")
   size              String        @default("Default")
   color             String?
+  /// Swatch colour for `color`, as #RRGGBB. The name is the vendor's; the hex is
+  /// picked by an admin so the storefront can render a real circle.
+  colorHex          String?       @map("color_hex")
   images            String[]      @default([])
   sku               String
   sellerPrice       Float         @map("seller_price")

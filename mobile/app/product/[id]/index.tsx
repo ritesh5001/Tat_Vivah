@@ -346,6 +346,21 @@ function normalizeColor(value?: string | null): string {
   return (value ?? "").trim().toLowerCase();
 }
 
+/** Accepts `#rgb` or `#rrggbb`, normalised to lowercase `#rrggbb`. */
+function normalizeHex(value?: string | null): string | null {
+  const trimmed = value?.trim().toLowerCase();
+  if (!trimmed) return null;
+
+  const withHash = trimmed.startsWith("#") ? trimmed : `#${trimmed}`;
+  if (/^#[0-9a-f]{6}$/.test(withHash)) return withHash;
+  if (/^#[0-9a-f]{3}$/.test(withHash)) {
+    const [, r, g, b] = withHash;
+    return `#${r}${r}${g}${g}${b}${b}`;
+  }
+
+  return null;
+}
+
 const colorHexMap: Record<string, string> = {
   white: "#ffffff",
   black: "#111111",
@@ -660,15 +675,20 @@ export default function ProductDetailScreen() {
   );
   const colorOptions = React.useMemo(() => {
     const variants = product?.variants ?? [];
-    const map = new Map<string, string>();
+    const map = new Map<string, { label: string; hex: string | null }>();
     for (const variant of variants) {
       const label = getVariantColorLabel(variant);
       const key = normalizeColor(label);
-      if (!map.has(key)) {
-        map.set(key, label);
+      const hex = normalizeHex((variant as { colorHex?: string | null }).colorHex);
+      const existing = map.get(key);
+      if (!existing) {
+        map.set(key, { label, hex });
+      } else if (!existing.hex && hex) {
+        // Any size of this colour carrying the admin-picked swatch wins.
+        existing.hex = hex;
       }
     }
-    return Array.from(map.entries()).map(([key, label]) => ({ key, label }));
+    return Array.from(map.entries()).map(([key, value]) => ({ key, ...value }));
   }, [product?.variants]);
 
   const variantsForColor = React.useMemo(() => {
@@ -1570,7 +1590,8 @@ export default function ProductDetailScreen() {
                           {
                             width: swatchSize,
                             height: swatchSize,
-                            backgroundColor: swatchColorFromLabel(color.label),
+                            backgroundColor:
+                              color.hex ?? swatchColorFromLabel(color.label),
                           },
                         ]}
                       />

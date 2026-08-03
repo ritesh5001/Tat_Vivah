@@ -16,11 +16,13 @@ import {
 } from "@/lib/checkout-snapshot";
 import { trackPendingCartWrite } from "@/lib/pending-cart";
 import { loginUrlWithReturn } from "@/lib/login-redirect";
+import { normalizeHex } from "@/lib/color-swatches";
 
 interface Variant {
   id: string;
   size: string;
   color?: string | null;
+  colorHex?: string | null;
   images?: string[];
   sku: string;
   price: number;
@@ -188,15 +190,20 @@ export default function ProductDetailClient({
   }, [router]);
 
   const colorOptions = React.useMemo(() => {
-    const map = new Map<string, string>();
+    const map = new Map<string, { label: string; hex: string | null }>();
     for (const variant of product.variants ?? []) {
       const label = variantColorLabel(variant);
       const key = normalizeColor(label);
-      if (!map.has(key)) {
-        map.set(key, label);
+      const hex = normalizeHex(variant.colorHex);
+      const existing = map.get(key);
+      if (!existing) {
+        map.set(key, { label, hex });
+      } else if (!existing.hex && hex) {
+        // Any size of this colour carrying the admin-picked swatch wins.
+        existing.hex = hex;
       }
     }
-    return Array.from(map.entries()).map(([key, label]) => ({ key, label }));
+    return Array.from(map.entries()).map(([key, value]) => ({ key, ...value }));
   }, [product.variants]);
 
   React.useEffect(() => {
@@ -597,7 +604,8 @@ export default function ProductDetailClient({
             ) : (
               colorOptions.map((color) => {
                 const active = color.key === selectedColor;
-                const swatchColor = swatchColorFromLabel(color.label);
+                // Admin-picked swatch first; the name-derived guess is the fallback.
+                const swatchColor = color.hex ?? swatchColorFromLabel(color.label);
                 return (
               <button
                 key={color.key}

@@ -32,10 +32,12 @@ import { notificationService } from '../notifications/notification.service.js';
 import { bestsellerService } from './bestseller.service.js';
 import { occasionService } from './occasion.service.js';
 import {
+    applyColorScopedHex,
     applyColorScopedImages,
     arraysEqual,
     normalizeVariantColorKey,
     resolveColorScopedGallery,
+    sanitizeColorHex,
     sanitizeVariantImages,
 } from './color-variant-images.service.js';
 import { calculateMargin } from '../utils/pricing.util.js';
@@ -556,6 +558,7 @@ export class AdminService {
             id: variant.id,
             size: variant.size ?? 'Default',
             color: variant.color ?? null,
+            colorHex: sanitizeColorHex(variant.colorHex),
             images: sanitizeVariantImages(variant.images ?? []),
             sku: variant.sku,
             sellerPrice: Number(variant.sellerPrice ?? 0),
@@ -608,6 +611,9 @@ export class AdminService {
                 }
                 if (variantInput.color !== undefined) {
                     variantPayload.color = variantInput.color;
+                }
+                if (variantInput.colorHex !== undefined) {
+                    variantPayload.colorHex = sanitizeColorHex(variantInput.colorHex);
                 }
                 if (variantInput.sku !== undefined) {
                     variantPayload.sku = variantInput.sku;
@@ -692,6 +698,10 @@ export class AdminService {
                         id: currentWorking.id,
                         size: variantInput.size ?? currentWorking.size,
                         color: nextColor ?? null,
+                        colorHex:
+                            variantInput.colorHex !== undefined
+                                ? sanitizeColorHex(variantInput.colorHex)
+                                : currentWorking.colorHex,
                         images: inferredImages,
                         sku: variantInput.sku ?? currentWorking.sku,
                         sellerPrice: variantInput.sellerPrice ?? currentWorking.sellerPrice,
@@ -732,6 +742,33 @@ export class AdminService {
                 }
 
                 currentVariant.images = normalizedVariant.images;
+            }
+
+            // A swatch belongs to the colour, so picking one on any size applies
+            // it to every size of that colour — same rule as the galleries above.
+            for (const normalizedVariant of applyColorScopedHex(workingVariants)) {
+                const currentVariant = workingVariants.find(
+                    (entry) => entry.id === normalizedVariant.id,
+                );
+                if (!currentVariant || currentVariant.colorHex === normalizedVariant.colorHex) {
+                    continue;
+                }
+
+                const pendingWrite = variantWrites.find((entry) => entry.id === normalizedVariant.id);
+                if (pendingWrite) {
+                    pendingWrite.data.colorHex = normalizedVariant.colorHex;
+                } else {
+                    variantWrites.push({
+                        id: normalizedVariant.id,
+                        data: { colorHex: normalizedVariant.colorHex },
+                        current: {
+                            sellerPrice: currentVariant.sellerPrice,
+                            adminListingPrice: currentVariant.adminListingPrice,
+                        },
+                    });
+                }
+
+                currentVariant.colorHex = normalizedVariant.colorHex;
             }
         }
 

@@ -83,3 +83,43 @@ export function buildColorScopedImageUpdates<T extends VariantImageCarrier>(
             images: variant.images,
         }));
 }
+
+/**
+ * A colour's swatch belongs to the colour, not to one size of it. Given the
+ * variants of a product, resolve the hex every variant of each colour should
+ * carry: an explicit value on any sibling wins, so setting the swatch once
+ * applies it across that colour's sizes.
+ */
+export function applyColorScopedHex<
+    T extends { id: string; color?: string | null; colorHex?: string | null },
+>(variants: T[]): Array<T & { colorHex: string | null }> {
+    const firstHexByColor = new Map<string, string>();
+
+    for (const variant of variants) {
+        const key = normalizeVariantColorKey(variant.color);
+        const hex = sanitizeColorHex(variant.colorHex);
+        if (hex && !firstHexByColor.has(key)) {
+            firstHexByColor.set(key, hex);
+        }
+    }
+
+    return variants.map((variant) => ({
+        ...variant,
+        colorHex: firstHexByColor.get(normalizeVariantColorKey(variant.color)) ?? null,
+    }));
+}
+
+/** Accepts `#rgb` or `#rrggbb` (case-insensitive), normalised to lowercase #rrggbb. */
+export function sanitizeColorHex(value?: string | null): string | null {
+    const trimmed = value?.trim().toLowerCase();
+    if (!trimmed) return null;
+
+    const withHash = trimmed.startsWith('#') ? trimmed : `#${trimmed}`;
+    if (/^#[0-9a-f]{6}$/.test(withHash)) return withHash;
+    if (/^#[0-9a-f]{3}$/.test(withHash)) {
+        const [, r, g, b] = withHash;
+        return `#${r}${r}${g}${g}${b}${b}`;
+    }
+
+    return null;
+}

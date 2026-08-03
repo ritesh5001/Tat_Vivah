@@ -18,6 +18,8 @@ import { useLiveFreshness } from "@/hooks/use-live-freshness";
 import { useHydratedSWR } from "@/hooks/use-hydrated-swr";
 import { toast } from "sonner";
 import { compressImageForUpload } from "@/lib/image-compression";
+import { normalizeHex } from "@/lib/color-swatches";
+import { ColorSwatchPicker } from "@/components/admin/color-swatch-picker";
 
 const IMAGEKIT_PUBLIC_KEY = process.env.NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY;
 const IMAGEKIT_URL_ENDPOINT = process.env.NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT;
@@ -102,18 +104,29 @@ const getDisplayColorLabel = (color?: string | null) => {
   return trimmed && trimmed.length > 0 ? trimmed : "Default";
 };
 
+interface ColorGroupState {
+  label: string;
+  hex: string | null;
+  images: string[];
+}
+
 const getColorImageMapFromVariants = (
-  variants: Array<{ color?: string | null; images?: string[] }>
+  variants: Array<{ color?: string | null; colorHex?: string | null; images?: string[] }>
 ) => {
-  const next: Record<string, { label: string; images: string[] }> = {};
+  const next: Record<string, ColorGroupState> = {};
 
   for (const variant of variants) {
     if (!variant.color?.trim()) continue;
     const key = normalizeColorKey(variant.color);
-    if (next[key]) continue;
+    if (next[key]) {
+      // Sizes of one colour share a swatch; take the first one that has it set.
+      next[key].hex = next[key].hex ?? normalizeHex(variant.colorHex);
+      continue;
+    }
 
     next[key] = {
       label: getDisplayColorLabel(variant.color),
+      hex: normalizeHex(variant.colorHex),
       images: (variant.images ?? []).filter((image) => typeof image === "string" && image.trim().length > 0),
     };
   }
@@ -157,7 +170,7 @@ export default function AdminProductsClient({
   });
   const [editImages, setEditImages] = React.useState<string[]>([]);
   const [editColorImages, setEditColorImages] = React.useState<
-    Record<string, { label: string; images: string[] }>
+    Record<string, ColorGroupState>
   >({});
   const [uploadingEditImages, setUploadingEditImages] = React.useState(false);
   const [uploadingEditColorImages, setUploadingEditColorImages] = React.useState<
@@ -609,6 +622,7 @@ export default function AdminProductsClient({
         ...prev,
         [colorKey]: {
           label: colorLabel,
+          hex: prev[colorKey]?.hex ?? null,
           images: [...(prev[colorKey]?.images ?? []), ...uploadedUrls],
         },
       }));
@@ -776,6 +790,8 @@ export default function AdminProductsClient({
 
       const colorKey = normalizeColorKey(sourceVariant?.color ?? null);
       entry.images = editColorImages[colorKey]?.images ?? [];
+      // The swatch is picked once per colour and applies to all of its sizes.
+      entry.colorHex = editColorImages[colorKey]?.hex ?? null;
       touched = true;
 
       if (touched) {
@@ -1539,13 +1555,32 @@ export default function AdminProductsClient({
                           className="space-y-2 rounded border border-border-soft p-3"
                         >
                           <div className="flex items-center justify-between gap-3">
-                            <p className="text-xs font-medium uppercase tracking-[0.14em] text-foreground">
-                              {colorGroup.label}
-                            </p>
+                            <div className="flex items-center gap-2">
+                              {colorGroup.hex ? (
+                                <span
+                                  className="h-4 w-4 rounded-full border border-border-soft"
+                                  style={{ backgroundColor: colorGroup.hex }}
+                                />
+                              ) : null}
+                              <p className="text-xs font-medium uppercase tracking-[0.14em] text-foreground">
+                                {colorGroup.label}
+                              </p>
+                            </div>
                             <span className="text-xs text-muted-foreground">
                               {colorGroup.images.length}/5 uploaded
                             </span>
                           </div>
+
+                          <ColorSwatchPicker
+                            colorLabel={colorGroup.label}
+                            value={colorGroup.hex}
+                            onChange={(hex) =>
+                              setEditColorImages((prev) => ({
+                                ...prev,
+                                [colorKey]: { ...prev[colorKey], hex },
+                              }))
+                            }
+                          />
                           <div className="flex flex-wrap gap-2">
                             {colorGroup.images.map((imageUrl) => (
                               <div

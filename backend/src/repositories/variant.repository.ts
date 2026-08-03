@@ -190,6 +190,7 @@ export class VariantRepository {
         return {
             ...(data.size !== undefined && { size: this.normalizeSize(data.size) }),
             ...(data.color !== undefined && { color: this.normalizeColor(data.color) }),
+            ...(data.colorHex !== undefined && { colorHex: data.colorHex }),
             ...(data.sku !== undefined && { sku: data.sku.trim() }),
             ...(data.images !== undefined && { images: data.images }),
             ...(data.sellerPrice !== undefined && { sellerPrice: data.sellerPrice }),

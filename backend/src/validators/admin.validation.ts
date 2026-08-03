@@ -53,6 +53,12 @@ const adminVariantUpdateSchema = z.object({
         .min(1, 'SKU must be at least 1 character')
         .max(100, 'SKU must be at most 100 characters')
         .optional(),
+    colorHex: z
+        .string({ invalid_type_error: 'Colour code must be a string' })
+        .trim()
+        .regex(/^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/, 'Colour code must be a hex value like #B5651D')
+        .nullable()
+        .optional(),
     images: z
         .array(z.string().url('Variant image must be a valid URL'))
         .max(8, 'Maximum 8 variant images allowed')
@@ -89,6 +95,7 @@ const adminVariantUpdateSchema = z.object({
         value.size !== undefined ||
         value.color !== undefined ||
         value.sku !== undefined ||
+        value.colorHex !== undefined ||
         value.images !== undefined ||
         value.sellerPrice !== undefined ||
         value.adminListingPrice !== undefined ||

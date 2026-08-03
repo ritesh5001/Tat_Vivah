@@ -305,6 +305,7 @@ export class ProductRepository {
                         id: true,
                         size: true,
                         color: true,
+                        colorHex: true,
                         images: true,
                         sku: true,
                         sellerPrice: true,
