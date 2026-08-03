@@ -114,6 +114,8 @@ const GalleryImage = React.memo(function GalleryImage({
       contentFit="contain"
       transition={200}
       cachePolicy="memory-disk"
+      width={width}
+      priority="high"
     />
   );
 });
@@ -260,6 +262,7 @@ const ReviewRow = React.memo(function ReviewRow({
               style={styles.reviewImageThumb}
               contentFit="cover"
               transition={100}
+              width={96}
             />
           ))}
         </View>
@@ -292,6 +295,7 @@ const RelatedProductCard = React.memo(function RelatedProductCard({
         contentFit="cover"
         transition={150}
         cachePolicy="memory-disk"
+        width={200}
       />
       <Text style={relatedCardStyles.title} numberOfLines={2}>
         {item.title}
@@ -477,6 +481,10 @@ export default function ProductDetailScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
   const productId = typeof params.id === "string" ? params.id : "";
+  // Seeded by the list that linked here so the related-products request can start
+  // immediately instead of waiting a full round trip for the product to arrive.
+  const seedCategoryId =
+    typeof params.categoryId === "string" && params.categoryId ? params.categoryId : undefined;
   const { session } = useAuth();
   const token = session?.accessToken ?? null;
   const userId = session?.user?.id ?? null;
@@ -596,9 +604,9 @@ export default function ProductDetailScreen() {
 
   // ---- Fetch related products ----
   React.useEffect(() => {
-    const categoryId = product?.categoryId ?? product?.category?.id;
+    const categoryId = product?.categoryId ?? product?.category?.id ?? seedCategoryId;
 
-    if (!product?.id || !categoryId) {
+    if (!categoryId) {
       setRelatedProducts([]);
       setRelatedPage(1);
       setHasMoreRelated(false);
@@ -621,7 +629,7 @@ export default function ProductDetailScreen() {
           signal: controller.signal,
         });
         if (!active) return;
-        setRelatedProducts((response.data ?? []).filter((item) => item.id !== product.id));
+        setRelatedProducts((response.data ?? []).filter((item) => item.id !== productId));
         setRelatedPage(response.pagination.page);
         setHasMoreRelated(response.pagination.page < response.pagination.totalPages);
       } catch (err) {
@@ -637,7 +645,7 @@ export default function ProductDetailScreen() {
       active = false;
       controller.abort();
     };
-  }, [product]);
+  }, [product, productId, seedCategoryId]);
 
   // ---- Fetch reviews ----
   React.useEffect(() => {

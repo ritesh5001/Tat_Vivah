@@ -2,6 +2,9 @@ import * as React from "react";
 import { View, Text, StyleSheet, Pressable, type StyleProp, type ViewStyle, type GestureResponderEvent } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "./CompatImage";
+
+/** Two cards per row, so never wider than about half a phone screen. */
+const GRID_IMAGE_WIDTH = 220;
 import { colors, typography, spacing } from "../theme/tokens";
 import { images } from "../data/images";
 import { type ProductItem } from "../services/products";
@@ -81,6 +84,7 @@ function ProductGridCardComponent({
           contentPosition="center"
           transition={200}
           cachePolicy="memory-disk"
+          width={GRID_IMAGE_WIDTH}
         />
 
         <Pressable style={styles.trendingBadge} onPress={handleTryAndBuy} hitSlop={6}>

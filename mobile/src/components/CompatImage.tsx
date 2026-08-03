@@ -9,6 +9,7 @@ import {
   type ImageContentFit,
   type ImageSource,
 } from "expo-image";
+import { imageUrl } from "../lib/image-url";
 
 type ContentFit = "cover" | "contain" | "fill" | "none" | "scale-down";
 
@@ -19,6 +20,12 @@ type CompatImageProps = {
   contentPosition?: string;
   transition?: number;
   cachePolicy?: "none" | "disk" | "memory" | "memory-disk";
+  /**
+   * Rendered width in dp. Supplying it lets ImageKit return a matching size
+   * rather than the full-resolution original.
+   */
+  width?: number;
+  priority?: "low" | "normal" | "high";
 };
 
 function toContentFit(contentFit?: ContentFit): ImageContentFit {
@@ -27,24 +34,41 @@ function toContentFit(contentFit?: ContentFit): ImageContentFit {
   return contentFit;
 }
 
-function normalizeSource(source: CompatImageProps["source"]): ImageSource {
+function normalizeSource(source: CompatImageProps["source"], width?: number): ImageSource {
   if (typeof source === "string") {
-    return { uri: source };
+    return { uri: imageUrl(source, { width }) ?? source };
   }
   if (!source) {
     return { uri: "" };
   }
+  if (typeof source === "object" && "uri" in source && typeof source.uri === "string") {
+    return { ...source, uri: imageUrl(source.uri, { width }) ?? source.uri } as ImageSource;
+  }
   return source as ImageSource;
 }
 
-export function Image({ source, style, contentFit, transition = 180, cachePolicy = "memory-disk" }: CompatImageProps) {
+export function Image({
+  source,
+  style,
+  contentFit,
+  transition = 180,
+  cachePolicy = "memory-disk",
+  width,
+  priority = "normal",
+}: CompatImageProps) {
+  const resolved = React.useMemo(
+    () => normalizeSource(source, width),
+    [source, width]
+  );
+
   return (
     <ExpoImage
-      source={normalizeSource(source)}
+      source={resolved}
       style={style}
       contentFit={toContentFit(contentFit)}
       transition={transition}
       cachePolicy={cachePolicy}
+      priority={priority}
     />
   );
 }

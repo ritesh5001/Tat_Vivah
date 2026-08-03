@@ -251,7 +251,10 @@ export default function CategoriesScreen() {
   const handleProductPress = React.useCallback(
     (product: ProductItem) => {
       prefetchProduct(queryClient, product.id);
-      router.push(`/product/${product.id}`);
+      router.push({
+        pathname: "/product/[id]",
+        params: { id: product.id, ...(product.categoryId ? { categoryId: product.categoryId } : {}) },
+      });
     },
     [queryClient, router]
   );

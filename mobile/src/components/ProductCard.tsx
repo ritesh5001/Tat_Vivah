@@ -10,6 +10,9 @@ import {
 import { colors, spacing, textStyles } from "../theme";
 import { CachedImage } from "./CachedImage";
 
+/** Cards never render wider than half the screen; ask the CDN for that, not the original. */
+const CARD_IMAGE_WIDTH = 220;
+
 type ProductCardProps = {
   id: string;
   name: string;
@@ -42,6 +45,7 @@ function ProductCardBase({
         <CachedImage
           source={source}
           style={styles.image}
+          width={CARD_IMAGE_WIDTH}
         />
 
         <Pressable
