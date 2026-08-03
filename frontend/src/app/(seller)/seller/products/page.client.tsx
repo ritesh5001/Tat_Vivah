@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { ColorSwatchPicker } from "@/components/color-swatch-picker";
+import { normalizeHex } from "@/lib/color-swatches";
 import { getCategories } from "@/services/catalog";
 import { getOccasions, type Occasion } from "@/services/occasions";
 import {
@@ -108,6 +110,7 @@ function parseVariantInput(
   input: {
     size: string;
     color: string;
+    colorHex?: string | null;
     sku: string;
     sellerPrice: string;
     compareAtPrice: string;
@@ -118,6 +121,7 @@ function parseVariantInput(
   const size = input.size.trim();
   const sku = input.sku.trim();
   const color = input.color.trim();
+  const colorHex = input.colorHex ?? null;
   const sellerPrice = Number(input.sellerPrice);
   const compareAtPrice = input.compareAtPrice.trim()
     ? Number(input.compareAtPrice)
@@ -141,9 +145,9 @@ function parseVariantInput(
   ) {
     throw new Error(`${contextLabel}: enter a valid compare-at price.`);
   }
-  if (compareAtPrice !== undefined && compareAtPrice <= sellerPrice) {
+  if (compareAtPrice !== undefined && compareAtPrice < sellerPrice) {
     throw new Error(
-      `${contextLabel}: compare-at price must be greater than the selling price.`
+      `${contextLabel}: compare-at price cannot be below the selling price.`
     );
   }
   if (!Number.isInteger(initialStock) || initialStock < 0) {
@@ -153,6 +157,7 @@ function parseVariantInput(
   return {
     size,
     color: color || undefined,
+    colorHex,
     sku,
     sellerPrice,
     compareAtPrice,
@@ -259,6 +264,7 @@ export default function SellerProductsClient({
   const [variantForm, setVariantForm] = React.useState({
     size: "",
     color: "",
+    colorHex: null as string | null,
     sku: "",
     sellerPrice: "",
     compareAtPrice: "",
@@ -294,6 +300,7 @@ export default function SellerProductsClient({
         sellerPrice: string;
         compareAtPrice: string;
         color: string;
+        colorHex: string | null;
         images: string[];
       }
     >
@@ -339,6 +346,7 @@ export default function SellerProductsClient({
         sellerPrice: string;
         compareAtPrice: string;
         color: string;
+        colorHex: string | null;
         images: string[];
       }>
     ) => {
@@ -350,6 +358,7 @@ export default function SellerProductsClient({
           sellerPrice: prev[variantId]?.sellerPrice ?? "",
           compareAtPrice: prev[variantId]?.compareAtPrice ?? "",
           color: prev[variantId]?.color ?? "",
+          colorHex: prev[variantId]?.colorHex ?? null,
           images: prev[variantId]?.images ?? [],
           ...patch,
         },
@@ -551,6 +560,7 @@ export default function SellerProductsClient({
       setVariantForm({
         size: "",
         color: "",
+        colorHex: null,
         sku: "",
         sellerPrice: "",
         compareAtPrice: "",
@@ -667,6 +677,7 @@ export default function SellerProductsClient({
           prev[variant.id]?.compareAtPrice ??
           String(variant.compareAtPrice ?? ""),
         color: prev[variant.id]?.color ?? String(variant.color ?? ""),
+        colorHex: prev[variant.id]?.colorHex ?? normalizeHex(variant.colorHex),
         images: prev[variant.id]?.images ?? [...(variant.images ?? [])],
       },
     }));
@@ -714,6 +725,7 @@ export default function SellerProductsClient({
         sellerPrice,
         compareAtPrice: compareAt,
         color: colorValue,
+        colorHex: edit.colorHex ?? null,
         images: colorImages,
       });
       toast.success("Variant updated.");
@@ -1620,7 +1632,17 @@ export default function SellerProductsClient({
                                   {variant.size || "Default"} · {variant.sku}
                                 </p>
                                 {variant.color ? (
-                                  <p className="text-xs text-muted-foreground">Color: {variant.color}</p>
+                                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                    {normalizeHex(variant.colorHex) ? (
+                                      <span
+                                        className="inline-block h-3 w-3 rounded-full border border-border-soft"
+                                        style={{
+                                          backgroundColor: normalizeHex(variant.colorHex)!,
+                                        }}
+                                      />
+                                    ) : null}
+                                    Color: {variant.color}
+                                  </p>
                                 ) : null}
                                 <p className="text-xs text-muted-foreground">
                                   Status: {variant.status}
@@ -1700,6 +1722,18 @@ export default function SellerProductsClient({
                                     }
                                     placeholder="Color (e.g. Wine, Navy Blue)"
                                     disabled={product.deletedByAdmin}
+                                  />
+                                </div>
+                                <div className="space-y-1 sm:col-span-3">
+                                  <ColorSwatchPicker
+                                    colorLabel={
+                                      (variantEdits[variant.id]?.color ?? "").trim() ||
+                                      "this colour"
+                                    }
+                                    value={variantEdits[variant.id]?.colorHex ?? null}
+                                    onChange={(hex) =>
+                                      updateVariantEditState(variant.id, { colorHex: hex })
+                                    }
                                   />
                                 </div>
                                 <div className="space-y-1">
@@ -1810,9 +1844,9 @@ export default function SellerProductsClient({
                             />
                           </div>
                           <div className="space-y-1">
-                            <Label className="text-xs">Color</Label>
+                            <Label className="text-xs">Color name</Label>
                             <Input
-                              placeholder="Color (e.g. Red)"
+                              placeholder="Color (e.g. Bottle Green)"
                               value={variantForm.color}
                               onChange={(event) =>
                                 setVariantForm((prev) => ({
@@ -1821,6 +1855,15 @@ export default function SellerProductsClient({
                                 }))
                               }
                               disabled={product.deletedByAdmin}
+                            />
+                          </div>
+                          <div className="space-y-1 sm:col-span-2">
+                            <ColorSwatchPicker
+                              colorLabel={variantForm.color.trim() || "this colour"}
+                              value={variantForm.colorHex}
+                              onChange={(hex) =>
+                                setVariantForm((prev) => ({ ...prev, colorHex: hex }))
+                              }
                             />
                           </div>
                           <div className="space-y-1">

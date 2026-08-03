@@ -15,6 +15,8 @@ import { OccasionService, occasionService } from './occasion.service.js';
 import {
     normalizeVariantColorKey,
     resolveColorScopedGallery,
+    resolveColorScopedHex,
+    sanitizeColorHex,
     sanitizeVariantImages,
 } from './color-variant-images.service.js';
 import { dispatchFreshness } from '../live/freshness.service.js';
@@ -683,9 +685,16 @@ export class ProductService {
                 ? sanitizeVariantImages(data.images)
                 : resolveColorScopedGallery(productWithDetails.variants ?? [], data.color);
 
+        // A swatch belongs to the colour, so a new size of an existing colour
+        // inherits it rather than arriving blank.
+        const resolvedHex =
+            sanitizeColorHex(data.colorHex) ??
+            resolveColorScopedHex(productWithDetails.variants ?? [], data.color);
+
         const variant = await this.variantRepo.create(productId, {
             ...data,
             images: resolvedImages,
+            colorHex: resolvedHex,
         });
         await this.productRepo.syncVariantSummary(productId);
 
@@ -759,15 +768,40 @@ export class ProductService {
                     return [];
                 })();
 
+        // Same colour-scoped rule as the galleries: an explicit pick wins, else
+        // inherit whatever this colour already uses.
+        const inferredHex =
+            data.colorHex !== undefined
+                ? sanitizeColorHex(data.colorHex)
+                : resolveColorScopedHex(siblingVariants, nextColor);
+
         const variant = await this.variantRepo.update(variantId, {
             ...data,
             images: inferredImages,
+            colorHex: inferredHex,
             adminListingPrice: null,
             status: 'PENDING',
             rejectionReason: null,
             approvedAt: null,
             approvedById: null,
         });
+
+        // Picking a swatch sets it for every size of that colour.
+        if (inferredHex !== null) {
+            const sameColour = siblingVariants.filter(
+                (sibling) =>
+                    normalizeVariantColorKey(sibling.color) === nextColorKey &&
+                    sanitizeColorHex((sibling as { colorHex?: string | null }).colorHex) !== inferredHex,
+            );
+            if (sameColour.length > 0) {
+                await Promise.all(
+                    sameColour.map((sibling) =>
+                        this.variantRepo.update(sibling.id, { colorHex: inferredHex }),
+                    ),
+                );
+            }
+        }
+
         await this.productRepo.syncVariantSummary(variantWithProduct.productId);
 
         // Invalidate caches

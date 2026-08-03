@@ -123,3 +123,18 @@ export function sanitizeColorHex(value?: string | null): string | null {
 
     return null;
 }
+
+/** The swatch already in use for a colour on this product, if any. */
+export function resolveColorScopedHex(
+    variants: Array<{ color?: string | null; colorHex?: string | null }>,
+    color?: string | null,
+): string | null {
+    const targetKey = normalizeVariantColorKey(color);
+    for (const variant of variants) {
+        if (normalizeVariantColorKey(variant.color) !== targetKey) continue;
+        const hex = sanitizeColorHex(variant.colorHex);
+        if (hex) return hex;
+    }
+
+    return null;
+}

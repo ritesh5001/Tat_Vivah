@@ -228,6 +228,7 @@ export interface UpdateProductRequest {
 export interface CreateVariantRequest {
     size: string;
     color?: string | undefined;
+    colorHex?: string | null | undefined;
     images?: string[] | undefined;
     sku: string;
     sellerPrice: number;

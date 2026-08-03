@@ -39,6 +39,7 @@ export class VariantRepository {
             productId,
             size: this.normalizeSize(data.size),
             color: this.normalizeColor(data.color),
+            colorHex: data.colorHex ?? null,
             images: data.images ?? [],
             sku: data.sku.trim(),
             sellerPrice: data.sellerPrice,

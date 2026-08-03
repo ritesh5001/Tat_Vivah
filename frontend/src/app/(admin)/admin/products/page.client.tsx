@@ -19,7 +19,7 @@ import { useHydratedSWR } from "@/hooks/use-hydrated-swr";
 import { toast } from "sonner";
 import { compressImageForUpload } from "@/lib/image-compression";
 import { normalizeHex } from "@/lib/color-swatches";
-import { ColorSwatchPicker } from "@/components/admin/color-swatch-picker";
+import { ColorSwatchPicker } from "@/components/color-swatch-picker";
 
 const IMAGEKIT_PUBLIC_KEY = process.env.NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY;
 const IMAGEKIT_URL_ENDPOINT = process.env.NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT;
