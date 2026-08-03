@@ -612,6 +612,37 @@ export class ProductService {
             await this.occasionSvc.syncProductOccasions(productId, data.occasionIds ?? []);
         }
 
+        // A seller editing what the customer sees on an already-approved listing
+        // has to go back through moderation. Without this, an approved product
+        // could have its title, images or category swapped for anything and stay
+        // live. Variant edits already reset themselves to PENDING; this closes the
+        // same hole on the product's own content.
+        const changedCustomerFacingContent =
+            data.title !== undefined ||
+            data.description !== undefined ||
+            data.images !== undefined ||
+            data.categoryId !== undefined ||
+            data.audience !== undefined;
+
+        let sentBackForApproval = false;
+        if (changedCustomerFacingContent && existing.status === 'APPROVED') {
+            // Move the variants back to PENDING and let syncVariantSummary derive
+            // the product state from them. Setting product.status directly would
+            // not survive: syncVariantSummary recomputes status and isPublished
+            // purely from variant statuses, so the next stock or variant edit
+            // would silently republish unreviewed content.
+            //
+            // adminListingPrice is deliberately preserved on each variant, so the
+            // admin's pricing is still pre-filled when they re-approve — this is a
+            // content re-review, not a re-pricing.
+            await prisma.productVariant.updateMany({
+                where: { productId, status: 'APPROVED' },
+                data: { status: 'PENDING', approvedAt: null, approvedById: null },
+            });
+            await this.productRepo.syncVariantSummary(productId);
+            sentBackForApproval = true;
+        }
+
         // Invalidate caches
         await invalidateProductCaches(productId);
         await this.publishProductFreshness('product.updated', productId);
@@ -622,7 +653,9 @@ export class ProductService {
         }
 
         return {
-            message: 'Product updated successfully',
+            message: sentBackForApproval
+                ? 'Product updated and sent back to admin for approval. It stays off the storefront until approved.'
+                : 'Product updated successfully',
             product: this.toSellerProduct(productWithDetails),
         };
     }
