@@ -1,5 +1,11 @@
 import * as React from "react";
-import { Pressable, type PressableProps, type StyleProp, type ViewStyle } from "react-native";
+import {
+  Pressable,
+  StyleSheet,
+  type PressableProps,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native";
 import Animated, {
   Easing,
   FadeIn,
@@ -85,18 +91,48 @@ export const MotionPressable = React.memo(function MotionPressable({
     [onPressOut, scale]
   );
 
+  // The two Animated.View wrappers sit between this component's parent and the
+  // Pressable that carries `style`. Anything the PARENT lays out against — flex,
+  // width, alignSelf — has to live on the outermost wrapper, or the wrapper
+  // collapses to its content and the caller's sizing is silently ignored. That is
+  // what squashed the bottom nav: four flex:1 items packed to the left.
+  const outerLayoutStyle = React.useMemo(() => {
+    const flat = StyleSheet.flatten(style) ?? {};
+    const { flex, flexGrow, flexShrink, flexBasis, alignSelf, width, height } =
+      flat as ViewStyle;
+    return {
+      ...(flex !== undefined ? { flex } : {}),
+      ...(flexGrow !== undefined ? { flexGrow } : {}),
+      ...(flexShrink !== undefined ? { flexShrink } : {}),
+      ...(flexBasis !== undefined ? { flexBasis } : {}),
+      ...(alignSelf !== undefined ? { alignSelf } : {}),
+      ...(width !== undefined ? { width } : {}),
+      ...(height !== undefined ? { height } : {}),
+    } as ViewStyle;
+  }, [style]);
+
+  // Only stretch the inner layers when the caller actually asked to be sized by
+  // its parent. Applying 100% inside a content-sized wrapper would collapse every
+  // other MotionPressable in the app.
+  const isStretched = Object.keys(outerLayoutStyle).length > 0;
+
   return (
-    <Animated.View entering={entering}>
-      <Animated.View style={animatedStyle}>
+    <Animated.View entering={entering} style={isStretched ? outerLayoutStyle : undefined}>
+      <Animated.View style={[animatedStyle, isStretched && styles.fill]}>
         <Pressable
           {...rest}
           onPressIn={handlePressIn}
           onPressOut={handlePressOut}
-          style={style}
+          style={[style, isStretched && styles.fill]}
         >
           {children}
         </Pressable>
       </Animated.View>
     </Animated.View>
   );
+});
+
+const styles = StyleSheet.create({
+  /** Let the inner layers fill whatever the outer wrapper was sized to. */
+  fill: { width: "100%", height: "100%" },
 });
