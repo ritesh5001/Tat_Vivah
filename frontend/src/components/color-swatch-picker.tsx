@@ -3,6 +3,8 @@
 import * as React from "react";
 import { Check } from "lucide-react";
 import {
+    SPECTRUM_GREYS,
+    SPECTRUM_ROWS,
     SWATCH_GROUPS,
     isLightHex,
     normalizeHex,
@@ -53,6 +55,38 @@ export function ColorSwatchPicker({
                             Not set — no circle will show
                         </span>
                     )}
+                </div>
+            </div>
+
+            {/* Full spectrum: hue across, lightness down, greys on their own row. */}
+            <div className="space-y-1">
+                <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                    Spectrum
+                </p>
+                <div className="space-y-0.5">
+                    {[...SPECTRUM_ROWS, SPECTRUM_GREYS].map((row, rowIndex) => (
+                        <div key={rowIndex} className="flex gap-0.5">
+                            {row.map((hex) => {
+                                const isSelected = selected === hex;
+                                return (
+                                    <button
+                                        key={hex}
+                                        type="button"
+                                        title={hex}
+                                        aria-label={hex}
+                                        aria-pressed={isSelected}
+                                        onClick={() => onChange(hex)}
+                                        className={`h-5 flex-1 transition ${
+                                            isSelected
+                                                ? "ring-2 ring-gold ring-offset-1 ring-offset-card relative z-10"
+                                                : "hover:scale-125 hover:relative hover:z-10"
+                                        }`}
+                                        style={{ backgroundColor: hex }}
+                                    />
+                                );
+                            })}
+                        </div>
+                    ))}
                 </div>
             </div>
 

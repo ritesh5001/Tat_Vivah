@@ -460,17 +460,28 @@ export default function SellerProductsClient({
 
   const handleCreateProduct = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!form.categoryId || !form.title.trim()) {
-      toast.error("Select a category and enter a title.");
-      return;
-    }
-    if (images.length < 1) {
-      toast.error("Add at least one product image.");
-      return;
-    }
+    // Collect everything that is missing and name it, rather than stopping at the
+    // first problem and making the seller resubmit to discover the next one.
+    const missing: string[] = [];
+    if (!form.categoryId) missing.push("Category");
+    if (!form.title.trim()) missing.push("Title");
+    if (images.length < 1) missing.push("At least one product image");
+    if (createVariants.length < 1) missing.push("At least one variant");
 
-    if (createVariants.length < 1) {
-      toast.error("Add at least one variant.");
+    createVariants.forEach((variant, index) => {
+      const label = `Variant ${index + 1}`;
+      if (!variant.size.trim()) missing.push(`${label}: size`);
+      if (!variant.sku.trim()) missing.push(`${label}: SKU`);
+      if (!variant.sellerPrice.trim()) missing.push(`${label}: seller price`);
+    });
+
+    if (missing.length > 0) {
+      toast.error(
+        missing.length === 1
+          ? `Still needed — ${missing[0]}`
+          : `Still needed — ${missing.join(", ")}`,
+        { duration: 8000 }
+      );
       return;
     }
 

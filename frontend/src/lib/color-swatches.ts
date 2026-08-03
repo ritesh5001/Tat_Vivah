@@ -128,3 +128,50 @@ export function isLightHex(hex: string): boolean {
 
     return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b) > 0.7;
 }
+
+// ---------------------------------------------------------------------------
+// Full spectrum matrix
+// ---------------------------------------------------------------------------
+
+/**
+ * A hue × lightness grid, generated rather than hand-listed.
+ *
+ * The named families above cover the colours vendors actually type, but they
+ * cannot express "a slightly darker teal". This produces an even spectrum so any
+ * shade is reachable in one tap, the way a designer's colour matrix works.
+ */
+const SPECTRUM_HUES = 16;
+const SPECTRUM_STEPS = 10;
+
+function hslToHex(h: number, sPct: number, lPct: number): string {
+    const s = sPct / 100;
+    const l = lPct / 100;
+    const k = (n: number) => (n + h / 30) % 12;
+    const a = s * Math.min(l, 1 - l);
+    const f = (n: number) =>
+        l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+    const toHex = (v: number) =>
+        Math.round(v * 255)
+            .toString(16)
+            .padStart(2, "0");
+    return `#${toHex(f(0))}${toHex(f(8))}${toHex(f(4))}`;
+}
+
+/** Rows of hex values: one row per lightness band, one column per hue. */
+export const SPECTRUM_ROWS: string[][] = Array.from(
+    { length: SPECTRUM_STEPS },
+    (_, rowIndex) => {
+        // 92% (near white) down to 18% (near black), skipping the extremes where
+        // every hue collapses to the same colour.
+        const lightness = 92 - (rowIndex * (92 - 18)) / (SPECTRUM_STEPS - 1);
+        const saturation = 68;
+        return Array.from({ length: SPECTRUM_HUES }, (_, colIndex) =>
+            hslToHex((colIndex * 360) / SPECTRUM_HUES, saturation, lightness)
+        );
+    }
+);
+
+/** Greys get their own row — zero saturation is unreachable on the hue grid. */
+export const SPECTRUM_GREYS: string[] = Array.from({ length: SPECTRUM_HUES }, (_, i) =>
+    hslToHex(0, 0, 100 - (i * 100) / (SPECTRUM_HUES - 1))
+);
