@@ -133,32 +133,32 @@ export function QuickBuySheet({
     }
 
     setSubmitting(true);
-    try {
-      await addToCart({
-        productId,
-        variantId: selectedVariant.id,
-        quantity: 1,
-      });
 
-      // A short confirmation beat: the sheet closing instantly reads as a
-      // mis-tap, this reads as "done".
-      setConfirmed(true);
-      await new Promise((resolve) => setTimeout(resolve, 420));
+    // Fire the write and move on. The cart store applies the item optimistically
+    // and rolls back on failure, so blocking the UI on the round trip bought
+    // nothing but a spinner.
+    void addToCart({
+      productId,
+      variantId: selectedVariant.id,
+      quantity: 1,
+    }).catch((error) => {
+      showToast(
+        error instanceof Error ? error.message : "Could not add to bag",
+        "error"
+      );
+    });
+
+    // A short confirmation beat: the sheet vanishing instantly reads as a
+    // mis-tap, this reads as "done".
+    setConfirmed(true);
+    setTimeout(() => {
       onClose();
-      // Straight to where the shopper is heading — no product page detour.
       router.push(
         intent === "buy"
           ? `/checkout?buyNowVariantId=${encodeURIComponent(selectedVariant.id)}`
           : "/cart"
       );
-    } catch (error) {
-      showToast(
-        error instanceof Error ? error.message : "Could not add to bag",
-        "error"
-      );
-    } finally {
-      setSubmitting(false);
-    }
+    }, 320);
   }, [
     productId,
     selectedVariant,

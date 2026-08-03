@@ -880,35 +880,31 @@ export default function ProductDetailScreen() {
       showToast("This variant is out of stock", "info");
       return;
     }
-    setAdding(true);
-    setPendingAction("cart");
-    try {
-      await addToCart({
-        productId: product.id,
-        variantId: fallbackVariant.id,
-        quantity: 1,
-      });
-      impactMedium();
-      // Confirm on the button itself, not only in a toast that may be missed.
-      setJustAdded(true);
-      if (justAddedTimerRef.current) clearTimeout(justAddedTimerRef.current);
-      justAddedTimerRef.current = setTimeout(() => {
-        if (mountedRef.current) setJustAdded(false);
-      }, 1800);
-      showToast("Added to cart", "success");
-      setShowViewCart(true);
-      if (viewCartTimerRef.current) clearTimeout(viewCartTimerRef.current);
-      viewCartTimerRef.current = setTimeout(() => {
-        if (mountedRef.current) setShowViewCart(false);
-      }, 6000);
-    } catch {
-      // CartProvider shows error toast
-    } finally {
-      if (mountedRef.current) {
-        setAdding(false);
-        setPendingAction(null);
-      }
-    }
+    // Confirm immediately. The cart store applies the item optimistically and
+    // rolls back with an error toast if the write fails, so there is nothing to
+    // wait for before telling the shopper it worked — waiting on the round trip
+    // was the entire delay.
+    impactMedium();
+    setJustAdded(true);
+    if (justAddedTimerRef.current) clearTimeout(justAddedTimerRef.current);
+    justAddedTimerRef.current = setTimeout(() => {
+      if (mountedRef.current) setJustAdded(false);
+    }, 1800);
+    showToast("Added to cart", "success");
+    setShowViewCart(true);
+    if (viewCartTimerRef.current) clearTimeout(viewCartTimerRef.current);
+    viewCartTimerRef.current = setTimeout(() => {
+      if (mountedRef.current) setShowViewCart(false);
+    }, 6000);
+
+    void addToCart({
+      productId: product.id,
+      variantId: fallbackVariant.id,
+      quantity: 1,
+    }).catch(() => {
+      // CartProvider surfaces the error; the store has already rolled back.
+      if (mountedRef.current) setJustAdded(false);
+    });
   }, [token, isConnected, product, fallbackVariant, outOfStock, addToCart, router, showToast]);
 
   const handleBuyNow = React.useCallback(async () => {
