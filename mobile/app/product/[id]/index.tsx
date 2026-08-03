@@ -645,13 +645,8 @@ export default function ProductDetailScreen() {
       return;
     }
 
-    const firstVariant = variants[0];
-    if (firstVariant) {
-      setSelectedVariantId(firstVariant.id);
-      setSelectedColor(normalizeColor(getVariantColorLabel(firstVariant)));
-      return;
-    }
-
+    // Deliberately no default: picking a size for the shopper leads to wrong-size
+    // orders and returns. Add to bag opens the picker instead.
     setSelectedColor("");
   }, [product?.variants, selectedVariantId]);
 
@@ -875,6 +870,11 @@ export default function ProductDetailScreen() {
       );
       return;
     }
+    if (!selectedVariant) {
+      setQuickBuyIntent("cart");
+      setQuickBuyId(product.id);
+      return;
+    }
     if (outOfStock) {
       showToast("This variant is out of stock", "info");
       return;
@@ -927,6 +927,11 @@ export default function ProductDetailScreen() {
           : "Variants are not available for this item",
         "info"
       );
+      return;
+    }
+    if (!selectedVariant) {
+      setQuickBuyIntent("buy");
+      setQuickBuyId(product.id);
       return;
     }
     if (outOfStock) {
@@ -1999,10 +2004,11 @@ export default function ProductDetailScreen() {
               style={[
                 styles.ctaButtonBase,
                 styles.addToCartButton,
-                (outOfStock || adding) && styles.buttonDisabled,
+                // Stays tappable with nothing selected: that tap opens the picker.
+                ((selectedVariant && outOfStock) || adding) && styles.buttonDisabled,
               ]}
               onPress={handleAddToCart}
-              disabled={outOfStock || adding}
+              disabled={(selectedVariant && outOfStock) || adding}
               hitSlop={10}
             >
               {pendingAction === "cart" ? (
@@ -2019,7 +2025,7 @@ export default function ProductDetailScreen() {
                   <Ionicons name="bag-handle-outline" size={15} color="#1A1410" />
                   <Text style={[styles.ctaButtonText, styles.addToCartButtonText]}>
                     {!selectedVariant
-                      ? "Select variant"
+                      ? "Select size"
                       : outOfStock
                         ? "Out of stock"
                         : "Add to bag"}
@@ -2034,10 +2040,10 @@ export default function ProductDetailScreen() {
               style={[
                 styles.ctaButtonBase,
                 styles.buyNowButton,
-                (outOfStock || adding) && styles.buttonDisabled,
+                ((selectedVariant && outOfStock) || adding) && styles.buttonDisabled,
               ]}
               onPress={handleBuyNow}
-              disabled={outOfStock || adding}
+              disabled={(selectedVariant && outOfStock) || adding}
             >
               {pendingAction === "buy" ? (
                 <TatvivahLoader size="sm" color="#FFFFFF" />

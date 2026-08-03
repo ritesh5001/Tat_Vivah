@@ -27,6 +27,24 @@ interface CartState {
 
 const mutationLocks = new Set<string>();
 
+/**
+ * Pending quantity writes, coalesced per cart item.
+ *
+ * Tapping + three times used to fire three PATCHes and disable the stepper for a
+ * round trip each time — on a cold backend that is seconds of a dead button. The
+ * quantity is applied to the UI immediately and only the final value is sent.
+ */
+const QUANTITY_WRITE_DEBOUNCE_MS = 450;
+const pendingQuantityTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+function cancelPendingQuantityWrite(itemId: string): void {
+  const timer = pendingQuantityTimers.get(itemId);
+  if (timer) {
+    clearTimeout(timer);
+    pendingQuantityTimers.delete(itemId);
+  }
+}
+
 function lockItem(id: string, set: (fn: (state: CartState) => CartState) => void): boolean {
   if (mutationLocks.has(id)) return false;
   mutationLocks.add(id);
@@ -145,14 +163,16 @@ export const useCartStore = create<CartState>((set, get) => ({
   updateQuantity: async (itemId, nextQty) => {
     const token = await resolveToken(get().token);
     if (!token) return;
-    if (!lockItem(itemId, set)) return;
 
     if (nextQty <= 0) {
-      unlockItem(itemId, set);
+      cancelPendingQuantityWrite(itemId);
       return get().removeFromCart(itemId);
     }
 
     const snapshot = [...get().cartItems];
+
+    // Apply straight away and leave the stepper enabled — the shopper should be
+    // able to tap + repeatedly without waiting on the network between taps.
     set((state) => ({
       ...state,
       cartItems: state.cartItems.map((item) =>
@@ -160,20 +180,31 @@ export const useCartStore = create<CartState>((set, get) => ({
       ),
     }));
 
-    try {
-      await apiUpdateCartItem(itemId, nextQty, token);
-      get().refreshCart();
-    } catch (err) {
-      set((state) => ({ ...state, cartItems: snapshot }));
-      throw err;
-    } finally {
-      unlockItem(itemId, set);
-    }
+    cancelPendingQuantityWrite(itemId);
+    pendingQuantityTimers.set(
+      itemId,
+      setTimeout(async () => {
+        pendingQuantityTimers.delete(itemId);
+        // Send whatever the quantity settled on, not the value from the tap that
+        // happened to start this timer.
+        const settled = get().cartItems.find((item) => item.id === itemId)?.quantity;
+        if (!settled || settled <= 0) return;
+
+        try {
+          await apiUpdateCartItem(itemId, settled, token);
+          get().refreshCart();
+        } catch {
+          // Roll the row back to what the server last confirmed.
+          set((state) => ({ ...state, cartItems: snapshot }));
+        }
+      }, QUANTITY_WRITE_DEBOUNCE_MS)
+    );
   },
 
   removeFromCart: async (itemId) => {
     const token = await resolveToken(get().token);
     if (!token) return;
+    cancelPendingQuantityWrite(itemId);
     if (!lockItem(itemId, set)) return;
 
     const snapshot = [...get().cartItems];

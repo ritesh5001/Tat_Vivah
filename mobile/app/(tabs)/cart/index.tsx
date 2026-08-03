@@ -312,10 +312,7 @@ export default function CartScreen() {
             data={cartItems}
             keyExtractor={keyExtractor}
             renderItem={renderItem}
-            contentContainerStyle={[
-              styles.listContent,
-              { paddingBottom: tabBarHeight + spacing.lg },
-            ]}
+            contentContainerStyle={styles.listContent}
             initialNumToRender={6}
             maxToRenderPerBatch={2}
             windowSize={3}
@@ -323,7 +320,8 @@ export default function CartScreen() {
             removeClippedSubviews
           />
 
-          <View style={[styles.summaryCard, { marginBottom: tabBarHeight + spacing.sm }]}> 
+          <View style={[styles.summaryFooter, { paddingBottom: tabBarHeight }]}>
+          <View style={styles.summaryCard}> 
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Subtotal</Text>
               <Text style={styles.summaryValue}>
@@ -376,6 +374,7 @@ export default function CartScreen() {
               </Text>
             </AnimatedPressable>
           </View>
+          </View>
         </>
       )}
     </SafeAreaView>
@@ -409,7 +408,7 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
-    paddingBottom: spacing.xl,
+    paddingBottom: spacing.md,
   },
   itemCard: {
     marginBottom: spacing.md,
@@ -544,9 +543,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.charcoal,
   },
+  // Pinned above the tab bar so Proceed to checkout is always reachable.
+  summaryFooter: {
+    borderTopWidth: 1,
+    borderTopColor: colors.borderSoft,
+    backgroundColor: colors.background,
+  },
   summaryCard: {
     marginHorizontal: spacing.lg,
-    marginBottom: spacing.lg,
+    marginVertical: spacing.md,
     padding: spacing.lg,
     borderWidth: 1,
     borderColor: colors.borderSoft,
