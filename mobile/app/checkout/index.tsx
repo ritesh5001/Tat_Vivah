@@ -8,6 +8,8 @@ import {
   Modal,
   FlatList,
   Linking,
+  AppState,
+  type AppStateStatus,
 } from "react-native";
 import { useLocalSearchParams, usePathname, useRouter } from "expo-router";
 import { Image } from "../../src/components/CompatImage";
@@ -101,13 +103,26 @@ function phonepePollDelayMs(attempt: number): number {
   return 3000;
 }
 const PHONEPE_MAX_WAIT_MS = 4 * 60 * 1000;
+/**
+ * How long to keep polling after the buyer has come back to our app.
+ *
+ * A cancelled PhonePe payment does not report FAILED — it simply stays PENDING
+ * until PhonePe's own expiry, so the old loop sat on "Waiting for payment
+ * confirmation" for the full four minutes. Returning to the app means the buyer
+ * is done with the gateway; a short grace window covers a payment that is still
+ * settling, and after that it is a cancellation.
+ */
+const PHONEPE_GRACE_AFTER_RETURN_MS = 12 * 1000;
 
 async function waitForPhonePeResult(
   orderId: string,
-  token: string
-): Promise<"SUCCESS" | "FAILED" | "TIMEOUT"> {
+  token: string,
+  hasReturnedToApp: () => boolean
+): Promise<"SUCCESS" | "FAILED" | "CANCELLED" | "TIMEOUT"> {
   const deadline = Date.now() + PHONEPE_MAX_WAIT_MS;
   let attempt = 0;
+  let returnedAt: number | null = null;
+
   while (Date.now() < deadline) {
     try {
       const result = await verifyPhonePePayment(orderId, token);
@@ -116,6 +131,15 @@ async function waitForPhonePeResult(
     } catch {
       // Transient error while the buyer is in the PhonePe app — keep polling.
     }
+
+    if (hasReturnedToApp()) {
+      if (returnedAt === null) {
+        returnedAt = Date.now();
+      } else if (Date.now() - returnedAt > PHONEPE_GRACE_AFTER_RETURN_MS) {
+        return "CANCELLED";
+      }
+    }
+
     await new Promise((resolve) =>
       setTimeout(resolve, phonepePollDelayMs(attempt))
     );
@@ -486,11 +510,27 @@ export default function CheckoutScreen() {
       if (!redirectUrl) {
         throw new Error("Payment could not be started. Please try again.");
       }
-      await Linking.openURL(redirectUrl);
+      // Watch for the buyer coming back from the PhonePe app. Only a return
+      // *after* leaving counts, so simply staying foregrounded never trips it.
+      let leftApp = false;
+      let cameBack = false;
+      const appStateSub = AppState.addEventListener("change", (next: AppStateStatus) => {
+        if (next === "background" || next === "inactive") {
+          leftApp = true;
+        } else if (next === "active" && leftApp) {
+          cameBack = true;
+        }
+      });
 
-      // 3. Poll our backend for the outcome while the buyer pays.
-      setPayLabel("Waiting for payment confirmation");
-      const outcome = await waitForPhonePeResult(orderId, token);
+      try {
+        await Linking.openURL(redirectUrl);
+
+        // 3. Poll our backend for the outcome while the buyer pays.
+        setPayLabel("Waiting for payment confirmation");
+        var outcome = await waitForPhonePeResult(orderId, token, () => cameBack);
+      } finally {
+        appStateSub.remove();
+      }
       if (!mountedRef.current) return;
 
       if (outcome === "SUCCESS") {
@@ -508,6 +548,15 @@ export default function CheckoutScreen() {
         setError("Payment failed. You can retry from your orders.");
         notifyError();
         showToast("Payment failed. Retry from orders.", "error");
+        router.replace(`/orders/${orderId}`);
+        return;
+      }
+
+      if (outcome === "CANCELLED") {
+        // The buyer backed out of PhonePe. The order exists and is unpaid — send
+        // them to it so they can retry rather than leaving them on a dead spinner.
+        setError("Payment was cancelled. You can retry from your orders.");
+        showToast("Payment cancelled.", "info");
         router.replace(`/orders/${orderId}`);
         return;
       }

@@ -1385,13 +1385,24 @@ export default function ProductDetailScreen() {
             width={galleryWidth}
             height={galleryHeight}
             borderRadius={radius.lg}
-            style={{ marginHorizontal: spacing.lg, marginTop: spacing.md }}
+            style={{ marginHorizontal: spacing.md, marginTop: spacing.md }}
           />
           <View style={[styles.detailsCard, { marginTop: spacing.lg }]}>
             <SkeletonBlock width="40%" height={10} />
             <SkeletonBlock width="80%" height={20} style={{ marginTop: spacing.sm }} />
             <SkeletonBlock width="100%" height={12} style={{ marginTop: spacing.sm }} />
             <SkeletonBlock width="30%" height={18} style={{ marginTop: spacing.md }} />
+            {/* Size chips and the sticky CTA row, so the skeleton matches the
+                shape of the page it is standing in for. */}
+            <View style={{ flexDirection: "row", gap: spacing.sm, marginTop: spacing.lg }}>
+              {[0, 1, 2, 3].map((i) => (
+                <SkeletonBlock key={i} width={52} height={34} />
+              ))}
+            </View>
+            <View style={{ flexDirection: "row", gap: spacing.sm, marginTop: spacing.lg }}>
+              <SkeletonBlock width="48%" height={44} />
+              <SkeletonBlock width="48%" height={44} />
+            </View>
           </View>
         </ScrollView>
       </SafeAreaView>
