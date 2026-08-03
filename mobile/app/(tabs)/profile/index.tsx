@@ -170,6 +170,14 @@ export default function ProfileScreen() {
               </AnimatedPressable>
 
               <AnimatedPressable
+                style={styles.actionRow}
+                onPress={() => router.push("/support")}
+              >
+                <Text style={styles.actionText}>Support Chat</Text>
+                <Text style={styles.actionChevron}>→</Text>
+              </AnimatedPressable>
+
+              <AnimatedPressable
                 style={[styles.actionRow, styles.actionRowLast]}
                 onPress={openLogoutModal}
               >

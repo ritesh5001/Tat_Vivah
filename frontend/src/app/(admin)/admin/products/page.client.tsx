@@ -178,6 +178,7 @@ export default function AdminProductsClient({
     >
   >({});
   const [isSavingEdit, setIsSavingEdit] = React.useState(false);
+  const [isApproving, setIsApproving] = React.useState(false);
 
   const imagekit = React.useMemo(() => {
     if (!IMAGEKIT_PUBLIC_KEY || !IMAGEKIT_URL_ENDPOINT || !API_BASE_URL) {
@@ -309,18 +310,31 @@ export default function AdminProductsClient({
       });
     }
 
+    setIsApproving(true);
     try {
-      await updateProductDetails(selectedProduct.id, {
+      const { product: saved } = await updateProductDetails(selectedProduct.id, {
         variants: variantPayloads,
       });
+
+      setProducts((prev) =>
+        prev.map((product) =>
+          product.id === saved.id ? { ...product, ...saved } : product
+        )
+      );
+
       toast.success("Product approved successfully.");
       setSelectedProduct(null);
       setApprovalVariantPrices({});
-      await mutate();
+
+      // Reconcile in the background — awaiting a full list refetch kept the
+      // modal open long after the approval itself had finished.
+      void mutate();
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Unable to approve product"
       );
+    } finally {
+      setIsApproving(false);
     }
   };
 
@@ -702,6 +716,45 @@ export default function AdminProductsClient({
         }
         entry.compareAtPrice = compareValue;
         touched = true;
+      }
+
+      // Same rules the server enforces — checked here so a bad number names the
+      // variant it belongs to instead of failing the whole save on a round trip.
+      const sku = fields.sku.trim() || sourceVariant?.sku || "this variant";
+      const sellerPrice =
+        entry.sellerPrice ?? Number(sourceVariant?.sellerPrice ?? 0);
+
+      if (entry.adminListingPrice != null && entry.adminListingPrice < sellerPrice) {
+        toast.error(
+          `Admin price for ${sku} cannot be below its seller price of ${sellerPrice}.`
+        );
+        return;
+      }
+
+      const effectivePrice = entry.adminListingPrice ?? sellerPrice;
+      const storedCompareAt =
+        sourceVariant?.compareAtPrice == null
+          ? null
+          : Number(sourceVariant.compareAtPrice);
+      const storedEffectivePrice =
+        sourceVariant?.adminListingPrice == null
+          ? Number(sourceVariant?.sellerPrice ?? 0)
+          : Number(sourceVariant.adminListingPrice);
+      // Mirrors the server: only judged when this edit actually moves one of the
+      // two numbers, so an already-inconsistent variant stays editable.
+      const priceRelationChanged =
+        (entry.compareAtPrice ?? null) !== storedCompareAt ||
+        effectivePrice !== storedEffectivePrice;
+
+      if (
+        priceRelationChanged &&
+        entry.compareAtPrice != null &&
+        entry.compareAtPrice < effectivePrice
+      ) {
+        toast.error(
+          `Compare-at price for ${sku} cannot be below its selling price of ${effectivePrice}.`
+        );
+        return;
       }
 
       if (fields.stock.trim()) {
@@ -1198,13 +1251,14 @@ export default function AdminProductsClient({
               </div>
 
               <div className="flex flex-wrap gap-3">
-                <Button size="sm" onClick={submitApproval}>
-                  Approve & Set Variant Prices
+                <Button size="sm" onClick={submitApproval} disabled={isApproving}>
+                  {isApproving ? "Approving…" : "Approve & Set Variant Prices"}
                 </Button>
                 <Button
                   size="sm"
                   variant="ghost"
                   onClick={closeApproveModal}
+                  disabled={isApproving}
                 >
                   Close
                 </Button>

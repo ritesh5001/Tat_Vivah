@@ -645,16 +645,26 @@ export class AdminService {
                 }
 
                 const effectivePrice = nextAdminListingPrice ?? nextSellerPrice;
+                const currentEffectivePrice = variant.adminListingPrice ?? variant.sellerPrice;
                 const nextCompareAt =
                     variantInput.compareAtPrice !== undefined
                         ? variantInput.compareAtPrice
                         : variant.compareAtPrice;
+                // Only enforced when this request actually moves one of the two
+                // numbers. Approving a variant sets the listing price without this
+                // check, so a stored compare-at can end up at or below it — and
+                // re-validating untouched values then locked the admin out of the
+                // listing entirely, including edits to stock or images.
+                const priceRelationChanged =
+                    nextCompareAt !== variant.compareAtPrice ||
+                    effectivePrice !== currentEffectivePrice;
                 if (
+                    priceRelationChanged &&
                     nextCompareAt !== null &&
                     nextCompareAt !== undefined &&
-                    nextCompareAt <= effectivePrice
+                    nextCompareAt < effectivePrice
                 ) {
-                    throw ApiError.badRequest(`Compare-at price must be greater than effective selling price for variant ${variant.sku}`);
+                    throw ApiError.badRequest(`Compare-at price for ${variant.sku} cannot be below its selling price of ${effectivePrice}`);
                 }
 
                 variantWrites.push({

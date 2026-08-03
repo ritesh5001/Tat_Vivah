@@ -307,12 +307,14 @@ export class ProductService {
         if (!Number.isFinite(data.sellerPrice) || data.sellerPrice <= 0) {
             throw ApiError.badRequest('Variant seller price must be positive');
         }
+        // Equal is allowed — it just means no discount, and both storefronts
+        // already hide the strikethrough unless compare-at is above the price.
         if (
             data.compareAtPrice !== undefined &&
             data.compareAtPrice !== null &&
-            data.compareAtPrice <= data.sellerPrice
+            data.compareAtPrice < data.sellerPrice
         ) {
-            throw ApiError.badRequest('Compare-at price must be greater than seller price');
+            throw ApiError.badRequest('Compare-at price cannot be below the seller price');
         }
     }
 
@@ -329,9 +331,9 @@ export class ProductService {
         if (
             data.compareAtPrice !== undefined &&
             data.compareAtPrice !== null &&
-            data.compareAtPrice <= effectivePrice
+            data.compareAtPrice < effectivePrice
         ) {
-            throw ApiError.badRequest('Compare-at price must be greater than effective selling price');
+            throw ApiError.badRequest('Compare-at price cannot be below the effective selling price');
         }
     }
 

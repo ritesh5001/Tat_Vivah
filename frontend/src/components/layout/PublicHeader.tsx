@@ -59,6 +59,7 @@ export function PublicHeader() {
     { href: "/user/profile", label: "My Profile" },
     { href: "/user/orders", label: "My Orders" },
     { href: "/user/wishlist", label: "Wishlist" },
+    { href: "/support", label: "Support" },
   ];
 
   return (

@@ -37,6 +37,7 @@ export function SellerHeader() {
     { href: "/seller/appointments", label: "Appointments" },
     { href: "/seller/settlements", label: "Settlements" },
     { href: "/seller/analytics", label: "Analytics" },
+    { href: "/seller/support", label: "Support" },
   ];
 
   return (

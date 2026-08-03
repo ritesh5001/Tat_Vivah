@@ -63,6 +63,9 @@ model User {
   userAppointments             Appointment[]           @relation("UserAppointments")
   sellerAppointments           Appointment[]           @relation("SellerAppointments")
   sellerAvailabilities         SellerAvailability[]
+  supportTickets               SupportTicket[]         @relation("SupportTicketRequester")
+  assignedSupportTickets       SupportTicket[]         @relation("SupportTicketAssignee")
+  supportMessages              SupportMessage[]        @relation("SupportMessageSender")
 
   @@index([role])
   @@index([status])
@@ -280,25 +283,25 @@ model Bestseller {
 
 /// Product variants with pricing (e.g., size, color)
 model ProductVariant {
-  id             String     @id @default(cuid())
-  productId      String     @map("product_id")
-  size           String     @default("Default")
-  color          String?
-  images         String[]   @default([])
-  sku            String
-  sellerPrice    Float      @map("seller_price")
-  adminListingPrice Float?  @map("admin_listing_price")
-  price          Float
-  compareAtPrice Float?     @map("compare_at_price")
-  status         ProductStatus @default(PENDING)
-  rejectionReason String?   @map("rejection_reason")
-  approvedAt     DateTime?  @map("approved_at")
-  approvedById   String?    @map("approved_by_id")
-  createdAt      DateTime   @default(now()) @map("created_at")
-  updatedAt      DateTime   @updatedAt @map("updated_at")
-  inventory      Inventory?
-  product        Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
-  approvedBy     User?      @relation("VariantReviewedBy", fields: [approvedById], references: [id])
+  id                String        @id @default(cuid())
+  productId         String        @map("product_id")
+  size              String        @default("Default")
+  color             String?
+  images            String[]      @default([])
+  sku               String
+  sellerPrice       Float         @map("seller_price")
+  adminListingPrice Float?        @map("admin_listing_price")
+  price             Float
+  compareAtPrice    Float?        @map("compare_at_price")
+  status            ProductStatus @default(PENDING)
+  rejectionReason   String?       @map("rejection_reason")
+  approvedAt        DateTime?     @map("approved_at")
+  approvedById      String?       @map("approved_by_id")
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+  inventory         Inventory?
+  product           Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  approvedBy        User?         @relation("VariantReviewedBy", fields: [approvedById], references: [id])
 
   @@unique([productId, sku])
   @@index([productId])
@@ -1271,4 +1274,72 @@ model AppSetting {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("app_settings")
+}
+
+// ============================================================================
+// SUPPORT CHAT
+// ============================================================================
+
+enum SupportTicketStatus {
+  OPEN
+  AWAITING_CUSTOMER
+  RESOLVED
+  CLOSED
+}
+
+enum SupportTicketCategory {
+  ORDER
+  PAYMENT
+  PRODUCT
+  ACCOUNT
+  SETTLEMENT
+  OTHER
+}
+
+/// A support conversation between a buyer or seller and the admin team.
+/// `lastMessage*` and the unread counters are denormalized so inbox lists render
+/// from a single indexed read instead of aggregating messages per ticket.
+model SupportTicket {
+  id                 String                @id @default(cuid())
+  requesterId        String                @map("requester_id")
+  requesterRole      Role                  @map("requester_role")
+  assigneeId         String?               @map("assignee_id")
+  subject            String
+  category           SupportTicketCategory @default(OTHER)
+  status             SupportTicketStatus   @default(OPEN)
+  orderId            String?               @map("order_id")
+  lastMessageAt      DateTime              @default(now()) @map("last_message_at")
+  lastMessagePreview String?               @map("last_message_preview")
+  unreadForAdmin     Int                   @default(0) @map("unread_for_admin")
+  unreadForRequester Int                   @default(0) @map("unread_for_requester")
+  closedAt           DateTime?             @map("closed_at")
+  createdAt          DateTime              @default(now()) @map("created_at")
+  updatedAt          DateTime              @updatedAt @map("updated_at")
+
+  requester User             @relation("SupportTicketRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  assignee  User?            @relation("SupportTicketAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  messages  SupportMessage[]
+
+  @@index([requesterId, lastMessageAt])
+  @@index([status, lastMessageAt])
+  @@index([requesterRole, lastMessageAt])
+  @@index([lastMessageAt])
+  @@map("support_tickets")
+}
+
+/// A single message inside a support ticket.
+model SupportMessage {
+  id          String   @id @default(cuid())
+  ticketId    String   @map("ticket_id")
+  senderId    String   @map("sender_id")
+  senderRole  Role     @map("sender_role")
+  body        String
+  attachments String[] @default([])
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  sender User          @relation("SupportMessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, createdAt])
+  @@map("support_messages")
 }

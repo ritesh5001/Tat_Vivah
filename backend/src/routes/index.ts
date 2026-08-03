@@ -51,6 +51,9 @@ export { searchRouter } from './search.routes.js';
 export { personalizationRouter } from './personalization.routes.js';
 export { liveRouter } from './live.routes.js';
 
+// Support chat
+export { supportRouter } from './support.routes.js';
+
 // Seller Analytics
 export { sellerAnalyticsRouter } from './sellerAnalytics.routes.js';
 

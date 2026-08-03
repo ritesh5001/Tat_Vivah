@@ -42,6 +42,7 @@ import {
     adminShipmentRouter,
     adminNotificationRouter,
     reviewRouter,
+    supportRouter,
     addressRouter,
     notificationRouter,
     wishlistRouter,
@@ -407,6 +408,7 @@ export function createApp(): Application {
     app.use('/v1/search', searchRouter);
     app.use('/v1/personalization', personalizationRouter);
     app.use('/v1/live', liveRouter);
+    app.use('/v1/support', supportRouter);
 
     // Seller Analytics
     app.use('/v1/seller/analytics', sellerAnalyticsRouter);

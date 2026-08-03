@@ -11,7 +11,9 @@ export type DashboardEventType =
     | 'order.updated'
     | 'shipment.updated'
     | 'payment.updated'
-    | 'catalog.updated';
+    | 'catalog.updated'
+    | 'support.message'
+    | 'support.ticket.updated';
 
 export interface LiveEventAudience {
     allAuthenticated?: boolean;

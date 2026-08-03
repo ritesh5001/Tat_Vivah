@@ -23,6 +23,7 @@ const adminLinks = [
   { href: "/admin/bestsellers", label: "Bestsellers" },
   { href: "/admin/cancellations", label: "Cancellations" },
   { href: "/admin/returns", label: "Returns" },
+  { href: "/admin/support", label: "Support" },
   { href: "/admin/notifications", label: "Notifications" },
   { href: "/admin/analytics", label: "Analytics" },
   { href: "/admin/settings", label: "Settings" },

@@ -81,6 +81,12 @@ function AppShell() {
           name="orders/[id]/tracking"
           options={{ animation: "slide_from_bottom" }}
         />
+        {/* Support chat */}
+        <Stack.Screen name="support/index" />
+        <Stack.Screen
+          name="support/[id]"
+          options={{ animation: "slide_from_right" }}
+        />
       </Stack>
       <GlobalBottomBar />
     </>

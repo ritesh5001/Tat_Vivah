@@ -8,7 +8,9 @@ export type LiveFreshnessEventType =
   | "order.updated"
   | "shipment.updated"
   | "payment.updated"
-  | "catalog.updated";
+  | "catalog.updated"
+  | "support.message"
+  | "support.ticket.updated";
 
 export interface LiveFreshnessEvent {
   type: LiveFreshnessEventType;
