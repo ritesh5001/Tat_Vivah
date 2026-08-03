@@ -580,12 +580,16 @@ const styles = StyleSheet.create({
     color: colors.charcoal,
   },
   primaryButton: {
-    marginTop: spacing.md,
+    marginTop: spacing.lg,
     backgroundColor: colors.gold,
     borderWidth: 1,
     borderColor: colors.gold,
     borderRadius: 0,
-    paddingVertical: spacing.sm,
+    // The label was hugging the edges: give it real breathing room and a
+    // comfortable tap target.
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    alignSelf: "center",
     alignItems: "center",
   },
   buttonDisabled: {

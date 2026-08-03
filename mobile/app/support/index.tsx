@@ -20,6 +20,8 @@ import {
   type SupportTicketCategory,
 } from "../../src/services/support";
 import { isAbortError } from "../../src/services/api";
+import { listBuyerOrders, type BuyerOrder } from "../../src/services/orders";
+import { Image } from "../../src/components/CompatImage";
 import { useAuth } from "../../src/hooks/useAuth";
 import { useToast } from "../../src/providers/ToastProvider";
 import { AppHeader } from "../../src/components/AppHeader";
@@ -53,6 +55,8 @@ export default function SupportInboxScreen() {
   const [category, setCategory] = React.useState<SupportTicketCategory>("OTHER");
   const [message, setMessage] = React.useState("");
   const [creating, setCreating] = React.useState(false);
+  const [recentOrders, setRecentOrders] = React.useState<BuyerOrder[]>([]);
+  const [selectedOrderId, setSelectedOrderId] = React.useState<string | null>(null);
 
   const load = React.useCallback(
     async (signal?: AbortSignal) => {
@@ -84,6 +88,23 @@ export default function SupportInboxScreen() {
     return () => controller.abort();
   }, [authLoading, load]);
 
+  // Recent orders power the "what is this about?" picker in the composer.
+  React.useEffect(() => {
+    if (!token || !composerOpen || recentOrders.length > 0) return;
+    let active = true;
+    (async () => {
+      try {
+        const result = await listBuyerOrders(token);
+        if (active) setRecentOrders((result.orders ?? []).slice(0, 8));
+      } catch {
+        // Non-fatal: the ticket can still be raised without an order attached.
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [token, composerOpen, recentOrders.length]);
+
   const handleCreate = async () => {
     if (!subject.trim() || !message.trim()) {
       showToast("Add a subject and a message.", "info");
@@ -92,7 +113,12 @@ export default function SupportInboxScreen() {
     setCreating(true);
     try {
       const { ticket } = await createSupportTicket(
-        { subject: subject.trim(), category, message: message.trim() },
+        {
+          subject: subject.trim(),
+          category,
+          message: message.trim(),
+          ...(selectedOrderId ? { orderId: selectedOrderId } : {}),
+        },
         token
       );
       setTickets((prev) => [ticket, ...prev]);
@@ -100,6 +126,7 @@ export default function SupportInboxScreen() {
       setSubject("");
       setMessage("");
       setCategory("OTHER");
+      setSelectedOrderId(null);
       router.push(`/support/${ticket.id}`);
     } catch (err) {
       showToast(
@@ -228,6 +255,57 @@ export default function SupportInboxScreen() {
                 ))}
               </View>
             </ScrollView>
+
+            {recentOrders.length > 0 ? (
+              <>
+                <Text style={styles.label}>Which order? (optional)</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={styles.orderRow}>
+                    {recentOrders.map((order) => {
+                      const active = order.id === selectedOrderId;
+                      const firstItem = order.items?.[0];
+                      const extra = (order.items?.length ?? 0) - 1;
+                      return (
+                        <Pressable
+                          key={order.id}
+                          onPress={() =>
+                            setSelectedOrderId(active ? null : order.id)
+                          }
+                          style={[styles.orderCard, active && styles.orderCardActive]}
+                        >
+                          {firstItem?.productImage ? (
+                            <Image
+                              source={{ uri: firstItem.productImage }}
+                              style={styles.orderThumb}
+                              contentFit="cover"
+                              width={72}
+                            />
+                          ) : (
+                            <View style={[styles.orderThumb, styles.orderThumbFallback]}>
+                              <Text style={styles.orderThumbText}>
+                                {(firstItem?.productTitle ?? "?")
+                                  .charAt(0)
+                                  .toUpperCase()}
+                              </Text>
+                            </View>
+                          )}
+                          <Text style={styles.orderTitle} numberOfLines={2}>
+                            {firstItem?.productTitle ?? "Order"}
+                            {extra > 0 ? ` +${extra} more` : ""}
+                          </Text>
+                          <Text style={styles.orderMeta}>
+                            {new Date(order.createdAt).toLocaleDateString("en-IN", {
+                              day: "2-digit",
+                              month: "short",
+                            })}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </ScrollView>
+              </>
+            ) : null}
 
             <Text style={styles.label}>Message</Text>
             <TextInput
@@ -369,6 +447,35 @@ const styles = StyleSheet.create({
   chipActive: { borderColor: colors.gold, backgroundColor: colors.cream },
   chipText: { color: colors.brownSoft, fontFamily: typography.sans, fontSize: 12 },
   chipTextActive: { color: colors.foreground },
+  orderRow: { flexDirection: "row", gap: spacing.sm, paddingVertical: spacing.xs },
+  orderCard: {
+    width: 108,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    padding: spacing.sm,
+    gap: 4,
+  },
+  orderCardActive: { borderColor: colors.gold, backgroundColor: colors.cream },
+  orderThumb: {
+    width: "100%",
+    height: 84,
+    backgroundColor: colors.cream,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+  },
+  orderThumbFallback: { alignItems: "center", justifyContent: "center" },
+  orderThumbText: {
+    fontFamily: typography.serif,
+    fontSize: 22,
+    color: colors.brownSoft,
+  },
+  orderTitle: {
+    fontFamily: typography.sans,
+    fontSize: 11,
+    lineHeight: 15,
+    color: colors.charcoal,
+  },
+  orderMeta: { fontFamily: typography.sans, fontSize: 10, color: colors.brownSoft },
   modalActions: { flexDirection: "row", gap: spacing.md, marginTop: spacing.lg },
   primaryButton: {
     backgroundColor: colors.charcoal,

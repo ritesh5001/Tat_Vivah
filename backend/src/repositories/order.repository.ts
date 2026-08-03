@@ -171,16 +171,57 @@ export class OrderRepository {
             take,
         });
 
+        // One batched lookup for the products across every order on this page, so
+        // the buyer's order list can show a title and thumbnail per line without an
+        // N+1. Two extra queries total, regardless of order count.
+        const productIds = [
+            ...new Set(orders.flatMap((order) => order.items.map((item) => item.productId))),
+        ];
+        const variantIds = [
+            ...new Set(orders.flatMap((order) => order.items.map((item) => item.variantId))),
+        ];
+
+        const [products, variants] = await Promise.all([
+            productIds.length
+                ? prisma.product.findMany({
+                    where: { id: { in: productIds } },
+                    select: { id: true, title: true, images: true },
+                })
+                : Promise.resolve([]),
+            variantIds.length
+                ? prisma.productVariant.findMany({
+                    where: { id: { in: variantIds } },
+                    select: { id: true, size: true, sku: true, color: true, images: true },
+                })
+                : Promise.resolve([]),
+        ]);
+
+        const productMap = new Map(products.map((p) => [p.id, p]));
+        const variantMap = new Map(variants.map((v) => [v.id, v]));
+
         return orders.map((order) => {
             const latestShipmentStatus = order.shipments[0]?.status ?? null;
 
             return {
                 ...order,
+                items: order.items.map((item) => {
+                    const product = productMap.get(item.productId);
+                    const variant = variantMap.get(item.variantId);
+                    return {
+                        ...item,
+                        productTitle: product?.title ?? null,
+                        productImage:
+                            variant?.images?.[0] ?? product?.images?.[0] ?? null,
+                        variantSize: variant?.size ?? null,
+                        variantSku: variant?.sku ?? null,
+                        variantColor: variant?.color ?? null,
+                    };
+                }),
                 paymentStatus: order.payment?.status ?? null,
                 cancellationStatus: order.cancellationRequest?.status ?? null,
                 returnStatus: order.returnRequests[0]?.status ?? null,
                 shipmentStatus: latestShipmentStatus,
-            } as OrderWithItems;
+            } as unknown as OrderWithItems;
         });
     }
 

@@ -546,7 +546,7 @@ export default function ProductDetailScreen() {
   // padding and 1px border. Measuring against the raw window width overflowed the
   // container and clipped the second column.
   const relatedCardWidth = Math.floor(
-    (windowWidth - spacing.lg * 2 - spacing.lg * 2 - 2 - spacing.md) / 2
+    (windowWidth - spacing.md * 2 - spacing.md * 2 - 2 - spacing.md) / 2
   );
   const [quickBuyId, setQuickBuyId] = React.useState<string | null>(null);
   const [quickBuyIntent, setQuickBuyIntent] = React.useState<QuickBuyIntent>("cart");
@@ -570,7 +570,7 @@ export default function ProductDetailScreen() {
   const stickyBottomOffset = Platform.OS === "web"
     ? WEB_BOTTOM_OFFSET
     : Math.max(insets.bottom, spacing.sm);
-  const galleryWidth = Math.max(windowWidth - spacing.lg * 2, 260);
+  const galleryWidth = Math.max(windowWidth - spacing.md * 2, 260);
   const galleryHeight = Math.round(galleryWidth * (4 / 3));
   const stickyActionHeight = 96;
   const stickyReserveSpace = stickyBottomOffset + stickyActionHeight + spacing.xl;
@@ -2211,7 +2211,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   galleryContainer: {
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
   },
   galleryIndexBadge: {
     position: "absolute",
@@ -2296,8 +2296,8 @@ const styles = StyleSheet.create({
   // Details
   detailsCard: {
     marginTop: spacing.lg,
-    marginHorizontal: spacing.lg,
-    padding: spacing.lg,
+    marginHorizontal: spacing.md,
+    padding: spacing.md,
     borderRadius: 0,
     backgroundColor: colors.background,
   },
@@ -3118,9 +3118,9 @@ const styles = StyleSheet.create({
   // Related products
   relatedWrap: {
     marginTop: spacing.xl,
-    marginHorizontal: spacing.lg,
+    marginHorizontal: spacing.md,
     marginBottom: spacing.xl,
-    padding: spacing.lg,
+    padding: spacing.md,
     borderRadius: 0,
     backgroundColor: colors.surfaceElevated,
     borderWidth: 1,

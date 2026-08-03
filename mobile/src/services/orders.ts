@@ -8,8 +8,12 @@ export interface OrderItem {
   variantId: string;
   quantity: number;
   priceSnapshot: number;
-  productTitle?: string;
-  variantSku?: string;
+  productTitle?: string | null;
+  /** Variant gallery first, else the product's — used as the order thumbnail. */
+  productImage?: string | null;
+  variantSize?: string | null;
+  variantSku?: string | null;
+  variantColor?: string | null;
 }
 
 export interface BuyerOrder {
