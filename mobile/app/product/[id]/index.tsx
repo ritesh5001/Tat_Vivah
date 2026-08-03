@@ -871,6 +871,7 @@ export default function ProductDetailScreen() {
       return;
     }
     if (!selectedVariant) {
+      // Straight to the picker — no spinner, nothing is being written yet.
       setQuickBuyIntent("cart");
       setQuickBuyId(product.id);
       return;
@@ -1422,6 +1423,16 @@ export default function ProductDetailScreen() {
         onScroll={(event) => {
           // The related grid no longer scrolls itself, so the page drives paging —
           // same approach as Most Loved on the home screen.
+          const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+          const distanceFromBottom =
+            contentSize.height - (contentOffset.y + layoutMeasurement.height);
+          if (distanceFromBottom < 900) {
+            void handleLoadMoreRelated();
+          }
+        }}
+        // onScroll can be throttled away mid-fling on Android; this guarantees a
+        // check once the scroll settles.
+        onMomentumScrollEnd={(event) => {
           const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
           const distanceFromBottom =
             contentSize.height - (contentOffset.y + layoutMeasurement.height);
@@ -2024,11 +2035,7 @@ export default function ProductDetailScreen() {
                 <>
                   <Ionicons name="bag-handle-outline" size={15} color="#1A1410" />
                   <Text style={[styles.ctaButtonText, styles.addToCartButtonText]}>
-                    {!selectedVariant
-                      ? "Select size"
-                      : outOfStock
-                        ? "Out of stock"
-                        : "Add to bag"}
+                    {selectedVariant && outOfStock ? "Out of stock" : "Add to bag"}
                   </Text>
                 </>
               )}

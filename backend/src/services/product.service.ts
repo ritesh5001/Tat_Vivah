@@ -487,6 +487,7 @@ export class ProductService {
         const normalizedVariants: CreateVariantRequest[] = (data.variants ?? []).map((variant) => ({
             size: variant.size,
             color: variant.color ?? undefined,
+            colorHex: sanitizeColorHex(variant.colorHex),
             images: sanitizeVariantImages(variant.images),
             sku: variant.sku,
             sellerPrice: variant.sellerPrice,

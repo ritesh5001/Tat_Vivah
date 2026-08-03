@@ -50,6 +50,7 @@ type DraftVariant = {
   id: string;
   size: string;
   color: string;
+  colorHex: string | null;
   sku: string;
   sellerPrice: string;
   compareAtPrice: string;
@@ -62,6 +63,7 @@ function createDraftVariant(): DraftVariant {
     id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
     size: "",
     color: "",
+    colorHex: null,
     sku: "",
     sellerPrice: "",
     compareAtPrice: "",
@@ -2195,7 +2197,7 @@ export default function SellerProductsClient({
                             />
                           </div>
                           <div className="space-y-1">
-                            <Label className="text-xs">Color</Label>
+                            <Label className="text-xs">Color name</Label>
                             <Input
                               value={variant.color}
                               onChange={(event) =>
@@ -2204,6 +2206,15 @@ export default function SellerProductsClient({
                                 })
                               }
                               placeholder="Wine, Navy Blue"
+                            />
+                          </div>
+                          <div className="space-y-1 sm:col-span-2">
+                            <ColorSwatchPicker
+                              colorLabel={variant.color.trim() || "this colour"}
+                              value={variant.colorHex}
+                              onChange={(hex) =>
+                                updateCreateVariant(variant.id, { colorHex: hex })
+                              }
                             />
                           </div>
                           <div className="space-y-1">
