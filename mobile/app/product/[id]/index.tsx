@@ -505,6 +505,11 @@ export default function ProductDetailScreen() {
   const [selectedColor, setSelectedColor] = React.useState<string>("");
   const [selectedVariantId, setSelectedVariantId] = React.useState<string | null>(null);
   const [adding, setAdding] = React.useState(false);
+  /** Which CTA is working, so only that button shows a spinner. */
+  const [pendingAction, setPendingAction] = React.useState<"cart" | "buy" | null>(null);
+  /** Brief confirmation state on the Add to bag button after a successful write. */
+  const [justAdded, setJustAdded] = React.useState(false);
+  const justAddedTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showViewCart, setShowViewCart] = React.useState(false);
   const viewCartTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -563,6 +568,9 @@ export default function ProductDetailScreen() {
       mountedRef.current = false;
       if (viewCartTimerRef.current) {
         clearTimeout(viewCartTimerRef.current);
+      }
+      if (justAddedTimerRef.current) {
+        clearTimeout(justAddedTimerRef.current);
       }
       tryOnAbortRef.current?.abort();
     };
@@ -853,6 +861,7 @@ export default function ProductDetailScreen() {
       return;
     }
     setAdding(true);
+    setPendingAction("cart");
     try {
       await addToCart({
         productId: product.id,
@@ -860,6 +869,12 @@ export default function ProductDetailScreen() {
         quantity: 1,
       });
       impactMedium();
+      // Confirm on the button itself, not only in a toast that may be missed.
+      setJustAdded(true);
+      if (justAddedTimerRef.current) clearTimeout(justAddedTimerRef.current);
+      justAddedTimerRef.current = setTimeout(() => {
+        if (mountedRef.current) setJustAdded(false);
+      }, 1800);
       showToast("Added to cart", "success");
       setShowViewCart(true);
       if (viewCartTimerRef.current) clearTimeout(viewCartTimerRef.current);
@@ -869,7 +884,10 @@ export default function ProductDetailScreen() {
     } catch {
       // CartProvider shows error toast
     } finally {
-      if (mountedRef.current) setAdding(false);
+      if (mountedRef.current) {
+        setAdding(false);
+        setPendingAction(null);
+      }
     }
   }, [token, isConnected, product, fallbackVariant, outOfStock, addToCart, router, showToast]);
 
@@ -912,12 +930,16 @@ export default function ProductDetailScreen() {
     router.push("/checkout");
 
     setAdding(true);
+    setPendingAction("buy");
     try {
       await cartWrite;
     } catch {
       // CartProvider handles toast messaging
     } finally {
-      if (mountedRef.current) setAdding(false);
+      if (mountedRef.current) {
+        setAdding(false);
+        setPendingAction(null);
+      }
     }
   }, [token, isConnected, product, fallbackVariant, outOfStock, addToCart, router, showToast]);
 
@@ -1946,8 +1968,15 @@ export default function ProductDetailScreen() {
               disabled={outOfStock || adding}
               hitSlop={10}
             >
-              {adding ? (
+              {pendingAction === "cart" ? (
                 <TatvivahLoader size="sm" color={colors.charcoal} />
+              ) : justAdded ? (
+                <>
+                  <Ionicons name="checkmark-circle" size={16} color="#5A7352" />
+                  <Text style={[styles.ctaButtonText, styles.addedButtonText]}>
+                    Added
+                  </Text>
+                </>
               ) : (
                 <>
                   <Ionicons name="bag-handle-outline" size={15} color="#1A1410" />
@@ -1973,7 +2002,7 @@ export default function ProductDetailScreen() {
               onPress={handleBuyNow}
               disabled={outOfStock || adding}
             >
-              {adding ? (
+              {pendingAction === "buy" ? (
                 <TatvivahLoader size="sm" color="#FFFFFF" />
               ) : (
                 <>
@@ -2789,6 +2818,9 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     color: "#FFFFFF",
     fontWeight: "700",
+  },
+  addedButtonText: {
+    color: "#5A7352",
   },
   buyNowButton: {
     backgroundColor: "#1A1410",

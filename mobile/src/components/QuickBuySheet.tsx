@@ -51,6 +51,7 @@ export function QuickBuySheet({
   const [selectedColor, setSelectedColor] = React.useState<string | null>(null);
   const [selectedVariantId, setSelectedVariantId] = React.useState<string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
+  const [confirmed, setConfirmed] = React.useState(false);
 
   const productQuery = useQuery({
     queryKey: ["product", productId],
@@ -110,6 +111,7 @@ export function QuickBuySheet({
     setSelectedColor(null);
     setSelectedVariantId(null);
     setSubmitting(false);
+    setConfirmed(false);
   }, [visible]);
 
   const selectedVariant =
@@ -137,6 +139,11 @@ export function QuickBuySheet({
         variantId: selectedVariant.id,
         quantity: 1,
       });
+
+      // A short confirmation beat: the sheet closing instantly reads as a
+      // mis-tap, this reads as "done".
+      setConfirmed(true);
+      await new Promise((resolve) => setTimeout(resolve, 420));
       onClose();
       // Straight to where the shopper is heading — no product page detour.
       router.push(
@@ -281,15 +288,22 @@ export function QuickBuySheet({
                 onPress={handleConfirm}
                 disabled={!selectedVariant || submitting}
               >
-                <Text style={styles.ctaText}>
-                  {submitting
-                    ? "Adding…"
-                    : !selectedVariant
-                      ? "Select a size"
-                      : intent === "buy"
-                        ? "Buy Now"
-                        : "Add to Bag"}
-                </Text>
+                {confirmed ? (
+                  <View style={styles.ctaConfirmRow}>
+                    <Ionicons name="checkmark-circle" size={18} color={colors.warmWhite} />
+                    <Text style={styles.ctaText}>Added to bag</Text>
+                  </View>
+                ) : (
+                  <Text style={styles.ctaText}>
+                    {submitting
+                      ? "Adding…"
+                      : !selectedVariant
+                        ? "Select a size"
+                        : intent === "buy"
+                          ? "Buy Now"
+                          : "Add to Bag"}
+                  </Text>
+                )}
               </Pressable>
             </>
           )}
@@ -388,6 +402,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   ctaDisabled: { opacity: 0.45 },
+  ctaConfirmRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   ctaText: {
     fontFamily: typography.sansMedium,
     fontSize: 14,

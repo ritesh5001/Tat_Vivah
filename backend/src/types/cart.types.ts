@@ -45,11 +45,17 @@ export interface CartItemWithDetails extends CartItemEntity {
         id: string;
         title: string;
         sellerId: string;
+        /** First image is the cart thumbnail. */
+        images?: string[];
     } | undefined;
     variant: {
         id: string;
         size: string;
         sku: string;
+        color?: string | null;
+        colorHex?: string | null;
+        /** Colour-specific gallery; preferred over the product images in the cart. */
+        images?: string[];
         price: number;
         compareAtPrice?: number | null;
         inventory: {
