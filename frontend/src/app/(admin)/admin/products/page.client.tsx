@@ -679,8 +679,12 @@ export default function AdminProductsClient({
 
       if (fields.adminListingPrice.trim()) {
         const adminPriceValue = Number(fields.adminListingPrice);
-        if (Number.isNaN(adminPriceValue) || adminPriceValue < 0) {
-          toast.error("Enter a valid admin listing price.");
+        // Zero is rejected server-side; leaving the field blank is how a listing
+        // price gets cleared.
+        if (Number.isNaN(adminPriceValue) || adminPriceValue <= 0) {
+          toast.error(
+            "Enter an admin listing price above 0, or leave it blank to clear it."
+          );
           return;
         }
         entry.adminListingPrice = adminPriceValue;
@@ -1639,7 +1643,7 @@ export default function AdminProductsClient({
                               <span>Admin Price<RequiredMark /></span>
                               <Input
                                 type="number"
-                                min="0"
+                                min="1"
                                 step="0.01"
                                 value={
                                   variantEditValues[variant.id]?.adminListingPrice ??

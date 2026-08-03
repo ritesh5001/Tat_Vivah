@@ -61,9 +61,12 @@ const adminVariantUpdateSchema = z.object({
         .number({ invalid_type_error: 'Variant seller price must be a number' })
         .positive('Variant seller price must be positive')
         .optional(),
+    // Nullable: the admin edit form sends null to clear a variant's listing price,
+    // which is also the state every not-yet-priced variant is submitted in.
     adminListingPrice: z
         .number({ invalid_type_error: 'Variant admin listing price must be a number' })
         .positive('Variant admin listing price must be positive')
+        .nullable()
         .optional(),
     compareAtPrice: z
         .number({ invalid_type_error: 'Compare-at price must be a number' })

@@ -33,6 +33,7 @@ import {
   fetchProductReviews,
   submitProductReview,
   type Review,
+  type ReviewSummary,
 } from "../../../src/services/reviews";
 import { useAuth } from "../../../src/hooks/useAuth";
 import { useCart } from "@/src/providers/CartProvider";
@@ -479,6 +480,9 @@ export default function ProductDetailScreen() {
   const viewCartTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [reviews, setReviews] = React.useState<Review[]>([]);
+  const [reviewSummary, setReviewSummary] = React.useState<ReviewSummary | null>(
+    null
+  );
   const [rating, setRating] = React.useState(0);
   const [reviewText, setReviewText] = React.useState("");
   const [reviewImages, setReviewImages] = React.useState<ReviewImageAsset[]>([]);
@@ -631,10 +635,16 @@ export default function ProductDetailScreen() {
     (async () => {
       try {
         const data = await fetchProductReviews(productId, controller.signal);
-        if (active) setReviews(data ?? []);
+        if (active) {
+          setReviews(data.reviews);
+          setReviewSummary(data.summary);
+        }
       } catch (err) {
         if (isAbortError(err) || !active) return;
-        if (active) setReviews([]);
+        if (active) {
+          setReviews([]);
+          setReviewSummary(null);
+        }
       }
     })();
 
@@ -732,13 +742,17 @@ export default function ProductDetailScreen() {
       : product?.images?.length
         ? product.images
         : [fallbackImage];
-  const avgRating = computeAvgRating(reviews);
-  // Duplicate‐prevention: backend prevents via unique constraint; we hide the form
-  // if any review matches the logged-in user's ID (review.user object may only
-  // have fullName — compare loosely).
+  // The server aggregates over every review; the local average only covers the
+  // page we fetched, so prefer the summary when it is present.
+  const avgRating = reviewSummary?.averageRating ?? computeAvgRating(reviews);
+  // Duplicate-prevention: the backend rejects a second review with a 409; hiding
+  // the form when the user's own review is on this page saves that round trip.
   const hasUserReviewed =
     hasLocalReviewSubmission ||
-    Boolean(userId && reviews.length > 0 && reviews.some((r) => r.userId === userId));
+    Boolean(
+      userId &&
+        reviews.some((r) => r.user?.id === userId || r.userId === userId)
+    );
   const outOfStock =
     fallbackVariant?.inventory != null && fallbackVariant.inventory.stock <= 0;
 
@@ -935,21 +949,37 @@ export default function ProductDetailScreen() {
     setHasLocalReviewSubmission(true);
 
     try {
-      const uploadedImageUrls: string[] = [];
-      for (const image of reviewImages) {
-        const uploadedUrl = await uploadReviewImage(image);
-        uploadedImageUrls.push(uploadedUrl);
-      }
+      // Up to three uploads — running them together rather than one after the
+      // other is most of the wait the reviewer sees.
+      const uploadedImageUrls = await Promise.all(
+        reviewImages.map((image) => uploadReviewImage(image))
+      );
 
-      await submitProductReview(
+      const { review } = await submitProductReview(
         productId,
         { rating, text: reviewText.trim(), images: uploadedImageUrls },
         token
       );
 
-      const updated = await fetchProductReviews(productId);
       if (mountedRef.current) {
-        setReviews(updated ?? []);
+        // Swap the optimistic row for the saved one instead of blocking on a
+        // full re-fetch of the list.
+        setReviews((prev) =>
+          prev.map((r) => (r.id === optimisticId ? review : r))
+        );
+        setReviewSummary((prev) =>
+          prev
+            ? {
+                ...prev,
+                totalReviews: prev.totalReviews + 1,
+                ratingDistribution: {
+                  ...prev.ratingDistribution,
+                  [review.rating]:
+                    (prev.ratingDistribution[review.rating] ?? 0) + 1,
+                },
+              }
+            : prev
+        );
         setRating(0);
         setReviewText("");
         setReviewImages([]);

@@ -10,8 +10,9 @@ import {
 
 interface CreateReviewInput {
     rating: number;
-    title?: string;
-    comment: string;
+    title?: string | null;
+    text: string;
+    images?: string[];
 }
 
 interface ReviewQuery {
@@ -20,19 +21,55 @@ interface ReviewQuery {
     sort: string;
 }
 
+interface ReviewAuthor {
+    id: string;
+    email: string;
+    fullName: string;
+    avatar: string | null;
+}
+
+/** Shape returned to clients for a single review. */
+const toReviewResponse = (review: {
+    id: string;
+    rating: number;
+    title: string | null;
+    text: string;
+    images: string[];
+    helpfulCount: number;
+    createdAt: Date;
+}, user: ReviewAuthor) => ({
+    id: review.id,
+    rating: review.rating,
+    title: review.title,
+    text: review.text,
+    images: review.images,
+    helpfulCount: review.helpfulCount,
+    createdAt: review.createdAt,
+    user,
+});
+
 export class ReviewService {
     /**
      * Create a review (one per user per product)
      */
     async createReview(productId: string, userId: string, input: CreateReviewInput) {
-        // Verify product exists
-        const product = await prisma.product.findUnique({ where: { id: productId }, select: { id: true } });
-        if (!product) throw ApiError.notFound('Product not found');
+        // Product existence, the duplicate check and the author lookup are
+        // independent reads — running them together keeps submission at a single
+        // round trip's latency instead of three.
+        const [product, existing, author] = await Promise.all([
+            prisma.product.findUnique({ where: { id: productId }, select: { id: true } }),
+            prisma.review.findFirst({ where: { productId, userId }, select: { id: true } }),
+            prisma.user.findUnique({
+                where: { id: userId },
+                select: {
+                    id: true,
+                    email: true,
+                    user_profiles: { select: { full_name: true, avatar: true } },
+                },
+            }),
+        ]);
 
-        // Check duplicate
-        const existing = await prisma.review.findFirst({
-            where: { productId, userId },
-        });
+        if (!product) throw ApiError.notFound('Product not found');
         if (existing) throw ApiError.conflict('You have already reviewed this product');
 
         const created = await prisma.review.create({
@@ -41,13 +78,23 @@ export class ReviewService {
                 userId,
                 rating: input.rating,
                 title: input.title ?? null,
-                text: input.comment,
+                text: input.text,
+                images: input.images ?? [],
             },
         });
 
+        // The review list is cached for 60s, so this invalidation has to land
+        // before the client refetches. The product-detail cache only affects the
+        // aggregate rating, so it can settle after the response.
         await invalidateCacheByPattern(`reviews:${productId}:*`);
-        await invalidateCacheByPattern(`products:detail:${productId}`);
-        return created;
+        void invalidateCacheByPattern(`products:detail:${productId}`);
+
+        return toReviewResponse(created, {
+            id: userId,
+            email: author?.email ?? '',
+            fullName: author?.user_profiles?.full_name ?? 'Anonymous',
+            avatar: author?.user_profiles?.avatar ?? null,
+        });
     }
 
     /**
@@ -92,9 +139,12 @@ export class ReviewService {
                 },
             }),
             prisma.review.count({ where }),
+            // Same `where` as the list: aggregating over hidden reviews too made
+            // summary.totalReviews disagree with pagination.total, and let a
+            // moderated review keep skewing the average.
             prisma.review.groupBy({
                 by: ['rating'],
-                where: { productId },
+                where,
                 _count: { rating: true },
             }),
         ]);
@@ -110,21 +160,14 @@ export class ReviewService {
         }
 
         const response = {
-            reviews: reviews.map((r: any) => ({
-                id: r.id,
-                rating: r.rating,
-                title: r.title,
-                text: r.text,
-                images: r.images,
-                helpfulCount: r.helpfulCount,
-                createdAt: r.createdAt,
-                user: {
+            reviews: reviews.map((r: any) =>
+                toReviewResponse(r, {
                     id: r.user.id,
                     email: r.user.email,
                     fullName: r.user.user_profiles?.full_name ?? 'Anonymous',
                     avatar: r.user.user_profiles?.avatar ?? null,
-                },
-            })),
+                }),
+            ),
             summary: {
                 averageRating: totalRatings > 0 ? +(ratingSum / totalRatings).toFixed(1) : 0,
                 totalReviews: totalRatings,

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { Star, Image as ImageIcon, X, ThumbsUp, ChevronLeft, ChevronRight } from "lucide-react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { Image as ImageIcon, X, ThumbsUp, ChevronLeft, ChevronRight } from "lucide-react";
+import ImageKit from "imagekit-javascript";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,6 +16,13 @@ import {
 } from "@/services/reviews";
 import { toast } from "sonner";
 import Image from "next/image";
+import { compressImageForUpload } from "@/lib/image-compression";
+
+const IMAGEKIT_PUBLIC_KEY = process.env.NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY;
+const IMAGEKIT_URL_ENDPOINT = process.env.NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT;
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+const MAX_REVIEW_IMAGES = 3;
+const MAX_REVIEW_IMAGE_BYTES = 2 * 1024 * 1024;
 
 interface ProductReviewsProps {
     productId: string;
@@ -45,10 +53,23 @@ export default function ProductReviews({ productId }: ProductReviewsProps) {
     const [title, setTitle] = useState("");
     const [comment, setComment] = useState("");
     const [images, setImages] = useState<string[]>([]);
+    const [isUploading, setIsUploading] = useState(false);
     const [showForm, setShowForm] = useState(false);
 
-    const loadReviews = useCallback(async () => {
-        setIsLoading(true);
+    const imagekit = useMemo(() => {
+        if (!IMAGEKIT_PUBLIC_KEY || !IMAGEKIT_URL_ENDPOINT || !API_BASE_URL) {
+            return null;
+        }
+        return new ImageKit({
+            publicKey: IMAGEKIT_PUBLIC_KEY,
+            urlEndpoint: IMAGEKIT_URL_ENDPOINT,
+        });
+    }, []);
+
+    // `silent` reconciles in the background without dropping the list back to a
+    // loading state — used after a submit has already rendered the new review.
+    const loadReviews = useCallback(async (silent = false) => {
+        if (!silent) setIsLoading(true);
         try {
             const data = await fetchProductReviews(productId, { page, limit: 10, sort });
             setReviews(data.reviews ?? []);
@@ -57,7 +78,7 @@ export default function ProductReviews({ productId }: ProductReviewsProps) {
         } catch (error) {
             console.error("Failed to load reviews", error);
         } finally {
-            setIsLoading(false);
+            if (!silent) setIsLoading(false);
         }
     }, [productId, page, sort]);
 
@@ -84,19 +105,47 @@ export default function ProductReviews({ productId }: ProductReviewsProps) {
 
         setIsSubmitting(true);
         try {
-            await submitProductReview(
+            const { review } = await submitProductReview(
                 productId,
-                { rating, comment: comment.trim(), title: title.trim() || undefined },
+                {
+                    rating,
+                    text: comment.trim(),
+                    title: title.trim() || undefined,
+                    images,
+                },
                 token
             );
+
             toast.success("Review submitted successfully");
             setShowForm(false);
             setRating(0);
             setTitle("");
             setComment("");
             setImages([]);
-            setPage(1);
-            loadReviews();
+
+            if (page === 1 && sort === "newest") {
+                // Already looking at the newest page — show the review straight
+                // away and let the refetch reconcile in the background.
+                setReviews((prev) => [review, ...prev]);
+                setSummary((prev) =>
+                    prev
+                        ? {
+                            ...prev,
+                            totalReviews: prev.totalReviews + 1,
+                            ratingDistribution: {
+                                ...prev.ratingDistribution,
+                                [review.rating]:
+                                    (prev.ratingDistribution[review.rating] ?? 0) + 1,
+                            },
+                        }
+                        : prev
+                );
+                loadReviews(true);
+            } else {
+                // Jump to where the new review lives; the effect refetches.
+                setSort("newest");
+                setPage(1);
+            }
         } catch (error: any) {
             toast.error(error.message || "Failed to submit review");
         } finally {
@@ -121,25 +170,70 @@ export default function ProductReviews({ productId }: ProductReviewsProps) {
         }
     };
 
-    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const files = e.target.files;
-        if (!files) return;
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const input = e.currentTarget;
+        const files = Array.from(input.files ?? []);
+        if (files.length === 0) return;
 
-        if (images.length + files.length > 3) {
-            toast.error("Maximum 3 images allowed");
+        if (images.length + files.length > MAX_REVIEW_IMAGES) {
+            input.value = "";
+            toast.error(`Maximum ${MAX_REVIEW_IMAGES} images allowed`);
             return;
         }
 
-        for (let i = 0; i < files.length; i++) {
-            if (files[i].size > 2 * 1024 * 1024) {
-                toast.error(`Image ${files[i].name} exceeds 2MB limit`);
-                return;
-            }
+        const oversized = files.find((file) => file.size > MAX_REVIEW_IMAGE_BYTES);
+        if (oversized) {
+            input.value = "";
+            toast.error(`Image ${oversized.name} exceeds 2MB limit`);
+            return;
         }
 
-        toast.info("Image upload simulated (mock URLs used)");
-        const newImages = Array.from(files).map((file) => URL.createObjectURL(file));
-        setImages([...images, ...newImages]);
+        if (!imagekit) {
+            input.value = "";
+            toast.error("Image uploads are not configured.");
+            return;
+        }
+
+        setIsUploading(true);
+        try {
+            const authResponse = await fetch(`${API_BASE_URL}/v1/imagekit/auth`);
+            if (!authResponse.ok) {
+                const authData = await authResponse.json().catch(() => null);
+                toast.error(authData?.message ?? "Image upload authorization failed.");
+                return;
+            }
+
+            const authData = (await authResponse.json()) as {
+                signature: string;
+                token: string;
+                expire: number;
+            };
+
+            const uploaded = await Promise.all(
+                files.map(async (file) => {
+                    const compressed = await compressImageForUpload(file);
+                    const result = await imagekit.upload({
+                        file: compressed,
+                        fileName: compressed.name,
+                        folder: "/tatvivah/reviews",
+                        useUniqueFileName: true,
+                        signature: authData.signature,
+                        token: authData.token,
+                        expire: authData.expire,
+                    });
+                    return result.url;
+                })
+            );
+
+            setImages((prev) => [...prev, ...uploaded].slice(0, MAX_REVIEW_IMAGES));
+        } catch (error) {
+            toast.error(
+                error instanceof Error ? error.message : "Image upload failed"
+            );
+        } finally {
+            setIsUploading(false);
+            input.value = "";
+        }
     };
 
     const removeImage = (index: number) => {
@@ -273,7 +367,7 @@ export default function ProductReviews({ productId }: ProductReviewsProps) {
                                     </button>
                                 </div>
                             ))}
-                            {images.length < 3 && (
+                            {images.length < MAX_REVIEW_IMAGES && (
                                 <label className="w-20 h-20 flex items-center justify-center border border-dashed rounded cursor-pointer hover:bg-muted/50">
                                     <ImageIcon className="w-6 h-6 text-muted-foreground" />
                                     <input
@@ -281,15 +375,19 @@ export default function ProductReviews({ productId }: ProductReviewsProps) {
                                         accept="image/*"
                                         className="hidden"
                                         onChange={handleImageUpload}
+                                        disabled={isUploading}
                                         multiple
                                     />
                                 </label>
                             )}
                         </div>
+                        {isUploading && (
+                            <p className="text-xs text-muted-foreground">Uploading photos…</p>
+                        )}
                     </div>
 
                     <div className="flex gap-4">
-                        <Button type="submit" disabled={isSubmitting}>
+                        <Button type="submit" disabled={isSubmitting || isUploading}>
                             {isSubmitting ? "Submitting..." : "Submit Review"}
                         </Button>
                         <Button type="button" variant="ghost" onClick={() => setShowForm(false)}>

@@ -41,7 +41,21 @@ export interface ReviewListResponse {
 export interface CreateReviewPayload {
     rating: number;
     title?: string;
-    comment: string;
+    text: string;
+    images?: string[];
+}
+
+/**
+ * Drop every cached page for a product. Without this a freshly submitted review
+ * stayed invisible until the 2-minute entry expired, which read as the submit
+ * having silently failed.
+ */
+export function clearProductReviewsCache(productId: string): void {
+    for (const key of Array.from(reviewsCache.keys())) {
+        if (key.startsWith(`${productId}:`)) {
+            reviewsCache.delete(key);
+        }
+    }
 }
 
 export async function fetchProductReviews(
@@ -94,10 +108,12 @@ export async function submitProductReview(
     payload: CreateReviewPayload,
     token?: string | null
 ): Promise<{ message: string; review: Review }> {
-    return apiRequest<{ message: string; review: Review }>(
+    const result = await apiRequest<{ message: string; review: Review }>(
         `/v1/products/${productId}/reviews`,
         { method: "POST", body: payload, token }
     );
+    clearProductReviewsCache(productId);
+    return result;
 }
 
 export async function markReviewHelpful(

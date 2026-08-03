@@ -8,25 +8,36 @@ export interface Review {
   images: string[];
   createdAt: string;
   user: {
+    id?: string;
     fullName?: string | null;
     avatar?: string | null;
   };
 }
 
-/** Backend wraps reviews in a `{ reviews: [...] }` envelope. */
+export interface ReviewSummary {
+  averageRating: number;
+  totalReviews: number;
+  ratingDistribution: Record<number, number>;
+}
+
+/** Backend wraps reviews in a `{ reviews, summary, pagination }` envelope. */
 interface ReviewsResponse {
   reviews: Review[];
+  summary?: ReviewSummary;
 }
 
 export async function fetchProductReviews(
   productId: string,
   signal?: AbortSignal
-): Promise<Review[]> {
+): Promise<{ reviews: Review[]; summary: ReviewSummary | null }> {
   const response = await apiRequest<ReviewsResponse>(
-    `/v1/reviews/product/${productId}`,
+    `/v1/products/${productId}/reviews`,
     { method: "GET", signal }
   );
-  return response.reviews ?? [];
+  return {
+    reviews: response.reviews ?? [],
+    summary: response.summary ?? null,
+  };
 }
 
 export async function submitProductReview(
@@ -34,9 +45,12 @@ export async function submitProductReview(
   payload: { rating: number; text: string; images: string[] },
   token?: string | null
 ) {
-  return apiRequest<{ message: string }>(`/v1/reviews/product/${productId}`, {
-    method: "POST",
-    body: payload,
-    token,
-  });
+  return apiRequest<{ message: string; review: Review }>(
+    `/v1/products/${productId}/reviews`,
+    {
+      method: "POST",
+      body: payload,
+      token,
+    }
+  );
 }
