@@ -17,9 +17,13 @@ import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
 import { impactLight } from "../../../src/utils/haptics";
 import type { CartItemDetails } from "../../../src/services/cart";
 import { AppHeader } from "../../../src/components/AppHeader";
+import { Image } from "../../../src/components/CompatImage";
 import { MotionView } from "../../../src/components/motion";
 import { AppText as Text, ScreenContainer as SafeAreaView } from "../../../src/components";
 import { getShippingConfig, getGstConfig } from "../../../src/services/shipping";
+
+/** Thumbnail is 96dp square; ask the CDN for that rather than the original. */
+const CART_THUMB_WIDTH = 96;
 
 const currency = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -127,57 +131,106 @@ export default function CartScreen() {
   const renderItem = React.useCallback(
     ({ item, index }: { item: CartItemDetails; index: number }) => {
       const locked = mutatingIds.has(item.id);
+      // Prefer the variant's own colour gallery so the thumbnail matches the
+      // colour actually being bought, not just the product's first image.
+      const thumbnail =
+        item.variant?.images?.[0] ?? item.product?.images?.[0] ?? null;
+      const compareAt = item.variant?.compareAtPrice;
+      const hasDiscount =
+        typeof compareAt === "number" && compareAt > item.priceSnapshot;
+      const lineTotal = item.priceSnapshot * item.quantity;
+
       return (
         <MotionView preset="slideUp" delay={Math.min(index * 24, 180)}>
           <View style={styles.itemCard}>
-            <View style={styles.itemInfo}>
-              <Text style={styles.itemTitle}>
-                {item.product?.title ?? "Item"}
-              </Text>
-              <Text style={styles.itemMeta}>
-                Variant · {item.variant?.size ?? "Default"} · {item.variant?.sku ?? "—"}
-              </Text>
-              {typeof item.variant?.compareAtPrice === "number" &&
-              item.variant.compareAtPrice > item.priceSnapshot ? (
-                <Text style={styles.itemMeta}>
-                  MRP {currency.format(item.variant.compareAtPrice)}
+            <View style={styles.itemRow}>
+              {thumbnail ? (
+                <Image
+                  source={{ uri: thumbnail }}
+                  style={styles.itemImage}
+                  contentFit="cover"
+                  transition={150}
+                  width={CART_THUMB_WIDTH}
+                />
+              ) : (
+                <View style={[styles.itemImage, styles.itemImageFallback]}>
+                  <Text style={styles.itemImageFallbackText}>
+                    {(item.product?.title ?? "?").charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              )}
+
+              <View style={styles.itemInfo}>
+                <Text style={styles.itemTitle} numberOfLines={2}>
+                  {item.product?.title ?? "Item"}
                 </Text>
-              ) : null}
-              <Text style={styles.itemPrice}>
-                {currency.format(item.priceSnapshot)}
-              </Text>
-            </View>
-            <View style={styles.qtyRow}>
+
+                <View style={styles.itemMetaRow}>
+                  {item.variant?.colorHex ? (
+                    <View
+                      style={[
+                        styles.colorDot,
+                        { backgroundColor: item.variant.colorHex },
+                      ]}
+                    />
+                  ) : null}
+                  <Text style={styles.itemMeta} numberOfLines={1}>
+                    {item.variant?.color ? `${item.variant.color} · ` : ""}
+                    Size {item.variant?.size ?? "Default"}
+                  </Text>
+                </View>
+
+                <View style={styles.priceRow}>
+                  <Text style={styles.itemPrice}>
+                    {currency.format(item.priceSnapshot)}
+                  </Text>
+                  {hasDiscount ? (
+                    <Text style={styles.itemCompareAt}>
+                      {currency.format(compareAt as number)}
+                    </Text>
+                  ) : null}
+                </View>
+
+                {item.quantity > 1 ? (
+                  <Text style={styles.lineTotal}>
+                    {item.quantity} × {currency.format(item.priceSnapshot)} ={" "}
+                    {currency.format(lineTotal)}
+                  </Text>
+                ) : null}
+              </View>
+
               <Pressable
-                style={[styles.qtyButton, locked && styles.qtyButtonDisabled]}
-                onPress={() => handleQty(item.id, item.quantity - 1)}
+                style={styles.removeIcon}
+                onPress={() => handleRemove(item.id)}
                 disabled={locked}
+                hitSlop={10}
               >
-                <Text style={styles.qtyButtonText}>−</Text>
-              </Pressable>
-              <Text style={styles.qtyValue}>{item.quantity}</Text>
-              <Pressable
-                style={[styles.qtyButton, locked && styles.qtyButtonDisabled]}
-                onPress={() => handleQty(item.id, item.quantity + 1)}
-                disabled={locked}
-              >
-                <Text style={styles.qtyButtonText}>+</Text>
+                <Text style={[styles.removeIconText, locked && { opacity: 0.4 }]}>
+                  ×
+                </Text>
               </Pressable>
             </View>
-            <Pressable
-              style={styles.removeButton}
-              onPress={() => handleRemove(item.id)}
-              disabled={locked}
-            >
-              <Text
-                style={[
-                  styles.removeButtonText,
-                  locked && { opacity: 0.4 },
-                ]}
-              >
-                {locked ? "Updating…" : "Remove"}
-              </Text>
-            </Pressable>
+
+            <View style={styles.itemFooter}>
+              <View style={styles.qtyRow}>
+                <Pressable
+                  style={[styles.qtyButton, locked && styles.qtyButtonDisabled]}
+                  onPress={() => handleQty(item.id, item.quantity - 1)}
+                  disabled={locked}
+                >
+                  <Text style={styles.qtyButtonText}>−</Text>
+                </Pressable>
+                <Text style={styles.qtyValue}>{item.quantity}</Text>
+                <Pressable
+                  style={[styles.qtyButton, locked && styles.qtyButtonDisabled]}
+                  onPress={() => handleQty(item.id, item.quantity + 1)}
+                  disabled={locked}
+                >
+                  <Text style={styles.qtyButtonText}>+</Text>
+                </Pressable>
+              </View>
+              {locked ? <Text style={styles.updatingText}>Updating…</Text> : null}
+            </View>
           </View>
         </MotionView>
       );
@@ -367,25 +420,100 @@ const styles = StyleSheet.create({
     borderColor: colors.borderSoft,
     ...shadow.card,
   },
+  itemRow: {
+    flexDirection: "row",
+    gap: spacing.md,
+  },
+  itemImage: {
+    width: 96,
+    height: 120,
+    backgroundColor: colors.cream,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+  },
+  itemImageFallback: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  itemImageFallbackText: {
+    fontFamily: typography.serif,
+    fontSize: 28,
+    color: colors.brownSoft,
+  },
   itemInfo: {
-    marginBottom: spacing.sm,
+    flex: 1,
+    justifyContent: "center",
   },
   itemTitle: {
     fontFamily: typography.serif,
     fontSize: 16,
+    lineHeight: 22,
     color: colors.charcoal,
   },
+  itemMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 6,
+  },
+  colorDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+  },
   itemMeta: {
+    flex: 1,
+    fontFamily: typography.sans,
+    fontSize: 12,
+    color: colors.brownSoft,
+  },
+  priceRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  itemPrice: {
+    fontFamily: typography.sansMedium,
+    fontSize: 16,
+    color: colors.charcoal,
+  },
+  itemCompareAt: {
+    fontFamily: typography.sans,
+    fontSize: 12,
+    color: colors.brownSoft,
+    textDecorationLine: "line-through",
+  },
+  lineTotal: {
     marginTop: 4,
     fontFamily: typography.sans,
     fontSize: 11,
     color: colors.brownSoft,
   },
-  itemPrice: {
-    marginTop: spacing.xs,
-    fontFamily: typography.sansMedium,
-    fontSize: 12,
-    color: colors.charcoal,
+  removeIcon: {
+    paddingHorizontal: spacing.xs,
+  },
+  removeIconText: {
+    fontFamily: typography.sans,
+    fontSize: 20,
+    lineHeight: 22,
+    color: colors.brownSoft,
+  },
+  itemFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderSoft,
+  },
+  updatingText: {
+    fontFamily: typography.sans,
+    fontSize: 11,
+    color: colors.gold,
   },
   qtyRow: {
     flexDirection: "row",
@@ -393,9 +521,8 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   qtyButton: {
-    height: 32,
-    width: 32,
-    borderRadius: 0,
+    height: 34,
+    width: 34,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: colors.surface,
@@ -407,22 +534,15 @@ const styles = StyleSheet.create({
   },
   qtyButtonText: {
     fontFamily: typography.sansMedium,
-    fontSize: 16,
+    fontSize: 18,
     color: colors.charcoal,
   },
   qtyValue: {
+    minWidth: 24,
+    textAlign: "center",
     fontFamily: typography.sansMedium,
-    fontSize: 12,
+    fontSize: 14,
     color: colors.charcoal,
-  },
-  removeButton: {
-    marginTop: spacing.sm,
-    alignSelf: "flex-start",
-  },
-  removeButtonText: {
-    fontFamily: typography.sans,
-    fontSize: 11,
-    color: colors.gold,
   },
   summaryCard: {
     marginHorizontal: spacing.lg,

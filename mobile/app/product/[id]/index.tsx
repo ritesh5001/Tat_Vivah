@@ -56,10 +56,13 @@ import { AppHeader } from "../../../src/components/AppHeader";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
+  Easing,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
+  withRepeat,
   withSpring,
+  withTiming,
 } from "react-native-reanimated";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import {
@@ -87,6 +90,9 @@ const currency = new Intl.NumberFormat("en-IN", {
   currency: "INR",
   maximumFractionDigits: 0,
 });
+
+/** Width of the sweeping fill inside the try-on progress track. */
+const TRY_ON_BAR_WIDTH = 220;
 
 const MAX_REVIEW_IMAGES = 3;
 const MAX_REVIEW_IMAGE_BYTES = 2 * 1024 * 1024;
@@ -525,6 +531,15 @@ export default function ProductDetailScreen() {
   const [tryOnError, setTryOnError] = React.useState<string | null>(null);
   const [tryOnLoading, setTryOnLoading] = React.useState(false);
   const [isTryOnVisible, setIsTryOnVisible] = React.useState(false);
+  // Elapsed seconds shown next to the progress bar. The API gives no percentage,
+  // so the bar is a looping sweep and this is the honest signal of progress.
+  const [tryOnElapsed, setTryOnElapsed] = React.useState(0);
+  const tryOnProgress = useSharedValue(0);
+  const tryOnProgressStyle = useAnimatedStyle(() => ({
+    // A sweep rather than a percentage: the API reports no real progress, so
+    // pretending to know one would be a lie.
+    transform: [{ translateX: (tryOnProgress.value - 1) * TRY_ON_BAR_WIDTH }],
+  }));
   const tryOnAbortRef = React.useRef<AbortController | null>(null);
 
   const WEB_BOTTOM_OFFSET = 16;
@@ -552,6 +567,31 @@ export default function ProductDetailScreen() {
       tryOnAbortRef.current?.abort();
     };
   }, []);
+
+  React.useEffect(() => {
+    if (!tryOnLoading) {
+      setTryOnElapsed(0);
+      tryOnProgress.value = 0;
+      return;
+    }
+
+    const startedAt = Date.now();
+    const ticker = setInterval(() => {
+      setTryOnElapsed(Math.floor((Date.now() - startedAt) / 1000));
+    }, 1000);
+
+    tryOnProgress.value = 0;
+    tryOnProgress.value = withRepeat(
+      withTiming(1, { duration: 1400, easing: Easing.inOut(Easing.ease) }),
+      -1,
+      false
+    );
+
+    return () => {
+      clearInterval(ticker);
+      tryOnProgress.value = 0;
+    };
+  }, [tryOnLoading, tryOnProgress]);
 
   const productQuery = useQuery({
     queryKey: ["product", productId],
@@ -1118,6 +1158,10 @@ export default function ProductDetailScreen() {
     tryOnAbortRef.current = controller;
     setTryOnLoading(true);
     setTryOnError(null);
+    setTryOnResult(null);
+    // Show the sheet immediately: generation takes tens of seconds, and the
+    // shopper needs to see that something is happening.
+    setIsTryOnVisible(true);
 
     try {
       const uploadedUserImageUrl = await uploadTryOnImage(tryOnUserImageAsset);
@@ -1990,20 +2034,76 @@ export default function ProductDetailScreen() {
         onRequestClose={() => setIsTryOnVisible(false)}
       >
         <View style={styles.tryOnModalOverlay}>
-          <View style={styles.tryOnModalContent}>
+          <View style={styles.tryOnSheet}>
+            {/* Header */}
+            <View style={styles.tryOnSheetHeader}>
+              <View style={styles.tryOnBrandRow}>
+                <Text style={styles.tryOnBrand}>TRY ON</Text>
+                <Ionicons name="sparkles" size={13} color={colors.gold} />
+              </View>
+              <Pressable
+                onPress={() => setIsTryOnVisible(false)}
+                hitSlop={12}
+                style={styles.tryOnCloseButton}
+              >
+                <Ionicons name="close" size={22} color={colors.charcoal} />
+              </Pressable>
+            </View>
+
+            {/* Preview: the result once ready, the shopper's own photo while it renders */}
+            <View style={styles.tryOnPreview}>
+              {tryOnResult?.output?.[0] ? (
+                <Image
+                  source={{ uri: tryOnResult.output[0] }}
+                  style={styles.tryOnResultImage}
+                  contentFit="contain"
+                />
+              ) : tryOnUserImageUri ? (
+                <Image
+                  source={{ uri: tryOnUserImageUri }}
+                  style={[styles.tryOnResultImage, styles.tryOnPreviewPending]}
+                  contentFit="contain"
+                />
+              ) : (
+                <View style={styles.tryOnPreviewEmpty}>
+                  <Ionicons name="shirt-outline" size={40} color={colors.brownSoft} />
+                </View>
+              )}
+            </View>
+
+            {/* Progress, or the error if it failed */}
+            {tryOnLoading ? (
+              <View style={styles.tryOnProgressBlock}>
+                <Text style={styles.tryOnStatusLabel}>Generating…</Text>
+                <View style={styles.tryOnProgressRow}>
+                  <View style={styles.tryOnProgressTrack}>
+                    <Animated.View
+                      style={[styles.tryOnProgressFill, tryOnProgressStyle]}
+                    />
+                  </View>
+                  <Text style={styles.tryOnElapsed}>{tryOnElapsed}s</Text>
+                </View>
+                <Text style={styles.tryOnHint}>
+                  This usually takes under a minute. You can keep shopping — we
+                  will keep rendering.
+                </Text>
+              </View>
+            ) : tryOnError ? (
+              <View style={styles.tryOnProgressBlock}>
+                <Text style={styles.tryOnErrorText}>{tryOnError}</Text>
+              </View>
+            ) : (
+              <View style={styles.tryOnProgressBlock}>
+                <Text style={styles.tryOnStatusLabel}>Your look is ready</Text>
+              </View>
+            )}
+
             <Pressable
-              style={styles.tryOnModalClose}
+              style={styles.tryOnPrimaryButton}
               onPress={() => setIsTryOnVisible(false)}
             >
-              <Text style={styles.viewerCloseText}>Close</Text>
+              <Text style={styles.tryOnPrimaryButtonText}>Continue shopping</Text>
             </Pressable>
-            {tryOnResult?.output?.[0] ? (
-              <Image
-                source={{ uri: tryOnResult.output[0] }}
-                style={styles.tryOnResultImage}
-                contentFit="contain"
-              />
-            ) : null}
           </View>
         </View>
       </Modal>
@@ -2549,25 +2649,96 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: spacing.lg,
   },
-  tryOnModalContent: {
+  tryOnSheet: {
     width: "100%",
-    height: "86%",
+    maxHeight: "92%",
     backgroundColor: colors.background,
     borderWidth: 1,
     borderColor: colors.borderSoft,
+    padding: spacing.lg,
+    gap: spacing.md,
   },
-  tryOnModalClose: {
-    position: "absolute",
-    top: spacing.md,
-    right: spacing.md,
-    zIndex: 2,
-    backgroundColor: "rgba(44, 40, 37, 0.72)",
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+  tryOnSheetHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
-  tryOnResultImage: {
+  tryOnBrandRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  tryOnBrand: {
+    fontFamily: typography.sansMedium,
+    fontSize: 16,
+    letterSpacing: 3,
+    color: colors.charcoal,
+  },
+  tryOnCloseButton: { padding: spacing.xs },
+  tryOnPreview: {
     width: "100%",
+    aspectRatio: 3 / 4,
+    backgroundColor: colors.cream,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    overflow: "hidden",
+  },
+  tryOnPreviewPending: { opacity: 0.45 },
+  tryOnPreviewEmpty: { flex: 1, alignItems: "center", justifyContent: "center" },
+  tryOnResultImage: { width: "100%", height: "100%" },
+  tryOnProgressBlock: { gap: spacing.sm },
+  tryOnStatusLabel: {
+    fontFamily: typography.sansMedium,
+    fontSize: 15,
+    color: colors.charcoal,
+    textAlign: "center",
+  },
+  tryOnProgressRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  tryOnProgressTrack: {
+    flex: 1,
+    height: 34,
+    backgroundColor: colors.cream,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    overflow: "hidden",
+    justifyContent: "center",
+  },
+  tryOnProgressFill: {
+    width: TRY_ON_BAR_WIDTH,
     height: "100%",
+    backgroundColor: colors.gold,
+    opacity: 0.35,
+  },
+  tryOnElapsed: {
+    minWidth: 40,
+    textAlign: "right",
+    fontFamily: typography.sansMedium,
+    fontSize: 16,
+    color: colors.charcoal,
+  },
+  tryOnHint: {
+    fontFamily: typography.sans,
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.brownSoft,
+    textAlign: "center",
+  },
+  tryOnErrorText: {
+    fontFamily: typography.sans,
+    fontSize: 13,
+    color: "#7A5656",
+    textAlign: "center",
+  },
+  tryOnPrimaryButton: {
+    backgroundColor: colors.charcoal,
+    paddingVertical: spacing.md,
+    alignItems: "center",
+  },
+  tryOnPrimaryButtonText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 14,
+    letterSpacing: 1,
+    color: colors.warmWhite,
   },
 
   // Buttons

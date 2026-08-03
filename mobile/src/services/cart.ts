@@ -10,11 +10,15 @@ export interface CartItemDetails {
     id: string;
     title: string;
     sellerId: string;
+    images?: string[];
   };
   variant?: {
     id: string;
     size: string;
     sku: string;
+    color?: string | null;
+    colorHex?: string | null;
+    images?: string[];
     price: number;
     compareAtPrice?: number | null;
     inventory?: {
@@ -133,6 +137,8 @@ export async function checkout(
     shippingCity?: string;
     shippingNotes?: string;
     couponCode?: string;
+    /** Buy-now: order only these variants, leaving the rest of the cart alone. */
+    variantIds?: string[];
   },
   token?: string | null
 ) {
@@ -174,6 +180,8 @@ export async function checkoutWithPayment(
     shippingPincode?: string;
     shippingNotes?: string;
     couponCode?: string;
+    /** Buy-now: order only these variants, leaving the rest of the cart alone. */
+    variantIds?: string[];
   },
   token?: string | null
 ) {

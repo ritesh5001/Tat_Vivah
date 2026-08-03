@@ -16,8 +16,8 @@ export class CheckoutController {
     async checkout(req: Request, res: Response, next: NextFunction): Promise<void> {
         try {
             const userId = req.user!.userId;
-            const { couponCode, ...shipping } = req.body ?? {};
-            const result = await checkoutService.checkout(userId, shipping, couponCode);
+            const { couponCode, variantIds, ...shipping } = req.body ?? {};
+            const result = await checkoutService.checkout(userId, shipping, couponCode, variantIds);
 
             const withPayment = req.query.withPayment === '1';
             if (!withPayment) {

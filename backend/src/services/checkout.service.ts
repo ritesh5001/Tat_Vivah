@@ -65,6 +65,11 @@ export class CheckoutService {
             shippingNotes?: string;
         },
         couponCode?: string,
+        /**
+         * Buy-now: restrict this checkout to these variants. Omitted means the
+         * whole cart. Anything not selected stays in the cart untouched.
+         */
+        variantIds?: string[],
     ): Promise<CheckoutResponse> {
         // =====================================================================
         // PHASE 1 — Read-only validation (outside transaction)
@@ -89,7 +94,18 @@ export class CheckoutService {
 
         const cartId = cartRows[0]!.cartId;
 
-        if (cartRows.length > MAX_CHECKOUT_ITEMS) {
+        // Narrow to the buy-now selection before any pricing or stock work, so the
+        // rest of the flow is identical whether this is one item or the full cart.
+        const selectedVariantIds = variantIds?.length ? new Set(variantIds) : null;
+        const selectedRows = selectedVariantIds
+            ? cartRows.filter((row) => selectedVariantIds.has(row.variantId))
+            : cartRows;
+
+        if (selectedRows.length === 0) {
+            throw ApiError.badRequest('The selected item is no longer in your cart');
+        }
+
+        if (selectedRows.length > MAX_CHECKOUT_ITEMS) {
             throw ApiError.badRequest(`Cart cannot contain more than ${MAX_CHECKOUT_ITEMS} items per checkout`);
         }
 
@@ -113,7 +129,7 @@ export class CheckoutService {
 
         // Each row already carries its product, variant, stock and seller state from the
         // single JOIN above — no further queries, no lookup maps needed.
-        for (const item of cartRows) {
+        for (const item of selectedRows) {
             const title = item.productTitle ?? 'this item';
 
             if (item.sellerId == null || item.variantStatus == null || item.variantPrice == null) {
@@ -419,10 +435,15 @@ export class CheckoutService {
                 })),
             });
 
-            // 2d. Clear cart. Raw DELETE on purpose: Prisma 4's deleteMany issued two
-            //     SELECTs to collect ids and then deleted by id — three serial
-            //     round-trips inside the transaction to do one thing.
-            await tx.$executeRaw`DELETE FROM "cart_items" WHERE "cart_id" = ${cartId}`;
+            // 2d. Clear the ordered rows. Raw DELETE on purpose: Prisma 4's
+            //     deleteMany issued two SELECTs to collect ids and then deleted by
+            //     id — three serial round-trips inside the transaction to do one
+            //     thing. A buy-now checkout must leave the rest of the cart alone.
+            if (selectedVariantIds) {
+                await tx.$executeRaw`DELETE FROM "cart_items" WHERE "cart_id" = ${cartId} AND "variant_id" = ANY(${Array.from(selectedVariantIds)}::text[])`;
+            } else {
+                await tx.$executeRaw`DELETE FROM "cart_items" WHERE "cart_id" = ${cartId}`;
+            }
 
             // Carry the intra-state flag out instead of re-reading order items later.
             const hasIntraState = discountedLines.some(

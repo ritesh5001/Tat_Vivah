@@ -302,7 +302,17 @@ export default function OrdersScreen() {
     setLoading(!isCacheValid);
     setFetchError(null);
     try {
-      const result = await listBuyerOrders(token);
+      // All three are independent of each other — cancellations and returns are
+      // fetched wholesale and keyed by order id afterwards. Firing them together
+      // rather than after the orders response removes a full round trip from the
+      // time-to-first-render, which on a cold backend was seconds.
+      const ordersPromise = listBuyerOrders(token);
+      const sideDataPromise = Promise.allSettled([
+        listMyCancellations(token),
+        listMyReturns(token),
+      ]);
+
+      const result = await ordersPromise;
       if (!mountedRef.current) return;
       const nextOrders = result.orders ?? [];
       setOrders(nextOrders);
@@ -333,10 +343,8 @@ export default function OrdersScreen() {
         return !cached || now - cached.cachedAt >= PAYMENT_STATUS_CACHE_TTL_MS;
       });
 
-      const [cancellationsRes, returnsRes] = await Promise.allSettled([
-        listMyCancellations(token),
-        listMyReturns(token),
-      ]);
+      const [cancellationsRes, returnsRes] = await sideDataPromise;
+      if (!mountedRef.current) return;
 
       if (cancellationsRes.status === "fulfilled") {
         cancellationMap = (cancellationsRes.value.cancellations ?? []).reduce((acc, item) => {

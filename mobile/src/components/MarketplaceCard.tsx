@@ -19,6 +19,9 @@ interface MarketplaceCardProps {
   product: ProductItem;
   onPress?: (id: string) => void;
   onTryAndBuy?: (productId: string) => void;
+  /** Opens the quick-buy sheet instead of navigating to the product page. */
+  onQuickAdd?: (productId: string) => void;
+  onBuyNow?: (productId: string) => void;
   onRemove?: (id: string) => void;
   removing?: boolean;
   style?: StyleProp<ViewStyle>;
@@ -43,6 +46,8 @@ function MarketplaceCardComponent({
   product,
   onPress,
   onTryAndBuy,
+  onQuickAdd,
+  onBuyNow,
   onRemove,
   removing = false,
   style,
@@ -186,10 +191,29 @@ function MarketplaceCardComponent({
           <Text style={styles.priceUnavailable}>Price on request</Text>
         )}
 
-        <Pressable style={styles.ctaButton} onPress={handlePress}>
-          <Ionicons name="bag-handle-outline" size={13} color="#FFFFFF" />
-          <Text style={styles.ctaButtonText}>ADD TO BAG</Text>
-        </Pressable>
+        <View style={styles.ctaRow}>
+          <Pressable
+            style={styles.ctaButton}
+            onPress={(event) => {
+              event.stopPropagation();
+              if (onQuickAdd) onQuickAdd(product.id);
+              else handlePress();
+            }}
+          >
+            <Ionicons name="bag-handle-outline" size={13} color="#FFFFFF" />
+            <Text style={styles.ctaButtonText}>ADD</Text>
+          </Pressable>
+          <Pressable
+            style={styles.buyNowButton}
+            onPress={(event) => {
+              event.stopPropagation();
+              if (onBuyNow) onBuyNow(product.id);
+              else handlePress();
+            }}
+          >
+            <Text style={styles.buyNowButtonText}>BUY NOW</Text>
+          </Pressable>
+        </View>
       </View>
     </Pressable>
   );
@@ -361,8 +385,28 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.brownSoft,
   },
-  ctaButton: {
+  ctaRow: {
+    flexDirection: "row",
+    gap: 6,
     marginTop: spacing.sm + 2,
+  },
+  buyNowButton: {
+    flex: 1,
+    height: 34,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: colors.charcoal,
+    backgroundColor: colors.background,
+  },
+  buyNowButtonText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 11,
+    letterSpacing: 0.8,
+    color: colors.charcoal,
+  },
+  ctaButton: {
+    flex: 1,
     height: 34,
     backgroundColor: "#1A1410",
     flexDirection: "row",

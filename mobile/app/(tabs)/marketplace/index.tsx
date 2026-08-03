@@ -22,6 +22,7 @@ import {
 import { AudienceTabs, type Audience } from "../../../src/components/AudienceTabs";
 import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
 import { MarketplaceCard } from "../../../src/components/MarketplaceCard";
+import { QuickBuySheet, type QuickBuyIntent } from "../../../src/components/QuickBuySheet";
 import {
   AppText as Text,
   ScreenContainer as SafeAreaView,
@@ -315,16 +316,32 @@ export default function CategoriesScreen() {
     [selectedCategoryId, handleCategorySelect]
   );
 
+  // Quick buy: open a size sheet over the list instead of pushing the product page.
+  const [quickBuyId, setQuickBuyId] = React.useState<string | null>(null);
+  const [quickBuyIntent, setQuickBuyIntent] = React.useState<QuickBuyIntent>("cart");
+
+  const openQuickAdd = React.useCallback((productId: string) => {
+    setQuickBuyIntent("cart");
+    setQuickBuyId(productId);
+  }, []);
+
+  const openBuyNow = React.useCallback((productId: string) => {
+    setQuickBuyIntent("buy");
+    setQuickBuyId(productId);
+  }, []);
+
   const renderProductCard = React.useCallback(
     ({ item }: { item: ProductItem }) => (
       <MarketplaceCard
         product={item}
         onPress={() => handleProductPress(item)}
         onTryAndBuy={handleTryAndBuy}
+        onQuickAdd={openQuickAdd}
+        onBuyNow={openBuyNow}
         style={{ width: cardWidth }}
       />
     ),
-    [cardWidth, handleProductPress, handleTryAndBuy]
+    [cardWidth, handleProductPress, handleTryAndBuy, openQuickAdd, openBuyNow]
   );
 
   return (
@@ -466,6 +483,12 @@ export default function CategoriesScreen() {
           <View style={{ height: spacing.xl }} />
         </ScrollView>
       </View>
+      <QuickBuySheet
+        productId={quickBuyId}
+        intent={quickBuyIntent}
+        visible={Boolean(quickBuyId)}
+        onClose={() => setQuickBuyId(null)}
+      />
     </SafeAreaView>
   );
 }

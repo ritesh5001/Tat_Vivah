@@ -35,6 +35,7 @@ import {
 } from "../../../src/services/bestsellers";
 import { getProducts, type ProductItem } from "../../../src/services/products";
 import { MarketplaceCard } from "../../../src/components/MarketplaceCard";
+import { QuickBuySheet, type QuickBuyIntent } from "../../../src/components/QuickBuySheet";
 import { AudienceTabs, type Audience } from "../../../src/components/AudienceTabs";
 
 const MOST_LOVED_PAGE_SIZE = 8;
@@ -313,7 +314,9 @@ export default function HomeScreen() {
   const topCategoryCardWidth = Math.floor(
     (gridPageWidth - topCategoryGap * 3 - topCategoryCardBorder * 8) / 4
   );
-  const topCategoryImageHeight = Math.round(topCategoryCardWidth * 0.88);
+  // 4:3 portrait (height = width × 4/3). The previous 0.88 was near-square, which
+  // cropped the model's outfit — the thing the category is meant to show.
+  const topCategoryImageHeight = Math.round((topCategoryCardWidth * 4) / 3);
   const topCategoryLabelHeight = Math.round(topCategoryCardWidth * 0.32);
   const topCategoryCardHeight = topCategoryImageHeight + topCategoryLabelHeight;
   const categoryCardGap = spacing.md;
@@ -737,16 +740,32 @@ export default function HomeScreen() {
     [categoryCardHeight, categoryCardWidth, navigateTo]
   );
 
+  // Quick buy: open a size sheet over the list instead of pushing the product page.
+  const [quickBuyId, setQuickBuyId] = React.useState<string | null>(null);
+  const [quickBuyIntent, setQuickBuyIntent] = React.useState<QuickBuyIntent>("cart");
+
+  const openQuickAdd = React.useCallback((productId: string) => {
+    setQuickBuyIntent("cart");
+    setQuickBuyId(productId);
+  }, []);
+
+  const openBuyNow = React.useCallback((productId: string) => {
+    setQuickBuyIntent("buy");
+    setQuickBuyId(productId);
+  }, []);
+
   const renderLargeProductCard = React.useCallback(
     ({ item }: ListRenderItemInfo<HomeProductCard>) => (
       <MarketplaceCard
         product={item.product}
         onPress={openProduct}
         onTryAndBuy={handleTryAndBuy}
+        onQuickAdd={openQuickAdd}
+        onBuyNow={openBuyNow}
         style={{ width: mostLovedCardWidth }}
       />
     ),
-    [mostLovedCardWidth, openProduct, handleTryAndBuy]
+    [mostLovedCardWidth, openProduct, handleTryAndBuy, openQuickAdd, openBuyNow]
   );
 
   const renderBestsellerCard = React.useCallback(
@@ -755,10 +774,12 @@ export default function HomeScreen() {
         product={item.product}
         onPress={openProduct}
         onTryAndBuy={handleTryAndBuy}
+        onQuickAdd={openQuickAdd}
+        onBuyNow={openBuyNow}
         style={{ width: bestsellerCardWidth }}
       />
     ),
-    [bestsellerCardWidth, openProduct, handleTryAndBuy]
+    [bestsellerCardWidth, openProduct, handleTryAndBuy, openQuickAdd, openBuyNow]
   );
 
   const testimonials = React.useMemo(
@@ -1267,6 +1288,12 @@ export default function HomeScreen() {
       <ScrollToTopFab
         visible={showScrollTop}
         onPress={handleScrollToTop}
+      />
+      <QuickBuySheet
+        productId={quickBuyId}
+        intent={quickBuyIntent}
+        visible={Boolean(quickBuyId)}
+        onClose={() => setQuickBuyId(null)}
       />
     </SafeAreaView>
   );

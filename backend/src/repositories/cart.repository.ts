@@ -181,7 +181,9 @@ export class CartRepository {
         const [products, variants] = await Promise.all([
             prisma.product.findMany({
                 where: { id: { in: productIds } },
-                select: { id: true, title: true, sellerId: true },
+                // images/audience so the cart can render a real thumbnail rather
+                // than a title and a quantity stepper.
+                select: { id: true, title: true, sellerId: true, images: true },
             }),
             prisma.productVariant.findMany({
                 where: { id: { in: variantIds } },
@@ -189,6 +191,9 @@ export class CartRepository {
                     id: true,
                     size: true,
                     sku: true,
+                    color: true,
+                    colorHex: true,
+                    images: true,
                     price: true,
                     compareAtPrice: true,
                     inventory: { select: { stock: true } },

@@ -9,7 +9,7 @@ import {
   FlatList,
   Linking,
 } from "react-native";
-import { usePathname, useRouter } from "expo-router";
+import { useLocalSearchParams, usePathname, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, radius, spacing, typography, shadow } from "../../src/theme/tokens";
 import { FieldLabel } from "../../src/components/FieldLabel";
@@ -130,12 +130,29 @@ async function waitForPhonePeResult(
 export default function CheckoutScreen() {
   const router = useRouter();
   const pathname = usePathname();
+  const routeParams = useLocalSearchParams<{ buyNowVariantId?: string }>();
   const insets = useSafeAreaInsets();
   const { session, isLoading: authLoading } = useAuth();
   const token = session?.accessToken ?? null;
   const { isConnected } = useNetworkStatus();
-  const { clearCart, refreshCart, cartItems } = useCart();
+  const { clearCart, refreshCart, cartItems: allCartItems } = useCart();
   const { addresses, defaultAddress } = useAddresses();
+  // Buy-now scopes this checkout to a single variant; the rest of the cart is
+  // left untouched and is still there afterwards.
+  const buyNowVariantId =
+    typeof routeParams.buyNowVariantId === "string" && routeParams.buyNowVariantId
+      ? routeParams.buyNowVariantId
+      : null;
+
+  // Buy-now shows and charges for just that item. Falls back to the whole cart if
+  // the variant is somehow no longer present, rather than rendering an empty page.
+  const cartItems = React.useMemo(() => {
+    if (!buyNowVariantId) return allCartItems;
+    const scoped = allCartItems.filter(
+      (item) => item.variantId === buyNowVariantId
+    );
+    return scoped.length > 0 ? scoped : allCartItems;
+  }, [allCartItems, buyNowVariantId]);
   const { showToast } = useToast();
 
   // ---------- Payment guard — prevents double-submit ----------
@@ -209,12 +226,14 @@ export default function CheckoutScreen() {
   const [selectedAddressId, setSelectedAddressId] = React.useState<string | null>(null);
   const [showAddressModal, setShowAddressModal] = React.useState(false);
 
-  // Auto-select default address when addresses load
+  // Auto-select a delivery address so a returning shopper never has to pick one.
+  // Falls back to the first saved address: plenty of accounts have addresses but
+  // none flagged default, and those users were being stopped at an empty picker.
   React.useEffect(() => {
-    if (!selectedAddressId && defaultAddress) {
-      setSelectedAddressId(defaultAddress.id);
-    }
-  }, [selectedAddressId, defaultAddress]);
+    if (selectedAddressId) return;
+    const auto = defaultAddress ?? addresses[0];
+    if (auto) setSelectedAddressId(auto.id);
+  }, [selectedAddressId, defaultAddress, addresses]);
 
   const selectedAddress = React.useMemo(
     () => addresses.find((a) => a.id === selectedAddressId) ?? null,
@@ -440,7 +459,12 @@ export default function CheckoutScreen() {
       // 1. Place the order AND start the PhonePe payment in ONE request. Doing
       //    these as two sequential calls meant the buyer waited for two full
       //    round-trips before PhonePe opened.
-      const orderResult = await checkoutWithPayment(shippingPayload, token);
+      const orderResult = await checkoutWithPayment(
+        buyNowVariantId
+          ? { ...shippingPayload, variantIds: [buyNowVariantId] }
+          : shippingPayload,
+        token
+      );
       const orderId = orderResult.order?.id;
       if (!orderId) {
         throw new Error("Order ID missing. Please try again.");
