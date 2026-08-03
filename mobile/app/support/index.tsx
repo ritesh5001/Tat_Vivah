@@ -10,6 +10,8 @@ import {
   ScrollView,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing, typography } from "../../src/theme/tokens";
 import {
   SUPPORT_CATEGORY_LABELS,
@@ -25,6 +27,7 @@ import { Image } from "../../src/components/CompatImage";
 import { useAuth } from "../../src/hooks/useAuth";
 import { useToast } from "../../src/providers/ToastProvider";
 import { AppHeader } from "../../src/components/AppHeader";
+import { getBottomBarTotalHeight } from "../../src/components/GlobalBottomBar";
 import { AppText as Text, ScreenContainer as SafeAreaView } from "../../src/components";
 
 const CATEGORIES = Object.keys(
@@ -45,6 +48,10 @@ export default function SupportInboxScreen() {
   const { session, isLoading: authLoading } = useAuth();
   const token = session?.accessToken ?? null;
   const { showToast } = useToast();
+  const insets = useSafeAreaInsets();
+  // The bar is absolutely positioned over the screen, so nothing below this
+  // offset is reachable — the New request button was sitting underneath it.
+  const bottomBarHeight = getBottomBarTotalHeight(insets.bottom);
 
   const [tickets, setTickets] = React.useState<SupportTicket[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -161,7 +168,10 @@ export default function SupportInboxScreen() {
       <FlatList
         data={tickets}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={tickets.length === 0 ? styles.listEmpty : styles.list}
+        contentContainerStyle={[
+          tickets.length === 0 ? styles.listEmpty : styles.list,
+          { paddingBottom: bottomBarHeight + spacing.xxl },
+        ]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -177,9 +187,22 @@ export default function SupportInboxScreen() {
             <Text style={styles.emptyText}>Loading…</Text>
           ) : (
             <View style={styles.empty}>
+              <Ionicons
+                name="chatbubble-ellipses-outline"
+                size={40}
+                color={colors.brownSoft}
+              />
+              <Text style={styles.emptyTitle}>No conversations yet</Text>
               <Text style={styles.emptyText}>
-                No conversations yet. Raise a request and our team will reply here.
+                Raise a request about an order, a payment or your account and our
+                team will reply right here.
               </Text>
+              <Pressable
+                style={styles.primaryButton}
+                onPress={() => setComposerOpen(true)}
+              >
+                <Text style={styles.primaryButtonText}>Start a support chat</Text>
+              </Pressable>
             </View>
           )
         }
@@ -211,7 +234,11 @@ export default function SupportInboxScreen() {
         )}
       />
 
-      <Pressable style={styles.fab} onPress={() => setComposerOpen(true)}>
+      <Pressable
+        style={[styles.fab, { bottom: bottomBarHeight + spacing.md }]}
+        onPress={() => setComposerOpen(true)}
+      >
+        <Ionicons name="add" size={18} color={colors.warmWhite} />
         <Text style={styles.fabText}>New request</Text>
       </Pressable>
 
@@ -344,8 +371,19 @@ export default function SupportInboxScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   list: { padding: spacing.lg, gap: spacing.md },
-  listEmpty: { flexGrow: 1, justifyContent: "center", padding: spacing.lg },
-  empty: { alignItems: "center", gap: spacing.lg, padding: spacing.lg },
+  listEmpty: { flexGrow: 1, justifyContent: "flex-start", padding: spacing.lg },
+  empty: {
+    alignItems: "center",
+    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xxl,
+  },
+  emptyTitle: {
+    color: colors.foreground,
+    fontFamily: typography.serif,
+    fontSize: 20,
+    textAlign: "center",
+  },
   emptyText: {
     color: colors.brownSoft,
     fontFamily: typography.sans,
@@ -391,7 +429,9 @@ const styles = StyleSheet.create({
   fab: {
     position: "absolute",
     right: spacing.lg,
-    bottom: spacing.xl,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
     backgroundColor: colors.charcoal,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
