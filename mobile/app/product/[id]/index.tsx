@@ -49,6 +49,8 @@ import {
 } from "../../../src/components";
 import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
 import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
+import { MarketplaceCard } from "../../../src/components/MarketplaceCard";
+import { QuickBuySheet, type QuickBuyIntent } from "../../../src/components/QuickBuySheet";
 import { WishlistIcon } from "../../../src/components/WishlistIcon";
 import { TatvivahPromise } from "../../../src/components/TatvivahPromise";
 import { impactMedium, impactLight, notifySuccess } from "../../../src/utils/haptics";
@@ -539,6 +541,23 @@ export default function ProductDetailScreen() {
   // Elapsed seconds shown next to the progress bar. The API gives no percentage,
   // so the bar is a looping sweep and this is the honest signal of progress.
   const [tryOnElapsed, setTryOnElapsed] = React.useState(0);
+  // Related products use the same card and grid as Most Loved on the home page.
+  // The related section sits inside a card with its own horizontal margin,
+  // padding and 1px border. Measuring against the raw window width overflowed the
+  // container and clipped the second column.
+  const relatedCardWidth = Math.floor(
+    (windowWidth - spacing.lg * 2 - spacing.lg * 2 - 2 - spacing.md) / 2
+  );
+  const [quickBuyId, setQuickBuyId] = React.useState<string | null>(null);
+  const [quickBuyIntent, setQuickBuyIntent] = React.useState<QuickBuyIntent>("cart");
+  const openQuickAdd = React.useCallback((id: string) => {
+    setQuickBuyIntent("cart");
+    setQuickBuyId(id);
+  }, []);
+  const openBuyNow = React.useCallback((id: string) => {
+    setQuickBuyIntent("buy");
+    setQuickBuyId(id);
+  }, []);
   const tryOnProgress = useSharedValue(0);
   const tryOnProgressStyle = useAnimatedStyle(() => ({
     // A sweep rather than a percentage: the API reports no real progress, so
@@ -1278,9 +1297,15 @@ export default function ProductDetailScreen() {
 
   const renderRelatedItem = React.useCallback(
     ({ item }: ListRenderItemInfo<ProductSummary>) => (
-      <RelatedProductCard item={item} onPress={handleRelatedPress} />
+      <MarketplaceCard
+        product={item as never}
+        onPress={handleRelatedPress}
+        onQuickAdd={openQuickAdd}
+        onBuyNow={openBuyNow}
+        style={{ width: relatedCardWidth }}
+      />
     ),
-    [handleRelatedPress]
+    [handleRelatedPress, relatedCardWidth, openQuickAdd, openBuyNow]
   );
 
   const handleLoadMoreRelated = React.useCallback(async () => {
@@ -1388,6 +1413,17 @@ export default function ProductDetailScreen() {
         contentContainerStyle={[styles.container, { paddingBottom: stickyReserveSpace }]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
+        scrollEventThrottle={16}
+        onScroll={(event) => {
+          // The related grid no longer scrolls itself, so the page drives paging —
+          // same approach as Most Loved on the home screen.
+          const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+          const distanceFromBottom =
+            contentSize.height - (contentOffset.y + layoutMeasurement.height);
+          if (distanceFromBottom < 900) {
+            void handleLoadMoreRelated();
+          }
+        }}
         showsVerticalScrollIndicator={false}
       >
         {/* ---- Image gallery with paging dots ---- */}
@@ -1927,20 +1963,21 @@ export default function ProductDetailScreen() {
               More {product.category?.name ?? "category"} products coming soon.
             </Text>
           ) : (
-            <FlatList
-              data={relatedProducts}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              keyExtractor={relatedKeyExtractor}
-              renderItem={renderRelatedItem}
-              contentContainerStyle={styles.relatedListContent}
-              initialNumToRender={4}
-              maxToRenderPerBatch={4}
-              windowSize={5}
-              onEndReached={handleLoadMoreRelated}
-              onEndReachedThreshold={0.5}
-              ListFooterComponent={renderRelatedFooter}
-            />
+            <>
+              <FlatList
+                data={relatedProducts}
+                keyExtractor={relatedKeyExtractor}
+                renderItem={renderRelatedItem}
+                numColumns={2}
+                scrollEnabled={false}
+                initialNumToRender={4}
+                maxToRenderPerBatch={4}
+                windowSize={5}
+                contentContainerStyle={styles.relatedGridList}
+                columnWrapperStyle={styles.relatedGridRow}
+              />
+              {renderRelatedFooter()}
+            </>
           )}
         </View>
       </ScrollView>
@@ -2136,6 +2173,12 @@ export default function ProductDetailScreen() {
           </View>
         </View>
       </Modal>
+      <QuickBuySheet
+        productId={quickBuyId}
+        intent={quickBuyIntent}
+        visible={Boolean(quickBuyId)}
+        onClose={() => setQuickBuyId(null)}
+      />
     </SafeAreaView>
   );
 }
@@ -3078,6 +3121,8 @@ const styles = StyleSheet.create({
     borderColor: colors.borderSoft,
     ...shadow.card,
   },
+  relatedGridList: { paddingTop: spacing.sm },
+  relatedGridRow: { gap: spacing.md, marginBottom: spacing.md },
   relatedListContent: {
     marginTop: spacing.md,
     gap: spacing.md,

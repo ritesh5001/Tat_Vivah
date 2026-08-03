@@ -10,6 +10,7 @@ import {
   Linking,
 } from "react-native";
 import { useLocalSearchParams, usePathname, useRouter } from "expo-router";
+import { Image } from "../../src/components/CompatImage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, radius, spacing, typography, shadow } from "../../src/theme/tokens";
 import { FieldLabel } from "../../src/components/FieldLabel";
@@ -808,6 +809,74 @@ export default function CheckoutScreen() {
           ) : null}
         </View>
 
+        {/* ---- Items being ordered ---- */}
+        <View style={[styles.card, { marginTop: spacing.md }]}>
+          <Text style={styles.sectionTitle}>
+            {cartItems.length === 1 ? "1 item" : `${cartItems.length} items`}
+            {buyNowVariantId ? " · Buying now" : ""}
+          </Text>
+          {cartItems.map((item, index) => {
+            const thumbnail =
+              item.variant?.images?.[0] ?? item.product?.images?.[0] ?? null;
+            const compareAt = item.variant?.compareAtPrice;
+            const hasDiscount =
+              typeof compareAt === "number" && compareAt > item.priceSnapshot;
+            return (
+              <View
+                key={item.id}
+                style={[
+                  styles.checkoutItemRow,
+                  index === cartItems.length - 1 && styles.checkoutItemRowLast,
+                ]}
+              >
+                {thumbnail ? (
+                  <Image
+                    source={{ uri: thumbnail }}
+                    style={styles.checkoutItemImage}
+                    contentFit="cover"
+                    width={80}
+                  />
+                ) : (
+                  <View style={[styles.checkoutItemImage, styles.checkoutItemImageFallback]}>
+                    <Text style={styles.checkoutItemFallbackText}>
+                      {(item.product?.title ?? "?").charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                )}
+                <View style={styles.checkoutItemInfo}>
+                  <Text style={styles.checkoutItemTitle} numberOfLines={2}>
+                    {item.product?.title ?? "Item"}
+                  </Text>
+                  <View style={styles.checkoutItemMetaRow}>
+                    {item.variant?.colorHex ? (
+                      <View
+                        style={[
+                          styles.checkoutColorDot,
+                          { backgroundColor: item.variant.colorHex },
+                        ]}
+                      />
+                    ) : null}
+                    <Text style={styles.checkoutItemMeta} numberOfLines={1}>
+                      {item.variant?.color ? `${item.variant.color} · ` : ""}
+                      Size {item.variant?.size ?? "Default"} · Qty {item.quantity}
+                    </Text>
+                  </View>
+                  <View style={styles.checkoutItemPriceRow}>
+                    <Text style={styles.checkoutItemPrice}>
+                      ₹{(item.priceSnapshot * item.quantity).toFixed(0)}
+                    </Text>
+                    {hasDiscount ? (
+                      <Text style={styles.checkoutItemCompareAt}>
+                        ₹{((compareAt as number) * item.quantity).toFixed(0)}
+                      </Text>
+                    ) : null}
+                  </View>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+
         {/* ---- Order Summary ---- */}
         <View style={[styles.card, { marginTop: spacing.md }]}>
           <Text style={styles.sectionTitle}>Order Summary</Text>
@@ -1241,6 +1310,70 @@ const styles = StyleSheet.create({
   },
 
   // Order summary (GST breakdown)
+  checkoutItemRow: {
+    flexDirection: "row",
+    gap: spacing.md,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderSoft,
+  },
+  checkoutItemRowLast: { borderBottomWidth: 0, paddingBottom: 0 },
+  checkoutItemImage: {
+    width: 64,
+    height: 80,
+    backgroundColor: colors.cream,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+  },
+  checkoutItemImageFallback: { alignItems: "center", justifyContent: "center" },
+  checkoutItemFallbackText: {
+    fontFamily: typography.serif,
+    fontSize: 22,
+    color: colors.brownSoft,
+  },
+  checkoutItemInfo: { flex: 1, justifyContent: "center" },
+  checkoutItemTitle: {
+    fontFamily: typography.serif,
+    fontSize: 15,
+    lineHeight: 20,
+    color: colors.charcoal,
+  },
+  checkoutItemMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 4,
+  },
+  checkoutColorDot: {
+    width: 11,
+    height: 11,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+  },
+  checkoutItemMeta: {
+    flex: 1,
+    fontFamily: typography.sans,
+    fontSize: 12,
+    color: colors.brownSoft,
+  },
+  checkoutItemPriceRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    gap: spacing.sm,
+    marginTop: 6,
+  },
+  checkoutItemPrice: {
+    fontFamily: typography.sansMedium,
+    fontSize: 15,
+    color: colors.charcoal,
+  },
+  checkoutItemCompareAt: {
+    fontFamily: typography.sans,
+    fontSize: 12,
+    color: colors.brownSoft,
+    textDecorationLine: "line-through",
+  },
   summaryRow: {
     flexDirection: "row",
     justifyContent: "space-between",
