@@ -5,7 +5,7 @@ export const BLOG_POSTS = [
     description:
       "Discover the most sought-after wedding outfits for Indian grooms this wedding season, from pastel sherwanis to asymmetrical Indo-Westerns.",
     date: "2026-03-12",
-    author: "TatVivah Editorial",
+    author: "Tatvivah Editorial",
     image: "/images/blog/wedding-trends.jpg",
     content: `
       <p>The modern groom is no longer confined to traditional red and gold. In 2026, wedding fashion for men is experiencing a renaissance of pastels, asymmetrical cuts, and sustainable textiles.</p>
@@ -21,7 +21,7 @@ export const BLOG_POSTS = [
     description:
       "The complete guide on choosing the perfect yellow kurta set for your Haldi ceremony without sacrificing comfort.",
     date: "2026-02-28",
-    author: "TatVivah Editors",
+    author: "Tatvivah Editors",
     image: "/images/blog/haldi-kurta.jpg",
     content: `
       <p>The Haldi ceremony is an intimate, energetic, and unavoidably messy affair. Choosing the right outfit balances heritage style with practical comfort.</p>

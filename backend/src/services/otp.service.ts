@@ -88,13 +88,13 @@ export class OtpService {
     private renderOtpEmail(code: string, context: OtpContext): { subject: string; html: string } {
         if (context === 'reset') {
             return {
-                subject: 'Reset your TatVivah password',
+                subject: 'Reset your Tatvivah password',
                 html: renderBrandedEmail({
-                    preheader: 'Your password reset verification code for TatVivah.',
+                    preheader: 'Your password reset verification code for Tatvivah.',
                     eyebrow: 'Password Recovery',
                     title: 'Reset Your Password',
                     message: [
-                        'Use the one-time code below to reset your TatVivah account password.',
+                        'Use the one-time code below to reset your Tatvivah account password.',
                         `This code expires in ${OTP_EXPIRY_MINUTES} minutes and can only be used once.`,
                     ],
                     details: [{ label: 'Reset Code', value: code }],
@@ -105,15 +105,15 @@ export class OtpService {
 
         const isLogin = context === 'login';
         return {
-            subject: isLogin ? 'Your TatVivah login code' : 'Verify your TatVivah account',
+            subject: isLogin ? 'Your Tatvivah login code' : 'Verify your Tatvivah account',
             html: renderBrandedEmail({
-                preheader: isLogin ? 'Your TatVivah login code.' : 'Your TatVivah verification code.',
+                preheader: isLogin ? 'Your Tatvivah login code.' : 'Your Tatvivah verification code.',
                 eyebrow: isLogin ? 'Login OTP' : 'Account Verification',
                 title: isLogin ? 'Complete Your Login' : 'Verify Your Account',
                 message: [
                     isLogin
-                        ? 'Use the one-time code below to sign in to your TatVivah account.'
-                        : 'Use the one-time code below to verify your TatVivah account.',
+                        ? 'Use the one-time code below to sign in to your Tatvivah account.'
+                        : 'Use the one-time code below to verify your Tatvivah account.',
                     `This code is valid for ${OTP_EXPIRY_MINUTES} minutes and can only be used once.`,
                 ],
                 details: [{ label: 'Verification Code', value: code }],

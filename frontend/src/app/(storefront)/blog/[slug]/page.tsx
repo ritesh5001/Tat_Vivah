@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const dynamicKeywords = post.title.toLowerCase().replace(/[^a-z0-9 ]/g, "").split(" ").filter(w => w.length > 3).join(", ");
 
     return {
-        title: `${post.title} | TatVivah Journal`,
+        title: `${post.title} | Tatvivah Journal`,
         description: post.description,
         keywords: `${defaultKeywords}, ${dynamicKeywords}`,
         alternates: { canonical: url },
@@ -70,7 +70,7 @@ export default async function BlogPostPage({ params }: Props) {
         },
         publisher: {
             "@type": "Organization",
-            name: "TatVivah",
+            name: "Tatvivah",
             logo: {
                 "@type": "ImageObject",
                 url: `${SITE_URL}/logo.png`,
@@ -98,7 +98,7 @@ export default async function BlogPostPage({ params }: Props) {
             <header className="border-b border-border-soft bg-cream/30 dark:bg-card/30 pt-32 pb-16 px-6">
                 <div className="mx-auto max-w-3xl text-center">
                     <p className="text-xs font-medium uppercase tracking-[0.2em] text-gold mb-6">
-                        TatVivah Journal • {new Date(post.date).toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                        Tatvivah Journal • {new Date(post.date).toLocaleDateString("en-US", { month: "long", year: "numeric" })}
                     </p>
                     <h1 className="font-serif text-4xl font-light tracking-tight text-foreground sm:text-5xl lg:text-6xl mb-6 leading-tight">
                         {post.title}

@@ -148,7 +148,7 @@ export class PhonePeService {
                 },
                 paymentFlow: {
                     type: 'PG_CHECKOUT',
-                    message: 'TatVivah order payment',
+                    message: 'Tatvivah order payment',
                     merchantUrls: { redirectUrl },
                 },
             });

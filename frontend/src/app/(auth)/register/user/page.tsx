@@ -109,7 +109,7 @@ export default function UserRegisterPage() {
           >
             Start your
             <br />
-            <span className="italic">TatVivah</span> journey today.
+            <span className="italic">Tatvivah</span> journey today.
           </motion.h1>
 
           <motion.p
@@ -152,7 +152,7 @@ export default function UserRegisterPage() {
                 Create your account
               </CardTitle>
               <CardDescription>
-                Fill in the details below to register as a TatVivah user.
+                Fill in the details below to register as a Tatvivah user.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">

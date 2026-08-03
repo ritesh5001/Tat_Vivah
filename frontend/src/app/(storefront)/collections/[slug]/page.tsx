@@ -51,7 +51,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
     if (!category) return {};
 
-    const title = `Buy Premium ${category.name} for Men Online | TatVivah Trends`;
+    const title = `Buy Premium ${category.name} for Men Online | Tatvivah Trends`;
     const description = `Shop the latest collection of designer ${category.name.toLowerCase()} for men. Explore our exclusive ethnic wear range for weddings and festivals. Fast shipping across India.`;
     const canonicalUrl = `${SITE_URL}/collections/${slug}`;
 

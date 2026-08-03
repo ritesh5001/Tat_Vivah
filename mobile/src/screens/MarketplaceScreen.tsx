@@ -132,7 +132,7 @@ export function MarketplaceScreen() {
       removeClippedSubviews
       ListHeaderComponent={
         <View style={styles.header}>
-          <Text style={styles.eyebrow}>TatVivah marketplace</Text>
+          <Text style={styles.eyebrow}>Tatvivah marketplace</Text>
           <Text style={styles.title}>Discover premium curated collections</Text>
           <Text style={styles.copy}>
             Verified sellers, authentic craftsmanship, and trusted checkout in one

@@ -46,7 +46,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
     if (!occasion) return {};
 
-    const title = `${occasion.name} Outfits for Men | Wedding & Ethnic Wear | TatVivah`;
+    const title = `${occasion.name} Outfits for Men | Wedding & Ethnic Wear | Tatvivah`;
     const description = `Shop designer ethnic wear and outfits for ${occasion.name.toLowerCase()} ceremonies. Explore our premium sherwanis, sets, and Indo-Western attire for men.`;
     const canonicalUrl = `${SITE_URL}/occasion/${slug}`;
 

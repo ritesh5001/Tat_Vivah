@@ -153,6 +153,14 @@ export default function SearchScreen() {
   const controllerRef = React.useRef<AbortController | null>(null);
   // Debounce timer
   const debounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  // `search` is read through a ref so that typing does not change loadProducts'
+  // identity. It used to: the "category or sort" effect below depends on
+  // loadProducts, so every keystroke re-ran a full un-debounced search
+  // alongside the debounced one — two requests per character.
+  const searchRef = React.useRef(initialSearch);
+  React.useEffect(() => {
+    searchRef.current = search;
+  }, [search]);
   // Suggestion debounce timer
   const suggestDebounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   // Suggestion abort controller
@@ -221,7 +229,7 @@ export default function SearchScreen() {
         page: nextPage,
         limit: 10,
         categoryId: selectedCategory,
-        search: overrideSearch ?? (search.trim() || undefined),
+        search: overrideSearch ?? (searchRef.current.trim() || undefined),
         sort: sortBy || undefined,
       };
 
@@ -257,7 +265,7 @@ export default function SearchScreen() {
         }
       }
     },
-    [selectedCategory, search, sortBy]
+    [selectedCategory, sortBy]
   );
 
   // Load on category or sort change

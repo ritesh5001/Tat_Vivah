@@ -60,7 +60,7 @@ export async function generateMetadata({
       title,
       description,
       url: `${SITE_URL}/product/${resolvedParams.id}`,
-      siteName: "TatVivah",
+      siteName: "Tatvivah",
       type: "website",
       images: [
         {
@@ -99,7 +99,7 @@ export default async function ProductDetailPage({
         `Buy ${product.title} online in India. Premium ethnic wear for men.`,
       brand: {
         "@type": "Brand",
-        name: product.seller?.shopName ?? "TatVivah",
+        name: product.seller?.shopName ?? "Tatvivah",
       },
       offers: {
         "@type": "Offer",

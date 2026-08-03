@@ -4,9 +4,9 @@ import { portalLinks } from './portal-links.js';
 
 export function sellerApprovedTemplate(data: { sellerEmail?: string }): EmailTemplateResult {
     return {
-        subject: 'Your TatVivah seller account is approved',
+        subject: 'Your Tatvivah seller account is approved',
         html: renderBrandedEmail({
-            preheader: 'Your seller profile is now active on TatVivah.',
+            preheader: 'Your seller profile is now active on Tatvivah.',
             eyebrow: 'Seller Account',
             title: 'Seller Account Approved',
             message: [

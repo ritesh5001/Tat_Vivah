@@ -15,7 +15,7 @@ export function SignInScreen() {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <Text style={styles.eyebrow}>Welcome back</Text>
-        <Text style={styles.title}>Sign in to TatVivah</Text>
+        <Text style={styles.title}>Sign in to Tatvivah</Text>
         <Text style={styles.copy}>
           Access your saved styles, secure checkout, and order updates.
         </Text>
@@ -52,7 +52,7 @@ export function SignInScreen() {
         </View>
 
         <View style={styles.footerRow}>
-          <Text style={styles.footerText}>New to TatVivah?</Text>
+          <Text style={styles.footerText}>New to Tatvivah?</Text>
           <Pressable onPress={() => navigation.navigate("Login")}
             style={styles.footerLinkButton}
           >

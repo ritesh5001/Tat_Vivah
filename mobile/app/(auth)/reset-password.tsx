@@ -174,7 +174,7 @@ export default function ResetPasswordScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <AppHeader title="Reset password" subtitle="TatVivah" showMenu showBack />
+      <AppHeader title="Reset password" subtitle="Tatvivah" showMenu showBack />
       <KeyboardAvoidingView
         style={styles.keyboardWrap}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -186,7 +186,7 @@ export default function ResetPasswordScreen() {
             <Text style={styles.logoLetter}>T</Text>
           </View>
           <View>
-            <Text style={styles.brand}>TatVivah</Text>
+            <Text style={styles.brand}>Tatvivah</Text>
             <Text style={styles.brandTag}>Premium Indian Fashion</Text>
           </View>
         </View>

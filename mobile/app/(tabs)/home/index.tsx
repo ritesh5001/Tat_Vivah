@@ -1157,10 +1157,10 @@ export default function HomeScreen() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.testimonialViewport}
           renderItem={({ item }) => {
-            const quoteText = item.quote?.trim() || "TatVivah delivered premium quality, true-to-photo finish, and a smooth wedding-day experience.";
-            const nameText = item.name?.trim() || "TatVivah Customer";
+            const quoteText = item.quote?.trim() || "Tatvivah delivered premium quality, true-to-photo finish, and a smooth wedding-day experience.";
+            const nameText = item.name?.trim() || "Tatvivah Customer";
             const initialsText = item.initials?.trim() || "TV";
-            const metaText = item.meta?.trim() || "Verified TatVivah Buyer";
+            const metaText = item.meta?.trim() || "Verified Tatvivah Buyer";
 
             return (
               <View style={[styles.testimonialCardLarge, { width: testimonialCardWidth }]}>

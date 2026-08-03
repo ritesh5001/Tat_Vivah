@@ -317,7 +317,7 @@ export function createApp(): Application {
 
     app.get('/', (_req, res) => {
         res.json({
-            message: 'Welcome to TatVivah API',
+            message: 'Welcome to Tatvivah API',
             version: '1.0.0'
         });
     });

@@ -90,7 +90,7 @@ export default function RegisterScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <AppHeader title="Create account" subtitle="TatVivah" showMenu showBack />
+      <AppHeader title="Create account" subtitle="Tatvivah" showMenu showBack />
       <KeyboardAvoidingView
         style={styles.keyboardWrap}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -101,7 +101,7 @@ export default function RegisterScreen() {
             <Text style={styles.logoLetter}>T</Text>
           </View>
           <View>
-            <Text style={styles.brand}>TatVivah</Text>
+            <Text style={styles.brand}>Tatvivah</Text>
             <Text style={styles.brandTag}>Premium Indian Fashion</Text>
           </View>
         </View>

@@ -16,7 +16,7 @@ export function Header({ onMenuPress, logoSource }: HeaderProps) {
         <Image source={logoSource} style={styles.logoImage} contentFit="contain" />
       </View>
       <View style={styles.brandStack}>
-        <Text style={styles.brand}>TatVivah</Text>
+        <Text style={styles.brand}>Tatvivah</Text>
         <Text style={styles.brandTag}>Premium Indian Fashion</Text>
       </View>
       <Pressable style={styles.menuButton} onPress={onMenuPress}>

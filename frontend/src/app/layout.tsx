@@ -29,8 +29,8 @@ const API_ORIGIN = (() => {
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "TatVivah | Best Ethnic Wear for Men in India | Sherwani, Kurta, Indo Western",
-    template: "%s | TatVivah",
+    default: "Tatvivah | Best Ethnic Wear for Men in India | Sherwani, Kurta, Indo Western",
+    template: "%s | Tatvivah",
   },
   description:
     "Shop the best ethnic wear for men in India. Explore premium sherwani, kurta sets, Indo-Western outfits, wedding wear, festive outfits and groom collections from top designers.",
@@ -45,17 +45,17 @@ export const metadata: Metadata = {
     "wedding sherwani india",
   ],
   openGraph: {
-    title: "TatVivah | Best Ethnic Wear for Men in India | Sherwani, Kurta, Indo Western",
+    title: "Tatvivah | Best Ethnic Wear for Men in India | Sherwani, Kurta, Indo Western",
     description:
       "Shop the best ethnic wear for men in India. Explore premium sherwani, kurta sets, Indo-Western outfits, wedding wear, festive outfits and groom collections from top designers.",
-    siteName: "TatVivah",
+    siteName: "Tatvivah",
     url: SITE_URL,
     images: [
       {
         url: "/logo.png",
         width: 800,
         height: 600,
-        alt: "TatVivah - Best Ethnic Wear for Men in India",
+        alt: "Tatvivah - Best Ethnic Wear for Men in India",
       },
     ],
     locale: "en_IN",
@@ -63,7 +63,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "TatVivah | Best Ethnic Wear for Men in India",
+    title: "Tatvivah | Best Ethnic Wear for Men in India",
     description:
       "Shop premium sherwani, kurta sets, Indo-Western outfits and wedding collections for men from top designers in India.",
     images: ["/logo.png"],
@@ -134,7 +134,7 @@ export default function RootLayout({
             __html: JSON.stringify({
               "@context": "https://schema.org",
               "@type": "WebSite",
-              name: "TatVivah",
+              name: "Tatvivah",
               url: SITE_URL,
               potentialAction: {
                 "@type": "SearchAction",

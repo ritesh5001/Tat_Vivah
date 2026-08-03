@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   title:
     "Best Ethnic Wear for Men in India | Sherwani, Kurta & Wedding Outfits",
   description:
-    "Discover the best ethnic wear for men in India at TatVivah. Shop premium sherwani, kurta sets, Indo-Western outfits and wedding collections perfect for mehendi, sangeet, reception and festive occasions.",
+    "Discover the best ethnic wear for men in India at Tatvivah. Shop premium sherwani, kurta sets, Indo-Western outfits and wedding collections perfect for mehendi, sangeet, reception and festive occasions.",
   keywords: [
     "best ethnic wear india",
     "wedding kurta india",
@@ -34,24 +34,24 @@ export const metadata: Metadata = {
     canonical: SITE_URL,
   },
   openGraph: {
-    title: "Best Ethnic Wear for Men in India | Sherwani, Kurta & Wedding Outfits | TatVivah",
+    title: "Best Ethnic Wear for Men in India | Sherwani, Kurta & Wedding Outfits | Tatvivah",
     description:
-      "Discover the best ethnic wear for men in India at TatVivah. Shop premium sherwani, kurta sets, Indo-Western outfits and wedding collections.",
+      "Discover the best ethnic wear for men in India at Tatvivah. Shop premium sherwani, kurta sets, Indo-Western outfits and wedding collections.",
     url: SITE_URL,
-    siteName: "TatVivah",
+    siteName: "Tatvivah",
     type: "website",
     images: [
       {
         url: "/logo.png",
-        alt: "TatVivah - Best Ethnic Wear for Men in India",
+        alt: "Tatvivah - Best Ethnic Wear for Men in India",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Best Ethnic Wear for Men in India | TatVivah",
+    title: "Best Ethnic Wear for Men in India | Tatvivah",
     description:
-      "Shop premium sherwani, kurta sets, Indo-Western outfits and wedding collections at TatVivah.",
+      "Shop premium sherwani, kurta sets, Indo-Western outfits and wedding collections at Tatvivah.",
     images: ["/logo.png"],
   },
 };
@@ -60,7 +60,7 @@ export const metadata: Metadata = {
 const organizationJsonLd = {
   "@context": "https://schema.org",
   "@type": "Organization",
-  name: "TatVivah",
+  name: "Tatvivah",
   url: SITE_URL,
   logo: `${SITE_URL}/logo.png`,
   sameAs: [
@@ -79,7 +79,7 @@ const faqJsonLd = {
       name: "What is best ethnic wear in India?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "The best ethnic wear for men in India includes designer Sherwanis, intricate Kurta Sets, and modern Indo-Western outfits. TatVivah curates premium traditional menswear crafted by master artisans for unparalleled quality."
+        text: "The best ethnic wear for men in India includes designer Sherwanis, intricate Kurta Sets, and modern Indo-Western outfits. Tatvivah curates premium traditional menswear crafted by master artisans for unparalleled quality."
       }
     },
     {
@@ -87,7 +87,7 @@ const faqJsonLd = {
       name: "Where to buy sherwani online?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "You can buy high-quality, authentic sherwanis online at TatVivah. We offer a curated marketplace featuring exclusive designs, luxury fabrics, and secure shipping across India."
+        text: "You can buy high-quality, authentic sherwanis online at Tatvivah. We offer a curated marketplace featuring exclusive designs, luxury fabrics, and secure shipping across India."
       }
     },
     {
@@ -103,7 +103,7 @@ const faqJsonLd = {
       name: "Affordable wedding outfits India?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "TatVivah provides a range of luxury wedding outfits that balance authentic craftsmanship with accessible pricing. Explore our collections for both grand sherwanis and affordable yet elegant Indo-Western fusion wear."
+        text: "Tatvivah provides a range of luxury wedding outfits that balance authentic craftsmanship with accessible pricing. Explore our collections for both grand sherwanis and affordable yet elegant Indo-Western fusion wear."
       }
     }
   ]

@@ -1,5 +1,5 @@
 /**
- * TatVivah Premium Motion Configuration
+ * Tatvivah Premium Motion Configuration
  * 
  * Centralized animation settings for a luxury, fabric-like motion experience.
  * All animations are slow, intentional, and subtle.

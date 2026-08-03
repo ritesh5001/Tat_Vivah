@@ -19,7 +19,7 @@ export default function App() {
     return (
       <AppProviders>
         <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading TatVivah...</Text>
+          <Text style={styles.loadingText}>Loading Tatvivah...</Text>
         </View>
       </AppProviders>
     );

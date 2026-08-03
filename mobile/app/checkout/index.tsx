@@ -32,7 +32,12 @@ import {
   AppText as Text,
   ScreenContainer as SafeAreaView,
 } from "../../src/components";
-import { getShippingConfig, getGstConfig } from "../../src/services/shipping";
+import {
+  getShippingConfig,
+  getGstConfig,
+  getCachedShippingConfig,
+  getCachedGstConfig,
+} from "../../src/services/shipping";
 
 // ---------------------------------------------------------------------------
 // Address selector row — memoized for FlatList
@@ -161,6 +166,14 @@ export default function CheckoutScreen() {
 
   React.useEffect(() => {
     const controller = new AbortController();
+    // Paint from the last known values so the total is right on first frame,
+    // then reconcile with the network.
+    void getCachedShippingConfig().then((cached) => {
+      if (cached && mountedRef.current) setShippingConfig(cached);
+    });
+    void getCachedGstConfig().then((cached) => {
+      if (cached && mountedRef.current) setGstConfig(cached);
+    });
     getShippingConfig(controller.signal)
       .then((config) => {
         if (mountedRef.current) setShippingConfig(config);

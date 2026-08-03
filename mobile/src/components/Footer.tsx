@@ -137,7 +137,7 @@ export function Footer() {
       </View>
 
       <View style={styles.contactBlock}>
-        <Text style={styles.contactBrand}>TatVivah Trends</Text>
+        <Text style={styles.contactBrand}>Tatvivah Trends</Text>
         <Text style={styles.contactPrimary}>{companyInfo.supportPhoneDisplay}</Text>
         <Text style={styles.contactValue}>Support: {companyInfo.supportEmail}</Text>
         <Text style={styles.contactValue}>Onboarding: {companyInfo.onboardingEmail}</Text>

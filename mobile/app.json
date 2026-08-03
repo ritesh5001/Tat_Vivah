@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "TatVivah",
+    "name": "Tatvivah",
     "slug": "tatvivah",
     "version": "3.2",
     "orientation": "portrait",
@@ -11,8 +11,8 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSSpeechRecognitionUsageDescription": "Allow TatVivah to convert your speech into search text.",
-        "NSMicrophoneUsageDescription": "Allow TatVivah to use your microphone for voice search."
+        "NSSpeechRecognitionUsageDescription": "Allow Tatvivah to convert your speech into search text.",
+        "NSMicrophoneUsageDescription": "Allow Tatvivah to use your microphone for voice search."
       },
       "bundleIdentifier": "com.zaheen.iqbal.mobile"
     },
@@ -56,16 +56,16 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow TatVivah to select a photo for virtual try-on and product reviews.",
-          "cameraPermission": "Allow TatVivah to take a photo for virtual try-on.",
-          "microphonePermission": "Allow TatVivah to record audio when capturing media."
+          "photosPermission": "Allow Tatvivah to select a photo for virtual try-on and product reviews.",
+          "cameraPermission": "Allow Tatvivah to take a photo for virtual try-on.",
+          "microphonePermission": "Allow Tatvivah to record audio when capturing media."
         }
       ],
       [
         "expo-speech-recognition",
         {
-          "microphonePermission": "Allow TatVivah to use your microphone for voice search.",
-          "speechRecognitionPermission": "Allow TatVivah to convert your speech into search text.",
+          "microphonePermission": "Allow Tatvivah to use your microphone for voice search.",
+          "speechRecognitionPermission": "Allow Tatvivah to convert your speech into search text.",
           "androidSpeechServicePackages": [
             "com.google.android.googlequicksearchbox"
           ]

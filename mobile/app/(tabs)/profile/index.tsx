@@ -20,10 +20,10 @@ export default function ProfileScreen() {
   const { session, signOut, isLoading } = useAuth();
   const user = session?.user;
   const displayName = React.useMemo(() => {
-    if (!user) return "TatVivah User";
+    if (!user) return "Tatvivah User";
     if (user.fullName?.trim()) return user.fullName.trim();
     if (user.email) return user.email.split("@")[0];
-    return "TatVivah User";
+    return "Tatvivah User";
   }, [user]);
 
   const [showLogoutModal, setShowLogoutModal] = React.useState(false);

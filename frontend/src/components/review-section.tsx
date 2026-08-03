@@ -41,7 +41,7 @@ export function ReviewSection() {
                     Real Stories
                 </span>
                 <h3 className="font-serif text-3xl font-light text-foreground sm:text-4xl">
-                    People who love TatVivah
+                    People who love Tatvivah
                 </h3>
             </div>
 

@@ -394,7 +394,7 @@ export default function CategoriesScreen() {
           {/* Featured Section — only on All Categories */}
           {!selectedCategoryId ? (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Featured On TatVivah</Text>
+              <Text style={styles.sectionTitle}>Featured On Tatvivah</Text>
               {featuredLoading ? (
                 <View style={styles.loadingWrap}>
                   <TatvivahLoader size="sm" color={colors.gold} />

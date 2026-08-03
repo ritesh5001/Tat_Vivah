@@ -1,4 +1,4 @@
-# TatVivah Backend
+# Tatvivah Backend
 
 Multi-vendor e-commerce backend built with Express, Prisma, and PostgreSQL.
 

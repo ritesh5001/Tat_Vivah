@@ -178,7 +178,7 @@ export default function VendorsPage() {
               Trusted by Discerning Buyers Across India
             </p>
             <p className="text-sm text-muted-foreground max-w-lg mx-auto">
-              Every artisan on TatVivah is carefully vetted for quality, authenticity,
+              Every artisan on Tatvivah is carefully vetted for quality, authenticity,
               and commitment to heritage craftsmanship.
             </p>
           </div>

@@ -439,7 +439,7 @@ export default function ProductDetailClient({
       typeof window !== "undefined"
         ? window.location.href
         : `https://tatvivahtrends.com/product/${product.id}`;
-    const title = product.title?.trim() || "TatVivah product";
+    const title = product.title?.trim() || "Tatvivah product";
 
     try {
       if (typeof navigator !== "undefined" && navigator.share) {

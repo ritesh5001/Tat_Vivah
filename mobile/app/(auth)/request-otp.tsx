@@ -51,7 +51,7 @@ export default function RequestOtpScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <AppHeader title="Request OTP" subtitle="TatVivah" showMenu showBack />
+      <AppHeader title="Request OTP" subtitle="Tatvivah" showMenu showBack />
       <ScrollView contentContainerStyle={styles.container}>
         {/* Logo row — same as login */}
         <View style={styles.logoRow}>
@@ -59,7 +59,7 @@ export default function RequestOtpScreen() {
             <Text style={styles.logoLetter}>T</Text>
           </View>
           <View>
-            <Text style={styles.brand}>TatVivah</Text>
+            <Text style={styles.brand}>Tatvivah</Text>
             <Text style={styles.brandTag}>Premium Indian Fashion</Text>
           </View>
         </View>

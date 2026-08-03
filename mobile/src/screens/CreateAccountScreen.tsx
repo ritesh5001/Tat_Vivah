@@ -16,7 +16,7 @@ export function CreateAccountScreen() {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <Text style={styles.eyebrow}>Create account</Text>
-        <Text style={styles.title}>Join TatVivah</Text>
+        <Text style={styles.title}>Join Tatvivah</Text>
         <Text style={styles.copy}>
           Unlock curated collections, premium support, and exclusive drops.
         </Text>

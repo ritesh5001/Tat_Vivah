@@ -4,12 +4,12 @@ import { BLOG_POSTS } from "./posts";
 import { SITE_URL } from "@/lib/site-config";
 
 export const metadata: Metadata = {
-    title: "The TatVivah Journal | Traditional Menswear & Wedding Style Blog",
+    title: "The Tatvivah Journal | Traditional Menswear & Wedding Style Blog",
     description: "Read the latest tips, trends, and style guides for men's ethnic wear. From styling a Sherwani to choosing the perfect Kurta for your Mehendi.",
     alternates: { canonical: `${SITE_URL}/blog` },
     keywords: "mens ethnic wear blog, sherwani styling tips, groom wedding outfits, traditional menswear india, fashion guide men",
     openGraph: {
-        title: "The TatVivah Journal | Traditional Menswear & Wedding Style Blog",
+        title: "The Tatvivah Journal | Traditional Menswear & Wedding Style Blog",
         description: "Read the latest tips, trends, and style guides for men's ethnic wear.",
         url: `${SITE_URL}/blog`,
         type: "website",

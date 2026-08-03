@@ -178,7 +178,7 @@ export default function SellerRegisterPage() {
                 className="h-px bg-gold"
               />
               <CardDescription className={theme.cardDescription}>
-                Provide business details to create a seller account on TatVivah.
+                Provide business details to create a seller account on Tatvivah.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">

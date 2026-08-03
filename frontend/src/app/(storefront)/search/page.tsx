@@ -129,7 +129,7 @@ export async function generateMetadata({
   if (!query) {
     return {
       title: "Search Products",
-      description: "Search TatVivah for premium sherwani, kurta and wedding outfits.",
+      description: "Search Tatvivah for premium sherwani, kurta and wedding outfits.",
       alternates: {
         canonical: `${SITE_URL}/search`,
       },
@@ -140,7 +140,7 @@ export async function generateMetadata({
 
   return {
     title: `Search results for "${query}"`,
-    description: `Browse TatVivah search results for ${query}.`,
+    description: `Browse Tatvivah search results for ${query}.`,
     alternates: {
       canonical,
     },

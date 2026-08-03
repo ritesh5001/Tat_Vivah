@@ -26,11 +26,11 @@ export const metadata: Metadata = {
         canonical: `${SITE_URL}/categories`,
     },
     openGraph: {
-        title: "All Categories | Ethnic Wear Collections for Men | TatVivah",
+        title: "All Categories | Ethnic Wear Collections for Men | Tatvivah",
         description:
             "Browse curated ethnic wear categories for men. Shop sherwani, kurta sets, Indo-Western outfits, wedding wear and festive collections.",
         url: `${SITE_URL}/categories`,
-        siteName: "TatVivah",
+        siteName: "Tatvivah",
         type: "website",
     },
 };

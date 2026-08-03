@@ -45,14 +45,14 @@ export function PublicFooter() {
             <Link href="/" prefetch={false} className="inline-block transition-transform duration-300 hover:-translate-y-1">
               <Image
                 src="/logo-old.avif"
-                alt="TatVivah Trends"
+                alt="Tatvivah Trends"
                 width={140}
                 height={56}
                 className="mb-5 h-auto w-32"
               />
             </Link>
             <p className="max-w-xl border-l-[3px] border-gold pl-4 text-[15px] italic leading-7 text-muted-foreground max-sm:border-l-0 max-sm:border-t-2 max-sm:border-gold max-sm:pl-0 max-sm:pt-3">
-              &ldquo;Elegance Woven in Tradition.&rdquo; At TatVivah, we bring curated ethnic wear and handcrafted wedding fashion for modern celebrations rooted in heritage.
+              &ldquo;Elegance Woven in Tradition.&rdquo; At Tatvivah, we bring curated ethnic wear and handcrafted wedding fashion for modern celebrations rooted in heritage.
             </p>
             <div className="mt-5 space-y-1 text-sm text-foreground/90">
               <p><span className="font-semibold">Phone:</span> {SUPPORT_PHONE_DISPLAY}</p>
@@ -114,7 +114,7 @@ export function PublicFooter() {
       <div className="mt-6 bg-charcoal py-5 text-ivory dark:bg-[#0f0d0d]">
         <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-5 px-6 max-sm:flex-col-reverse max-sm:text-center">
           <p className="text-xs tracking-wide text-gold/90">
-            © 2026 TatVivah. Crafted with ♥ by NextGen Fusion.
+            © 2026 Tatvivah. Crafted with ♥ by NextGen Fusion.
           </p>
           <div className="flex items-center gap-3 text-[11px] uppercase tracking-[0.18em] text-gold/90">
             <span>Secure Payments</span>

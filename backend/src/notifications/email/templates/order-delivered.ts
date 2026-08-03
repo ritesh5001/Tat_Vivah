@@ -11,7 +11,7 @@ export function orderDeliveredTemplate(data: { orderId: string }): EmailTemplate
             title: 'Delivered Successfully',
             message: [
                 'Your order has been delivered to the provided shipping address.',
-                'We hope your TatVivah purchase adds elegance to your special occasion.',
+                'We hope your Tatvivah purchase adds elegance to your special occasion.',
             ],
             details: [{ label: 'Order ID', value: data.orderId }],
             ctaLabel: 'View Order',

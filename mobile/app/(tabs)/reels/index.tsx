@@ -178,8 +178,8 @@ export default function ReelsScreen() {
 
   const shareReel = React.useCallback((_item: ReelFeedItem) => {
     Alert.alert(
-      "Download TatVivah app",
-      "Is reel ko open karne ke liye TatVivah app download karein.",
+      "Download Tatvivah app",
+      "Is reel ko open karne ke liye Tatvivah app download karein.",
       [{ text: "OK" }]
     );
   }, []);

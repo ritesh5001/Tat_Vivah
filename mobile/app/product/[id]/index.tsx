@@ -883,7 +883,7 @@ export default function ProductDetailScreen() {
 
   const handleShareProduct = React.useCallback(async () => {
     try {
-      const shareTitle = product?.title?.trim() || "TatVivah product";
+      const shareTitle = product?.title?.trim() || "Tatvivah product";
       const webUrl = `https://tatvivahtrends.com/product/${productId}`;
       const deepLink = `tatvivah://product/${productId}`;
 

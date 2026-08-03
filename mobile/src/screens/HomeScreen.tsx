@@ -7,7 +7,7 @@ export function HomeScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
       <View style={styles.container}>
-        <Text style={[textStyles.sectionTitle, styles.title]}>TatVivah</Text>
+        <Text style={[textStyles.sectionTitle, styles.title]}>Tatvivah</Text>
         <Text style={[textStyles.bodyText, styles.subtitle]}>App is running. Re-enabling sections safely.</Text>
       </View>
     </SafeAreaView>

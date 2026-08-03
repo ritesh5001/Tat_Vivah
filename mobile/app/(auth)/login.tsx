@@ -107,7 +107,7 @@ export default function LoginScreen() {
     <SafeAreaView style={styles.safeArea}>
       <AppHeader title="Sign In" showMenu showBack />
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        <Text style={styles.heading}>Welcome To TatVivah</Text>
+        <Text style={styles.heading}>Welcome To Tatvivah</Text>
         <Text style={styles.subHeading}>{subHeading}</Text>
 
         <View style={styles.formCard}>
@@ -177,7 +177,7 @@ export default function LoginScreen() {
         </View>
 
         <View style={styles.footerRow}>
-          <Text style={styles.footerCopy}>New to TatVivah?</Text>
+          <Text style={styles.footerCopy}>New to Tatvivah?</Text>
           <Pressable onPress={() => router.push("/(auth)/register")}>
             <Text style={styles.footerLink}>Create account</Text>
           </Pressable>

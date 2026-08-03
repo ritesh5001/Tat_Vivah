@@ -103,7 +103,7 @@ export function PublicHeader() {
               <Link href="/" prefetch className="inline-block">
                 <Image
                   src="/logo-old.avif"
-                  alt="TatVivah Trends"
+                  alt="Tatvivah Trends"
                   width={84}
                   height={34}
                   className="h-7 w-auto"
@@ -178,7 +178,7 @@ export function PublicHeader() {
           <Link href="/" prefetch className="shrink-0">
             <Image
               src="/logo-old.avif"
-              alt="TatVivah Trends"
+              alt="Tatvivah Trends"
               width={96}
               height={40}
               className="h-8 w-auto"

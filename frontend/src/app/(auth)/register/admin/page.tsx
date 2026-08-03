@@ -137,7 +137,7 @@ export default function AdminRegisterPage() {
             className={theme.body}
           >
             Set up administrative access with verification steps and enforce
-            governance policies across the TatVivah platform.
+            governance policies across the Tatvivah platform.
           </motion.p>
 
           <motion.div

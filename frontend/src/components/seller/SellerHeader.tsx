@@ -46,7 +46,7 @@ export function SellerHeader() {
         <div className="flex items-center gap-3">
           <div className="h-7 w-1 bg-gold" />
           <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">TatVivah</p>
+            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Tatvivah</p>
             <p className="text-sm font-semibold tracking-[0.08em] text-foreground">Seller Dashboard</p>
           </div>
         </div>

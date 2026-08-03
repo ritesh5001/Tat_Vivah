@@ -31,7 +31,7 @@ const HERO_SLIDES: HeroSlide[] = [
   {
     id: "hero-1",
     image: images.hero.mobile[0],
-    eyebrow: "TatVivah Signature",
+    eyebrow: "Tatvivah Signature",
     title: "Royal Ceremony Collection",
     subtitle: "Crafted fits and premium fabrics that photograph beautifully from every angle.",
   },
@@ -52,7 +52,7 @@ const HERO_SLIDES: HeroSlide[] = [
   {
     id: "hero-4",
     image: images.hero.mobile[3],
-    eyebrow: "TatVivah Exclusive",
+    eyebrow: "Tatvivah Exclusive",
     title: "The Grand Festive Drop",
     subtitle: "Statement looks with comfort-first tailoring so you can celebrate all day with confidence.",
   },

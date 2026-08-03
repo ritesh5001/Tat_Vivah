@@ -165,7 +165,7 @@ export async function generateMetadata({
       title,
       description,
       url: `${SITE_URL}${canonicalPath}`,
-      siteName: "TatVivah",
+      siteName: "Tatvivah",
       type: "website",
       images: [
         {
