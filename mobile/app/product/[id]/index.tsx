@@ -50,6 +50,8 @@ import {
 import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
 import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
 import { MarketplaceCard } from "../../../src/components/MarketplaceCard";
+import { SwipeActionBar } from "../../../src/components/SwipeActionBar";
+import { FlyToCart } from "../../../src/components/FlyToCart";
 import { QuickBuySheet, type QuickBuyIntent } from "../../../src/components/QuickBuySheet";
 import { WishlistIcon } from "../../../src/components/WishlistIcon";
 import { TatvivahPromise } from "../../../src/components/TatvivahPromise";
@@ -485,7 +487,7 @@ function mimeTypeFromAsset(asset: ImagePicker.ImagePickerAsset): string {
 export default function ProductDetailScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
   const productId = typeof params.id === "string" ? params.id : "";
@@ -511,6 +513,10 @@ export default function ProductDetailScreen() {
   const [pendingAction, setPendingAction] = React.useState<"cart" | "buy" | null>(null);
   /** Brief confirmation state on the Add to bag button after a successful write. */
   const [justAdded, setJustAdded] = React.useState(false);
+  // Thumbnail flight from the action bar to the cart icon.
+  const [flyImage, setFlyImage] = React.useState<string | null>(null);
+  const [flyOrigin, setFlyOrigin] = React.useState<{ x: number; y: number } | null>(null);
+  const flightOriginRef = React.useRef<{ x: number; y: number } | null>(null);
   const justAddedTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showViewCart, setShowViewCart] = React.useState(false);
   const viewCartTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -573,6 +579,8 @@ export default function ProductDetailScreen() {
   const galleryWidth = Math.max(windowWidth - spacing.md * 2, 260);
   const galleryHeight = Math.round(galleryWidth * (4 / 3));
   const stickyActionHeight = 96;
+  /** Screen-space top edge of the sticky action bar. */
+  const stickyBarTopY = windowHeight - stickyBottomOffset - stickyActionHeight;
   const stickyReserveSpace = stickyBottomOffset + stickyActionHeight + spacing.xl;
   const viewerWidth = Math.max(windowWidth, VIEWER_MIN_WIDTH);
   const isCompactLayout = windowWidth < 380;
@@ -826,12 +834,17 @@ export default function ProductDetailScreen() {
         ? product.images
         : [];
   }, [product?.images, selectedVariant, variantsForColor]);
-  const images =
-    selectedColorImages.length
-      ? selectedColorImages
-      : product?.images?.length
-        ? product.images
-        : [fallbackImage];
+  // Memoised: it feeds the add-to-cart callbacks, and a fresh array every render
+  // would rebuild them on every render too.
+  const images = React.useMemo(
+    () =>
+      selectedColorImages.length
+        ? selectedColorImages
+        : product?.images?.length
+          ? product.images
+          : [fallbackImage],
+    [selectedColorImages, product?.images]
+  );
   // The server aggregates over every review; the local average only covers the
   // page we fetched, so prefer the summary when it is present.
   const avgRating = reviewSummary?.averageRating ?? computeAvgRating(reviews);
@@ -890,22 +903,50 @@ export default function ProductDetailScreen() {
     justAddedTimerRef.current = setTimeout(() => {
       if (mountedRef.current) setJustAdded(false);
     }, 1800);
-    showToast("Added to cart", "success");
-    setShowViewCart(true);
-    if (viewCartTimerRef.current) clearTimeout(viewCartTimerRef.current);
-    viewCartTimerRef.current = setTimeout(() => {
-      if (mountedRef.current) setShowViewCart(false);
-    }, 6000);
 
+    // Launch the thumbnail from the action bar toward the cart icon. The toast is
+    // deliberately dropped here — the flight already says "it went to the cart",
+    // and two confirmations for one action is noise.
+    setFlyOrigin(
+      flightOriginRef.current ?? {
+        x: windowWidth / 2,
+        y: stickyBarTopY + stickyActionHeight / 2,
+      }
+    );
+    setFlyImage(images[0] ?? fallbackImage);
+
+    // Fire and forget: the write runs alongside the flight rather than after it.
     void addToCart({
       productId: product.id,
       variantId: fallbackVariant.id,
       quantity: 1,
+      preview: {
+        title: product.title,
+        image: images[0] ?? fallbackImage,
+        size: fallbackVariant.size,
+        color: fallbackVariant.color ?? null,
+        colorHex: (fallbackVariant as { colorHex?: string | null }).colorHex ?? null,
+        price: fallbackVariant.price,
+        compareAtPrice: fallbackVariant.compareAtPrice ?? null,
+      },
     }).catch(() => {
       // CartProvider surfaces the error; the store has already rolled back.
       if (mountedRef.current) setJustAdded(false);
     });
-  }, [token, isConnected, product, fallbackVariant, outOfStock, addToCart, router, showToast]);
+  }, [
+    token,
+    isConnected,
+    product,
+    fallbackVariant,
+    selectedVariant,
+    outOfStock,
+    addToCart,
+    router,
+    showToast,
+    images,
+    windowWidth,
+    stickyBarTopY,
+  ]);
 
   const handleBuyNow = React.useCallback(async () => {
     if (!token) {
@@ -944,6 +985,17 @@ export default function ProductDetailScreen() {
       productId: product.id,
       variantId: fallbackVariant.id,
       quantity: 1,
+      // Seeds the optimistic row so checkout shows the real product and total
+      // immediately instead of "Item / Size Default / ₹0".
+      preview: {
+        title: product.title,
+        image: images[0] ?? fallbackImage,
+        size: fallbackVariant.size,
+        color: fallbackVariant.color ?? null,
+        colorHex: (fallbackVariant as { colorHex?: string | null }).colorHex ?? null,
+        price: fallbackVariant.price,
+        compareAtPrice: fallbackVariant.compareAtPrice ?? null,
+      },
     });
     trackPendingCartWrite(cartWrite);
 
@@ -962,7 +1014,18 @@ export default function ProductDetailScreen() {
         setPendingAction(null);
       }
     }
-  }, [token, isConnected, product, fallbackVariant, outOfStock, addToCart, router, showToast]);
+  }, [
+    token,
+    isConnected,
+    product,
+    fallbackVariant,
+    selectedVariant,
+    outOfStock,
+    addToCart,
+    router,
+    showToast,
+    images,
+  ]);
 
   const handleShareProduct = React.useCallback(async () => {
     try {
@@ -2017,58 +2080,25 @@ export default function ProductDetailScreen() {
         ]}
       >
         <View style={styles.actionRow}>
-          <View style={{ flex: 1 }}>
-            <AnimatedPressable
-              style={[
-                styles.ctaButtonBase,
-                styles.addToCartButton,
-                // Stays tappable with nothing selected: that tap opens the picker.
-                ((selectedVariant && outOfStock) || adding) && styles.buttonDisabled,
-              ]}
-              onPress={handleAddToCart}
-              disabled={(selectedVariant && outOfStock) || adding}
-              hitSlop={10}
-            >
-              {pendingAction === "cart" ? (
-                <TatvivahLoader size="sm" color={colors.charcoal} />
-              ) : justAdded ? (
-                <>
-                  <Ionicons name="checkmark-circle" size={16} color="#5A7352" />
-                  <Text style={[styles.ctaButtonText, styles.addedButtonText]}>
-                    Added
-                  </Text>
-                </>
-              ) : (
-                <>
-                  <Ionicons name="bag-handle-outline" size={15} color="#1A1410" />
-                  <Text style={[styles.ctaButtonText, styles.addToCartButtonText]}>
-                    {selectedVariant && outOfStock ? "Out of stock" : "Add to bag"}
-                  </Text>
-                </>
-              )}
-            </AnimatedPressable>
-          </View>
-
-          <View style={{ flex: 1 }}>
-            <AnimatedPressable
-              style={[
-                styles.ctaButtonBase,
-                styles.buyNowButton,
-                ((selectedVariant && outOfStock) || adding) && styles.buttonDisabled,
-              ]}
-              onPress={handleBuyNow}
-              disabled={(selectedVariant && outOfStock) || adding}
-            >
-              {pendingAction === "buy" ? (
-                <TatvivahLoader size="sm" color="#FFFFFF" />
-              ) : (
-                <>
-                  <Ionicons name="flash-outline" size={15} color="#FFFFFF" />
-                  <Text style={styles.ctaButtonText}>Buy now</Text>
-                </>
-              )}
-            </AnimatedPressable>
-          </View>
+          {/* One handle, flicked toward the action you want. Both ends stay
+              readable so the gesture is discoverable rather than hidden. */}
+          <SwipeActionBar
+            leftLabel={
+              justAdded ? "Added \u2713" : selectedVariant && outOfStock ? "Out of stock" : "Add to Bag"
+            }
+            rightLabel="Buy Now"
+            onSwipeLeft={(origin) => {
+              // The bar reports a position within itself; lift it into screen
+              // space so the flight starts exactly where the icon detached.
+              flightOriginRef.current = {
+                x: origin.x + spacing.md,
+                y: stickyBarTopY + origin.y,
+              };
+              handleAddToCart();
+            }}
+            onSwipeRight={() => handleBuyNow()}
+            disabled={Boolean(selectedVariant && outOfStock) || adding}
+          />
         </View>
       </View>
 
@@ -2198,6 +2228,18 @@ export default function ProductDetailScreen() {
         intent={quickBuyIntent}
         visible={Boolean(quickBuyId)}
         onClose={() => setQuickBuyId(null)}
+      />
+      <FlyToCart
+        imageUri={flyImage}
+        origin={flyOrigin}
+        onDone={() => {
+          setFlyImage(null);
+          setFlyOrigin(null);
+          // Straight through. The row is already seeded from `preview`, so the
+          // cart renders correctly whether or not the write has landed — waiting
+          // on the network here only ever adds dead time.
+          if (mountedRef.current) router.push("/cart");
+        }}
       />
     </SafeAreaView>
   );
@@ -2847,48 +2889,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     width: "100%",
   },
-  ctaButtonBase: {
-    flex: 1,
-    minHeight: 50,
-    marginTop: 0,
-    paddingVertical: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    borderRadius: 0,
-  },
-  addToCartButton: {
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1.5,
-    borderColor: "#1A1410",
-  },
-  addToCartButtonText: {
-    color: "#1A1410",
-    fontWeight: "700",
-  },
   primaryButtonText: {
     fontFamily: typography.sansMedium,
     fontSize: 12,
     letterSpacing: 1.2,
     textTransform: "uppercase",
     color: colors.background,
-  },
-  ctaButtonText: {
-    fontFamily: typography.sansMedium,
-    fontSize: 12,
-    letterSpacing: 1.2,
-    textTransform: "uppercase",
-    color: "#FFFFFF",
-    fontWeight: "700",
-  },
-  addedButtonText: {
-    color: "#5A7352",
-  },
-  buyNowButton: {
-    backgroundColor: "#1A1410",
-    borderWidth: 1.5,
-    borderColor: "#1A1410",
   },
   secondaryButton: {
     marginTop: spacing.md,

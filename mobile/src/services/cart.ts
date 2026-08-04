@@ -55,6 +55,21 @@ export interface AddCartItemPayload {
   productId: string;
   variantId: string;
   quantity: number;
+  /**
+   * What the caller already knows about the item, used to render a complete
+   * optimistic row. Without it the cart briefly shows "Item / Size Default / ₹0"
+   * with a placeholder thumbnail. Never sent to the server — the server is still
+   * the source of truth for price.
+   */
+  preview?: {
+    title?: string;
+    image?: string | null;
+    size?: string;
+    color?: string | null;
+    colorHex?: string | null;
+    price?: number;
+    compareAtPrice?: number | null;
+  };
 }
 
 export async function getCart(token?: string | null): Promise<CartResponse> {
@@ -69,10 +84,12 @@ export async function addCartItem(
   payload: AddCartItemPayload,
   token?: string | null
 ): Promise<CartItemMutationResponse> {
+  // `preview` is client-only display data; the server would reject the extra key.
+  const { preview: _preview, ...body } = payload;
   return apiRequest<CartItemMutationResponse>({
     url: "/v1/cart/items",
     method: "POST",
-    data: payload,
+    data: body,
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
 }

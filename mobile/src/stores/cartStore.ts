@@ -130,7 +130,30 @@ export const useCartStore = create<CartState>((set, get) => ({
               productId: payload.productId,
               variantId: payload.variantId,
               quantity: payload.quantity,
-              priceSnapshot: 0,
+              // Seeded from what the caller already had on screen, so the row is
+              // complete from the first frame instead of "Item / ₹0".
+              priceSnapshot: payload.preview?.price ?? 0,
+              product: payload.preview
+                ? {
+                    id: payload.productId,
+                    title: payload.preview.title ?? "Item",
+                    sellerId: "",
+                    images: payload.preview.image ? [payload.preview.image] : [],
+                  }
+                : undefined,
+              variant: payload.preview
+                ? {
+                    id: payload.variantId,
+                    size: payload.preview.size ?? "Default",
+                    sku: "",
+                    color: payload.preview.color ?? null,
+                    colorHex: payload.preview.colorHex ?? null,
+                    images: payload.preview.image ? [payload.preview.image] : [],
+                    price: payload.preview.price ?? 0,
+                    compareAtPrice: payload.preview.compareAtPrice ?? null,
+                    inventory: null,
+                  }
+                : undefined,
             },
             ...state.cartItems,
           ],

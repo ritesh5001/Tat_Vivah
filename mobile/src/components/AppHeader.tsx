@@ -6,6 +6,9 @@ import { colors, spacing, typography } from "../theme/tokens";
 import { images } from "../data/images";
 import { MenuSheet } from "./MenuSheet";
 import { Image } from "./CompatImage";
+import Animated from "react-native-reanimated";
+import { useCart } from "../providers/CartProvider";
+import { useCartArrivalPulse } from "./FlyToCart";
 
 interface AppHeaderProps {
   variant?: "main" | "sub";
@@ -34,6 +37,17 @@ export function AppHeader({
   const router = useRouter();
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = React.useState(false);
+
+  // Pulse the cart icon whenever the count rises, wherever the add came from —
+  // this is the landing beat for the thumbnail that flies up from the product
+  // page, and a standalone confirmation everywhere else.
+  const { cartCount } = useCart();
+  const { pulse, style: cartPulseStyle } = useCartArrivalPulse();
+  const previousCountRef = React.useRef(cartCount);
+  React.useEffect(() => {
+    if (cartCount > previousCountRef.current) pulse();
+    previousCountRef.current = cartCount;
+  }, [cartCount, pulse]);
 
   const isMainHeader = variant === "main";
   const shouldShowBack = isMainHeader ? false : (showBack ?? pathname !== "/home");
@@ -125,7 +139,9 @@ export function AppHeader({
               style={[styles.iconButton, isMainHeader && styles.mainHeaderIconButton]}
               onPress={() => router.push("/cart")}
             >
-              <Ionicons name="bag-handle-outline" size={19} color={colors.charcoal} />
+              <Animated.View style={cartPulseStyle}>
+                <Ionicons name="bag-handle-outline" size={19} color={colors.charcoal} />
+              </Animated.View>
             </Pressable>
           ) : null}
           {shouldShowMenu && !isMainHeader ? (

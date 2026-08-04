@@ -128,6 +128,14 @@ export default function CartScreen() {
   const gst = cartItems.length && gstConfig.enabled ? gstConfig.amount : 0;
   const total = subtotal + shipping + gst;
 
+  // The store prepends new items, so index 0 is the one that just arrived. The
+  // gold wash fades out on its own — a marker, not a permanent state.
+  const [isFreshArrival, setIsFreshArrival] = React.useState(true);
+  React.useEffect(() => {
+    const timer = setTimeout(() => setIsFreshArrival(false), 1400);
+    return () => clearTimeout(timer);
+  }, []);
+
   const renderItem = React.useCallback(
     ({ item, index }: { item: CartItemDetails; index: number }) => {
       const locked = mutatingIds.has(item.id);
@@ -142,7 +150,7 @@ export default function CartScreen() {
 
       return (
         <MotionView preset="slideUp" delay={Math.min(index * 24, 180)}>
-          <View style={styles.itemCard}>
+          <View style={[styles.itemCard, index === 0 && isFreshArrival && styles.itemCardArrived]}>
             <View style={styles.itemRow}>
               {thumbnail ? (
                 <Image
@@ -235,7 +243,7 @@ export default function CartScreen() {
         </MotionView>
       );
     },
-    [mutatingIds, handleQty, handleRemove]
+    [mutatingIds, handleQty, handleRemove, isFreshArrival]
   );
 
   const keyExtractor = React.useCallback(
@@ -409,6 +417,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
     paddingBottom: spacing.md,
+  },
+  /** Fades away via isFreshArrival; marks the row that just flew in. */
+  itemCardArrived: {
+    borderColor: colors.gold,
+    backgroundColor: colors.cream,
   },
   itemCard: {
     marginBottom: spacing.md,

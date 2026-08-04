@@ -141,6 +141,17 @@ export function QuickBuySheet({
       productId,
       variantId: selectedVariant.id,
       quantity: 1,
+      // Everything the sheet already has on screen, so the cart or checkout it
+      // routes to renders the real row rather than a ₹0 placeholder.
+      preview: {
+        title: product?.title,
+        image: heroImage,
+        size: selectedVariant.size,
+        color: selectedVariant.color ?? null,
+        colorHex: (selectedVariant as { colorHex?: string | null }).colorHex ?? null,
+        price: selectedVariant.price,
+        compareAtPrice: selectedVariant.compareAtPrice ?? null,
+      },
     }).catch((error) => {
       showToast(
         error instanceof Error ? error.message : "Could not add to bag",
