@@ -23,7 +23,10 @@ function round2(n: number): number {
     return Math.round(n * 100) / 100;
 }
 
-const CACHE_TTL = 300; // 5 minutes
+// 20 minutes. Seller analytics is a reporting surface, not a live dashboard —
+// a five-minute window meant almost every visit re-ran five aggregate queries
+// against a cold database. Invalidated explicitly on order/settlement writes.
+const CACHE_TTL = 1200;
 
 function dateCacheSegment(d?: Date): string {
     return d ? d.toISOString() : '_';

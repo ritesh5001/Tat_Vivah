@@ -45,6 +45,20 @@ const getStatusBadge = (status: string) => {
 export default function SellerReelsPage() {
   const [reels, setReels] = React.useState<Reel[]>([]);
   const [products, setProducts] = React.useState<SellerProduct[]>([]);
+  const productsRequestedRef = React.useRef(false);
+
+  /** Fetches the tag-a-product options the first time a modal needs them. */
+  const ensureProducts = React.useCallback(async () => {
+    if (productsRequestedRef.current) return;
+    productsRequestedRef.current = true;
+    try {
+      const result = await listSellerProducts();
+      setProducts(result.products ?? []);
+    } catch {
+      // Non-fatal: the reel can still be published without a tagged product.
+      productsRequestedRef.current = false;
+    }
+  }, []);
   const [loading, setLoading] = React.useState(true);
   const [showCreateModal, setShowCreateModal] = React.useState(false);
   const [uploading, setUploading] = React.useState(false);
@@ -77,15 +91,15 @@ export default function SellerReelsPage() {
 
   const loadAll = React.useCallback(async () => {
     setLoading(true);
+    // The product list only fills a dropdown inside the create/edit modals, so it
+    // is fetched when one opens rather than on every visit to this page.
     const results = await Promise.allSettled([
       listSellerReels(),
-      listSellerProducts(),
       getSellerReelAnalytics(),
     ]);
     if (results[0].status === "fulfilled") setReels(results[0].value.reels ?? []);
     else toast.error("Unable to load reels");
-    if (results[1].status === "fulfilled") setProducts(results[1].value.products ?? []);
-    if (results[2].status === "fulfilled") setAnalytics(results[2].value.analytics ?? []);
+    if (results[1].status === "fulfilled") setAnalytics(results[1].value.analytics ?? []);
     setLoading(false);
   }, []);
 
@@ -197,6 +211,7 @@ export default function SellerReelsPage() {
   };
 
   const openEditModal = (reel: Reel) => {
+    void ensureProducts();
     setEditingReelId(reel.id);
     setEditForm({
       caption: reel.caption ?? "",
@@ -257,7 +272,10 @@ export default function SellerReelsPage() {
             Analytics
           </Button>
           <Button
-            onClick={() => setShowCreateModal(true)}
+            onClick={() => {
+              void ensureProducts();
+              setShowCreateModal(true);
+            }}
             className="gap-2"
           >
             <Plus className="h-4 w-4" />

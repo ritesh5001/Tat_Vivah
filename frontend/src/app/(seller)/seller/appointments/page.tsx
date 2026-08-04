@@ -9,6 +9,7 @@ import {
   type Appointment,
 } from "@/services/appointments";
 import { toast } from "sonner";
+import { useHydratedSWR } from "@/hooks/use-hydrated-swr";
 
 function formatDateLabel(appointment: Appointment): string {
   return new Date(appointment.date).toLocaleDateString("en-IN", {
@@ -41,8 +42,20 @@ function isJoinActive(appointment: Appointment, now: Date): boolean {
 }
 
 export default function SellerAppointmentsPage() {
-  const [appointments, setAppointments] = React.useState<Appointment[]>([]);
-  const [loading, setLoading] = React.useState(true);
+  // Cached so returning to this tab is instant instead of a fresh cold request.
+  const {
+    data: appointments = [],
+    isLoading: loading,
+    mutate: mutateAppointments,
+  } = useHydratedSWR<Appointment[]>({
+    key: "seller-appointments",
+    fetcher: async () => (await listSellerAppointments()).appointments ?? [],
+    onError: (error) => {
+      toast.error(
+        error instanceof Error ? error.message : "Unable to load appointments"
+      );
+    },
+  });
   const [updatingId, setUpdatingId] = React.useState<string | null>(null);
   const [now, setNow] = React.useState(() => new Date());
 
@@ -50,22 +63,6 @@ export default function SellerAppointmentsPage() {
     const timer = setInterval(() => setNow(new Date()), 30_000);
     return () => clearInterval(timer);
   }, []);
-
-  const loadAppointments = React.useCallback(async () => {
-    setLoading(true);
-    try {
-      const result = await listSellerAppointments();
-      setAppointments(result.appointments ?? []);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Unable to load appointments");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  React.useEffect(() => {
-    loadAppointments();
-  }, [loadAppointments]);
 
   const hasSoonReminder = appointments.some((appointment) => {
     if (typeof appointment.callStartsSoon === "boolean") return appointment.callStartsSoon;
@@ -81,8 +78,12 @@ export default function SellerAppointmentsPage() {
       setUpdatingId(appointmentId);
       try {
         const result = await updateAppointmentStatus(appointmentId, status);
-        setAppointments((prev) =>
-          prev.map((item) => (item.id === appointmentId ? result.appointment : item)),
+        void mutateAppointments(
+          (prev) =>
+            (prev ?? []).map((item) =>
+              item.id === appointmentId ? result.appointment : item
+            ),
+          { revalidate: false }
         );
         toast.success(`Appointment ${status.toLowerCase()}.`);
       } catch (error) {
@@ -91,7 +92,7 @@ export default function SellerAppointmentsPage() {
         setUpdatingId(null);
       }
     },
-    [],
+    [mutateAppointments],
   );
 
   return (

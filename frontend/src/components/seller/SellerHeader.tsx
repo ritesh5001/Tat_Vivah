@@ -4,30 +4,24 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "@/services/auth";
+import useSWR from "swr";
 import { getUnreadCount } from "@/services/notifications";
 import { getStorefrontUrl } from "@/lib/subdomain";
 
 export function SellerHeader() {
   const pathname = usePathname();
-  const [unread, setUnread] = React.useState(0);
   const homeUrl = getStorefrontUrl("home");
   const shopUrl = getStorefrontUrl("shop");
 
-  React.useEffect(() => {
-    let mounted = true;
-    getUnreadCount().then((c) => {
-      if (mounted) setUnread(c);
-    });
-    const interval = setInterval(() => {
-      getUnreadCount().then((c) => {
-        if (mounted) setUnread(c);
-      });
-    }, 60_000);
-    return () => {
-      mounted = false;
-      clearInterval(interval);
-    };
-  }, []);
+  // Shared SWR key with a 5-minute dedupe: this header mounts on every seller
+  // page, so a per-mount fetch plus a 60s poll meant a badge request on every
+  // navigation and one a minute forever, for a number that rarely changes.
+  const { data: unread = 0 } = useSWR("seller-unread-count", getUnreadCount, {
+    refreshInterval: 5 * 60_000,
+    dedupingInterval: 5 * 60_000,
+    revalidateOnFocus: false,
+    keepPreviousData: true,
+  });
 
   const navItems = [
     { href: "/seller/dashboard", label: "Dashboard" },

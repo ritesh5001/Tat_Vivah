@@ -6,6 +6,7 @@ import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { useHydratedSWR } from "@/hooks/use-hydrated-swr";
 import {
   listSellerSettlements,
   type SellerSettlement,
@@ -69,8 +70,20 @@ const PER_PAGE = 10;
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function SellerSettlementsPage() {
-  const [settlements, setSettlements] = React.useState<SellerSettlement[]>([]);
-  const [loading, setLoading] = React.useState(true);
+  // Cached across navigations: this list is paginated and sorted entirely on the
+  // client, so re-fetching it on every mount bought nothing but a cold request.
+  const {
+    data: settlements = [],
+    isLoading: loading,
+  } = useHydratedSWR<SellerSettlement[]>({
+    key: "seller-settlements",
+    fetcher: listSellerSettlements,
+    onError: (error) => {
+      toast.error(
+        error instanceof Error ? error.message : "Unable to load settlements"
+      );
+    },
+  });
   const [searchQuery, setSearchQuery] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState<string>("ALL");
   const [page, setPage] = React.useState(0);
@@ -78,25 +91,6 @@ export default function SellerSettlementsPage() {
     "createdAt" | "grossAmount" | "netAmount"
   >("createdAt");
   const [sortDir, setSortDir] = React.useState<"asc" | "desc">("desc");
-
-  React.useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      try {
-        const data = await listSellerSettlements();
-        setSettlements(data);
-      } catch (error) {
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : "Unable to load settlements"
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, []);
 
   // ── Filtering ─────────────────────────────────────────────────────────
   const filtered = React.useMemo(() => {

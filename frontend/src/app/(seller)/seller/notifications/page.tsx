@@ -4,6 +4,7 @@ import * as React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import useSWR from "swr";
 import {
   listNotifications,
   markNotificationRead,
@@ -66,7 +67,20 @@ export default function SellerNotificationsPage() {
     []
   );
   const [total, setTotal] = React.useState(0);
-  const [unreadCount, setUnreadCount] = React.useState(0);
+  const { data: unreadCount = 0, mutate: mutateUnread } = useSWR(
+    "seller-unread-count",
+    getUnreadCount,
+    { revalidateOnFocus: false, dedupingInterval: 5 * 60_000 }
+  );
+  const setUnreadCount = React.useCallback(
+    (next: number | ((current: number) => number)) => {
+      void mutateUnread(
+        (current = 0) => (typeof next === "function" ? next(current) : next),
+        { revalidate: false }
+      );
+    },
+    [mutateUnread]
+  );
   const [page, setPage] = React.useState(1);
   const [loading, setLoading] = React.useState(true);
   const [filter, setFilter] = React.useState<"ALL" | "UNREAD">("ALL");
@@ -75,13 +89,11 @@ export default function SellerNotificationsPage() {
     async (p: number) => {
       setLoading(true);
       try {
-        const [result, count] = await Promise.all([
-          listNotifications(p, PAGE_SIZE),
-          getUnreadCount(),
-        ]);
+        // The badge count shares SellerHeader's "seller-unread-count" SWR key, so
+        // it comes from cache rather than a second request for the same number.
+        const result = await listNotifications(p, PAGE_SIZE);
         setNotifications(result.data ?? []);
         setTotal(result.meta?.total ?? 0);
-        setUnreadCount(count);
       } catch (error) {
         toast.error(
           error instanceof Error
