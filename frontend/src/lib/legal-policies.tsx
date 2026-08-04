@@ -265,7 +265,7 @@ export const termsPolicy: PolicyDocument = {
             <li>Response Time: Within 48 hours acknowledgment, 15 days resolution</li>
           </ul>
           <p>
-            For any questions or concerns regarding these Terms, please contact Tatvivah Trends at support@tatvivahtrends.com, 9769659709, or C-13 Plot 144, Ashok Silk Mill Compound, Sant Rohidas Marg, Dharavi, Sion, Mumbai, Maharashtra, India 400017.
+            For any questions or concerns regarding these Terms, please contact Tatvivah Trends at support@tatvivahtrends.com, 9769659709, or Tat Vivah Trends Pvt. Ltd., C-13, PLT 144, Ashok Mill Compound, Sant Rohidas Marg, Dharavi, Mumbai, Maharashtra - 400017, India.
           </p>
         </>
       ),
@@ -420,7 +420,7 @@ export const privacyPolicy: PolicyDocument = {
           <ul>
             <li>Email: support@tatvivahtrends.com</li>
             <li>Phone: 9769659709</li>
-            <li>Address: C-13 Plot 144, Ashok Silk Mill Compound, Sant Rohidas Marg, Dharavi, Sion, Mumbai, Maharashtra, India 400017.</li>
+            <li>Address: Tat Vivah Trends Pvt. Ltd., C-13, PLT 144, Ashok Mill Compound, Sant Rohidas Marg, Dharavi, Mumbai, Maharashtra - 400017, India.</li>
           </ul>
           <p>
             For grievance matters, contact Shivam Gupta at grievance@tatvivahtrends.com. Response time: within 48 hours acknowledgment, 15 days resolution.
@@ -729,7 +729,7 @@ export const vendorAgreementPolicy: PolicyDocument = {
       title: "Contact Information",
       body: (
         <p>
-          For vendor inquiries, email support@tatvivahtrends.com or call 9769659709. Address: C-13 Plot 144, Ashok Silk Mill Compound, Sant Rohidas Marg, Dharavi, Sion, Mumbai, Maharashtra, India 400017.
+          For vendor inquiries, email support@tatvivahtrends.com or call 9769659709. Address: Tat Vivah Trends Pvt. Ltd., C-13, PLT 144, Ashok Mill Compound, Sant Rohidas Marg, Dharavi, Mumbai, Maharashtra - 400017, India.
         </p>
       ),
     },

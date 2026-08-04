@@ -119,7 +119,7 @@ export const termsPolicy: PolicyDocument = {
     {
       title: "Contact Information",
       body:
-        "For grievance matters, contact Shivam Gupta at grievance@tatvivahtrends.com. For general support, email support@tatvivahtrends.com, call 9769659709, or write to C-13 Plot 144, Ashok Silk Mill Compound, Sant Rohidas Marg, Dharavi, Sion, Mumbai, Maharashtra, India 400017.",
+        "For grievance matters, contact Shivam Gupta at grievance@tatvivahtrends.com. For general support, email support@tatvivahtrends.com, call 9769659709, or write to Tat Vivah Trends Pvt. Ltd., C-13, PLT 144, Ashok Mill Compound, Sant Rohidas Marg, Dharavi, Mumbai, Maharashtra - 400017, India.",
     },
   ],
 };
@@ -140,7 +140,7 @@ export const privacyPolicy: PolicyDocument = {
     { title: "User Rights", body: "Under applicable Indian laws, users may access, review, correct, update, withdraw consent for marketing, or request deletion of their data, subject to legal obligations." },
     { title: "Children’s Privacy", body: "Our services are not intended for individuals under 18, and we do not knowingly collect personal information from minors." },
     { title: "Changes to This Policy", body: "We may update this Privacy Policy at any time and changes will be posted with an updated effective date." },
-    { title: "Contact Us", body: "Contact support@tatvivahtrends.com or grievance@tatvivahtrends.com for privacy or grievance matters. Address: C-13 Plot 144, Ashok Silk Mill Compound, Sant Rohidas Marg, Dharavi, Sion, Mumbai, Maharashtra, India 400017." },
+    { title: "Contact Us", body: "Contact support@tatvivahtrends.com or grievance@tatvivahtrends.com for privacy or grievance matters. Address: Tat Vivah Trends Pvt. Ltd., C-13, PLT 144, Ashok Mill Compound, Sant Rohidas Marg, Dharavi, Mumbai, Maharashtra - 400017, India." },
   ],
 };
 
@@ -199,6 +199,6 @@ export const vendorAgreementPolicy: PolicyDocument = {
     { title: "Indemnification", body: "Vendors agree to indemnify and hold Tatvivah Trends harmless from any claims arising from their products or actions." },
     { title: "Legal and Compliance", body: "GST invoicing responsibility lies with the vendor, and product prices must include GST as applicable." },
     { title: "Governing Law", body: "This Agreement is governed by the laws of India, with jurisdiction in Mumbai, Maharashtra." },
-    { title: "Contact Information", body: "For vendor inquiries, contact support@tatvivahtrends.com or call 9769659709. Address: C-13 Plot 144, Ashok Silk Mill Compound, Sant Rohidas Marg, Dharavi, Sion, Mumbai, Maharashtra, India 400017." },
+    { title: "Contact Information", body: "For vendor inquiries, contact support@tatvivahtrends.com or call 9769659709. Address: Tat Vivah Trends Pvt. Ltd., C-13, PLT 144, Ashok Mill Compound, Sant Rohidas Marg, Dharavi, Mumbai, Maharashtra - 400017, India." },
   ],
 };

@@ -7,5 +7,15 @@ export const companyInfo = {
   supportPhoneDisplay: "+91 97696 59709",
   supportPhoneDial: "+919769659709",
   supportHours: "Monday to Saturday, 10:00 AM to 7:00 PM IST",
-  supportAddress: "Tatvivah Trends, New Delhi, India",
+  /** Registered office — the only address to show anywhere. */
+  supportAddress:
+    "Tat Vivah Trends Pvt. Ltd., C-13, PLT 144, Ashok Mill Compound, Sant Rohidas Marg, Dharavi, Mumbai, Maharashtra - 400017, India",
+  /** Same address, line-broken for screens that render it as a block. */
+  supportAddressLines: [
+    "Tat Vivah Trends Pvt. Ltd.",
+    "C-13, PLT 144, Ashok Mill Compound,",
+    "Sant Rohidas Marg, Dharavi,",
+    "Mumbai, Maharashtra - 400017",
+    "India",
+  ],
 };
