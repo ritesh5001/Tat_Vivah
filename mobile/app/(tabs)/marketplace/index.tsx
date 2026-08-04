@@ -339,6 +339,7 @@ export default function CategoriesScreen() {
         onQuickAdd={openQuickAdd}
         onBuyNow={openBuyNow}
         style={{ width: cardWidth }}
+        imageWidth={cardWidth}
       />
     ),
     [cardWidth, handleProductPress, handleTryAndBuy, openQuickAdd, openBuyNow]

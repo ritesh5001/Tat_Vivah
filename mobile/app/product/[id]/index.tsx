@@ -1,5 +1,13 @@
 import * as React from "react";
-import { prefetchProduct } from "../../../src/lib/prefetch-product";
+import {
+  prefetchProduct,
+  PRODUCT_QUERY_STALE_TIME_MS,
+} from "../../../src/lib/prefetch-product";
+import {
+  getProductSeed,
+  rememberProductSeed,
+  seedToProductDetail,
+} from "../../../src/lib/product-seed";
 import {
   View,
   StyleSheet,
@@ -11,6 +19,7 @@ import {
   Alert,
   Modal,
   Share,
+  InteractionManager,
   type ListRenderItemInfo,
   type NativeSyntheticEvent,
   type NativeScrollEvent,
@@ -24,7 +33,6 @@ import { colors, radius, spacing, typography, shadow } from "../../../src/theme/
 import {
   getProductById,
   getProducts,
-  type ProductDetail,
   type ProductSummary,
   type ProductVariant,
 } from "../../../src/services/products";
@@ -288,64 +296,6 @@ const ReviewRow = React.memo(function ReviewRow({
   );
 });
 
-const RelatedProductCard = React.memo(function RelatedProductCard({
-  item,
-  onPress,
-}: {
-  item: ProductSummary;
-  onPress: (id: string) => void;
-}) {
-  const image = item.images?.[0] ?? fallbackImage;
-
-  return (
-    <Pressable style={relatedCardStyles.card} onPress={() => onPress(item.id)}>
-      <Image
-        source={{ uri: image }}
-        style={relatedCardStyles.image}
-        contentFit="cover"
-        transition={150}
-        cachePolicy="memory-disk"
-        width={200}
-      />
-      <Text style={relatedCardStyles.title} numberOfLines={2}>
-        {item.title}
-      </Text>
-      <Text style={relatedCardStyles.meta} numberOfLines={1}>
-        {item.category?.name ?? "Collection"}
-      </Text>
-    </Pressable>
-  );
-});
-
-const relatedCardStyles = StyleSheet.create({
-  card: {
-    width: 150,
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    borderRadius: 0,
-    padding: spacing.sm,
-    backgroundColor: colors.background,
-  },
-  image: {
-    width: "100%",
-    aspectRatio: 3 / 4,
-    borderRadius: 0,
-    backgroundColor: colors.cream,
-  },
-  title: {
-    marginTop: spacing.sm,
-    fontFamily: typography.serif,
-    fontSize: 13,
-    color: colors.charcoal,
-  },
-  meta: {
-    marginTop: spacing.xs,
-    fontFamily: typography.sans,
-    fontSize: 10,
-    color: colors.brownSoft,
-  },
-});
-
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -504,8 +454,6 @@ export default function ProductDetailScreen() {
   const { showToast } = useToast();
 
   // ---- State ----
-  const [product, setProduct] = React.useState<ProductDetail | null>(null);
-  const [loading, setLoading] = React.useState(true);
   const [selectedColor, setSelectedColor] = React.useState<string>("");
   const [selectedVariantId, setSelectedVariantId] = React.useState<string | null>(null);
   const [adding, setAdding] = React.useState(false);
@@ -628,18 +576,60 @@ export default function ProductDetailScreen() {
     };
   }, [tryOnLoading, tryOnProgress]);
 
+  // The list that linked here already rendered this product's title, image,
+  // category and price. Handing that record straight to the first render is the
+  // difference between "the page was already open" and "a skeleton, then the
+  // page" — the round trip only ever has to fill in variants.
+  const placeholderProduct = React.useMemo(() => {
+    const seed = getProductSeed(productId);
+    return seed ? { product: seedToProductDetail(seed) } : undefined;
+  }, [productId]);
+
   const productQuery = useQuery({
     queryKey: ["product", productId],
     queryFn: ({ signal }) => getProductById(productId, signal),
     enabled: Boolean(productId),
-    staleTime: 1000 * 60 * 10,
+    staleTime: PRODUCT_QUERY_STALE_TIME_MS,
     gcTime: 1000 * 60 * 60,
+    placeholderData: placeholderProduct,
   });
 
+  const product = productQuery.data?.product ?? null;
+  // Only true before anything at all is renderable. With a seed present this
+  // never flips on, so the skeleton branch below is skipped entirely. Guarded on
+  // productId so a route with no id falls through to "Product unavailable"
+  // rather than sitting on a skeleton that will never resolve.
+  const loading = Boolean(productId) && !product && productQuery.isPending;
+  // Content is on screen but came from the seed, so variants are not known yet.
+  // Distinguishing this from "this product genuinely has no variants" is what
+  // keeps the size row from flashing "Variants coming soon" on every open.
+  // A failed fetch ends the wait: the placeholder sticks around on error, and
+  // holding a skeleton forever would be worse than showing the empty state.
+  const isHydratingVariants =
+    productQuery.isPlaceholderData &&
+    !productQuery.isError &&
+    (product?.variants?.length ?? 0) === 0;
+
+  // Everything below the fold — the try-on card, the promise strip, reviews and
+  // the related grid — waits for the navigation transition to finish. Building
+  // that tree, and firing its two requests, while the screen is still animating
+  // in is what made the push itself stutter. Nothing here is visible until the
+  // shopper scrolls, so none of it has any business competing for the first frame.
+  const [isSettled, setIsSettled] = React.useState(false);
   React.useEffect(() => {
-    setLoading(productQuery.isLoading);
-    setProduct(productQuery.data?.product ?? null);
-  }, [productQuery.isLoading, productQuery.data]);
+    const handle = InteractionManager.runAfterInteractions(() => {
+      setIsSettled(true);
+    });
+    return () => handle.cancel();
+  }, []);
+
+  // Coming back to a product should be instant too, so keep the full record as
+  // the seed for next time. Cheap, and it survives the query cache being gc'd.
+  React.useEffect(() => {
+    if (product?.id && !productQuery.isPlaceholderData) {
+      rememberProductSeed(product);
+    }
+  }, [product, productQuery.isPlaceholderData]);
 
   React.useEffect(() => {
     const variants = product?.variants ?? [];
@@ -659,8 +649,11 @@ export default function ProductDetailScreen() {
   }, [product?.variants, selectedVariantId]);
 
   // ---- Track recently viewed (fire-and-forget) ----
+  // Held until the screen settles: this is analytics, and it was taking a slot
+  // in the connection pool away from the product request that the shopper is
+  // actually waiting on.
   React.useEffect(() => {
-    if (!product?.id || !token) return;
+    if (!isSettled || !product?.id || !token) return;
 
     const controller = new AbortController();
     trackRecentlyViewed(product.id, controller.signal).catch(() => {
@@ -670,11 +663,16 @@ export default function ProductDetailScreen() {
     return () => {
       controller.abort();
     };
-  }, [product?.id, token]);
+  }, [isSettled, product?.id, token]);
 
   // ---- Fetch related products ----
+  const relatedCategoryId =
+    product?.categoryId ?? product?.category?.id ?? seedCategoryId;
+
   React.useEffect(() => {
-    const categoryId = product?.categoryId ?? product?.category?.id ?? seedCategoryId;
+    if (!isSettled) return;
+
+    const categoryId = relatedCategoryId;
 
     if (!categoryId) {
       setRelatedProducts([]);
@@ -715,15 +713,22 @@ export default function ProductDetailScreen() {
       active = false;
       controller.abort();
     };
-  }, [product, productId, seedCategoryId]);
+    // Keyed on the category id rather than the product object: the object
+    // identity changes when the seed is replaced by the real response, which
+    // used to fire this same request a second time for no new data.
+  }, [isSettled, relatedCategoryId, productId]);
 
   // ---- Fetch reviews ----
   React.useEffect(() => {
-    const controller = new AbortController();
-    let active = true;
-
     setHasLocalReviewSubmission(false);
     setReviewImages([]);
+  }, [productId]);
+
+  React.useEffect(() => {
+    if (!isSettled) return;
+
+    const controller = new AbortController();
+    let active = true;
 
     (async () => {
       try {
@@ -745,7 +750,7 @@ export default function ProductDetailScreen() {
       active = false;
       controller.abort();
     };
-  }, [productId]);
+  }, [isSettled, productId]);
 
   // ---- Derived ----
   const selectedVariant = product?.variants?.find(
@@ -874,19 +879,26 @@ export default function ProductDetailScreen() {
       showToast("You're offline. Please check your connection.", "error");
       return;
     }
-    if (!product || !fallbackVariant) {
+    if (!product) {
+      showToast("Still loading this item — one moment", "info");
+      return;
+    }
+    // Tapped inside the window where the page is painted from the list record
+    // but the variants have not landed. Saying "variants are not available"
+    // here would be a lie that is about to be false; the picker reads the same
+    // query and shows a loader until they arrive.
+    if (isHydratingVariants || !selectedVariant) {
+      setQuickBuyIntent("cart");
+      setQuickBuyId(product.id);
+      return;
+    }
+    if (!fallbackVariant) {
       showToast(
-        product?.variants?.length
+        product.variants?.length
           ? "Select a variant to continue"
           : "Variants are not available for this item",
         "info"
       );
-      return;
-    }
-    if (!selectedVariant) {
-      // Straight to the picker — no spinner, nothing is being written yet.
-      setQuickBuyIntent("cart");
-      setQuickBuyId(product.id);
       return;
     }
     if (outOfStock) {
@@ -939,6 +951,7 @@ export default function ProductDetailScreen() {
     product,
     fallbackVariant,
     selectedVariant,
+    isHydratingVariants,
     outOfStock,
     addToCart,
     router,
@@ -958,18 +971,24 @@ export default function ProductDetailScreen() {
       showToast("You're offline. Please check your connection.", "error");
       return;
     }
-    if (!product || !fallbackVariant) {
+    if (!product) {
+      showToast("Still loading this item — one moment", "info");
+      return;
+    }
+    // Same reasoning as Add to bag: during hydration the picker is the honest
+    // place to land, not a "no variants" toast that is about to be wrong.
+    if (isHydratingVariants || !selectedVariant) {
+      setQuickBuyIntent("buy");
+      setQuickBuyId(product.id);
+      return;
+    }
+    if (!fallbackVariant) {
       showToast(
-        product?.variants?.length
+        product.variants?.length
           ? "Select a variant to continue"
           : "Variants are not available for this item",
         "info"
       );
-      return;
-    }
-    if (!selectedVariant) {
-      setQuickBuyIntent("buy");
-      setQuickBuyId(product.id);
       return;
     }
     if (outOfStock) {
@@ -1020,6 +1039,7 @@ export default function ProductDetailScreen() {
     product,
     fallbackVariant,
     selectedVariant,
+    isHydratingVariants,
     outOfStock,
     addToCart,
     router,
@@ -1352,12 +1372,21 @@ export default function ProductDetailScreen() {
 
   const relatedKeyExtractor = React.useCallback((item: ProductSummary) => item.id, []);
 
+  // Keyed by id so the card only has to hand back the id it already knows; the
+  // record itself comes from the list we fetched, which is what seeds the next
+  // detail screen.
+  const relatedById = React.useMemo(() => {
+    const map = new Map<string, ProductSummary>();
+    for (const item of relatedProducts) map.set(item.id, item);
+    return map;
+  }, [relatedProducts]);
+
   const handleRelatedPress = React.useCallback(
     (id: string) => {
-      prefetchProduct(queryClient, id);
+      prefetchProduct(queryClient, relatedById.get(id) ?? id);
       router.push({ pathname: "/product/[id]", params: { id } });
     },
-    [queryClient, router]
+    [queryClient, relatedById, router]
   );
 
   const renderRelatedItem = React.useCallback(
@@ -1368,6 +1397,7 @@ export default function ProductDetailScreen() {
         onQuickAdd={openQuickAdd}
         onBuyNow={openBuyNow}
         style={{ width: relatedCardWidth }}
+        imageWidth={relatedCardWidth}
       />
     ),
     [handleRelatedPress, relatedCardWidth, openQuickAdd, openBuyNow]
@@ -1613,8 +1643,14 @@ export default function ProductDetailScreen() {
             <View style={styles.detailsBadge}>
               <Text style={styles.detailsBadgeText}>Luxury Edit</Text>
             </View>
+            {/* Blank rather than "N/A" while variants are still in flight — the
+                SKU is about to arrive, and claiming it does not exist is wrong. */}
             <Text style={styles.skuText}>
-              SKU ID- {fallbackVariant?.sku ?? "N/A"}
+              {fallbackVariant?.sku
+                ? `SKU ID- ${fallbackVariant.sku}`
+                : isHydratingVariants
+                  ? ""
+                  : "SKU ID- N/A"}
             </Text>
           </View>
 
@@ -1759,7 +1795,13 @@ export default function ProductDetailScreen() {
           <View style={styles.variantRow}>
             <Text style={styles.variantLabel}>Select Color</Text>
             <View style={styles.variantWrap}>
-              {colorOptions.length ? (
+              {isHydratingVariants && !colorOptions.length ? (
+                <View style={styles.variantSkeletonRow}>
+                  {[0, 1, 2].map((i) => (
+                    <SkeletonBlock key={i} width={72} height={30} borderRadius={radius.sm} />
+                  ))}
+                </View>
+              ) : colorOptions.length ? (
                 colorOptions.map((color) => {
                   const active = selectedColor === color.key;
                   const swatchSize = isCompactLayout ? 26 : 30;
@@ -1811,7 +1853,13 @@ export default function ProductDetailScreen() {
           <View style={styles.variantRow}>
             <Text style={styles.variantLabel}>Select Size</Text>
             <View style={styles.variantWrap}>
-              {variantsForColor.length ? (
+              {isHydratingVariants && !variantsForColor.length ? (
+                <View style={styles.variantSkeletonRow}>
+                  {[0, 1, 2, 3].map((i) => (
+                    <SkeletonBlock key={i} width={52} height={34} borderRadius={radius.sm} />
+                  ))}
+                </View>
+              ) : variantsForColor.length ? (
                 variantsForColor.map((variant: ProductVariant) => {
                   const active = variant.id === selectedVariantId;
                   const variantOOS =
@@ -1855,6 +1903,10 @@ export default function ProductDetailScreen() {
           )}
         </View>
 
+        {/* Everything from here down is off-screen on open. Mounting it in the
+            same pass as the gallery is what made the push itself feel heavy. */}
+        {!isSettled ? null : (
+        <>
         <View style={styles.tryOnCard}>
           <View style={styles.tryOnHeader}>
             <View>
@@ -2066,6 +2118,8 @@ export default function ProductDetailScreen() {
             </>
           )}
         </View>
+        </>
+        )}
       </ScrollView>
 
       <View
@@ -2638,6 +2692,12 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: spacing.sm,
     marginTop: spacing.sm,
+  },
+  /** Holds the row's height steady while the variants are still arriving, so
+      the page does not jump under the shopper's thumb when they land. */
+  variantSkeletonRow: {
+    flexDirection: "row",
+    gap: spacing.sm,
   },
   variantChip: {
     borderWidth: 1,

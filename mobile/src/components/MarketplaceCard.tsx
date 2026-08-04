@@ -14,6 +14,7 @@ import { colors, typography, spacing } from "../theme/tokens";
 import { images } from "../data/images";
 import { type ProductItem } from "../services/products";
 import { useWishlist } from "../providers/WishlistProvider";
+import { rememberProductSeed } from "../lib/product-seed";
 
 interface MarketplaceCardProps {
   product: ProductItem;
@@ -25,7 +26,17 @@ interface MarketplaceCardProps {
   onRemove?: (id: string) => void;
   removing?: boolean;
   style?: StyleProp<ViewStyle>;
+  /**
+   * Rendered width of the card in dp, so the CDN can return a matching image.
+   * Without it the card downloads the full-resolution original — several times
+   * the bytes and the decode cost, for a thumbnail. Callers that size the card
+   * via `style` should pass the same number here.
+   */
+  imageWidth?: number;
 }
+
+/** Two cards per row on a phone, so never wider than about half the screen. */
+const DEFAULT_CARD_IMAGE_WIDTH = 220;
 
 const currency = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -51,6 +62,7 @@ function MarketplaceCardComponent({
   onRemove,
   removing = false,
   style,
+  imageWidth = DEFAULT_CARD_IMAGE_WIDTH,
 }: MarketplaceCardProps) {
   const { isWishlisted, toggleWishlist, mutatingIds } = useWishlist();
   const wishlisted = isWishlisted(product.id);
@@ -86,7 +98,14 @@ function MarketplaceCardComponent({
   const firstImage =
     Array.isArray(product.images) && product.images.length > 0 ? product.images[0] : null;
 
-  const handlePress = () => onPress?.(product.id);
+  const handlePress = () => {
+    // The detail screen renders title, image, category and price from exactly
+    // this record, so hand it over before navigating. Doing it here rather than
+    // at each call site means every list that uses this card gets an instant
+    // detail page, including ones added later.
+    rememberProductSeed(product);
+    onPress?.(product.id);
+  };
   const handleTryAndBuy = React.useCallback((e: any) => {
     e?.stopPropagation?.();
     onTryAndBuy?.(product.id);
@@ -107,6 +126,7 @@ function MarketplaceCardComponent({
           contentPosition="center"
           transition={200}
           cachePolicy="memory-disk"
+          width={imageWidth}
         />
 
         {onTryAndBuy ? (

@@ -60,6 +60,7 @@ const WishlistCard = React.memo(function WishlistCard({
       }}
       removing={removing}
       style={{ width: wishlistCardWidth }}
+      imageWidth={wishlistCardWidth}
     />
   );
 });

@@ -17,7 +17,7 @@ import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { AppText as Text } from "../../../src/components";
 import { ReelItem, type ReelFeedItem } from "../../../src/components/ReelItem";
 import { listPublicReels } from "../../../src/services/reels";
-import { getProductById } from "../../../src/services/products";
+import { prefetchProduct } from "../../../src/lib/prefetch-product";
 import { impactLight } from "../../../src/utils/haptics";
 import { colors, spacing } from "../../../src/theme";
 
@@ -186,11 +186,7 @@ export default function ReelsScreen() {
 
   const handlePressProduct = React.useCallback(
     (id: string) => {
-      void queryClient.prefetchQuery({
-        queryKey: ["product", id],
-        queryFn: ({ signal }) => getProductById(id, signal),
-        staleTime: 10 * 60 * 1000,
-      });
+      prefetchProduct(queryClient, id);
       router.push(`/product/${id}` as any);
     },
     [queryClient, router]

@@ -17,10 +17,10 @@ import { getCategories } from "../../../src/services/catalog";
 import {
   getProductsAndCache,
   getProductsCached,
-  getProductById,
   type ProductItem,
   type ProductSummary,
 } from "../../../src/services/products";
+import { prefetchProduct } from "../../../src/lib/prefetch-product";
 import { isAbortError } from "../../../src/services/api";
 
 /**
@@ -111,6 +111,7 @@ const ProductCard = React.memo(function ProductCard({
       product={item as ProductItem}
       onPress={onPress}
       style={{ width: cardWidth }}
+      imageWidth={cardWidth}
     />
   );
 });
@@ -543,11 +544,7 @@ export default function SearchScreen() {
 
   const handleProductPress = React.useCallback(
     (id: string) => {
-      void queryClient.prefetchQuery({
-        queryKey: ["product", id],
-        queryFn: ({ signal }) => getProductById(id, signal),
-        staleTime: 10 * 60 * 1000,
-      });
+      prefetchProduct(queryClient, id);
       router.push({ pathname: "/product/[id]", params: { id } });
     },
     [queryClient, router]

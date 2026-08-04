@@ -14,7 +14,11 @@ import { WishlistProvider } from "../src/providers/WishlistProvider";
 import { OfflineBanner } from "../src/components/OfflineBanner";
 import { useNetworkStatus } from "../src/hooks/useNetworkStatus";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
-import { queryClient, queryPersister } from "../src/providers/queryClient";
+import {
+  queryClient,
+  queryPersister,
+  shouldPersistQuery,
+} from "../src/providers/queryClient";
 import { colors } from "../src/theme/tokens";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { GlobalBottomBar } from "../src/components/GlobalBottomBar";
@@ -71,6 +75,13 @@ function AppShell() {
       >
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="(auth)" />
+        {/* Product detail — the most-tapped transition in the app. A slide is
+            both shorter and reads as more direct than the default fade-up, which
+            spends its first frames showing mostly background. */}
+        <Stack.Screen
+          name="product/[id]/index"
+          options={{ animation: "slide_from_right", animationDuration: 200 }}
+        />
         {/* Order detail — slides in from right */}
         <Stack.Screen
           name="orders/[id]/index"
@@ -114,7 +125,10 @@ export default function RootLayout() {
       <ErrorBoundary>
         <PersistQueryClientProvider
           client={queryClient}
-          persistOptions={{ persister: queryPersister }}
+          persistOptions={{
+            persister: queryPersister,
+            dehydrateOptions: { shouldDehydrateQuery: shouldPersistQuery },
+          }}
         >
           <ToastProvider>
             <AuthProvider>

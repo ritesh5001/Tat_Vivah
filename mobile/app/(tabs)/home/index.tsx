@@ -763,6 +763,7 @@ export default function HomeScreen() {
         onQuickAdd={openQuickAdd}
         onBuyNow={openBuyNow}
         style={{ width: mostLovedCardWidth }}
+        imageWidth={mostLovedCardWidth}
       />
     ),
     [mostLovedCardWidth, openProduct, handleTryAndBuy, openQuickAdd, openBuyNow]
@@ -777,6 +778,7 @@ export default function HomeScreen() {
         onQuickAdd={openQuickAdd}
         onBuyNow={openBuyNow}
         style={{ width: bestsellerCardWidth }}
+        imageWidth={bestsellerCardWidth}
       />
     ),
     [bestsellerCardWidth, openProduct, handleTryAndBuy, openQuickAdd, openBuyNow]
