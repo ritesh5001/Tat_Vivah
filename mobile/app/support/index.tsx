@@ -134,7 +134,10 @@ export default function SupportInboxScreen() {
       setMessage("");
       setCategory("OTHER");
       setSelectedOrderId(null);
-      router.push(`/support/${ticket.id}`);
+      router.push({
+        pathname: "/support/[id]",
+        params: { id: ticket.id, subject: ticket.subject, status: ticket.status },
+      });
     } catch (err) {
       showToast(
         err instanceof Error ? err.message : "Unable to raise the request",
@@ -209,7 +212,12 @@ export default function SupportInboxScreen() {
         renderItem={({ item }) => (
           <Pressable
             style={styles.row}
-            onPress={() => router.push(`/support/${item.id}`)}
+            onPress={() =>
+              router.push({
+                pathname: "/support/[id]",
+                params: { id: item.id, subject: item.subject, status: item.status },
+              })
+            }
           >
             <View style={styles.rowTop}>
               <Text style={styles.rowSubject} numberOfLines={1}>

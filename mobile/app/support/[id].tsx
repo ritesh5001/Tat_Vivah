@@ -14,7 +14,6 @@ import { colors, spacing, typography } from "../../src/theme/tokens";
 import {
   SUPPORT_STATUS_LABELS,
   listSupportMessages,
-  listSupportTickets,
   markSupportTicketRead,
   sendSupportMessage,
   type SupportMessage,
@@ -43,7 +42,11 @@ const formatTime = (value: string) =>
   });
 
 export default function SupportThreadScreen() {
-  const params = useLocalSearchParams<{ id: string }>();
+  const params = useLocalSearchParams<{
+    id: string;
+    subject?: string;
+    status?: string;
+  }>();
   const ticketId = Array.isArray(params.id) ? params.id[0] : params.id;
   const { session } = useAuth();
   const token = session?.accessToken ?? null;
@@ -51,6 +54,15 @@ export default function SupportThreadScreen() {
   const { showToast } = useToast();
 
   const [ticket, setTicket] = React.useState<SupportTicket | null>(null);
+  const headerSubject =
+    ticket?.subject ??
+    (typeof params.subject === "string" ? params.subject : undefined) ??
+    "Support";
+  const headerStatus =
+    ticket?.status ??
+    ((typeof params.status === "string" ? params.status : undefined) as
+      | SupportTicket["status"]
+      | undefined);
   const [messages, setMessages] = React.useState<SupportMessage[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [draft, setDraft] = React.useState("");
@@ -84,7 +96,10 @@ export default function SupportThreadScreen() {
     [token, ticketId]
   );
 
-  // Initial load: ticket header, history, and clearing our unread badge.
+  // Only the messages are fetched. The header comes from the params the inbox
+  // already had, and clearing the unread badge is fire-and-forget — this used to
+  // pull the entire ticket list for one subject line and then hold the spinner
+  // through a third round trip nobody was waiting on.
   React.useEffect(() => {
     if (!token || !ticketId) {
       setLoading(false);
@@ -94,27 +109,25 @@ export default function SupportThreadScreen() {
     const controller = new AbortController();
     let active = true;
 
-    (async () => {
-      try {
-        const [tickets, history] = await Promise.all([
-          listSupportTickets(token, controller.signal),
-          listSupportMessages(ticketId, token, controller.signal),
-        ]);
+    listSupportMessages(ticketId, token, controller.signal)
+      .then((history) => {
         if (!active) return;
-        setTicket(tickets.find((item) => item.id === ticketId) ?? null);
         setMessages(history);
         scrollToEnd();
-        await markSupportTicketRead(ticketId, token);
-      } catch (err) {
+      })
+      .catch((err) => {
         if (isAbortError(err) || !active) return;
         showToast(
           err instanceof Error ? err.message : "Unable to load this conversation",
           "error"
         );
-      } finally {
+      })
+      .finally(() => {
         if (active) setLoading(false);
-      }
-    })();
+      });
+
+    // Nothing renders from this; it must never gate the screen.
+    void markSupportTicketRead(ticketId, token).catch(() => undefined);
 
     return () => {
       active = false;
@@ -162,14 +175,14 @@ export default function SupportThreadScreen() {
     }
   };
 
-  const isClosed = ticket?.status === "CLOSED";
+  const isClosed = headerStatus === "CLOSED";
 
   return (
     <SafeAreaView style={styles.screen}>
-      <AppHeader title={ticket?.subject ?? "Support"} />
+      <AppHeader title={headerSubject} />
 
-      {ticket ? (
-        <Text style={styles.status}>{SUPPORT_STATUS_LABELS[ticket.status]}</Text>
+      {headerStatus ? (
+        <Text style={styles.status}>{SUPPORT_STATUS_LABELS[headerStatus]}</Text>
       ) : null}
 
       <KeyboardAvoidingView
