@@ -97,11 +97,25 @@ function PhonePeCallbackContent() {
         setTimeout(() => {
           if (!cancelled) void check();
         }, pollDelayMs(attempts));
-      } catch (error) {
+      } catch {
         if (cancelled) return;
-        setPhase("failed");
+
+        // A verification error is not a failed payment — it usually means the
+        // gateway or our API hiccuped. Telling the buyer "Payment Not Completed"
+        // with a raw server message is both alarming and frequently wrong, since
+        // the webhook may still settle the order as paid. Retry, then hand them
+        // to their orders rather than passing a 500 through to the page.
+        attempts += 1;
+        if (attempts < MAX_POLLS) {
+          setTimeout(() => {
+            if (!cancelled) void check();
+          }, pollDelayMs(attempts));
+          return;
+        }
+
+        setPhase("pending");
         setMessage(
-          error instanceof Error ? error.message : "Payment verification failed."
+          "We couldn't confirm your payment just yet. If money was debited, your order will update automatically — check your orders in a moment."
         );
       }
     };

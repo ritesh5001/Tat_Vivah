@@ -279,7 +279,24 @@ export class PaymentService {
             };
         }
 
-        const statusResponse = await phonepeService.getOrderStatus(payment.providerOrderId);
+        // A gateway hiccup here is not a failed payment. Cancelled and abandoned
+        // orders can make this call error or 502, and letting that propagate showed
+        // the buyer "Payment Not Completed — Internal server error" on what may be a
+        // perfectly good order. Report PENDING and let the webhook settle it.
+        let statusResponse: Awaited<ReturnType<typeof phonepeService.getOrderStatus>>;
+        try {
+            statusResponse = await phonepeService.getOrderStatus(payment.providerOrderId);
+        } catch (error) {
+            paymentLogger.warn(
+                { event: 'phonepe_status_check_failed', orderId, paymentId: payment.id, error },
+                'PhonePe status check failed; reporting PENDING',
+            );
+            return {
+                status: 'PENDING',
+                paymentId: payment.id,
+                message: 'Could not reach PhonePe. We will confirm this shortly.',
+            };
+        }
 
         if (statusResponse.state === 'COMPLETED') {
             const transactionId =
