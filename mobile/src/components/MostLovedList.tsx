@@ -1,8 +1,8 @@
 import React, { useMemo } from "react";
-import { Feather } from "@expo/vector-icons";
+import { Icon } from "./Icon";
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useProductsQuery } from "../hooks/useProductsQuery";
-import { colors, spacing, textStyles } from "../theme";
+import { colors, spacing, textStyles, radius } from "../theme";
 import { CachedImage } from "./CachedImage";
 
 const fallbackImage = "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=1000&q=80";
@@ -45,7 +45,7 @@ export function MostLovedList() {
             <View style={styles.imageWrap}>
               <CachedImage source={item.images?.[0] ?? fallbackImage} style={styles.feedImage} />
               <Pressable style={styles.heartButton}>
-                <Feather name="heart" size={18} color={colors.white} />
+                <Icon name="heart" size={18} color={colors.white} />
               </Pressable>
             </View>
             <Text numberOfLines={2} style={[textStyles.productTitle, styles.productTitle]}>{item.title}</Text>
@@ -67,7 +67,7 @@ const styles = StyleSheet.create({
   placeholderWrap: {
     minHeight: 80,
     justifyContent: "center",
-    borderRadius: 0,
+    borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.border,
     paddingHorizontal: spacing.md,
@@ -79,7 +79,7 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   imageWrap: {
-    borderRadius: 0,
+    borderRadius: radius.lg,
     overflow: "hidden",
     borderWidth: 1,
     borderColor: colors.border,
@@ -96,7 +96,7 @@ const styles = StyleSheet.create({
     right: 14,
     width: 36,
     height: 36,
-    borderRadius: 0,
+    borderRadius: radius.pill,
     backgroundColor: "rgba(0,0,0,0.35)",
     alignItems: "center",
     justifyContent: "center",

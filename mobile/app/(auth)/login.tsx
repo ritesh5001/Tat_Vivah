@@ -7,7 +7,7 @@ import {
   View,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { colors, spacing, typography } from "../../src/theme";
+import { colors, spacing, typography, radius } from "../../src/theme";
 import { AppHeader } from "../../src/components/AppHeader";
 import { useAuth } from "../../src/hooks/useAuth";
 import { requestOtp } from "../../src/services/auth";
@@ -218,7 +218,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.background,
     padding: spacing.lg,
-    borderRadius: 0,
+    borderRadius: radius.lg,
   },
   label: {
     fontFamily: typography.sansMedium,
@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
     height: 42,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 0,
+    borderRadius: radius.sm,
     paddingHorizontal: 10,
     paddingVertical: 0,
     fontFamily: typography.body,
@@ -257,7 +257,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
     width: "100%",
     height: 46,
-    borderRadius: 0,
+    borderRadius: radius.md,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.primaryAccent,

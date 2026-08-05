@@ -13,9 +13,16 @@ export const spacing = {
   cardGap: 12,
 } as const;
 
+/**
+ * Kept in step with `theme/tokens.ts` — two modules export a `radius` and
+ * components import from whichever is nearer, so they have to agree or the same
+ * card gets a different corner depending on which import it happened to use.
+ */
 export const radius = {
-  sm: 0,
-  md: 0,
-  lg: 0,
-  pill: 0,
+  xs: 6,
+  sm: 10,
+  md: 14,
+  lg: 18,
+  xl: 24,
+  pill: 999,
 } as const;

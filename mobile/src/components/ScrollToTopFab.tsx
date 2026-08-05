@@ -1,7 +1,7 @@
 import React from "react";
-import { Feather } from "@expo/vector-icons";
+import { Icon } from "./Icon";
 import { Pressable, StyleSheet } from "react-native";
-import { colors } from "../theme";
+import { colors, radius } from "../theme";
 
 type ScrollToTopFabProps = {
   visible: boolean;
@@ -13,7 +13,7 @@ export function ScrollToTopFab({ visible, onPress }: ScrollToTopFabProps) {
 
   return (
     <Pressable onPress={onPress} style={styles.fab} hitSlop={8}>
-      <Feather name="arrow-up" size={20} color={colors.white} />
+      <Icon name="arrow-up" size={20} color={colors.white} />
     </Pressable>
   );
 }
@@ -25,7 +25,7 @@ const styles = StyleSheet.create({
     bottom: 26,
     width: 48,
     height: 48,
-    borderRadius: 0,
+    borderRadius: radius.pill,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.primaryAccent,

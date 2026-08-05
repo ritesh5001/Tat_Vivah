@@ -1,7 +1,7 @@
 import React from "react";
-import { Feather } from "@expo/vector-icons";
+import { Icon } from "./Icon";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
-import { colors, spacing, textStyles, typography } from "../theme";
+import { colors, spacing, textStyles, typography, radius } from "../theme";
 
 type DrawerRoute = string;
 
@@ -71,7 +71,7 @@ export function DrawerMenu({ visible, onClose, onNavigate }: DrawerMenuProps) {
               onPress={() => setShopByProductOpen((prev) => !prev)}
             >
               <Text style={[textStyles.bodyText, styles.linkText]}>SHOP BY PRODUCT</Text>
-              <Feather name={shopByProductOpen ? "minus" : "plus"} size={16} color={colors.textPrimary} />
+              <Icon name={shopByProductOpen ? "minus" : "plus"} size={16} color={colors.textPrimary} />
             </Pressable>
             {shopByProductOpen && (
               <View style={styles.accordionContent}>
@@ -136,7 +136,7 @@ const styles = StyleSheet.create({
   linkButton: {
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 0,
+    borderRadius: radius.md,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
     backgroundColor: colors.white,
@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
   accordionRow: {
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 0,
+    borderRadius: radius.md,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
     backgroundColor: colors.white,

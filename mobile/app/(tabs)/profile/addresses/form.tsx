@@ -382,7 +382,7 @@ const styles = StyleSheet.create({
   backButton: {
     width: 36,
     height: 36,
-    borderRadius: 0,
+    borderRadius: radius.pill,
     backgroundColor: colors.warmWhite,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -408,7 +408,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     marginHorizontal: spacing.lg,
     padding: spacing.lg,
-    borderRadius: 0,
+    borderRadius: radius.lg,
     backgroundColor: colors.warmWhite,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -446,7 +446,7 @@ const styles = StyleSheet.create({
   },
   input: {
     height: 48,
-    borderRadius: 0,
+    borderRadius: radius.sm,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     paddingHorizontal: spacing.md,
@@ -470,7 +470,7 @@ const styles = StyleSheet.create({
   labelChip: {
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.md,
-    borderRadius: 0,
+    borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: colors.background,
@@ -492,7 +492,7 @@ const styles = StyleSheet.create({
   primaryButton: {
     marginTop: spacing.lg,
     backgroundColor: colors.gold,
-    borderRadius: 0,
+    borderRadius: radius.md,
     paddingVertical: 14,
     alignItems: "center",
     minHeight: 48,

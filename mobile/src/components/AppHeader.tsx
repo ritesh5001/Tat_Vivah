@@ -1,8 +1,8 @@
 import * as React from "react";
 import { View, Text, StyleSheet, Pressable, TouchableOpacity } from "react-native";
 import { usePathname, useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
-import { colors, spacing, typography } from "../theme/tokens";
+import { Icon } from "./Icon";
+import { colors, spacing, typography, radius } from "../theme/tokens";
 import { images } from "../data/images";
 import { MenuSheet } from "./MenuSheet";
 import { Image } from "./CompatImage";
@@ -86,12 +86,12 @@ export function AppHeader({
               style={[styles.iconButton, styles.mainHeaderIconButton, { cursor: "pointer" as any }]}
               activeOpacity={0.7}
             >
-              <Ionicons name="menu" size={21} color={colors.charcoal} />
+              <Icon name="menu" size={21} color={colors.charcoal} />
             </TouchableOpacity>
           ) : shouldShowBack ? (
             <View style={styles.leftRow}>
               <Pressable onPress={handleBack} style={styles.iconButton} hitSlop={8}>
-                <Ionicons name="chevron-back" size={18} color={colors.charcoal} />
+                <Icon name="chevron-back" size={18} color={colors.charcoal} />
               </Pressable>
             </View>
           ) : (
@@ -115,7 +115,7 @@ export function AppHeader({
               style={[styles.iconButton, isMainHeader && styles.mainHeaderIconButton]}
               onPress={() => router.push("/search")}
             >
-              <Ionicons name="search-outline" size={19} color={colors.charcoal} />
+              <Icon name="search-outline" size={19} color={colors.charcoal} />
             </Pressable>
           ) : null}
           {shouldShowProfile ? (
@@ -123,7 +123,7 @@ export function AppHeader({
               style={[styles.iconButton, isMainHeader && styles.mainHeaderIconButton]}
               onPress={() => router.push("/profile")}
             >
-              <Ionicons name="person-outline" size={21} color={colors.charcoal} />
+              <Icon name="person-outline" size={21} color={colors.charcoal} />
             </Pressable>
           ) : null}
           {shouldShowWishlist ? (
@@ -131,7 +131,7 @@ export function AppHeader({
               style={[styles.iconButton, isMainHeader && styles.mainHeaderIconButton]}
               onPress={() => router.push("/wishlist")}
             >
-              <Ionicons name="heart-outline" size={21} color={colors.charcoal} />
+              <Icon name="heart-outline" size={21} color={colors.charcoal} />
             </Pressable>
           ) : null}
           {shouldShowCart ? (
@@ -140,7 +140,7 @@ export function AppHeader({
               onPress={() => router.push("/cart")}
             >
               <Animated.View style={cartPulseStyle}>
-                <Ionicons name="bag-handle-outline" size={19} color={colors.charcoal} />
+                <Icon name="bag-handle-outline" size={19} color={colors.charcoal} />
               </Animated.View>
             </Pressable>
           ) : null}
@@ -149,7 +149,7 @@ export function AppHeader({
               style={styles.iconButton}
               onPress={handleOpenMenu}
             >
-              <Ionicons name="menu" size={18} color={colors.charcoal} />
+              <Icon name="menu" size={18} color={colors.charcoal} />
             </Pressable>
           ) : null}
         </View>
@@ -238,6 +238,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   mainHeaderIconButton: {
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: colors.warmWhite,

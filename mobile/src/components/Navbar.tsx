@@ -1,5 +1,5 @@
 import React from "react";
-import { Feather } from "@expo/vector-icons";
+import { Icon } from "./Icon";
 import {
   Pressable,
   StyleSheet,
@@ -7,7 +7,7 @@ import {
   View,
   type ImageSourcePropType,
 } from "react-native";
-import { colors, spacing, typography } from "../theme";
+import { colors, spacing, typography, radius } from "../theme";
 import { CachedImage } from "./CachedImage";
 
 type NavbarProps = {
@@ -33,7 +33,7 @@ export function Navbar({
     <View style={styles.wrapper}>
       <View style={styles.mainBar}>
         <Pressable onPress={onHamburgerPress} style={styles.iconButton} hitSlop={8}>
-          <Feather name="menu" size={22} color={colors.textPrimary} />
+          <Icon name="menu" size={22} color={colors.textPrimary} />
         </Pressable>
 
         <View style={styles.logoContainer}>
@@ -46,11 +46,11 @@ export function Navbar({
 
         <View style={styles.actionsContainer}>
           <Pressable onPress={onSearchPress} style={styles.iconButton} hitSlop={8}>
-            <Feather name="search" size={20} color={colors.textPrimary} />
+            <Icon name="search" size={20} color={colors.textPrimary} />
           </Pressable>
 
           <Pressable onPress={onProfilePress} style={styles.iconButton} hitSlop={8}>
-            <Feather name="user" size={20} color={colors.textPrimary} />
+            <Icon name="user" size={20} color={colors.textPrimary} />
             {profileNotificationCount > 0 ? (
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>{profileNotificationCount}</Text>
@@ -59,11 +59,11 @@ export function Navbar({
           </Pressable>
 
           <Pressable onPress={onWishlistPress} style={styles.iconButton} hitSlop={8}>
-            <Feather name="heart" size={20} color={colors.textPrimary} />
+            <Icon name="heart" size={20} color={colors.textPrimary} />
           </Pressable>
 
           <Pressable onPress={onCartPress} style={styles.iconButton} hitSlop={8}>
-            <Feather name="shopping-bag" size={20} color={colors.textPrimary} />
+            <Icon name="shopping-bag" size={20} color={colors.textPrimary} />
           </Pressable>
         </View>
       </View>
@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
     top: -1,
     minWidth: 14,
     height: 14,
-    borderRadius: 0,
+    borderRadius: radius.pill,
     paddingHorizontal: 3,
     backgroundColor: colors.primaryAccent,
     borderWidth: 1,

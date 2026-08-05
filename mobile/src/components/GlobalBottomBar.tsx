@@ -1,7 +1,7 @@
 import * as React from "react";
 import { View, StyleSheet } from "react-native";
 import { usePathname, useRouter } from "expo-router";
-import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+import { Icon } from "./Icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppText as Text } from "./index";
 import { colors, typography } from "../theme/tokens";
@@ -42,22 +42,22 @@ const NAV_ITEMS: NavItem[] = [
   {
     label: "Home",
     path: "/home",
-    icon: (color) => <Ionicons name="home-outline" size={22} color={color} />,
+    icon: (color) => <Icon name="home-outline" size={22} color={color} />,
   },
   {
     label: "Shop",
     path: "/marketplace",
-    icon: (color) => <MaterialIcons name="grid-view" size={22} color={color} />,
+    icon: (color) => <Icon name="grid-view" size={22} color={color} />,
   },
   {
     label: "Reels",
     path: "/reels",
-    icon: (color) => <Ionicons name="play-circle-outline" size={22} color={color} />,
+    icon: (color) => <Icon name="play-circle-outline" size={22} color={color} />,
   },
   {
     label: "Profile",
     path: "/profile",
-    icon: (color) => <Ionicons name="person-outline" size={22} color={color} />,
+    icon: (color) => <Icon name="person-outline" size={22} color={color} />,
   },
 ];
 

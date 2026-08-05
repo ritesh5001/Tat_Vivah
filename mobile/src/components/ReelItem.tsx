@@ -1,9 +1,9 @@
 import React from "react";
 import { Pressable, StyleSheet, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "./Icon";
 import { VideoView, useVideoPlayer } from "expo-video";
 import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
-import { colors, spacing } from "../theme";
+import { colors, spacing, radius } from "../theme";
 import { AppText as Text } from "./AppText";
 import { CachedImage } from "./CachedImage";
 
@@ -166,12 +166,12 @@ function ReelItemBase({
       </Pressable>
 
       <Animated.View pointerEvents="none" style={[styles.likeBurst, likeAnimatedStyle]}>
-        <Ionicons name="heart" size={74} color="rgba(255, 255, 255, 0.95)" />
+        <Icon name="heart" size={74} color="rgba(255, 255, 255, 0.95)" />
       </Animated.View>
 
       <View style={[styles.sideActions, { bottom: actionsBottom }]}>
         <Pressable style={styles.actionButton} onPress={() => onToggleLike(item.id)}>
-          <Ionicons
+          <Icon
             name={liked ? "heart" : "heart-outline"}
             size={20}
             color={liked ? colors.primaryAccent : "#FFFFFF"}
@@ -180,12 +180,12 @@ function ReelItemBase({
         </Pressable>
 
         <Pressable style={styles.actionButton} onPress={() => onShare(item)}>
-          <Ionicons name="share-social-outline" size={20} color="#FFFFFF" />
+          <Icon name="share-social-outline" size={20} color="#FFFFFF" />
           <Text style={styles.actionLabel}>Share</Text>
         </Pressable>
 
         <Pressable style={styles.actionButton} onPress={onToggleMute}>
-          <Ionicons
+          <Icon
             name={isMuted ? "volume-mute-outline" : "volume-high-outline"}
             size={20}
             color="#FFFFFF"
@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.35)",
     borderWidth: 1,
     borderColor: "rgba(183, 149, 108, 0.6)",
-    borderRadius: 0,
+    borderRadius: radius.md,
     minWidth: 52,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,

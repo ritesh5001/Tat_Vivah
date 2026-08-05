@@ -10,7 +10,7 @@ import {
   AppState,
 } from "react-native";
 import { useLocalSearchParams, useFocusEffect } from "expo-router";
-import { colors, spacing, typography } from "../../src/theme/tokens";
+import { colors, spacing, typography, radius } from "../../src/theme/tokens";
 import {
   SUPPORT_STATUS_LABELS,
   listSupportMessages,
@@ -302,6 +302,7 @@ const styles = StyleSheet.create({
     padding: spacing.md,
   },
   composerInput: {
+    borderRadius: radius.sm,
     flex: 1,
     maxHeight: 120,
     borderWidth: 1,
@@ -313,6 +314,7 @@ const styles = StyleSheet.create({
     padding: spacing.md,
   },
   sendButton: {
+    borderRadius: radius.md,
     backgroundColor: colors.charcoal,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,

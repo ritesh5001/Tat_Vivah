@@ -1,6 +1,6 @@
 import * as React from "react";
 import { View, Text, StyleSheet, FlatList } from "react-native";
-import { colors, spacing, typography } from "../theme/tokens";
+import { colors, spacing, typography, radius } from "../theme/tokens";
 import {
   getBestsellersAndCache,
   getBestsellersCached,
@@ -146,7 +146,7 @@ const styles = StyleSheet.create({
   },
   emptyCard: {
     padding: spacing.lg,
-    borderRadius: 0,
+    borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: colors.warmWhite,

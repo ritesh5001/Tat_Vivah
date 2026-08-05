@@ -10,9 +10,9 @@ import {
   Dimensions,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon, type IconName } from "./Icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { colors, spacing, typography } from "../theme/tokens";
+import { colors, spacing, typography, radius } from "../theme/tokens";
 import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../providers/ToastProvider";
 
@@ -32,7 +32,7 @@ const baseItems: { label: string; route: string }[] = [
 
 const DRAWER_WIDTH = Math.min(340, Math.round(Dimensions.get("window").width * 0.82));
 
-const MENU_ICON_BY_ROUTE: Record<string, keyof typeof Ionicons.glyphMap> = {
+const MENU_ICON_BY_ROUTE: Record<string, IconName> = {
   "/home": "home-outline",
   "/marketplace": "bag-handle-outline",
   "/reels": "videocam-outline",
@@ -131,32 +131,72 @@ export function MenuSheet({ visible, onClose, onNavigate, items }: MenuSheetProp
     closeMenu();
   }, [closeMenu]);
 
+  // The modal outlives `visible` by the length of the exit animation. Without
+  // this the drawer vanished instantly on close while the overlay faded, which
+  // is the single cheapest-looking moment in a navigation drawer.
+  const [isMounted, setIsMounted] = React.useState(visible);
+
   React.useEffect(() => {
     if (visible) {
+      setIsMounted(true);
       openedAtRef.current = Date.now();
       overlayOpacity.setValue(0);
       drawerTranslateX.setValue(-DRAWER_WIDTH);
 
-      Animated.parallel([
+      // Native driver, not JS. Driving translateX from JavaScript meant the slide
+      // shared a thread with whatever render the tap had just kicked off, so a
+      // busy frame left the drawer parked half off-screen with its labels
+      // clipped — the "stuck menu". On the native driver it cannot be starved.
+      const enter = Animated.parallel([
         Animated.timing(overlayOpacity, {
           toValue: 1,
           duration: 180,
           easing: Easing.out(Easing.quad),
-          useNativeDriver: false,
+          useNativeDriver: true,
         }),
         Animated.timing(drawerTranslateX, {
           toValue: 0,
-          duration: 220,
+          duration: 240,
           easing: Easing.out(Easing.cubic),
-          useNativeDriver: false,
+          useNativeDriver: true,
         }),
-      ]).start();
+      ]);
+
+      enter.start();
+      // Reopening mid-flight used to leave the drawer wherever it had got to.
+      return () => enter.stop();
     }
+
+    if (!isMounted) return;
+
+    const exit = Animated.parallel([
+      Animated.timing(overlayOpacity, {
+        toValue: 0,
+        duration: 160,
+        easing: Easing.in(Easing.quad),
+        useNativeDriver: true,
+      }),
+      Animated.timing(drawerTranslateX, {
+        toValue: -DRAWER_WIDTH,
+        duration: 190,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]);
+
+    exit.start(({ finished }) => {
+      if (finished) setIsMounted(false);
+    });
+
+    return () => exit.stop();
+    // isMounted drives the exit run once; re-running on its own change would
+    // restart the animation it just finished.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [drawerTranslateX, overlayOpacity, visible]);
 
   return (
     <Modal
-      visible={visible}
+      visible={isMounted}
       transparent
       animationType="none"
       onRequestClose={closeMenu}
@@ -185,7 +225,7 @@ export function MenuSheet({ visible, onClose, onNavigate, items }: MenuSheetProp
             </View>
 
             <Pressable onPress={closeMenu} style={styles.closeIconButton} hitSlop={8}>
-              <Ionicons name="close" size={18} color={colors.charcoal} />
+              <Icon name="close" size={18} color={colors.charcoal} />
             </Pressable>
           </View>
 
@@ -201,14 +241,14 @@ export function MenuSheet({ visible, onClose, onNavigate, items }: MenuSheetProp
                 disabled={item.route === "__logout__" && loggingOut}
               >
                 <View style={styles.menuItemLeft}>
-                  <Ionicons
+                  <Icon
                     name={MENU_ICON_BY_ROUTE[item.route] ?? "ellipse-outline"}
                     size={17}
                     color={colors.charcoal}
                   />
                   <Text style={styles.menuItemText}>{item.label}</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={14} color={colors.brownSoft} />
+                <Icon name="chevron-forward" size={14} color={colors.brownSoft} />
               </Pressable>
             ))}
           </View>
@@ -264,6 +304,7 @@ const styles = StyleSheet.create({
     color: colors.brownSoft,
   },
   closeIconButton: {
+    borderRadius: radius.md,
     width: 34,
     height: 34,
     borderWidth: 1,

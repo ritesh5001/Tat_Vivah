@@ -12,8 +12,8 @@ import {
 } from "react-native";
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from "react-native-svg";
 import { useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
-import { colors, spacing, textStyles, typography } from "../../../src/theme";
+import { Icon } from "../../../src/components/Icon";
+import { colors, spacing, textStyles, typography, radius } from "../../../src/theme";
 import { useProductsQuery } from "../../../src/hooks/useProductsQuery";
 import { AppHeader } from "../../../src/components/AppHeader";
 import { Footer } from "../../../src/components/Footer";
@@ -887,7 +887,7 @@ export default function HomeScreen() {
 
       <View style={styles.occasionSection}>
         <View style={styles.occasionHeadingWrap}>
-          <Ionicons name="sparkles-outline" size={30} color="#511d00" />
+          <Icon name="sparkles-outline" size={30} color="#511d00" />
           <Text style={styles.occasionTitle}>SHOP THE OCCASION</Text>
           <View style={styles.menTabWrap}>
             <Text style={styles.menTabText}>Men</Text>
@@ -952,7 +952,7 @@ export default function HomeScreen() {
 
       <View style={styles.collectionSection}>
         <View style={styles.sectionHeadRow}>
-          <Ionicons name="sparkles-outline" size={28} color="#511d00" />
+          <Icon name="sparkles-outline" size={28} color="#511d00" />
           <Text style={styles.collectionHeading}>SHOP BY CATEGORY</Text>
         </View>
         {categoryCards.length < 8 ? (
@@ -1060,7 +1060,7 @@ export default function HomeScreen() {
 
       <View style={styles.mostLovedSection}>
         <View style={styles.mostLovedHeaderRow}>
-          <Ionicons name="sparkles-outline" size={28} color="#511d00" />
+          <Icon name="sparkles-outline" size={28} color="#511d00" />
           <Text style={styles.mostLovedHeading}>BEST SELLERS</Text>
           <Text style={styles.scrollDirectionText}>Swipe left or right</Text>
         </View>
@@ -1120,7 +1120,7 @@ export default function HomeScreen() {
 
       <View style={styles.mostLovedSection}>
         <View style={styles.mostLovedHeaderRow}>
-          <Ionicons name="sparkles-outline" size={28} color="#511d00" />
+          <Icon name="sparkles-outline" size={28} color="#511d00" />
           <Text style={styles.mostLovedHeading}>MOST LOVED</Text>
         </View>
         <View style={styles.audienceTabsWrap}>
@@ -1523,7 +1523,7 @@ const styles = StyleSheet.create({
   menTabUnderline: {
     width: 86,
     height: 4,
-    borderRadius: 0,
+    borderRadius: radius.xs,
     backgroundColor: colors.primaryAccent,
   },
   occasionGrid: {
@@ -1564,7 +1564,7 @@ const styles = StyleSheet.create({
   },
   occasionCard: {
     aspectRatio: 0.76,
-    borderRadius: 0,
+    borderRadius: radius.lg,
     overflow: "hidden",
     justifyContent: "flex-end",
     borderWidth: 0,
@@ -1650,7 +1650,7 @@ const styles = StyleSheet.create({
   paginationDot: {
     width: 7,
     height: 7,
-    borderRadius: 0,
+    borderRadius: radius.pill,
     backgroundColor: "rgba(123, 76, 44, 0.28)",
   },
   paginationDotActive: {
@@ -1705,6 +1705,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
   },
   largeProductCard: {
+    borderRadius: radius.lg,
     borderWidth: 1.5,
     borderColor: "#7B4C2C",
     backgroundColor: "#D7CCBC",
@@ -1741,6 +1742,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
   bestSellerCard: {
+    borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: "#D9D3CD",
     backgroundColor: "#F8F6F3",
@@ -1803,7 +1805,7 @@ const styles = StyleSheet.create({
     minHeight: 228,
     borderWidth: 1,
     borderColor: "#7B4C2C",
-    borderRadius: 0,
+    borderRadius: radius.lg,
     backgroundColor: "#F6EFE7",
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.lg,

@@ -1,6 +1,6 @@
 import * as React from "react";
 import { StyleSheet, useWindowDimensions } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "./Icon";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   Extrapolation,
@@ -133,10 +133,10 @@ export function SwipeActionBar({
       translateX.value = withSpring(0, HANDLE_SPRING);
     });
 
-  const handleStyle = useAnimatedStyle(() => {
-    const magnitude = Math.abs(progress.value);
+  /** Motion lives on the centring layer so the circle stays exactly mid-track. */
+  const handleMotionStyle = useAnimatedStyle(() => {
     const anticipation = interpolate(
-      magnitude,
+      Math.abs(progress.value),
       [ANTICIPATION_RATIO, 1],
       [0, 1],
       Extrapolation.CLAMP
@@ -148,6 +148,13 @@ export function SwipeActionBar({
         { translateY: -4 * anticipation },
         { scale: compress.value * (1 + 0.08 * anticipation) },
       ],
+    };
+  });
+
+  /** Shadow has to sit on the circle itself — the layer above it has no shape. */
+  const handleShadowStyle = useAnimatedStyle(() => {
+    const magnitude = Math.abs(progress.value);
+    return {
       // The shadow deepens with travel: the object lifts off the track.
       shadowOpacity: 0.18 + 0.16 * magnitude,
       shadowRadius: 10 + 10 * magnitude,
@@ -252,7 +259,7 @@ export function SwipeActionBar({
       <Animated.View style={[styles.labelWrap, leftLabelStyle]}>
         {leftChevrons.map((style, index) => (
           <Animated.View key={`l${index}`} style={style}>
-            <Ionicons name="chevron-back" size={12} color={colors.brownSoft} />
+            <Icon name="chevron-back" size={12} color={colors.brownSoft} />
           </Animated.View>
         ))}
         <Text style={styles.label} numberOfLines={1}>
@@ -268,20 +275,36 @@ export function SwipeActionBar({
         </Text>
         {rightChevrons.map((style, index) => (
           <Animated.View key={`r${index}`} style={style}>
-            <Ionicons name="chevron-forward" size={12} color={colors.brownSoft} />
+            <Icon name="chevron-forward" size={12} color={colors.brownSoft} />
           </Animated.View>
         ))}
       </Animated.View>
 
-      <Animated.View pointerEvents="none" style={[styles.glow, glowStyle]} />
+      {/* Both the glow and the handle are centred by a full-width overlay rather
+          than `left: "50%"` plus a negative margin. A percentage inset resolves
+          against the track's content box, so the track's horizontal padding was
+          shifting the handle off-centre — visibly so against the label row. An
+          absolutely-positioned row with alignItems:center has no such ambiguity. */}
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.centerLayer, styles.glowLayer, glowStyle]}
+      >
+        <Animated.View style={styles.glow} />
+      </Animated.View>
 
       {/* Rendered last so it stays the touch target above the label rows. */}
       <GestureDetector gesture={pan}>
-        <Animated.View
-          style={[styles.handle, handleStyle, disabled && styles.handleDisabled]}
-        >
-          <Animated.View style={iconStyle}>
-            <Ionicons name="bag-handle" size={22} color={colors.warmWhite} />
+        <Animated.View style={[styles.centerLayer, handleMotionStyle]}>
+          <Animated.View
+            style={[
+              styles.handle,
+              handleShadowStyle,
+              disabled && styles.handleDisabled,
+            ]}
+          >
+            <Animated.View style={iconStyle}>
+              <Icon name="bag-handle" size={22} color={colors.warmWhite} />
+            </Animated.View>
           </Animated.View>
         </Animated.View>
       </GestureDetector>
@@ -307,8 +330,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 3,
     flex: 1,
+    // Keeps "Add to Bag" and "Buy Now" clear of the handle that floats over the
+    // middle of the track. Without it the labels ran underneath the circle and
+    // were clipped mid-word.
+    paddingRight: HANDLE_SIZE / 2 + spacing.sm,
   },
-  labelWrapRight: { justifyContent: "flex-end" },
+  labelWrapRight: {
+    justifyContent: "flex-end",
+    paddingRight: 0,
+    paddingLeft: HANDLE_SIZE / 2 + spacing.sm,
+  },
   label: {
     fontFamily: typography.sansMedium,
     fontSize: 12,
@@ -316,24 +347,30 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     color: colors.charcoal,
     marginHorizontal: 4,
+    flexShrink: 1,
+  },
+  /** Full-width overlay whose only job is to centre its child on the track. */
+  centerLayer: {
+    position: "absolute",
+    zIndex: 2,
+    top: TRACK_PADDING,
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    height: HANDLE_SIZE,
+  },
+  /** Behind the handle, above the labels. */
+  glowLayer: {
+    zIndex: 1,
   },
   glow: {
-    position: "absolute",
-    zIndex: 1,
-    top: TRACK_PADDING - 6,
-    left: "50%",
-    marginLeft: -(HANDLE_SIZE + 12) / 2,
     width: HANDLE_SIZE + 12,
     height: HANDLE_SIZE + 12,
     borderRadius: (HANDLE_SIZE + 12) / 2,
     backgroundColor: colors.gold,
   },
   handle: {
-    position: "absolute",
-    zIndex: 2,
-    top: TRACK_PADDING,
-    left: "50%",
-    marginLeft: -HANDLE_SIZE / 2,
     width: HANDLE_SIZE,
     height: HANDLE_SIZE,
     borderRadius: HANDLE_SIZE / 2,

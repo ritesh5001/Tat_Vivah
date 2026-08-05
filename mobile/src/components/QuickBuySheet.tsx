@@ -1,9 +1,9 @@
 import * as React from "react";
 import { View, StyleSheet, Pressable, Modal, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "./Icon";
 import { useQuery } from "@tanstack/react-query";
-import { colors, spacing, typography } from "../theme/tokens";
+import { colors, spacing, typography, radius } from "../theme/tokens";
 import { getProductById, type ProductVariant } from "../services/products";
 import { useCart } from "../providers/CartProvider";
 import { useAuth } from "../hooks/useAuth";
@@ -223,7 +223,7 @@ export function QuickBuySheet({
                   </Text>
                 </View>
                 <Pressable onPress={onClose} hitSlop={12}>
-                  <Ionicons name="close" size={22} color={colors.charcoal} />
+                  <Icon name="close" size={22} color={colors.charcoal} />
                 </Pressable>
               </View>
 
@@ -301,7 +301,7 @@ export function QuickBuySheet({
               >
                 {confirmed ? (
                   <View style={styles.ctaConfirmRow}>
-                    <Ionicons name="checkmark-circle" size={18} color={colors.warmWhite} />
+                    <Icon name="checkmark-circle" size={18} color={colors.warmWhite} />
                     <Text style={styles.ctaText}>Added to bag</Text>
                   </View>
                 ) : (
@@ -386,6 +386,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   colorChip: {
+    borderRadius: radius.pill,
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
@@ -395,6 +396,7 @@ const styles = StyleSheet.create({
     borderColor: colors.borderSoft,
   },
   sizeChip: {
+    borderRadius: radius.pill,
     minWidth: 52,
     alignItems: "center",
     paddingHorizontal: spacing.md,

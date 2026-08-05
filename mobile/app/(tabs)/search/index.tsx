@@ -10,9 +10,9 @@ import {
 } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { useQueryClient } from "@tanstack/react-query";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "../../../src/components/Icon";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { colors, spacing, typography, shadow } from "../../../src/theme/tokens";
+import { colors, spacing, typography, shadow, radius } from "../../../src/theme/tokens";
 import { getCategories } from "../../../src/services/catalog";
 import {
   getProductsAndCache,
@@ -606,7 +606,7 @@ export default function SearchScreen() {
             onPress={() => setShowSortSheet(true)}
             hitSlop={8}
           >
-            <Ionicons name="swap-vertical-outline" size={18} color={colors.charcoal} />
+            <Icon name="swap-vertical-outline" size={18} color={colors.charcoal} />
           </Pressable>
 
           <TextInput
@@ -630,7 +630,7 @@ export default function SearchScreen() {
             disabled={!voiceSupported}
             hitSlop={8}
           >
-            <Ionicons
+            <Icon
               name={voiceListening ? "mic" : "mic-outline"}
               size={18}
               color={voiceListening ? colors.background : colors.charcoal}
@@ -645,7 +645,7 @@ export default function SearchScreen() {
             onPress={() => setShowCategoryFilters((prev) => !prev)}
             hitSlop={8}
           >
-            <Ionicons name="funnel-outline" size={18} color={colors.charcoal} />
+            <Icon name="funnel-outline" size={18} color={colors.charcoal} />
           </Pressable>
         </View>
 
@@ -801,7 +801,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingTop: spacing.sm,
     paddingBottom: spacing.xs,
-    borderRadius: 0,
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: colors.surfaceElevated,
@@ -815,7 +815,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     backgroundColor: colors.background,
-    borderRadius: 0,
+    borderRadius: radius.sm,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     paddingHorizontal: spacing.sm,
@@ -828,7 +828,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gold,
     borderWidth: 1,
     borderColor: colors.gold,
-    borderRadius: 0,
+    borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     minHeight: 38,
     justifyContent: "center",
@@ -888,7 +888,7 @@ const styles = StyleSheet.create({
     borderColor: colors.borderSoft,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderRadius: 0,
+    borderRadius: radius.pill,
     backgroundColor: colors.surface,
   },
   categoryChipActive: {
@@ -912,14 +912,14 @@ const styles = StyleSheet.create({
   },
   skeletonLine: {
     height: 12,
-    borderRadius: 0,
+    borderRadius: radius.xs,
     backgroundColor: colors.cream,
     marginTop: spacing.sm,
   },
   skeletonLineShort: {
     height: 12,
     width: "60%",
-    borderRadius: 0,
+    borderRadius: radius.xs,
     backgroundColor: colors.cream,
     marginTop: spacing.xs,
   },
@@ -936,7 +936,7 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.lg,
     marginBottom: spacing.md,
     padding: spacing.lg,
-    borderRadius: 0,
+    borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: colors.surfaceElevated,
@@ -960,7 +960,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gold,
     borderWidth: 1,
     borderColor: colors.gold,
-    borderRadius: 0,
+    borderRadius: radius.md,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
   },
@@ -980,7 +980,7 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.lg,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    borderRadius: 0,
+    borderRadius: radius.lg,
     backgroundColor: colors.surfaceElevated,
     ...shadow.card,
     maxHeight: 220,
@@ -1014,6 +1014,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.35)",
   },
   sortSheet: {
+    borderRadius: radius.xl,
     backgroundColor: colors.surfaceElevated,
     borderTopLeftRadius: 0,
     borderTopRightRadius: 0,
@@ -1033,7 +1034,7 @@ const styles = StyleSheet.create({
   },
   sortSheetOptionActive: {
     backgroundColor: "rgba(184, 149, 108, 0.14)",
-    borderRadius: 0,
+    borderRadius: radius.xl,
   },
   sortSheetOptionText: {
     fontFamily: typography.sans,

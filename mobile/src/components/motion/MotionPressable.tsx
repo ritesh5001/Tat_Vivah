@@ -27,6 +27,16 @@ export interface MotionPressableProps extends Omit<PressableProps, "style"> {
   haptic?: boolean;
   preset?: MotionPreset;
   enterDelay?: number;
+  /**
+   * Run the entering animation on mount.
+   *
+   * Off is the right default for anything that can appear inside a virtualised
+   * list: a layout animation on a cell that gets recycled or clipped mid-flight
+   * is a documented Android native crash, and a button fading in every time it
+   * scrolls back into view reads as jitter rather than polish. Turn it on only
+   * for a button that genuinely appears in response to something.
+   */
+  animateEntrance?: boolean;
 }
 
 function getEntering(preset: MotionPreset, delay: number) {
@@ -59,10 +69,14 @@ export const MotionPressable = React.memo(function MotionPressable({
   haptic = true,
   preset = "fade",
   enterDelay = 0,
+  animateEntrance = false,
   ...rest
 }: MotionPressableProps) {
   const scale = useSharedValue(1);
-  const entering = React.useMemo(() => getEntering(preset, enterDelay), [preset, enterDelay]);
+  const entering = React.useMemo(
+    () => (animateEntrance ? getEntering(preset, enterDelay) : undefined),
+    [animateEntrance, preset, enterDelay]
+  );
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [
@@ -96,28 +110,40 @@ export const MotionPressable = React.memo(function MotionPressable({
   // width, alignSelf — has to live on the outermost wrapper, or the wrapper
   // collapses to its content and the caller's sizing is silently ignored. That is
   // what squashed the bottom nav: four flex:1 items packed to the left.
-  const outerLayoutStyle = React.useMemo(() => {
-    const flat = StyleSheet.flatten(style) ?? {};
-    const { flex, flexGrow, flexShrink, flexBasis, alignSelf, width, height } =
-      flat as ViewStyle;
+  //
+  // Sizing and alignment are kept apart on purpose. Both must be hoisted to the
+  // wrapper, but only sizing means "let the parent decide how big I am" — and
+  // only that justifies stretching the inner layers to 100%. Lumping `alignSelf`
+  // in with the rest made a merely centred button claim its parent's full height:
+  // that is what turned Proceed to checkout into a page-tall slab.
+  const { sizingStyle, alignmentStyle } = React.useMemo(() => {
+    const flat = (StyleSheet.flatten(style) ?? {}) as ViewStyle;
+    const { flex, flexGrow, flexShrink, flexBasis, width, height, alignSelf } = flat;
     return {
-      ...(flex !== undefined ? { flex } : {}),
-      ...(flexGrow !== undefined ? { flexGrow } : {}),
-      ...(flexShrink !== undefined ? { flexShrink } : {}),
-      ...(flexBasis !== undefined ? { flexBasis } : {}),
-      ...(alignSelf !== undefined ? { alignSelf } : {}),
-      ...(width !== undefined ? { width } : {}),
-      ...(height !== undefined ? { height } : {}),
-    } as ViewStyle;
+      sizingStyle: {
+        ...(flex !== undefined ? { flex } : {}),
+        ...(flexGrow !== undefined ? { flexGrow } : {}),
+        ...(flexShrink !== undefined ? { flexShrink } : {}),
+        ...(flexBasis !== undefined ? { flexBasis } : {}),
+        ...(width !== undefined ? { width } : {}),
+        ...(height !== undefined ? { height } : {}),
+      } as ViewStyle,
+      alignmentStyle: (alignSelf !== undefined ? { alignSelf } : {}) as ViewStyle,
+    };
   }, [style]);
 
   // Only stretch the inner layers when the caller actually asked to be sized by
   // its parent. Applying 100% inside a content-sized wrapper would collapse every
   // other MotionPressable in the app.
-  const isStretched = Object.keys(outerLayoutStyle).length > 0;
+  const isStretched = Object.keys(sizingStyle).length > 0;
+  const outerStyle = React.useMemo(
+    () => ({ ...sizingStyle, ...alignmentStyle }),
+    [sizingStyle, alignmentStyle]
+  );
+  const hasOuterStyle = Object.keys(outerStyle).length > 0;
 
   return (
-    <Animated.View entering={entering} style={isStretched ? outerLayoutStyle : undefined}>
+    <Animated.View entering={entering} style={hasOuterStyle ? outerStyle : undefined}>
       <Animated.View style={[animatedStyle, isStretched && styles.fill]}>
         <Pressable
           {...rest}

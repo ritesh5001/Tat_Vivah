@@ -1,6 +1,6 @@
 import * as React from "react";
 import { View, Text, StyleSheet, FlatList, Pressable } from "react-native";
-import { colors, spacing, typography } from "../theme/tokens";
+import { colors, spacing, typography, radius } from "../theme/tokens";
 import { type BestsellerProduct } from "../services/bestsellers";
 import { type ProductItem } from "../services/products";
 import { ProductGridCard } from "./ProductGridCard";
@@ -119,6 +119,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   loadingCard: {
+    borderRadius: radius.lg,
     marginTop: spacing.lg,
     marginHorizontal: spacing.lg,
     padding: spacing.lg,

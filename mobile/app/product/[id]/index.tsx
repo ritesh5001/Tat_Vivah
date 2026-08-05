@@ -27,7 +27,7 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Image } from "../../../src/components/CompatImage";
 import { trackPendingCartWrite } from "../../../src/lib/pending-cart";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "../../../src/components/Icon";
 import * as ImagePicker from "expo-image-picker";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import {
@@ -140,7 +140,7 @@ const GalleryImage = React.memo(function GalleryImage({
 
 const galleryStyles = StyleSheet.create({
   image: {
-    borderRadius: 0,
+    borderRadius: radius.md,
     backgroundColor: colors.cream,
   },
 });
@@ -1575,13 +1575,13 @@ export default function ProductDetailScreen() {
             hitSlop={8}
           >
             <View style={styles.tryOnOverlayIconWrap}>
-              <Ionicons name="scan-outline" size={15} color={colors.warmWhite} />
+              <Icon name="scan-outline" size={15} color={colors.warmWhite} />
             </View>
             <View>
               <Text style={styles.tryOnOverlayEyebrow}>Virtual</Text>
               <Text style={styles.tryOnOverlayText}>Try-On</Text>
             </View>
-            <Ionicons name="sparkles-outline" size={12} color={colors.gold} />
+            <Icon name="sparkles-outline" size={12} color={colors.gold} />
           </Pressable>
         </View>
 
@@ -1634,7 +1634,7 @@ export default function ProductDetailScreen() {
                   style={styles.shareInlineButton}
                   hitSlop={8}
                 >
-                  <Ionicons name="share-social-outline" size={20} color={colors.charcoal} />
+                  <Icon name="share-social-outline" size={20} color={colors.charcoal} />
                 </Pressable>
               </View>
           </View>
@@ -1685,10 +1685,10 @@ export default function ProductDetailScreen() {
                   hitSlop={6}
                 >
                   <View style={styles.descriptionTitleRow}>
-                    <Ionicons name="document-text-outline" size={16} color={colors.gold} />
+                    <Icon name="document-text-outline" size={16} color={colors.gold} />
                     <Text style={styles.descriptionAccordionTitle}>Description</Text>
                   </View>
-                  <Ionicons
+                  <Icon
                     name={isDescriptionOpen ? "chevron-up" : "chevron-down"}
                     size={18}
                     color={colors.charcoal}
@@ -1736,20 +1736,20 @@ export default function ProductDetailScreen() {
           {/* Delivery + offers + viewer count */}
           <View style={styles.infoBlock}>
             <View style={styles.infoRow}>
-              <Ionicons name="cube-outline" size={16} color={colors.gold} />
+              <Icon name="cube-outline" size={16} color={colors.gold} />
               <Text style={styles.infoText}>
                 Get it by <Text style={styles.infoStrong}>{deliveryEstimate}</Text>
               </Text>
             </View>
             <View style={styles.infoRow}>
-              <Ionicons name="pricetag-outline" size={16} color={colors.gold} />
+              <Icon name="pricetag-outline" size={16} color={colors.gold} />
               <Text style={styles.infoText}>
                 Use <Text style={styles.infoStrong}>WELCOME5</Text> for extra 5% off on first order
               </Text>
             </View>
             {productSeed ? (
               <View style={styles.infoRow}>
-                <Ionicons name="eye-outline" size={16} color={colors.brownSoft} />
+                <Icon name="eye-outline" size={16} color={colors.brownSoft} />
                 <Text style={styles.infoTextMuted}>
                   {productViewerCount} people viewed this recently
                 </Text>
@@ -1760,17 +1760,17 @@ export default function ProductDetailScreen() {
           {/* Trust strip */}
           <View style={styles.trustStrip}>
             <View style={styles.trustItem}>
-              <Ionicons name="shield-checkmark-outline" size={14} color={colors.gold} />
+              <Icon name="shield-checkmark-outline" size={14} color={colors.gold} />
               <Text style={styles.trustText}>Authentic</Text>
             </View>
             <View style={styles.trustDivider} />
             <View style={styles.trustItem}>
-              <Ionicons name="refresh-outline" size={14} color={colors.gold} />
+              <Icon name="refresh-outline" size={14} color={colors.gold} />
               <Text style={styles.trustText}>7-Day Returns</Text>
             </View>
             <View style={styles.trustDivider} />
             <View style={styles.trustItem}>
-              <Ionicons name="airplane-outline" size={14} color={colors.gold} />
+              <Icon name="airplane-outline" size={14} color={colors.gold} />
               <Text style={styles.trustText}>Pan-India</Text>
             </View>
           </View>
@@ -2209,14 +2209,14 @@ export default function ProductDetailScreen() {
             <View style={styles.tryOnSheetHeader}>
               <View style={styles.tryOnBrandRow}>
                 <Text style={styles.tryOnBrand}>TRY ON</Text>
-                <Ionicons name="sparkles" size={13} color={colors.gold} />
+                <Icon name="sparkles" size={13} color={colors.gold} />
               </View>
               <Pressable
                 onPress={() => setIsTryOnVisible(false)}
                 hitSlop={12}
                 style={styles.tryOnCloseButton}
               >
-                <Ionicons name="close" size={22} color={colors.charcoal} />
+                <Icon name="close" size={22} color={colors.charcoal} />
               </Pressable>
             </View>
 
@@ -2236,7 +2236,7 @@ export default function ProductDetailScreen() {
                 />
               ) : (
                 <View style={styles.tryOnPreviewEmpty}>
-                  <Ionicons name="shirt-outline" size={40} color={colors.brownSoft} />
+                  <Icon name="shirt-outline" size={40} color={colors.brownSoft} />
                 </View>
               )}
             </View>
@@ -2329,7 +2329,7 @@ const styles = StyleSheet.create({
     right: spacing.lg,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 0,
+    borderRadius: radius.pill,
     backgroundColor: "rgba(44, 40, 37, 0.65)",
   },
   galleryIndexText: {
@@ -2393,14 +2393,14 @@ const styles = StyleSheet.create({
   dot: {
     width: 6,
     height: 6,
-    borderRadius: 0,
+    borderRadius: radius.pill,
     backgroundColor: colors.borderSoft,
   },
   dotActive: {
     backgroundColor: colors.gold,
     width: 8,
     height: 8,
-    borderRadius: 0,
+    borderRadius: radius.pill,
   },
 
   // Details
@@ -2408,7 +2408,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     marginHorizontal: spacing.md,
     padding: spacing.md,
-    borderRadius: 0,
+    borderRadius: radius.lg,
     backgroundColor: colors.background,
   },
   titleRow: {
@@ -2435,7 +2435,7 @@ const styles = StyleSheet.create({
   detailsBadge: {
     paddingHorizontal: spacing.sm,
     paddingVertical: 4,
-    borderRadius: 0,
+    borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: colors.gold,
     backgroundColor: "rgba(196, 167, 108, 0.12)",
@@ -2455,6 +2455,7 @@ const styles = StyleSheet.create({
     lineHeight: 30,
   },
   wishlistInlineButton: {
+    borderRadius: radius.md,
     width: 44,
     height: 44,
     borderWidth: 1,
@@ -2464,6 +2465,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   shareInlineButton: {
+    borderRadius: radius.md,
     width: 44,
     height: 44,
     borderWidth: 1,
@@ -2479,6 +2481,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   ratingPill: {
+    borderRadius: radius.pill,
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#0F8A5F",
@@ -2645,6 +2648,7 @@ const styles = StyleSheet.create({
     textDecorationLine: "line-through",
   },
   discountPill: {
+    borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: colors.gold,
     backgroundColor: "rgba(196, 167, 108, 0.12)",
@@ -2704,7 +2708,7 @@ const styles = StyleSheet.create({
     borderColor: colors.borderSoft,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderRadius: 0,
+    borderRadius: radius.pill,
     backgroundColor: colors.warmWhite,
   },
   variantChipActive: {
@@ -2756,6 +2760,7 @@ const styles = StyleSheet.create({
 
   // Virtual try-on
   tryOnCard: {
+    borderRadius: radius.lg,
     marginTop: spacing.md,
     marginHorizontal: spacing.lg,
     padding: spacing.lg,
@@ -2822,6 +2827,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   tryOnButton: {
+    borderRadius: radius.md,
     flex: 1,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -2844,6 +2850,7 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   tryOnSheet: {
+    borderRadius: radius.xl,
     width: "100%",
     maxHeight: "92%",
     backgroundColor: colors.background,
@@ -2924,6 +2931,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   tryOnPrimaryButton: {
+    borderRadius: radius.md,
     backgroundColor: colors.charcoal,
     paddingVertical: spacing.md,
     alignItems: "center",
@@ -2939,7 +2947,7 @@ const styles = StyleSheet.create({
   primaryButton: {
     marginTop: spacing.lg,
     backgroundColor: colors.gold,
-    borderRadius: 0,
+    borderRadius: radius.md,
     paddingVertical: 14,
     alignItems: "center",
   },
@@ -2961,7 +2969,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.borderSoft,
     paddingVertical: 12,
-    borderRadius: 0,
+    borderRadius: radius.md,
     alignItems: "center",
   },
   secondaryButtonText: {
@@ -2993,7 +3001,7 @@ const styles = StyleSheet.create({
   wishlistButton: {
     width: 52,
     height: 52,
-    borderRadius: 0,
+    borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: colors.surface,
@@ -3034,7 +3042,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xl,
     marginHorizontal: spacing.lg,
     padding: spacing.lg,
-    borderRadius: 0,
+    borderRadius: radius.lg,
     backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -3079,7 +3087,7 @@ const styles = StyleSheet.create({
     minHeight: 80,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    borderRadius: 0,
+    borderRadius: radius.sm,
     padding: spacing.sm,
     fontFamily: typography.sans,
     fontSize: 12,
@@ -3097,7 +3105,7 @@ const styles = StyleSheet.create({
   reviewImagePreviewWrap: {
     width: 56,
     height: 56,
-    borderRadius: 0,
+    borderRadius: radius.sm,
     overflow: "hidden",
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -3125,7 +3133,7 @@ const styles = StyleSheet.create({
   reviewImageAddBtn: {
     width: 56,
     height: 56,
-    borderRadius: 0,
+    borderRadius: radius.sm,
     borderWidth: 1,
     borderStyle: "dashed",
     borderColor: colors.borderSoft,
@@ -3173,7 +3181,7 @@ const styles = StyleSheet.create({
   reviewImageThumb: {
     width: 48,
     height: 48,
-    borderRadius: 0,
+    borderRadius: radius.sm,
     backgroundColor: colors.cream,
   },
   reviewDate: {
@@ -3201,7 +3209,7 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.md,
     marginBottom: spacing.xl,
     padding: spacing.md,
-    borderRadius: 0,
+    borderRadius: radius.lg,
     backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -3218,14 +3226,14 @@ const styles = StyleSheet.create({
     width: 150,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    borderRadius: 0,
+    borderRadius: radius.lg,
     padding: spacing.sm,
     backgroundColor: colors.background,
   },
   relatedImage: {
     width: "100%",
     height: 110,
-    borderRadius: 0,
+    borderRadius: radius.md,
     backgroundColor: colors.cream,
   },
   relatedTitle: {
@@ -3254,7 +3262,7 @@ const styles = StyleSheet.create({
   centerCard: {
     margin: spacing.lg,
     padding: spacing.xl,
-    borderRadius: 0,
+    borderRadius: radius.lg,
     backgroundColor: colors.warmWhite,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -3278,7 +3286,7 @@ const styles = StyleSheet.create({
     zIndex: 2,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.35)",
-    borderRadius: 0,
+    borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     backgroundColor: "rgba(0,0,0,0.45)",

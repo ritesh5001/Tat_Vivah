@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
   logoBadge: {
     height: 44,
     width: 44,
-    borderRadius: 0,
+    borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: colors.surface,
@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: colors.surfaceElevated,
-    borderRadius: 0,
+    borderRadius: radius.lg,
     padding: spacing.lg,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -183,7 +183,7 @@ const styles = StyleSheet.create({
   },
   input: {
     height: 48,
-    borderRadius: 0,
+    borderRadius: radius.sm,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     paddingHorizontal: spacing.md,
@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gold,
     borderWidth: 1,
     borderColor: colors.gold,
-    borderRadius: 0,
+    borderRadius: radius.md,
     paddingVertical: spacing.sm,
     alignItems: "center",
   },

@@ -1,11 +1,11 @@
 import * as React from "react";
 import { StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon, type IconName } from "./Icon";
 import { AppText as Text } from "./AppText";
 import { colors, spacing, typography } from "../theme/tokens";
 
 type PromiseItem = {
-  icon: React.ComponentProps<typeof Ionicons>["name"];
+  icon: IconName;
   title: string;
   copy: string;
 };
@@ -51,7 +51,7 @@ export function TatvivahPromise({ style }: TatvivahPromiseProps) {
         {PROMISE_ITEMS.map((item) => (
           <View key={item.title} style={styles.card}>
             <View style={styles.iconWrap}>
-              <Ionicons name={item.icon} size={22} color={colors.gold} />
+              <Icon name={item.icon} size={22} color={colors.gold} />
             </View>
             <Text style={styles.cardTitle}>{item.title}</Text>
             <Text style={styles.cardCopy} numberOfLines={3}>

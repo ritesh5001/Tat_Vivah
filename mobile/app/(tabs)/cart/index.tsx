@@ -7,7 +7,7 @@ import {
 } from "react-native";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useRouter } from "expo-router";
-import { colors, spacing, typography, shadow } from "../../../src/theme/tokens";
+import { colors, spacing, typography, shadow, radius } from "../../../src/theme/tokens";
 import { useAuth } from "../../../src/hooks/useAuth";
 import { useCart } from "@/src/providers/CartProvider";
 import { useNetworkStatus } from "../../../src/hooks/useNetworkStatus";
@@ -146,10 +146,18 @@ export default function CartScreen() {
       const compareAt = item.variant?.compareAtPrice;
       const hasDiscount =
         typeof compareAt === "number" && compareAt > item.priceSnapshot;
+      const discountPercent = hasDiscount
+        ? Math.round(((compareAt - item.priceSnapshot) / compareAt) * 100)
+        : 0;
       const lineTotal = item.priceSnapshot * item.quantity;
+      const stock = item.variant?.inventory?.stock;
 
       return (
-        <MotionView preset="slideUp" delay={Math.min(index * 24, 180)}>
+        // Fade, not slide. SlideInUp starts the row off-screen, and a row that is
+        // recycled or clipped mid-animation never travels back — which is how
+        // cart rows ended up invisible. A fade has no off-screen start state to
+        // get stranded in.
+        <MotionView preset="fade" delay={Math.min(index * 40, 200)}>
           <View style={[styles.itemCard, index === 0 && isFreshArrival && styles.itemCardArrived]}>
             <View style={styles.itemRow}>
               {thumbnail ? (
@@ -188,22 +196,37 @@ export default function CartScreen() {
                   </Text>
                 </View>
 
+                {item.variant?.sku ? (
+                  <Text style={styles.itemSku} numberOfLines={1}>
+                    SKU {item.variant.sku}
+                  </Text>
+                ) : null}
+
                 <View style={styles.priceRow}>
                   <Text style={styles.itemPrice}>
                     {currency.format(item.priceSnapshot)}
                   </Text>
                   {hasDiscount ? (
-                    <Text style={styles.itemCompareAt}>
-                      {currency.format(compareAt as number)}
-                    </Text>
+                    <>
+                      <Text style={styles.itemCompareAt}>
+                        {currency.format(compareAt as number)}
+                      </Text>
+                      <Text style={styles.itemDiscount}>{discountPercent}% off</Text>
+                    </>
                   ) : null}
                 </View>
 
-                {item.quantity > 1 ? (
-                  <Text style={styles.lineTotal}>
-                    {item.quantity} × {currency.format(item.priceSnapshot)} ={" "}
+                {/* Always shown, not only above one unit: the line total is what
+                    the shopper is actually being charged for this row. */}
+                <Text style={styles.lineTotal}>
+                  {item.quantity} × {currency.format(item.priceSnapshot)} ={" "}
+                  <Text style={styles.lineTotalValue}>
                     {currency.format(lineTotal)}
                   </Text>
+                </Text>
+
+                {typeof stock === "number" && stock > 0 && stock <= 5 ? (
+                  <Text style={styles.stockWarning}>Only {stock} left</Text>
                 ) : null}
               </View>
 
@@ -320,16 +343,20 @@ export default function CartScreen() {
             data={cartItems}
             keyExtractor={keyExtractor}
             renderItem={renderItem}
+            // Without an explicit flex the list sized itself to its content and
+            // the summary below claimed the rest of the screen. On a one-item
+            // cart that pushed the rows out of view entirely — the "images are
+            // not showing" was the whole row being invisible, not the image.
+            style={styles.list}
             contentContainerStyle={styles.listContent}
             initialNumToRender={6}
-            maxToRenderPerBatch={2}
-            windowSize={3}
-            updateCellsBatchingPeriod={24}
-            removeClippedSubviews
+            maxToRenderPerBatch={4}
+            windowSize={7}
+            showsVerticalScrollIndicator={false}
           />
 
           <View style={[styles.summaryFooter, { paddingBottom: tabBarHeight }]}>
-          <View style={styles.summaryCard}> 
+          <View style={styles.summaryCard}>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Subtotal</Text>
               <Text style={styles.summaryValue}>
@@ -413,6 +440,10 @@ const styles = StyleSheet.create({
     color: colors.brownSoft,
     lineHeight: 18,
   },
+  /** Takes the space between the header and the pinned summary. */
+  list: {
+    flex: 1,
+  },
   listContent: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
@@ -426,7 +457,7 @@ const styles = StyleSheet.create({
   itemCard: {
     marginBottom: spacing.md,
     padding: spacing.md,
-    borderRadius: 0,
+    borderRadius: radius.lg,
     backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -498,11 +529,33 @@ const styles = StyleSheet.create({
     color: colors.brownSoft,
     textDecorationLine: "line-through",
   },
+  itemSku: {
+    marginTop: 4,
+    fontFamily: typography.sans,
+    fontSize: 10,
+    letterSpacing: 0.6,
+    color: colors.brownSoft,
+  },
+  itemDiscount: {
+    fontFamily: typography.sansMedium,
+    fontSize: 11,
+    color: colors.gold,
+  },
   lineTotal: {
     marginTop: 4,
     fontFamily: typography.sans,
     fontSize: 11,
     color: colors.brownSoft,
+  },
+  lineTotalValue: {
+    fontFamily: typography.sansMedium,
+    color: colors.charcoal,
+  },
+  stockWarning: {
+    marginTop: 4,
+    fontFamily: typography.sansMedium,
+    fontSize: 11,
+    color: "#B4553F",
   },
   removeIcon: {
     paddingHorizontal: spacing.xs,
@@ -533,6 +586,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   qtyButton: {
+    borderRadius: radius.md,
     height: 34,
     width: 34,
     borderWidth: 1,
@@ -556,19 +610,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.charcoal,
   },
-  // Pinned above the tab bar so Proceed to checkout is always reachable.
+  // Pinned above the tab bar so Proceed to checkout is always reachable. The
+  // upward shadow is what tells the eye the list continues underneath it.
   summaryFooter: {
     borderTopWidth: 1,
     borderTopColor: colors.borderSoft,
     backgroundColor: colors.background,
+    shadowColor: colors.charcoal,
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: -3 },
+    shadowRadius: 10,
+    elevation: 12,
   },
   summaryCard: {
     marginHorizontal: spacing.lg,
     marginVertical: spacing.md,
-    padding: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    borderRadius: 0,
+    borderRadius: radius.lg,
     backgroundColor: colors.surfaceElevated,
     ...shadow.card,
   },
@@ -597,13 +658,18 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gold,
     borderWidth: 1,
     borderColor: colors.gold,
-    borderRadius: 0,
+    borderRadius: radius.md,
     // The label was hugging the edges: give it real breathing room and a
     // comfortable tap target.
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.xl,
-    alignSelf: "center",
+    // Full width rather than centred. A checkout button is the page's single
+    // most important target, and `alignSelf: center` here also fought the
+    // wrapper's sizing rules.
+    alignSelf: "stretch",
     alignItems: "center",
+    justifyContent: "center",
+    minHeight: 52,
   },
   buttonDisabled: {
     opacity: 0.5,
@@ -618,7 +684,7 @@ const styles = StyleSheet.create({
   emptyCard: {
     margin: spacing.lg,
     padding: spacing.xl,
-    borderRadius: 0,
+    borderRadius: radius.lg,
     backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,

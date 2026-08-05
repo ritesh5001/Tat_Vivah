@@ -10,7 +10,7 @@ import Animated, {
   withSequence,
   withTiming,
 } from "react-native-reanimated";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "./Icon";
 import { colors } from "../theme/tokens";
 
 /**
@@ -105,7 +105,7 @@ export function FlyToCart({
   return (
     <Animated.View pointerEvents="none" style={[styles.flyer, style]}>
       <Animated.View style={styles.puck}>
-        <Ionicons name="bag-handle" size={22} color={colors.warmWhite} />
+        <Icon name="bag-handle" size={22} color={colors.warmWhite} />
       </Animated.View>
     </Animated.View>
   );

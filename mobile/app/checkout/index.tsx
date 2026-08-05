@@ -1064,7 +1064,7 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: colors.surfaceElevated,
-    borderRadius: 0,
+    borderRadius: radius.lg,
     padding: spacing.lg,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -1086,7 +1086,7 @@ const styles = StyleSheet.create({
   },
   input: {
     height: 48,
-    borderRadius: 0,
+    borderRadius: radius.sm,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     paddingHorizontal: spacing.md,
@@ -1104,7 +1104,7 @@ const styles = StyleSheet.create({
   payMethodOption: {
     flex: 1,
     backgroundColor: colors.surface,
-    borderRadius: 0,
+    borderRadius: radius.md,
     padding: spacing.md,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -1132,7 +1132,7 @@ const styles = StyleSheet.create({
   // Selected address display
   selectedAddressBox: {
     backgroundColor: colors.surface,
-    borderRadius: 0,
+    borderRadius: radius.lg,
     padding: spacing.md,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -1159,7 +1159,7 @@ const styles = StyleSheet.create({
   changeButton: {
     marginTop: spacing.md,
     paddingVertical: spacing.sm,
-    borderRadius: 0,
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.gold,
     alignItems: "center",
@@ -1192,7 +1192,7 @@ const styles = StyleSheet.create({
   addAddressButton: {
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.md,
-    borderRadius: 0,
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.gold,
   },
@@ -1210,7 +1210,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gold,
     borderWidth: 1,
     borderColor: colors.gold,
-    borderRadius: 0,
+    borderRadius: radius.md,
     paddingVertical: spacing.sm,
     alignItems: "center",
   },
@@ -1239,6 +1239,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   modalSheet: {
+    borderRadius: radius.xl,
     backgroundColor: colors.surfaceElevated,
     borderTopLeftRadius: 0,
     borderTopRightRadius: 0,
@@ -1249,7 +1250,7 @@ const styles = StyleSheet.create({
   modalHandle: {
     width: 36,
     height: 4,
-    borderRadius: 0,
+    borderRadius: radius.md,
     backgroundColor: colors.borderSoft,
     alignSelf: "center",
     marginTop: spacing.md,
@@ -1287,7 +1288,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.sm,
-    borderRadius: 0,
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: colors.surface,
@@ -1301,7 +1302,7 @@ const styles = StyleSheet.create({
   selectorRadio: {
     width: 20,
     height: 20,
-    borderRadius: 0,
+    borderRadius: radius.pill,
     borderWidth: 2,
     borderColor: colors.borderSoft,
     alignItems: "center",
@@ -1311,7 +1312,7 @@ const styles = StyleSheet.create({
   selectorRadioInner: {
     width: 10,
     height: 10,
-    borderRadius: 0,
+    borderRadius: radius.pill,
     backgroundColor: colors.gold,
   },
   selectorContent: {
@@ -1333,7 +1334,7 @@ const styles = StyleSheet.create({
     borderColor: colors.borderSoft,
     paddingHorizontal: spacing.xs,
     paddingVertical: 2,
-    borderRadius: 0,
+    borderRadius: radius.md,
     overflow: "hidden",
   },
   selectorDefault: {
@@ -1347,7 +1348,7 @@ const styles = StyleSheet.create({
     borderColor: colors.gold,
     paddingHorizontal: spacing.xs,
     paddingVertical: 2,
-    borderRadius: 0,
+    borderRadius: radius.md,
     overflow: "hidden",
   },
   selectorLine: {
@@ -1446,7 +1447,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     backgroundColor: colors.surface,
-    borderRadius: 0,
+    borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.gold,
     padding: spacing.md,
@@ -1492,7 +1493,7 @@ const styles = StyleSheet.create({
   },
   couponApplyButton: {
     height: 48,
-    borderRadius: 0,
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.gold,
     paddingHorizontal: spacing.lg,

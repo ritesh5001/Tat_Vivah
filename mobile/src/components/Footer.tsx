@@ -1,8 +1,8 @@
 import React from "react";
 import { useRouter } from "expo-router";
-import { Feather } from "@expo/vector-icons";
+import { Icon } from "./Icon";
 import { Linking, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { colors, spacing, typography, textStyles } from "../theme";
+import { colors, spacing, typography, textStyles, radius } from "../theme";
 import { companyInfo } from "../data/company";
 
 const accordionSections = ["CATEGORIES", "SUPPORT", "QUICK LINKS", "OUR POLICIES"] as const;
@@ -95,12 +95,12 @@ export function Footer() {
           style={styles.newsletterInput}
         />
         <Pressable style={styles.newsletterArrowButton} onPress={handleNewsletterSubmit}>
-          <Feather name="arrow-right" size={18} color={colors.white} />
+          <Icon name="arrow-right" size={18} color={colors.white} />
         </Pressable>
       </View>
 
       <Pressable style={styles.supportPill} onPress={() => setShowSupportModal(true)}>
-        <Feather name="headphones" size={16} color={colors.white} />
+        <Icon name="headphones" size={16} color={colors.white} />
         <Text style={styles.supportPillText}>24x6 Support Concierge</Text>
       </Pressable>
 
@@ -115,7 +115,7 @@ export function Footer() {
                 onPress={() => setOpenSection(isOpen ? null : section)}
               >
                 <Text style={styles.accordionTitle}>{section}</Text>
-                <Feather name={isOpen ? "minus" : "plus"} size={16} color={colors.white} />
+                <Icon name={isOpen ? "minus" : "plus"} size={16} color={colors.white} />
               </Pressable>
               {isOpen && (
                 <View style={styles.accordionContent}>
@@ -126,7 +126,7 @@ export function Footer() {
                       onPress={() => handleSectionAction(section, link.label, link.route)}
                     >
                       <Text style={styles.accordionText}>{link.label}</Text>
-                      <Feather name="chevron-right" size={14} color="#EAD7D0" />
+                      <Icon name="chevron-right" size={14} color="#EAD7D0" />
                     </Pressable>
                   ))}
                 </View>
@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     borderWidth: 1,
     borderColor: "#9D7B70",
-    borderRadius: 0,
+    borderRadius: radius.md,
     overflow: "hidden",
     alignItems: "center",
     backgroundColor: "#6A3422",
@@ -226,6 +226,7 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
   },
   newsletterArrowButton: {
+    borderRadius: radius.md,
     width: 42,
     height: 42,
     borderLeftWidth: 1,
@@ -275,7 +276,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     borderWidth: 1,
     borderColor: "#A68375",
-    borderRadius: 0,
+    borderRadius: radius.pill,
     paddingVertical: spacing.sm,
     backgroundColor: "rgba(255,255,255,0.05)",
   },
@@ -328,7 +329,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   modalCard: {
-    borderRadius: 0,
+    borderRadius: radius.xl,
     padding: spacing.lg,
     backgroundColor: "#5B2E21",
     borderWidth: 1,
@@ -357,7 +358,7 @@ const styles = StyleSheet.create({
     flex: 1,
     borderWidth: 1,
     borderColor: "#B89588",
-    borderRadius: 0,
+    borderRadius: radius.md,
     paddingVertical: spacing.sm,
     alignItems: "center",
     backgroundColor: "rgba(255,255,255,0.06)",

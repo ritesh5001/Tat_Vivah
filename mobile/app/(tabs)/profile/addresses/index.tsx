@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
   backButton: {
     width: 36,
     height: 36,
-    borderRadius: 0,
+    borderRadius: radius.pill,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -368,7 +368,7 @@ const styles = StyleSheet.create({
   card: {
     marginTop: spacing.md,
     padding: spacing.lg,
-    borderRadius: 0,
+    borderRadius: radius.lg,
     backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -396,7 +396,7 @@ const styles = StyleSheet.create({
     borderColor: colors.borderSoft,
     paddingHorizontal: spacing.sm,
     paddingVertical: 3,
-    borderRadius: 0,
+    borderRadius: radius.pill,
     overflow: "hidden",
   },
   defaultBadge: {
@@ -410,7 +410,7 @@ const styles = StyleSheet.create({
     borderColor: colors.gold,
     paddingHorizontal: spacing.sm,
     paddingVertical: 3,
-    borderRadius: 0,
+    borderRadius: radius.pill,
     overflow: "hidden",
   },
   addressLine: {
@@ -431,7 +431,7 @@ const styles = StyleSheet.create({
   actionButton: {
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.md,
-    borderRadius: 0,
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: colors.surface,
@@ -444,6 +444,7 @@ const styles = StyleSheet.create({
     color: colors.charcoal,
   },
   dangerButton: {
+    borderRadius: radius.md,
     borderColor: colors.gold,
     backgroundColor: "rgba(184, 149, 108, 0.12)",
   },
@@ -505,7 +506,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gold,
     borderWidth: 1,
     borderColor: colors.gold,
-    borderRadius: 0,
+    borderRadius: radius.md,
     paddingVertical: 14,
     alignItems: "center",
   },
@@ -532,7 +533,7 @@ const styles = StyleSheet.create({
     width: "100%",
     maxWidth: 340,
     backgroundColor: colors.surfaceElevated,
-    borderRadius: 0,
+    borderRadius: radius.xl,
     padding: spacing.lg,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -559,7 +560,7 @@ const styles = StyleSheet.create({
   modalCancelButton: {
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    borderRadius: 0,
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.borderSoft,
   },
@@ -573,7 +574,7 @@ const styles = StyleSheet.create({
   modalConfirmButton: {
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    borderRadius: 0,
+    borderRadius: radius.md,
     backgroundColor: colors.gold,
     minWidth: 90,
     alignItems: "center",

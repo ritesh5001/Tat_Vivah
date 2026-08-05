@@ -8,7 +8,7 @@ import {
   View,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "../../../src/components/Icon";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Image } from "../../../src/components/CompatImage";
@@ -29,7 +29,7 @@ import {
 } from "../../../src/services/tryOn";
 import { uploadTryOnImage, type ReviewImageAsset } from "../../../src/services/imagekit";
 import { isAbortError } from "../../../src/services/api";
-import { colors, shadow, spacing, typography } from "../../../src/theme/tokens";
+import { colors, shadow, spacing, typography, radius } from "../../../src/theme/tokens";
 import { notifySuccess } from "../../../src/utils/haptics";
 
 const MAX_TRY_ON_IMAGE_BYTES = 8 * 1024 * 1024;
@@ -237,7 +237,7 @@ export default function TryBuyScreen() {
                 <Image source={{ uri: userImageUri }} style={styles.previewImage} contentFit="cover" />
               ) : (
                 <View style={styles.placeholder}>
-                  <Ionicons name="person-outline" size={30} color={colors.brownSoft} />
+                  <Icon name="person-outline" size={30} color={colors.brownSoft} />
                   <Text style={styles.placeholderText}>Your photo</Text>
                 </View>
               )}
@@ -253,11 +253,11 @@ export default function TryBuyScreen() {
 
           <View style={styles.photoActions}>
             <Pressable style={styles.outlineButton} onPress={capturePhoto} disabled={tryOnLoading}>
-              <Ionicons name="camera-outline" size={18} color={colors.charcoal} />
+              <Icon name="camera-outline" size={18} color={colors.charcoal} />
               <Text style={styles.outlineButtonText}>Camera</Text>
             </Pressable>
             <Pressable style={styles.outlineButton} onPress={uploadPhoto} disabled={tryOnLoading}>
-              <Ionicons name="image-outline" size={18} color={colors.charcoal} />
+              <Icon name="image-outline" size={18} color={colors.charcoal} />
               <Text style={styles.outlineButtonText}>Upload</Text>
             </Pressable>
           </View>
@@ -436,6 +436,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   outlineButton: {
+    borderRadius: radius.md,
     flex: 1,
     minHeight: 44,
     borderWidth: 1,
@@ -475,6 +476,7 @@ const styles = StyleSheet.create({
     paddingRight: spacing.lg,
   },
   productCard: {
+    borderRadius: radius.lg,
     width: 132,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -501,6 +503,7 @@ const styles = StyleSheet.create({
     color: colors.charcoal,
   },
   loadingCard: {
+    borderRadius: radius.lg,
     minHeight: 132,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -520,6 +523,7 @@ const styles = StyleSheet.create({
     color: "#A65D57",
   },
   primaryButton: {
+    borderRadius: radius.md,
     minHeight: 50,
     backgroundColor: colors.gold,
     borderWidth: 1,
@@ -535,6 +539,7 @@ const styles = StyleSheet.create({
     color: colors.background,
   },
   secondaryButton: {
+    borderRadius: radius.md,
     minHeight: 48,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -592,6 +597,7 @@ const styles = StyleSheet.create({
     bottom: spacing.md,
   },
   modalBuyButton: {
+    borderRadius: radius.md,
     minHeight: 48,
     backgroundColor: colors.gold,
     alignItems: "center",

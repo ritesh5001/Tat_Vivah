@@ -427,7 +427,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gold,
     borderWidth: 1,
     borderColor: colors.gold,
-    borderRadius: 0,
+    borderRadius: radius.md,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
   },
@@ -447,7 +447,7 @@ const styles = StyleSheet.create({
   card: {
     marginBottom: spacing.md,
     padding: spacing.lg,
-    borderRadius: 0,
+    borderRadius: radius.lg,
     backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -487,7 +487,7 @@ const styles = StyleSheet.create({
   },
   deliveredBanner: {
     backgroundColor: "rgba(184, 149, 108, 0.14)",
-    borderRadius: 0,
+    borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.gold,
     paddingVertical: spacing.md,

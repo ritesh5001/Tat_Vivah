@@ -1,10 +1,10 @@
 import * as React from "react";
-import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+import { Icon } from "../../src/components/Icon";
 import { Tabs } from "expo-router";
 import { Platform } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { colors, typography } from "../../src/theme/tokens";
+import { colors, typography, radius } from "../../src/theme/tokens";
 import { impactLight } from "../../src/utils/haptics";
 
 const TabIconScale = React.memo(function TabIconScale({
@@ -72,7 +72,7 @@ export default function TabsLayout() {
           backgroundColor: colors.surfaceElevated,
           borderTopWidth: 1,
           borderTopColor: "rgba(196, 167, 108, 0.35)",
-          borderRadius: 0,
+          borderRadius: radius.xs,
           ...(Platform.OS === "web"
             ? { boxShadow: "0 -2px 6px rgba(44, 40, 37, 0.06)" }
             : {
@@ -92,7 +92,7 @@ export default function TabsLayout() {
           title: "Home",
           tabBarIcon: ({ color, size, focused }) => (
             <TabIconScale focused={focused}>
-              <Ionicons name="home-outline" color={color} size={size} />
+              <Icon name="home-outline" color={color} size={size} />
             </TabIconScale>
           ),
         }}
@@ -104,7 +104,7 @@ export default function TabsLayout() {
           title: "Shop",
           tabBarIcon: ({ color, size, focused }) => (
             <TabIconScale focused={focused}>
-              <MaterialIcons name="grid-view" color={color} size={size} />
+              <Icon name="grid-view" color={color} size={size} />
             </TabIconScale>
           ),
         }}
@@ -116,7 +116,7 @@ export default function TabsLayout() {
           title: "Reels",
           tabBarIcon: ({ color, size, focused }) => (
             <TabIconScale focused={focused}>
-              <Ionicons name="play-circle-outline" color={color} size={size} />
+              <Icon name="play-circle-outline" color={color} size={size} />
             </TabIconScale>
           ),
         }}
@@ -134,7 +134,7 @@ export default function TabsLayout() {
           title: "Profile",
           tabBarIcon: ({ color, size, focused }) => (
             <TabIconScale focused={focused}>
-              <Ionicons name="person-outline" color={color} size={size} />
+              <Icon name="person-outline" color={color} size={size} />
             </TabIconScale>
           ),
         }}

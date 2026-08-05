@@ -8,13 +8,21 @@ import {
   type StyleProp,
   type ViewStyle,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
+import { Icon } from "./Icon";
 import { Image } from "./CompatImage";
-import { colors, typography, spacing } from "../theme/tokens";
+import { colors, typography, spacing, radius } from "../theme/tokens";
 import { images } from "../data/images";
 import { type ProductItem } from "../services/products";
 import { useWishlist } from "../providers/WishlistProvider";
 import { rememberProductSeed } from "../lib/product-seed";
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 interface MarketplaceCardProps {
   product: ProductItem;
@@ -98,6 +106,31 @@ function MarketplaceCardComponent({
   const firstImage =
     Array.isArray(product.images) && product.images.length > 0 ? product.images[0] : null;
 
+  // Tactile response on the app's most-tapped element. Everything here runs on
+  // the UI thread via reanimated, so it costs no JavaScript and cannot be
+  // starved by a list that is mid-render — the card stays responsive even while
+  // the next page of products is being built.
+  const pressProgress = useSharedValue(0);
+
+  const cardPressStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 - 0.028 * pressProgress.value }],
+  }));
+
+  // The photo counter-scales very slightly, so the image appears to stay put
+  // while its frame contracts around it. That parallax is what separates a
+  // considered press from a flat shrink.
+  const imagePressStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 + 0.02 * pressProgress.value }],
+  }));
+
+  const handlePressIn = React.useCallback(() => {
+    pressProgress.value = withTiming(1, { duration: 110 });
+  }, [pressProgress]);
+
+  const handlePressOut = React.useCallback(() => {
+    pressProgress.value = withSpring(0, { damping: 16, stiffness: 220, mass: 0.7 });
+  }, [pressProgress]);
+
   const handlePress = () => {
     // The detail screen renders title, image, category and price from exactly
     // this record, so hand it over before navigating. Doing it here rather than
@@ -117,8 +150,13 @@ function MarketplaceCardComponent({
   };
 
   return (
-    <Pressable style={[styles.card, style]} onPress={handlePress}>
-      <View style={styles.imageWrap}>
+    <AnimatedPressable
+      style={[styles.card, style, cardPressStyle]}
+      onPress={handlePress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+    >
+      <Animated.View style={[styles.imageWrap, imagePressStyle]}>
         <Image
           source={firstImage ? { uri: firstImage } : images.productPlaceholder}
           style={styles.image}
@@ -135,7 +173,7 @@ function MarketplaceCardComponent({
             hitSlop={6}
             style={styles.tryBadge}
           >
-            <Ionicons name="sparkles" size={12} color="#B7956C" />
+            <Icon name="sparkles" size={12} color="#B7956C" />
             <Text style={styles.tryBadgeText}>TRY ON</Text>
           </Pressable>
         ) : null}
@@ -150,7 +188,7 @@ function MarketplaceCardComponent({
             {removing ? (
               <ActivityIndicator size="small" color={colors.charcoal} />
             ) : (
-              <Ionicons name="close" size={16} color={colors.charcoal} />
+              <Icon name="close" size={16} color={colors.charcoal} />
             )}
           </Pressable>
         ) : (
@@ -163,7 +201,7 @@ function MarketplaceCardComponent({
             {wishlistBusy ? (
               <ActivityIndicator size="small" color={colors.charcoal} />
             ) : (
-              <Ionicons
+              <Icon
                 name={wishlisted ? "heart" : "heart-outline"}
                 size={16}
                 color={wishlisted ? "#E11D48" : colors.charcoal}
@@ -186,7 +224,7 @@ function MarketplaceCardComponent({
             </View>
           ) : null}
         </View>
-      </View>
+      </Animated.View>
 
       <View style={styles.info}>
         <Text style={styles.brand} numberOfLines={1}>
@@ -220,7 +258,7 @@ function MarketplaceCardComponent({
               else handlePress();
             }}
           >
-            <Ionicons name="bag-handle-outline" size={13} color="#FFFFFF" />
+            <Icon name="bag-handle-outline" size={13} color="#FFFFFF" />
             <Text style={styles.ctaButtonText}>ADD</Text>
           </Pressable>
           <Pressable
@@ -235,7 +273,7 @@ function MarketplaceCardComponent({
           </Pressable>
         </View>
       </View>
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
@@ -248,6 +286,9 @@ const DISCOUNT_BADGE_BG = "rgba(255, 255, 255, 0.96)";
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surfaceElevated,
+    // overflow:hidden is what makes the corner actually clip the photo inside;
+    // without it the image squares off the rounding the card just asked for.
+    borderRadius: radius.lg,
     overflow: "hidden",
     shadowColor: "#1A1410",
     shadowOpacity: 0.08,
@@ -259,6 +300,8 @@ const styles = StyleSheet.create({
     width: "100%",
     aspectRatio: 3 / 4,
     backgroundColor: colors.cream,
+    borderTopLeftRadius: radius.lg,
+    borderTopRightRadius: radius.lg,
     overflow: "hidden",
     position: "relative",
   },
@@ -316,6 +359,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   ratingPill: {
+    borderRadius: radius.pill,
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: RATING_GREEN,
@@ -345,6 +389,7 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.92)",
   },
   discountBadge: {
+    borderRadius: radius.pill,
     backgroundColor: DISCOUNT_BADGE_BG,
     paddingHorizontal: 6,
     paddingVertical: 2,
@@ -411,6 +456,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm + 2,
   },
   buyNowButton: {
+    borderRadius: radius.md,
     flex: 1,
     height: 34,
     alignItems: "center",
@@ -426,6 +472,7 @@ const styles = StyleSheet.create({
     color: colors.charcoal,
   },
   ctaButton: {
+    borderRadius: radius.md,
     flex: 1,
     height: 34,
     backgroundColor: "#1A1410",

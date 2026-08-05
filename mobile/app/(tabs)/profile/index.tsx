@@ -1,16 +1,14 @@
 import * as React from "react";
 import { View, StyleSheet, Pressable, ScrollView, Modal } from "react-native";
 import { useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon, type IconName } from "../../../src/components/Icon";
 import Constants from "expo-constants";
-import { colors, spacing, typography, shadow } from "../../../src/theme/tokens";
+import { colors, spacing, typography, shadow, radius } from "../../../src/theme/tokens";
 import { useAuth } from "../../../src/hooks/useAuth";
 import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
 import { AppHeader } from "../../../src/components/AppHeader";
 import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
 import { AppText as Text, ScreenContainer as SafeAreaView } from "../../../src/components";
-
-type IconName = React.ComponentProps<typeof Ionicons>["name"];
 
 /** Primary destinations — icon, label and a one-line explanation. */
 const ACCOUNT_ACTIONS: Array<{
@@ -119,7 +117,7 @@ export default function ProfileScreen() {
         ) : !user ? (
           <View style={styles.card}>
             <View style={styles.emptyIconWrap}>
-              <Ionicons name="person" size={30} color={colors.brownSoft} />
+              <Icon name="person" size={30} color={colors.brownSoft} />
             </View>
             <Text style={styles.emptyTitle}>Sign in to view profile</Text>
             <Text style={styles.emptySubtitle}>
@@ -157,7 +155,7 @@ export default function ProfileScreen() {
                 hitSlop={10}
                 style={styles.bannerAction}
               >
-                <Ionicons
+                <Icon
                   name={showDetails ? "chevron-up" : "information-circle-outline"}
                   size={20}
                   color={colors.gold}
@@ -195,13 +193,13 @@ export default function ProfileScreen() {
                   onPress={() => router.push(action.href as never)}
                 >
                   <View style={styles.actionIconWrap}>
-                    <Ionicons name={action.icon} size={20} color={colors.gold} />
+                    <Icon name={action.icon} size={20} color={colors.gold} />
                   </View>
                   <View style={styles.actionTextWrap}>
                     <Text style={styles.actionLabel}>{action.label}</Text>
                     <Text style={styles.actionCaption}>{action.caption}</Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={18} color={colors.brownSoft} />
+                  <Icon name="chevron-forward" size={18} color={colors.brownSoft} />
                 </AnimatedPressable>
               ))}
             </View>
@@ -221,7 +219,7 @@ export default function ProfileScreen() {
 
             <Pressable style={styles.logoutRow} onPress={() => setShowLogoutModal(true)}>
               <Text style={styles.logoutText}>Logout</Text>
-              <Ionicons name="log-out-outline" size={18} color={colors.gold} />
+              <Icon name="log-out-outline" size={18} color={colors.gold} />
             </Pressable>
 
             <Text style={styles.version}>App Version: {APP_VERSION}</Text>
@@ -316,6 +314,7 @@ const styles = StyleSheet.create({
   bannerAction: { padding: spacing.xs },
 
   detailCard: {
+    borderRadius: radius.lg,
     marginTop: spacing.md,
     marginHorizontal: spacing.lg,
     paddingHorizontal: spacing.lg,
@@ -347,6 +346,7 @@ const styles = StyleSheet.create({
   },
 
   actionCard: {
+    borderRadius: radius.lg,
     marginTop: spacing.lg,
     marginHorizontal: spacing.lg,
     backgroundColor: colors.surfaceElevated,
@@ -449,6 +449,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   primaryButton: {
+    borderRadius: radius.md,
     marginTop: spacing.lg,
     backgroundColor: colors.charcoal,
     paddingVertical: spacing.md,
@@ -480,6 +481,7 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   modalCard: {
+    borderRadius: radius.lg,
     width: "100%",
     maxWidth: 380,
     backgroundColor: colors.background,
@@ -503,6 +505,7 @@ const styles = StyleSheet.create({
     color: colors.brownSoft,
   },
   modalConfirmButton: {
+    borderRadius: radius.md,
     flex: 1,
     backgroundColor: colors.charcoal,
     paddingVertical: spacing.md,

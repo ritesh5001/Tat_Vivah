@@ -1,5 +1,5 @@
 import React, { memo } from "react";
-import { Feather } from "@expo/vector-icons";
+import { Icon } from "./Icon";
 import {
   Pressable,
   StyleSheet,
@@ -7,7 +7,7 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
-import { colors, spacing, textStyles } from "../theme";
+import { colors, spacing, textStyles, radius } from "../theme";
 import { CachedImage } from "./CachedImage";
 
 /** Cards never render wider than half the screen; ask the CDN for that, not the original. */
@@ -53,7 +53,7 @@ function ProductCardBase({
           hitSlop={8}
           style={styles.wishlistButton}
         >
-          <Feather
+          <Icon
             name={isWishlisted ? "heart" : "heart"}
             size={16}
             color={isWishlisted ? colors.primaryAccent : colors.textPrimary}
@@ -76,7 +76,7 @@ const styles = StyleSheet.create({
     width: 180,
   },
   imageWrap: {
-    borderRadius: 0,
+    borderRadius: radius.lg,
     overflow: "hidden",
     borderWidth: 1,
     borderColor: colors.border,
@@ -92,7 +92,7 @@ const styles = StyleSheet.create({
     right: spacing.sm,
     width: 30,
     height: 30,
-    borderRadius: 0,
+    borderRadius: radius.pill,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.white,

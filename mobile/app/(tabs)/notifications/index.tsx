@@ -265,8 +265,9 @@ export default function NotificationsScreen() {
           ListFooterComponent={ListFooter}
           initialNumToRender={10}
           maxToRenderPerBatch={8}
-          windowSize={5}
-          removeClippedSubviews
+          windowSize={7}
+          // Rows contain an AnimatedPressable; clipping a view out from under a
+          // running layout animation crashes the Android view manager.
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -330,7 +331,7 @@ const styles = StyleSheet.create({
   card: {
     marginBottom: spacing.md,
     padding: spacing.md,
-    borderRadius: 0,
+    borderRadius: radius.lg,
     backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -354,7 +355,7 @@ const styles = StyleSheet.create({
   unreadDot: {
     width: 8,
     height: 8,
-    borderRadius: 0,
+    borderRadius: radius.pill,
     backgroundColor: colors.gold,
     marginLeft: spacing.sm,
   },
@@ -383,7 +384,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     marginHorizontal: spacing.lg,
     padding: spacing.lg,
-    borderRadius: 0,
+    borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: colors.surfaceElevated,
@@ -419,7 +420,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gold,
     borderWidth: 1,
     borderColor: colors.gold,
-    borderRadius: 0,
+    borderRadius: radius.md,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
     alignItems: "center",
@@ -449,7 +450,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gold,
     borderWidth: 1,
     borderColor: colors.gold,
-    borderRadius: 0,
+    borderRadius: radius.md,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
   },

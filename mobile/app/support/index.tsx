@@ -11,8 +11,8 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
-import { colors, spacing, typography } from "../../src/theme/tokens";
+import { Icon } from "../../src/components/Icon";
+import { colors, spacing, typography, radius } from "../../src/theme/tokens";
 import {
   SUPPORT_CATEGORY_LABELS,
   SUPPORT_STATUS_LABELS,
@@ -190,7 +190,7 @@ export default function SupportInboxScreen() {
             <Text style={styles.emptyText}>Loading…</Text>
           ) : (
             <View style={styles.empty}>
-              <Ionicons
+              <Icon
                 name="chatbubble-ellipses-outline"
                 size={40}
                 color={colors.brownSoft}
@@ -246,7 +246,7 @@ export default function SupportInboxScreen() {
         style={[styles.fab, { bottom: bottomBarHeight + spacing.md }]}
         onPress={() => setComposerOpen(true)}
       >
-        <Ionicons name="add" size={18} color={colors.warmWhite} />
+        <Icon name="add" size={18} color={colors.warmWhite} />
         <Text style={styles.fabText}>New request</Text>
       </Pressable>
 
@@ -457,6 +457,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   modalCard: {
+    borderRadius: radius.lg,
     backgroundColor: colors.background,
     padding: spacing.lg,
     gap: spacing.sm,
@@ -497,6 +498,7 @@ const styles = StyleSheet.create({
   chipTextActive: { color: colors.foreground },
   orderRow: { flexDirection: "row", gap: spacing.sm, paddingVertical: spacing.xs },
   orderCard: {
+    borderRadius: radius.lg,
     width: 108,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -526,6 +528,7 @@ const styles = StyleSheet.create({
   orderMeta: { fontFamily: typography.sans, fontSize: 10, color: colors.brownSoft },
   modalActions: { flexDirection: "row", gap: spacing.md, marginTop: spacing.lg },
   primaryButton: {
+    borderRadius: radius.md,
     backgroundColor: colors.charcoal,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,

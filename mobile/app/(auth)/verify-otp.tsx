@@ -1,7 +1,7 @@
 import React from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { colors, spacing, typography } from "../../src/theme";
+import { colors, spacing, typography, radius } from "../../src/theme";
 import { requestOtp } from "../../src/services/auth";
 import { useAuth } from "../../src/hooks/useAuth";
 import { useSmsOtpAutofill, getSmsAppHash } from "../../src/hooks/useSmsOtpAutofill";
@@ -182,7 +182,7 @@ const styles = StyleSheet.create({
     height: 48,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 0,
+    borderRadius: radius.sm,
     paddingHorizontal: spacing.md,
     fontFamily: typography.body,
     fontSize: 15,
@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     width: "100%",
     height: 48,
-    borderRadius: 0,
+    borderRadius: radius.md,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.primaryAccent,

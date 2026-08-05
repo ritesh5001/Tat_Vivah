@@ -9,7 +9,7 @@ import {
   type ListRenderItemInfo,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { colors, spacing, typography } from "../../../src/theme/tokens";
+import { colors, spacing, typography, radius } from "../../../src/theme/tokens";
 import { useWishlist } from "../../../src/providers/WishlistProvider";
 import { useAuth } from "../../../src/hooks/useAuth";
 import { type WishlistItemDetail } from "../../../src/services/wishlist";
@@ -98,9 +98,11 @@ export default function WishlistScreen() {
     [removeFromWishlist]
   );
 
+  // Fade, not slide: a slide leaves the card off-screen until the animation
+  // completes, and a recycled cell never completes it.
   const renderItem = React.useCallback(
     ({ item, index }: ListRenderItemInfo<WishlistItemDetail>) => (
-      <MotionView preset="slideUp" delay={Math.min(index * 24, 160)}>
+      <MotionView preset="fade" delay={Math.min(index * 30, 180)}>
         <WishlistCard
           item={item}
           onRemove={handleRemove}
@@ -191,11 +193,12 @@ export default function WishlistScreen() {
           columnWrapperStyle={styles.columnWrapper}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
-          removeClippedSubviews
-          initialNumToRender={4}
-          maxToRenderPerBatch={4}
-          windowSize={5}
-          updateCellsBatchingPeriod={24}
+          // No removeClippedSubviews: these cells carry a reanimated entering
+          // animation, and detaching a view mid-animation is a native crash on
+          // Android. The saving was never worth it for a two-column grid.
+          initialNumToRender={6}
+          maxToRenderPerBatch={6}
+          windowSize={7}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
         />
       )}
@@ -269,7 +272,7 @@ const styles = StyleSheet.create({
     borderColor: colors.gold,
     paddingHorizontal: 32,
     paddingVertical: 14,
-    borderRadius: 0,
+    borderRadius: radius.md,
   },
   ctaButtonText: {
     fontFamily: typography.sans,
@@ -283,7 +286,7 @@ const styles = StyleSheet.create({
     borderColor: colors.borderSoft,
     paddingHorizontal: 32,
     paddingVertical: 12,
-    borderRadius: 0,
+    borderRadius: radius.md,
   },
   secondaryButtonText: {
     fontFamily: typography.sans,

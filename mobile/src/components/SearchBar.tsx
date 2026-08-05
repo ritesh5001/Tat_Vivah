@@ -28,7 +28,7 @@ const styles = StyleSheet.create({
   searchInput: {
     marginTop: spacing.sm,
     backgroundColor: colors.warmWhite,
-    borderRadius: 0,
+    borderRadius: radius.sm,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     paddingHorizontal: spacing.md,

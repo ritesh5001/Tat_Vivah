@@ -13,7 +13,7 @@ import type { ImageSource } from "expo-image";
 import { useQuery } from "@tanstack/react-query";
 import { createVideoPlayer, VideoView, useVideoPlayer } from "expo-video";
 import { CachedImage } from "./CachedImage";
-import { colors, spacing, textStyles } from "../theme";
+import { colors, spacing, textStyles, radius } from "../theme";
 import { listPublicReels, type PublicReel } from "../services/reels";
 
 export type ReelItem = {
@@ -285,6 +285,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xs,
   },
   loadingCard: {
+    borderRadius: radius.lg,
     backgroundColor: "#E3D8CB",
     borderWidth: 1.5,
     borderColor: "#7B4C2C",
@@ -306,13 +307,13 @@ const styles = StyleSheet.create({
     width: 180,
   },
   video: {
-    borderRadius: 0,
+    borderRadius: radius.md,
     backgroundColor: colors.border,
     borderWidth: 1.5,
     borderColor: "#7B4C2C",
   },
   videoPlaceholder: {
-    borderRadius: 0,
+    borderRadius: radius.md,
     borderWidth: 1.5,
     borderColor: "#7B4C2C",
     backgroundColor: "#E7DDCF",
@@ -327,10 +328,11 @@ const styles = StyleSheet.create({
   },
   videoOverlay: {
     ...StyleSheet.absoluteFillObject,
-    borderRadius: 0,
+    borderRadius: radius.md,
     backgroundColor: "rgba(0,0,0,0.26)",
   },
   playChip: {
+    borderRadius: radius.pill,
     position: "absolute",
     backgroundColor: "rgba(253, 248, 240, 0.5)",
     alignItems: "center",
@@ -355,12 +357,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.pageHorizontal,
   },
   modalCard: {
+    borderRadius: radius.lg,
     backgroundColor: "#FCF6EA",
     borderWidth: 1.5,
     borderColor: "#7B4C2C",
     padding: spacing.md,
   },
   modalCloseButton: {
+    borderRadius: radius.md,
     alignSelf: "flex-end",
     paddingVertical: 4,
     paddingHorizontal: 8,
@@ -387,6 +391,7 @@ const styles = StyleSheet.create({
     ...textStyles.bodyText,
   },
   modalActionButton: {
+    borderRadius: radius.md,
     alignSelf: "center",
     marginTop: spacing.sm,
     paddingHorizontal: spacing.lg,

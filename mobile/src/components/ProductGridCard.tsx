@@ -1,11 +1,11 @@
 import * as React from "react";
 import { View, Text, StyleSheet, Pressable, type StyleProp, type ViewStyle, type GestureResponderEvent } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "./Icon";
 import { Image } from "./CompatImage";
 
 /** Two cards per row, so never wider than about half a phone screen. */
 const GRID_IMAGE_WIDTH = 220;
-import { colors, typography, spacing } from "../theme/tokens";
+import { colors, typography, spacing, radius } from "../theme/tokens";
 import { images } from "../data/images";
 import { type ProductItem } from "../services/products";
 
@@ -88,7 +88,7 @@ function ProductGridCardComponent({
         />
 
         <Pressable style={styles.trendingBadge} onPress={handleTryAndBuy} hitSlop={6}>
-          <Ionicons name="sparkles" size={12} color="#B7956C" />
+          <Icon name="sparkles" size={12} color="#B7956C" />
           <Text style={styles.trendingText}>TRY ON</Text>
         </Pressable>
 
@@ -193,6 +193,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   discountBadge: {
+    borderRadius: radius.pill,
     position: "absolute",
     top: 8,
     right: 8,
@@ -208,6 +209,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   ratingPill: {
+    borderRadius: radius.pill,
     position: "absolute",
     bottom: 8,
     left: 8,
@@ -293,6 +295,7 @@ const styles = StyleSheet.create({
     color: colors.brownSoft,
   },
   ctaButton: {
+    borderRadius: radius.md,
     marginTop: spacing.sm,
     height: 36,
     backgroundColor: "#000000",

@@ -11,8 +11,8 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Image } from "../../../src/components/CompatImage";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Ionicons } from "@expo/vector-icons";
-import { colors, spacing, typography } from "../../../src/theme/tokens";
+import { Icon } from "../../../src/components/Icon";
+import { colors, spacing, typography, radius } from "../../../src/theme/tokens";
 import { AppHeader } from "../../../src/components/AppHeader";
 import { getCategories, type Category } from "../../../src/services/catalog";
 import {
@@ -378,7 +378,7 @@ export default function CategoriesScreen() {
                 onPress={() => handleCategorySelect(undefined)}
               >
                 <View style={styles.categoryImagePlaceholder}>
-                  <Ionicons name="grid" size={24} color={colors.charcoal} />
+                  <Icon name="grid" size={24} color={colors.charcoal} />
                 </View>
                 <Text
                   style={[
@@ -540,7 +540,7 @@ const styles = StyleSheet.create({
   categoryImage: {
     width: 44,
     height: 58,
-    borderRadius: 0,
+    borderRadius: radius.md,
     backgroundColor: colors.cream,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -548,7 +548,7 @@ const styles = StyleSheet.create({
   categoryImagePlaceholder: {
     width: 44,
     height: 58,
-    borderRadius: 0,
+    borderRadius: radius.md,
     backgroundColor: colors.cream,
     borderWidth: 1,
     borderColor: colors.borderSoft,

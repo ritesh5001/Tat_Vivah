@@ -1,6 +1,6 @@
 import * as React from "react";
 import { View, StyleSheet, Animated, type ViewStyle } from "react-native";
-import { colors, spacing } from "../theme/tokens";
+import { colors, spacing, radius } from "../theme/tokens";
 
 // ---------------------------------------------------------------------------
 // Pulse animation hook (shared across all skeleton instances)
@@ -183,7 +183,7 @@ const styles = StyleSheet.create({
   productCard: {
     marginBottom: spacing.md,
     padding: spacing.sm,
-    borderRadius: 0,
+    borderRadius: radius.lg,
     backgroundColor: colors.warmWhite,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -191,18 +191,18 @@ const styles = StyleSheet.create({
   productImage: {
     width: "100%",
     aspectRatio: 3 / 4,
-    borderRadius: 0,
+    borderRadius: radius.md,
     backgroundColor: colors.brown,
   },
   line: {
     height: 12,
-    borderRadius: 0,
+    borderRadius: radius.xs,
     backgroundColor: colors.brown,
   },
   lineShort: {
     height: 12,
     width: "60%",
-    borderRadius: 0,
+    borderRadius: radius.xs,
     backgroundColor: colors.brown,
   },
 
@@ -210,7 +210,7 @@ const styles = StyleSheet.create({
   orderCard: {
     marginBottom: spacing.md,
     padding: spacing.md,
-    borderRadius: 0,
+    borderRadius: radius.lg,
     backgroundColor: colors.warmWhite,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -223,19 +223,19 @@ const styles = StyleSheet.create({
   orderTitleLine: {
     height: 14,
     width: "50%",
-    borderRadius: 0,
+    borderRadius: radius.xs,
     backgroundColor: colors.brown,
   },
   orderBadge: {
     height: 10,
     width: 70,
-    borderRadius: 0,
+    borderRadius: radius.pill,
     backgroundColor: colors.gold,
   },
   orderPriceLine: {
     height: 12,
     width: "30%",
-    borderRadius: 0,
+    borderRadius: radius.xs,
     backgroundColor: colors.brown,
   },
 
@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
   notifCard: {
     marginBottom: spacing.md,
     padding: spacing.md,
-    borderRadius: 0,
+    borderRadius: radius.lg,
     backgroundColor: colors.warmWhite,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -251,13 +251,13 @@ const styles = StyleSheet.create({
   notifMessage: {
     height: 12,
     width: "90%",
-    borderRadius: 0,
+    borderRadius: radius.xs,
     backgroundColor: colors.brown,
   },
   notifDate: {
     height: 10,
     width: "25%",
-    borderRadius: 0,
+    borderRadius: radius.xs,
     backgroundColor: colors.gold,
   },
 
@@ -265,7 +265,7 @@ const styles = StyleSheet.create({
   cartCard: {
     marginBottom: spacing.md,
     padding: spacing.md,
-    borderRadius: 0,
+    borderRadius: radius.lg,
     backgroundColor: colors.warmWhite,
     borderWidth: 1,
     borderColor: colors.borderSoft,

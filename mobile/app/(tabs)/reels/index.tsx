@@ -19,7 +19,7 @@ import { ReelItem, type ReelFeedItem } from "../../../src/components/ReelItem";
 import { listPublicReels } from "../../../src/services/reels";
 import { prefetchProduct } from "../../../src/lib/prefetch-product";
 import { impactLight } from "../../../src/utils/haptics";
-import { colors, spacing } from "../../../src/theme";
+import { colors, spacing, radius } from "../../../src/theme";
 
 const REELS_PAGE_LIMIT = 8;
 
@@ -310,7 +310,7 @@ const styles = StyleSheet.create({
   retryButton: {
     borderWidth: 1,
     borderColor: colors.primaryAccent,
-    borderRadius: 0,
+    borderRadius: radius.md,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
     backgroundColor: "rgba(183, 149, 108, 0.15)",

@@ -507,7 +507,7 @@ const styles = StyleSheet.create({
   // Warning
   warningBanner: {
     backgroundColor: "rgba(184, 149, 108, 0.14)",
-    borderRadius: 0,
+    borderRadius: radius.lg,
     padding: spacing.md,
     marginBottom: spacing.md,
     borderWidth: 1,
@@ -523,7 +523,7 @@ const styles = StyleSheet.create({
   cancelledBanner: {
     marginBottom: spacing.md,
     padding: spacing.md,
-    borderRadius: 0,
+    borderRadius: radius.lg,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -544,7 +544,7 @@ const styles = StyleSheet.create({
   timelineCard: {
     marginBottom: spacing.md,
     padding: spacing.lg,
-    borderRadius: 0,
+    borderRadius: radius.lg,
     backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -562,7 +562,7 @@ const styles = StyleSheet.create({
   timelineDot: {
     width: 10,
     height: 10,
-    borderRadius: 0,
+    borderRadius: radius.pill,
     backgroundColor: colors.borderSoft,
   },
   timelineDotActive: {
@@ -583,7 +583,7 @@ const styles = StyleSheet.create({
   card: {
     marginBottom: spacing.md,
     padding: spacing.lg,
-    borderRadius: 0,
+    borderRadius: radius.lg,
     backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -692,7 +692,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gold,
     borderWidth: 1,
     borderColor: colors.gold,
-    borderRadius: 0,
+    borderRadius: radius.md,
     paddingVertical: 14,
     alignItems: "center",
   },
@@ -714,7 +714,7 @@ const styles = StyleSheet.create({
   centerCard: {
     margin: spacing.lg,
     padding: spacing.xl,
-    borderRadius: 0,
+    borderRadius: radius.lg,
     backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.borderSoft,

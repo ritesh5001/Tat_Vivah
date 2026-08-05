@@ -19,7 +19,7 @@ import {
   queryPersister,
   shouldPersistQuery,
 } from "../src/providers/queryClient";
-import { colors } from "../src/theme/tokens";
+import { colors, radius } from "../src/theme/tokens";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { GlobalBottomBar } from "../src/components/GlobalBottomBar";
 // import InAppUpdates, { IAUUpdateKind } from "react-native-in-app-updates";
@@ -177,6 +177,7 @@ const styles = StyleSheet.create({
     color: colors.brownSoft,
   },
   updateButton: {
+    borderRadius: radius.md,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderWidth: 1,

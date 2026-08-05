@@ -1,8 +1,8 @@
 import * as React from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { Image } from "./CompatImage";
-import { Ionicons } from "@expo/vector-icons";
-import { colors, spacing, typography } from "../theme/tokens";
+import { Icon } from "./Icon";
+import { colors, spacing, typography, radius } from "../theme/tokens";
 
 interface HeaderProps {
   onMenuPress: () => void;
@@ -20,7 +20,7 @@ export function Header({ onMenuPress, logoSource }: HeaderProps) {
         <Text style={styles.brandTag}>Premium Indian Fashion</Text>
       </View>
       <Pressable style={styles.menuButton} onPress={onMenuPress}>
-        <Ionicons name="menu" size={20} color={colors.charcoal} />
+        <Icon name="menu" size={20} color={colors.charcoal} />
       </Pressable>
     </View>
   );
@@ -36,7 +36,7 @@ const styles = StyleSheet.create({
   logoBadge: {
     height: 44,
     width: 44,
-    borderRadius: 0,
+    borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: colors.cream,
@@ -67,7 +67,7 @@ const styles = StyleSheet.create({
   menuButton: {
     height: 40,
     width: 40,
-    borderRadius: 0,
+    borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     alignItems: "center",
