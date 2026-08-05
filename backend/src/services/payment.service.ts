@@ -47,6 +47,65 @@ function toNumber(value: unknown): number {
     return Number.isFinite(parsed) ? parsed : 0;
 }
 
+/** A redirect target the buyer's own phone or browser could never reach. */
+function isUnreachablePublicUrl(url: string): boolean {
+    try {
+        const host = new URL(url).hostname.toLowerCase();
+        return (
+            host === 'localhost' ||
+            host === '127.0.0.1' ||
+            host === '0.0.0.0' ||
+            host === '::1' ||
+            host.endsWith('.local') ||
+            // Private ranges: fine on a dev LAN, dead for a real buyer.
+            /^10\./.test(host) ||
+            /^192\.168\./.test(host) ||
+            /^172\.(1[6-9]|2\d|3[01])\./.test(host)
+        );
+    } catch {
+        return true;
+    }
+}
+
+/**
+ * Where PhonePe sends the buyer back to after the hosted checkout page.
+ *
+ * This is the single most damaging value to get wrong: PhonePe takes the money
+ * and then hands the buyer to whatever URL we supplied. If that is a developer's
+ * `localhost:3001`, the buyer lands on a dead page on their own phone with the
+ * payment already taken — which looks exactly like "payments are broken" even
+ * though the charge succeeded.
+ *
+ * `.env` in this repo carries `PHONEPE_WEB_REDIRECT_BASE_URL=http://localhost:3001`
+ * for local work, and that variable takes precedence over FRONTEND_BASE_URL. So
+ * the one thing that must not happen is that value reaching a real buyer. A
+ * private or loopback host is rejected outright rather than trusted.
+ */
+function resolvePublicRedirectBase(): string {
+    const candidates = [
+        env.PHONEPE_WEB_REDIRECT_BASE_URL,
+        env.FRONTEND_BASE_URL,
+        'https://www.tatvivahtrends.com',
+    ];
+
+    for (const candidate of candidates) {
+        if (!candidate) continue;
+        const trimmed = candidate.trim().replace(/\/$/, '');
+        if (!trimmed) continue;
+
+        if (isUnreachablePublicUrl(trimmed)) {
+            paymentLogger.warn(
+                { event: 'phonepe_redirect_base_rejected', candidate: trimmed },
+                'Ignoring a non-public PhonePe redirect base — a buyer could not reach it',
+            );
+            continue;
+        }
+        return trimmed;
+    }
+
+    return 'https://www.tatvivahtrends.com';
+}
+
 function isTransactionStartTimeout(error: unknown): boolean {
     if (!(error instanceof Error)) return false;
     const msg = error.message.toLowerCase();
@@ -118,11 +177,7 @@ export class PaymentService {
             const sep = env.PHONEPE_MOBILE_REDIRECT_URL.includes('?') ? '&' : '?';
             return `${env.PHONEPE_MOBILE_REDIRECT_URL}${sep}orderId=${encodeURIComponent(orderId)}`;
         }
-        const rawBase =
-            env.PHONEPE_WEB_REDIRECT_BASE_URL ||
-            env.FRONTEND_BASE_URL ||
-            'https://www.tatvivahtrends.com';
-        const base = rawBase.replace(/\/$/, '');
+        const base = resolvePublicRedirectBase();
         return `${base}/checkout/phonepe/callback?orderId=${encodeURIComponent(orderId)}`;
     }
 

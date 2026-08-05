@@ -21,6 +21,15 @@ import { paymentLogger } from '../config/logger.js';
 /** Checkout order expiry passed to PhonePe (seconds). Matches our 30-min TTL. */
 const ORDER_EXPIRE_AFTER_SECONDS = 30 * 60;
 
+/**
+ * Status checks currently open, keyed by merchant order id.
+ *
+ * Entries are removed as soon as the request settles, so this never holds a
+ * result — it only stops the same question being asked of PhonePe several times
+ * at once while a buyer's checkout screen is polling.
+ */
+const inflightStatusChecks = new Map<string, Promise<PhonePeOrderStatusResponse>>();
+
 export type PhonePeOrderState = 'PENDING' | 'COMPLETED' | 'FAILED';
 
 export interface PhonePeCreateOrderResponse {
@@ -179,10 +188,27 @@ export class PhonePeService {
         if (!isPhonePeConfigured()) {
             throw new ApiError(500, 'PhonePe is not configured');
         }
-        return phonePeRequest<PhonePeOrderStatusResponse>(
+
+        // The checkout screen polls every 700ms while the buyer is paying, and
+        // each poll used to open its own round trip to PhonePe. Several requests
+        // for the same order would then queue behind each other, so the answer
+        // arrived slower the harder we asked for it.
+        //
+        // Callers that arrive while a check is already in flight share its
+        // result. This is deduplication, not caching — nothing is held after the
+        // response lands, so a status can never be served stale.
+        const inflight = inflightStatusChecks.get(merchantOrderId);
+        if (inflight) return inflight;
+
+        const request = phonePeRequest<PhonePeOrderStatusResponse>(
             'GET',
             `/checkout/v2/order/${encodeURIComponent(merchantOrderId)}/status?details=false`,
-        );
+        ).finally(() => {
+            inflightStatusChecks.delete(merchantOrderId);
+        });
+
+        inflightStatusChecks.set(merchantOrderId, request);
+        return request;
     }
 
     /**

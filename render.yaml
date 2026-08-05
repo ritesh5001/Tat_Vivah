@@ -37,6 +37,22 @@ services:
         sync: false
       - key: PHONEPE_WEBHOOK_PASSWORD
         sync: false
+      # Where PhonePe returns the buyer once they have paid. Neither of these was
+      # declared here, so both fell back to FRONTEND_BASE_URL — and locally
+      # PHONEPE_WEB_REDIRECT_BASE_URL is set to http://localhost:3001, which takes
+      # precedence over it. If that dev value is ever set on the service, every
+      # buyer is handed to a dead page on their own phone after paying.
+      #
+      # WEB: must be the public storefront origin, e.g.
+      #   https://www.tatvivahtrends.com
+      # The backend now refuses loopback and private hosts here regardless.
+      - key: PHONEPE_WEB_REDIRECT_BASE_URL
+        sync: false
+      # MOBILE: leave unset to reuse the web callback page above. Set it to a
+      # deep link (the app's scheme is "mobile") to bring the buyer back into the
+      # app itself rather than leaving them in a browser tab.
+      - key: PHONEPE_MOBILE_REDIRECT_URL
+        sync: false
       # AquaSMS — SMS OTP delivery. Non-secret values are pinned here; the
       # username, API key and DLT ids are set in the Render dashboard.
       #

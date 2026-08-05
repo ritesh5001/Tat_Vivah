@@ -522,12 +522,16 @@ export default function CheckoutScreen() {
         }
       });
 
+      // Declared out here rather than `var`-hoisted from inside the try: this
+      // value decides whether the buyer is told their money went through, and it
+      // should not depend on a hoisting rule to be readable below.
+      let outcome: Awaited<ReturnType<typeof waitForPhonePeResult>>;
       try {
         await Linking.openURL(redirectUrl);
 
         // 3. Poll our backend for the outcome while the buyer pays.
         setPayLabel("Waiting for payment confirmation");
-        var outcome = await waitForPhonePeResult(orderId, token, () => cameBack);
+        outcome = await waitForPhonePeResult(orderId, token, () => cameBack);
       } finally {
         appStateSub.remove();
       }
