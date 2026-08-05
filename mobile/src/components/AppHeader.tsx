@@ -1,14 +1,127 @@
 import * as React from "react";
-import { View, Text, StyleSheet, Pressable, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, Pressable } from "react-native";
 import { usePathname, useRouter } from "expo-router";
-import { Icon } from "./Icon";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
+import { Icon, type IconName } from "./Icon";
 import { colors, spacing, typography, radius } from "../theme/tokens";
 import { images } from "../data/images";
 import { MenuSheet } from "./MenuSheet";
 import { Image } from "./CompatImage";
-import Animated from "react-native-reanimated";
 import { useCart } from "../providers/CartProvider";
 import { useCartArrivalPulse } from "./FlyToCart";
+import { impactLight } from "../utils/haptics";
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+/** Every icon in the bar is the same size; mixed sizes were the untidiest part. */
+const HEADER_ICON_SIZE = 20;
+
+/**
+ * A header control that answers the finger — without wearing a container.
+ *
+ * The discs and bordered boxes read as chips stuck around the glyphs: three
+ * competing shapes across one bar, none of them meaning anything. Luxury retail
+ * puts the mark on its own and lets the response carry the interaction.
+ *
+ * So there is no shape here at all. On press the glyph itself firms up: it
+ * presses down, warms from charcoal to gold, and a hairline gold rule draws
+ * beneath it — the same rule-and-mark language as the section headings, rather
+ * than a bubble borrowed from a settings app. All on the UI thread.
+ */
+const HeaderIconButton = React.memo(function HeaderIconButton({
+  icon,
+  onPress,
+  size = HEADER_ICON_SIZE,
+  children,
+}: {
+  icon: IconName;
+  onPress: () => void;
+  size?: number;
+  children?: React.ReactNode;
+}) {
+  const press = useSharedValue(0);
+
+  // Firm rather than bouncy: a considered press, not a toy button.
+  const glyphStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 - 0.12 * press.value }],
+  }));
+
+  // The tint is a crossfade of two stacked copies — icon-font colour cannot be
+  // interpolated on the UI thread.
+  const restingStyle = useAnimatedStyle(() => ({ opacity: 1 - press.value }));
+  const warmStyle = useAnimatedStyle(() => ({
+    opacity: press.value,
+    ...StyleSheet.absoluteFillObject,
+  }));
+
+  // Draws outward from the centre, so it reads as being underlined rather than
+  // as a bar sliding in from one side.
+  const ruleStyle = useAnimatedStyle(() => ({
+    opacity: press.value,
+    transform: [{ scaleX: 0.2 + 0.8 * press.value }],
+  }));
+
+  return (
+    <AnimatedPressable
+      style={styles.iconButton}
+      onPressIn={() => {
+        press.value = withTiming(1, { duration: 110 });
+        impactLight();
+      }}
+      onPressOut={() => {
+        press.value = withSpring(0, { damping: 17, stiffness: 230, mass: 0.65 });
+      }}
+      onPress={onPress}
+      hitSlop={10}
+    >
+      <Animated.View style={glyphStyle}>
+        <Animated.View style={restingStyle}>
+          <Icon name={icon} size={size} color={colors.charcoal} />
+        </Animated.View>
+        <Animated.View style={warmStyle} pointerEvents="none">
+          <Icon name={icon} size={size} color={colors.gold} />
+        </Animated.View>
+      </Animated.View>
+      <Animated.View style={[styles.pressRule, ruleStyle]} pointerEvents="none" />
+      {children}
+    </AnimatedPressable>
+  );
+});
+
+/**
+ * Live cart count.
+ *
+ * The bar already pulsed when something landed, but never said how much was in
+ * the bag — the shopper had to open the cart to find out. The badge springs in
+ * on first item and springs away on empty rather than blinking.
+ */
+const CartBadge = React.memo(function CartBadge({ count }: { count: number }) {
+  const shown = useSharedValue(count > 0 ? 1 : 0);
+
+  React.useEffect(() => {
+    shown.value = withSpring(count > 0 ? 1 : 0, {
+      damping: 13,
+      stiffness: 260,
+      mass: 0.6,
+    });
+  }, [count, shown]);
+
+  const style = useAnimatedStyle(() => ({
+    opacity: shown.value,
+    transform: [{ scale: shown.value }],
+  }));
+
+  return (
+    <Animated.View style={[styles.cartBadge, style]} pointerEvents="none">
+      <Text style={styles.cartBadgeText}>{count > 9 ? "9+" : count}</Text>
+    </Animated.View>
+  );
+});
 
 interface AppHeaderProps {
   variant?: "main" | "sub";
@@ -81,19 +194,9 @@ export function AppHeader({
       <View style={styles.row}>
         <View style={[styles.leftSlot, isMainHeader && styles.mainEdgeSlot]}>
           {isMainHeader ? (
-            <TouchableOpacity
-              onPress={handleOpenMenu}
-              style={[styles.iconButton, styles.mainHeaderIconButton, { cursor: "pointer" as any }]}
-              activeOpacity={0.7}
-            >
-              <Icon name="menu" size={21} color={colors.charcoal} />
-            </TouchableOpacity>
+            <HeaderIconButton icon="menu" onPress={handleOpenMenu} />
           ) : shouldShowBack ? (
-            <View style={styles.leftRow}>
-              <Pressable onPress={handleBack} style={styles.iconButton} hitSlop={8}>
-                <Icon name="chevron-back" size={18} color={colors.charcoal} />
-              </Pressable>
-            </View>
+            <HeaderIconButton icon="chevron-back" onPress={handleBack} />
           ) : (
             <View style={styles.leftSpacer} />
           )}
@@ -111,46 +214,35 @@ export function AppHeader({
 
         <View style={[styles.actions, isMainHeader && styles.mainEdgeSlot]}>
           {shouldShowSearch ? (
-            <Pressable
-              style={[styles.iconButton, isMainHeader && styles.mainHeaderIconButton]}
+            <HeaderIconButton
+              icon="search-outline"
               onPress={() => router.push("/search")}
-            >
-              <Icon name="search-outline" size={19} color={colors.charcoal} />
-            </Pressable>
+            />
           ) : null}
           {shouldShowProfile ? (
-            <Pressable
-              style={[styles.iconButton, isMainHeader && styles.mainHeaderIconButton]}
+            <HeaderIconButton
+              icon="person-outline"
               onPress={() => router.push("/profile")}
-            >
-              <Icon name="person-outline" size={21} color={colors.charcoal} />
-            </Pressable>
+            />
           ) : null}
           {shouldShowWishlist ? (
-            <Pressable
-              style={[styles.iconButton, isMainHeader && styles.mainHeaderIconButton]}
+            <HeaderIconButton
+              icon="heart-outline"
               onPress={() => router.push("/wishlist")}
-            >
-              <Icon name="heart-outline" size={21} color={colors.charcoal} />
-            </Pressable>
+            />
           ) : null}
           {shouldShowCart ? (
-            <Pressable
-              style={[styles.iconButton, isMainHeader && styles.mainHeaderIconButton]}
-              onPress={() => router.push("/cart")}
-            >
-              <Animated.View style={cartPulseStyle}>
-                <Icon name="bag-handle-outline" size={19} color={colors.charcoal} />
-              </Animated.View>
-            </Pressable>
+            <Animated.View style={cartPulseStyle}>
+              <HeaderIconButton
+                icon="bag-handle-outline"
+                onPress={() => router.push("/cart")}
+              >
+                <CartBadge count={cartCount} />
+              </HeaderIconButton>
+            </Animated.View>
           ) : null}
           {shouldShowMenu && !isMainHeader ? (
-            <Pressable
-              style={styles.iconButton}
-              onPress={handleOpenMenu}
-            >
-              <Icon name="menu" size={18} color={colors.charcoal} />
-            </Pressable>
+            <HeaderIconButton icon="menu" onPress={handleOpenMenu} />
           ) : null}
         </View>
       </View>
@@ -170,7 +262,8 @@ export function AppHeader({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.background,
-    borderBottomWidth: 1,
+    // A hairline reads as a considered edge; a full pixel reads as a box.
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.borderSoft,
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.sm,
@@ -232,10 +325,39 @@ const styles = StyleSheet.create({
     marginLeft: spacing.xs,
   },
   iconButton: {
-    height: 36,
-    width: 36,
+    height: 38,
+    width: 38,
     alignItems: "center",
     justifyContent: "center",
+  },
+  /** The underline that draws on press. No container, just the mark. */
+  pressRule: {
+    position: "absolute",
+    bottom: 5,
+    width: 16,
+    height: 1.5,
+    borderRadius: radius.pill,
+    backgroundColor: colors.gold,
+  },
+  cartBadge: {
+    position: "absolute",
+    top: 2,
+    right: 1,
+    minWidth: 16,
+    height: 16,
+    paddingHorizontal: 4,
+    borderRadius: radius.pill,
+    backgroundColor: colors.gold,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: colors.background,
+  },
+  cartBadgeText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 9,
+    lineHeight: 12,
+    color: colors.background,
   },
   mainHeaderIconButton: {
     borderRadius: radius.md,

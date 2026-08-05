@@ -63,41 +63,62 @@ function AppShell() {
           </Pressable>
         </View>
       ) : null}
+      {/*
+        One grammar for the whole app, so a transition tells the shopper where
+        they went without them having to think about it:
+
+          · Lateral slide  — going deeper into the catalogue. The new screen
+                             comes from the side it will return to.
+          · Rise from below — a task you can abandon: checkout, sign-in,
+                             tracking. Modal motion, modal meaning.
+          · Cross-fade      — peers. The tab navigator handles those itself.
+
+        The old default was a fade-up on everything, which spends its opening
+        frames showing mostly background and reads as slower than it is.
+      */}
       <Stack
         initialRouteName="(tabs)"
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: colors.background },
-          animation: "fade_from_bottom",
+          animation: "slide_from_right",
           animationDuration: 260,
           gestureEnabled: true,
         }}
       >
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="(auth)" />
-        {/* Product detail — the most-tapped transition in the app. A slide is
-            both shorter and reads as more direct than the default fade-up, which
-            spends its first frames showing mostly background. */}
+        {/* The root. Returning to it should feel like arriving home, not like
+            another push, so it fades rather than sliding. */}
+        <Stack.Screen name="(tabs)" options={{ animation: "fade" }} />
+
+        {/* Sign-in and registration are tasks, not destinations. */}
+        <Stack.Screen
+          name="(auth)"
+          options={{ animation: "slide_from_bottom", animationDuration: 300 }}
+        />
+
+        {/* The most-tapped transition in the app, and slightly quicker than the
+            rest: the product page is already painted from the card's own data,
+            so a longer animation would just be holding finished content back. */}
         <Stack.Screen
           name="product/[id]/index"
-          options={{ animation: "slide_from_right", animationDuration: 200 }}
+          options={{ animation: "slide_from_right", animationDuration: 220 }}
         />
-        {/* Order detail — slides in from right */}
+
+        {/* Checkout is a committed flow — it rises, and dismissing it reads as
+            backing out rather than going back a level. */}
         <Stack.Screen
-          name="orders/[id]/index"
-          options={{ animation: "slide_from_right" }}
+          name="checkout/index"
+          options={{ animation: "slide_from_bottom", animationDuration: 300 }}
         />
-        {/* Tracking — slides up from bottom */}
+
+        <Stack.Screen name="orders/[id]/index" />
         <Stack.Screen
           name="orders/[id]/tracking"
           options={{ animation: "slide_from_bottom" }}
         />
-        {/* Support chat */}
+
         <Stack.Screen name="support/index" />
-        <Stack.Screen
-          name="support/[id]"
-          options={{ animation: "slide_from_right" }}
-        />
+        <Stack.Screen name="support/[id]" />
       </Stack>
       <GlobalBottomBar />
     </>

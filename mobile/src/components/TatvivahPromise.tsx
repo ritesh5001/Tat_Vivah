@@ -16,7 +16,10 @@ type TatvivahPromiseProps = {
 
 const PROMISE_ITEMS: PromiseItem[] = [
   {
-    icon: "sparkles-outline",
+    // Not a sparkle: craftsmanship is an award for human work, not a machine
+    // flourish. Sparkles are reserved for the virtual try-on, which really is
+    // generated — using the same mark for both muddles what the app is claiming.
+    icon: "award",
     title: "Handcrafted",
     copy: "Premium fabrics, intricate finishes, and details that photograph beautifully.",
   },

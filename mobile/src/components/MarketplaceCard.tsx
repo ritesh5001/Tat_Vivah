@@ -157,10 +157,17 @@ function MarketplaceCardComponent({
       onPressOut={handlePressOut}
     >
       <Animated.View style={[styles.imageWrap, imagePressStyle]}>
+        {/* `cover`, not `contain`. Catalogue photography arrives at whatever
+            ratio the seller uploaded, and letterboxing it left pale bands down
+            the sides of any shot that was not already 3:4 — a grid of
+            differently-sized pictures reads as broken rather than varied.
+            Filling the frame crops instead, so every card is the same shape.
+            The detail screen still uses `contain`, where seeing the whole
+            garment matters more than a tidy grid. */}
         <Image
           source={firstImage ? { uri: firstImage } : images.productPlaceholder}
           style={styles.image}
-          contentFit="contain"
+          contentFit="cover"
           contentPosition="center"
           transition={200}
           cachePolicy="memory-disk"

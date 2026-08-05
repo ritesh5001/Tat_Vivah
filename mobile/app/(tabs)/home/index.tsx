@@ -13,6 +13,7 @@ import {
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from "react-native-svg";
 import { useRouter } from "expo-router";
 import { Icon } from "../../../src/components/Icon";
+import { SectionMark } from "../../../src/components/SectionMark";
 import { colors, spacing, textStyles, typography, radius } from "../../../src/theme";
 import { useProductsQuery } from "../../../src/hooks/useProductsQuery";
 import { AppHeader } from "../../../src/components/AppHeader";
@@ -887,7 +888,7 @@ export default function HomeScreen() {
 
       <View style={styles.occasionSection}>
         <View style={styles.occasionHeadingWrap}>
-          <Icon name="sparkles-outline" size={30} color="#511d00" />
+          <SectionMark color="#511d00" width={30} />
           <Text style={styles.occasionTitle}>SHOP THE OCCASION</Text>
           <View style={styles.menTabWrap}>
             <Text style={styles.menTabText}>Men</Text>
@@ -952,7 +953,7 @@ export default function HomeScreen() {
 
       <View style={styles.collectionSection}>
         <View style={styles.sectionHeadRow}>
-          <Icon name="sparkles-outline" size={28} color="#511d00" />
+          <SectionMark color="#511d00" />
           <Text style={styles.collectionHeading}>SHOP BY CATEGORY</Text>
         </View>
         {categoryCards.length < 8 ? (
@@ -1060,7 +1061,7 @@ export default function HomeScreen() {
 
       <View style={styles.mostLovedSection}>
         <View style={styles.mostLovedHeaderRow}>
-          <Icon name="sparkles-outline" size={28} color="#511d00" />
+          <SectionMark color="#511d00" />
           <Text style={styles.mostLovedHeading}>BEST SELLERS</Text>
           <Text style={styles.scrollDirectionText}>Swipe left or right</Text>
         </View>
@@ -1120,7 +1121,7 @@ export default function HomeScreen() {
 
       <View style={styles.mostLovedSection}>
         <View style={styles.mostLovedHeaderRow}>
-          <Icon name="sparkles-outline" size={28} color="#511d00" />
+          <SectionMark color="#511d00" />
           <Text style={styles.mostLovedHeading}>MOST LOVED</Text>
         </View>
         <View style={styles.audienceTabsWrap}>

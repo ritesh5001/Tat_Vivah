@@ -610,6 +610,35 @@ export default function ProductDetailScreen() {
     !productQuery.isError &&
     (product?.variants?.length ?? 0) === 0;
 
+  // ---- Arrival choreography ----
+  //
+  // The card the shopper tapped already showed this photo, so the detail screen
+  // opening on a hard cut reads as a jump rather than a continuation. Reanimated
+  // 4 removed shared-element transitions, so the next best thing is to make the
+  // hero look like it is still settling from the card: it starts fractionally
+  // over-scaled and eases down to rest.
+  //
+  // Nothing here fades up from zero. The whole point of the seeding work is that
+  // real content is on screen in the first frame — animating opacity from 0
+  // would hand that back and make a fast screen look slow again. The hero never
+  // changes opacity at all, and the copy starts already legible.
+  const entrance = useSharedValue(0);
+  React.useEffect(() => {
+    entrance.value = withTiming(1, {
+      duration: 460,
+      easing: Easing.bezier(0.16, 1, 0.3, 1),
+    });
+  }, [entrance]);
+
+  const heroEntranceStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: 1.06 - 0.06 * entrance.value }],
+  }));
+
+  const contentEntranceStyle = useAnimatedStyle(() => ({
+    opacity: 0.35 + 0.65 * Math.min(1, entrance.value * 2),
+    transform: [{ translateY: 12 * (1 - Math.min(1, entrance.value * 1.6)) }],
+  }));
+
   // Everything below the fold — the try-on card, the promise strip, reviews and
   // the related grid — waits for the navigation transition to finish. Building
   // that tree, and firing its two requests, while the screen is still animating
@@ -1543,7 +1572,7 @@ export default function ProductDetailScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* ---- Image gallery with paging dots ---- */}
-        <View style={styles.galleryFrame}>
+        <Animated.View style={[styles.galleryFrame, heroEntranceStyle]}>
           <FlatList
             data={images}
             keyExtractor={galleryKeyExtractor}
@@ -1583,7 +1612,7 @@ export default function ProductDetailScreen() {
             </View>
             <Icon name="sparkles-outline" size={12} color={colors.gold} />
           </Pressable>
-        </View>
+        </Animated.View>
 
         {/* Dots indicator */}
         {images.length > 1 && (
@@ -1598,7 +1627,7 @@ export default function ProductDetailScreen() {
         )}
 
         {/* ---- Details card ---- */}
-        <View style={styles.detailsCard}>
+        <Animated.View style={[styles.detailsCard, contentEntranceStyle]}>
           <Text style={styles.categoryLabel}>
             {product.category?.name ?? "Curated Collection"}
           </Text>
@@ -1901,7 +1930,7 @@ export default function ProductDetailScreen() {
               <Text style={styles.secondaryButtonText}>View cart</Text>
             </Pressable>
           )}
-        </View>
+        </Animated.View>
 
         {/* Everything from here down is off-screen on open. Mounting it in the
             same pass as the gallery is what made the push itself feel heavy. */}

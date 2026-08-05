@@ -96,6 +96,8 @@ const ICONS = {
 
   // ---- Trust & status ----
   "shield-checkmark-outline": f("shield"),
+  award: f("award"),
+  "ribbon-outline": f("award"),
   "checkmark-circle": f("check-circle"),
   checkmark: f("check"),
   "refresh-outline": f("refresh-cw"),

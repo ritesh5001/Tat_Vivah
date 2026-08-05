@@ -9,7 +9,17 @@ import {
   Easing,
   Dimensions,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { usePathname, useRouter } from "expo-router";
+// The drawer slide stays on RN Animated so it keeps the native driver that
+// stopped it freezing; reanimated handles only the per-row entrance and press
+// states. Both are imported under distinct names to keep that split obvious.
+import Reanimated, {
+  FadeInLeft,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 import { Icon, type IconName } from "./Icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, spacing, typography, radius } from "../theme/tokens";
@@ -48,9 +58,163 @@ const MENU_ICON_BY_ROUTE: Record<string, IconName> = {
 };
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+const ReanimatedView = Reanimated.View;
+const ReanimatedPressable = Reanimated.createAnimatedComponent(Pressable);
+
+/**
+ * One navigation row.
+ *
+ * No disc behind the glyph. A circle around every icon turns a navigation list
+ * into a row of buttons competing for attention, and eleven of them stacked
+ * down a drawer is visual noise — the label is already the target. The mark sits
+ * on its own and the row carries the interaction instead.
+ *
+ * Pressing slides the whole row a few points to the right, as though it is being
+ * drawn toward where it will take you, while a gold rule grows down the leading
+ * edge. That edge is also the resting state of the active route, so the press
+ * previews arriving rather than inventing an unrelated effect.
+ *
+ * Rows arrive on a short stagger so the drawer assembles itself. The stagger is
+ * safe here in a way it is not in a product list: this Modal mounts fresh on
+ * every open and nothing inside it is ever recycled.
+ */
+const MenuRow = React.memo(function MenuRow({
+  label,
+  icon,
+  index,
+  active,
+  destructive,
+  disabled,
+  onPress,
+}: {
+  label: string;
+  icon: IconName;
+  index: number;
+  active: boolean;
+  destructive: boolean;
+  disabled: boolean;
+  onPress: () => void;
+}) {
+  const press = useSharedValue(0);
+
+  const rowStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: 5 * press.value }],
+    backgroundColor: `rgba(196, 167, 108, ${0.09 * press.value})`,
+  }));
+
+  /** The leading rule: full height when active, growing from nothing on press. */
+  const edgeStyle = useAnimatedStyle(() => ({
+    opacity: active ? 1 : press.value,
+    transform: [{ scaleY: active ? 1 : 0.3 + 0.7 * press.value }],
+  }));
+
+  const accent = destructive ? "#B4553F" : colors.gold;
+  const restingTint = destructive
+    ? "#B4553F"
+    : active
+      ? colors.gold
+      : colors.charcoal;
+
+  // Icon-font colour cannot be interpolated on the UI thread, so the warm copy
+  // fades up over the resting one.
+  const restingGlyphStyle = useAnimatedStyle(() => ({
+    opacity: active ? 0 : 1 - press.value,
+  }));
+  const warmGlyphStyle = useAnimatedStyle(() => ({
+    opacity: active ? 1 : press.value,
+    ...StyleSheet.absoluteFillObject,
+  }));
+
+  return (
+    <ReanimatedView entering={FadeInLeft.duration(260).delay(60 + index * 26)}>
+      <ReanimatedPressable
+        style={[menuRowStyles.row, disabled && menuRowStyles.rowDisabled, rowStyle]}
+        onPressIn={() => {
+          press.value = withTiming(1, { duration: 110 });
+        }}
+        onPressOut={() => {
+          press.value = withSpring(0, { damping: 17, stiffness: 230, mass: 0.65 });
+        }}
+        onPress={onPress}
+        disabled={disabled}
+      >
+        <ReanimatedView
+          style={[menuRowStyles.edge, { backgroundColor: accent }, edgeStyle]}
+          pointerEvents="none"
+        />
+
+        <View style={menuRowStyles.glyph}>
+          <ReanimatedView style={restingGlyphStyle}>
+            <Icon name={icon} size={17} color={restingTint} />
+          </ReanimatedView>
+          <ReanimatedView style={warmGlyphStyle} pointerEvents="none">
+            <Icon name={icon} size={17} color={accent} />
+          </ReanimatedView>
+        </View>
+
+        <Text
+          style={[
+            menuRowStyles.label,
+            active && menuRowStyles.labelActive,
+            destructive && menuRowStyles.labelDestructive,
+          ]}
+        >
+          {label}
+        </Text>
+      </ReanimatedPressable>
+    </ReanimatedView>
+  );
+});
+
+const menuRowStyles = StyleSheet.create({
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    paddingVertical: 13,
+    // Leaves room for the leading rule without the label shifting when it appears.
+    paddingLeft: spacing.md,
+    paddingRight: spacing.sm,
+    borderRadius: radius.md,
+  },
+  rowDisabled: {
+    opacity: 0.45,
+  },
+  /** The leading edge: active state and press feedback in one mark. */
+  edge: {
+    position: "absolute",
+    left: 0,
+    top: 9,
+    bottom: 9,
+    width: 2,
+    borderRadius: radius.pill,
+  },
+  /** Sized so the two stacked tint copies overlay exactly. */
+  glyph: {
+    width: 17,
+    height: 17,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  label: {
+    flex: 1,
+    fontFamily: typography.sans,
+    fontSize: 14.5,
+    letterSpacing: 0.3,
+    color: colors.charcoal,
+  },
+  labelActive: {
+    fontFamily: typography.sansMedium,
+    color: colors.gold,
+  },
+  labelDestructive: {
+    color: "#B4553F",
+  },
+});
 
 export function MenuSheet({ visible, onClose, onNavigate, items }: MenuSheetProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const { session, signOut } = useAuth();
   const { showToast } = useToast();
@@ -219,38 +383,59 @@ export function MenuSheet({ visible, onClose, onNavigate, items }: MenuSheetProp
           ]}
         >
           <View style={styles.drawerHeader}>
-            <View>
+            <View style={styles.brandBlock}>
               <Text style={styles.title}>Tatvivah</Text>
-              <Text style={styles.subtitle}>Navigation</Text>
+              <View style={styles.brandRule} />
             </View>
 
-            <Pressable onPress={closeMenu} style={styles.closeIconButton} hitSlop={8}>
-              <Icon name="close" size={18} color={colors.charcoal} />
+            <Pressable onPress={closeMenu} style={styles.closeIconButton} hitSlop={10}>
+              <Icon name="close" size={17} color={colors.charcoal} />
             </Pressable>
           </View>
 
+          {/* Who you are, when the app knows. A drawer that opens on a bare list
+              of links tells the shopper nothing about their own session. */}
+          {session?.user ? (
+            <View style={styles.accountRow}>
+              <View style={styles.accountAvatar}>
+                <Text style={styles.accountInitial}>
+                  {(session.user.fullName ?? session.user.email ?? "?")
+                    .charAt(0)
+                    .toUpperCase()}
+                </Text>
+              </View>
+              <View style={styles.accountText}>
+                <Text style={styles.accountName} numberOfLines={1}>
+                  {session.user.fullName ?? "Your account"}
+                </Text>
+                {session.user.email ? (
+                  <Text style={styles.accountEmail} numberOfLines={1}>
+                    {session.user.email}
+                  </Text>
+                ) : null}
+              </View>
+            </View>
+          ) : null}
+
           <View style={styles.menuList}>
-            {menuItems.map((item) => (
-              <Pressable
-                key={item.route}
-                style={[
-                  styles.menuItem,
-                  item.route === "__logout__" && loggingOut && styles.menuItemDisabled,
-                ]}
-                onPress={() => handleNavigate(item.route)}
-                disabled={item.route === "__logout__" && loggingOut}
-              >
-                <View style={styles.menuItemLeft}>
-                  <Icon
-                    name={MENU_ICON_BY_ROUTE[item.route] ?? "ellipse-outline"}
-                    size={17}
-                    color={colors.charcoal}
-                  />
-                  <Text style={styles.menuItemText}>{item.label}</Text>
-                </View>
-                <Icon name="chevron-forward" size={14} color={colors.brownSoft} />
-              </Pressable>
-            ))}
+            {menuItems.map((item, index) => {
+              const isLogout = item.route === "__logout__";
+              const active =
+                !isLogout && pathname === normalizeRoute(item.route);
+
+              return (
+                <MenuRow
+                  key={item.route}
+                  label={item.label}
+                  icon={MENU_ICON_BY_ROUTE[item.route] ?? "chevron-forward"}
+                  index={index}
+                  active={active}
+                  destructive={isLogout}
+                  disabled={isLogout && loggingOut}
+                  onPress={() => handleNavigate(item.route)}
+                />
+              );
+            })}
           </View>
         </Animated.View>
       </View>
@@ -303,39 +488,66 @@ const styles = StyleSheet.create({
     letterSpacing: 1.3,
     color: colors.brownSoft,
   },
+  brandBlock: {
+    gap: spacing.sm,
+  },
+  /** A short gold rule under the wordmark — the house mark, not a caption. */
+  brandRule: {
+    width: 34,
+    height: 2,
+    borderRadius: radius.pill,
+    backgroundColor: colors.gold,
+  },
+  /** Bare, like the rest of the drawer's marks — no disc. */
   closeIconButton: {
-    borderRadius: radius.md,
     width: 34,
     height: 34,
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    backgroundColor: colors.warmWhite,
     alignItems: "center",
     justifyContent: "center",
   },
+  accountRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+    marginBottom: spacing.sm,
+    borderRadius: radius.md,
+    backgroundColor: colors.warmWhite,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.borderSoft,
+  },
+  accountAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.pill,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(196, 167, 108, 0.18)",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(196, 167, 108, 0.4)",
+  },
+  accountInitial: {
+    fontFamily: typography.serif,
+    fontSize: 19,
+    lineHeight: 23,
+    color: colors.gold,
+  },
+  accountText: {
+    flex: 1,
+  },
+  accountName: {
+    fontFamily: typography.sansMedium,
+    fontSize: 13.5,
+    color: colors.charcoal,
+  },
+  accountEmail: {
+    marginTop: 2,
+    fontFamily: typography.sans,
+    fontSize: 11,
+    color: colors.brownSoft,
+  },
   menuList: {
     gap: 2,
-  },
-  menuItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderSoft,
-  },
-  menuItemLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-  },
-  menuItemText: {
-    fontFamily: typography.sansMedium,
-    fontSize: 13,
-    color: colors.charcoal,
-    letterSpacing: 0.4,
-  },
-  menuItemDisabled: {
-    opacity: 0.5,
   },
 });
