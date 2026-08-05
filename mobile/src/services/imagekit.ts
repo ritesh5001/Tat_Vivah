@@ -80,6 +80,14 @@ export async function uploadTryOnImage(asset: ReviewImageAsset): Promise<string>
   return uploadImageAsset(asset, "/tatvivah/tryon");
 }
 
+export async function uploadAvatarImage(asset: ReviewImageAsset): Promise<string> {
+  return uploadImageAsset(asset, "/tatvivah/avatars");
+}
+
+export function buildAvatarImageName(): string {
+  return `avatar-${Date.now()}.jpg`;
+}
+
 export function buildReviewImageName(index: number): string {
   return `review-${Date.now()}-${index}.jpg`;
 }

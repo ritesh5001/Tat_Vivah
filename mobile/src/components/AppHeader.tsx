@@ -294,9 +294,16 @@ const styles = StyleSheet.create({
   },
   centerSlot: {
     flex: 1,
+    // Must be allowed to shrink, or a long title pushes past its slot and
+    // collides with the action icons instead of ellipsising.
+    flexShrink: 1,
+    minWidth: 0,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: spacing.xs,
+    // Real clearance. This was spacing.xs — four points between a serif title
+    // and a search glyph, which on the marketplace header read as the two
+    // touching.
+    paddingHorizontal: spacing.md,
   },
   mainCenterSlot: {
     flex: 1,
@@ -321,12 +328,19 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "flex-end",
     alignItems: "center",
-    gap: 4,
+    gap: 0,
     marginLeft: spacing.xs,
   },
+  /**
+   * 34 rather than 38, with no gap between them.
+   *
+   * Now the glyphs carry no container there is nothing to keep apart, and four
+   * of them at the old width claimed 164dp of a 336dp bar — which is what left
+   * the title nowhere to go. The touch target stays comfortable via hitSlop.
+   */
   iconButton: {
     height: 38,
-    width: 38,
+    width: 34,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -377,10 +391,14 @@ const styles = StyleSheet.create({
   },
   titleText: {
     fontFamily: typography.serif,
-    fontSize: 18,
+    // 18 was wide enough that a one-word title filled the whole slot. Smaller
+    // with more tracking reads as more deliberate and takes noticeably less room.
+    fontSize: 16,
     color: colors.foreground,
-    letterSpacing: 0.3,
-    maxWidth: "100%",
+    letterSpacing: 1.1,
+    // flexShrink rather than maxWidth: a percentage cap is measured against a
+    // slot that has already overflowed, so it never actually clipped anything.
+    flexShrink: 1,
     textAlign: "center",
   },
 });

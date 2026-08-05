@@ -4,7 +4,9 @@ import {
   saveSession,
   clearSession,
   type AuthSession,
+  type AuthUser,
 } from "../storage/auth";
+import { getMyProfile } from "../services/profile";
 import {
   loginUser,
   logoutUser,
@@ -38,6 +40,14 @@ type AuthContextValue = {
   signInWithOtp: (payload: VerifyOtpPayload) => Promise<string | null>;
   /** Hard sign-out: server revoke + clear storage + reset in-flight state */
   signOut: () => Promise<void>;
+  /**
+   * Merge fields into the cached user and persist them.
+   *
+   * The login endpoints do not carry every profile field — the avatar, for one,
+   * is fetched separately — so the session needs a way to take on new values
+   * without a full re-authentication.
+   */
+  updateUser: (patch: Partial<AuthUser>) => Promise<void>;
 };
 
 export const AuthContext = React.createContext<AuthContextValue | null>(null);
@@ -109,6 +119,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       cancelled = true;
     };
   }, []);
+
+  const updateUser = React.useCallback(async (patch: Partial<AuthUser>) => {
+    let next: AuthSession | null = null;
+    setSession((current) => {
+      if (!current) return current;
+      next = { ...current, user: { ...current.user, ...patch } };
+      return next;
+    });
+    // Persist outside the updater so storage is never written from inside a
+    // render-phase callback.
+    if (next) await saveSession(next);
+  }, []);
+
+  // ------- Hydrate profile fields the login response does not carry -------
+  //
+  // The avatar lives on user_profiles, which the auth endpoints do not join.
+  // Fetching it once per session keeps sign-in fast and still means the picture
+  // is there by the time the shopper opens the menu or their profile.
+  React.useEffect(() => {
+    const userId = session?.user?.id;
+    if (!userId || session?.user?.avatar !== undefined) return;
+
+    const controller = new AbortController();
+    getMyProfile(controller.signal)
+      .then((profile) => {
+        void updateUser({ avatar: profile.avatar });
+      })
+      .catch(() => {
+        // Non-fatal: the initial is a perfectly good fallback. Mark it resolved
+        // so this does not retry on every render.
+        void updateUser({ avatar: null });
+      });
+
+    return () => controller.abort();
+  }, [session?.user?.id, session?.user?.avatar, updateUser]);
 
   // ------- Session-expired callback from API layer -------
   React.useEffect(() => {
@@ -190,6 +235,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signIn,
       signInWithOtp,
       signOut,
+      updateUser,
     }),
     [
       session,
@@ -199,6 +245,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signIn,
       signInWithOtp,
       signOut,
+      updateUser,
     ]
   );
 

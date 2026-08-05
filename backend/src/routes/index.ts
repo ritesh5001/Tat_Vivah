@@ -4,6 +4,7 @@
  */
 
 export { authRouter } from './auth.routes.js';
+export { profileRouter } from './profile.routes.js';
 export { sellerRouter } from './seller.routes.js';
 export { categoryRouter } from './category.routes.js';
 export { productRouter } from './product.routes.js';

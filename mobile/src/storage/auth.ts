@@ -10,6 +10,12 @@ export type AuthUser = {
   status: string;
   isEmailVerified?: boolean;
   isPhoneVerified?: boolean;
+  /**
+   * Profile picture URL, or null when the user has none and we fall back to
+   * their initial. Not returned by the login endpoints — it is hydrated from
+   * /v1/me shortly after sign-in and refreshed whenever the user changes it.
+   */
+  avatar?: string | null;
 };
 
 export type AuthSession = {

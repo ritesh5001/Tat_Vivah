@@ -7,6 +7,7 @@ import { colors, spacing, typography, shadow, radius } from "../../../src/theme/
 import { useAuth } from "../../../src/hooks/useAuth";
 import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
 import { AppHeader } from "../../../src/components/AppHeader";
+import { ProfileAvatar } from "../../../src/components/ProfileAvatar";
 import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
 import { AppText as Text, ScreenContainer as SafeAreaView } from "../../../src/components";
 
@@ -75,10 +76,6 @@ export default function ProfileScreen() {
   }, [user]);
 
   const contactLine = user?.phone ?? user?.email ?? "";
-  const initial = (user?.fullName ?? user?.email ?? user?.phone ?? "U")
-    .charAt(0)
-    .toUpperCase();
-
   const [showLogoutModal, setShowLogoutModal] = React.useState(false);
   const [loggingOut, setLoggingOut] = React.useState(false);
   const [showDetails, setShowDetails] = React.useState(false);
@@ -137,9 +134,9 @@ export default function ProfileScreen() {
           <>
             {/* Identity banner */}
             <View style={styles.banner}>
-              <View style={styles.avatarCircle}>
-                <Text style={styles.avatarText}>{initial}</Text>
-              </View>
+              {/* Editable here and only here: this is the screen where changing
+                  your picture is the point, so it carries the affordance. */}
+              <ProfileAvatar size={56} editable />
               <View style={styles.bannerText}>
                 <Text style={styles.bannerName} numberOfLines={1}>
                   {displayName}
@@ -293,16 +290,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.borderSoft,
   },
-  avatarCircle: {
-    width: 52,
-    height: 52,
-    borderWidth: 1,
-    borderColor: colors.gold,
-    backgroundColor: colors.surfaceElevated,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarText: { fontFamily: typography.serif, fontSize: 24, color: colors.gold },
   bannerText: { flex: 1 },
   bannerName: { fontFamily: typography.serif, fontSize: 20, color: colors.charcoal },
   bannerContact: {

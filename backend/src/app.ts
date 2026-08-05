@@ -48,6 +48,7 @@ import {
     wishlistRouter,
     searchRouter,
     personalizationRouter,
+    profileRouter,
     liveRouter,
     sellerAnalyticsRouter,
     reelRouter,
@@ -327,6 +328,7 @@ export function createApp(): Application {
     // =========================================================================
 
     app.use('/v1/auth', authRouter);
+    app.use('/v1/me', profileRouter);
     app.use('/v1/seller', sellerRouter);
     app.use('/v1/categories', categoryRouter);
     app.use('/v1/products', productRouter);

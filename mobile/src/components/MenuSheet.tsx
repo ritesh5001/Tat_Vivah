@@ -21,6 +21,7 @@ import Reanimated, {
   withTiming,
 } from "react-native-reanimated";
 import { Icon, type IconName } from "./Icon";
+import { ProfileAvatar } from "./ProfileAvatar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, spacing, typography, radius } from "../theme/tokens";
 import { useAuth } from "../hooks/useAuth";
@@ -396,14 +397,14 @@ export function MenuSheet({ visible, onClose, onNavigate, items }: MenuSheetProp
           {/* Who you are, when the app knows. A drawer that opens on a bare list
               of links tells the shopper nothing about their own session. */}
           {session?.user ? (
-            <View style={styles.accountRow}>
-              <View style={styles.accountAvatar}>
-                <Text style={styles.accountInitial}>
-                  {(session.user.fullName ?? session.user.email ?? "?")
-                    .charAt(0)
-                    .toUpperCase()}
-                </Text>
-              </View>
+            <Pressable
+              style={styles.accountRow}
+              onPress={() => handleNavigate("/profile")}
+            >
+              {/* Read-only here — the drawer shows who you are; changing the
+                  picture belongs on the profile screen where the change has
+                  somewhere to land. */}
+              <ProfileAvatar size={44} />
               <View style={styles.accountText}>
                 <Text style={styles.accountName} numberOfLines={1}>
                   {session.user.fullName ?? "Your account"}
@@ -414,7 +415,8 @@ export function MenuSheet({ visible, onClose, onNavigate, items }: MenuSheetProp
                   </Text>
                 ) : null}
               </View>
-            </View>
+              <Icon name="chevron-forward" size={16} color={colors.brownSoft} />
+            </Pressable>
           ) : null}
 
           <View style={styles.menuList}>
