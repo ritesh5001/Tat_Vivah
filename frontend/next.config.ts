@@ -17,21 +17,27 @@ const nextConfig: NextConfig = {
   /*  IMAGE OPTIMISATION                                                    */
   /* ──────────────────────────────────────────────────────────────────────── */
   images: {
-    // Vercel keeps optimising LOCAL files — the hero art and category tiles in
-    // /public are large (one is 4.4 MB) and genuinely need it.
+    // Resizing is ImageKit's job, not Vercel's.
     //
-    // ImageKit images bypass Vercel entirely instead, via <ProductImage>. The
-    // default behaviour downloaded each full-size original to a Vercel function,
-    // re-encoded it, and counted a metered transformation; that quota ran out in
-    // production, /_next/image started returning HTTP 402, and every uncached
-    // product image fell back to its alt text.
+    // The default behaviour downloaded each full-size original from ImageKit to
+    // a Vercel function, re-encoded it, and counted a metered transformation —
+    // duplicating work an image CDN had already done, further from the user.
+    // That quota ran out in production: /_next/image returned HTTP 402 and every
+    // image not already cached rendered as alt text, including on product pages.
     //
-    // A custom `loader` would fix that but is all-or-nothing — it would also
-    // stop the 12.5 MB of local artwork being optimised. Hence the split.
-    formats: ["image/avif", "image/webp"],
-    qualities: [60, 75],
+    // With this loader Next never fetches a file. It emits a srcset of ImageKit
+    // URLs and the browser pulls one correctly-sized AVIF from the nearest edge.
+    // No quota, no per-image cost, and no single point of failure that can take
+    // the catalogue down again.
+    //
+    // The loader passes non-ImageKit sources through untouched, so local art in
+    // /public is served as-is — which is why those files are pre-compressed on
+    // disk rather than relying on Vercel to shrink them at request time.
+    loader: "custom",
+    loaderFile: "./src/lib/imagekit-loader.ts",
 
-    // Responsive breakpoints matching actual layout needs.
+    // Responsive breakpoints matching actual layout needs. These still drive the
+    // widths in the srcset — the loader turns each into `tr:w-…`.
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
 
