@@ -173,10 +173,29 @@ export class PaymentService {
      * WEB → frontend callback page; MOBILE → app deep link (if configured).
      */
     private buildPhonePeRedirectUrl(orderId: string, platform: PaymentPlatform): string {
-        if (platform === 'MOBILE' && env.PHONEPE_MOBILE_REDIRECT_URL) {
-            const sep = env.PHONEPE_MOBILE_REDIRECT_URL.includes('?') ? '&' : '?';
-            return `${env.PHONEPE_MOBILE_REDIRECT_URL}${sep}orderId=${encodeURIComponent(orderId)}`;
+        const configured = platform === 'MOBILE' ? env.PHONEPE_MOBILE_REDIRECT_URL : undefined;
+
+        if (configured) {
+            // PhonePe Standard Checkout validates merchantUrls.redirectUrl and
+            // accepts https only. A custom app scheme — `mobile://checkout` — is
+            // rejected during checkout, which surfaces to the buyer as
+            // "Something went wrong" on PhonePe's own domain AFTER the page has
+            // loaded. It looks like a gateway outage; it is a malformed request.
+            //
+            // Returning the buyer to the app is still the goal, but it has to be
+            // done by having the https callback page deep-link onward, not by
+            // handing PhonePe a scheme it will not take.
+            if (/^https:\/\//i.test(configured) && !isUnreachablePublicUrl(configured)) {
+                const sep = configured.includes('?') ? '&' : '?';
+                return `${configured}${sep}orderId=${encodeURIComponent(orderId)}`;
+            }
+
+            paymentLogger.warn(
+                { event: 'phonepe_mobile_redirect_rejected', configured },
+                'PHONEPE_MOBILE_REDIRECT_URL is not a public https URL — PhonePe would reject it. Falling back to the web callback.',
+            );
         }
+
         const base = resolvePublicRedirectBase();
         return `${base}/checkout/phonepe/callback?orderId=${encodeURIComponent(orderId)}`;
     }

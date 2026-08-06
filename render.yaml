@@ -48,9 +48,16 @@ services:
       # The backend now refuses loopback and private hosts here regardless.
       - key: PHONEPE_WEB_REDIRECT_BASE_URL
         sync: false
-      # MOBILE: leave unset to reuse the web callback page above. Set it to a
-      # deep link (the app's scheme is "mobile") to bring the buyer back into the
-      # app itself rather than leaving them in a browser tab.
+      # MOBILE: LEAVE THIS UNSET.
+      #
+      # It must be an https URL if set at all. PhonePe validates
+      # merchantUrls.redirectUrl and rejects custom app schemes, so a deep link
+      # like `mobile://checkout` makes checkout fail on PhonePe's own domain with
+      # a generic "Something went wrong" — after the buyer has already committed.
+      #
+      # Unset simply reuses the web callback above, which works. Bringing the
+      # buyer back into the app should be done by having that https page
+      # deep-link onward, not by handing PhonePe a scheme it will not accept.
       - key: PHONEPE_MOBILE_REDIRECT_URL
         sync: false
       # AquaSMS — SMS OTP delivery. Non-secret values are pinned here; the

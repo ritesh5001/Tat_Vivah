@@ -142,6 +142,20 @@ export class PhonePeService {
 
         const amountInPaise = Math.round(amount * 100);
 
+        // Logged before the call, because a rejection shows up on PhonePe's own
+        // domain as a generic "Something went wrong" with nothing in our logs to
+        // explain it. These three fields are what PhonePe validates, so having
+        // them recorded turns an opaque gateway error into a readable one.
+        paymentLogger.info(
+            {
+                event: 'phonepe_create_order',
+                merchantOrderId,
+                amountInPaise,
+                redirectUrl,
+            },
+            'Creating PhonePe checkout order',
+        );
+
         try {
             const data = await phonePeRequest<{
                 orderId: string;
