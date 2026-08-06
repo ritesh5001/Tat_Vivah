@@ -17,11 +17,21 @@ const nextConfig: NextConfig = {
   /*  IMAGE OPTIMISATION                                                    */
   /* ──────────────────────────────────────────────────────────────────────── */
   images: {
-    // Serve modern formats — AVIF first, WebP fallback
+    // Vercel keeps optimising LOCAL files — the hero art and category tiles in
+    // /public are large (one is 4.4 MB) and genuinely need it.
+    //
+    // ImageKit images bypass Vercel entirely instead, via <ProductImage>. The
+    // default behaviour downloaded each full-size original to a Vercel function,
+    // re-encoded it, and counted a metered transformation; that quota ran out in
+    // production, /_next/image started returning HTTP 402, and every uncached
+    // product image fell back to its alt text.
+    //
+    // A custom `loader` would fix that but is all-or-nothing — it would also
+    // stop the 12.5 MB of local artwork being optimised. Hence the split.
     formats: ["image/avif", "image/webp"],
     qualities: [60, 75],
 
-    // Responsive breakpoints matching actual layout needs
+    // Responsive breakpoints matching actual layout needs.
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
 
@@ -33,7 +43,7 @@ const nextConfig: NextConfig = {
       },
     ],
 
-    // Cache optimised images for 60 days
+    // Cache optimised local images for 60 days
     minimumCacheTTL: 5184000,
   },
 
