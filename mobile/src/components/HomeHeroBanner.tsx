@@ -179,36 +179,46 @@ function PaginationDot({ index, scrollX, bannerWidth }: PaginationDotProps) {
     (index + 1) * bannerWidth,
   ];
 
-  const dotWidth = scrollX.interpolate({
+  // Everything here is a transform or an opacity, which means the whole hero can
+  // run on the native driver.
+  //
+  // It could not before: this dot animated `width` and `backgroundColor`, and
+  // neither is supported natively. That single pagination dot was forcing the
+  // hero's parallax, scale and text fades — seven other interpolations — onto
+  // the JS thread at 60fps, competing with the scroll that drove them.
+  //
+  // The pill still grows by animating scaleX on a fixed 28px base instead of
+  // width, and the colour change is now a gold copy fading in over an ivory one
+  // rather than an interpolated backgroundColor.
+  const dotScaleX = scrollX.interpolate({
     inputRange,
-    outputRange: [8, 28, 8],
+    outputRange: [8 / 28, 1, 8 / 28],
     extrapolate: "clamp",
   });
 
-  const dotOpacity = scrollX.interpolate({
+  const inactiveOpacity = scrollX.interpolate({
     inputRange,
-    outputRange: [0.38, 1, 0.38],
+    outputRange: [0.38, 0, 0.38],
     extrapolate: "clamp",
   });
 
-  // Active dot uses a warm gold color, inactive ones a soft ivory.
-  const dotColor = scrollX.interpolate({
+  const activeOpacity = scrollX.interpolate({
     inputRange,
-    outputRange: ["rgba(255,255,255,0.55)", "#E2B866", "rgba(255,255,255,0.55)"],
+    outputRange: [0, 1, 0],
     extrapolate: "clamp",
   });
 
   return (
     <Animated.View
-      style={[
-        styles.paginationDot,
-        {
-          width: dotWidth,
-          opacity: dotOpacity,
-          backgroundColor: dotColor as unknown as string,
-        },
-      ]}
-    />
+      style={[styles.paginationDot, { transform: [{ scaleX: dotScaleX }] }]}
+    >
+      <Animated.View
+        style={[styles.paginationDotFill, styles.paginationDotIdle, { opacity: inactiveOpacity }]}
+      />
+      <Animated.View
+        style={[styles.paginationDotFill, styles.paginationDotActive, { opacity: activeOpacity }]}
+      />
+    </Animated.View>
   );
 }
 
@@ -264,7 +274,10 @@ export function HomeHeroBanner({ onPress }: HomeHeroBannerProps) {
   const onScroll = React.useMemo(
     () =>
       Animated.event([{ nativeEvent: { contentOffset: { x: scrollX } } }], {
-        useNativeDriver: false, // backgroundColor interpolation needs JS driver
+        // Native driver: with the dot's width and colour animations replaced by
+        // transform and opacity, every consumer of scrollX is now supported
+        // natively, so this whole hero animates off the JS thread.
+        useNativeDriver: true,
       }),
     [scrollX]
   );
@@ -400,7 +413,21 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   paginationDot: {
+    // Fixed base width, scaled by transform rather than animating `width` —
+    // that is what lets the native driver own this animation.
+    width: 28,
     height: 4,
     borderRadius: 2,
+    overflow: "hidden",
+  },
+  paginationDotFill: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 2,
+  },
+  paginationDotIdle: {
+    backgroundColor: "rgba(255,255,255,0.55)",
+  },
+  paginationDotActive: {
+    backgroundColor: "#E2B866",
   },
 });

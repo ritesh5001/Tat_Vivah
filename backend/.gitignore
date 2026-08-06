@@ -41,3 +41,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Migration target connection string — never commit.
+.new-db-url
+.db-migration/
+.new-redis-url

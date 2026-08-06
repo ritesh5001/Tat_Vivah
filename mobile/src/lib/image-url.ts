@@ -48,5 +48,15 @@ export function imageUrl(
   // https://ik.imagekit.io/<id>/<path>  ->  https://ik.imagekit.io/<id>/tr:.../<path>
   const head = source.slice(0, slash);
   const tail = source.slice(slash);
-  return `${head}/tr:w-${target},q-${quality},f-auto,pr-true${tail}`;
+
+  // `c-at_max` is the important one. Without it, asking for a width larger than
+  // the uploaded file makes ImageKit UPSCALE it — and an upscaled re-encode is
+  // bigger than the original, not smaller. A real catalogue image here weighs
+  // 77 KB untouched, 113 KB at w-1080, and 69 KB at w-1080 with c-at_max.
+  //
+  // Sellers upload whatever their phone produced, so widths vary and we can
+  // never assume the source is large. Capping means a too-large request degrades
+  // to "serve it at its natural size" instead of actively costing the shopper
+  // bandwidth.
+  return `${head}/tr:w-${target},q-${quality},f-auto,pr-true,c-at_max${tail}`;
 }

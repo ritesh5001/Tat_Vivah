@@ -25,6 +25,8 @@ import { AppText as Text, ScreenContainer as SafeAreaView } from "../../../src/c
 
 const { width: windowWidth } = Dimensions.get("window");
 const wishlistCardWidth = (windowWidth - spacing.lg * 2 - spacing.md) / 2;
+/** Module-level: a stable identity so React.memo on MarketplaceCard can hold. */
+const wishlistCardStyle = { width: wishlistCardWidth };
 
 // ---------------------------------------------------------------------------
 // Wishlist card — uses shared MarketplaceCard with remove overlay
@@ -59,11 +61,14 @@ const WishlistCard = React.memo(function WishlistCard({
         onRemove(id);
       }}
       removing={removing}
-      style={{ width: wishlistCardWidth }}
+      style={wishlistCardStyle}
       imageWidth={wishlistCardWidth}
     />
   );
 });
+
+/** Hoisted so the list sees one stable component type, not a new one each render. */
+const WishlistSeparator = () => <View style={styles.separator} />;
 
 // ---------------------------------------------------------------------------
 // Screen
@@ -199,7 +204,7 @@ export default function WishlistScreen() {
           initialNumToRender={6}
           maxToRenderPerBatch={6}
           windowSize={7}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
+          ItemSeparatorComponent={WishlistSeparator}
         />
       )}
     </SafeAreaView>

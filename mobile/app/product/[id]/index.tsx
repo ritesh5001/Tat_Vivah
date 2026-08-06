@@ -1478,6 +1478,19 @@ export default function ProductDetailScreen() {
     relatedPage,
   ]);
 
+  /** Near-bottom check, shared by onScroll and onMomentumScrollEnd. */
+  const handlePageScroll = React.useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+      const distanceFromBottom =
+        contentSize.height - (contentOffset.y + layoutMeasurement.height);
+      if (distanceFromBottom < 900) {
+        void handleLoadMoreRelated();
+      }
+    },
+    [handleLoadMoreRelated]
+  );
+
   const renderRelatedFooter = React.useCallback(() => {
     if (!loadingMoreRelated) return null;
     return (
@@ -1548,27 +1561,15 @@ export default function ProductDetailScreen() {
         contentContainerStyle={[styles.container, { paddingBottom: stickyReserveSpace }]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
-        scrollEventThrottle={16}
-        onScroll={(event) => {
-          // The related grid no longer scrolls itself, so the page drives paging —
-          // same approach as Most Loved on the home screen.
-          const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
-          const distanceFromBottom =
-            contentSize.height - (contentOffset.y + layoutMeasurement.height);
-          if (distanceFromBottom < 900) {
-            void handleLoadMoreRelated();
-          }
-        }}
-        // onScroll can be throttled away mid-fling on Android; this guarantees a
-        // check once the scroll settles.
-        onMomentumScrollEnd={(event) => {
-          const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
-          const distanceFromBottom =
-            contentSize.height - (contentOffset.y + layoutMeasurement.height);
-          if (distanceFromBottom < 900) {
-            void handleLoadMoreRelated();
-          }
-        }}
+        // 16ms means this handler crosses the bridge and runs JS 60 times a
+        // second. All it decides is "are we within 900px of the bottom" — a
+        // question whose answer cannot meaningfully change four times in
+        // 250ms. At 16ms it was competing with the render it was scrolling.
+        scrollEventThrottle={250}
+        onScroll={handlePageScroll}
+        // A throttled onScroll can be skipped entirely during a fast fling on
+        // Android; this guarantees one check once the scroll settles.
+        onMomentumScrollEnd={handlePageScroll}
         showsVerticalScrollIndicator={false}
       >
         {/* ---- Image gallery with paging dots ---- */}
@@ -1582,7 +1583,11 @@ export default function ProductDetailScreen() {
             decelerationRate="fast"
             showsHorizontalScrollIndicator={false}
             onScroll={handleGalleryScroll}
-            scrollEventThrottle={16}
+            // Drives the visible page counter and dots, so it has to stay
+            // responsive — but a paging indicator updating at 30fps rather than
+            // 60 is indistinguishable, and halves the bridge traffic while the
+            // shopper is swiping through photos.
+            scrollEventThrottle={32}
             contentContainerStyle={styles.galleryContainer}
             getItemLayout={(_data, index) => ({
               length: galleryWidth,

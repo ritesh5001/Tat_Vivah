@@ -217,6 +217,9 @@ function mergeUniqueProducts(current: ProductItem[], incoming: ProductItem[]): P
   return merged;
 }
 
+/** Hoisted: a stable component type, so separators are not remounted each render. */
+const OccasionSeparator = () => <View style={{ width: spacing.md }} />;
+
 export default function HomeScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -755,6 +758,22 @@ export default function HomeScreen() {
     setQuickBuyId(productId);
   }, []);
 
+  // Card widths are held as memoised style objects rather than written inline.
+  //
+  // `style={{ width: n }}` builds a fresh object on every call, and MarketplaceCard
+  // is wrapped in React.memo — which compares props by identity. A new object every
+  // time means the comparison always fails, so every visible card re-rendered
+  // whenever anything on this screen changed state. During a scroll, with several
+  // horizontal lists mounted, that is the frame budget gone.
+  const mostLovedCardStyle = React.useMemo(
+    () => ({ width: mostLovedCardWidth }),
+    [mostLovedCardWidth]
+  );
+  const bestsellerCardStyle = React.useMemo(
+    () => ({ width: bestsellerCardWidth }),
+    [bestsellerCardWidth]
+  );
+
   const renderLargeProductCard = React.useCallback(
     ({ item }: ListRenderItemInfo<HomeProductCard>) => (
       <MarketplaceCard
@@ -763,11 +782,11 @@ export default function HomeScreen() {
         onTryAndBuy={handleTryAndBuy}
         onQuickAdd={openQuickAdd}
         onBuyNow={openBuyNow}
-        style={{ width: mostLovedCardWidth }}
+        style={mostLovedCardStyle}
         imageWidth={mostLovedCardWidth}
       />
     ),
-    [mostLovedCardWidth, openProduct, handleTryAndBuy, openQuickAdd, openBuyNow]
+    [mostLovedCardStyle, mostLovedCardWidth, openProduct, handleTryAndBuy, openQuickAdd, openBuyNow]
   );
 
   const renderBestsellerCard = React.useCallback(
@@ -778,11 +797,11 @@ export default function HomeScreen() {
         onTryAndBuy={handleTryAndBuy}
         onQuickAdd={openQuickAdd}
         onBuyNow={openBuyNow}
-        style={{ width: bestsellerCardWidth }}
+        style={bestsellerCardStyle}
         imageWidth={bestsellerCardWidth}
       />
     ),
-    [bestsellerCardWidth, openProduct, handleTryAndBuy, openQuickAdd, openBuyNow]
+    [bestsellerCardStyle, bestsellerCardWidth, openProduct, handleTryAndBuy, openQuickAdd, openBuyNow]
   );
 
   const testimonials = React.useMemo(
@@ -922,7 +941,7 @@ export default function HomeScreen() {
             snapToInterval={gridPageWidth + gridPageGap}
             style={styles.gridViewport}
             contentContainerStyle={styles.occasionGrid}
-            ItemSeparatorComponent={() => <View style={{ width: gridPageGap }} />}
+            ItemSeparatorComponent={OccasionSeparator}
             onEndReached={loadMoreOccasions}
             onEndReachedThreshold={0.4}
             showsHorizontalScrollIndicator={false}
@@ -932,7 +951,7 @@ export default function HomeScreen() {
               );
               setOccasionPageIndex((prev) => (prev === page ? prev : page));
             }}
-            scrollEventThrottle={16}
+            scrollEventThrottle={100}
             onMomentumScrollEnd={(event) => {
               const page = Math.round(
                 event.nativeEvent.contentOffset.x / (gridPageWidth + gridPageGap)
@@ -1041,7 +1060,7 @@ export default function HomeScreen() {
                 const page = Math.round(event.nativeEvent.contentOffset.x / (categoryCardWidth + categoryCardGap));
                 setCategoryPageIndex((prev) => (prev === page ? prev : page));
               }}
-              scrollEventThrottle={16}
+              scrollEventThrottle={100}
               onMomentumScrollEnd={(event) => {
                 const page = Math.round(event.nativeEvent.contentOffset.x / (categoryCardWidth + categoryCardGap));
                 setCategoryPageIndex((prev) => (prev === page ? prev : page));
@@ -1102,7 +1121,7 @@ export default function HomeScreen() {
               );
               setBestsellerPageIndex((prev) => (prev === page ? prev : page));
             }}
-            scrollEventThrottle={16}
+            scrollEventThrottle={100}
             onMomentumScrollEnd={(event) => {
               const page = Math.round(
                 event.nativeEvent.contentOffset.x / (bestsellerCardWidth + productCardGap)
@@ -1209,7 +1228,7 @@ export default function HomeScreen() {
             const page = Math.round(event.nativeEvent.contentOffset.x / testimonialCardStep);
             setTestimonialPageIndex((prev) => (prev === page ? prev : page));
           }}
-          scrollEventThrottle={16}
+          scrollEventThrottle={100}
           onMomentumScrollEnd={(event) => {
             const page = Math.round(event.nativeEvent.contentOffset.x / testimonialCardStep);
             setTestimonialPageIndex((prev) => (prev === page ? prev : page));
@@ -1283,7 +1302,10 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.contentContainer}
         onScroll={handleListScroll}
-        scrollEventThrottle={16}
+        // Was 16ms — 60 JS calls a second to flip one boolean and measure
+        // distance-to-bottom. Neither answer changes meaningfully inside 200ms,
+        // and at 16ms this ran in direct competition with the scroll it served.
+        scrollEventThrottle={200}
       >
         {listHeader}
       </ScrollView>

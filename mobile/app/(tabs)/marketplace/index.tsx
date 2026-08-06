@@ -330,19 +330,41 @@ export default function CategoriesScreen() {
     setQuickBuyId(productId);
   }, []);
 
+  // Both the style object and the press handler have to be stable, or the
+  // React.memo on MarketplaceCard never holds: an inline `{ width }` and an
+  // inline `() => handleProductPress(item)` are new values on every render, so
+  // every visible card re-rendered whenever anything on this screen changed.
+  const cardStyle = React.useMemo(() => ({ width: cardWidth }), [cardWidth]);
+
+  // The card hands back an id, so the record is looked up rather than captured
+  // in a per-item closure.
+  const productsById = React.useMemo(() => {
+    const map = new Map<string, ProductItem>();
+    for (const item of allProducts) map.set(item.id, item);
+    return map;
+  }, [allProducts]);
+
+  const handleCardPress = React.useCallback(
+    (id: string) => {
+      const product = productsById.get(id);
+      if (product) handleProductPress(product);
+    },
+    [productsById, handleProductPress]
+  );
+
   const renderProductCard = React.useCallback(
     ({ item }: { item: ProductItem }) => (
       <MarketplaceCard
         product={item}
-        onPress={() => handleProductPress(item)}
+        onPress={handleCardPress}
         onTryAndBuy={handleTryAndBuy}
         onQuickAdd={openQuickAdd}
         onBuyNow={openBuyNow}
-        style={{ width: cardWidth }}
+        style={cardStyle}
         imageWidth={cardWidth}
       />
     ),
-    [cardWidth, handleProductPress, handleTryAndBuy, openQuickAdd, openBuyNow]
+    [cardStyle, cardWidth, handleCardPress, handleTryAndBuy, openQuickAdd, openBuyNow]
   );
 
   return (
@@ -407,7 +429,9 @@ export default function CategoriesScreen() {
           style={[styles.contentArea, { width: contentWidth }]}
           showsVerticalScrollIndicator={false}
           onScroll={handleContentScroll}
-          scrollEventThrottle={16}
+          // A proximity-to-bottom check; 200ms is well inside the window needed
+          // to fetch the next page before the shopper reaches it.
+          scrollEventThrottle={200}
         >
           {/* Featured Section — only on All Categories */}
           {!selectedCategoryId ? (
