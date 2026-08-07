@@ -23,12 +23,15 @@ import { colors, radius } from "../src/theme/tokens";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { GlobalBottomBar } from "../src/components/GlobalBottomBar";
 import { useImageMemoryRelease } from "../src/lib/memory-pressure";
+import { useRouteRestore } from "../src/lib/route-restore";
 // import InAppUpdates, { IAUUpdateKind } from "react-native-in-app-updates";
 
 function AppShell() {
   const { isConnected } = useNetworkStatus();
   // Hand decoded bitmaps back to the OS whenever the app leaves the screen.
   useImageMemoryRelease();
+  // Come back to the screen the shopper left, if Android killed us meanwhile.
+  useRouteRestore();
   const [updateAvailable, setUpdateAvailable] = React.useState(false);
   // const inAppUpdatesRef = React.useRef<InAppUpdates | null>(null);
 
