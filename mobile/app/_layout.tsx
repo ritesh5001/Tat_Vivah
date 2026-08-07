@@ -22,10 +22,13 @@ import {
 import { colors, radius } from "../src/theme/tokens";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { GlobalBottomBar } from "../src/components/GlobalBottomBar";
+import { useImageMemoryRelease } from "../src/lib/memory-pressure";
 // import InAppUpdates, { IAUUpdateKind } from "react-native-in-app-updates";
 
 function AppShell() {
   const { isConnected } = useNetworkStatus();
+  // Hand decoded bitmaps back to the OS whenever the app leaves the screen.
+  useImageMemoryRelease();
   const [updateAvailable, setUpdateAvailable] = React.useState(false);
   // const inAppUpdatesRef = React.useRef<InAppUpdates | null>(null);
 
@@ -84,6 +87,25 @@ function AppShell() {
           animation: "slide_from_right",
           animationDuration: 260,
           gestureEnabled: true,
+          // The single most important line in this file for sustained
+          // performance.
+          //
+          // A native stack keeps every pushed screen mounted so the back gesture
+          // can reveal it instantly. Without freezing, those mounted screens
+          // also keep *re-rendering*: this app's product screen subscribes to
+          // five contexts (auth, cart, wishlist, network, toast), so a single
+          // add-to-cart re-rendered every product page still on the stack.
+          //
+          // "You may also like" lets a shopper chain product → product → product
+          // without limit. Ten deep meant ten full product screens — ten
+          // galleries, ten review lists, eighty related-product cards — all
+          // re-rendering on every cart or wishlist change. That is why the app
+          // was fine on launch and degraded the longer it was used, on fast
+          // phones as well as slow ones.
+          //
+          // freezeOnBlur suspends rendering for anything not on screen. State is
+          // kept, so going back is still instant; the work simply stops.
+          freezeOnBlur: true,
         }}
       >
         {/* The root. Returning to it should feel like arriving home, not like

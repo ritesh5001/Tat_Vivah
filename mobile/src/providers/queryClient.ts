@@ -6,7 +6,18 @@ export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 10 * 60 * 1000,
-      gcTime: 24 * 60 * 60 * 1000,
+      // 30 minutes, not 24 hours.
+      //
+      // gcTime is how long an *unused* result is kept in memory. At a day, every
+      // product detail, list page and category a shopper had opened stayed
+      // resident for the whole session — each one carrying its variants and
+      // image arrays. Browsing a hundred products meant a hundred retained
+      // payloads that nothing would ever read again.
+      //
+      // Thirty minutes still covers going back to a screen, switching tabs, or
+      // returning from the background, which is all the cache is actually for
+      // here. Anything older is a re-fetch the shopper never notices.
+      gcTime: 30 * 60 * 1000,
       retry: 1,
       refetchOnMount: false,
       refetchOnReconnect: true,

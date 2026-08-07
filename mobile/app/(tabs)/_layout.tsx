@@ -16,6 +16,11 @@ export default function TabsLayout() {
         // Peers, not a hierarchy: tabs cross-fade with a slight lateral shift
         // rather than sliding as though one contained the other.
         animation: "shift",
+        // Tabs stay mounted by design — that is what makes switching back
+        // instant. But a mounted tab keeps re-rendering on every context change
+        // unless it is frozen, so the home screen's carousels and the reels feed
+        // were doing work while the shopper was looking at something else.
+        freezeOnBlur: true,
         sceneStyle: { backgroundColor: colors.background },
       }}
     >
