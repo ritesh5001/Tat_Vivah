@@ -255,7 +255,7 @@ export default function HomeScreen() {
   });
 
   const [showScrollTop, setShowScrollTop] = React.useState(false);
-  const listRef = React.useRef<ScrollView | null>(null);
+  const listRef = React.useRef<FlatList<{ key: string; node: React.ReactNode }> | null>(null);
   const testimonialRef = React.useRef<FlatList<typeof testimonials[number]> | null>(null);
   const [occasionRepeatCount, setOccasionRepeatCount] = React.useState(1);
   const [categoryRepeatCount, setCategoryRepeatCount] = React.useState(1);
@@ -882,374 +882,398 @@ export default function HomeScreen() {
   );
 
   const handleScrollToTop = React.useCallback(() => {
-    listRef.current?.scrollTo({ y: 0, animated: true });
+    listRef.current?.scrollToOffset({ offset: 0, animated: true });
   }, []);
 
-  const listHeader = React.useMemo(() => (
-    <>
-      {topCategoryCards.length > 0 ? (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.topCategoryScroll}
-          contentContainerStyle={[
-            styles.topCategoryRow,
-            { gap: topCategoryGap },
-          ]}
-        >
-          {topCategoryCards.map(renderTopCategoryCard)}
-        </ScrollView>
-      ) : null}
+  // Stable identities so the list is not rebuilt on every render.
+  const homeSectionKey = React.useCallback(
+    (item: { key: string }) => item.key,
+    []
+  );
+  const renderHomeSection = React.useCallback(
+    ({ item }: { item: { key: string; node: React.ReactNode } }) => <>{item.node}</>,
+    []
+  );
 
-      <View style={styles.fullBleed}>
-        <HomeHeroBanner onPress={() => navigateTo("/marketplace")} />
-      </View>
-
-      <View style={styles.occasionSection}>
-        <View style={styles.occasionHeadingWrap}>
-          <SectionMark color="#511d00" width={30} />
-          <Text style={styles.occasionTitle}>SHOP THE OCCASION</Text>
-          <View style={styles.menTabWrap}>
-            <Text style={styles.menTabText}>Men</Text>
-            <View style={styles.menTabUnderline} />
-          </View>
-          <Text style={styles.scrollDirectionText}>Swipe left or right</Text>
-        </View>
-        {occasionsQuery.isLoading ? (
-          <View style={styles.gridLoadingWrap}>
-            <SkeletonBlock width="47%" height={170} />
-            <SkeletonBlock width="47%" height={170} />
-            <SkeletonBlock width="47%" height={170} />
-            <SkeletonBlock width="47%" height={170} />
-          </View>
-        ) : visibleOccasionPages.length === 0 ? (
-          <View style={styles.gridEmptyState}>
-            <Text style={styles.gridEmptyText}>No occasions available right now.</Text>
-          </View>
-        ) : (
-          <FlatList
-            data={visibleOccasionPages}
-            keyExtractor={(item) => item.id}
-            renderItem={renderGridPage}
-            horizontal
-            initialNumToRender={2}
-            maxToRenderPerBatch={2}
-            windowSize={3}
-            decelerationRate="fast"
-            disableIntervalMomentum
-            snapToAlignment="start"
-            snapToInterval={gridPageWidth + gridPageGap}
-            style={styles.gridViewport}
-            contentContainerStyle={styles.occasionGrid}
-            ItemSeparatorComponent={OccasionSeparator}
-            onEndReached={loadMoreOccasions}
-            onEndReachedThreshold={0.4}
-            showsHorizontalScrollIndicator={false}
-            onScroll={(event) => {
-              const page = Math.round(
-                event.nativeEvent.contentOffset.x / (gridPageWidth + gridPageGap)
-              );
-              setOccasionPageIndex((prev) => (prev === page ? prev : page));
-            }}
-            scrollEventThrottle={100}
-            onMomentumScrollEnd={(event) => {
-              const page = Math.round(
-                event.nativeEvent.contentOffset.x / (gridPageWidth + gridPageGap)
-              );
-              setOccasionPageIndex((prev) => (prev === page ? prev : page));
-            }}
-          />
-        )}
-        {visibleOccasionPages.length > 0 ? (
-          <View style={styles.paginationWrap}>
-            {Array.from({ length: baseOccasionPagesCount }).map((_, idx) => {
-              const isActive = idx === (occasionPageIndex % baseOccasionPagesCount);
-              return <View key={`occasion-dot-${idx}`} style={[styles.paginationDot, isActive && styles.paginationDotActive]} />;
-            })}
-          </View>
-        ) : null}
-      </View>
-
-      <View style={styles.collectionSection}>
-        <View style={styles.sectionHeadRow}>
-          <SectionMark color="#511d00" />
-          <Text style={styles.collectionHeading}>SHOP BY CATEGORY</Text>
-        </View>
-        {categoryCards.length < 8 ? (
-          <Text style={[styles.scrollDirectionText, styles.centerDirection]}>Swipe left or right</Text>
-        ) : null}
-        {categoriesQuery.isLoading ? (
-          <View style={styles.gridLoadingWrap}>
-            <SkeletonBlock width="47%" height={170} />
-            <SkeletonBlock width="47%" height={170} />
-            <SkeletonBlock width="47%" height={170} />
-            <SkeletonBlock width="47%" height={170} />
-          </View>
-        ) : repeatedCategoryCards.length === 0 ? (
-          <View style={styles.gridEmptyState}>
-            <Text style={styles.gridEmptyText}>No categories available right now.</Text>
-          </View>
-        ) : (
-          // If we have enough categories, show a compact 4x2 grid (8 items)
-          (categoryCards.length >= 8) ? (
-            <View style={styles.categoryGridWrap}>
-              {(() => {
-                const items = categoryCards.slice(0, 8);
-                const smallGap = 10;
-                const cols = 4;
-                const totalGap = smallGap * (cols - 1);
-                const smallWidth = Math.floor((gridPageWidth - totalGap) / cols);
-                const smallHeight = Math.round(smallWidth * 1.4);
-
-                const renderCompactCard = (card: HomeGridCard) => (
-                  <Pressable
-                    key={card.id}
-                    style={[styles.compactCategoryCard, { width: smallWidth, height: smallHeight }]}
-                    onPress={() => navigateTo(`/search?q=${encodeURIComponent(card.query)}`)}
-                  >
-                    <CachedImage
-                      source={card.image}
-                      style={{ width: smallWidth, height: smallHeight }}
-                      contentFit="cover"
-                    />
-                    <View pointerEvents="none" style={styles.compactCategoryScrim} />
-                    <View pointerEvents="none" style={styles.compactCategoryRing} />
-                    <Text
-                      style={styles.compactCategoryTitle}
-                      numberOfLines={1}
-                      adjustsFontSizeToFit
-                      minimumFontScale={0.7}
-                    >
-                      {card.title}
-                    </Text>
-                  </Pressable>
-                );
-
-                return (
-                  <>
-                    <View style={[styles.categoryGridRow, { gap: smallGap }]}>
-                      {items.slice(0, 4).map(renderCompactCard)}
-                    </View>
-                    <View style={[styles.categoryGridRow, { gap: smallGap, marginTop: smallGap }]}>
-                      {items.slice(4, 8).map(renderCompactCard)}
-                    </View>
-                  </>
-                );
-              })()}
+  // The home page was one ScrollView wrapping every section at once.
+  // A ScrollView mounts and renders all of its children immediately, so the
+  // hero, five horizontal carousels, the testimonial rail and the footer were
+  // all live simultaneously — and stayed live for the whole session. Scrolling
+  // then had to composite that entire tree every frame.
+  //
+  // Each section is now an item in a FlatList, which windows them: only what is
+  // near the viewport is mounted. Same content, same order, same styling.
+  const homeSections = React.useMemo(() => [
+    { key: "topCategories", node: (
+            topCategoryCards.length > 0 ? (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.topCategoryScroll}
+                contentContainerStyle={[
+                  styles.topCategoryRow,
+                  { gap: topCategoryGap },
+                ]}
+              >
+                {topCategoryCards.map(renderTopCategoryCard)}
+              </ScrollView>
+            ) : null
+    ) },
+    { key: "hero", node: (
+            <View style={styles.fullBleed}>
+              <HomeHeroBanner onPress={() => navigateTo("/marketplace")} />
             </View>
-          ) : (
-            <FlatList
-              data={repeatedCategoryCards}
-              keyExtractor={(item) => item.id}
-              renderItem={renderCategoryCard}
-              horizontal
-              initialNumToRender={1}
-              maxToRenderPerBatch={2}
-              windowSize={3}
-              updateCellsBatchingPeriod={24}
-              decelerationRate="fast"
-              disableIntervalMomentum
-              snapToAlignment="start"
-              snapToInterval={categoryCardWidth + categoryCardGap}
-              style={styles.gridViewport}
-              contentContainerStyle={styles.categoryCarouselContent}
-              onEndReached={loadMoreCategories}
-              onEndReachedThreshold={0.4}
-              showsHorizontalScrollIndicator={false}
-              onScroll={(event) => {
-                const page = Math.round(event.nativeEvent.contentOffset.x / (categoryCardWidth + categoryCardGap));
-                setCategoryPageIndex((prev) => (prev === page ? prev : page));
-              }}
-              scrollEventThrottle={100}
-              onMomentumScrollEnd={(event) => {
-                const page = Math.round(event.nativeEvent.contentOffset.x / (categoryCardWidth + categoryCardGap));
-                setCategoryPageIndex((prev) => (prev === page ? prev : page));
-              }}
-            />
-          )
-        )}
-        {repeatedCategoryCards.length > 0 && categoryCards.length < 8 ? (
-          <View style={styles.paginationWrap}>
-            {Array.from({ length: baseCategoryPagesCount }).map((_, idx) => {
-              const isActive = idx === (categoryPageIndex % baseCategoryPagesCount);
-              return <View key={`category-dot-${idx}`} style={[styles.paginationDot, isActive && styles.paginationDotActive]} />;
-            })}
-          </View>
-        ) : null}
-      </View>
-
-      <View style={styles.mostLovedSection}>
-        <View style={styles.mostLovedHeaderRow}>
-          <SectionMark color="#511d00" />
-          <Text style={styles.mostLovedHeading}>BEST SELLERS</Text>
-          <Text style={styles.scrollDirectionText}>Swipe left or right</Text>
-        </View>
-        <View style={styles.audienceTabsWrap}>
-          <AudienceTabs value={bestsellersAudience} onChange={setBestsellersAudience} />
-        </View>
-        {bestsellersQuery.isLoading ? (
-          <View style={styles.gridLoadingWrap}>
-            <SkeletonBlock width="47%" height={220} />
-            <SkeletonBlock width="47%" height={220} />
-          </View>
-        ) : repeatedBestsellerCards.length === 0 ? (
-          <View style={styles.gridEmptyState}>
-            <Text style={styles.gridEmptyText}>
-              No {bestsellersAudience === "MENS" ? "mens" : "kids"} bestsellers available right now.
-            </Text>
-          </View>
-        ) : (
-          <FlatList
-            horizontal
-            data={repeatedBestsellerCards}
-            keyExtractor={(item) => item.id}
-            renderItem={renderBestsellerCard}
-            initialNumToRender={2}
-            maxToRenderPerBatch={2}
-            windowSize={3}
-            contentContainerStyle={styles.largeProductList}
-            showsHorizontalScrollIndicator={false}
-            onEndReached={loadMoreBestsellers}
-            onEndReachedThreshold={0.4}
-            snapToInterval={bestsellerCardWidth + productCardGap}
-            decelerationRate="fast"
-            disableIntervalMomentum
-            snapToAlignment="start"
-            onScroll={(event) => {
-              const page = Math.round(
-                event.nativeEvent.contentOffset.x / (bestsellerCardWidth + productCardGap)
-              );
-              setBestsellerPageIndex((prev) => (prev === page ? prev : page));
-            }}
-            scrollEventThrottle={100}
-            onMomentumScrollEnd={(event) => {
-              const page = Math.round(
-                event.nativeEvent.contentOffset.x / (bestsellerCardWidth + productCardGap)
-              );
-              setBestsellerPageIndex((prev) => (prev === page ? prev : page));
-            }}
-          />
-        )}
-        <View style={styles.paginationWrap}>
-          {Array.from({ length: baseBestsellerPagesCount }).map((_, idx) => {
-            const isActive = idx === (bestsellerPageIndex % baseBestsellerPagesCount);
-            return <View key={`bestseller-dot-${idx}`} style={[styles.paginationDot, isActive && styles.paginationDotActive]} />;
-          })}
-        </View>
-      </View>
-
-      <View style={styles.mostLovedSection}>
-        <View style={styles.mostLovedHeaderRow}>
-          <SectionMark color="#511d00" />
-          <Text style={styles.mostLovedHeading}>MOST LOVED</Text>
-        </View>
-        <View style={styles.audienceTabsWrap}>
-          <AudienceTabs value={mostLovedAudience} onChange={setMostLovedAudience} />
-        </View>
-        {mostLovedQuery.isLoading ? (
-          <View style={styles.gridLoadingWrap}>
-            <SkeletonBlock width="47%" height={240} />
-            <SkeletonBlock width="47%" height={240} />
-          </View>
-        ) : mostLovedCards.length === 0 ? (
-          <View style={styles.gridEmptyState}>
-            <Text style={styles.gridEmptyText}>
-              No {mostLovedAudience === "MENS" ? "men's" : "kids'"} products available right now.
-            </Text>
-          </View>
-        ) : (
-          <FlatList
-            data={mostLovedCards}
-            keyExtractor={(item) => item.id}
-            renderItem={renderLargeProductCard}
-            numColumns={2}
-            initialNumToRender={2}
-            maxToRenderPerBatch={4}
-            windowSize={3}
-            scrollEnabled={false}
-            contentContainerStyle={styles.mostLovedGridList}
-            columnWrapperStyle={styles.mostLovedGridRow}
-          />
-        )}
-        {hasMostLovedError ? (
-          <Text style={styles.mostLovedStatusText}>Could not load more products right now.</Text>
-        ) : isMostLovedPrefetching ? (
-          <Text style={styles.mostLovedStatusText}>Loading next products...</Text>
-        ) : hasMoreMostLoved ? (
-          <Text style={styles.mostLovedStatusText}>Scroll down to reveal more products</Text>
-        ) : mostLovedCards.length > 0 ? (
-          <Text style={styles.mostLovedStatusText}>You have reached the end.</Text>
-        ) : null}
-      </View>
-
-      <View style={styles.testimonialSection}>
-        <View style={styles.testimonialHeadingBox}>
-          <Text style={styles.testimonialEyebrow}>Real Stories</Text>
-          <Text style={styles.testimonialHeading}>TESTIMONIALS</Text>
-        </View>
-        <FlatList
-          ref={testimonialRef}
-          horizontal
-          decelerationRate="fast"
-          data={testimonials}
-          keyExtractor={(item) => item.id}
-          initialNumToRender={2}
-          maxToRenderPerBatch={2}
-          windowSize={3}
-          updateCellsBatchingPeriod={24}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.testimonialViewport}
-          renderItem={({ item }) => {
-            const quoteText = item.quote?.trim() || "Tatvivah delivered premium quality, true-to-photo finish, and a smooth wedding-day experience.";
-            const nameText = item.name?.trim() || "Tatvivah Customer";
-            const initialsText = item.initials?.trim() || "TV";
-            const metaText = item.meta?.trim() || "Verified Tatvivah Buyer";
-
-            return (
-              <View style={[styles.testimonialCardLarge, { width: testimonialCardWidth }]}>
-                <Text style={styles.testimonialStars}>★★★★★</Text>
-                <Text style={styles.testimonialQuoteLarge}>{`"${quoteText}"`}</Text>
-                <View style={styles.testimonialAuthorRow}>
-                  <View style={styles.testimonialAvatar}>
-                    <Text style={styles.testimonialAvatarText}>{initialsText}</Text>
-                  </View>
-                  <View style={styles.testimonialMetaWrap}>
-                    <Text style={styles.testimonialName}>{nameText}</Text>
-                    <Text style={styles.testimonialMeta}>{metaText}</Text>
-                  </View>
+    ) },
+    { key: "occasions", node: (
+            <View style={styles.occasionSection}>
+              <View style={styles.occasionHeadingWrap}>
+                <SectionMark color="#511d00" width={30} />
+                <Text style={styles.occasionTitle}>SHOP THE OCCASION</Text>
+                <View style={styles.menTabWrap}>
+                  <Text style={styles.menTabText}>Men</Text>
+                  <View style={styles.menTabUnderline} />
                 </View>
+                <Text style={styles.scrollDirectionText}>Swipe left or right</Text>
               </View>
-            );
-          }}
-          snapToInterval={testimonialCardStep}
-          snapToAlignment="start"
-          disableIntervalMomentum
-          onScroll={(event) => {
-            const page = Math.round(event.nativeEvent.contentOffset.x / testimonialCardStep);
-            setTestimonialPageIndex((prev) => (prev === page ? prev : page));
-          }}
-          scrollEventThrottle={100}
-          onMomentumScrollEnd={(event) => {
-            const page = Math.round(event.nativeEvent.contentOffset.x / testimonialCardStep);
-            setTestimonialPageIndex((prev) => (prev === page ? prev : page));
-          }}
-        />
-        <View style={styles.paginationWrap}>
-          {testimonials.map((item, idx) => (
-            <View
-              key={item.id}
-              style={[styles.paginationDot, idx === testimonialPageIndex && styles.paginationDotActive]}
-            />
-          ))}
-        </View>
-      </View>
+              {occasionsQuery.isLoading ? (
+                <View style={styles.gridLoadingWrap}>
+                  <SkeletonBlock width="47%" height={170} />
+                  <SkeletonBlock width="47%" height={170} />
+                  <SkeletonBlock width="47%" height={170} />
+                  <SkeletonBlock width="47%" height={170} />
+                </View>
+              ) : visibleOccasionPages.length === 0 ? (
+                <View style={styles.gridEmptyState}>
+                  <Text style={styles.gridEmptyText}>No occasions available right now.</Text>
+                </View>
+              ) : (
+                <FlatList
+                  data={visibleOccasionPages}
+                  keyExtractor={(item) => item.id}
+                  renderItem={renderGridPage}
+                  horizontal
+                  initialNumToRender={2}
+                  maxToRenderPerBatch={2}
+                  windowSize={3}
+                  decelerationRate="fast"
+                  disableIntervalMomentum
+                  snapToAlignment="start"
+                  snapToInterval={gridPageWidth + gridPageGap}
+                  style={styles.gridViewport}
+                  contentContainerStyle={styles.occasionGrid}
+                  ItemSeparatorComponent={OccasionSeparator}
+                  onEndReached={loadMoreOccasions}
+                  onEndReachedThreshold={0.4}
+                  showsHorizontalScrollIndicator={false}
+                  onScroll={(event) => {
+                    const page = Math.round(
+                      event.nativeEvent.contentOffset.x / (gridPageWidth + gridPageGap)
+                    );
+                    setOccasionPageIndex((prev) => (prev === page ? prev : page));
+                  }}
+                  scrollEventThrottle={100}
+                  onMomentumScrollEnd={(event) => {
+                    const page = Math.round(
+                      event.nativeEvent.contentOffset.x / (gridPageWidth + gridPageGap)
+                    );
+                    setOccasionPageIndex((prev) => (prev === page ? prev : page));
+                  }}
+                />
+              )}
+              {visibleOccasionPages.length > 0 ? (
+                <View style={styles.paginationWrap}>
+                  {Array.from({ length: baseOccasionPagesCount }).map((_, idx) => {
+                    const isActive = idx === (occasionPageIndex % baseOccasionPagesCount);
+                    return <View key={`occasion-dot-${idx}`} style={[styles.paginationDot, isActive && styles.paginationDotActive]} />;
+                  })}
+                </View>
+              ) : null}
+            </View>
+    ) },
+    { key: "categories", node: (
+            <View style={styles.collectionSection}>
+              <View style={styles.sectionHeadRow}>
+                <SectionMark color="#511d00" />
+                <Text style={styles.collectionHeading}>SHOP BY CATEGORY</Text>
+              </View>
+              {categoryCards.length < 8 ? (
+                <Text style={[styles.scrollDirectionText, styles.centerDirection]}>Swipe left or right</Text>
+              ) : null}
+              {categoriesQuery.isLoading ? (
+                <View style={styles.gridLoadingWrap}>
+                  <SkeletonBlock width="47%" height={170} />
+                  <SkeletonBlock width="47%" height={170} />
+                  <SkeletonBlock width="47%" height={170} />
+                  <SkeletonBlock width="47%" height={170} />
+                </View>
+              ) : repeatedCategoryCards.length === 0 ? (
+                <View style={styles.gridEmptyState}>
+                  <Text style={styles.gridEmptyText}>No categories available right now.</Text>
+                </View>
+              ) : (
+                // If we have enough categories, show a compact 4x2 grid (8 items)
+                (categoryCards.length >= 8) ? (
+                  <View style={styles.categoryGridWrap}>
+                    {(() => {
+                      const items = categoryCards.slice(0, 8);
+                      const smallGap = 10;
+                      const cols = 4;
+                      const totalGap = smallGap * (cols - 1);
+                      const smallWidth = Math.floor((gridPageWidth - totalGap) / cols);
+                      const smallHeight = Math.round(smallWidth * 1.4);
 
+                      const renderCompactCard = (card: HomeGridCard) => (
+                        <Pressable
+                          key={card.id}
+                          style={[styles.compactCategoryCard, { width: smallWidth, height: smallHeight }]}
+                          onPress={() => navigateTo(`/search?q=${encodeURIComponent(card.query)}`)}
+                        >
+                          <CachedImage
+                            source={card.image}
+                            style={{ width: smallWidth, height: smallHeight }}
+                            contentFit="cover"
+                          />
+                          <View pointerEvents="none" style={styles.compactCategoryScrim} />
+                          <View pointerEvents="none" style={styles.compactCategoryRing} />
+                          <Text
+                            style={styles.compactCategoryTitle}
+                            numberOfLines={1}
+                            adjustsFontSizeToFit
+                            minimumFontScale={0.7}
+                          >
+                            {card.title}
+                          </Text>
+                        </Pressable>
+                      );
 
-      <View style={styles.fullBleed}>
-        <Footer />
-      </View>
-    </>
-  ), [
+                      return (
+                        <>
+                          <View style={[styles.categoryGridRow, { gap: smallGap }]}>
+                            {items.slice(0, 4).map(renderCompactCard)}
+                          </View>
+                          <View style={[styles.categoryGridRow, { gap: smallGap, marginTop: smallGap }]}>
+                            {items.slice(4, 8).map(renderCompactCard)}
+                          </View>
+                        </>
+                      );
+                    })()}
+                  </View>
+                ) : (
+                  <FlatList
+                    data={repeatedCategoryCards}
+                    keyExtractor={(item) => item.id}
+                    renderItem={renderCategoryCard}
+                    horizontal
+                    initialNumToRender={1}
+                    maxToRenderPerBatch={2}
+                    windowSize={3}
+                    updateCellsBatchingPeriod={24}
+                    decelerationRate="fast"
+                    disableIntervalMomentum
+                    snapToAlignment="start"
+                    snapToInterval={categoryCardWidth + categoryCardGap}
+                    style={styles.gridViewport}
+                    contentContainerStyle={styles.categoryCarouselContent}
+                    onEndReached={loadMoreCategories}
+                    onEndReachedThreshold={0.4}
+                    showsHorizontalScrollIndicator={false}
+                    onScroll={(event) => {
+                      const page = Math.round(event.nativeEvent.contentOffset.x / (categoryCardWidth + categoryCardGap));
+                      setCategoryPageIndex((prev) => (prev === page ? prev : page));
+                    }}
+                    scrollEventThrottle={100}
+                    onMomentumScrollEnd={(event) => {
+                      const page = Math.round(event.nativeEvent.contentOffset.x / (categoryCardWidth + categoryCardGap));
+                      setCategoryPageIndex((prev) => (prev === page ? prev : page));
+                    }}
+                  />
+                )
+              )}
+              {repeatedCategoryCards.length > 0 && categoryCards.length < 8 ? (
+                <View style={styles.paginationWrap}>
+                  {Array.from({ length: baseCategoryPagesCount }).map((_, idx) => {
+                    const isActive = idx === (categoryPageIndex % baseCategoryPagesCount);
+                    return <View key={`category-dot-${idx}`} style={[styles.paginationDot, isActive && styles.paginationDotActive]} />;
+                  })}
+                </View>
+              ) : null}
+            </View>
+    ) },
+    { key: "bestsellers", node: (
+            <View style={styles.mostLovedSection}>
+              <View style={styles.mostLovedHeaderRow}>
+                <SectionMark color="#511d00" />
+                <Text style={styles.mostLovedHeading}>BEST SELLERS</Text>
+                <Text style={styles.scrollDirectionText}>Swipe left or right</Text>
+              </View>
+              <View style={styles.audienceTabsWrap}>
+                <AudienceTabs value={bestsellersAudience} onChange={setBestsellersAudience} />
+              </View>
+              {bestsellersQuery.isLoading ? (
+                <View style={styles.gridLoadingWrap}>
+                  <SkeletonBlock width="47%" height={220} />
+                  <SkeletonBlock width="47%" height={220} />
+                </View>
+              ) : repeatedBestsellerCards.length === 0 ? (
+                <View style={styles.gridEmptyState}>
+                  <Text style={styles.gridEmptyText}>
+                    No {bestsellersAudience === "MENS" ? "mens" : "kids"} bestsellers available right now.
+                  </Text>
+                </View>
+              ) : (
+                <FlatList
+                  horizontal
+                  data={repeatedBestsellerCards}
+                  keyExtractor={(item) => item.id}
+                  renderItem={renderBestsellerCard}
+                  initialNumToRender={2}
+                  maxToRenderPerBatch={2}
+                  windowSize={3}
+                  contentContainerStyle={styles.largeProductList}
+                  showsHorizontalScrollIndicator={false}
+                  onEndReached={loadMoreBestsellers}
+                  onEndReachedThreshold={0.4}
+                  snapToInterval={bestsellerCardWidth + productCardGap}
+                  decelerationRate="fast"
+                  disableIntervalMomentum
+                  snapToAlignment="start"
+                  onScroll={(event) => {
+                    const page = Math.round(
+                      event.nativeEvent.contentOffset.x / (bestsellerCardWidth + productCardGap)
+                    );
+                    setBestsellerPageIndex((prev) => (prev === page ? prev : page));
+                  }}
+                  scrollEventThrottle={100}
+                  onMomentumScrollEnd={(event) => {
+                    const page = Math.round(
+                      event.nativeEvent.contentOffset.x / (bestsellerCardWidth + productCardGap)
+                    );
+                    setBestsellerPageIndex((prev) => (prev === page ? prev : page));
+                  }}
+                />
+              )}
+              <View style={styles.paginationWrap}>
+                {Array.from({ length: baseBestsellerPagesCount }).map((_, idx) => {
+                  const isActive = idx === (bestsellerPageIndex % baseBestsellerPagesCount);
+                  return <View key={`bestseller-dot-${idx}`} style={[styles.paginationDot, isActive && styles.paginationDotActive]} />;
+                })}
+              </View>
+            </View>
+    ) },
+    { key: "mostLoved", node: (
+            <View style={styles.mostLovedSection}>
+              <View style={styles.mostLovedHeaderRow}>
+                <SectionMark color="#511d00" />
+                <Text style={styles.mostLovedHeading}>MOST LOVED</Text>
+              </View>
+              <View style={styles.audienceTabsWrap}>
+                <AudienceTabs value={mostLovedAudience} onChange={setMostLovedAudience} />
+              </View>
+              {mostLovedQuery.isLoading ? (
+                <View style={styles.gridLoadingWrap}>
+                  <SkeletonBlock width="47%" height={240} />
+                  <SkeletonBlock width="47%" height={240} />
+                </View>
+              ) : mostLovedCards.length === 0 ? (
+                <View style={styles.gridEmptyState}>
+                  <Text style={styles.gridEmptyText}>
+                    No {mostLovedAudience === "MENS" ? "men's" : "kids'"} products available right now.
+                  </Text>
+                </View>
+              ) : (
+                <FlatList
+                  data={mostLovedCards}
+                  keyExtractor={(item) => item.id}
+                  renderItem={renderLargeProductCard}
+                  numColumns={2}
+                  initialNumToRender={2}
+                  maxToRenderPerBatch={4}
+                  windowSize={3}
+                  scrollEnabled={false}
+                  contentContainerStyle={styles.mostLovedGridList}
+                  columnWrapperStyle={styles.mostLovedGridRow}
+                />
+              )}
+              {hasMostLovedError ? (
+                <Text style={styles.mostLovedStatusText}>Could not load more products right now.</Text>
+              ) : isMostLovedPrefetching ? (
+                <Text style={styles.mostLovedStatusText}>Loading next products...</Text>
+              ) : hasMoreMostLoved ? (
+                <Text style={styles.mostLovedStatusText}>Scroll down to reveal more products</Text>
+              ) : mostLovedCards.length > 0 ? (
+                <Text style={styles.mostLovedStatusText}>You have reached the end.</Text>
+              ) : null}
+            </View>
+    ) },
+    { key: "testimonials", node: (
+            <View style={styles.testimonialSection}>
+              <View style={styles.testimonialHeadingBox}>
+                <Text style={styles.testimonialEyebrow}>Real Stories</Text>
+                <Text style={styles.testimonialHeading}>TESTIMONIALS</Text>
+              </View>
+              <FlatList
+                ref={testimonialRef}
+                horizontal
+                decelerationRate="fast"
+                data={testimonials}
+                keyExtractor={(item) => item.id}
+                initialNumToRender={2}
+                maxToRenderPerBatch={2}
+                windowSize={3}
+                updateCellsBatchingPeriod={24}
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.testimonialViewport}
+                renderItem={({ item }) => {
+                  const quoteText = item.quote?.trim() || "Tatvivah delivered premium quality, true-to-photo finish, and a smooth wedding-day experience.";
+                  const nameText = item.name?.trim() || "Tatvivah Customer";
+                  const initialsText = item.initials?.trim() || "TV";
+                  const metaText = item.meta?.trim() || "Verified Tatvivah Buyer";
+
+                  return (
+                    <View style={[styles.testimonialCardLarge, { width: testimonialCardWidth }]}>
+                      <Text style={styles.testimonialStars}>★★★★★</Text>
+                      <Text style={styles.testimonialQuoteLarge}>{`"${quoteText}"`}</Text>
+                      <View style={styles.testimonialAuthorRow}>
+                        <View style={styles.testimonialAvatar}>
+                          <Text style={styles.testimonialAvatarText}>{initialsText}</Text>
+                        </View>
+                        <View style={styles.testimonialMetaWrap}>
+                          <Text style={styles.testimonialName}>{nameText}</Text>
+                          <Text style={styles.testimonialMeta}>{metaText}</Text>
+                        </View>
+                      </View>
+                    </View>
+                  );
+                }}
+                snapToInterval={testimonialCardStep}
+                snapToAlignment="start"
+                disableIntervalMomentum
+                onScroll={(event) => {
+                  const page = Math.round(event.nativeEvent.contentOffset.x / testimonialCardStep);
+                  setTestimonialPageIndex((prev) => (prev === page ? prev : page));
+                }}
+                scrollEventThrottle={100}
+                onMomentumScrollEnd={(event) => {
+                  const page = Math.round(event.nativeEvent.contentOffset.x / testimonialCardStep);
+                  setTestimonialPageIndex((prev) => (prev === page ? prev : page));
+                }}
+              />
+              <View style={styles.paginationWrap}>
+                {testimonials.map((item, idx) => (
+                  <View
+                    key={item.id}
+                    style={[styles.paginationDot, idx === testimonialPageIndex && styles.paginationDotActive]}
+                  />
+                ))}
+              </View>
+            </View>
+    ) },
+    { key: "footer", node: (
+            <View style={styles.fullBleed}>
+              <Footer />
+            </View>
+    ) },
+  ], [
     categoriesQuery.isLoading,
     navigateTo,
     baseCategoryPagesCount,
@@ -1297,8 +1321,11 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
       <AppHeader variant="main" />
-      <ScrollView
+      <FlatList
         ref={listRef}
+        data={homeSections}
+        keyExtractor={homeSectionKey}
+        renderItem={renderHomeSection}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.contentContainer}
         onScroll={handleListScroll}
@@ -1306,9 +1333,15 @@ export default function HomeScreen() {
         // distance-to-bottom. Neither answer changes meaningfully inside 200ms,
         // and at 16ms this ran in direct competition with the scroll it served.
         scrollEventThrottle={200}
-      >
-        {listHeader}
-      </ScrollView>
+        // Sections are large and few, so render a couple ahead of the viewport
+        // and keep a small window. The hero must be present on first paint.
+        initialNumToRender={2}
+        maxToRenderPerBatch={2}
+        windowSize={5}
+        // Not enabled: several sections contain reanimated entrance animations,
+        // and detaching a view mid-animation is a native crash on Android.
+        removeClippedSubviews={false}
+      />
 
       <ScrollToTopFab
         visible={showScrollTop}
