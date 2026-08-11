@@ -19,6 +19,7 @@ import {
     sanitizeColorHex,
     sanitizeVariantImages,
 } from './color-variant-images.service.js';
+import { normalizeVariantAttributes } from './variant-attributes.service.js';
 import { dispatchFreshness } from '../live/freshness.service.js';
 import { CACHE_TAGS, productTag } from '../live/cache-tags.js';
 import type {
@@ -703,6 +704,16 @@ export class ProductService {
         }
 
         this.validateCreateVariantPayload(data);
+
+        // Sellers type "Green 38" into the size box; lift the colour out before
+        // anything downstream treats it as a size.
+        const normalized = normalizeVariantAttributes(data);
+        data = {
+            ...data,
+            size: normalized.size ?? data.size,
+            ...(normalized.color !== undefined ? { color: normalized.color ?? undefined } : {}),
+        };
+
         await this.ensureProductVariantUniqueness(productId, {
             size: data.size,
             color: data.color,
@@ -720,10 +731,12 @@ export class ProductService {
                 : resolveColorScopedGallery(productWithDetails.variants ?? [], data.color);
 
         // A swatch belongs to the colour, so a new size of an existing colour
-        // inherits it rather than arriving blank.
+        // inherits it rather than arriving blank; a recognised colour name
+        // supplies its own swatch when neither is available.
         const resolvedHex =
             sanitizeColorHex(data.colorHex) ??
-            resolveColorScopedHex(productWithDetails.variants ?? [], data.color);
+            resolveColorScopedHex(productWithDetails.variants ?? [], data.color) ??
+            normalized.derivedColorHex;
 
         const variant = await this.variantRepo.create(productId, {
             ...data,
@@ -769,6 +782,15 @@ export class ProductService {
             adminListingPrice: variantWithProduct.adminListingPrice,
         });
 
+        // Same clean-up as the create path, so an edit can't reintroduce a
+        // colour glued onto the size.
+        const normalized = normalizeVariantAttributes(data);
+        data = {
+            ...data,
+            ...(normalized.size !== undefined ? { size: normalized.size } : {}),
+            ...(normalized.color !== undefined ? { color: normalized.color } : {}),
+        };
+
         const nextSize = data.size ?? variantWithProduct.size;
         const nextColor = data.color !== undefined ? data.color : variantWithProduct.color;
         const nextSku = data.sku ?? variantWithProduct.sku;
@@ -807,7 +829,7 @@ export class ProductService {
         const inferredHex =
             data.colorHex !== undefined
                 ? sanitizeColorHex(data.colorHex)
-                : resolveColorScopedHex(siblingVariants, nextColor);
+                : resolveColorScopedHex(siblingVariants, nextColor) ?? normalized.derivedColorHex;
 
         const variant = await this.variantRepo.update(variantId, {
             ...data,

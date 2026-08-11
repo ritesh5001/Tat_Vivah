@@ -27,6 +27,7 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Image } from "../../../src/components/CompatImage";
 import { trackPendingCartWrite } from "../../../src/lib/pending-cart";
+import { buildSizeOptions } from "../../../src/lib/variantAttributes";
 import { Icon } from "../../../src/components/Icon";
 import * as ImagePicker from "expo-image-picker";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
@@ -369,17 +370,13 @@ function swatchColorFromLabel(label: string): string {
   return fallbackColorFromText(normalized);
 }
 
+/**
+ * The variant's colour, or "" when it has none. Empty is deliberate: a product
+ * without a colour axis shows no swatch row at all rather than a meaningless
+ * "Default" circle.
+ */
 function getVariantColorLabel(variant: ProductVariant): string {
-  return variant.color?.trim() || "Default";
-}
-
-function getVariantSizeLabel(variant: ProductVariant): string {
-  const raw = variant.size?.trim();
-  if (!raw) return "Default";
-  // Backend often stores SKU codes ("LB36", "DB44") in the size field. Show the
-  // numeric size when present so users see clean values (36, 38, 40, 42).
-  const numeric = raw.match(/\d+/)?.[0];
-  return numeric ?? raw;
+  return variant.color?.trim() || "";
 }
 
 function seededRandom(seed: string, min: number, max: number): number {
@@ -790,6 +787,7 @@ export default function ProductDetailScreen() {
     const map = new Map<string, { label: string; hex: string | null }>();
     for (const variant of variants) {
       const label = getVariantColorLabel(variant);
+      if (!label) continue;
       const key = normalizeColor(label);
       const hex = normalizeHex((variant as { colorHex?: string | null }).colorHex);
       const existing = map.get(key);
@@ -808,6 +806,15 @@ export default function ProductDetailScreen() {
     if (!selectedColor) return variants;
     return variants.filter((variant) => normalizeColor(getVariantColorLabel(variant)) === selectedColor);
   }, [product?.variants, selectedColor]);
+
+  /** One chip per size of the selected colour, in scale order with live stock. */
+  const sizeOptions = React.useMemo(
+    () => buildSizeOptions(variantsForColor),
+    [variantsForColor]
+  );
+
+  const selectedColorLabel =
+    colorOptions.find((color) => color.key === selectedColor)?.label ?? "";
 
   const fallbackVariant = selectedVariant ?? variantsForColor[0] ?? product?.variants?.[0] ?? null;
   const productAny = product as any;
@@ -1825,98 +1832,105 @@ export default function ProductDetailScreen() {
             </Text>
           )}
 
-          {/* Variant selector */}
-          <View style={styles.variantRow}>
-            <Text style={styles.variantLabel}>Select Color</Text>
-            <View style={styles.variantWrap}>
-              {isHydratingVariants && !colorOptions.length ? (
-                <View style={styles.variantSkeletonRow}>
-                  {[0, 1, 2].map((i) => (
-                    <SkeletonBlock key={i} width={72} height={30} borderRadius={radius.sm} />
-                  ))}
-                </View>
-              ) : colorOptions.length ? (
-                colorOptions.map((color) => {
-                  const active = selectedColor === color.key;
-                  const swatchSize = isCompactLayout ? 26 : 30;
-                  return (
-                    <Pressable
-                      key={color.key}
-                      style={[
-                        styles.colorOption,
-                        active && styles.colorOptionActive,
-                      ]}
-                      onPress={() => {
-                        setSelectedColor(color.key);
-                        const firstVariant = (product?.variants ?? []).find(
-                          (variant) => normalizeColor(getVariantColorLabel(variant)) === color.key,
-                        );
-                        if (firstVariant) {
-                          setSelectedVariantId(firstVariant.id);
-                        }
-                      }}
-                    >
-                      <View
+          {/* Variant selector — the colour row is skipped when the product has
+              no colour axis, rather than showing a lone "Default" swatch. */}
+          {(isHydratingVariants || colorOptions.length > 0) && (
+            <View style={styles.variantRow}>
+              <Text style={styles.variantLabel}>
+                Select Color{selectedColorLabel ? `  ·  ${selectedColorLabel}` : ""}
+              </Text>
+              <View style={styles.variantWrap}>
+                {isHydratingVariants && !colorOptions.length ? (
+                  <View style={styles.variantSkeletonRow}>
+                    {[0, 1, 2].map((i) => (
+                      <SkeletonBlock key={i} width={72} height={30} borderRadius={radius.sm} />
+                    ))}
+                  </View>
+                ) : (
+                  colorOptions.map((color) => {
+                    const active = selectedColor === color.key;
+                    const swatchSize = isCompactLayout ? 26 : 30;
+                    return (
+                      <Pressable
+                        key={color.key}
                         style={[
-                          styles.colorSwatch,
-                          {
-                            width: swatchSize,
-                            height: swatchSize,
-                            backgroundColor:
-                              color.hex ?? swatchColorFromLabel(color.label),
-                          },
+                          styles.colorOption,
+                          active && styles.colorOptionActive,
                         ]}
-                      />
-                      <Text
-                        style={[
-                          styles.colorOptionText,
-                          active && styles.colorOptionTextActive,
-                        ]}
+                        onPress={() => {
+                          setSelectedColor(color.key);
+                          const forColor = (product?.variants ?? []).filter(
+                            (variant) => normalizeColor(getVariantColorLabel(variant)) === color.key,
+                          );
+                          // Stay on the size already chosen when the new colour
+                          // stocks it; only then fall back to its first size.
+                          const sameSize = forColor.find(
+                            (variant) => variant.size === selectedVariant?.size,
+                          );
+                          const next = sameSize ?? buildSizeOptions(forColor)[0]?.variant;
+                          if (next) {
+                            setSelectedVariantId(next.id);
+                          }
+                        }}
                       >
-                        {color.label}
-                      </Text>
-                    </Pressable>
-                  );
-                })
-              ) : (
-                <Text style={styles.mutedText}>Colors coming soon.</Text>
-              )}
+                        <View
+                          style={[
+                            styles.colorSwatch,
+                            {
+                              width: swatchSize,
+                              height: swatchSize,
+                              backgroundColor:
+                                color.hex ?? swatchColorFromLabel(color.label),
+                            },
+                          ]}
+                        />
+                        <Text
+                          style={[
+                            styles.colorOptionText,
+                            active && styles.colorOptionTextActive,
+                          ]}
+                        >
+                          {color.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })
+                )}
+              </View>
             </View>
-          </View>
+          )}
 
           <View style={styles.variantRow}>
             <Text style={styles.variantLabel}>Select Size</Text>
             <View style={styles.variantWrap}>
-              {isHydratingVariants && !variantsForColor.length ? (
+              {isHydratingVariants && !sizeOptions.length ? (
                 <View style={styles.variantSkeletonRow}>
                   {[0, 1, 2, 3].map((i) => (
                     <SkeletonBlock key={i} width={52} height={34} borderRadius={radius.sm} />
                   ))}
                 </View>
-              ) : variantsForColor.length ? (
-                variantsForColor.map((variant: ProductVariant) => {
-                  const active = variant.id === selectedVariantId;
-                  const variantOOS =
-                    variant.inventory != null && variant.inventory.stock <= 0;
+              ) : sizeOptions.length ? (
+                sizeOptions.map((option) => {
+                  const active = option.variant.id === selectedVariantId;
                   return (
                     <Pressable
-                      key={variant.id}
+                      key={option.variant.id}
                       style={[
                         styles.variantChip,
                         active && styles.variantChipActive,
-                        variantOOS && styles.variantChipDisabled,
+                        !option.inStock && styles.variantChipDisabled,
                       ]}
-                      onPress={() => handleVariantPress(variant.id)}
-                      disabled={variantOOS}
+                      onPress={() => handleVariantPress(option.variant.id)}
+                      disabled={!option.inStock}
                     >
                       <Text
                         style={[
                           styles.variantChipText,
                           active && styles.variantChipTextActive,
-                          variantOOS && styles.variantChipTextDisabled,
+                          !option.inStock && styles.variantChipTextDisabled,
                         ]}
                       >
-                        {getVariantSizeLabel(variant)}
+                        {option.size}
                       </Text>
                     </Pressable>
                   );

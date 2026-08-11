@@ -19,6 +19,7 @@ import {
 import { normalizeHex } from "@/lib/color-swatches";
 import { loginUrlWithReturn } from "@/lib/login-redirect";
 import { startNavigationFeedback } from "@/lib/navigation-feedback";
+import { buildSizeOptions } from "@/lib/variant-attributes";
 
 export type QuickBuyIntent = "cart" | "buy";
 
@@ -109,10 +110,10 @@ export function QuickBuyDialog({
     }, [variants]);
 
     const sizesForColor = React.useMemo(() => {
-        if (!selectedColor) return variants;
-        return variants.filter(
-            (variant) => (variant.color ?? "").toLowerCase() === selectedColor
-        );
+        const forColor = !selectedColor
+            ? variants
+            : variants.filter((variant) => (variant.color ?? "").toLowerCase() === selectedColor);
+        return buildSizeOptions(forColor);
     }, [variants, selectedColor]);
 
     // Preselect anything unambiguous so a single-variant product needs no clicks.
@@ -123,7 +124,7 @@ export function QuickBuyDialog({
             setSelectedVariantId(variants[0].id);
             return;
         }
-        if (sizesForColor.length === 1) setSelectedVariantId(sizesForColor[0].id);
+        if (sizesForColor.length === 1) setSelectedVariantId(sizesForColor[0].variant.id);
     }, [open, variants, colors, selectedColor, sizesForColor]);
 
     const selectedVariant =
@@ -291,20 +292,23 @@ export function QuickBuyDialog({
                                     Size
                                 </p>
                                 <div className="mt-2 flex flex-wrap gap-2">
-                                    {sizesForColor.map((variant) => {
-                                        const active = variant.id === selectedVariantId;
+                                    {sizesForColor.map((option) => {
+                                        const active = option.variant.id === selectedVariantId;
                                         return (
                                             <button
-                                                key={variant.id}
+                                                key={option.variant.id}
                                                 type="button"
-                                                onClick={() => setSelectedVariantId(variant.id)}
+                                                disabled={!option.inStock}
+                                                onClick={() => setSelectedVariantId(option.variant.id)}
                                                 className={`min-w-13 border px-3 py-2 text-xs transition ${
-                                                    active
-                                                        ? "border-gold bg-cream text-foreground"
-                                                        : "border-border-soft text-muted-foreground hover:border-gold/50"
+                                                    !option.inStock
+                                                        ? "cursor-not-allowed border-border-soft/60 text-muted-foreground/50 line-through"
+                                                        : active
+                                                          ? "border-gold bg-cream text-foreground"
+                                                          : "border-border-soft text-muted-foreground hover:border-gold/50"
                                                 }`}
                                             >
-                                                {variant.size}
+                                                {option.size}
                                             </button>
                                         );
                                     })}

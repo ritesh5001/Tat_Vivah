@@ -17,6 +17,7 @@ import {
 import { trackPendingCartWrite } from "@/lib/pending-cart";
 import { loginUrlWithReturn } from "@/lib/login-redirect";
 import { normalizeHex } from "@/lib/color-swatches";
+import { buildSizeOptions } from "@/lib/variant-attributes";
 
 interface Variant {
   id: string;
@@ -89,8 +90,13 @@ function normalizeColor(value?: string | null): string {
   return (value ?? "").trim().toLowerCase();
 }
 
+/**
+ * The variant's colour, or "" when it has none. Empty is deliberate: a product
+ * without a colour axis should show no swatch row at all rather than a
+ * meaningless "Default" circle.
+ */
 function variantColorLabel(variant: Variant): string {
-  return variant.color?.trim() || "Default";
+  return variant.color?.trim() || "";
 }
 
 function fallbackHexFromText(input: string): string {
@@ -125,6 +131,22 @@ function swatchColorFromLabel(label: string): string {
 }
 
 /**
+ * The variant a freshly opened page should land on: the smallest in-stock size
+ * of the first colour, so the buyer never arrives on a struck-through chip.
+ */
+function pickDefaultVariant(variants: Variant[]): Variant | undefined {
+  if (variants.length === 0) return undefined;
+
+  const firstColor = normalizeColor(variantColorLabel(variants[0]!));
+  const forFirstColor = variants.filter(
+    (variant) => normalizeColor(variantColorLabel(variant)) === firstColor
+  );
+  const options = buildSizeOptions(forFirstColor);
+
+  return (options.find((option) => option.inStock) ?? options[0])?.variant ?? variants[0];
+}
+
+/**
  * True when the browser holds either auth cookie. The access cookie expires
  * daily, but a valid refresh cookie (7 days) lets apiRequest restore the
  * session silently — so only a missing refresh cookie means "signed out".
@@ -141,7 +163,7 @@ export default function ProductDetailClient({
   const router = useRouter();
   const [selectedColor, setSelectedColor] = React.useState("");
   const [selectedVariantId, setSelectedVariantId] = React.useState(
-    product.variants?.[0]?.id ?? ""
+    () => pickDefaultVariant(product.variants ?? [])?.id ?? ""
   );
   const [buyNowLoading, setBuyNowLoading] = React.useState(false);
   const [wishlisted, setWishlisted] = React.useState(false);
@@ -193,6 +215,7 @@ export default function ProductDetailClient({
     const map = new Map<string, { label: string; hex: string | null }>();
     for (const variant of product.variants ?? []) {
       const label = variantColorLabel(variant);
+      if (!label) continue;
       const key = normalizeColor(label);
       const hex = normalizeHex(variant.colorHex);
       const existing = map.get(key);
@@ -213,7 +236,7 @@ export default function ProductDetailClient({
       return;
     }
 
-    const first = product.variants[0];
+    const first = pickDefaultVariant(product.variants);
     if (first) {
       setSelectedVariantId(first.id);
       setSelectedColor(normalizeColor(variantColorLabel(first)));
@@ -229,6 +252,15 @@ export default function ProductDetailClient({
       (variant) => normalizeColor(variantColorLabel(variant)) === selectedColor
     );
   }, [product.variants, selectedColor]);
+
+  /** One chip per size of the selected colour, in scale order with live stock. */
+  const sizeOptions = React.useMemo(
+    () => buildSizeOptions(variantsForColor),
+    [variantsForColor]
+  );
+
+  const selectedColorLabel =
+    colorOptions.find((color) => color.key === selectedColor)?.label ?? "";
 
   const handleToggleWishlist = async () => {
     if (!hasAuthSession()) {
@@ -593,48 +625,56 @@ export default function ProductDetailClient({
           </p>
         </div>
 
-        {/* 3. Colour Selection */}
-        <div className="space-y-4 pt-4">
-          <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-foreground">
-            SELECT COLOUR
-          </p>
-          <div className="flex flex-wrap gap-4 mt-2">
-            {colorOptions.length === 0 ? (
-              <span className="text-sm text-muted-foreground">Color options coming soon</span>
-            ) : (
-              colorOptions.map((color) => {
+        {/* 3. Colour Selection — hidden entirely when the product has no colour axis. */}
+        {colorOptions.length > 0 && (
+          <div className="space-y-4 pt-4">
+            <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-foreground">
+              SELECT COLOUR
+              {selectedColorLabel && (
+                <span className="ml-2 text-muted-foreground normal-case tracking-normal">
+                  {selectedColorLabel}
+                </span>
+              )}
+            </p>
+            <div className="flex flex-wrap gap-4 mt-2">
+              {colorOptions.map((color) => {
                 const active = color.key === selectedColor;
                 // Admin-picked swatch first; the name-derived guess is the fallback.
                 const swatchColor = color.hex ?? swatchColorFromLabel(color.label);
                 return (
-              <button
-                key={color.key}
-                type="button"
-                onClick={() => {
-                  setSelectedColor(color.key);
-                  const firstVariantForColor = product.variants.find(
-                    (variant) => normalizeColor(variantColorLabel(variant)) === color.key
-                  );
-                  if (firstVariantForColor) {
-                    setSelectedVariantId(firstVariantForColor.id);
-                  }
-                }}
-                className={`flex w-[72px] flex-col items-center gap-2 transition-all hover:opacity-90 ${active ? 'text-foreground' : 'text-muted-foreground'}`}
-                title={color.label}
-              >
-                <div
-                  className={`h-9 w-9 rounded-full border sm:h-10 sm:w-10 lg:h-11 lg:w-11 ${active ? 'border-gold ring-2 ring-gold/25' : 'border-border-soft'}`}
-                  style={{ backgroundColor: swatchColor }}
-                />
-                <span className={`w-full text-center text-[10px] font-medium uppercase tracking-[0.12em] leading-tight sm:text-[11px] ${active ? 'text-foreground' : 'text-muted-foreground'}`}>
-                  {color.label}
-                </span>
-              </button>
+                  <button
+                    key={color.key}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => {
+                      setSelectedColor(color.key);
+                      const forColor = product.variants.filter(
+                        (variant) => normalizeColor(variantColorLabel(variant)) === color.key
+                      );
+                      // Stay on the size the buyer already chose when the new
+                      // colour stocks it; only then fall back to its first size.
+                      const sameSize = forColor.find(
+                        (variant) => variant.size === selectedVariant?.size
+                      );
+                      const next = sameSize ?? buildSizeOptions(forColor)[0]?.variant;
+                      if (next) setSelectedVariantId(next.id);
+                    }}
+                    className={`flex w-[72px] flex-col items-center gap-2 transition-all hover:opacity-90 ${active ? 'text-foreground' : 'text-muted-foreground'}`}
+                    title={color.label}
+                  >
+                    <div
+                      className={`h-9 w-9 rounded-full border sm:h-10 sm:w-10 lg:h-11 lg:w-11 ${active ? 'border-gold ring-2 ring-gold/25' : 'border-border-soft'}`}
+                      style={{ backgroundColor: swatchColor }}
+                    />
+                    <span className={`w-full text-center text-[10px] font-medium uppercase tracking-[0.12em] leading-tight sm:text-[11px] ${active ? 'text-foreground' : 'text-muted-foreground'}`}>
+                      {color.label}
+                    </span>
+                  </button>
                 );
-              })
-            )}
+              })}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* 4. Size Selection */}
         <div className="space-y-4 pt-6">
@@ -649,36 +689,36 @@ export default function ProductDetailClient({
           </div>
 
           <div className="flex flex-wrap gap-2.5 mt-2">
-            {variantsForColor.length === 0 ? (
+            {sizeOptions.length === 0 ? (
               <span className="text-sm text-muted-foreground">Variants coming soon</span>
             ) : (
-              variantsForColor.map((variant, idx) => (
+              sizeOptions.map((option) => (
                 <motion.button
-                  key={variant.id}
+                  key={option.variant.id}
                   type="button"
-                  onClick={() => setSelectedVariantId(variant.id)}
-                  whileHover={{ y: -1 }}
+                  disabled={!option.inStock}
+                  aria-pressed={selectedVariantId === option.variant.id}
+                  onClick={() => setSelectedVariantId(option.variant.id)}
+                  whileHover={option.inStock ? { y: -1 } : undefined}
                   transition={{ duration: 0.3, ease: "easeOut" }}
                   className={`relative px-5 py-3 text-xs font-medium uppercase tracking-wider transition-all duration-300 min-w-14
-                     ${selectedVariantId === variant.id
-                      ? "border border-gold bg-cream text-charcoal dark:bg-brown/30 dark:text-ivory"
-                      : "border border-border-soft text-muted-foreground hover:border-gold/50 hover:text-foreground"
+                     ${!option.inStock
+                      ? "cursor-not-allowed border border-border-soft/60 text-muted-foreground/50 line-through"
+                      : selectedVariantId === option.variant.id
+                        ? "border border-gold bg-cream text-charcoal dark:bg-brown/30 dark:text-ivory"
+                        : "border border-border-soft text-muted-foreground hover:border-gold/50 hover:text-foreground"
                     }`}
                 >
-                  {variant.size || "Default"}
-                  {/* Stock Badge - Mocked for matching design visually */}
-                  {(idx === 6 || idx === 8) && (
+                  {option.size}
+                  {option.lowStock !== null && (
                     <span className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 bg-[#d85025] text-white text-[9px] font-semibold px-2 py-0.5 rounded-sm shadow-sm whitespace-nowrap z-10 tracking-widest">
-                      3 Left
+                      {option.lowStock} Left
                     </span>
                   )}
                 </motion.button>
               ))
             )}
           </div>
-          <button className="text-[11px] text-muted-foreground underline decoration-1 underline-offset-4 hover:text-foreground transition-colors pt-2 block tracking-wide">
-            - Less sizes
-          </button>
         </div>
 
         {/* 5. Views Counter */}

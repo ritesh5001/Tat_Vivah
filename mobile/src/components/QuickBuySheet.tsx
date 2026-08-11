@@ -9,6 +9,7 @@ import { useCart } from "../providers/CartProvider";
 import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../providers/ToastProvider";
 import { PRODUCT_QUERY_STALE_TIME_MS } from "../lib/prefetch-product";
+import { buildSizeOptions } from "../lib/variantAttributes";
 import { Image } from "./CompatImage";
 import { TatvivahLoader } from "./TatvivahLoader";
 import { AppText as Text } from "./index";
@@ -83,10 +84,10 @@ export function QuickBuySheet({
   }, [variants]);
 
   const sizesForColor = React.useMemo(() => {
-    if (!selectedColor) return variants;
-    return variants.filter(
-      (variant) => (variant.color ?? "").toLowerCase() === selectedColor
-    );
+    const forColor = !selectedColor
+      ? variants
+      : variants.filter((variant) => (variant.color ?? "").toLowerCase() === selectedColor);
+    return buildSizeOptions(forColor);
   }, [variants, selectedColor]);
 
   // Preselect whatever is unambiguous, so a single-variant product needs no taps.
@@ -102,7 +103,7 @@ export function QuickBuySheet({
       return;
     }
     if (sizesForColor.length === 1) {
-      setSelectedVariantId(sizesForColor[0].id);
+      setSelectedVariantId(sizesForColor[0].variant.id);
     }
   }, [visible, variants, colors_, selectedColor, sizesForColor]);
 
@@ -267,21 +268,27 @@ export function QuickBuySheet({
                   <>
                     <Text style={styles.sectionLabel}>Size</Text>
                     <View style={styles.chipRow}>
-                      {sizesForColor.map((variant) => {
-                        const active = variant.id === selectedVariantId;
+                      {sizesForColor.map((option) => {
+                        const active = option.variant.id === selectedVariantId;
                         return (
                           <Pressable
-                            key={variant.id}
-                            onPress={() => setSelectedVariantId(variant.id)}
-                            style={[styles.sizeChip, active && styles.chipActive]}
+                            key={option.variant.id}
+                            onPress={() => setSelectedVariantId(option.variant.id)}
+                            disabled={!option.inStock}
+                            style={[
+                              styles.sizeChip,
+                              active && styles.chipActive,
+                              !option.inStock && styles.chipDisabled,
+                            ]}
                           >
                             <Text
                               style={[
                                 styles.chipText,
                                 active && styles.chipTextActive,
+                                !option.inStock && styles.chipTextDisabled,
                               ]}
                             >
-                              {variant.size}
+                              {option.size}
                             </Text>
                           </Pressable>
                         );
@@ -405,8 +412,10 @@ const styles = StyleSheet.create({
     borderColor: colors.borderSoft,
   },
   chipActive: { borderColor: colors.gold, backgroundColor: colors.cream },
+  chipDisabled: { opacity: 0.4 },
   chipText: { fontFamily: typography.sans, fontSize: 13, color: colors.brownSoft },
   chipTextActive: { color: colors.charcoal },
+  chipTextDisabled: { textDecorationLine: "line-through" },
   dot: { width: 12, height: 12, borderRadius: 6, borderWidth: 1, borderColor: colors.borderSoft },
   cta: {
     marginTop: spacing.sm,
