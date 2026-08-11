@@ -231,7 +231,13 @@ export async function checkoutWithPayment(
     } | null;
     paymentInitError?: string;
   }>({
-    url: "/v1/checkout?withPayment=1",
+    // platform=MOBILE is not optional. Without it the backend takes the WEB
+    // branch and creates a hosted-checkout PhonePe order, which carries no SDK
+    // token — so the app has to place a *second* /v1/payments/initiate call to
+    // get one. That left an orphaned PhonePe order PENDING until expiry behind
+    // every checkout, and cost the buyer the extra round-trip this single
+    // request exists to avoid.
+    url: "/v1/checkout?withPayment=1&platform=MOBILE",
     method: "POST",
     data: payload ?? {},
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,

@@ -1,5 +1,6 @@
 const {
   withProjectBuildGradle,
+  withAndroidManifest,
   withInfoPlist,
   withAppDelegate,
 } = require("expo/config-plugins");
@@ -9,12 +10,14 @@ const {
  *
  * The package ships no Expo config plugin, so in a managed workflow none of its
  * native requirements are applied and the build fails — or worse, succeeds and
- * crashes when the SDK is opened. This adds the three things PhonePe's setup
- * guide asks for by hand, so `expo prebuild` produces a correct project and the
- * repo stays managed (no checked-in android/ or ios/ directories).
+ * crashes when the SDK is opened. This adds the things PhonePe's setup guide
+ * asks for by hand, so `expo prebuild` produces a correct project and the repo
+ * stays managed (no checked-in android/ or ios/ directories).
  *
  * Android : PhonePe's IntentSDK is not on mavenCentral. It lives on their own
  *           Maven repository, which has to be declared at the project level.
+ *           The SDK also hands the payment off to a UPI app by intent, which
+ *           Android 11+ hides unless those packages are declared in <queries>.
  * iOS     : the SDK opens the PhonePe / GPay / Paytm apps to complete a payment.
  *           iOS refuses to report those as installed unless their URL schemes
  *           are declared in LSApplicationQueriesSchemes, and the SDK cannot
@@ -23,6 +26,22 @@ const {
 
 const PHONEPE_MAVEN_URL =
   "https://phonepe.mycloudrepo.io/public/repositories/phonepe-intentsdk-android";
+
+/**
+ * UPI apps the SDK launches to complete a payment.
+ *
+ * Android 11 (API 30) made installed packages invisible by default: without a
+ * matching <queries> entry `resolveActivity` returns null, the SDK cannot find
+ * the app to hand off to, and PhonePe's page fails with a generic "Something
+ * went wrong" after the buyer has already picked a method — with no transaction
+ * ever recorded against the order.
+ */
+const PHONEPE_QUERY_PACKAGES = [
+  "com.phonepe.app",
+  "com.phonepe.app.preprod",
+  "com.google.android.apps.nbu.paisa.user",
+  "net.one97.paytm",
+];
 
 /** Schemes the SDK probes for, per PhonePe's iOS setup instructions. */
 const PHONEPE_QUERY_SCHEMES = [
@@ -74,6 +93,50 @@ function withPhonePeAndroidRepo(config) {
       anchor,
       (match) => `${match}\n        maven { url "${PHONEPE_MAVEN_URL}" }`
     );
+
+    return mod;
+  });
+}
+
+/**
+ * Declare the UPI apps and the `upi:` intent under <queries>.
+ *
+ * `withAndroidManifest` hands us the parsed manifest object, where <queries> is
+ * a sibling of <application> under <manifest>. Entries are merged rather than
+ * replaced — expo-image-picker and others add their own.
+ */
+function withPhonePeAndroidQueries(config) {
+  return withAndroidManifest(config, (mod) => {
+    const manifest = mod.modResults.manifest;
+
+    manifest.queries = manifest.queries ?? [];
+    if (manifest.queries.length === 0) {
+      manifest.queries.push({});
+    }
+
+    const queries = manifest.queries[0];
+    queries.package = queries.package ?? [];
+    queries.intent = queries.intent ?? [];
+
+    const declared = new Set(
+      queries.package.map((entry) => entry?.$?.["android:name"]).filter(Boolean)
+    );
+    for (const name of PHONEPE_QUERY_PACKAGES) {
+      if (declared.has(name)) continue;
+      queries.package.push({ $: { "android:name": name } });
+    }
+
+    // Covers UPI apps beyond the four named above: anything that can handle a
+    // upi:// deep link stays resolvable.
+    const hasUpiIntent = queries.intent.some((intent) =>
+      (intent?.data ?? []).some((data) => data?.$?.["android:scheme"] === "upi")
+    );
+    if (!hasUpiIntent) {
+      queries.intent.push({
+        action: [{ $: { "android:name": "android.intent.action.VIEW" } }],
+        data: [{ $: { "android:scheme": "upi" } }],
+      });
+    }
 
     return mod;
   });
@@ -157,6 +220,7 @@ function insertSwiftOpenUrl(contents) {
 
 module.exports = function withPhonePeSdk(config) {
   config = withPhonePeAndroidRepo(config);
+  config = withPhonePeAndroidQueries(config);
   config = withPhonePeQuerySchemes(config);
   config = withPhonePeOpenUrl(config);
   return config;
