@@ -7,9 +7,6 @@ import {
   Alert,
   Modal,
   FlatList,
-  Linking,
-  AppState,
-  type AppStateStatus,
 } from "react-native";
 import { useLocalSearchParams, usePathname, useRouter } from "expo-router";
 import { Image } from "../../src/components/CompatImage";
@@ -19,6 +16,7 @@ import { FieldLabel } from "../../src/components/FieldLabel";
 import { flushPendingCartWrite } from "../../src/lib/pending-cart";
 import { checkoutWithPayment, validateCoupon, type CouponPreview } from "../../src/services/cart";
 import { initiatePayment, verifyPhonePePayment } from "../../src/services/payments";
+import { initPhonePe, startPhonePeTransaction } from "../../src/services/phonepe-sdk";
 import { ApiError } from "../../src/services/api";
 import { useAuth } from "../../src/hooks/useAuth";
 import { useNetworkStatus } from "../../src/hooks/useNetworkStatus";
@@ -501,41 +499,50 @@ export default function CheckoutScreen() {
 
       setPayLabel("Opening PhonePe");
 
-      // Fall back to the standalone initiate endpoint only if the combined call
-      // could not start the payment for some reason.
-      const redirectUrl =
-        orderResult.payment?.redirectUrl ??
-        (await initiatePayment(orderId, token)).data.redirectUrl;
+      // The SDK, not a browser.
+      //
+      // PhonePe withdrew support for opening their hosted checkout page inside a
+      // mobile app; the old `Linking.openURL(redirectUrl)` now fails on their own
+      // domain with "Something went wrong", after the buyer has committed. The
+      // backend therefore returns an SDK order token for MOBILE instead of a URL.
+      const payment =
+        orderResult.payment?.sdkToken
+          ? orderResult.payment
+          : (await initiatePayment(orderId, token)).data;
 
-      if (!redirectUrl) {
+      if (!payment?.sdkToken || !payment.phonepeOrderId || !payment.merchantId) {
         throw new Error("Payment could not be started. Please try again.");
       }
-      // Watch for the buyer coming back from the PhonePe app. Only a return
-      // *after* leaving counts, so simply staying foregrounded never trips it.
-      let leftApp = false;
-      let cameBack = false;
-      const appStateSub = AppState.addEventListener("change", (next: AppStateStatus) => {
-        if (next === "background" || next === "inactive") {
-          leftApp = true;
-        } else if (next === "active" && leftApp) {
-          cameBack = true;
-        }
+
+      // Declared out here rather than inside the try: this value decides whether
+      // the buyer is told their money went through.
+      let outcome: Awaited<ReturnType<typeof waitForPhonePeResult>>;
+
+      await initPhonePe({
+        merchantId: payment.merchantId,
+        environment: payment.environment ?? "PRODUCTION",
+        // Correlates this checkout with PhonePe's own logs during support.
+        flowId: session?.user?.id ?? orderId,
       });
 
-      // Declared out here rather than `var`-hoisted from inside the try: this
-      // value decides whether the buyer is told their money went through, and it
-      // should not depend on a hoisting rule to be readable below.
-      let outcome: Awaited<ReturnType<typeof waitForPhonePeResult>>;
-      try {
-        await Linking.openURL(redirectUrl);
+      const sdkResult = await startPhonePeTransaction({
+        phonepeOrderId: payment.phonepeOrderId,
+        merchantId: payment.merchantId,
+        token: payment.sdkToken,
+      });
 
-        // 3. Poll our backend for the outcome while the buyer pays.
-        setPayLabel("Waiting for payment confirmation");
-        outcome = await waitForPhonePeResult(orderId, token, () => cameBack);
-      } finally {
-        appStateSub.remove();
-      }
       if (!mountedRef.current) return;
+
+      if (sdkResult.status === "FAILURE") {
+        outcome = "FAILED";
+      } else {
+        // SUCCESS from the SDK means the buyer finished the flow, not that the
+        // money has settled — and INTERRUPTED can still mean a completed payment
+        // whose result never made it back to the app. Either way the server is
+        // the authority, so confirm before telling anyone their order is placed.
+        setPayLabel("Confirming payment");
+        outcome = await waitForPhonePeResult(orderId, token, () => true);
+      }
 
       if (outcome === "SUCCESS") {
         notifySuccess();

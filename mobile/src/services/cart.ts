@@ -216,7 +216,15 @@ export async function checkoutWithPayment(
     payment?: {
       paymentId: string;
       orderId: string;
+      /** WEB only. Mobile uses the SDK fields below — PhonePe blocks in-app browsers. */
       redirectUrl?: string;
+      phonepeOrderId?: string;
+      /** Order token for the native SDK. Present when the caller sent platform MOBILE. */
+      sdkToken?: string;
+      sdkExpireAt?: number;
+      /** Distinct from the OAuth client id; the SDK's init() needs this one. */
+      merchantId?: string;
+      environment?: string;
       amount: number;
       currency: string;
       provider: string;

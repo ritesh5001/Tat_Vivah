@@ -281,6 +281,41 @@ export class PaymentService {
                 );
             });
 
+        // MOBILE and WEB take different PhonePe endpoints.
+        //
+        // PhonePe stopped allowing a WebView or browser redirect inside a mobile
+        // app; the hosted checkout page refuses to render there, which is what
+        // showed the buyer "Something went wrong" on PhonePe's own domain after
+        // they had already committed to paying. Apps must open the native SDK,
+        // which needs an order token rather than a URL.
+        //
+        // The website is unaffected and still uses the redirect flow.
+        if (platform === 'MOBILE') {
+            const sdkOrder = await phonepeService.createSdkOrder(
+                payableAmount,
+                merchantOrderId,
+                { orderId, userId },
+            );
+
+            if (sdkOrder.merchantOrderId && sdkOrder.merchantOrderId !== merchantOrderId) {
+                await paymentRepository.updateProviderOrderId(payment.id, sdkOrder.merchantOrderId);
+            }
+
+            return {
+                paymentId: payment.id,
+                orderId: sdkOrder.merchantOrderId,
+                phonepeOrderId: sdkOrder.phonepeOrderId,
+                // What the SDK needs. No redirectUrl: there is no browser hop.
+                sdkToken: sdkOrder.token,
+                sdkExpireAt: sdkOrder.expireAt,
+                merchantId: env.PHONEPE_MERCHANT_ID ?? env.PHONEPE_CLIENT_ID ?? '',
+                environment: env.PHONEPE_ENV,
+                amount: sdkOrder.amount,
+                currency: 'INR',
+                provider: 'PHONEPE',
+            };
+        }
+
         const phonepeOrder = await phonepeService.createOrder(
             payableAmount,
             merchantOrderId,

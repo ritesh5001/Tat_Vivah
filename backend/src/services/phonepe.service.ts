@@ -40,6 +40,26 @@ export interface PhonePeCreateOrderResponse {
     amount: number;
 }
 
+/**
+ * What a mobile app needs to open the PhonePe SDK.
+ *
+ * PhonePe no longer permits a WebView or browser redirect inside a mobile app —
+ * the hosted checkout page refuses to render there, which is what produced
+ * "Something went wrong" on their own domain after the buyer had committed. The
+ * app must hand these three values to the native SDK instead.
+ */
+export interface PhonePeSdkOrderResponse {
+    /** PhonePe's own order id, echoed back to the SDK. */
+    phonepeOrderId: string;
+    /** Short-lived token authorising this one checkout. */
+    token: string;
+    state: PhonePeOrderState;
+    merchantOrderId: string;
+    amount: number;
+    /** Epoch millis. The SDK must be opened before this. */
+    expireAt: number;
+}
+
 export interface PhonePeOrderStatusResponse {
     orderId: string;
     state: PhonePeOrderState;
@@ -198,6 +218,66 @@ export class PhonePeService {
     }
 
     /** Fetch the authoritative order state from PhonePe. */
+    /**
+     * Create an order for the mobile SDK.
+     *
+     * Distinct from `createOrder`, which produces a hosted-checkout redirectUrl
+     * for the website. PhonePe blocks that flow inside apps, so mobile uses
+     * /checkout/v2/sdk/order and receives a token the native SDK consumes.
+     * Verified against the live API: the response carries orderId, state,
+     * expireAt and token.
+     *
+     * No redirectUrl is involved. The SDK returns the outcome to the app
+     * directly, and the webhook remains the authoritative confirmation.
+     *
+     * @param amount - rupees (converted to paise internally)
+     */
+    async createSdkOrder(
+        amount: number,
+        merchantOrderId: string,
+        meta?: { orderId?: string; userId?: string },
+    ): Promise<PhonePeSdkOrderResponse> {
+        if (!isPhonePeConfigured()) {
+            throw new ApiError(500, 'PhonePe is not configured');
+        }
+
+        const amountInPaise = Math.round(amount * 100);
+
+        paymentLogger.info(
+            { event: 'phonepe_create_sdk_order', merchantOrderId, amountInPaise },
+            'Creating PhonePe SDK order',
+        );
+
+        const data = await phonePeRequest<{
+            orderId: string;
+            state: PhonePeOrderState;
+            expireAt: number;
+            token: string;
+        }>('POST', '/checkout/v2/sdk/order', {
+            merchantOrderId,
+            amount: amountInPaise,
+            expireAfter: ORDER_EXPIRE_AFTER_SECONDS,
+            metaInfo: {
+                udf1: meta?.orderId ?? '',
+                udf2: meta?.userId ?? '',
+            },
+            paymentFlow: { type: 'PG_CHECKOUT' },
+        });
+
+        if (!data.token) {
+            throw new ApiError(502, 'PhonePe did not return an SDK order token');
+        }
+
+        return {
+            phonepeOrderId: data.orderId,
+            token: data.token,
+            state: data.state,
+            merchantOrderId,
+            amount: amountInPaise,
+            expireAt: data.expireAt,
+        };
+    }
+
     async getOrderStatus(merchantOrderId: string): Promise<PhonePeOrderStatusResponse> {
         if (!isPhonePeConfigured()) {
             throw new ApiError(500, 'PhonePe is not configured');

@@ -83,7 +83,8 @@
       ],
       "expo-video",
       "expo-font",
-      "expo-router"
+      "expo-router",
+      "./plugins/withPhonePeSdk"
     ],
     "extra": {
       "eas": {

@@ -119,6 +119,10 @@ const envSchema = z.object({
     BACKEND_PUBLIC_URL: z.string().url('BACKEND_PUBLIC_URL must be a valid URL').optional(),
 
     // PhonePe PG (Standard Checkout v2)
+    // The SDK's init() needs the merchant id, which is distinct from the OAuth
+    // client id on some PhonePe accounts. Falls back to CLIENT_ID when unset,
+    // which is correct for accounts where they are the same value.
+    PHONEPE_MERCHANT_ID: z.string().optional(),
     PHONEPE_CLIENT_ID: z.string().optional(),
     PHONEPE_CLIENT_SECRET: z.string().optional(),
     PHONEPE_CLIENT_VERSION: z.string().default('1'),

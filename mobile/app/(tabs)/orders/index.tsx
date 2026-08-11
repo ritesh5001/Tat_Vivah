@@ -5,12 +5,12 @@ import {
   FlatList,
   Pressable,
   Modal,
-  Linking,
   type ListRenderItemInfo,
 } from "react-native";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import { listBuyerOrders, type BuyerOrder } from "../../../src/services/orders";
 import { retryPayment, verifyPhonePePayment } from "../../../src/services/payments";
+import { initPhonePe, startPhonePeTransaction } from "../../../src/services/phonepe-sdk";
 import { listMyCancellations, requestCancellation } from "../../../src/services/cancellations";
 import { listMyReturns, requestReturn } from "../../../src/services/returns";
 import { useAuth } from "../../../src/hooks/useAuth";
@@ -560,14 +560,31 @@ export default function OrdersScreen() {
     if (retryingOrderId || !token) return;
     setRetryingOrderId(orderId);
     try {
+      // Same constraint as checkout: PhonePe refuses to render their hosted
+      // page inside an app, so a retry has to open the native SDK too.
       const result = await retryPayment(orderId, token);
-      const redirectUrl = result.data.redirectUrl;
-      if (!redirectUrl) {
+      const payment = result.data;
+      if (!payment.sdkToken || !payment.phonepeOrderId || !payment.merchantId) {
         throw new Error("Payment could not be started. Please try again.");
       }
-      await Linking.openURL(redirectUrl);
 
-      const outcome = await waitForPhonePeRetryResult(orderId, token);
+      await initPhonePe({
+        merchantId: payment.merchantId,
+        environment: payment.environment ?? "PRODUCTION",
+        flowId: orderId,
+      });
+
+      const sdkResult = await startPhonePeTransaction({
+        phonepeOrderId: payment.phonepeOrderId,
+        merchantId: payment.merchantId,
+        token: payment.sdkToken,
+      });
+
+      // The SDK finishing is not proof the money settled; the server decides.
+      const outcome =
+        sdkResult.status === "FAILURE"
+          ? "FAILED"
+          : await waitForPhonePeRetryResult(orderId, token);
       if (outcome === "SUCCESS") {
         notifySuccess();
         showToast("Payment successful. Order confirmed.", "success");
