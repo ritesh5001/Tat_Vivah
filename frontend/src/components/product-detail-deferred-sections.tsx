@@ -44,14 +44,21 @@ const RecentlyViewedTracker = dynamic(
   { ssr: false }
 );
 
-export function ProductDetailDeferredSections({ productId }: { productId: string }) {
+export function ProductDetailDeferredSections({
+  productId,
+  categoryId,
+}: {
+  productId: string;
+  /** Lets Related Products page through the whole category, not just 8 picks. */
+  categoryId?: string | null;
+}) {
   return (
     <>
       <RecentlyViewedTracker productId={productId} />
       <section className="border-t border-border-soft pt-16">
         <ProductReviews productId={productId} />
       </section>
-      <RelatedProducts productId={productId} />
+      <RelatedProducts productId={productId} categoryId={categoryId} />
     </>
   );
 }

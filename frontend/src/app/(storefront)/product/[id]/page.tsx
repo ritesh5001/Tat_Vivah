@@ -172,7 +172,10 @@ export default async function ProductDetailPage({
             </div>
           </section>
         )}
-        <ProductDetailDeferredSections productId={resolvedParams.id} />
+        <ProductDetailDeferredSections
+          productId={resolvedParams.id}
+          categoryId={product?.categoryId}
+        />
 
         {/* Collections & Occasions Links */}
         <section className="border-t border-border-soft pt-12 pb-4">
