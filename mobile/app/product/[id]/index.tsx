@@ -453,6 +453,10 @@ export default function ProductDetailScreen() {
   // ---- State ----
   const [selectedColor, setSelectedColor] = React.useState<string>("");
   const [selectedVariantId, setSelectedVariantId] = React.useState<string | null>(null);
+  const [needsSizePrompt, setNeedsSizePrompt] = React.useState(false);
+  const scrollRef = React.useRef<ScrollView | null>(null);
+  /** y of the size row inside the scroll view, so the nudge can bring it up. */
+  const sizeSectionY = React.useRef<number | null>(null);
   const [adding, setAdding] = React.useState(false);
   /** Which CTA is working, so only that button shows a spinner. */
   const [pendingAction, setPendingAction] = React.useState<"cart" | "buy" | null>(null);
@@ -669,9 +673,30 @@ export default function ProductDetailScreen() {
       return;
     }
 
-    // Deliberately no default: picking a size for the shopper leads to wrong-size
-    // orders and returns. Add to bag opens the picker instead.
-    setSelectedColor("");
+    // A colour has to be chosen for the size row to mean anything: sizes belong
+    // to one colour, and with none selected the row pooled every colour's sizes
+    // into one deduplicated set — so a two-colour kurta showed five chips that
+    // silently belonged to whichever colour happened to be stored first.
+    //
+    // Defaulting the colour is safe in a way defaulting the size is not. Nobody
+    // is sent the wrong colour without seeing it — the swatch and the gallery
+    // both show it — whereas a pre-picked size becomes a wrong-size order. So
+    // colour gets a default and size deliberately stays empty.
+    const colorKeys: string[] = [];
+    const stocked = new Set<string>();
+    for (const variant of variants) {
+      const label = getVariantColorLabel(variant);
+      if (!label) continue;
+      const key = normalizeColor(label);
+      if (!colorKeys.includes(key)) colorKeys.push(key);
+      if (variant.inventory == null || variant.inventory.stock > 0) stocked.add(key);
+    }
+
+    const preferred = colorKeys.find((key) => stocked.has(key)) ?? colorKeys[0] ?? "";
+    setSelectedColor((previousColor) =>
+      // Keep the shopper's pick across refetches; only re-default if it is gone.
+      previousColor && colorKeys.includes(previousColor) ? previousColor : preferred
+    );
   }, [product?.variants, selectedVariantId]);
 
   // ---- Track recently viewed (fire-and-forget) ----
@@ -816,6 +841,12 @@ export default function ProductDetailScreen() {
   const selectedColorLabel =
     colorOptions.find((color) => color.key === selectedColor)?.label ?? "";
 
+  /** Stock for the chosen size, or the whole colour while none is chosen. */
+  const selectedSizeOption = sizeOptions.find(
+    (option) => option.variant.id === selectedVariantId
+  );
+  const colorHasStock = sizeOptions.some((option) => option.inStock);
+
   const fallbackVariant = selectedVariant ?? variantsForColor[0] ?? product?.variants?.[0] ?? null;
   const productAny = product as any;
   const salePrice =
@@ -897,12 +928,49 @@ export default function ProductDetailScreen() {
       userId &&
         reviews.some((r) => r.user?.id === userId || r.userId === userId)
     );
-  const outOfStock =
-    fallbackVariant?.inventory != null && fallbackVariant.inventory.stock <= 0;
+  // Before a size is picked this has to describe the colour as a whole. Reading
+  // it off the first size instead said "Out of stock" for a colour that was
+  // merely sold out in the smallest size.
+  const outOfStock = selectedVariantId
+    ? selectedSizeOption != null && !selectedSizeOption.inStock
+    : sizeOptions.length > 0 && !colorHasStock;
 
   React.useEffect(() => {
     setGalleryIndex(0);
   }, [selectedColor, product?.id]);
+
+  // One size is not a choice. Leaving it unpicked only made the shopper tap a
+  // chip that had no alternative before the bag would accept the item.
+  React.useEffect(() => {
+    if (selectedVariantId) return;
+    if (sizeOptions.length !== 1) return;
+    const only = sizeOptions[0];
+    if (!only?.inStock) return;
+    setSelectedVariantId(only.variant.id);
+  }, [selectedVariantId, sizeOptions]);
+
+  // Clear the "pick a size" nudge as soon as one is picked.
+  React.useEffect(() => {
+    if (selectedVariantId) setNeedsSizePrompt(false);
+  }, [selectedVariantId]);
+
+  /**
+   * Ask for a size in place instead of over the top.
+   *
+   * Add to bag used to open the QuickBuy sheet, which re-rendered the same
+   * swatches and chips in a modal above the ones already on screen. Scrolling to
+   * the real row and flagging it keeps the shopper in one place.
+   */
+  const promptForSize = React.useCallback(() => {
+    setNeedsSizePrompt(true);
+    impactLight();
+    if (sizeSectionY.current != null) {
+      scrollRef.current?.scrollTo({
+        y: Math.max(0, sizeSectionY.current - 90),
+        animated: true,
+      });
+    }
+  }, []);
 
   // ---- Handlers ----
   const handleAddToCart = React.useCallback(async () => {
@@ -923,9 +991,21 @@ export default function ProductDetailScreen() {
     // but the variants have not landed. Saying "variants are not available"
     // here would be a lie that is about to be false; the picker reads the same
     // query and shows a loader until they arrive.
-    if (isHydratingVariants || !selectedVariant) {
+    if (isHydratingVariants) {
       setQuickBuyIntent("cart");
       setQuickBuyId(product.id);
+      return;
+    }
+    // Sold out before unsold: asking a shopper to pick a size from a colour
+    // where every size is gone is a dead end dressed up as a next step.
+    if (outOfStock) {
+      showToast("This variant is out of stock", "info");
+      return;
+    }
+    // Variants are on screen — point at the size row rather than covering it
+    // with a sheet that shows the same chips again.
+    if (!selectedVariant) {
+      promptForSize();
       return;
     }
     if (!fallbackVariant) {
@@ -995,6 +1075,7 @@ export default function ProductDetailScreen() {
     images,
     windowWidth,
     stickyBarTopY,
+    promptForSize,
   ]);
 
   const handleBuyNow = React.useCallback(async () => {
@@ -1013,9 +1094,17 @@ export default function ProductDetailScreen() {
     }
     // Same reasoning as Add to bag: during hydration the picker is the honest
     // place to land, not a "no variants" toast that is about to be wrong.
-    if (isHydratingVariants || !selectedVariant) {
+    if (isHydratingVariants) {
       setQuickBuyIntent("buy");
       setQuickBuyId(product.id);
+      return;
+    }
+    if (outOfStock) {
+      showToast("This variant is out of stock", "info");
+      return;
+    }
+    if (!selectedVariant) {
+      promptForSize();
       return;
     }
     if (!fallbackVariant) {
@@ -1081,6 +1170,7 @@ export default function ProductDetailScreen() {
     router,
     showToast,
     images,
+    promptForSize,
   ]);
 
   const handleShareProduct = React.useCallback(async () => {
@@ -1565,6 +1655,7 @@ export default function ProductDetailScreen() {
     <SafeAreaView style={styles.safeArea}>
       <AppHeader showMenu showBack showWishlist showCart />
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={[styles.container, { paddingBottom: stickyReserveSpace }]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
@@ -1816,7 +1907,7 @@ export default function ProductDetailScreen() {
             </View>
           </View>
 
-          {/* Stock indicator */}
+          {/* Stock indicator — the chosen size once there is one, else the colour. */}
           {fallbackVariant?.inventory != null && (
             <Text
               style={[
@@ -1826,8 +1917,8 @@ export default function ProductDetailScreen() {
             >
               {outOfStock
                 ? "Out of stock"
-                : fallbackVariant.inventory.stock <= 5
-                  ? `Only ${fallbackVariant.inventory.stock} left`
+                : selectedSizeOption?.lowStock != null
+                  ? `Only ${selectedSizeOption.lowStock} left`
                   : "In stock"}
             </Text>
           )}
@@ -1900,8 +1991,15 @@ export default function ProductDetailScreen() {
             </View>
           )}
 
-          <View style={styles.variantRow}>
-            <Text style={styles.variantLabel}>Select Size</Text>
+          <View
+            style={styles.variantRow}
+            onLayout={(event) => {
+              sizeSectionY.current = event.nativeEvent.layout.y;
+            }}
+          >
+            <Text style={[styles.variantLabel, needsSizePrompt && styles.variantLabelPrompt]}>
+              Select Size
+            </Text>
             <View style={styles.variantWrap}>
               {isHydratingVariants && !sizeOptions.length ? (
                 <View style={styles.variantSkeletonRow}>
@@ -1939,6 +2037,11 @@ export default function ProductDetailScreen() {
                 <Text style={styles.mutedText}>Variants coming soon.</Text>
               )}
             </View>
+            {needsSizePrompt ? (
+              <Text style={styles.sizePromptText}>
+                Please choose a size to continue.
+              </Text>
+            ) : null}
           </View>
 
           {showViewCart && (
@@ -2738,6 +2841,15 @@ const styles = StyleSheet.create({
     color: colors.brownSoft,
     textTransform: "uppercase",
     letterSpacing: 1.2,
+  },
+  variantLabelPrompt: {
+    color: colors.gold,
+  },
+  sizePromptText: {
+    fontFamily: typography.sans,
+    fontSize: 12,
+    color: colors.gold,
+    marginTop: spacing.xs,
   },
   variantWrap: {
     flexDirection: "row",

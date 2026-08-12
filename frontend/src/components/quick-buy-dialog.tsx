@@ -119,7 +119,18 @@ export function QuickBuyDialog({
     // Preselect anything unambiguous so a single-variant product needs no clicks.
     React.useEffect(() => {
         if (!open || variants.length === 0) return;
-        if (colors.length === 1 && !selectedColor) setSelectedColor(colors[0].key);
+        // Any colour, not just a lone one: sizes belong to a colour, and with
+        // none selected `sizesForColor` pools every colour's sizes into one
+        // deduplicated row where a tap picks a colour the shopper never saw.
+        if (!selectedColor && colors.length > 0) {
+            const stocked = new Set(
+                variants
+                    .filter((variant) => (variant.inventory?.stock ?? 1) > 0)
+                    .map((variant) => (variant.color ?? "").toLowerCase())
+            );
+            const preferred = colors.find((color) => stocked.has(color.key)) ?? colors[0];
+            setSelectedColor(preferred.key);
+        }
         if (variants.length === 1) {
             setSelectedVariantId(variants[0].id);
             return;

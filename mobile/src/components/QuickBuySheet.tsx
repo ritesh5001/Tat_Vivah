@@ -95,8 +95,19 @@ export function QuickBuySheet({
     if (!visible) return;
     if (variants.length === 0) return;
 
-    if (colors_.length === 1 && !selectedColor) {
-      setSelectedColor(colors_[0].key);
+    // Any colour, not just a lone one. Sizes belong to a colour, so with none
+    // selected the size row pooled every colour's sizes into one deduplicated
+    // set and a tap picked a colour the shopper never saw. Defaulting to the
+    // first colour that has stock keeps the row honest; size stays unpicked
+    // because that is the choice a shopper has to make themselves.
+    if (!selectedColor && colors_.length > 0) {
+      const stocked = new Set(
+        variants
+          .filter((variant) => variant.inventory == null || variant.inventory.stock > 0)
+          .map((variant) => (variant.color ?? "").toLowerCase())
+      );
+      const preferred = colors_.find((color) => stocked.has(color.key)) ?? colors_[0];
+      setSelectedColor(preferred.key);
     }
     if (variants.length === 1) {
       setSelectedVariantId(variants[0].id);
