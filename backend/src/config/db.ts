@@ -2,6 +2,27 @@ import { PrismaClient } from '@prisma/client';
 import { env } from './env.js';
 
 // ---------------------------------------------------------------------------
+// BigInt -> JSON
+//
+// `JSON.stringify` throws outright on a BigInt, so the moment a table gained a
+// BIGSERIAL column (the Shiprocket `external_id` surrogates) every code path
+// that stringified a whole row started failing — not just `res.json`, but the
+// Redis writes underneath it, which is what turned GET /v1/categories into a
+// 500 before the response was ever serialised.
+//
+// Teaching BigInt to serialise itself fixes all of them at once, rather than
+// asking every repository that selects a whole row to remember to strip the
+// column. Declared here because BigInt only ever enters this app through
+// Prisma, so anything holding one has already imported this module.
+//
+// Number() is safe for these ids: they are sequential surrogates, nowhere near
+// the 2^53 limit where precision would start to slip.
+// ---------------------------------------------------------------------------
+(BigInt.prototype as unknown as { toJSON(): number }).toJSON = function toJSON(this: bigint): number {
+    return Number(this);
+};
+
+// ---------------------------------------------------------------------------
 // Global singleton guard — prevents duplicate PrismaClient instances when
 // tsx watch-mode (or Next.js HMR) re-executes this module on file change.
 // ---------------------------------------------------------------------------
