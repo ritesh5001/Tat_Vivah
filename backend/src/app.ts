@@ -23,6 +23,7 @@ import {
     productMediaRouter,
     imagekitRouter,
     bestsellerRouter,
+    shiprocketRouter,
     tryOnRouter,
     cartRouter,
     checkoutRouter,
@@ -337,6 +338,8 @@ export function createApp(): Application {
     app.use('/v1/seller/products', productMediaRouter);
     app.use('/v1/imagekit', imagekitRouter);
     app.use('/v1/bestsellers', bestsellerRouter);
+    // Read-only catalog feed polled by Shiprocket Checkout (Fastrr).
+    app.use('/v1/shiprocket', shiprocketRouter);
     app.use('/v1/try-on', tryOnRouter);
 
     // Address management

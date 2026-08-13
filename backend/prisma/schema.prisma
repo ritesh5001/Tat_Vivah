@@ -142,6 +142,9 @@ model SuperAdminProfile {
 /// Product categories for organizing products
 model Category {
   id              String           @id @default(cuid())
+  /// Numeric surrogate for the Shiprocket catalog sync, which requires unique
+  /// long ids. Assigned by Postgres (BIGSERIAL) and never changes.
+  externalId      BigInt?          @unique @map("external_id")
   name            String
   slug            String           @unique
   description     String?
@@ -153,6 +156,7 @@ model Category {
   seoTitle        String?          @map("seo_title")
   seoDescription  String?          @map("seo_description")
   createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime?        @updatedAt @map("updated_at")
   products        Product[]
   parent          Category?        @relation("CategoryParent", fields: [parentId], references: [id])
   children        Category[]       @relation("CategoryParent")
@@ -167,6 +171,11 @@ model Category {
 /// Products owned by sellers
 model Product {
   id                   String                   @id @default(cuid())
+  /// Numeric surrogate for the Shiprocket catalog sync (unique long ids).
+  externalId           BigInt?                  @unique @map("external_id")
+  /// Stable handle for external catalogs. Generated once from the title and
+  /// never recomputed — a title edit must not orphan the synced product.
+  slug                 String?                  @unique
   sellerId             String                   @map("seller_id")
   categoryId           String                   @map("category_id")
   audience             ProductAudience          @default(MENS)
@@ -284,6 +293,12 @@ model Bestseller {
 /// Product variants with pricing (e.g., size, color)
 model ProductVariant {
   id                String        @id @default(cuid())
+  /// Numeric surrogate for the Shiprocket catalog sync (unique long ids).
+  externalId        BigInt?       @unique @map("external_id")
+  /// Shipping weight. Per variant because a 44 weighs more than a 36. NULL means
+  /// not measured yet; the catalog API substitutes a fallback rather than
+  /// declaring a parcel weightless.
+  weightGrams       Int?          @map("weight_grams")
   productId         String        @map("product_id")
   size              String        @default("Default")
   color             String?

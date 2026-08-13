@@ -130,6 +130,11 @@ const envSchema = z.object({
     // Basic-auth credentials mirrored on the PhonePe dashboard webhook config.
     PHONEPE_WEBHOOK_USERNAME: z.string().optional(),
     PHONEPE_WEBHOOK_PASSWORD: z.string().optional(),
+
+    // Shared secret for the Shiprocket catalog feed. Optional on purpose: their
+    // documented requests send no auth header, so the endpoints launch open and
+    // close the moment this is set on both sides.
+    SHIPROCKET_API_KEY: z.string().optional(),
     // Optional deep link the mobile app is redirected to after payment.
     PHONEPE_MOBILE_REDIRECT_URL: z.string().optional(),
     // Optional override for the web redirect base (defaults to FRONTEND_BASE_URL).

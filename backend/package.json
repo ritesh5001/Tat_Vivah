@@ -47,7 +47,8 @@
     "verify:coupon-race": "tsx scripts/simulate-coupon-race.ts",
     "normalize:color-images": "tsx scripts/normalize-color-variant-images.ts",
     "backfill:variant-attributes": "tsx scripts/backfill-variant-attributes.ts",
-    "verify:stress": "tsx scripts/stress-test-all-domains.ts"
+    "verify:stress": "tsx scripts/stress-test-all-domains.ts",
+    "backfill:product-slugs": "tsx scripts/backfill-product-slugs.ts"
   },
   "prisma": {
     "schema": "prisma/schema.prisma",
