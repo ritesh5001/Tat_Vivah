@@ -59,7 +59,7 @@ export default function VendorsPage() {
                 Heritage Ateliers
               </h1>
               <p className="max-w-xl text-sm leading-relaxed text-muted-foreground">
-                A curated collection of India's finest craftsmen and fashion houses.
+                A curated collection of India&apos;s finest craftsmen and fashion houses.
                 Each seller is verified for quality, authenticity, and reliable delivery.
               </p>
             </div>

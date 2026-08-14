@@ -12,6 +12,8 @@ export interface BestsellerProduct {
   salePrice?: number | null;
   adminPrice?: number | null;
   regularPrice?: number | null;
+  compareAtPrice?: number | null;
+  sellerPrice?: number | null;
 }
 
 const BESTSELLERS_CACHE_KEY = "bestsellers:v1";

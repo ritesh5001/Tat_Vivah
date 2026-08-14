@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { colors, spacing, typography, radius } from "../../src/theme";
 import { requestOtp } from "../../src/services/auth";
 import { useAuth } from "../../src/hooks/useAuth";
+import { AppHeader } from "../../src/components/AppHeader";
 import { useSmsOtpAutofill, getSmsAppHash } from "../../src/hooks/useSmsOtpAutofill";
 import {
   AppInput as TextInput,
@@ -108,8 +109,9 @@ export default function VerifyOtpScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <AppHeader showBack />
       <View style={styles.container}>
-        <Text style={styles.heading}>VERIFY OTP</Text>
+        <Text style={styles.heading}>Verify OTP</Text>
         <Text style={styles.subHeading}>
           Enter the 6-digit code sent to your mobile number
         </Text>

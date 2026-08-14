@@ -36,11 +36,15 @@ const HEADER_ICON_SIZE = 20;
 const HeaderIconButton = React.memo(function HeaderIconButton({
   icon,
   onPress,
+  accessibilityLabel,
+  accessibilityHint,
   size = HEADER_ICON_SIZE,
   children,
 }: {
   icon: IconName;
   onPress: () => void;
+  accessibilityLabel: string;
+  accessibilityHint?: string;
   size?: number;
   children?: React.ReactNode;
 }) {
@@ -77,7 +81,9 @@ const HeaderIconButton = React.memo(function HeaderIconButton({
         press.value = withSpring(0, { damping: 17, stiffness: 230, mass: 0.65 });
       }}
       onPress={onPress}
-      hitSlop={10}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityHint={accessibilityHint}
     >
       <Animated.View style={glyphStyle}>
         <Animated.View style={restingStyle}>
@@ -117,7 +123,12 @@ const CartBadge = React.memo(function CartBadge({ count }: { count: number }) {
   }));
 
   return (
-    <Animated.View style={[styles.cartBadge, style]} pointerEvents="none">
+    <Animated.View
+      style={[styles.cartBadge, style]}
+      pointerEvents="none"
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+    >
       <Text style={styles.cartBadgeText}>{count > 9 ? "9+" : count}</Text>
     </Animated.View>
   );
@@ -146,7 +157,6 @@ export function AppHeader({
   showWishlist,
   showCart,
 }: AppHeaderProps) {
-  void subtitle;
   const router = useRouter();
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = React.useState(false);
@@ -164,12 +174,25 @@ export function AppHeader({
 
   const isMainHeader = variant === "main";
   const shouldShowBack = isMainHeader ? false : (showBack ?? pathname !== "/home");
-  const shouldShowMenu = showMenu ?? true;
+  const shouldShowMenu = showMenu ?? isMainHeader;
   const shouldShowSearch = showSearch ?? isMainHeader;
   const shouldShowProfile = showProfile ?? false;
   const shouldShowWishlist = showWishlist ?? false;
   const shouldShowCart = showCart ?? isMainHeader;
+  const menuOnLeft = shouldShowMenu && !isMainHeader && !shouldShowBack;
   const backFallbackRoute = "/home";
+  const actionCount = [
+    shouldShowSearch,
+    shouldShowProfile,
+    shouldShowWishlist,
+    shouldShowCart,
+    shouldShowMenu && !isMainHeader && !menuOnLeft,
+  ].filter(Boolean).length;
+  // Matching edge widths keep a sub-screen title optically centred even when
+  // several actions sit on the right.
+  const edgeWidth = isMainHeader
+    ? 88
+    : Math.max(56, actionCount * 44);
 
   const handleOpenMenu = React.useCallback(() => {
     setMenuOpen(true);
@@ -190,45 +213,80 @@ export function AppHeader({
   }, [backFallbackRoute, pathname, router]);
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} accessibilityRole="header">
       <View style={styles.row}>
-        <View style={[styles.leftSlot, isMainHeader && styles.mainEdgeSlot]}>
+        <View style={[styles.leftSlot, { width: edgeWidth }]}>
           {isMainHeader ? (
-            <HeaderIconButton icon="menu" onPress={handleOpenMenu} />
+            shouldShowMenu ? (
+              <HeaderIconButton
+                icon="menu"
+                onPress={handleOpenMenu}
+                accessibilityLabel="Open navigation menu"
+              />
+            ) : (
+              <View style={styles.leftSpacer} />
+            )
           ) : shouldShowBack ? (
-            <HeaderIconButton icon="chevron-back" onPress={handleBack} />
+            <HeaderIconButton
+              icon="chevron-back"
+              onPress={handleBack}
+              accessibilityLabel="Go back"
+            />
+          ) : menuOnLeft ? (
+            <HeaderIconButton
+              icon="menu"
+              onPress={handleOpenMenu}
+              accessibilityLabel="Open navigation menu"
+            />
           ) : (
             <View style={styles.leftSpacer} />
           )}
         </View>
 
-        <View style={[styles.centerSlot, isMainHeader && styles.mainCenterSlot]}>
+        <View
+          style={styles.centerSlot}
+          accessible={isMainHeader || !title}
+          accessibilityLabel={isMainHeader || !title ? "Tatvivah" : undefined}
+        >
           {isMainHeader ? (
             <Image source={images.logo} style={styles.logo} contentFit="contain" />
           ) : title ? (
-            <Text style={styles.titleText} numberOfLines={1}>{title}</Text>
+            <View style={styles.titleBlock}>
+              <Text style={styles.titleText} numberOfLines={1} accessibilityRole="header">
+                {title}
+              </Text>
+              {subtitle ? (
+                <Text style={styles.subtitleText} numberOfLines={1}>
+                  {subtitle}
+                </Text>
+              ) : null}
+            </View>
           ) : (
             <Image source={images.logo} style={styles.subLogo} contentFit="contain" />
           )}
         </View>
 
-        <View style={[styles.actions, isMainHeader && styles.mainEdgeSlot]}>
+        <View style={[styles.actions, { width: edgeWidth }]}>
           {shouldShowSearch ? (
             <HeaderIconButton
               icon="search-outline"
               onPress={() => router.push("/search")}
+              accessibilityLabel="Search"
+              accessibilityHint="Opens product search"
             />
           ) : null}
           {shouldShowProfile ? (
             <HeaderIconButton
               icon="person-outline"
               onPress={() => router.push("/profile")}
+              accessibilityLabel="Profile"
             />
           ) : null}
           {shouldShowWishlist ? (
             <HeaderIconButton
               icon="heart-outline"
               onPress={() => router.push("/wishlist")}
+              accessibilityLabel="Wishlist"
             />
           ) : null}
           {shouldShowCart ? (
@@ -236,13 +294,22 @@ export function AppHeader({
               <HeaderIconButton
                 icon="bag-handle-outline"
                 onPress={() => router.push("/cart")}
+                accessibilityLabel={
+                  cartCount > 0
+                    ? `Shopping bag, ${cartCount} ${cartCount === 1 ? "item" : "items"}`
+                    : "Shopping bag, empty"
+                }
               >
                 <CartBadge count={cartCount} />
               </HeaderIconButton>
             </Animated.View>
           ) : null}
-          {shouldShowMenu && !isMainHeader ? (
-            <HeaderIconButton icon="menu" onPress={handleOpenMenu} />
+          {shouldShowMenu && !isMainHeader && !menuOnLeft ? (
+            <HeaderIconButton
+              icon="menu"
+              onPress={handleOpenMenu}
+              accessibilityLabel="Open navigation menu"
+            />
           ) : null}
         </View>
       </View>
@@ -282,15 +349,10 @@ const styles = StyleSheet.create({
   },
   leftSlot: {
     flex: 0,
-    width: 56,
     flexDirection: "row",
     justifyContent: "flex-start",
     alignItems: "center",
     zIndex: 50,
-  },
-  mainEdgeSlot: {
-    flex: 0,
-    width: 112,
   },
   centerSlot: {
     flex: 1,
@@ -305,22 +367,10 @@ const styles = StyleSheet.create({
     // touching.
     paddingHorizontal: spacing.md,
   },
-  mainCenterSlot: {
-    flex: 1,
-  },
-  centerSpacer: {
-    height: 1,
-    width: "100%",
-  },
   leftSpacer: {
-    width: 38,
-    height: 38,
+    width: 44,
+    height: 44,
     justifyContent: "flex-start",
-  },
-  leftRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
   },
   actions: {
     flex: 0,
@@ -329,18 +379,11 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     alignItems: "center",
     gap: 0,
-    marginLeft: spacing.xs,
   },
-  /**
-   * 34 rather than 38, with no gap between them.
-   *
-   * Now the glyphs carry no container there is nothing to keep apart, and four
-   * of them at the old width claimed 164dp of a 336dp bar — which is what left
-   * the title nowhere to go. The touch target stays comfortable via hitSlop.
-   */
+  /** A real 44dp target; hitSlop is only supplemental. */
   iconButton: {
-    height: 38,
-    width: 34,
+    height: 44,
+    width: 44,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -373,21 +416,21 @@ const styles = StyleSheet.create({
     lineHeight: 12,
     color: colors.background,
   },
-  mainHeaderIconButton: {
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    backgroundColor: colors.warmWhite,
-    zIndex: 50,
-  },
   logo: {
     height: 36,
-    width: 134,
+    width: "100%",
+    maxWidth: 134,
     marginLeft: 0,
   },
   subLogo: {
     height: 32,
-    width: 122,
+    width: "100%",
+    maxWidth: 122,
+  },
+  titleBlock: {
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
   },
   titleText: {
     fontFamily: typography.serif,
@@ -399,6 +442,15 @@ const styles = StyleSheet.create({
     // flexShrink rather than maxWidth: a percentage cap is measured against a
     // slot that has already overflowed, so it never actually clipped anything.
     flexShrink: 1,
+    textAlign: "center",
+  },
+  subtitleText: {
+    marginTop: 2,
+    fontFamily: typography.sans,
+    fontSize: 10.5,
+    lineHeight: 14,
+    letterSpacing: 0.45,
+    color: colors.brownSoft,
     textAlign: "center",
   },
 });

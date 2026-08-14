@@ -36,9 +36,9 @@ export default function ForgotPasswordScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <AppHeader title="Forgot Password" showMenu showBack />
+      <AppHeader showBack />
       <View style={styles.container}>
-        <Text style={styles.heading}>FORGOT PASSWORD</Text>
+        <Text style={styles.heading}>Forgot password</Text>
         <Text style={styles.subHeading}>We&apos;ll send an OTP to your mobile number to reset your password.</Text>
 
         <TextInput

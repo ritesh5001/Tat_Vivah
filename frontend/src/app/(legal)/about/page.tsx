@@ -22,7 +22,7 @@ export default function AboutPage() {
             <section id="our-story">
                 <h2>Our Story</h2>
                 <p>
-                    "Elegance Woven in Tradition." At Tat Vivah, we bring curated ethnic wear and handcrafted wedding fashion for modern celebrations rooted in heritage. We started with a vision to connect talented artisans, designers, and boutiques directly with customers seeking authentic Indian fashion for their special moments.
+                    &ldquo;Elegance Woven in Tradition.&rdquo; At Tat Vivah, we bring curated ethnic wear and handcrafted wedding fashion for modern celebrations rooted in heritage. We started with a vision to connect talented artisans, designers, and boutiques directly with customers seeking authentic Indian fashion for their special moments.
                 </p>
                 <p>
                     Tat Vivah serves as a premier multi-vendor marketplace focusing exclusively on the rich, diverse textile heritage of India. Whether it is a grand wedding, a festive celebration, or a traditional gathering, our platform ensures you have access to the finest garments from across the country.

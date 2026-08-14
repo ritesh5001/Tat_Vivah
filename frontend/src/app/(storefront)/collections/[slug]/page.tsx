@@ -29,17 +29,6 @@ async function fetchCategories() {
     return (data?.categories ?? []) as CategoryItem[];
 }
 
-async function fetchProducts(categoryId: string, limit: number = 20) {
-    if (!API_BASE_URL) return [];
-    const query = new URLSearchParams({ categoryId, limit: String(limit) });
-    const response = await fetch(`${API_BASE_URL}/v1/products?${query.toString()}`, {
-        next: { revalidate: COLLECTION_REVALIDATE_SECONDS, tags: [CACHE_TAGS.products] },
-    });
-    if (!response.ok) return [];
-    const data = await response.json();
-    return data?.data ?? [];
-}
-
 type Props = {
     params: Promise<{ slug: string }>;
 };

@@ -6,6 +6,8 @@ import {
   StyleSheet,
   Animated,
 } from "react-native";
+import { Icon } from "../components/Icon";
+import { colors, radius, spacing, typography } from "../theme/tokens";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -75,9 +77,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 // Single toast component
 // ---------------------------------------------------------------------------
 const BG: Record<ToastType, string> = {
-  error: "#A65D57",
-  success: "#5D8A66",
-  info: "#5C524A",
+  error: colors.error,
+  success: colors.success,
+  info: colors.charcoal,
 };
 
 function Toast({
@@ -108,10 +110,18 @@ function Toast({
   return (
     <Animated.View
       style={[styles.toast, { opacity, backgroundColor: BG[entry.type] }]}
+      accessibilityRole="alert"
+      accessibilityLiveRegion="polite"
     >
       <Text style={styles.toastText}>{entry.message}</Text>
-      <Pressable onPress={() => onDismiss(entry.id)} hitSlop={8}>
-        <Text style={styles.toastDismiss}>✕</Text>
+      <Pressable
+        onPress={() => onDismiss(entry.id)}
+        style={styles.toastDismiss}
+        hitSlop={6}
+        accessibilityRole="button"
+        accessibilityLabel="Dismiss message"
+      >
+        <Icon name="close" size={18} color={colors.onAccent} />
       </Pressable>
     </Animated.View>
   );
@@ -124,18 +134,19 @@ const styles = StyleSheet.create({
   overlay: {
     position: "absolute",
     top: 60,
-    left: 16,
-    right: 16,
+    left: spacing.lg,
+    right: spacing.lg,
     zIndex: 9999,
-    gap: 8,
+    gap: spacing.sm,
   },
   toast: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    shadowColor: "#2C2825",
+    paddingVertical: spacing.sm,
+    paddingLeft: spacing.md,
+    paddingRight: spacing.xs,
+    borderRadius: radius.md,
+    shadowColor: colors.shadow,
     shadowOpacity: 0.15,
     shadowOffset: { width: 0, height: 4 },
     shadowRadius: 8,
@@ -143,14 +154,16 @@ const styles = StyleSheet.create({
   },
   toastText: {
     flex: 1,
-    color: "#FFFCF8",
+    color: colors.onAccent,
     fontSize: 13,
-    fontFamily: "Inter_400Regular",
+    lineHeight: 19,
+    fontFamily: typography.sans,
   },
   toastDismiss: {
-    color: "#FFFCF8",
-    fontSize: 14,
-    marginLeft: 12,
-    opacity: 0.7,
+    width: 44,
+    height: 44,
+    marginLeft: spacing.xs,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

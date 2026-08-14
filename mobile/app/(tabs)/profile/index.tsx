@@ -12,12 +12,12 @@ import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
 import { AppText as Text, ScreenContainer as SafeAreaView } from "../../../src/components";
 
 /** Primary destinations — icon, label and a one-line explanation. */
-const ACCOUNT_ACTIONS: Array<{
+const ACCOUNT_ACTIONS: {
   icon: IconName;
   label: string;
   caption: string;
   href: string;
-}> = [
+}[] = [
   {
     icon: "bag-handle-outline",
     label: "My Orders",
@@ -51,7 +51,7 @@ const ACCOUNT_ACTIONS: Array<{
 ];
 
 /** Secondary links, laid out as a two-column footer grid. */
-const POLICY_LINKS: Array<{ label: string; href: string }> = [
+const POLICY_LINKS: { label: string; href: string }[] = [
   { label: "Terms & Conditions", href: "/terms" },
   { label: "Contact Us", href: "/contact" },
   { label: "Shipping Policy", href: "/shipping-policy" },
@@ -102,7 +102,12 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <AppHeader variant="main" />
+      <AppHeader
+        title="Profile"
+        subtitle="Account & preferences"
+        showBack={false}
+        showMenu
+      />
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -123,10 +128,17 @@ export default function ProfileScreen() {
             <Pressable
               style={styles.primaryButton}
               onPress={() => router.push("/login?returnTo=%2Fprofile")}
+              accessibilityRole="button"
+              accessibilityLabel="Sign in to view profile"
             >
               <Text style={styles.primaryButtonText}>Sign in</Text>
             </Pressable>
-            <Pressable style={styles.secondaryButton} onPress={() => router.push("/home")}>
+            <Pressable
+              style={styles.secondaryButton}
+              onPress={() => router.push("/home")}
+              accessibilityRole="button"
+              accessibilityLabel="Back to home"
+            >
               <Text style={styles.secondaryButtonText}>Back to home</Text>
             </Pressable>
           </View>
@@ -151,6 +163,9 @@ export default function ProfileScreen() {
                 onPress={() => setShowDetails((prev) => !prev)}
                 hitSlop={10}
                 style={styles.bannerAction}
+                accessibilityRole="button"
+                accessibilityLabel={showDetails ? "Hide account details" : "Show account details"}
+                accessibilityState={{ expanded: showDetails }}
               >
                 <Icon
                   name={showDetails ? "chevron-up" : "information-circle-outline"}
@@ -188,6 +203,9 @@ export default function ProfileScreen() {
                     index === ACCOUNT_ACTIONS.length - 1 && styles.actionRowLast,
                   ]}
                   onPress={() => router.push(action.href as never)}
+                  accessibilityRole="button"
+                  accessibilityLabel={action.label}
+                  accessibilityHint={action.caption}
                 >
                   <View style={styles.actionIconWrap}>
                     <Icon name={action.icon} size={20} color={colors.gold} />
@@ -208,13 +226,20 @@ export default function ProfileScreen() {
                   key={link.label}
                   style={styles.policyItem}
                   onPress={() => router.push(link.href as never)}
+                  accessibilityRole="link"
+                  accessibilityLabel={link.label}
                 >
                   <Text style={styles.policyText}>{link.label}</Text>
                 </Pressable>
               ))}
             </View>
 
-            <Pressable style={styles.logoutRow} onPress={() => setShowLogoutModal(true)}>
+            <Pressable
+              style={styles.logoutRow}
+              onPress={() => setShowLogoutModal(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Sign out"
+            >
               <Text style={styles.logoutText}>Logout</Text>
               <Icon name="log-out-outline" size={18} color={colors.gold} />
             </Pressable>
@@ -231,7 +256,7 @@ export default function ProfileScreen() {
         onRequestClose={() => setShowLogoutModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
+          <View style={styles.modalCard} accessibilityViewIsModal>
             <Text style={styles.modalTitle}>Sign Out</Text>
             <Text style={styles.modalMessage}>
               Are you sure you want to sign out? You&apos;ll need to sign in again to
@@ -242,6 +267,9 @@ export default function ProfileScreen() {
                 style={styles.modalCancelButton}
                 onPress={() => setShowLogoutModal(false)}
                 disabled={loggingOut}
+                accessibilityRole="button"
+                accessibilityLabel="Cancel sign out"
+                accessibilityState={{ disabled: loggingOut }}
               >
                 <Text style={styles.modalCancelText}>Cancel</Text>
               </Pressable>
@@ -249,6 +277,9 @@ export default function ProfileScreen() {
                 style={[styles.modalConfirmButton, loggingOut && styles.buttonDisabled]}
                 onPress={handleLogout}
                 disabled={loggingOut}
+                accessibilityRole="button"
+                accessibilityLabel="Confirm sign out"
+                accessibilityState={{ disabled: loggingOut, busy: loggingOut }}
               >
                 {loggingOut ? (
                   <TatvivahLoader size="sm" color={colors.background} />

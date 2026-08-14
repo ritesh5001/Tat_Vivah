@@ -2,13 +2,11 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import {
   listNotifications,
   markNotificationRead,
-  getUnreadCount,
   type AppNotification,
 } from "@/services/notifications";
 import { toast } from "sonner";
@@ -88,7 +86,6 @@ function notificationHref(n: AppNotification): string | null {
 const PAGE_SIZE = 20;
 
 export default function NotificationsPage() {
-  const router = useRouter();
   const [items, setItems] = React.useState<AppNotification[]>([]);
   const [page, setPage] = React.useState(1);
   const [total, setTotal] = React.useState(0);

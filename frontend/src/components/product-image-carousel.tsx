@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -17,26 +17,24 @@ export default function ProductImageCarousel({
     () => (images.length ? images : ["/images/product-placeholder.svg"]),
     [images]
   );
-  const [activeIndex, setActiveIndex] = useState(0);
-
-  useEffect(() => {
-    setActiveIndex(0);
-  }, [safeImages]);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const selectedIndex = selectedImage ? safeImages.indexOf(selectedImage) : 0;
+  const activeIndex = selectedIndex >= 0 ? selectedIndex : 0;
 
   const goTo = useCallback(
     (index: number) => {
       const maxIndex = safeImages.length - 1;
       if (index < 0) {
-        setActiveIndex(maxIndex);
+        setSelectedImage(safeImages[maxIndex]);
         return;
       }
       if (index > maxIndex) {
-        setActiveIndex(0);
+        setSelectedImage(safeImages[0]);
         return;
       }
-      setActiveIndex(index);
+      setSelectedImage(safeImages[index]);
     },
-    [safeImages.length]
+    [safeImages]
   );
 
   return (

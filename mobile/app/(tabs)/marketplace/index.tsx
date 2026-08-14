@@ -29,7 +29,6 @@ import {
 } from "../../../src/components";
 
 const COLS = 2;
-const FEATURED_LIMIT = 9;
 const ALL_PRODUCTS_PAGE_SIZE = 8;
 
 function mergeUniqueProducts(current: ProductItem[], incoming: ProductItem[]): ProductItem[] {
@@ -47,7 +46,7 @@ function mergeUniqueProducts(current: ProductItem[], incoming: ProductItem[]): P
   return merged;
 }
 
-export default function CategoriesScreen() {
+export default function MarketplaceScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { width: windowWidth } = useWindowDimensions();
@@ -79,26 +78,13 @@ export default function CategoriesScreen() {
     [categoryData]
   );
 
-  // Fetch featured products (no category filter)
-  const { data: featuredData, isLoading: featuredLoading } = useQuery({
-    queryKey: ["products", { limit: FEATURED_LIMIT, featured: true, audience }],
-    queryFn: ({ signal }) =>
-      getProducts({
-        page: 1,
-        limit: FEATURED_LIMIT,
-        audience,
-        signal,
-      }),
-    staleTime: 1000 * 60 * 5,
-  });
-
-  const featuredProducts = React.useMemo<ProductItem[]>(
-    () => (featuredData?.data as ProductItem[]) ?? [],
-    [featuredData]
-  );
-
   // Fetch all-category products using the same popularity ordering as homepage.
-  const { data: allProductsData, isLoading: allProductsLoading } = useQuery({
+  const {
+    data: allProductsData,
+    isLoading: allProductsLoading,
+    isError: allProductsFailed,
+    refetch: refetchAllProducts,
+  } = useQuery({
     queryKey: [
       "marketplace-all-products",
       { limit: ALL_PRODUCTS_PAGE_SIZE, sort: "popularity", audience, categoryId: selectedCategoryId },
@@ -296,6 +282,9 @@ export default function CategoriesScreen() {
         <Pressable
           style={[styles.categoryItem, isActive && styles.categoryItemActive]}
           onPress={() => handleCategorySelect(item.id)}
+          accessibilityRole="button"
+          accessibilityLabel={`Shop ${item.name}`}
+          accessibilityState={{ selected: isActive }}
         >
           {item.image && (
             <Image
@@ -369,14 +358,7 @@ export default function CategoriesScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <AppHeader
-        variant="sub"
-        title="CATEGORIES"
-        showBack
-        showSearch
-        showWishlist
-        showCart
-      />
+      <AppHeader variant="main" />
 
       <View style={styles.audienceBar}>
         <AudienceTabs value={audience} onChange={setAudience} />
@@ -398,6 +380,9 @@ export default function CategoriesScreen() {
                   !selectedCategoryId && styles.categoryItemActive,
                 ]}
                 onPress={() => handleCategorySelect(undefined)}
+                accessibilityRole="button"
+                accessibilityLabel="Shop all categories"
+                accessibilityState={{ selected: !selectedCategoryId }}
               >
                 <View style={styles.categoryImagePlaceholder}>
                   <Icon name="grid" size={24} color={colors.charcoal} />
@@ -433,29 +418,8 @@ export default function CategoriesScreen() {
           // to fetch the next page before the shopper reaches it.
           scrollEventThrottle={200}
         >
-          {/* Featured Section — only on All Categories */}
-          {!selectedCategoryId ? (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Featured On Tatvivah</Text>
-              {featuredLoading ? (
-                <View style={styles.loadingWrap}>
-                  <TatvivahLoader size="sm" color={colors.gold} />
-                </View>
-              ) : featuredProducts.length === 0 ? (
-                <Text style={styles.emptyText}>No featured products</Text>
-              ) : (
-                <View style={styles.grid}>
-                  {featuredProducts.map((product, idx) => (
-                    <View key={`featured-${idx}`} style={{ width: cardWidth }}>
-                      {renderProductCard({ item: product })}
-                    </View>
-                  ))}
-                </View>
-              )}
-            </View>
-          ) : null}
-
-          {/* Popular Section */}
+          {/* Product catalogue. The previous "Featured" block requested the
+              same unfiltered first page and displayed every item twice. */}
           <View style={styles.section}>
             {selectedCategory ? (
               <View style={styles.categoryHeader}>
@@ -476,6 +440,20 @@ export default function CategoriesScreen() {
             {allProductsLoading ? (
               <View style={styles.loadingWrap}>
                 <TatvivahLoader size="sm" color={colors.gold} />
+              </View>
+            ) : allProductsFailed && visibleAllProducts.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Icon name="alert-circle-outline" size={24} color={colors.brownSoft} />
+                <Text style={styles.emptyTitle}>We couldn&apos;t load the shop</Text>
+                <Text style={styles.emptyText}>Check your connection and try again.</Text>
+                <Pressable
+                  style={styles.retryButton}
+                  onPress={() => void refetchAllProducts()}
+                  accessibilityRole="button"
+                  accessibilityLabel="Retry loading products"
+                >
+                  <Text style={styles.retryButtonText}>Try again</Text>
+                </Pressable>
               </View>
             ) : visibleAllProducts.length === 0 ? (
               <Text style={styles.emptyText}>
@@ -664,6 +642,34 @@ const styles = StyleSheet.create({
     color: colors.brownSoft,
     textAlign: "center",
     paddingVertical: spacing.lg,
+  },
+  emptyState: {
+    alignItems: "center",
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xl,
+  },
+  emptyTitle: {
+    marginTop: spacing.sm,
+    fontFamily: typography.serif,
+    fontSize: 20,
+    color: colors.charcoal,
+    textAlign: "center",
+  },
+  retryButton: {
+    minHeight: 44,
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.md,
+    backgroundColor: colors.charcoal,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  retryButtonText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 12,
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+    color: colors.background,
   },
   statusText: {
     marginTop: spacing.md,

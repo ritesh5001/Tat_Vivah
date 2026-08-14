@@ -20,6 +20,7 @@ import { useNotifications } from "../../../src/providers/NotificationProvider";
 import { SkeletonNotificationRow } from "../../../src/components/Skeleton";
 import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
 import { AppHeader } from "../../../src/components/AppHeader";
+import { Icon } from "../../../src/components/Icon";
 import { impactLight } from "../../../src/utils/haptics";
 import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
 import { AppText as Text, ScreenContainer as SafeAreaView } from "../../../src/components";
@@ -164,6 +165,11 @@ export default function NotificationsScreen() {
           !item.isRead && styles.cardUnread,
         ]}
         onPress={() => handlePress(item)}
+        accessibilityRole="button"
+        accessibilityLabel={`${item.isRead ? "" : "Unread notification. "}${item.title}. ${item.message}`}
+        accessibilityHint={
+          item.meta?.orderId ? "Opens order tracking" : "Marks this notification as read"
+        }
       >
         <View style={styles.cardHeader}>
           <Text style={styles.cardTitle} numberOfLines={1}>
@@ -199,21 +205,30 @@ export default function NotificationsScreen() {
   if (showGuestState) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <AppHeader title="Notifications" subtitle="Updates & offers" showMenu showBack />
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Notifications</Text>
-          <Text style={styles.headerCopy}>Stay updated on orders and offers.</Text>
-        </View>
+        <AppHeader title="Notifications" subtitle="Updates & offers" showBack />
         <View style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>No notifications yet</Text>
+          <View style={styles.emptyIconWrap}>
+            <Icon name="notifications-outline" size={34} color={colors.brownSoft} />
+          </View>
+          <Text style={styles.emptyTitle}>Sign in to view notifications</Text>
           <Text style={styles.emptySubtitle}>
-            Check back here for order updates and offers.
+            Get order updates, delivery alerts, and offers linked to your account.
           </Text>
           <AnimatedPressable
-            onPress={() => router.push("/home")}
+            onPress={() => router.push("/login?returnTo=%2Fnotifications")}
             style={styles.ctaButton}
+            accessibilityRole="button"
+            accessibilityLabel="Sign in to view notifications"
           >
-            <Text style={styles.ctaButtonText}>Explore home</Text>
+            <Text style={styles.ctaButtonText}>Sign in</Text>
+          </AnimatedPressable>
+          <AnimatedPressable
+            onPress={() => router.push("/home")}
+            style={styles.secondaryButton}
+            accessibilityRole="button"
+            accessibilityLabel="Explore home"
+          >
+            <Text style={styles.secondaryButtonText}>Explore home</Text>
           </AnimatedPressable>
         </View>
       </SafeAreaView>
@@ -223,11 +238,7 @@ export default function NotificationsScreen() {
   // ---- Main render ----
   return (
     <SafeAreaView style={styles.safeArea}>
-      <AppHeader title="Notifications" subtitle="Updates & offers" showMenu showBack />
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Notifications</Text>
-        <Text style={styles.headerCopy}>Stay updated on your orders.</Text>
-      </View>
+      <AppHeader title="Notifications" subtitle="Updates & offers" showBack />
 
       {loading && !refreshing ? (
         <View style={styles.listContent}>
@@ -238,17 +249,25 @@ export default function NotificationsScreen() {
         </View>
       ) : error && items.length === 0 ? (
         <View style={styles.center}>
+          <View style={styles.emptyIconWrap}>
+            <Icon name="notifications-outline" size={34} color={colors.brownSoft} />
+          </View>
           <Text style={styles.errorTitle}>Something went wrong</Text>
           <Text style={styles.errorMessage}>{error}</Text>
           <Pressable
             style={styles.retryButton}
             onPress={() => fetchPage(1)}
+            accessibilityRole="button"
+            accessibilityLabel="Retry loading notifications"
           >
             <Text style={styles.retryText}>Retry</Text>
           </Pressable>
         </View>
       ) : items.length === 0 ? (
         <View style={styles.center}>
+          <View style={styles.emptyIconWrap}>
+            <Icon name="notifications-outline" size={34} color={colors.brownSoft} />
+          </View>
           <Text style={styles.emptyTitle}>All caught up</Text>
           <Text style={styles.emptyText}>
             You have no notifications yet.
@@ -304,24 +323,6 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.background,
-  },
-  header: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderSoft,
-  },
-  headerTitle: {
-    fontFamily: typography.serif,
-    fontSize: 24,
-    color: colors.charcoal,
-  },
-  headerCopy: {
-    marginTop: spacing.xs,
-    fontFamily: typography.sans,
-    fontSize: 12,
-    color: colors.brownSoft,
   },
   listContent: {
     paddingHorizontal: spacing.lg,
@@ -390,6 +391,18 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceElevated,
     ...shadow.card,
   },
+  emptyIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.cream,
+    alignItems: "center",
+    justifyContent: "center",
+    alignSelf: "center",
+    marginBottom: spacing.md,
+  },
   loadingText: {
     marginTop: spacing.sm,
     fontFamily: typography.sans,
@@ -424,6 +437,8 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
     alignItems: "center",
+    justifyContent: "center",
+    minHeight: 44,
   },
   ctaButtonText: {
     fontFamily: typography.sansMedium,
@@ -431,6 +446,24 @@ const styles = StyleSheet.create({
     letterSpacing: 1.2,
     textTransform: "uppercase",
     color: colors.background,
+  },
+  secondaryButton: {
+    marginTop: spacing.sm,
+    minHeight: 44,
+    paddingHorizontal: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    borderRadius: radius.md,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surface,
+  },
+  secondaryButtonText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 12,
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+    color: colors.foreground,
   },
   errorTitle: {
     fontFamily: typography.serif,
@@ -453,6 +486,8 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
+    minHeight: 44,
+    justifyContent: "center",
   },
   retryText: {
     fontFamily: typography.sansMedium,

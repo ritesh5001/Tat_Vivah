@@ -22,16 +22,20 @@ export interface ProductSummary {
   description?: string | null;
   images?: ProductImage[];
   category?: { id?: string; name: string } | null;
-  /** Public listing price (admin-set). Available on list endpoints. */
-  price?: number;
-}
-
-export interface ProductItem extends ProductSummary {
+  /** Effective public selling price. The API currently exposes equivalent aliases. */
+  price?: number | null;
   salePrice?: number | null;
   adminPrice?: number | null;
+  adminListingPrice?: number | null;
+  minPrice?: number | null;
+  /** Buyer-facing MRP / compare-at price, never the seller's internal cost. */
   regularPrice?: number | null;
+  compareAtPrice?: number | null;
+  /** Legacy fallback used by a few public projections. */
   sellerPrice?: number | null;
 }
+
+export type ProductItem = ProductSummary;
 
 export interface ProductDetail extends ProductSummary {
   variants: ProductVariant[];

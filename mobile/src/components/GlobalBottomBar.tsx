@@ -4,13 +4,14 @@ import { usePathname, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
   interpolate,
+  ReduceMotion,
   type SharedValue,
   useAnimatedStyle,
   useDerivedValue,
   withSpring,
   withTiming,
 } from "react-native-reanimated";
-import { AppText as Text } from "./index";
+import { AppText as Text } from "./AppText";
 import { Icon, type IconName } from "./Icon";
 import { colors, radius, typography } from "../theme/tokens";
 import { impactLight } from "../utils/haptics";
@@ -80,7 +81,12 @@ export function shouldHideBottomBar(pathname: string): boolean {
 }
 
 /** Weighted rather than snappy: the indicator should read as travelling, not cutting. */
-const INDICATOR_SPRING = { damping: 18, stiffness: 170, mass: 0.85 } as const;
+const INDICATOR_SPRING = {
+  damping: 18,
+  stiffness: 170,
+  mass: 0.85,
+  reduceMotion: ReduceMotion.System,
+} as const;
 
 /**
  * One tab. Everything it animates is derived on the UI thread from the shared
@@ -90,11 +96,13 @@ const BottomBarItem = React.memo(function BottomBarItem({
   item,
   index,
   activeIndex,
+  isFocused,
   onPress,
 }: {
   item: NavItem;
   index: number;
   activeIndex: SharedValue<number>;
+  isFocused: boolean;
   onPress: (path: string) => void;
 }) {
   /** 1 when this tab owns the indicator, falling off as it travels away. */
@@ -110,10 +118,9 @@ const BottomBarItem = React.memo(function BottomBarItem({
     ],
   }));
 
-  // The label firms up rather than appearing: it is always legible, never a
-  // flash of new content.
+  // Keep the small navigation label fully opaque so its contrast remains AA;
+  // the one-point lift still gives it a restrained active transition.
   const labelStyle = useAnimatedStyle(() => ({
-    opacity: 0.55 + 0.45 * focus.value,
     transform: [{ translateY: 1 - focus.value }],
   }));
 
@@ -128,6 +135,10 @@ const BottomBarItem = React.memo(function BottomBarItem({
       onPress={handlePress}
       pressScale={0.94}
       haptic={false}
+      accessibilityRole="tab"
+      accessibilityLabel={item.label}
+      accessibilityHint={`Switches to ${item.label}`}
+      accessibilityState={{ selected: isFocused }}
     >
       <Animated.View style={iconStyle}>
         <TabIcon item={item} focus={focus} />
@@ -214,7 +225,7 @@ export function GlobalBottomBar() {
   );
 
   const itemWidth = windowWidth / NAV_ITEMS.length;
-  const indicatorWidth = Math.min(itemWidth - 24, 76);
+  const indicatorWidth = Math.min(itemWidth - 14, 84);
 
   const indicatorStyle = useAnimatedStyle(() => ({
     width: indicatorWidth,
@@ -249,6 +260,8 @@ export function GlobalBottomBar() {
           height: getBottomBarTotalHeight(insets.bottom),
         },
       ]}
+      accessibilityRole="tablist"
+      accessibilityLabel="Primary navigation"
     >
       {/* Travels between tabs on the UI thread. Behind the icons, so it reads as
           a surface the tab sits on rather than a badge stuck to it. */}
@@ -260,6 +273,7 @@ export function GlobalBottomBar() {
           item={item}
           index={index}
           activeIndex={activeIndex}
+          isFocused={index === currentIndex}
           onPress={handlePress}
         />
       ))}
@@ -275,7 +289,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     height: APP_BOTTOM_BAR_HEIGHT,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "rgba(196, 167, 108, 0.3)",
+    borderTopColor: "rgba(183, 149, 108, 0.3)",
     backgroundColor: colors.surfaceElevated,
     flexDirection: "row",
     shadowColor: colors.charcoal,
@@ -286,11 +300,13 @@ const styles = StyleSheet.create({
   },
   indicator: {
     position: "absolute",
-    top: 8,
+    top: 5,
     left: 0,
-    height: 40,
-    borderRadius: radius.pill,
-    backgroundColor: "rgba(196, 167, 108, 0.14)",
+    height: 52,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(128, 96, 61, 0.22)",
+    backgroundColor: "rgba(128, 96, 61, 0.09)",
   },
   item: {
     flex: 1,
@@ -300,13 +316,13 @@ const styles = StyleSheet.create({
   },
   label: {
     fontFamily: typography.sans,
-    fontSize: 9.5,
-    letterSpacing: 0.8,
+    fontSize: 11,
+    lineHeight: 14,
+    letterSpacing: 0.55,
     textTransform: "uppercase",
     color: colors.brownSoft,
   },
   activeLabel: {
-    fontFamily: typography.sansMedium,
     color: colors.gold,
   },
 });

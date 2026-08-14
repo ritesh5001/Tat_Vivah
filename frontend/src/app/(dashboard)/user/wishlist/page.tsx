@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -20,7 +19,6 @@ const currency = new Intl.NumberFormat("en-IN", {
 });
 
 export default function UserWishlistPage() {
-  const router = useRouter();
   const [items, setItems] = React.useState<WishlistItemDetail[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [removingId, setRemovingId] = React.useState<string | null>(null);

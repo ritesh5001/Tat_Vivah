@@ -7,7 +7,11 @@ import {
   StyleSheet,
   Animated,
   Easing,
-  Dimensions,
+  ScrollView,
+  useWindowDimensions,
+  AccessibilityInfo,
+  findNodeHandle,
+  Platform,
 } from "react-native";
 import { usePathname, useRouter } from "expo-router";
 // The drawer slide stays on RN Animated so it keeps the native driver that
@@ -15,6 +19,7 @@ import { usePathname, useRouter } from "expo-router";
 // states. Both are imported under distinct names to keep that split obvious.
 import Reanimated, {
   FadeInLeft,
+  ReduceMotion,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -41,8 +46,6 @@ const baseItems: { label: string; route: string }[] = [
   { label: "Search", route: "/search" },
 ];
 
-const DRAWER_WIDTH = Math.min(340, Math.round(Dimensions.get("window").width * 0.82));
-
 const MENU_ICON_BY_ROUTE: Record<string, IconName> = {
   "/home": "home-outline",
   "/marketplace": "bag-handle-outline",
@@ -53,6 +56,7 @@ const MENU_ICON_BY_ROUTE: Record<string, IconName> = {
   "/wishlist": "heart-outline",
   "/profile": "person-outline",
   "/contact": "headset-outline",
+  "/support": "headset-outline",
   "/login": "log-in-outline",
   "/register": "person-add-outline",
   "__logout__": "log-out-outline",
@@ -100,7 +104,7 @@ const MenuRow = React.memo(function MenuRow({
 
   const rowStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: 5 * press.value }],
-    backgroundColor: `rgba(196, 167, 108, ${0.09 * press.value})`,
+    backgroundColor: `rgba(183, 149, 108, ${0.09 * press.value})`,
   }));
 
   /** The leading rule: full height when active, growing from nothing on press. */
@@ -109,9 +113,9 @@ const MenuRow = React.memo(function MenuRow({
     transform: [{ scaleY: active ? 1 : 0.3 + 0.7 * press.value }],
   }));
 
-  const accent = destructive ? "#B4553F" : colors.gold;
+  const accent = destructive ? colors.error : colors.gold;
   const restingTint = destructive
-    ? "#B4553F"
+    ? colors.error
     : active
       ? colors.gold
       : colors.charcoal;
@@ -123,11 +127,15 @@ const MenuRow = React.memo(function MenuRow({
   }));
   const warmGlyphStyle = useAnimatedStyle(() => ({
     opacity: active ? 1 : press.value,
-    ...StyleSheet.absoluteFillObject,
   }));
 
   return (
-    <ReanimatedView entering={FadeInLeft.duration(260).delay(60 + index * 26)}>
+    <ReanimatedView
+      entering={FadeInLeft
+        .duration(260)
+        .delay(60 + index * 26)
+        .reduceMotion(ReduceMotion.System)}
+    >
       <ReanimatedPressable
         style={[menuRowStyles.row, disabled && menuRowStyles.rowDisabled, rowStyle]}
         onPressIn={() => {
@@ -138,6 +146,12 @@ const MenuRow = React.memo(function MenuRow({
         }}
         onPress={onPress}
         disabled={disabled}
+        accessibilityRole="button"
+        accessibilityLabel={disabled && destructive ? "Logging out" : label}
+        accessibilityHint={
+          destructive ? "Signs out of your account" : `Opens ${label}`
+        }
+        accessibilityState={{ disabled, selected: active }}
       >
         <ReanimatedView
           style={[menuRowStyles.edge, { backgroundColor: accent }, edgeStyle]}
@@ -145,10 +159,13 @@ const MenuRow = React.memo(function MenuRow({
         />
 
         <View style={menuRowStyles.glyph}>
-          <ReanimatedView style={restingGlyphStyle}>
+          <ReanimatedView style={[menuRowStyles.glyphLayer, restingGlyphStyle]}>
             <Icon name={icon} size={17} color={restingTint} />
           </ReanimatedView>
-          <ReanimatedView style={warmGlyphStyle} pointerEvents="none">
+          <ReanimatedView
+            style={[menuRowStyles.glyphLayer, warmGlyphStyle]}
+            pointerEvents="none"
+          >
             <Icon name={icon} size={17} color={accent} />
           </ReanimatedView>
         </View>
@@ -171,6 +188,7 @@ const menuRowStyles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
+    minHeight: 48,
     gap: spacing.md,
     paddingVertical: 13,
     // Leaves room for the leading rule without the label shifting when it appears.
@@ -192,10 +210,17 @@ const menuRowStyles = StyleSheet.create({
   },
   /** Sized so the two stacked tint copies overlay exactly. */
   glyph: {
-    width: 17,
-    height: 17,
+    width: 24,
+    height: 24,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "visible",
+  },
+  glyphLayer: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "visible",
   },
   label: {
     flex: 1,
@@ -209,7 +234,7 @@ const menuRowStyles = StyleSheet.create({
     color: colors.gold,
   },
   labelDestructive: {
-    color: "#B4553F",
+    color: colors.error,
   },
 });
 
@@ -217,13 +242,16 @@ export function MenuSheet({ visible, onClose, onNavigate, items }: MenuSheetProp
   const router = useRouter();
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
+  const drawerWidth = Math.min(340, Math.round(windowWidth * 0.82));
   const { session, signOut } = useAuth();
   const { showToast } = useToast();
   const [loggingOut, setLoggingOut] = React.useState(false);
   const logoutLockRef = React.useRef(false);
+  const closeButtonRef = React.useRef<React.ElementRef<typeof Pressable>>(null);
   const openedAtRef = React.useRef(0);
   const overlayOpacity = React.useRef(new Animated.Value(0)).current;
-  const drawerTranslateX = React.useRef(new Animated.Value(-DRAWER_WIDTH)).current;
+  const drawerTranslateX = React.useRef(new Animated.Value(-drawerWidth)).current;
 
   const normalizeRoute = React.useCallback((route: string) => {
     if (route.startsWith("/(tabs)/")) {
@@ -244,7 +272,7 @@ export function MenuSheet({ visible, onClose, onNavigate, items }: MenuSheetProp
         { label: "Orders", route: "/orders" },
         { label: "Wishlist", route: "/wishlist" },
         { label: "Profile", route: "/profile" },
-        { label: "Support", route: "/contact" },
+        { label: "Support", route: "/support" },
         { label: "Logout", route: "__logout__" },
       ];
     }
@@ -296,6 +324,22 @@ export function MenuSheet({ visible, onClose, onNavigate, items }: MenuSheetProp
     closeMenu();
   }, [closeMenu]);
 
+  const handleModalShow = React.useCallback(() => {
+    AccessibilityInfo.announceForAccessibility("Navigation menu opened");
+    requestAnimationFrame(() => {
+      if (Platform.OS === "web") {
+        const webButton = closeButtonRef.current as unknown as {
+          focus?: () => void;
+        } | null;
+        webButton?.focus?.();
+        return;
+      }
+
+      const node = findNodeHandle(closeButtonRef.current);
+      if (node) AccessibilityInfo.setAccessibilityFocus(node);
+    });
+  }, []);
+
   // The modal outlives `visible` by the length of the exit animation. Without
   // this the drawer vanished instantly on close while the overlay faded, which
   // is the single cheapest-looking moment in a navigation drawer.
@@ -306,7 +350,7 @@ export function MenuSheet({ visible, onClose, onNavigate, items }: MenuSheetProp
       setIsMounted(true);
       openedAtRef.current = Date.now();
       overlayOpacity.setValue(0);
-      drawerTranslateX.setValue(-DRAWER_WIDTH);
+      drawerTranslateX.setValue(-drawerWidth);
 
       // Native driver, not JS. Driving translateX from JavaScript meant the slide
       // shared a thread with whatever render the tap had just kicked off, so a
@@ -342,7 +386,7 @@ export function MenuSheet({ visible, onClose, onNavigate, items }: MenuSheetProp
         useNativeDriver: true,
       }),
       Animated.timing(drawerTranslateX, {
-        toValue: -DRAWER_WIDTH,
+        toValue: -drawerWidth,
         duration: 190,
         easing: Easing.in(Easing.cubic),
         useNativeDriver: true,
@@ -357,7 +401,7 @@ export function MenuSheet({ visible, onClose, onNavigate, items }: MenuSheetProp
     // isMounted drives the exit run once; re-running on its own change would
     // restart the animation it just finished.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [drawerTranslateX, overlayOpacity, visible]);
+  }, [drawerTranslateX, drawerWidth, overlayOpacity, visible]);
 
   return (
     <Modal
@@ -366,17 +410,24 @@ export function MenuSheet({ visible, onClose, onNavigate, items }: MenuSheetProp
       animationType="none"
       onRequestClose={closeMenu}
       statusBarTranslucent
+      onShow={handleModalShow}
     >
       <View style={styles.modalRoot}>
         <AnimatedPressable
           style={[styles.overlay, { opacity: overlayOpacity }]}
           onPress={handleOverlayPress}
+          accessible={false}
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
         />
 
         <Animated.View
+          accessibilityViewIsModal
+          accessibilityLabel="Navigation menu"
           style={[
             styles.drawer,
             {
+              width: drawerWidth,
               paddingTop: Math.max(insets.top, spacing.lg),
               paddingBottom: Math.max(insets.bottom, spacing.lg),
               transform: [{ translateX: drawerTranslateX }],
@@ -385,11 +436,20 @@ export function MenuSheet({ visible, onClose, onNavigate, items }: MenuSheetProp
         >
           <View style={styles.drawerHeader}>
             <View style={styles.brandBlock}>
-              <Text style={styles.title}>Tatvivah</Text>
+              <Text style={styles.title} accessibilityRole="header">
+                Tatvivah
+              </Text>
               <View style={styles.brandRule} />
             </View>
 
-            <Pressable onPress={closeMenu} style={styles.closeIconButton} hitSlop={10}>
+            <Pressable
+              ref={closeButtonRef}
+              onPress={closeMenu}
+              style={styles.closeIconButton}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Close navigation menu"
+            >
               <Icon name="close" size={17} color={colors.charcoal} />
             </Pressable>
           </View>
@@ -400,6 +460,8 @@ export function MenuSheet({ visible, onClose, onNavigate, items }: MenuSheetProp
             <Pressable
               style={styles.accountRow}
               onPress={() => handleNavigate("/profile")}
+              accessibilityRole="button"
+              accessibilityLabel={`Open profile for ${session.user.fullName ?? session.user.email ?? "your account"}`}
             >
               {/* Read-only here — the drawer shows who you are; changing the
                   picture belongs on the profile screen where the change has
@@ -419,11 +481,19 @@ export function MenuSheet({ visible, onClose, onNavigate, items }: MenuSheetProp
             </Pressable>
           ) : null}
 
-          <View style={styles.menuList}>
+          <ScrollView
+            style={styles.menuScroll}
+            contentContainerStyle={styles.menuList}
+            showsVerticalScrollIndicator={false}
+          >
             {menuItems.map((item, index) => {
               const isLogout = item.route === "__logout__";
+              const normalizedItemRoute = normalizeRoute(item.route);
               const active =
-                !isLogout && pathname === normalizeRoute(item.route);
+                !isLogout &&
+                (pathname === normalizedItemRoute ||
+                  (normalizedItemRoute !== "/home" &&
+                    pathname.startsWith(`${normalizedItemRoute}/`)));
 
               return (
                 <MenuRow
@@ -438,7 +508,7 @@ export function MenuSheet({ visible, onClose, onNavigate, items }: MenuSheetProp
                 />
               );
             })}
-          </View>
+          </ScrollView>
         </Animated.View>
       </View>
     </Modal>
@@ -452,10 +522,9 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    backgroundColor: colors.overlay,
   },
   drawer: {
-    width: DRAWER_WIDTH,
     height: "100%",
     backgroundColor: colors.cream,
     paddingHorizontal: spacing.lg,
@@ -498,12 +567,12 @@ const styles = StyleSheet.create({
     width: 34,
     height: 2,
     borderRadius: radius.pill,
-    backgroundColor: colors.gold,
+    backgroundColor: colors.goldDecorative,
   },
   /** Bare, like the rest of the drawer's marks — no disc. */
   closeIconButton: {
-    width: 34,
-    height: 34,
+    width: 44,
+    height: 44,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -518,6 +587,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.warmWhite,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.borderSoft,
+    minHeight: 64,
   },
   accountAvatar: {
     width: 40,
@@ -549,7 +619,11 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.brownSoft,
   },
+  menuScroll: {
+    flex: 1,
+  },
   menuList: {
     gap: 2,
+    paddingBottom: spacing.lg,
   },
 });

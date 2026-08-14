@@ -7,7 +7,8 @@ import {
   ScrollView,
   Linking,
 } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { usePreventRemove } from "@react-navigation/native";
 import { WebView, type WebViewNavigation } from "react-native-webview";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -51,6 +52,7 @@ const POLL_INTERVAL_MS = 2000;
 const MAX_ATTEMPTS = 15;
 
 type Phase = "loading" | "checkout" | "confirming" | "error";
+type CompletionRoute = "/orders" | `/orders/${string}`;
 
 export default function FastrrCheckoutScreen() {
   const router = useRouter();
@@ -69,6 +71,9 @@ export default function FastrrCheckoutScreen() {
   const [phase, setPhase] = React.useState<Phase>("loading");
   const [checkout, setCheckout] = React.useState<FastrrSession | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  const [completionRoute, setCompletionRoute] =
+    React.useState<CompletionRoute | null>(null);
+  const blocksExit = phase === "confirming" && completionRoute === null;
 
   const mountedRef = React.useRef(true);
   // Guards the confirm flow: the redirect can fire more than once as the WebView
@@ -104,6 +109,7 @@ export default function FastrrCheckoutScreen() {
   const start = React.useCallback(async () => {
     setPhase("loading");
     setError(null);
+    setCompletionRoute(null);
 
     try {
       // Buy Now navigates here while its add-to-cart may still be in flight.
@@ -150,7 +156,7 @@ export default function FastrrCheckoutScreen() {
             notifySuccess();
             void refreshCart();
             if (!mountedRef.current) return;
-            router.replace(`/orders/${status.orderId}`);
+            setCompletionRoute(`/orders/${status.orderId}`);
             return;
           }
 
@@ -180,9 +186,9 @@ export default function FastrrCheckoutScreen() {
         "Your order is being finalised — it will appear in My Orders shortly.",
         "info"
       );
-      router.replace("/orders");
+      setCompletionRoute("/orders");
     },
-    [refreshCart, router, showToast, token]
+    [refreshCart, showToast, token]
   );
 
   /**
@@ -235,15 +241,29 @@ export default function FastrrCheckoutScreen() {
     }
   }, [fail]);
 
+  // Keep every navigation path (header, native gesture, and programmatic pop)
+  // on this screen while the backend is resolving a potentially paid order.
+  // Native-stack also uses this hook to set preventNativeDismiss on iOS.
+  usePreventRemove(blocksExit, () => {
+    showToast("Please wait while we confirm your payment.", "info");
+  });
+
+  // The prevent-remove guard must be released before navigating to a confirmed
+  // destination, otherwise it would also block our own replace action.
+  React.useEffect(() => {
+    if (!completionRoute) return;
+    router.replace(completionRoute);
+  }, [completionRoute, router]);
+
   // Back during confirmation would strand a paid order on a screen the buyer
   // can never return to, so it is blocked until the outcome is known.
   React.useEffect(() => {
     const subscription = BackHandler.addEventListener(
       "hardwareBackPress",
-      () => phase === "confirming"
+      () => blocksExit
     );
     return () => subscription.remove();
-  }, [phase]);
+  }, [blocksExit]);
 
   // ---------------------------------------------------------------------
   // Render
@@ -252,6 +272,12 @@ export default function FastrrCheckoutScreen() {
   if (phase === "error") {
     return (
       <SafeAreaView style={styles.container}>
+        <Stack.Screen
+          options={{
+            gestureEnabled: true,
+            headerBackButtonMenuEnabled: false,
+          }}
+        />
         <AppHeader title="Checkout" />
         {/* Scrollable: a gateway error can be several lines long, and the whole
             point of this screen is that the buyer can read it. */}
@@ -286,7 +312,17 @@ export default function FastrrCheckoutScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <AppHeader title="Secure Checkout" />
+      <Stack.Screen
+        options={{
+          gestureEnabled: !blocksExit,
+          headerBackButtonMenuEnabled: false,
+        }}
+      />
+      <AppHeader
+        title="Secure checkout"
+        subtitle={phase === "confirming" ? "Confirming payment" : "Protected payment"}
+        showBack={phase !== "confirming"}
+      />
 
       {checkout && phase !== "confirming" ? (
         <WebView

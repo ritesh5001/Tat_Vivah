@@ -80,6 +80,7 @@ const ICONS = {
   "camera-outline": f("camera"),
   "image-outline": f("image"),
   "eye-outline": f("eye"),
+  "eye-off-outline": f("eye-off"),
 
   // ---- Account ----
   "person-outline": f("user"),

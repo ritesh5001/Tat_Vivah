@@ -33,7 +33,7 @@ export default function DisclaimerPage() {
             <section id="general-information">
                 <h2>General Information</h2>
                 <p>
-                    The information provided by Tat Vivah ("we," "us," or "our") on {SITE_HOST} (the "Site") is for general informational purposes only. All information on the Site is provided in good faith, however, we make no representation or warranty of any kind, express or implied, regarding the accuracy, adequacy, validity, reliability, availability, or completeness of any information on the Site.
+                    The information provided by Tat Vivah (&ldquo;we,&rdquo; &ldquo;us,&rdquo; or &ldquo;our&rdquo;) on {SITE_HOST} (the &ldquo;Site&rdquo;) is for general informational purposes only. All information on the Site is provided in good faith, however, we make no representation or warranty of any kind, express or implied, regarding the accuracy, adequacy, validity, reliability, availability, or completeness of any information on the Site.
                 </p>
             </section>
 

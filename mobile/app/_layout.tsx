@@ -1,9 +1,8 @@
 import * as React from "react";
-import { Stack } from "expo-router";
+import { Stack, usePathname } from "expo-router";
 import { useFonts } from "expo-font";
-import { Platform, Pressable, StyleSheet, View } from "react-native";
-import { AppText as Text } from "../src/components";
-import Constants from "expo-constants";
+import { StatusBar } from "react-native";
+import * as SplashScreen from "expo-splash-screen";
 import { AuthProvider } from "../src/providers/AuthProvider";
 import { ErrorBoundary } from "../src/components/ErrorBoundary";
 import { ToastProvider } from "../src/providers/ToastProvider";
@@ -12,6 +11,7 @@ import { CartProvider } from "../src/providers/CartProvider";
 import { AddressProvider } from "../src/providers/AddressProvider";
 import { WishlistProvider } from "../src/providers/WishlistProvider";
 import { OfflineBanner } from "../src/components/OfflineBanner";
+import { SessionExpiredModal } from "../src/components/SessionExpiredModal";
 import { useNetworkStatus } from "../src/hooks/useNetworkStatus";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import {
@@ -19,12 +19,20 @@ import {
   queryPersister,
   shouldPersistQuery,
 } from "../src/providers/queryClient";
-import { colors, radius } from "../src/theme/tokens";
+import { colors } from "../src/theme/tokens";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import {
+  SafeAreaProvider,
+  initialWindowMetrics,
+} from "react-native-safe-area-context";
 import { GlobalBottomBar } from "../src/components/GlobalBottomBar";
 import { useImageMemoryRelease } from "../src/lib/memory-pressure";
 import { useRouteRestore } from "../src/lib/route-restore";
 // import InAppUpdates, { IAUUpdateKind } from "react-native-in-app-updates";
+
+// Keep the native launch artwork visible until the brand fonts are ready. A
+// blank React tree produces a white flash on slower devices.
+void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 function AppShell() {
   const { isConnected } = useNetworkStatus();
@@ -32,43 +40,10 @@ function AppShell() {
   useImageMemoryRelease();
   // Come back to the screen the shopper left, if Android killed us meanwhile.
   useRouteRestore();
-  const [updateAvailable, setUpdateAvailable] = React.useState(false);
-  // const inAppUpdatesRef = React.useRef<InAppUpdates | null>(null);
-
-  React.useEffect(() => {
-    // In-app updates feature disabled (package unavailable)
-    // Original code checked for app updates on Android and triggered flexible updates
-    // This can be re-enabled by installing the correct in-app-updates package
-    return () => {
-      // no cleanup needed
-    };
-  }, []);
-
-  // Update feature disabled — in-app-updates package unavailable
-  // const handleUpdatePress = React.useCallback(async () => {
-  //   const updater = inAppUpdatesRef.current;
-  //   if (!updater) return;
-  //   try {
-  //     await updater.startUpdate({ updateType: IAUUpdateKind.FLEXIBLE });
-  //   } catch {
-  //     // ignore
-  //   }
-  // }, []);
 
   return (
     <>
       <OfflineBanner visible={!isConnected} />
-      {updateAvailable ? (
-        <View style={styles.updateBanner}>
-          <View style={styles.updateTextWrap}>
-            <Text style={styles.updateTitle}>Update available</Text>
-            <Text style={styles.updateSubtitle}>Please update the app from Play Store.</Text>
-          </View>
-          <Pressable style={styles.updateButton} onPress={() => {}}>
-            <Text style={styles.updateButtonText}>Update</Text>
-          </Pressable>
-        </View>
-      ) : null}
       {/*
         One grammar for the whole app, so a transition tells the shopper where
         they went without them having to think about it:
@@ -151,90 +126,61 @@ function AppShell() {
 }
 
 export default function RootLayout() {
-  const [fontsLoaded] = useFonts(
-    Platform.OS === "web"
-      ? {}
-      : {
-          CormorantGaramond_300Light: require("../assets/fonts/CormorantGaramond_300Light.ttf"),
-          CormorantGaramond_400Regular: require("../assets/fonts/CormorantGaramond_400Regular.ttf"),
-          Inter_400Regular: require("../assets/fonts/Inter_400Regular.ttf"),
-          Inter_500Medium: require("../assets/fonts/Inter_500Medium.ttf"),
-        },
-  );
+  const pathname = usePathname();
+  const immersiveStatusBar =
+    pathname === "/reels" || pathname.startsWith("/reels/");
+  const [fontsLoaded, fontError] = useFonts({
+    CormorantGaramond_300Light: require("../assets/fonts/CormorantGaramond_300Light.ttf"),
+    CormorantGaramond_400Regular: require("../assets/fonts/CormorantGaramond_400Regular.ttf"),
+    Inter_400Regular: require("../assets/fonts/Inter_400Regular.ttf"),
+    Inter_500Medium: require("../assets/fonts/Inter_500Medium.ttf"),
+  });
 
-  if (!fontsLoaded) {
+  React.useEffect(() => {
+    if (fontsLoaded || fontError) {
+      void SplashScreen.hideAsync().catch(() => undefined);
+    }
+  }, [fontError, fontsLoaded]);
+
+  if (!fontsLoaded && !fontError) {
     return null;
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <ErrorBoundary>
-        <PersistQueryClientProvider
-          client={queryClient}
-          persistOptions={{
-            persister: queryPersister,
-            dehydrateOptions: { shouldDehydrateQuery: shouldPersistQuery },
-          }}
-        >
-          <ToastProvider>
-            <AuthProvider>
-              <NotificationProvider>
-                <CartProvider>
-                  <WishlistProvider>
-                    <AddressProvider>
-                      <AppShell />
-                    </AddressProvider>
-                  </WishlistProvider>
-                </CartProvider>
-              </NotificationProvider>
-            </AuthProvider>
-          </ToastProvider>
-        </PersistQueryClientProvider>
-      </ErrorBoundary>
-    </GestureHandlerRootView>
+    <SafeAreaProvider initialMetrics={initialWindowMetrics} style={{ flex: 1 }}>
+      <StatusBar
+        barStyle={immersiveStatusBar ? "light-content" : "dark-content"}
+        backgroundColor={
+          immersiveStatusBar ? colors.media : colors.background
+        }
+        translucent={false}
+      />
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <ErrorBoundary>
+          <PersistQueryClientProvider
+            client={queryClient}
+            persistOptions={{
+              persister: queryPersister,
+              dehydrateOptions: { shouldDehydrateQuery: shouldPersistQuery },
+            }}
+          >
+            <ToastProvider>
+              <AuthProvider>
+                <SessionExpiredModal />
+                <NotificationProvider>
+                  <CartProvider>
+                    <WishlistProvider>
+                      <AddressProvider>
+                        <AppShell />
+                      </AddressProvider>
+                    </WishlistProvider>
+                  </CartProvider>
+                </NotificationProvider>
+              </AuthProvider>
+            </ToastProvider>
+          </PersistQueryClientProvider>
+        </ErrorBoundary>
+      </GestureHandlerRootView>
+    </SafeAreaProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  updateBanner: {
-    marginHorizontal: 16,
-    marginTop: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: colors.gold,
-    backgroundColor: "rgba(184, 149, 108, 0.12)",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-  },
-  updateTextWrap: {
-    flex: 1,
-  },
-  updateTitle: {
-    fontFamily: "Inter_500Medium",
-    fontSize: 13,
-    color: colors.charcoal,
-  },
-  updateSubtitle: {
-    marginTop: 4,
-    fontFamily: "Inter_400Regular",
-    fontSize: 11,
-    color: colors.brownSoft,
-  },
-  updateButton: {
-    borderRadius: radius.md,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: colors.gold,
-    backgroundColor: colors.gold,
-  },
-  updateButtonText: {
-    fontFamily: "Inter_500Medium",
-    fontSize: 11,
-    letterSpacing: 1,
-    textTransform: "uppercase",
-    color: colors.background,
-  },
-});

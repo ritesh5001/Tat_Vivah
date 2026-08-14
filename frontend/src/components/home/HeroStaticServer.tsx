@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { HERO_SLIDES } from "@/components/home/hero-data";
@@ -14,9 +14,9 @@ export function HeroStaticServer() {
   const wheelDeltaX = useRef(0);
   const wheelLockUntil = useRef(0);
 
-  const showNext = () => {
+  const showNext = useCallback(() => {
     setActiveIndex((current) => (current + 1) % slides.length);
-  };
+  }, [slides.length]);
 
   const showPrev = () => {
     setActiveIndex((current) => (current - 1 + slides.length) % slides.length);
@@ -28,7 +28,7 @@ export function HeroStaticServer() {
     }, 5000);
 
     return () => window.clearInterval(timer);
-  }, [slides.length]);
+  }, [showNext]);
 
   const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     pointerStartX.current = event.clientX;

@@ -38,9 +38,14 @@ export class ErrorBoundary extends React.Component<Props, State> {
           <View style={styles.card}>
             <Text style={styles.title}>Something went wrong</Text>
             <Text style={styles.message}>
-              {this.state.error?.message ?? "An unexpected error occurred."}
+              We couldn&apos;t display this screen. Please try again.
             </Text>
-            <Pressable style={styles.button} onPress={this.handleReset}>
+            <Pressable
+              style={styles.button}
+              onPress={this.handleReset}
+              accessibilityRole="button"
+              accessibilityLabel="Try loading the screen again"
+            >
               <Text style={styles.buttonText}>Try again</Text>
             </Pressable>
           </View>
@@ -87,8 +92,11 @@ const styles = StyleSheet.create({
   button: {
     backgroundColor: colors.charcoal,
     borderRadius: radius.md,
+    minHeight: 44,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
+    alignItems: "center",
+    justifyContent: "center",
   },
   buttonText: {
     fontFamily: typography.sansMedium,

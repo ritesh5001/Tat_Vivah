@@ -56,6 +56,7 @@ function pct(v: number) {
 }
 
 const EASE = [0.25, 0.1, 0.25, 1] as const;
+const SKELETON_BAR_HEIGHTS = [42, 68, 51, 84, 37, 73, 58, 91, 46, 79, 62, 88] as const;
 
 // ─── Skeleton Primitives ─────────────────────────────────────────────────────
 
@@ -82,11 +83,11 @@ function ChartSkeleton() {
     <div className="space-y-4">
       <Skeleton className="h-4 w-40" />
       <div className="flex items-end gap-2 h-64">
-        {Array.from({ length: 12 }).map((_, i) => (
+        {SKELETON_BAR_HEIGHTS.map((height, i) => (
           <Skeleton
             key={i}
             className="flex-1"
-            style={{ height: `${30 + Math.random() * 60}%` }}
+            style={{ height: `${height}%` }}
           />
         ))}
       </div>

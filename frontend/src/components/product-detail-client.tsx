@@ -7,7 +7,6 @@ import { ArrowLeftRight, ChevronDown, CircleHelp, Eye, Share2, Truck } from "luc
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { addCartItem } from "@/services/cart";
-import { toggleWishlistItem, checkWishlistItems } from "@/services/wishlist";
 import { createAppointment } from "@/services/appointments";
 import { startNavigationFeedback } from "@/lib/navigation-feedback";
 import {
@@ -166,8 +165,6 @@ export default function ProductDetailClient({
     () => pickDefaultVariant(product.variants ?? [])?.id ?? ""
   );
   const [buyNowLoading, setBuyNowLoading] = React.useState(false);
-  const [wishlisted, setWishlisted] = React.useState(false);
-  const [wishlistLoading, setWishlistLoading] = React.useState(false);
   const [pincode, setPincode] = React.useState("");
   const [deliveryMessage, setDeliveryMessage] = React.useState("");
   const [bookModalOpen, setBookModalOpen] = React.useState(false);
@@ -194,18 +191,6 @@ export default function ProductDetailClient({
       setDeliveryMessage("Please enter a valid 6-digit pincode.");
     }
   };
-
-  // Check initial wishlist state
-  React.useEffect(() => {
-    let cancelled = false;
-    if (!hasAuthSession()) return;
-    checkWishlistItems([product.id])
-      .then((res) => {
-        if (!cancelled) setWishlisted(res.wishlisted.includes(product.id));
-      })
-      .catch(() => { });
-    return () => { cancelled = true; };
-  }, [product.id]);
 
   React.useEffect(() => {
     router.prefetch("/checkout");
@@ -261,28 +246,6 @@ export default function ProductDetailClient({
 
   const selectedColorLabel =
     colorOptions.find((color) => color.key === selectedColor)?.label ?? "";
-
-  const handleToggleWishlist = async () => {
-    if (!hasAuthSession()) {
-      toast.error("Please sign in to save items.");
-      startNavigationFeedback();
-      router.push(loginUrlWithReturn());
-      return;
-    }
-    setWishlistLoading(true);
-    const prev = wishlisted;
-    setWishlisted(!prev);
-    try {
-      const result = await toggleWishlistItem(product.id);
-      setWishlisted(result.added);
-      toast.success(result.added ? "Added to wishlist" : "Removed from wishlist");
-    } catch {
-      setWishlisted(prev);
-      toast.error("Unable to update wishlist");
-    } finally {
-      setWishlistLoading(false);
-    }
-  };
 
   const selectedVariant = product.variants.find(
     (variant) => variant.id === selectedVariantId

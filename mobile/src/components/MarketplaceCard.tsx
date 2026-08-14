@@ -9,12 +9,14 @@ import {
   type ViewStyle,
 } from "react-native";
 import Animated, {
+  interpolate,
   useAnimatedStyle,
   useSharedValue,
+  withDelay,
   withSpring,
   withTiming,
 } from "react-native-reanimated";
-import { Icon } from "./Icon";
+import { Icon, type IconName } from "./Icon";
 import { Image } from "./CompatImage";
 import { colors, typography, spacing, radius } from "../theme/tokens";
 import { images } from "../data/images";
@@ -23,6 +25,100 @@ import { useWishlist } from "../providers/WishlistProvider";
 import { rememberProductSeed } from "../lib/product-seed";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+type FlowActionButtonProps = {
+  label: string;
+  accessibilityLabel: string;
+  icon: IconName;
+  filled?: boolean;
+  onPress: () => void;
+};
+
+/**
+ * Native version of the supplied flow button. A press pulls the arrow through
+ * the label while a circular colour wash expands behind it; the spring release
+ * keeps the interaction tactile without delaying the actual cart action.
+ */
+function FlowActionButton({
+  label,
+  accessibilityLabel,
+  icon,
+  filled = false,
+  onPress,
+}: FlowActionButtonProps) {
+  const progress = useSharedValue(0);
+
+  const buttonMotion = useAnimatedStyle(() => ({
+    borderRadius: interpolate(progress.value, [0, 1], [radius.pill, radius.sm]),
+    transform: [{ scale: interpolate(progress.value, [0, 1], [1, 0.965]) }],
+  }));
+  const fillMotion = useAnimatedStyle(() => ({
+    opacity: progress.value,
+    transform: [{ scale: interpolate(progress.value, [0, 1], [0.15, 15]) }],
+  }));
+  const idleMotion = useAnimatedStyle(() => ({
+    opacity: 1 - progress.value,
+    transform: [{ translateX: interpolate(progress.value, [0, 1], [0, 12]) }],
+  }));
+  const activeMotion = useAnimatedStyle(() => ({
+    opacity: progress.value,
+    transform: [{ translateX: interpolate(progress.value, [0, 1], [-10, 0]) }],
+  }));
+  const leadingArrowMotion = useAnimatedStyle(() => ({
+    opacity: progress.value,
+    transform: [{ translateX: interpolate(progress.value, [0, 1], [-40, 0]) }],
+  }));
+  const handlePressIn = React.useCallback(() => {
+    progress.value = withTiming(1, { duration: 300 });
+  }, [progress]);
+  const handlePressOut = React.useCallback(() => {
+    progress.value = withDelay(
+      140,
+      withSpring(0, { damping: 16, stiffness: 190, mass: 0.65 })
+    );
+  }, [progress]);
+
+  const idleColor = filled ? colors.warmWhite : colors.charcoal;
+  const activeColor = colors.warmWhite;
+
+  return (
+    <AnimatedPressable
+      style={[
+        styles.flowButton,
+        filled ? styles.flowButtonFilled : styles.flowButtonOutline,
+        buttonMotion,
+      ]}
+      onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+    >
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.flowFill,
+          { backgroundColor: filled ? colors.gold : colors.charcoal },
+          fillMotion,
+        ]}
+      />
+      <Animated.View pointerEvents="none" style={[styles.flowLeadingArrow, leadingArrowMotion]}>
+        <Icon name={icon} size={13} color={activeColor} />
+      </Animated.View>
+      <Animated.View pointerEvents="none" style={[styles.flowIdleContent, idleMotion]}>
+        <Icon name={icon} size={12} color={idleColor} />
+        <Animated.Text style={[styles.flowLabel, { color: idleColor }]}>
+          {label}
+        </Animated.Text>
+      </Animated.View>
+      <Animated.View pointerEvents="none" style={[styles.flowActiveContent, activeMotion]}>
+        <Animated.Text style={[styles.flowLabel, { color: activeColor }]}>
+          {label}
+        </Animated.Text>
+      </Animated.View>
+    </AnimatedPressable>
+  );
+}
 
 interface MarketplaceCardProps {
   product: ProductItem;
@@ -52,10 +148,11 @@ const currency = new Intl.NumberFormat("en-IN", {
   maximumFractionDigits: 0,
 });
 
+/** Matches the storefront's stable fallback discount for products without a higher MRP. */
 function seededRandom(seed: string, min: number, max: number): number {
   let hash = 0;
-  for (let i = 0; i < seed.length; i++) {
-    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  for (let index = 0; index < seed.length; index += 1) {
+    hash = (hash * 31 + seed.charCodeAt(index)) >>> 0;
   }
   const range = (max - min) * 10;
   return min + (hash % range) / 10;
@@ -76,32 +173,57 @@ function MarketplaceCardComponent({
   const wishlisted = isWishlisted(product.id);
   const wishlistBusy = mutatingIds.has(product.id);
 
+  // Keep a genuine sale price first, then the public admin-set selling price.
+  // `sellerPrice` remains a last-resort compatibility fallback; it must never be
+  // used as the MRP because it represents seller economics on legacy payloads.
   const primaryPrice =
-    product.salePrice ?? product.adminPrice ?? product.price ?? product.sellerPrice ?? null;
+    product.salePrice ??
+    product.adminPrice ??
+    product.adminListingPrice ??
+    product.price ??
+    product.minPrice ??
+    product.sellerPrice ??
+    null;
 
-  const realRegularPrice =
-    typeof product.regularPrice === "number" &&
-    typeof primaryPrice === "number" &&
-    product.regularPrice > primaryPrice
-      ? product.regularPrice
+  const catalogueOriginalPrice =
+    typeof primaryPrice === "number"
+      ? [product.compareAtPrice, product.regularPrice].reduce<number | null>(
+          (highest, candidate) =>
+            typeof candidate === "number" && candidate > primaryPrice
+              ? Math.max(highest ?? candidate, candidate)
+              : highest,
+          null
+        )
       : null;
 
   const originalPrice = (() => {
-    if (realRegularPrice !== null) return realRegularPrice;
+    if (catalogueOriginalPrice !== null) return catalogueOriginalPrice;
     if (typeof primaryPrice !== "number" || primaryPrice <= 0) return null;
-    const fakeDiscount = Math.round(seededRandom(product.id + "m", 50, 75));
-    return Math.round(primaryPrice / (1 - fakeDiscount / 100) / 10) * 10;
+
+    const fallbackDiscount = Math.round(seededRandom(`${product.id}m`, 50, 75));
+    return Math.round(primaryPrice / (1 - fallbackDiscount / 100) / 10) * 10;
   })();
 
-  const discountPercent =
+  const hasDiscount =
     typeof primaryPrice === "number" &&
     typeof originalPrice === "number" &&
-    originalPrice > 0
-      ? Math.round(((originalPrice - primaryPrice) / originalPrice) * 100)
-      : null;
+    originalPrice > primaryPrice;
 
+  const discountPercentage =
+    hasDiscount && originalPrice > 0
+      ? ((originalPrice - primaryPrice) / originalPrice) * 100
+      : null;
+  const discountLabel =
+    discountPercentage === null
+      ? null
+      : discountPercentage < 1
+        ? "<1% OFF"
+        : `${Math.round(discountPercentage)}% OFF`;
+
+  // Keep the review treatment stable between renders and aligned with the web
+  // storefront card until aggregate review fields are included in list APIs.
   const rating = Math.round(seededRandom(product.id, 39, 48)) / 10;
-  const reviewCount = Math.round(seededRandom(product.id + "r", 50, 500));
+  const reviewCount = Math.round(seededRandom(`${product.id}r`, 50, 500));
 
   const firstImage =
     Array.isArray(product.images) && product.images.length > 0 ? product.images[0] : null;
@@ -139,169 +261,217 @@ function MarketplaceCardComponent({
     rememberProductSeed(product);
     onPress?.(product.id);
   };
-  const handleTryAndBuy = React.useCallback((e: any) => {
-    e?.stopPropagation?.();
+  const handleTryAndBuy = React.useCallback(() => {
     onTryAndBuy?.(product.id);
   }, [onTryAndBuy, product.id]);
   const handleRemove = () => onRemove?.(product.id);
-  const handleToggleWishlist = (e: any) => {
-    e?.stopPropagation?.();
+  const handleToggleWishlist = () => {
     toggleWishlist(product.id);
   };
 
+  const productAccessibilityLabel = React.useMemo(() => {
+    const priceLabel =
+      typeof primaryPrice === "number"
+        ? `current price ${currency.format(primaryPrice)}`
+        : "price on request";
+    const mrpLabel =
+      typeof originalPrice === "number"
+        ? `, MRP ${currency.format(originalPrice)}`
+        : "";
+    const savingsLabel = discountLabel
+      ? `, ${discountLabel.replace("<", "less than ").toLowerCase()}`
+      : "";
+    return `${product.title}, rated ${rating.toFixed(1)} out of 5 from ${reviewCount} reviews, ${priceLabel}${mrpLabel}${savingsLabel}. View product details`;
+  }, [discountLabel, originalPrice, primaryPrice, product.title, rating, reviewCount]);
+
   return (
-    <AnimatedPressable
+    <Animated.View
       style={[styles.card, style, cardPressStyle]}
-      onPress={handlePress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
     >
-      <Animated.View style={[styles.imageWrap, imagePressStyle]}>
-        {/* `cover`, not `contain`. Catalogue photography arrives at whatever
-            ratio the seller uploaded, and letterboxing it left pale bands down
-            the sides of any shot that was not already 3:4 — a grid of
-            differently-sized pictures reads as broken rather than varied.
-            Filling the frame crops instead, so every card is the same shape.
-            The detail screen still uses `contain`, where seeing the whole
-            garment matters more than a tidy grid. */}
-        <Image
-          source={firstImage ? { uri: firstImage } : images.productPlaceholder}
-          style={styles.image}
-          contentFit="cover"
-          contentPosition="center"
-          transition={200}
-          cachePolicy="memory-disk"
-          width={imageWidth}
-        />
+      <AnimatedPressable
+        onPress={handlePress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        accessibilityRole="button"
+        accessibilityLabel={productAccessibilityLabel}
+      >
+        <Animated.View style={[styles.imageWrap, imagePressStyle]}>
+          {/* `cover`, not `contain`. Catalogue photography arrives at whatever
+              ratio the seller uploaded, and letterboxing it left pale bands down
+              the sides of any shot that was not already 3:4 — a grid of
+              differently-sized pictures reads as broken rather than varied.
+              Filling the frame crops instead, so every card is the same shape.
+              The detail screen still uses `contain`, where seeing the whole
+              garment matters more than a tidy grid. */}
+          <Image
+            source={firstImage ? { uri: firstImage } : images.productPlaceholder}
+            style={styles.image}
+            contentFit="cover"
+            contentPosition="center"
+            transition={200}
+            cachePolicy="memory-disk"
+            width={imageWidth}
+          />
 
-        {onTryAndBuy ? (
-          <Pressable
-            onPress={handleTryAndBuy}
-            hitSlop={6}
-            style={styles.tryBadge}
-          >
-            <Icon name="sparkles" size={12} color="#B7956C" />
-            <Text style={styles.tryBadgeText}>TRY ON</Text>
-          </Pressable>
-        ) : null}
-
-        {onRemove ? (
-          <Pressable
-            onPress={handleRemove}
-            disabled={removing}
-            hitSlop={8}
-            style={styles.iconButton}
-          >
-            {removing ? (
-              <ActivityIndicator size="small" color={colors.charcoal} />
-            ) : (
-              <Icon name="close" size={16} color={colors.charcoal} />
-            )}
-          </Pressable>
-        ) : (
-          <Pressable
-            onPress={handleToggleWishlist}
-            disabled={wishlistBusy}
-            hitSlop={8}
-            style={styles.iconButton}
-          >
-            {wishlistBusy ? (
-              <ActivityIndicator size="small" color={colors.charcoal} />
-            ) : (
-              <Icon
-                name={wishlisted ? "heart" : "heart-outline"}
-                size={16}
-                color={wishlisted ? "#E11D48" : colors.charcoal}
-              />
-            )}
-          </Pressable>
-        )}
-
-        <View style={styles.imageFooter}>
-          <View style={styles.ratingPill}>
-            <Text style={styles.ratingStar}>★</Text>
-            <Text style={styles.ratingValue}>{rating.toFixed(1)}</Text>
-            <Text style={styles.ratingDivider}>|</Text>
-            <Text style={styles.ratingCount}>{reviewCount}</Text>
-          </View>
-
-          {discountPercent !== null ? (
-            <View style={styles.discountBadge}>
-              <Text style={styles.discountBadgeText}>{discountPercent}% OFF</Text>
+          <View style={styles.imageFooter} pointerEvents="none">
+            <View style={styles.ratingPill}>
+              <Text style={styles.ratingStar}>★</Text>
+              <Text style={styles.ratingValue}>{rating.toFixed(1)}</Text>
+              <Text style={styles.ratingDivider}>|</Text>
+              <Text style={styles.ratingCount}>{reviewCount}</Text>
             </View>
-          ) : null}
-        </View>
-      </Animated.View>
 
-      <View style={styles.info}>
-        <Text style={styles.brand} numberOfLines={1}>
-          {(product.category?.name ?? "Tatvivah").toUpperCase()}
-        </Text>
-
-        <Text style={styles.title} numberOfLines={1}>
-          {product.title}
-        </Text>
-
-        {typeof primaryPrice === "number" ? (
-          <View style={styles.priceRow}>
-            <Text style={styles.price}>{currency.format(primaryPrice)}</Text>
-            {typeof originalPrice === "number" ? (
-              <Text style={styles.priceStrike}>{currency.format(originalPrice)}</Text>
-            ) : null}
-            {discountPercent !== null ? (
-              <Text style={styles.discountText}>{discountPercent}% OFF</Text>
+            {discountLabel !== null ? (
+              <View style={styles.discountBadge}>
+                <Text style={styles.discountBadgeText}>{discountLabel}</Text>
+              </View>
             ) : null}
           </View>
-        ) : (
-          <Text style={styles.priceUnavailable}>Price on request</Text>
-        )}
+        </Animated.View>
 
-        <View style={styles.ctaRow}>
-          <Pressable
-            style={styles.ctaButton}
-            onPress={(event) => {
-              event.stopPropagation();
-              if (onQuickAdd) onQuickAdd(product.id);
-              else handlePress();
-            }}
-          >
-            <Icon name="bag-handle-outline" size={13} color="#FFFFFF" />
-            <Text style={styles.ctaButtonText}>ADD</Text>
-          </Pressable>
-          <Pressable
-            style={styles.buyNowButton}
-            onPress={(event) => {
-              event.stopPropagation();
-              if (onBuyNow) onBuyNow(product.id);
-              else handlePress();
-            }}
-          >
-            <Text style={styles.buyNowButtonText}>BUY NOW</Text>
-          </Pressable>
+        <View style={styles.info}>
+          <Text style={styles.brand} numberOfLines={1}>
+            {(product.category?.name ?? "Tatvivah").toUpperCase()}
+          </Text>
+
+          <Text style={styles.title} numberOfLines={2}>
+            {product.title}
+          </Text>
+
+          {typeof primaryPrice === "number" ? (
+            <View style={styles.priceBlock}>
+              <Text
+                style={styles.price}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.8}
+              >
+                {currency.format(primaryPrice)}
+              </Text>
+              {typeof originalPrice === "number" ? (
+                <Text
+                  style={styles.mrpText}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.76}
+                >
+                  MRP{" "}
+                  <Text style={hasDiscount ? styles.priceStrike : undefined}>
+                    {currency.format(originalPrice)}
+                  </Text>
+                </Text>
+              ) : null}
+            </View>
+          ) : (
+            <Text style={styles.priceUnavailable}>Price on request</Text>
+          )}
         </View>
+      </AnimatedPressable>
+
+      {onTryAndBuy ? (
+        <Pressable
+          onPress={handleTryAndBuy}
+          hitSlop={6}
+          style={styles.tryBadge}
+          accessibilityRole="button"
+          accessibilityLabel={`Virtually try on ${product.title}`}
+        >
+          <Icon name="sparkles" size={12} color={colors.interactive} />
+          <Text style={styles.tryBadgeText}>TRY ON</Text>
+        </Pressable>
+      ) : null}
+
+      {onRemove ? (
+        <Pressable
+          onPress={handleRemove}
+          disabled={removing}
+          hitSlop={8}
+          style={styles.iconButton}
+          accessibilityRole="button"
+          accessibilityLabel={`Remove ${product.title} from wishlist`}
+          accessibilityState={{ disabled: removing, busy: removing }}
+        >
+          {removing ? (
+            <ActivityIndicator size="small" color={colors.charcoal} />
+          ) : (
+            <Icon name="close" size={16} color={colors.charcoal} />
+          )}
+        </Pressable>
+      ) : (
+        <Pressable
+          onPress={handleToggleWishlist}
+          disabled={wishlistBusy}
+          hitSlop={8}
+          style={styles.iconButton}
+          accessibilityRole="button"
+          accessibilityLabel={
+            wishlisted
+              ? `Remove ${product.title} from wishlist`
+              : `Add ${product.title} to wishlist`
+          }
+          accessibilityState={{
+            checked: wishlisted,
+            disabled: wishlistBusy,
+            busy: wishlistBusy,
+          }}
+        >
+          {wishlistBusy ? (
+            <ActivityIndicator size="small" color={colors.charcoal} />
+          ) : (
+            <Icon
+              name={wishlisted ? "heart" : "heart-outline"}
+              size={16}
+              color={wishlisted ? "#E11D48" : colors.charcoal}
+            />
+          )}
+        </Pressable>
+      )}
+
+      <View style={styles.ctaRow}>
+        <FlowActionButton
+          filled
+          label="ADD TO BAG"
+          icon="cart-outline"
+          onPress={() => {
+            if (onQuickAdd) onQuickAdd(product.id);
+            else handlePress();
+          }}
+          accessibilityLabel={`Add ${product.title} to bag`}
+        />
+        <FlowActionButton
+          label="BUY NOW"
+          icon="card-outline"
+          onPress={() => {
+            if (onBuyNow) onBuyNow(product.id);
+            else handlePress();
+          }}
+          accessibilityLabel={`Buy ${product.title} now`}
+        />
       </View>
-    </AnimatedPressable>
+    </Animated.View>
   );
 }
 
 export const MarketplaceCard = React.memo(MarketplaceCardComponent);
 
-const RATING_GREEN = "#0F8A5F";
 const DISCOUNT_AMBER = "#C2410C";
 const DISCOUNT_BADGE_BG = "rgba(255, 255, 255, 0.96)";
+const RATING_GREEN = "#0F8A5F";
 
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surfaceElevated,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.borderSoft,
     // overflow:hidden is what makes the corner actually clip the photo inside;
     // without it the image squares off the rounding the card just asked for.
     borderRadius: radius.lg,
     overflow: "hidden",
     shadowColor: "#1A1410",
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.12,
     shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 12,
-    elevation: 3,
+    shadowRadius: 14,
+    elevation: 4,
   },
   imageWrap: {
     width: "100%",
@@ -336,6 +506,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 8,
     left: 8,
+    minHeight: 32,
     paddingHorizontal: 10,
     paddingVertical: 5,
     backgroundColor: "rgba(255, 255, 255, 0.96)",
@@ -358,52 +529,58 @@ const styles = StyleSheet.create({
   },
   imageFooter: {
     position: "absolute",
-    left: 8,
-    right: 8,
-    bottom: 8,
+    left: 4,
+    right: 4,
+    bottom: 6,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
   ratingPill: {
+    minHeight: 20,
     borderRadius: radius.pill,
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: RATING_GREEN,
-    paddingHorizontal: 6,
+    paddingHorizontal: 5,
     paddingVertical: 2,
-    gap: 3,
+    gap: 2,
+    shadowColor: "#062E21",
+    shadowOpacity: 0.18,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    elevation: 2,
   },
   ratingStar: {
     color: "#FFFFFF",
-    fontSize: 10,
-    lineHeight: 12,
+    fontSize: 9,
+    lineHeight: 11,
   },
   ratingValue: {
     fontFamily: typography.sansMedium,
-    fontSize: 10,
+    fontSize: 9,
     color: "#FFFFFF",
     fontWeight: "700",
   },
   ratingDivider: {
     fontFamily: typography.sans,
-    fontSize: 10,
-    color: "rgba(255,255,255,0.7)",
+    fontSize: 9,
+    color: "rgba(255, 255, 255, 0.72)",
   },
   ratingCount: {
     fontFamily: typography.sans,
-    fontSize: 10,
-    color: "rgba(255,255,255,0.92)",
+    fontSize: 9,
+    color: "#FFFFFF",
   },
   discountBadge: {
     borderRadius: radius.pill,
     backgroundColor: DISCOUNT_BADGE_BG,
-    paddingHorizontal: 6,
+    paddingHorizontal: 5,
     paddingVertical: 2,
   },
   discountBadgeText: {
     fontFamily: typography.sansMedium,
-    fontSize: 10,
+    fontSize: 9,
     letterSpacing: 0.4,
     color: DISCOUNT_AMBER,
     fontWeight: "700",
@@ -411,7 +588,7 @@ const styles = StyleSheet.create({
   info: {
     paddingHorizontal: spacing.md,
     paddingTop: spacing.sm + 2,
-    paddingBottom: spacing.md,
+    paddingBottom: 0,
     gap: 2,
   },
   brand: {
@@ -423,15 +600,16 @@ const styles = StyleSheet.create({
   },
   title: {
     fontFamily: typography.sans,
-    fontSize: 11.5,
+    minHeight: 34,
+    fontSize: 13,
     color: colors.brownSoft,
-    lineHeight: 15,
+    lineHeight: 17,
     marginBottom: 4,
   },
-  priceRow: {
+  priceBlock: {
+    minHeight: 24,
     flexDirection: "row",
     alignItems: "baseline",
-    flexWrap: "wrap",
     gap: 6,
   },
   price: {
@@ -446,53 +624,68 @@ const styles = StyleSheet.create({
     color: colors.brownSoft,
     textDecorationLine: "line-through",
   },
-  discountText: {
-    fontFamily: typography.sansMedium,
+  mrpText: {
+    flexShrink: 1,
+    fontFamily: typography.sans,
     fontSize: 11,
-    color: DISCOUNT_AMBER,
-    fontWeight: "700",
+    color: colors.brownSoft,
   },
   priceUnavailable: {
     fontFamily: typography.sans,
     fontSize: 12,
     color: colors.brownSoft,
+    minHeight: 24,
   },
   ctaRow: {
-    flexDirection: "row",
+    flexDirection: "column",
     gap: 6,
-    marginTop: spacing.sm + 2,
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
   },
-  buyNowButton: {
-    borderRadius: radius.md,
-    flex: 1,
-    height: 34,
+  flowButton: {
+    width: "100%",
+    height: 36,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
+  },
+  flowButtonFilled: {
+    backgroundColor: colors.charcoal,
     borderWidth: 1,
     borderColor: colors.charcoal,
+  },
+  flowButtonOutline: {
     backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.charcoal,
   },
-  buyNowButtonText: {
-    fontFamily: typography.sansMedium,
-    fontSize: 11,
-    letterSpacing: 0.8,
-    color: colors.charcoal,
+  flowFill: {
+    position: "absolute",
+    width: 18,
+    height: 18,
+    borderRadius: 9,
   },
-  ctaButton: {
-    borderRadius: radius.md,
-    flex: 1,
-    height: 34,
-    backgroundColor: "#1A1410",
+  flowIdleContent: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
+    gap: 12,
   },
-  ctaButtonText: {
+  flowActiveContent: {
+    position: "absolute",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  flowLabel: {
     fontFamily: typography.sansMedium,
-    fontSize: 10.5,
-    letterSpacing: 1.4,
-    color: "#FFFFFF",
+    fontSize: 10,
+    letterSpacing: 1.2,
     fontWeight: "700",
+  },
+  flowLeadingArrow: {
+    position: "absolute",
+    left: 14,
+    zIndex: 2,
   },
 });

@@ -51,19 +51,8 @@ export default function RequestOtpScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <AppHeader title="Request OTP" subtitle="Tatvivah" showMenu showBack />
+      <AppHeader showBack />
       <ScrollView contentContainerStyle={styles.container}>
-        {/* Logo row — same as login */}
-        <View style={styles.logoRow}>
-          <View style={styles.logoBadge}>
-            <Text style={styles.logoLetter}>T</Text>
-          </View>
-          <View>
-            <Text style={styles.brand}>Tatvivah</Text>
-            <Text style={styles.brandTag}>Premium Indian Fashion</Text>
-          </View>
-        </View>
-
         <Text style={styles.title}>Sign in with OTP</Text>
         <Text style={styles.subtitle}>
           We&apos;ll send a one-time code to your mobile number.
@@ -119,39 +108,6 @@ const styles = StyleSheet.create({
   },
   container: {
     padding: spacing.lg,
-  },
-  logoRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: spacing.lg,
-  },
-  logoBadge: {
-    height: 44,
-    width: 44,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    backgroundColor: colors.surface,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: spacing.sm,
-  },
-  logoLetter: {
-    fontFamily: typography.serif,
-    fontSize: 20,
-    color: colors.charcoal,
-  },
-  brand: {
-    fontFamily: typography.serif,
-    fontSize: 18,
-    color: colors.charcoal,
-  },
-  brandTag: {
-    fontFamily: typography.sans,
-    fontSize: 10,
-    letterSpacing: 1.5,
-    color: colors.goldMuted,
-    textTransform: "uppercase",
   },
   title: {
     fontFamily: typography.serif,

@@ -658,7 +658,7 @@ export default function CheckoutScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <AppHeader title="Checkout" subtitle="Secure payment" showMenu showBack />
+      <AppHeader title="Checkout" subtitle="Secure payment" showBack />
       {isPaying ? (
         <TatvivahOverlayLoader label={payLabel} />
       ) : null}

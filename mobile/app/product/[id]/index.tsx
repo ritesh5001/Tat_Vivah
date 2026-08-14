@@ -111,6 +111,9 @@ const MAX_REVIEW_IMAGES = 3;
 const MAX_REVIEW_IMAGE_BYTES = 2 * 1024 * 1024;
 const MAX_TRY_ON_IMAGE_BYTES = 8 * 1024 * 1024;
 const RELATED_PRODUCTS_PAGE_SIZE = 8;
+const RELATED_PRODUCT_GAP = spacing.md;
+
+const RelatedProductSeparator = () => <View style={{ width: RELATED_PRODUCT_GAP }} />;
 
 // ---------------------------------------------------------------------------
 // Memoised sub-components (extracted from render for FlatList perf)
@@ -379,21 +382,6 @@ function getVariantColorLabel(variant: ProductVariant): string {
   return variant.color?.trim() || "";
 }
 
-function seededRandom(seed: string, min: number, max: number): number {
-  let hash = 0;
-  for (let i = 0; i < seed.length; i++) {
-    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
-  }
-  const range = (max - min) * 10;
-  return min + (hash % range) / 10;
-}
-
-function formatDeliveryEstimate(daysAhead: number): string {
-  const date = new Date();
-  date.setDate(date.getDate() + daysAhead);
-  return date.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
-}
-
 // Lightweight HTML cleaner for product descriptions. Splits paragraphs, decodes
 // common entities, and strips remaining tags so users see formatted text rather
 // than `<p>...</p>` markup.
@@ -459,7 +447,6 @@ export default function ProductDetailScreen() {
   const sizeSectionY = React.useRef<number | null>(null);
   const [adding, setAdding] = React.useState(false);
   /** Which CTA is working, so only that button shows a spinner. */
-  const [pendingAction, setPendingAction] = React.useState<"cart" | "buy" | null>(null);
   /** Brief confirmation state on the Add to bag button after a successful write. */
   const [justAdded, setJustAdded] = React.useState(false);
   // Thumbnail flight from the action bar to the cart icon.
@@ -467,8 +454,6 @@ export default function ProductDetailScreen() {
   const [flyOrigin, setFlyOrigin] = React.useState<{ x: number; y: number } | null>(null);
   const flightOriginRef = React.useRef<{ x: number; y: number } | null>(null);
   const justAddedTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [showViewCart, setShowViewCart] = React.useState(false);
-  const viewCartTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [reviews, setReviews] = React.useState<Review[]>([]);
   const [reviewSummary, setReviewSummary] = React.useState<ReviewSummary | null>(
@@ -487,6 +472,8 @@ export default function ProductDetailScreen() {
   const [loadingMoreRelated, setLoadingMoreRelated] = React.useState(false);
   const [relatedPage, setRelatedPage] = React.useState(1);
   const [hasMoreRelated, setHasMoreRelated] = React.useState(false);
+  const loadingMoreRelatedRef = React.useRef(false);
+  const relatedLoadMoreAbortRef = React.useRef<AbortController | null>(null);
   const [tryOnUserImageUri, setTryOnUserImageUri] = React.useState<string | null>(null);
   const [tryOnUserImageAsset, setTryOnUserImageAsset] = React.useState<ReviewImageAsset | null>(null);
   const [tryOnResult, setTryOnResult] = React.useState<TryOnResult | null>(null);
@@ -542,9 +529,6 @@ export default function ProductDetailScreen() {
   React.useEffect(() => {
     return () => {
       mountedRef.current = false;
-      if (viewCartTimerRef.current) {
-        clearTimeout(viewCartTimerRef.current);
-      }
       if (justAddedTimerRef.current) {
         clearTimeout(justAddedTimerRef.current);
       }
@@ -610,6 +594,9 @@ export default function ProductDetailScreen() {
     productQuery.isPlaceholderData &&
     !productQuery.isError &&
     (product?.variants?.length ?? 0) === 0;
+  const productNotFound =
+    !productId ||
+    (productQuery.error instanceof ApiError && productQuery.error.statusCode === 404);
 
   // ---- Arrival choreography ----
   //
@@ -726,6 +713,9 @@ export default function ProductDetailScreen() {
     const categoryId = relatedCategoryId;
 
     if (!categoryId) {
+      relatedLoadMoreAbortRef.current?.abort();
+      relatedLoadMoreAbortRef.current = null;
+      loadingMoreRelatedRef.current = false;
       setRelatedProducts([]);
       setRelatedPage(1);
       setHasMoreRelated(false);
@@ -736,6 +726,9 @@ export default function ProductDetailScreen() {
 
     const controller = new AbortController();
     let active = true;
+    relatedLoadMoreAbortRef.current?.abort();
+    relatedLoadMoreAbortRef.current = null;
+    loadingMoreRelatedRef.current = false;
 
     (async () => {
       setLoadingRelated(true);
@@ -763,6 +756,9 @@ export default function ProductDetailScreen() {
     return () => {
       active = false;
       controller.abort();
+      relatedLoadMoreAbortRef.current?.abort();
+      relatedLoadMoreAbortRef.current = null;
+      loadingMoreRelatedRef.current = false;
     };
     // Keyed on the category id rather than the product object: the object
     // identity changes when the seed is replaced by the real response, which
@@ -855,7 +851,6 @@ export default function ProductDetailScreen() {
     productAny?.adminPrice ??
     productAny?.price ??
     null;
-  const productSeed = productAny?.id ?? "";
   // Only treat the backend's compare-at as "real" when it's strictly greater than sale.
   const candidateCompareAt =
     fallbackVariant?.compareAtPrice ??
@@ -868,11 +863,9 @@ export default function ProductDetailScreen() {
     candidateCompareAt > salePrice
       ? candidateCompareAt
       : null;
-  const fakeCompareAt =
-    realCompareAt === null && typeof salePrice === "number" && salePrice > 0 && productSeed
-      ? Math.round(salePrice / (1 - Math.round(seededRandom(productSeed + "m", 50, 75)) / 100) / 10) * 10
-      : null;
-  const compareAtPrice = realCompareAt ?? fakeCompareAt;
+  // Price anchoring is a commercial claim. Never synthesize a compare-at price
+  // when the catalogue does not provide one.
+  const compareAtPrice = realCompareAt;
   const hasDiscount =
     typeof salePrice === "number" &&
     typeof compareAtPrice === "number" &&
@@ -881,10 +874,6 @@ export default function ProductDetailScreen() {
   const discountPercent = hasDiscount
     ? Math.round(((compareAtPrice - salePrice) / compareAtPrice) * 100)
     : 0;
-  const productRating = productSeed ? Math.round(seededRandom(productSeed, 39, 48)) / 10 : 4.2;
-  const productReviewCount = productSeed ? Math.round(seededRandom(productSeed + "r", 50, 500)) : 0;
-  const productViewerCount = productSeed ? Math.round(seededRandom(productSeed + "v", 200, 900)) : 0;
-  const deliveryEstimate = formatDeliveryEstimate(6);
   const selectedColorImages = React.useMemo(() => {
     const selectedVariantImages =
       selectedVariant?.images?.filter(
@@ -920,6 +909,8 @@ export default function ProductDetailScreen() {
   // The server aggregates over every review; the local average only covers the
   // page we fetched, so prefer the summary when it is present.
   const avgRating = reviewSummary?.averageRating ?? computeAvgRating(reviews);
+  const totalReviewCount = reviewSummary?.totalReviews ?? reviews.length;
+  const hasReviews = totalReviewCount > 0;
   // Duplicate-prevention: the backend rejects a second review with a 409; hiding
   // the form when the user's own review is on this page saves that round trip.
   const hasUserReviewed =
@@ -1147,7 +1138,6 @@ export default function ProductDetailScreen() {
     router.push("/checkout");
 
     setAdding(true);
-    setPendingAction("buy");
     try {
       await cartWrite;
     } catch {
@@ -1155,7 +1145,6 @@ export default function ProductDetailScreen() {
     } finally {
       if (mountedRef.current) {
         setAdding(false);
-        setPendingAction(null);
       }
     }
   }, [
@@ -1287,19 +1276,23 @@ export default function ProductDetailScreen() {
         setReviews((prev) =>
           prev.map((r) => (r.id === optimisticId ? review : r))
         );
-        setReviewSummary((prev) =>
-          prev
-            ? {
-                ...prev,
-                totalReviews: prev.totalReviews + 1,
-                ratingDistribution: {
-                  ...prev.ratingDistribution,
-                  [review.rating]:
-                    (prev.ratingDistribution[review.rating] ?? 0) + 1,
-                },
-              }
-            : prev
-        );
+        setReviewSummary((prev) => {
+          const previousTotal = prev?.totalReviews ?? 0;
+          const nextTotal = previousTotal + 1;
+          const nextAverage =
+            ((prev?.averageRating ?? 0) * previousTotal + review.rating) /
+            nextTotal;
+
+          return {
+            averageRating: Number(nextAverage.toFixed(1)),
+            totalReviews: nextTotal,
+            ratingDistribution: {
+              ...(prev?.ratingDistribution ?? {}),
+              [review.rating]:
+                (prev?.ratingDistribution?.[review.rating] ?? 0) + 1,
+            },
+          };
+        });
         setRating(0);
         setReviewText("");
         setReviewImages([]);
@@ -1518,7 +1511,7 @@ export default function ProductDetailScreen() {
   const renderRelatedItem = React.useCallback(
     ({ item }: ListRenderItemInfo<ProductSummary>) => (
       <MarketplaceCard
-        product={item as never}
+        product={item}
         onPress={handleRelatedPress}
         onQuickAdd={openQuickAdd}
         onBuyNow={openBuyNow}
@@ -1535,19 +1528,24 @@ export default function ProductDetailScreen() {
       !product?.id ||
       !categoryId ||
       loadingRelated ||
-      loadingMoreRelated ||
+      loadingMoreRelatedRef.current ||
       !hasMoreRelated
     ) {
       return;
     }
 
+    const controller = new AbortController();
+    loadingMoreRelatedRef.current = true;
+    relatedLoadMoreAbortRef.current = controller;
     setLoadingMoreRelated(true);
     try {
       const response = await getProducts({
         page: relatedPage + 1,
         limit: RELATED_PRODUCTS_PAGE_SIZE,
         categoryId,
+        signal: controller.signal,
       });
+      if (controller.signal.aborted) return;
       setRelatedProducts((current) => {
         const seen = new Set([product.id, ...current.map((item) => item.id)]);
         const nextItems = (response.data ?? []).filter((item) => {
@@ -1563,30 +1561,20 @@ export default function ProductDetailScreen() {
       if (isAbortError(err)) return;
       setHasMoreRelated(false);
     } finally {
-      setLoadingMoreRelated(false);
+      if (relatedLoadMoreAbortRef.current === controller) {
+        relatedLoadMoreAbortRef.current = null;
+        loadingMoreRelatedRef.current = false;
+        setLoadingMoreRelated(false);
+      }
     }
   }, [
     hasMoreRelated,
-    loadingMoreRelated,
     loadingRelated,
     product?.category?.id,
     product?.categoryId,
     product?.id,
     relatedPage,
   ]);
-
-  /** Near-bottom check, shared by onScroll and onMomentumScrollEnd. */
-  const handlePageScroll = React.useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
-      const distanceFromBottom =
-        contentSize.height - (contentOffset.y + layoutMeasurement.height);
-      if (distanceFromBottom < 900) {
-        void handleLoadMoreRelated();
-      }
-    },
-    [handleLoadMoreRelated]
-  );
 
   const renderRelatedFooter = React.useCallback(() => {
     if (!loadingMoreRelated) return null;
@@ -1607,7 +1595,7 @@ export default function ProductDetailScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <AppHeader showMenu showBack showWishlist showCart />
+        <AppHeader showBack showWishlist showCart />
         <ScrollView contentContainerStyle={styles.container}>
           <SkeletonBlock
             width={galleryWidth}
@@ -1640,11 +1628,33 @@ export default function ProductDetailScreen() {
   if (!product) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <AppHeader showMenu showBack showWishlist showCart />
-        <View style={styles.centerCard}>
-          <Text style={styles.emptyTitle}>Product unavailable</Text>
-          <Pressable style={styles.primaryButton} onPress={() => router.back()}>
-            <Text style={styles.primaryButtonText}>Go back</Text>
+        <AppHeader showBack showWishlist showCart />
+        <View style={styles.centerCard} accessibilityRole="alert">
+          <Text style={styles.emptyTitle}>
+            {productNotFound ? "Product unavailable" : "We couldn't load this product"}
+          </Text>
+          <Text style={styles.emptyMessage}>
+            {productNotFound
+              ? "This item may no longer be available."
+              : "Check your connection and try again."}
+          </Text>
+          {!productNotFound ? (
+            <Pressable
+              style={[styles.primaryButton, styles.emptyAction]}
+              onPress={() => void productQuery.refetch()}
+              accessibilityRole="button"
+              accessibilityLabel="Retry loading product"
+            >
+              <Text style={styles.primaryButtonText}>Try again</Text>
+            </Pressable>
+          ) : null}
+          <Pressable
+            style={[styles.secondaryButton, styles.emptyAction]}
+            onPress={() => router.back()}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+          >
+            <Text style={styles.secondaryButtonText}>Go back</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -1653,21 +1663,12 @@ export default function ProductDetailScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <AppHeader showMenu showBack showWishlist showCart />
+      <AppHeader showBack showWishlist showCart />
       <ScrollView
         ref={scrollRef}
         contentContainerStyle={[styles.container, { paddingBottom: stickyReserveSpace }]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
-        // 16ms means this handler crosses the bridge and runs JS 60 times a
-        // second. All it decides is "are we within 900px of the bottom" — a
-        // question whose answer cannot meaningfully change four times in
-        // 250ms. At 16ms it was competing with the render it was scrolling.
-        scrollEventThrottle={250}
-        onScroll={handlePageScroll}
-        // A throttled onScroll can be skipped entirely during a fast fling on
-        // Android; this guarantees one check once the scroll settles.
-        onMomentumScrollEnd={handlePageScroll}
         showsVerticalScrollIndicator={false}
       >
         {/* ---- Image gallery with paging dots ---- */}
@@ -1729,6 +1730,27 @@ export default function ProductDetailScreen() {
           </View>
         )}
 
+        {productQuery.isError &&
+        placeholderProduct &&
+        (product.variants?.length ?? 0) === 0 ? (
+          <View style={styles.refreshWarning} accessibilityRole="alert">
+            <View style={styles.refreshWarningCopy}>
+              <Text style={styles.refreshWarningTitle}>Some details are unavailable</Text>
+              <Text style={styles.refreshWarningText}>
+                Reconnect to refresh sizes, stock and pricing.
+              </Text>
+            </View>
+            <Pressable
+              style={styles.refreshWarningButton}
+              onPress={() => void productQuery.refetch()}
+              accessibilityRole="button"
+              accessibilityLabel="Refresh product details"
+            >
+              <Text style={styles.refreshWarningButtonText}>Retry</Text>
+            </Pressable>
+          </View>
+        ) : null}
+
         {/* ---- Details card ---- */}
         <Animated.View style={[styles.detailsCard, contentEntranceStyle]}>
           <Text style={styles.categoryLabel}>
@@ -1786,28 +1808,30 @@ export default function ProductDetailScreen() {
             </Text>
           </View>
 
-          {/* Rating pill — uses real reviews when present, otherwise seeded values */}
-          <View style={styles.ratingPillRow}>
-            <View style={styles.ratingPill}>
-              <Text style={styles.ratingPillStar}>★</Text>
-              <Text style={styles.ratingPillValue}>
-                {(reviews.length > 0 ? avgRating : productRating).toFixed(1)}
-              </Text>
-              <Text style={styles.ratingPillDivider}>|</Text>
-              <Text style={styles.ratingPillCount}>
-                {reviews.length > 0 ? reviews.length : productReviewCount}
+          {/* Reviews are a trust signal, so this block only displays aggregate
+              data returned by the review service. */}
+          {hasReviews ? (
+            <View style={styles.ratingPillRow}>
+              <View style={styles.ratingPill}>
+                <Text style={styles.ratingPillStar}>★</Text>
+                <Text style={styles.ratingPillValue}>{avgRating.toFixed(1)}</Text>
+                <Text style={styles.ratingPillDivider}>|</Text>
+                <Text style={styles.ratingPillCount}>{totalReviewCount}</Text>
+              </View>
+              <Text style={styles.ratingPillLabel}>
+                {totalReviewCount === 1 ? "verified review" : "verified reviews"}
               </Text>
             </View>
-            <Text style={styles.ratingPillLabel}>
-              {reviews.length > 0
-                ? `${reviews.length === 1 ? "review" : "reviews"}`
-                : "ratings"}
-            </Text>
-          </View>
+          ) : (
+            <View style={styles.ratingPillRow}>
+              <Icon name="star" size={14} color={colors.gold} />
+              <Text style={styles.ratingPillLabel}>Be the first to review</Text>
+            </View>
+          )}
 
           {(() => {
             const paragraphs = htmlToParagraphs(
-              product.description ?? "Curated premium listing with verified quality assurance."
+              product.description ?? "Product details are being prepared."
             );
             return (
               <View style={styles.descriptionAccordion}>
@@ -1860,33 +1884,20 @@ export default function ProductDetailScreen() {
             </View>
             {hasDiscount ? (
               <Text style={styles.savingsText}>
-                You save {currency.format(savingsAmount)} + limited-time offer
+                You save {currency.format(savingsAmount)}
               </Text>
             ) : null}
           </View>
 
-          {/* Delivery + offers + viewer count */}
+          {/* Delivery information is finalized against the shipping address in
+              checkout; avoid promising a date before that calculation exists. */}
           <View style={styles.infoBlock}>
             <View style={styles.infoRow}>
               <Icon name="cube-outline" size={16} color={colors.gold} />
               <Text style={styles.infoText}>
-                Get it by <Text style={styles.infoStrong}>{deliveryEstimate}</Text>
+                Delivery timing and charges are confirmed at checkout
               </Text>
             </View>
-            <View style={styles.infoRow}>
-              <Icon name="pricetag-outline" size={16} color={colors.gold} />
-              <Text style={styles.infoText}>
-                Use <Text style={styles.infoStrong}>WELCOME5</Text> for extra 5% off on first order
-              </Text>
-            </View>
-            {productSeed ? (
-              <View style={styles.infoRow}>
-                <Icon name="eye-outline" size={16} color={colors.brownSoft} />
-                <Text style={styles.infoTextMuted}>
-                  {productViewerCount} people viewed this recently
-                </Text>
-              </View>
-            ) : null}
           </View>
 
           {/* Trust strip */}
@@ -2044,14 +2055,6 @@ export default function ProductDetailScreen() {
             ) : null}
           </View>
 
-          {showViewCart && (
-            <Pressable
-              style={styles.secondaryButton}
-              onPress={() => router.push("/cart")}
-            >
-              <Text style={styles.secondaryButtonText}>View cart</Text>
-            </Pressable>
-          )}
         </Animated.View>
 
         {/* Everything from here down is off-screen on open. Mounting it in the
@@ -2257,15 +2260,21 @@ export default function ProductDetailScreen() {
                 data={relatedProducts}
                 keyExtractor={relatedKeyExtractor}
                 renderItem={renderRelatedItem}
-                numColumns={2}
-                scrollEnabled={false}
-                initialNumToRender={4}
+                horizontal
+                nestedScrollEnabled
+                initialNumToRender={3}
                 maxToRenderPerBatch={4}
                 windowSize={5}
-                contentContainerStyle={styles.relatedGridList}
-                columnWrapperStyle={styles.relatedGridRow}
+                ItemSeparatorComponent={RelatedProductSeparator}
+                ListFooterComponent={renderRelatedFooter}
+                onEndReached={() => void handleLoadMoreRelated()}
+                onEndReachedThreshold={0.55}
+                contentContainerStyle={styles.relatedHorizontalList}
+                showsHorizontalScrollIndicator={false}
+                decelerationRate="fast"
+                snapToInterval={relatedCardWidth + RELATED_PRODUCT_GAP}
+                disableIntervalMomentum
               />
-              {renderRelatedFooter()}
             </>
           )}
         </View>
@@ -2726,18 +2735,6 @@ const styles = StyleSheet.create({
     color: colors.charcoal,
     flex: 1,
     lineHeight: 16,
-  },
-  infoTextMuted: {
-    fontFamily: typography.sans,
-    fontSize: 12,
-    color: colors.brownSoft,
-    flex: 1,
-    lineHeight: 16,
-  },
-  infoStrong: {
-    fontFamily: typography.sansMedium,
-    fontWeight: "700",
-    color: colors.charcoal,
   },
   trustStrip: {
     marginTop: spacing.sm,
@@ -3375,38 +3372,10 @@ const styles = StyleSheet.create({
     borderColor: colors.borderSoft,
     ...shadow.card,
   },
-  relatedGridList: { paddingTop: spacing.sm },
-  relatedGridRow: { gap: spacing.md, marginBottom: spacing.md },
-  relatedListContent: {
-    marginTop: spacing.md,
-    gap: spacing.md,
+  relatedHorizontalList: {
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
     paddingRight: spacing.sm,
-  },
-  relatedCard: {
-    width: 150,
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    borderRadius: radius.lg,
-    padding: spacing.sm,
-    backgroundColor: colors.background,
-  },
-  relatedImage: {
-    width: "100%",
-    height: 110,
-    borderRadius: radius.md,
-    backgroundColor: colors.cream,
-  },
-  relatedTitle: {
-    marginTop: spacing.sm,
-    fontFamily: typography.serif,
-    fontSize: 13,
-    color: colors.charcoal,
-  },
-  relatedMeta: {
-    marginTop: spacing.xs,
-    fontFamily: typography.sans,
-    fontSize: 10,
-    color: colors.brownSoft,
   },
   relatedLoadingWrap: {
     marginTop: spacing.md,
@@ -3433,7 +3402,62 @@ const styles = StyleSheet.create({
     fontFamily: typography.serif,
     fontSize: 18,
     color: colors.charcoal,
-    marginBottom: spacing.md,
+    marginBottom: spacing.xs,
+    textAlign: "center",
+  },
+  emptyMessage: {
+    fontFamily: typography.sans,
+    fontSize: 13,
+    lineHeight: 20,
+    color: colors.brownSoft,
+    textAlign: "center",
+  },
+  emptyAction: {
+    minWidth: 180,
+    minHeight: 44,
+  },
+  refreshWarning: {
+    marginTop: spacing.md,
+    marginHorizontal: spacing.md,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.warning,
+    backgroundColor: colors.surfaceElevated,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  refreshWarningCopy: {
+    flex: 1,
+  },
+  refreshWarningTitle: {
+    fontFamily: typography.sansMedium,
+    fontSize: 13,
+    color: colors.charcoal,
+  },
+  refreshWarningText: {
+    marginTop: 2,
+    fontFamily: typography.sans,
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.brownSoft,
+  },
+  refreshWarningButton: {
+    minHeight: 44,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.interactive,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  refreshWarningButtonText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 11,
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+    color: colors.interactive,
   },
   viewerOverlay: {
     flex: 1,

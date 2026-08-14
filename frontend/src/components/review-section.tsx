@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import { cn } from "@/lib/utils";
 
 const reviews = [
     {
@@ -62,7 +61,7 @@ export function ReviewSection() {
                             <div>
                                 <div className="mb-4 text-lg text-gold">★★★★★</div>
                                 <p className="mb-6 text-sm italic leading-relaxed text-muted-foreground">
-                                    "{review.text}"
+                                    &ldquo;{review.text}&rdquo;
                                 </p>
                             </div>
 

@@ -1,31 +1,39 @@
-import React from "react";
+import * as React from "react";
 import {
+  AccessibilityInfo,
+  findNodeHandle,
   Modal,
-  View,
-  Text,
+  Platform,
   Pressable,
   StyleSheet,
-  Platform,
+  View,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "../hooks/useAuth";
-import { colors, typography, spacing, radius } from "../theme/tokens";
+import { colors, radius, spacing, typography } from "../theme/tokens";
+import { AppText as Text } from "./AppText";
+import { Icon } from "./Icon";
 
-/**
- * A blocking modal displayed when the refresh-token rotation fails
- * (i.e. the user's session is truly expired on the server).
- *
- * The user MUST tap "Sign In" → we clear the expired flag and
- * navigate to the login screen.
- */
+/** Gives an expired authenticated session an explicit, recoverable next step. */
 export function SessionExpiredModal() {
-  const { sessionExpired, acknowledgeSessionExpired } = useAuth();
   const router = useRouter();
+  const { sessionExpired, acknowledgeSessionExpired } = useAuth();
+  const signInButtonRef = React.useRef<React.ElementRef<typeof Pressable>>(null);
 
-  const handlePress = () => {
+  const continueToSignIn = React.useCallback(() => {
     acknowledgeSessionExpired();
     router.replace("/login");
-  };
+  }, [acknowledgeSessionExpired, router]);
+
+  const handleShow = React.useCallback(() => {
+    AccessibilityInfo.announceForAccessibility(
+      "Your session expired. Please sign in again."
+    );
+    requestAnimationFrame(() => {
+      const node = findNodeHandle(signInButtonRef.current);
+      if (node) AccessibilityInfo.setAccessibilityFocus(node);
+    });
+  }, []);
 
   return (
     <Modal
@@ -33,23 +41,34 @@ export function SessionExpiredModal() {
       transparent
       animationType="fade"
       statusBarTranslucent
-      onRequestClose={handlePress}
+      onRequestClose={continueToSignIn}
+      onShow={handleShow}
     >
-      <View style={styles.overlay}>
+      <View
+        style={styles.overlay}
+        accessibilityViewIsModal
+        accessibilityLabel="Session expired"
+      >
         <View style={styles.card}>
-          <Text style={styles.title}>Session Expired</Text>
-          <Text style={styles.body}>
-            Your session has expired. Please sign in again to continue.
+          <View style={styles.iconWrap} accessibilityElementsHidden>
+            <Icon name="lock-closed-outline" size={24} color={colors.interactive} />
+          </View>
+          <Text style={styles.eyebrow}>Account security</Text>
+          <Text style={styles.title} accessibilityRole="header">
+            Please sign in again
           </Text>
-
+          <Text style={styles.body}>
+            Your session ended to keep your account secure. Your bag and saved
+            items will be available after you sign in.
+          </Text>
           <Pressable
-            style={({ pressed }) => [
-              styles.button,
-              pressed && styles.buttonPressed,
-            ]}
-            onPress={handlePress}
+            ref={signInButtonRef}
+            style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
+            onPress={continueToSignIn}
+            accessibilityRole="button"
+            accessibilityLabel="Continue to sign in"
           >
-            <Text style={styles.buttonText}>Sign In</Text>
+            <Text style={styles.buttonText}>Continue to sign in</Text>
           </Pressable>
         </View>
       </View>
@@ -60,60 +79,83 @@ export function SessionExpiredModal() {
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(44, 40, 37, 0.55)",
-    justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: spacing.lg,
+    justifyContent: "center",
+    paddingHorizontal: spacing.xl,
+    backgroundColor: colors.overlay,
   },
   card: {
     width: "100%",
-    maxWidth: 340,
-    backgroundColor: colors.warmWhite,
-    borderRadius: radius.lg,
-    paddingVertical: spacing.xl,
-    paddingHorizontal: spacing.lg,
+    maxWidth: 360,
     alignItems: "center",
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.surfaceElevated,
+    padding: spacing.xl,
     ...Platform.select({
       ios: {
-        shadowColor: colors.charcoal,
+        shadowColor: colors.shadow,
         shadowOpacity: 0.18,
-        shadowOffset: { width: 0, height: 8 },
-        shadowRadius: 24,
+        shadowOffset: { width: 0, height: 10 },
+        shadowRadius: 26,
       },
-      android: { elevation: 8 },
+      android: { elevation: 10 },
       default: {},
     }),
   },
+  iconWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: radius.pill,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+  },
+  eyebrow: {
+    marginTop: spacing.md,
+    fontFamily: typography.sansMedium,
+    fontSize: 11,
+    lineHeight: 16,
+    letterSpacing: 1.4,
+    textTransform: "uppercase",
+    color: colors.interactive,
+  },
   title: {
+    marginTop: spacing.xs,
     fontFamily: typography.serif,
-    fontSize: 24,
+    fontSize: 27,
+    lineHeight: 32,
     color: colors.charcoal,
-    marginBottom: spacing.sm,
     textAlign: "center",
   },
   body: {
+    marginTop: spacing.sm,
     fontFamily: typography.sans,
-    fontSize: 15,
+    fontSize: 14,
+    lineHeight: 21,
     color: colors.brownSoft,
-    lineHeight: 22,
     textAlign: "center",
-    marginBottom: spacing.lg,
   },
   button: {
-    backgroundColor: colors.gold,
-    paddingVertical: 14,
-    paddingHorizontal: spacing.xl,
-    borderRadius: radius.md,
     width: "100%",
+    minHeight: 48,
+    marginTop: spacing.xl,
+    borderRadius: radius.md,
+    backgroundColor: colors.interactive,
     alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: spacing.lg,
   },
   buttonPressed: {
-    opacity: 0.85,
+    opacity: 0.82,
   },
   buttonText: {
     fontFamily: typography.sansMedium,
-    fontSize: 16,
-    color: colors.warmWhite,
-    letterSpacing: 0.3,
+    fontSize: 13,
+    letterSpacing: 0.8,
+    color: colors.onAccent,
   },
 });

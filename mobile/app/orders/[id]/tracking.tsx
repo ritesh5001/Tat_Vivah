@@ -9,7 +9,6 @@ import {
   type AppStateStatus,
 } from "react-native";
 import { useLocalSearchParams, usePathname, useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import {
   getOrderTracking,
@@ -24,7 +23,7 @@ import { useToast } from "../../../src/providers/ToastProvider";
 import { useAuth } from "../../../src/hooks/useAuth";
 import { impactLight } from "../../../src/utils/haptics";
 import { AppText as Text, ScreenContainer as SafeAreaView } from "../../../src/components";
-import { getBottomBarTotalHeight } from "../../../src/components/GlobalBottomBar";
+import { AppHeader } from "../../../src/components/AppHeader";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -69,7 +68,6 @@ export default function TrackingScreen() {
   const { id: orderId } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const pathname = usePathname();
-  const insets = useSafeAreaInsets();
   const { session, isLoading: authLoading } = useAuth();
   const token = session?.accessToken ?? null;
   const { showToast } = useToast();
@@ -223,11 +221,6 @@ export default function TrackingScreen() {
   const shipment = tracking?.shipments?.[0] ?? null;
   const shipmentStatus: ShipmentStatus = shipment?.status ?? "CREATED";
   const isDelivered = shipmentStatus === "DELIVERED";
-  const bottomBarOffset = React.useMemo(
-    () => getBottomBarTotalHeight(insets.bottom),
-    [insets.bottom]
-  );
-  const trackingBottomReserve = bottomBarOffset + spacing.lg;
   const timestamps: Partial<Record<ShipmentStatus, string | null>> = {
     CREATED: tracking?.shipments?.length
       ? shipment?.events?.find((e) => e.status === "CREATED")?.createdAt ?? null
@@ -240,14 +233,7 @@ export default function TrackingScreen() {
   // ---- Render ----
   return (
     <SafeAreaView style={styles.safeArea}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Text style={styles.backText}>← Back</Text>
-        </Pressable>
-        <Text style={styles.headerTitle}>Order Tracking</Text>
-        <View style={{ width: 48 }} />
-      </View>
+      <AppHeader title="Order tracking" subtitle="Live delivery updates" showBack />
 
       {/* Loading state */}
       {loading && !tracking ? (
@@ -259,13 +245,18 @@ export default function TrackingScreen() {
         <View style={styles.center}>
           <Text style={styles.errorTitle}>Unable to load tracking</Text>
           <Text style={styles.errorMessage}>{error}</Text>
-          <Pressable style={styles.retryButton} onPress={() => fetchTracking()}>
+          <Pressable
+            style={styles.retryButton}
+            onPress={() => fetchTracking()}
+            accessibilityRole="button"
+            accessibilityLabel="Retry loading tracking"
+          >
             <Text style={styles.retryText}>Retry</Text>
           </Pressable>
         </View>
       ) : (
         <ScrollView
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: trackingBottomReserve }]}
+          contentContainerStyle={styles.scrollContent}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -376,26 +367,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderSoft,
-  },
-  backText: {
-    fontFamily: typography.sans,
-    fontSize: 13,
-    color: colors.gold,
-  },
-  headerTitle: {
-    fontFamily: typography.serif,
-    fontSize: 18,
-    color: colors.charcoal,
-  },
-
   // Centered states
   center: {
     flex: 1,

@@ -19,6 +19,7 @@ import { useAddresses } from "../../../../src/providers/AddressProvider";
 import { AnimatedPressable } from "../../../../src/components/AnimatedPressable";
 import { notifySuccess, notifyError } from "../../../../src/utils/haptics";
 import { TatvivahLoader } from "../../../../src/components/TatvivahLoader";
+import { AppHeader } from "../../../../src/components/AppHeader";
 import type {
   AddressLabel,
   CreateAddressPayload,
@@ -175,28 +176,40 @@ export default function AddressFormScreen() {
     router,
   ]);
 
+  if (authLoading) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <AppHeader
+          title={isEdit ? "Edit address" : "New address"}
+          subtitle="Delivery details"
+          showBack
+        />
+        <View style={styles.emptyContainer}>
+          <TatvivahLoader label="Loading address details" color={colors.gold} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   if (showGuestState) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <View style={styles.header}>
-          <AnimatedPressable onPress={handleGoBack} style={styles.backButton}>
-            <Text style={styles.backArrow}>←</Text>
-          </AnimatedPressable>
-          <View>
-            <Text style={styles.headerTitle}>
-              {isEdit ? "Edit Address" : "New Address"}
-            </Text>
-            <Text style={styles.headerCopy}>
-              Add delivery details when you&apos;re ready to check out.
-            </Text>
-          </View>
-        </View>
+        <AppHeader
+          title={isEdit ? "Edit address" : "New address"}
+          subtitle="Delivery details"
+          showBack
+        />
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyTitle}>Address details unavailable</Text>
           <Text style={styles.emptySubtitle}>
             You can add a delivery address during checkout.
           </Text>
-          <AnimatedPressable onPress={handleGoBack} style={styles.primaryButton}>
+          <AnimatedPressable
+            onPress={handleGoBack}
+            style={styles.primaryButton}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+          >
             <Text style={styles.primaryButtonText}>Back</Text>
           </AnimatedPressable>
         </View>
@@ -206,6 +219,11 @@ export default function AddressFormScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <AppHeader
+        title={isEdit ? "Edit address" : "New address"}
+        subtitle={isEdit ? "Update delivery details" : "Add delivery details"}
+        showBack
+      />
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -216,26 +234,6 @@ export default function AddressFormScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Header */}
-          <View style={styles.header}>
-            <AnimatedPressable
-              onPress={handleGoBack}
-              style={styles.backButton}
-            >
-              <Text style={styles.backArrow}>←</Text>
-            </AnimatedPressable>
-            <View>
-              <Text style={styles.headerTitle}>
-                {isEdit ? "Edit Address" : "New Address"}
-              </Text>
-              <Text style={styles.headerCopy}>
-                {isEdit
-                  ? "Update your delivery details."
-                  : "Add a new delivery address."}
-              </Text>
-            </View>
-          </View>
-
           {/* Card */}
           <View style={styles.card}>
             {/* Label selector */}
@@ -250,6 +248,9 @@ export default function AddressFormScreen() {
                   ]}
                   onPress={() => setLabel(opt)}
                   disabled={isSaving}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${opt.toLowerCase()} address label`}
+                  accessibilityState={{ selected: label === opt, disabled: isSaving }}
                 >
                   <Text
                     style={[
@@ -340,6 +341,9 @@ export default function AddressFormScreen() {
               ]}
               onPress={handleSubmit}
               disabled={isSaving}
+              accessibilityRole="button"
+              accessibilityLabel={isEdit ? "Update address" : "Save address"}
+              accessibilityState={{ disabled: isSaving, busy: isSaving }}
             >
               {isSaving ? (
                 <TatvivahLoader size="sm" color={colors.background} />
@@ -370,39 +374,6 @@ const styles = StyleSheet.create({
   },
   container: {
     paddingBottom: spacing.xxl,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
-    gap: spacing.sm,
-  },
-  backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.pill,
-    backgroundColor: colors.warmWhite,
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  backArrow: {
-    fontSize: 18,
-    color: colors.charcoal,
-  },
-  headerTitle: {
-    fontFamily: typography.serif,
-    fontSize: 22,
-    color: colors.charcoal,
-  },
-  headerCopy: {
-    marginTop: 2,
-    fontFamily: typography.sans,
-    fontSize: 11,
-    color: colors.brownSoft,
   },
   card: {
     marginTop: spacing.md,

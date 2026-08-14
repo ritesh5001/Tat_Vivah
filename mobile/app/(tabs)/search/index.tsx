@@ -4,9 +4,9 @@ import {
   StyleSheet,
   FlatList,
   Pressable,
-  Dimensions,
   Modal,
   Linking,
+  useWindowDimensions,
 } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { useQueryClient } from "@tanstack/react-query";
@@ -17,31 +17,14 @@ import { getCategories } from "../../../src/services/catalog";
 import {
   getProductsAndCache,
   getProductsCached,
-  type ProductItem,
   type ProductSummary,
 } from "../../../src/services/products";
 import { prefetchProduct } from "../../../src/lib/prefetch-product";
 import { isAbortError } from "../../../src/services/api";
 
-/**
- * Speech recognition is a native module, so it is absent in Expo Go and in any
- * build made before `expo-speech-recognition` was added. Resolve it once here:
- * a failed require must leave voice search disabled, never crash the screen.
- *
- * Loaded at module scope (not in an effect) so `speechModuleRef` is populated
- * before the listener effect below runs on the first commit.
- */
-const speechRecognitionModule: any = (() => {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const mod = require("expo-speech-recognition");
-    return mod?.ExpoSpeechRecognitionModule ?? null;
-  } catch {
-    return null;
-  }
-})();
 import { SkeletonProductCard } from "../../../src/components/Skeleton";
 import { MarketplaceCard } from "../../../src/components/MarketplaceCard";
+import { QuickBuySheet, type QuickBuyIntent } from "../../../src/components/QuickBuySheet";
 import { getSuggestions, type SuggestionItem, type SortOption } from "../../../src/services/search";
 import { AppHeader } from "../../../src/components/AppHeader";
 import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
@@ -52,8 +35,25 @@ import {
 } from "../../../src/components";
 import { useToast } from "../../../src/providers/ToastProvider";
 
-const { width } = Dimensions.get("window");
-const cardWidth = (width - spacing.lg * 2 - spacing.md) / 2;
+/**
+ * Speech recognition is a native module, so it is absent in Expo Go and in any
+ * build made before `expo-speech-recognition` was added. Resolve it once here:
+ * a failed require must leave voice search disabled, never crash the screen.
+ *
+ * Loaded at module scope (not in an effect) so `speechModuleRef` is populated
+ * before the listener effect below runs on the first commit.
+ */
+const speechRecognitionModule: SpeechRecognitionModuleLike | null = (() => {
+  try {
+    // A guarded dynamic require is intentional: a static native-module import
+    // would crash older development clients before this fallback can run.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const mod = require("expo-speech-recognition");
+    return mod?.ExpoSpeechRecognitionModule ?? null;
+  } catch {
+    return null;
+  }
+})();
 
 const DEBOUNCE_MS = 140;
 const SUGGEST_DEBOUNCE_MS = 110;
@@ -73,7 +73,7 @@ type CategoryChipItem = {
 };
 
 type SpeechResultEvent = {
-  results?: Array<{ transcript?: string }>;
+  results?: { transcript?: string }[];
   isFinal?: boolean;
 };
 
@@ -102,16 +102,24 @@ type SpeechRecognitionModuleLike = {
 const ProductCard = React.memo(function ProductCard({
   item,
   onPress,
+  onQuickAdd,
+  onBuyNow,
+  width,
 }: {
   item: ProductSummary;
   onPress: (id: string) => void;
+  onQuickAdd: (id: string) => void;
+  onBuyNow: (id: string) => void;
+  width: number;
 }) {
   return (
     <MarketplaceCard
-      product={item as ProductItem}
+      product={item}
       onPress={onPress}
-      style={{ width: cardWidth }}
-      imageWidth={cardWidth}
+      onQuickAdd={onQuickAdd}
+      onBuyNow={onBuyNow}
+      style={{ width }}
+      imageWidth={width}
     />
   );
 });
@@ -129,6 +137,9 @@ const CategoryChip = React.memo(function CategoryChip({
     <Pressable
       onPress={() => onPress(item, active)}
       style={[styles.categoryChip, active && styles.categoryChipActive]}
+      accessibilityRole="button"
+      accessibilityLabel={`Filter by ${item.name}`}
+      accessibilityState={{ selected: active }}
     >
       <Text
         style={[styles.categoryChipText, active && styles.categoryChipTextActive]}
@@ -143,6 +154,12 @@ export default function SearchScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
+  const { width: viewportWidth } = useWindowDimensions();
+  const columnCount = viewportWidth >= 900 ? 4 : viewportWidth >= 600 ? 3 : 2;
+  const cardWidth = Math.max(
+    148,
+    (viewportWidth - spacing.lg * 2 - spacing.md * (columnCount - 1)) / columnCount
+  );
   const params = useLocalSearchParams<{ q?: string; categoryId?: string }>();
   const initialSearch = typeof params.q === "string" ? params.q : "";
   const initialCategoryId =
@@ -163,6 +180,8 @@ export default function SearchScreen() {
   const [fetchError, setFetchError] = React.useState<string | null>(null);
   const [sortBy, setSortBy] = React.useState<SortOption | "">("");
   const [showSortSheet, setShowSortSheet] = React.useState(false);
+  const [quickBuyId, setQuickBuyId] = React.useState<string | null>(null);
+  const [quickBuyIntent, setQuickBuyIntent] = React.useState<QuickBuyIntent>("cart");
   const [showCategoryFilters, setShowCategoryFilters] = React.useState(true);
   const [suggestions, setSuggestions] = React.useState<SuggestionItem[]>([]);
   const [showSuggestions, setShowSuggestions] = React.useState(false);
@@ -550,6 +569,16 @@ export default function SearchScreen() {
     [queryClient, router]
   );
 
+  const openQuickAdd = React.useCallback((productId: string) => {
+    setQuickBuyIntent("cart");
+    setQuickBuyId(productId);
+  }, []);
+
+  const openBuyNow = React.useCallback((productId: string) => {
+    setQuickBuyIntent("buy");
+    setQuickBuyId(productId);
+  }, []);
+
   // Stable renderItem — no inline closures
   const renderItem = React.useCallback(
     ({
@@ -560,9 +589,17 @@ export default function SearchScreen() {
       if ("skeleton" in item) {
         return <SkeletonProductCard width={cardWidth} />;
       }
-      return <ProductCard item={item} onPress={handleProductPress} />;
+      return (
+        <ProductCard
+          item={item}
+          onPress={handleProductPress}
+          onQuickAdd={openQuickAdd}
+          onBuyNow={openBuyNow}
+          width={cardWidth}
+        />
+      );
     },
-    [handleProductPress]
+    [cardWidth, handleProductPress, openBuyNow, openQuickAdd]
   );
 
   const keyExtractor = React.useCallback(
@@ -605,6 +642,8 @@ export default function SearchScreen() {
             style={styles.iconControl}
             onPress={() => setShowSortSheet(true)}
             hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Sort products"
           >
             <Icon name="swap-vertical-outline" size={18} color={colors.charcoal} />
           </Pressable>
@@ -629,6 +668,9 @@ export default function SearchScreen() {
             onPress={toggleVoiceSearch}
             disabled={!voiceSupported}
             hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={voiceListening ? "Stop voice search" : "Start voice search"}
+            accessibilityState={{ disabled: !voiceSupported, selected: voiceListening }}
           >
             <Icon
               name={voiceListening ? "mic" : "mic-outline"}
@@ -636,7 +678,12 @@ export default function SearchScreen() {
               color={voiceListening ? colors.background : colors.charcoal}
             />
           </Pressable>
-          <Pressable style={styles.searchButton} onPress={handleSearch}>
+          <Pressable
+            style={styles.searchButton}
+            onPress={handleSearch}
+            accessibilityRole="button"
+            accessibilityLabel="Search products"
+          >
             <Text style={styles.searchButtonText}>Search</Text>
           </Pressable>
 
@@ -644,6 +691,9 @@ export default function SearchScreen() {
             style={[styles.iconControl, showCategoryFilters && styles.iconControlActive]}
             onPress={() => setShowCategoryFilters((prev) => !prev)}
             hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={showCategoryFilters ? "Hide category filters" : "Show category filters"}
+            accessibilityState={{ expanded: showCategoryFilters }}
           >
             <Icon name="funnel-outline" size={18} color={colors.charcoal} />
           </Pressable>
@@ -685,6 +735,8 @@ export default function SearchScreen() {
             <Pressable
               key={item.id}
               style={styles.suggestionItem}
+              accessibilityRole="button"
+              accessibilityLabel={`Search for ${item.title}`}
               onPress={() => {
                 setSearch(item.title);
                 setShowSuggestions(false);
@@ -715,10 +767,13 @@ export default function SearchScreen() {
         animationType="slide"
         onRequestClose={() => setShowSortSheet(false)}
       >
-        <Pressable
-          style={styles.sortOverlay}
-          onPress={() => setShowSortSheet(false)}
-        >
+        <View style={styles.sortOverlay} accessibilityViewIsModal>
+          <Pressable
+            style={styles.sortBackdrop}
+            onPress={() => setShowSortSheet(false)}
+            accessibilityRole="button"
+            accessibilityLabel="Close sort options"
+          />
           <View style={styles.sortSheet}>
             <Text style={styles.sortSheetTitle}>Sort By</Text>
             {SORT_OPTIONS.map((opt) => (
@@ -732,6 +787,8 @@ export default function SearchScreen() {
                   setSortBy(opt.value as SortOption | "");
                   setShowSortSheet(false);
                 }}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: sortBy === opt.value }}
               >
                 <Text
                   style={[
@@ -744,27 +801,33 @@ export default function SearchScreen() {
               </Pressable>
             ))}
           </View>
-        </Pressable>
+        </View>
       </Modal>
 
       {fetchError && !loading && products.length === 0 ? (
         <View style={styles.errorCard}>
           <Text style={styles.errorTitle}>Unable to load products</Text>
           <Text style={styles.errorMessage}>{fetchError}</Text>
-          <Pressable style={styles.retryButton} onPress={handleRetry}>
+          <Pressable
+            style={styles.retryButton}
+            onPress={handleRetry}
+            accessibilityRole="button"
+            accessibilityLabel="Retry loading products"
+          >
             <Text style={styles.retryButtonText}>Retry</Text>
           </Pressable>
         </View>
       ) : null}
 
       <FlashList
+        key={`search-grid-${columnCount}`}
         data={
           (loading ? skeletons : products) as (
             ProductSummary | { id: string; skeleton: true }
           )[]
         }
         keyExtractor={keyExtractor}
-        numColumns={2}
+        numColumns={columnCount}
         drawDistance={Math.round(cardWidth * 3)}
         renderItem={renderItem}
         contentContainerStyle={styles.gridContent}
@@ -772,7 +835,7 @@ export default function SearchScreen() {
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.4}
         ListEmptyComponent={
-          !loading ? (
+          !loading && !fetchError ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyText}>No products found.</Text>
             </View>
@@ -785,6 +848,12 @@ export default function SearchScreen() {
             </View>
           ) : null
         }
+      />
+      <QuickBuySheet
+        productId={quickBuyId}
+        intent={quickBuyIntent}
+        visible={Boolean(quickBuyId)}
+        onClose={() => setQuickBuyId(null)}
       />
     </SafeAreaView>
   );
@@ -830,7 +899,7 @@ const styles = StyleSheet.create({
     borderColor: colors.gold,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
-    minHeight: 38,
+    minHeight: 44,
     justifyContent: "center",
   },
   searchButtonText: {
@@ -841,8 +910,8 @@ const styles = StyleSheet.create({
     color: colors.background,
   },
   iconControl: {
-    width: 36,
-    height: 36,
+    width: 44,
+    height: 44,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: colors.background,
@@ -890,6 +959,8 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderRadius: radius.pill,
     backgroundColor: colors.surface,
+    minHeight: 44,
+    justifyContent: "center",
   },
   categoryChipActive: {
     borderColor: colors.gold,
@@ -963,6 +1034,8 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
+    minHeight: 44,
+    justifyContent: "center",
   },
   retryButtonText: {
     fontFamily: typography.sansMedium,
@@ -993,6 +1066,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm + 2,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.borderSoft,
+    minHeight: 44,
   },
   suggestionTitle: {
     flex: 1,
@@ -1013,6 +1087,9 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     backgroundColor: "rgba(0,0,0,0.35)",
   },
+  sortBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
   sortSheet: {
     borderRadius: radius.xl,
     backgroundColor: colors.surfaceElevated,
@@ -1031,6 +1108,8 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.borderSoft,
+    minHeight: 44,
+    justifyContent: "center",
   },
   sortSheetOptionActive: {
     backgroundColor: "rgba(184, 149, 108, 0.14)",

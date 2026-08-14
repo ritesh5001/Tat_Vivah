@@ -21,6 +21,7 @@ import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
 import { useToast } from "../../../src/providers/ToastProvider";
 import { notifySuccess, notifyError, impactMedium } from "../../../src/utils/haptics";
 import { AppHeader } from "../../../src/components/AppHeader";
+import { Icon } from "../../../src/components/Icon";
 import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
 import {
   AppInput as TextInput,
@@ -158,56 +159,72 @@ const OrderCard = React.memo(function OrderCard({
     order.status === "DELIVERED" && !hasReturnRequest;
 
   return (
-    <AnimatedPressable
-      style={styles.orderCard}
-      onPress={() => onPress(order.id)}
-    >
-      <View style={styles.orderHeader}>
-        <View>
-          <Text style={styles.orderTitle}>
-            Order {order.id.slice(0, 8).toUpperCase()}
-          </Text>
-          <Text style={styles.orderMeta}>
-            {order.createdAt
-              ? new Date(order.createdAt).toLocaleDateString("en-IN", {
-                  month: "long",
-                  day: "numeric",
-                  year: "numeric",
-                })
-              : "—"}
-          </Text>
+    <View style={styles.orderCard}>
+      <AnimatedPressable
+        style={styles.orderNavigationTarget}
+        activeScale={0.985}
+        onPress={() => onPress(order.id)}
+        accessibilityRole="button"
+        accessibilityLabel={`Open order ${order.id.slice(0, 8).toUpperCase()}, ${paymentLabel}`}
+        accessibilityHint="Shows order details"
+      >
+        <View style={styles.orderHeader}>
+          <View>
+            <Text style={styles.orderTitle}>
+              Order {order.id.slice(0, 8).toUpperCase()}
+            </Text>
+            <Text style={styles.orderMeta}>
+              {order.createdAt
+                ? new Date(order.createdAt).toLocaleDateString("en-IN", {
+                    month: "long",
+                    day: "numeric",
+                    year: "numeric",
+                  })
+                : "—"}
+            </Text>
+          </View>
+          <View style={[styles.statusPill, { borderColor: paymentStyle.color }]}>
+            <View
+              style={[styles.statusDot, { backgroundColor: paymentStyle.color }]}
+            />
+            <Text style={[styles.orderStatus, paymentStyle]}>{paymentLabel}</Text>
+          </View>
         </View>
-        <View style={[styles.statusPill, { borderColor: paymentStyle.color }]}>
-          <View
-            style={[styles.statusDot, { backgroundColor: paymentStyle.color }]}
-          />
-          <Text style={[styles.orderStatus, paymentStyle]}>{paymentLabel}</Text>
-        </View>
-      </View>
 
-      <Text style={styles.orderItems} numberOfLines={1}>
-        {itemSummary}
-      </Text>
-
-      <View style={styles.orderFooter}>
-        <Text style={styles.orderTotal}>
-          {currency.format(payableTotal)}
-          {itemCount ? ` | ${itemCount} item${itemCount > 1 ? "s" : ""}` : ""}
+        <Text style={styles.orderItems} numberOfLines={1}>
+          {itemSummary}
         </Text>
-        {onTrack && order.status !== "CANCELLED" ? (
-          <Pressable
-            style={styles.trackLink}
-            onPress={() => onTrack(order.id)}
-          >
-            <Text style={styles.trackLinkText}>Track</Text>
-          </Pressable>
-        ) : null}
-      </View>
+
+        <View style={styles.orderFooter}>
+          <Text style={styles.orderTotal}>
+            {currency.format(payableTotal)}
+            {itemCount ? ` | ${itemCount} item${itemCount > 1 ? "s" : ""}` : ""}
+          </Text>
+          <View style={styles.detailCue} pointerEvents="none">
+            <Text style={styles.detailCueText}>Details</Text>
+            <Icon name="chevron-forward" size={14} color={colors.brownSoft} />
+          </View>
+        </View>
+      </AnimatedPressable>
+
+      {onTrack && order.status !== "CANCELLED" ? (
+        <Pressable
+          style={styles.trackLink}
+          onPress={() => onTrack(order.id)}
+          accessibilityRole="button"
+          accessibilityLabel={`Track order ${order.id.slice(0, 8).toUpperCase()}`}
+        >
+          <Text style={styles.trackLinkText}>Track order</Text>
+        </Pressable>
+      ) : null}
       {canRetry && onRetry ? (
         <Pressable
           style={[styles.retryPaymentButton, isRetrying && styles.retryPaymentButtonDisabled]}
           onPress={() => { if (!isRetrying) onRetry(order.id); }}
           disabled={isRetrying}
+          accessibilityRole="button"
+          accessibilityLabel={`Retry payment for order ${order.id.slice(0, 8).toUpperCase()}`}
+          accessibilityState={{ disabled: isRetrying, busy: isRetrying }}
         >
           <Text style={styles.retryPaymentButtonText}>
             {isRetrying ? "Opening…" : "Retry Payment"}
@@ -224,6 +241,12 @@ const OrderCard = React.memo(function OrderCard({
           style={[styles.requestCancelButton, isRequestingCancellation && styles.retryPaymentButtonDisabled]}
           onPress={() => onRequestCancellation(order.id)}
           disabled={isRequestingCancellation}
+          accessibilityRole="button"
+          accessibilityLabel={`Request cancellation for order ${order.id.slice(0, 8).toUpperCase()}`}
+          accessibilityState={{
+            disabled: isRequestingCancellation,
+            busy: isRequestingCancellation,
+          }}
         >
           <Text style={styles.requestCancelButtonText}>
             {isRequestingCancellation ? "Requesting..." : "Request Cancellation"}
@@ -240,13 +263,16 @@ const OrderCard = React.memo(function OrderCard({
           style={[styles.requestCancelButton, isRequestingReturn && styles.retryPaymentButtonDisabled]}
           onPress={() => onRequestReturn(order.id)}
           disabled={isRequestingReturn}
+          accessibilityRole="button"
+          accessibilityLabel={`Request return for order ${order.id.slice(0, 8).toUpperCase()}`}
+          accessibilityState={{ disabled: isRequestingReturn, busy: isRequestingReturn }}
         >
           <Text style={styles.requestCancelButtonText}>
             {isRequestingReturn ? "Requesting..." : "Request Return"}
           </Text>
         </Pressable>
       ) : null}
-    </AnimatedPressable>
+    </View>
   );
 });
 
@@ -646,11 +672,7 @@ export default function OrdersScreen() {
   if (!authLoading && !token) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <AppHeader title="Orders" subtitle="Track purchases" showMenu showBack />
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Orders</Text>
-          <Text style={styles.headerCopy}>Track every purchase in one place.</Text>
-        </View>
+        <AppHeader title="Orders" subtitle="Track purchases" showBack />
         <View style={styles.emptyCard}>
           <Text style={styles.emptyTitle}>Sign in to view orders</Text>
           <Text style={styles.emptySubtitle}>
@@ -659,12 +681,16 @@ export default function OrdersScreen() {
           <Pressable
             style={styles.primaryButton}
             onPress={() => router.push("/login?returnTo=%2Forders")}
+            accessibilityRole="button"
+            accessibilityLabel="Sign in to view orders"
           >
             <Text style={styles.primaryButtonText}>Sign in</Text>
           </Pressable>
           <Pressable
             style={styles.secondaryButton}
             onPress={() => router.push("/search")}
+            accessibilityRole="button"
+            accessibilityLabel="Continue browsing products"
           >
             <Text style={styles.secondaryButtonText}>Continue browsing</Text>
           </Pressable>
@@ -675,10 +701,7 @@ export default function OrdersScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Your Orders</Text>
-        <Text style={styles.headerCopy}>Track your curated purchases.</Text>
-      </View>
+      <AppHeader title="Orders" subtitle="Track purchases" showBack />
 
       {loading || authLoading ? (
         <View style={styles.listContent}>
@@ -688,16 +711,25 @@ export default function OrdersScreen() {
         </View>
       ) : fetchError && orders.length === 0 ? (
         <View style={styles.emptyCard}>
-          <Text style={styles.emptyIcon}>⚠️</Text>
+          <View style={styles.emptyIconWrap}>
+            <Icon name="alert-circle-outline" size={34} color={colors.brownSoft} />
+          </View>
           <Text style={styles.emptyTitle}>Something went wrong</Text>
           <Text style={styles.emptySubtitle}>{fetchError}</Text>
-          <Pressable style={styles.retryButton} onPress={loadOrders}>
+          <Pressable
+            style={styles.retryButton}
+            onPress={loadOrders}
+            accessibilityRole="button"
+            accessibilityLabel="Retry loading orders"
+          >
             <Text style={styles.retryButtonText}>Retry</Text>
           </Pressable>
         </View>
       ) : orders.length === 0 ? (
         <View style={styles.emptyCard}>
-          <Text style={styles.emptyIcon}>📦</Text>
+          <View style={styles.emptyIconWrap}>
+            <Icon name="cube-outline" size={34} color={colors.brownSoft} />
+          </View>
           <Text style={styles.emptyTitle}>No orders yet</Text>
           <Text style={styles.emptySubtitle}>
             Your purchases will appear here once you place your first order.
@@ -705,6 +737,8 @@ export default function OrdersScreen() {
           <Pressable
             style={styles.retryButton}
             onPress={() => router.push("/search")}
+            accessibilityRole="button"
+            accessibilityLabel="Start shopping"
           >
             <Text style={styles.retryButtonText}>Start shopping</Text>
           </Pressable>
@@ -729,7 +763,7 @@ export default function OrdersScreen() {
         onRequestClose={closeCancellationModal}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
+          <View style={styles.modalCard} accessibilityViewIsModal>
             <Text style={styles.modalTitle}>Request Cancellation</Text>
             <Text style={styles.modalMessage}>
               Please tell us why you want to cancel this order.
@@ -741,9 +775,15 @@ export default function OrdersScreen() {
               onChangeText={setCancelReason}
               placeholder="Enter reason"
               placeholderTextColor={colors.brownSoft}
+              accessibilityLabel="Cancellation reason"
             />
             <View style={styles.modalActions}>
-              <Pressable style={styles.modalCancelButton} onPress={closeCancellationModal}>
+              <Pressable
+                style={styles.modalCancelButton}
+                onPress={closeCancellationModal}
+                accessibilityRole="button"
+                accessibilityLabel="Close cancellation request"
+              >
                 <Text style={styles.modalCancelText}>Close</Text>
               </Pressable>
               <Pressable
@@ -753,6 +793,18 @@ export default function OrdersScreen() {
                 ]}
                 onPress={submitCancellation}
                 disabled={!cancelReason.trim() || (cancelModalOrderId ? requestingCancellationIds.has(cancelModalOrderId) : false)}
+                accessibilityRole="button"
+                accessibilityLabel="Submit cancellation request"
+                accessibilityState={{
+                  disabled:
+                    !cancelReason.trim() ||
+                    (cancelModalOrderId
+                      ? requestingCancellationIds.has(cancelModalOrderId)
+                      : false),
+                  busy: cancelModalOrderId
+                    ? requestingCancellationIds.has(cancelModalOrderId)
+                    : false,
+                }}
               >
                 {cancelModalOrderId && requestingCancellationIds.has(cancelModalOrderId) ? (
                   <TatvivahLoader size="sm" color={colors.background} />
@@ -772,7 +824,7 @@ export default function OrdersScreen() {
         onRequestClose={closeReturnModal}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
+          <View style={styles.modalCard} accessibilityViewIsModal>
             <Text style={styles.modalTitle}>Request Return</Text>
             <Text style={styles.modalMessage}>
               Please tell us why you want to return this order. All items will be included.
@@ -784,9 +836,15 @@ export default function OrdersScreen() {
               onChangeText={setReturnReason}
               placeholder="Enter return reason"
               placeholderTextColor={colors.brownSoft}
+              accessibilityLabel="Return reason"
             />
             <View style={styles.modalActions}>
-              <Pressable style={styles.modalCancelButton} onPress={closeReturnModal}>
+              <Pressable
+                style={styles.modalCancelButton}
+                onPress={closeReturnModal}
+                accessibilityRole="button"
+                accessibilityLabel="Close return request"
+              >
                 <Text style={styles.modalCancelText}>Close</Text>
               </Pressable>
               <Pressable
@@ -796,6 +854,18 @@ export default function OrdersScreen() {
                 ]}
                 onPress={submitReturn}
                 disabled={!returnReason.trim() || (returnModalOrderId ? requestingReturnIds.has(returnModalOrderId) : false)}
+                accessibilityRole="button"
+                accessibilityLabel="Submit return request"
+                accessibilityState={{
+                  disabled:
+                    !returnReason.trim() ||
+                    (returnModalOrderId
+                      ? requestingReturnIds.has(returnModalOrderId)
+                      : false),
+                  busy: returnModalOrderId
+                    ? requestingReturnIds.has(returnModalOrderId)
+                    : false,
+                }}
               >
                 {returnModalOrderId && requestingReturnIds.has(returnModalOrderId) ? (
                   <TatvivahLoader size="sm" color={colors.background} />
@@ -816,24 +886,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  header: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderSoft,
-  },
-  headerTitle: {
-    fontFamily: typography.serif,
-    fontSize: 24,
-    color: colors.charcoal,
-  },
-  headerCopy: {
-    marginTop: spacing.xs,
-    fontFamily: typography.sans,
-    fontSize: 12,
-    color: colors.brownSoft,
-  },
   listContent: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
@@ -847,6 +899,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.borderSoft,
     ...shadow.card,
+  },
+  orderNavigationTarget: {
+    borderRadius: radius.md,
   },
   orderHeader: {
     flexDirection: "row",
@@ -904,13 +959,29 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.charcoal,
   },
+  detailCue: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+  },
+  detailCueText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 10,
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+    color: colors.brownSoft,
+  },
   trackLink: {
+    marginTop: spacing.sm,
     paddingHorizontal: spacing.sm,
     paddingVertical: 6,
     borderRadius: radius.xs,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: colors.surface,
+    minHeight: 44,
+    alignItems: "center",
+    justifyContent: "center",
   },
   trackLinkText: {
     fontFamily: typography.sansMedium,
@@ -944,8 +1015,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     ...shadow.card,
   },
-  emptyIcon: {
-    fontSize: 40,
+  emptyIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.cream,
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: spacing.md,
   },
   emptyTitle: {
@@ -971,6 +1049,8 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
     alignItems: "center",
+    justifyContent: "center",
+    minHeight: 44,
   },
   primaryButtonText: {
     fontFamily: typography.sansMedium,
@@ -988,6 +1068,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     alignItems: "center",
     backgroundColor: colors.surface,
+    justifyContent: "center",
+    minHeight: 44,
   },
   secondaryButtonText: {
     fontFamily: typography.sansMedium,
@@ -1004,6 +1086,8 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
     alignItems: "center",
+    justifyContent: "center",
+    minHeight: 44,
   },
   retryButtonText: {
     fontFamily: typography.sansMedium,
@@ -1019,6 +1103,8 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
     alignItems: "center" as const,
+    justifyContent: "center" as const,
+    minHeight: 44,
   },
   retryPaymentButtonDisabled: {
     opacity: 0.5,
@@ -1038,6 +1124,8 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     alignItems: "center",
     backgroundColor: colors.surface,
+    justifyContent: "center",
+    minHeight: 44,
   },
   requestCancelButtonText: {
     fontFamily: typography.sansMedium,
@@ -1113,6 +1201,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     alignItems: "center",
     justifyContent: "center",
+    minHeight: 44,
   },
   modalCancelText: {
     fontFamily: typography.sans,
@@ -1127,6 +1216,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     minWidth: 84,
+    minHeight: 44,
   },
   modalConfirmText: {
     fontFamily: typography.sansMedium,

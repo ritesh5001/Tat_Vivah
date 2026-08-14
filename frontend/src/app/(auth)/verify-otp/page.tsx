@@ -95,7 +95,7 @@ function VerifyOtpContent() {
     }
     submittedOtpRef.current = otp;
     void handleVerify({ preventDefault() {} } as React.FormEvent<HTMLFormElement>);
-  }, [handleVerify, otp]); // loading intentionally omitted: submittedOtpRef prevents double-submit after failure
+  }, [handleVerify, loading, otp]);
 
   return (
     <div className="min-h-[calc(100vh-160px)] bg-background">

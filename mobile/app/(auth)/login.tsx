@@ -105,9 +105,9 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <AppHeader title="Sign In" showMenu showBack />
+      <AppHeader showBack />
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        <Text style={styles.heading}>Welcome To Tatvivah</Text>
+        <Text style={styles.heading}>Welcome to Tatvivah</Text>
         <Text style={styles.subHeading}>{subHeading}</Text>
 
         <View style={styles.formCard}>

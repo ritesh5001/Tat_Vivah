@@ -7,6 +7,7 @@ import {
 import Animated, {
   interpolate,
   type SharedValue,
+  ReduceMotion,
   useAnimatedStyle,
   useDerivedValue,
   withSpring,
@@ -39,7 +40,12 @@ const VISIBLE_TABS: { name: string; label: string; icon: IconName }[] = [
 ];
 
 /** Weighted rather than snappy: the pill should read as travelling, not cutting. */
-const INDICATOR_SPRING = { damping: 18, stiffness: 170, mass: 0.85 } as const;
+const INDICATOR_SPRING = {
+  damping: 18,
+  stiffness: 170,
+  mass: 0.85,
+  reduceMotion: ReduceMotion.System,
+} as const;
 
 function TabGlyph({
   icon,
@@ -73,13 +79,21 @@ function TabItem({
   icon,
   index,
   activeIndex,
+  isFocused,
   onPress,
+  onLongPress,
+  accessibilityLabel,
+  testID,
 }: {
   label: string;
   icon: IconName;
   index: number;
   activeIndex: SharedValue<number>;
+  isFocused: boolean;
   onPress: () => void;
+  onLongPress: () => void;
+  accessibilityLabel: string;
+  testID?: string;
 }) {
   /** 1 when this tab owns the indicator, falling away as it travels off. */
   const focus = useDerivedValue(() =>
@@ -94,11 +108,6 @@ function TabItem({
     ],
   }));
 
-  // The label firms up rather than appearing — always legible, never a flash.
-  const labelStyle = useAnimatedStyle(() => ({
-    opacity: 0.55 + 0.45 * focus.value,
-  }));
-
   const activeLabelStyle = useAnimatedStyle(() => ({
     opacity: focus.value,
     ...StyleSheet.absoluteFillObject,
@@ -108,41 +117,61 @@ function TabItem({
     <MotionPressable
       style={styles.item}
       onPress={onPress}
+      onLongPress={onLongPress}
       pressScale={0.94}
       haptic={false}
+      accessibilityRole="tab"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityHint={`Switches to ${label}`}
+      accessibilityState={{ selected: isFocused }}
+      testID={testID}
     >
       <Animated.View style={iconStyle}>
         <TabGlyph icon={icon} focus={focus} />
       </Animated.View>
-      <Animated.View style={labelStyle}>
-        <View>
-          <Text style={styles.label}>{label}</Text>
-          <Animated.View style={activeLabelStyle} pointerEvents="none">
-            <Text style={[styles.label, styles.activeLabel]}>{label}</Text>
-          </Animated.View>
-        </View>
-      </Animated.View>
+      {/* Keep the base label opaque; the accent copy can still fade in without
+          sacrificing the inactive label's contrast. */}
+      <View>
+        <Text style={styles.label}>{label}</Text>
+        <Animated.View style={activeLabelStyle} pointerEvents="none">
+          <Text style={[styles.label, styles.activeLabel]}>{label}</Text>
+        </Animated.View>
+      </View>
     </MotionPressable>
   );
 }
 
-export function AnimatedTabBar({ state, navigation, insets }: BottomTabBarProps) {
+export function AnimatedTabBar({
+  state,
+  navigation,
+  descriptors,
+  insets,
+}: BottomTabBarProps) {
   const { width: windowWidth } = useWindowDimensions();
 
   // Map the navigator's route index onto our visible subset. Hidden routes keep
   // the pill where it was rather than sending it off the end of the bar.
   const activeName = state.routes[state.index]?.name;
-  const visibleIndex = React.useMemo(() => {
-    const found = VISIBLE_TABS.findIndex((tab) => tab.name === activeName);
-    return found < 0 ? 0 : found;
-  }, [activeName]);
+  const foundVisibleIndex = React.useMemo(
+    () => VISIBLE_TABS.findIndex((tab) => tab.name === activeName),
+    [activeName]
+  );
+  const lastVisibleIndexRef = React.useRef(
+    foundVisibleIndex >= 0 ? foundVisibleIndex : 0
+  );
+  const visibleIndex =
+    foundVisibleIndex >= 0 ? foundVisibleIndex : lastVisibleIndexRef.current;
+
+  React.useEffect(() => {
+    if (foundVisibleIndex >= 0) lastVisibleIndexRef.current = foundVisibleIndex;
+  }, [foundVisibleIndex]);
 
   const activeIndex = useDerivedValue(() =>
     withSpring(visibleIndex, INDICATOR_SPRING)
   );
 
   const itemWidth = windowWidth / VISIBLE_TABS.length;
-  const indicatorWidth = Math.min(itemWidth - 24, 76);
+  const indicatorWidth = Math.min(itemWidth - 14, 84);
 
   const indicatorStyle = useAnimatedStyle(() => ({
     width: indicatorWidth,
@@ -186,9 +215,20 @@ export function AnimatedTabBar({ state, navigation, insets }: BottomTabBarProps)
     [navigation, state.routes]
   );
 
+  const handleLongPress = React.useCallback(
+    (name: string) => {
+      const route = state.routes.find((item) => item.name === name);
+      if (!route) return;
+      navigation.emit({ type: "tabLongPress", target: route.key });
+    },
+    [navigation, state.routes]
+  );
+
   return (
     <View
       onLayout={handleLayout}
+      accessibilityRole="tablist"
+      accessibilityLabel="Primary navigation"
       style={[
         styles.wrapper,
         { paddingBottom: bottomPadding, height: 64 + bottomPadding },
@@ -198,16 +238,28 @@ export function AnimatedTabBar({ state, navigation, insets }: BottomTabBarProps)
           than a badge stuck to it. */}
       <Animated.View style={[styles.indicator, indicatorStyle]} />
 
-      {VISIBLE_TABS.map((tab, index) => (
-        <TabItem
-          key={tab.name}
-          label={tab.label}
-          icon={tab.icon}
-          index={index}
-          activeIndex={activeIndex}
-          onPress={() => handlePress(tab.name, index === visibleIndex)}
-        />
-      ))}
+      {VISIBLE_TABS.map((tab, index) => {
+        const route = state.routes.find((item) => item.name === tab.name);
+        const options = route ? descriptors[route.key]?.options : undefined;
+        // A hidden route may retain this tab's indicator position, but it is not
+        // the focused route. Keeping those concepts separate also ensures the
+        // retained tab remains a working way back to its screen.
+        const isFocused = tab.name === activeName;
+        return (
+          <TabItem
+            key={tab.name}
+            label={tab.label}
+            icon={tab.icon}
+            index={index}
+            activeIndex={activeIndex}
+            isFocused={isFocused}
+            accessibilityLabel={options?.tabBarAccessibilityLabel ?? tab.label}
+            testID={options?.tabBarButtonTestID}
+            onPress={() => handlePress(tab.name, isFocused)}
+            onLongPress={() => handleLongPress(tab.name)}
+          />
+        );
+      })}
     </View>
   );
 }
@@ -216,7 +268,7 @@ const styles = StyleSheet.create({
   wrapper: {
     flexDirection: "row",
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "rgba(196, 167, 108, 0.3)",
+    borderTopColor: "rgba(183, 149, 108, 0.3)",
     backgroundColor: colors.surfaceElevated,
     shadowColor: colors.charcoal,
     shadowOpacity: 0.07,
@@ -226,11 +278,13 @@ const styles = StyleSheet.create({
   },
   indicator: {
     position: "absolute",
-    top: 8,
+    top: 5,
     left: 0,
-    height: 40,
-    borderRadius: radius.pill,
-    backgroundColor: "rgba(196, 167, 108, 0.14)",
+    height: 52,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(128, 96, 61, 0.22)",
+    backgroundColor: "rgba(128, 96, 61, 0.09)",
   },
   item: {
     flex: 1,
@@ -240,13 +294,13 @@ const styles = StyleSheet.create({
   },
   label: {
     fontFamily: typography.sans,
-    fontSize: 9.5,
-    letterSpacing: 0.8,
+    fontSize: 11,
+    lineHeight: 14,
+    letterSpacing: 0.55,
     textTransform: "uppercase",
     color: colors.brownSoft,
   },
   activeLabel: {
-    fontFamily: typography.sansMedium,
     color: colors.gold,
   },
 });

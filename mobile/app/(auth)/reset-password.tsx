@@ -21,6 +21,7 @@ import {
 } from "../../src/theme/tokens";
 import { resetPassword, forgotPassword } from "../../src/services/auth";
 import { AppHeader } from "../../src/components/AppHeader";
+import { Icon } from "../../src/components/Icon";
 import {
   AppInput as TextInput,
   AppText as Text,
@@ -174,23 +175,12 @@ export default function ResetPasswordScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <AppHeader title="Reset password" subtitle="Tatvivah" showMenu showBack />
+      <AppHeader showBack />
       <KeyboardAvoidingView
         style={styles.keyboardWrap}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        {/* Logo row */}
-        <View style={styles.logoRow}>
-          <View style={styles.logoBadge}>
-            <Text style={styles.logoLetter}>T</Text>
-          </View>
-          <View>
-            <Text style={styles.brand}>Tatvivah</Text>
-            <Text style={styles.brandTag}>Premium Indian Fashion</Text>
-          </View>
-        </View>
-
         <Text style={styles.title}>Reset password</Text>
         <Text style={styles.subtitle}>
           Enter the 6-digit code sent to{" "}
@@ -250,8 +240,18 @@ export default function ResetPasswordScreen() {
               editable={!loading}
               autoComplete="new-password"
             />
-            <Pressable style={styles.eyeButton} onPress={() => setShowNewPassword((prev) => !prev)}>
-              <Text style={styles.eyeText}>{showNewPassword ? "🙈" : "👁️"}</Text>
+            <Pressable
+              style={styles.eyeButton}
+              onPress={() => setShowNewPassword((prev) => !prev)}
+              accessibilityRole="button"
+              accessibilityLabel={showNewPassword ? "Hide new password" : "Show new password"}
+              accessibilityState={{ expanded: showNewPassword }}
+            >
+              <Icon
+                name={showNewPassword ? "eye-off-outline" : "eye-outline"}
+                size={18}
+                color={colors.brownSoft}
+              />
             </Pressable>
           </View>
 
@@ -270,8 +270,18 @@ export default function ResetPasswordScreen() {
               returnKeyType="done"
               onSubmitEditing={handleSubmit}
             />
-            <Pressable style={styles.eyeButton} onPress={() => setShowConfirmPassword((prev) => !prev)}>
-              <Text style={styles.eyeText}>{showConfirmPassword ? "🙈" : "👁️"}</Text>
+            <Pressable
+              style={styles.eyeButton}
+              onPress={() => setShowConfirmPassword((prev) => !prev)}
+              accessibilityRole="button"
+              accessibilityLabel={showConfirmPassword ? "Hide confirmed password" : "Show confirmed password"}
+              accessibilityState={{ expanded: showConfirmPassword }}
+            >
+              <Icon
+                name={showConfirmPassword ? "eye-off-outline" : "eye-outline"}
+                size={18}
+                color={colors.brownSoft}
+              />
             </Pressable>
           </View>
 
@@ -327,39 +337,6 @@ const styles = StyleSheet.create({
   },
   container: {
     padding: spacing.lg,
-  },
-  logoRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: spacing.lg,
-  },
-  logoBadge: {
-    height: 44,
-    width: 44,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    backgroundColor: colors.surface,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: spacing.sm,
-  },
-  logoLetter: {
-    fontFamily: typography.serif,
-    fontSize: 20,
-    color: colors.charcoal,
-  },
-  brand: {
-    fontFamily: typography.serif,
-    fontSize: 18,
-    color: colors.charcoal,
-  },
-  brandTag: {
-    fontFamily: typography.sans,
-    fontSize: 10,
-    letterSpacing: 1.5,
-    color: colors.goldMuted,
-    textTransform: "uppercase",
   },
   title: {
     fontFamily: typography.serif,
@@ -441,9 +418,6 @@ const styles = StyleSheet.create({
     height: 32,
     alignItems: "center",
     justifyContent: "center",
-  },
-  eyeText: {
-    fontSize: 16,
   },
   primaryButton: {
     backgroundColor: colors.gold,

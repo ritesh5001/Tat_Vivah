@@ -17,6 +17,7 @@ import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
 import { impactLight } from "../../../src/utils/haptics";
 import type { CartItemDetails } from "../../../src/services/cart";
 import { AppHeader } from "../../../src/components/AppHeader";
+import { Icon } from "../../../src/components/Icon";
 import { Image } from "../../../src/components/CompatImage";
 import { MotionView } from "../../../src/components/motion";
 import { AppText as Text, ScreenContainer as SafeAreaView } from "../../../src/components";
@@ -235,6 +236,9 @@ export default function CartScreen() {
                 onPress={() => handleRemove(item.id)}
                 disabled={locked}
                 hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel={`Remove ${item.product?.title ?? "item"} from cart`}
+                accessibilityState={{ disabled: locked }}
               >
                 <Text style={[styles.removeIconText, locked && { opacity: 0.4 }]}>
                   ×
@@ -248,6 +252,9 @@ export default function CartScreen() {
                   style={[styles.qtyButton, locked && styles.qtyButtonDisabled]}
                   onPress={() => handleQty(item.id, item.quantity - 1)}
                   disabled={locked}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Decrease quantity of ${item.product?.title ?? "item"}`}
+                  accessibilityState={{ disabled: locked }}
                 >
                   <Text style={styles.qtyButtonText}>−</Text>
                 </Pressable>
@@ -256,6 +263,9 @@ export default function CartScreen() {
                   style={[styles.qtyButton, locked && styles.qtyButtonDisabled]}
                   onPress={() => handleQty(item.id, item.quantity + 1)}
                   disabled={locked}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Increase quantity of ${item.product?.title ?? "item"}`}
+                  accessibilityState={{ disabled: locked }}
                 >
                   <Text style={styles.qtyButtonText}>+</Text>
                 </Pressable>
@@ -279,22 +289,30 @@ export default function CartScreen() {
   if (!authLoading && !token) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <AppHeader title="Your Cart" showMenu showBack showWishlist showCart />
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Your Cart</Text>
-          <Text style={styles.headerCopy}>Review your curated selection.</Text>
-        </View>
+        <AppHeader title="Cart" subtitle="Review your items" showBack showWishlist />
         <View style={styles.emptyCard}>
-          <Text style={styles.emptyIcon}>🛒</Text>
-          <Text style={styles.emptyTitle}>Your Cart is Empty</Text>
+          <View style={styles.emptyIconWrap}>
+            <Icon name="cart-outline" size={36} color={colors.brownSoft} />
+          </View>
+          <Text style={styles.emptyTitle}>Sign in to view your cart</Text>
           <Text style={styles.emptySubtitle}>
-            Discover our premium collection and add something beautiful.
+            Access your saved bag and continue securely to checkout.
           </Text>
           <Pressable
             style={styles.primaryButton}
-            onPress={() => router.push("/search")}
+            onPress={() => router.push("/login?returnTo=%2Fcart")}
+            accessibilityRole="button"
+            accessibilityLabel="Sign in to view your cart"
           >
-            <Text style={styles.primaryButtonText}>Continue Shopping</Text>
+            <Text style={styles.primaryButtonText}>Sign in</Text>
+          </Pressable>
+          <Pressable
+            style={styles.secondaryButton}
+            onPress={() => router.push("/search")}
+            accessibilityRole="button"
+            accessibilityLabel="Continue shopping"
+          >
+            <Text style={styles.secondaryButtonText}>Continue Shopping</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -303,11 +321,7 @@ export default function CartScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <AppHeader title="Your Cart" showMenu showBack showWishlist showCart />
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Your Cart</Text>
-        <Text style={styles.headerCopy}>Review your curated selection.</Text>
-      </View>
+      <AppHeader title="Cart" subtitle="Review your items" showBack showWishlist />
 
       {showSkeleton ? (
         <View style={styles.listContent}>
@@ -319,13 +333,20 @@ export default function CartScreen() {
         <View style={styles.emptyCard}>
           <Text style={styles.emptyTitle}>Something went wrong</Text>
           <Text style={styles.emptySubtitle}>{fetchError}</Text>
-          <Pressable style={styles.primaryButton} onPress={refreshCart}>
+          <Pressable
+            style={styles.primaryButton}
+            onPress={refreshCart}
+            accessibilityRole="button"
+            accessibilityLabel="Retry loading cart"
+          >
             <Text style={styles.primaryButtonText}>Retry</Text>
           </Pressable>
         </View>
       ) : cartItems.length === 0 ? (
         <View style={styles.emptyCard}>
-          <Text style={styles.emptyIcon}>🛒</Text>
+          <View style={styles.emptyIconWrap}>
+            <Icon name="cart-outline" size={36} color={colors.brownSoft} />
+          </View>
           <Text style={styles.emptyTitle}>Your Cart is Empty</Text>
           <Text style={styles.emptySubtitle}>
             Discover our premium collection and add something beautiful.
@@ -333,6 +354,8 @@ export default function CartScreen() {
           <Pressable
             style={styles.primaryButton}
             onPress={() => router.push("/search")}
+            accessibilityRole="button"
+            accessibilityLabel="Continue shopping"
           >
             <Text style={styles.primaryButtonText}>Continue Shopping</Text>
           </Pressable>
@@ -399,6 +422,12 @@ export default function CartScreen() {
               ]}
               onPress={handleCheckout}
               disabled={isMutating || cartItems.length === 0 || !isConnected}
+              accessibilityRole="button"
+              accessibilityLabel="Proceed to checkout"
+              accessibilityState={{
+                disabled: isMutating || cartItems.length === 0 || !isConnected,
+                busy: isMutating,
+              }}
             >
               <Text style={styles.primaryButtonText}>
                 {!isConnected
@@ -420,25 +449,6 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.background,
-  },
-  header: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderSoft,
-  },
-  headerTitle: {
-    fontFamily: typography.serif,
-    fontSize: 24,
-    color: colors.charcoal,
-  },
-  headerCopy: {
-    marginTop: spacing.xs,
-    fontFamily: typography.sans,
-    fontSize: 12,
-    color: colors.brownSoft,
-    lineHeight: 18,
   },
   /** Takes the space between the header and the pinned summary. */
   list: {
@@ -681,6 +691,25 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     color: colors.background,
   },
+  secondaryButton: {
+    marginTop: spacing.sm,
+    minHeight: 48,
+    paddingHorizontal: spacing.xl,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    borderRadius: radius.md,
+    alignSelf: "stretch",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surface,
+  },
+  secondaryButtonText: {
+    fontFamily: typography.sansMedium,
+    fontSize: 12,
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+    color: colors.foreground,
+  },
   emptyCard: {
     margin: spacing.lg,
     padding: spacing.xl,
@@ -691,8 +720,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     ...shadow.card,
   },
-  emptyIcon: {
-    fontSize: 40,
+  emptyIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.cream,
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: spacing.md,
   },
   emptyTitle: {

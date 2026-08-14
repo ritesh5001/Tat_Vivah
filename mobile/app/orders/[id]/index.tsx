@@ -9,7 +9,6 @@ import {
   FlatList,
 } from "react-native";
 import { useLocalSearchParams, usePathname, useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, radius, spacing, typography, shadow } from "../../../src/theme/tokens";
 import {
   getBuyerOrderDetail,
@@ -25,7 +24,7 @@ import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
 import { DeliveredShimmer } from "../../../src/components/DeliveredShimmer";
 import { impactLight } from "../../../src/utils/haptics";
 import { AppText as Text, ScreenContainer as SafeAreaView } from "../../../src/components";
-import { getBottomBarTotalHeight } from "../../../src/components/GlobalBottomBar";
+import { AppHeader } from "../../../src/components/AppHeader";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -111,7 +110,6 @@ function normalizeStatusForTimeline(status: string) {
 export default function OrderDetailScreen() {
   const router = useRouter();
   const pathname = usePathname();
-  const insets = useSafeAreaInsets();
   const { id: orderId } = useLocalSearchParams<{ id: string }>();
   const { session, isLoading: authLoading } = useAuth();
   const token = session?.accessToken ?? null;
@@ -230,23 +228,11 @@ export default function OrderDetailScreen() {
     typeof order?.grandTotal === "number" && order.grandTotal > 0
       ? order.grandTotal
       : order?.totalAmount ?? 0;
-  const bottomBarOffset = React.useMemo(
-    () => getBottomBarTotalHeight(insets.bottom),
-    [insets.bottom]
-  );
-  const detailBottomReserve = bottomBarOffset + spacing.lg;
-
   // ---- Loading ----
   if (loading && !order) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <View style={styles.header}>
-          <Pressable onPress={() => router.back()} hitSlop={12}>
-            <Text style={styles.backText}>← Back</Text>
-          </Pressable>
-          <Text style={styles.headerTitle}>Order Details</Text>
-          <View style={{ width: 48 }} />
-        </View>
+        <AppHeader title="Order details" subtitle="Purchase summary" showBack />
         <View style={styles.skeletonWrap}>
           <SkeletonBlock width="60%" height={16} />
           <SkeletonBlock width="30%" height={12} style={{ marginTop: spacing.sm }} />
@@ -261,17 +247,16 @@ export default function OrderDetailScreen() {
   if (error && !order) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <View style={styles.header}>
-          <Pressable onPress={() => router.back()} hitSlop={12}>
-            <Text style={styles.backText}>← Back</Text>
-          </Pressable>
-          <Text style={styles.headerTitle}>Order Details</Text>
-          <View style={{ width: 48 }} />
-        </View>
+        <AppHeader title="Order details" subtitle="Purchase summary" showBack />
         <View style={styles.centerCard}>
           <Text style={styles.errorTitle}>Unable to load order</Text>
           <Text style={styles.errorMessage}>{error}</Text>
-          <Pressable style={styles.primaryButton} onPress={() => fetchOrder()}>
+          <Pressable
+            style={styles.primaryButton}
+            onPress={() => fetchOrder()}
+            accessibilityRole="button"
+            accessibilityLabel="Retry loading order"
+          >
             <Text style={styles.primaryButtonText}>Retry</Text>
           </Pressable>
         </View>
@@ -283,17 +268,14 @@ export default function OrderDetailScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Text style={styles.backText}>← Back</Text>
-        </Pressable>
-        <Text style={styles.headerTitle}>Order Details</Text>
-        <View style={{ width: 48 }} />
-      </View>
+      <AppHeader
+        title="Order details"
+        subtitle={`Order ${orderId?.slice(0, 8).toUpperCase() ?? ""}`}
+        showBack
+      />
 
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: detailBottomReserve }]}
+        contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -479,25 +461,6 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.background,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderSoft,
-  },
-  backText: {
-    fontFamily: typography.sans,
-    fontSize: 13,
-    color: colors.brownSoft,
-  },
-  headerTitle: {
-    fontFamily: typography.serif,
-    fontSize: 18,
-    color: colors.charcoal,
   },
   scrollContent: {
     paddingHorizontal: spacing.lg,

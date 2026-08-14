@@ -188,8 +188,10 @@ export function QuickBuySheet({
     submitting,
     session?.accessToken,
     addToCart,
+    heroImage,
     intent,
     onClose,
+    product?.title,
     router,
     showToast,
   ]);
@@ -200,7 +202,7 @@ export function QuickBuySheet({
     <Modal
       visible={visible}
       transparent
-      animationType="slide"
+      animationType="fade"
       onRequestClose={onClose}
     >
       <Pressable style={styles.backdrop} onPress={onClose}>
@@ -346,22 +348,33 @@ const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: "rgba(20,18,16,0.5)",
-    justifyContent: "flex-end",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: spacing.lg,
   },
   sheet: {
+    width: "100%",
+    maxWidth: 420,
     backgroundColor: colors.background,
-    borderTopWidth: 1,
-    borderTopColor: colors.borderSoft,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    borderRadius: radius.xl,
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xl,
-    paddingTop: spacing.sm,
-    maxHeight: "80%",
+    paddingBottom: spacing.lg,
+    paddingTop: spacing.md,
+    maxHeight: "76%",
+    shadowColor: colors.shadow,
+    shadowOpacity: 0.24,
+    shadowOffset: { width: 0, height: 12 },
+    shadowRadius: 28,
+    elevation: 12,
   },
   grabber: {
     alignSelf: "center",
-    width: 44,
-    height: 4,
-    backgroundColor: colors.borderSoft,
+    width: 38,
+    height: 3,
+    borderRadius: radius.pill,
+    backgroundColor: colors.gold,
     marginBottom: spacing.md,
   },
   loadingWrap: { paddingVertical: spacing.xl, alignItems: "center" },

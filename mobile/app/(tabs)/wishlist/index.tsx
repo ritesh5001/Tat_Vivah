@@ -5,7 +5,7 @@ import {
   View,
   StyleSheet,
   FlatList,
-  Dimensions,
+  useWindowDimensions,
   type ListRenderItemInfo,
 } from "react-native";
 import { useRouter } from "expo-router";
@@ -20,13 +20,9 @@ import { AppHeader } from "../../../src/components/AppHeader";
 import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
 import { WishlistIcon } from "../../../src/components/WishlistIcon";
 import { MarketplaceCard } from "../../../src/components/MarketplaceCard";
+import { QuickBuySheet, type QuickBuyIntent } from "../../../src/components/QuickBuySheet";
 import { MotionView } from "../../../src/components/motion";
 import { AppText as Text, ScreenContainer as SafeAreaView } from "../../../src/components";
-
-const { width: windowWidth } = Dimensions.get("window");
-const wishlistCardWidth = (windowWidth - spacing.lg * 2 - spacing.md) / 2;
-/** Module-level: a stable identity so React.memo on MarketplaceCard can hold. */
-const wishlistCardStyle = { width: wishlistCardWidth };
 
 // ---------------------------------------------------------------------------
 // Wishlist card — uses shared MarketplaceCard with remove overlay
@@ -36,33 +32,49 @@ const WishlistCard = React.memo(function WishlistCard({
   item,
   onRemove,
   onPress,
+  onQuickAdd,
+  onBuyNow,
   removing,
+  width,
 }: {
   item: WishlistItemDetail;
   onRemove: (productId: string) => void;
   onPress: (productId: string) => void;
+  onQuickAdd: (productId: string) => void;
+  onBuyNow: (productId: string) => void;
   removing: boolean;
+  width: number;
 }) {
+  const adminPrice =
+    item.product.adminPrice ??
+    item.product.adminListingPrice ??
+    item.product.salePrice ??
+    item.product.price ??
+    null;
   const product: ProductItem = {
     id: item.productId,
     title: item.product.title,
     images: item.product.images,
     category: item.product.category ?? null,
-    adminPrice: item.product.adminListingPrice ?? null,
-    salePrice: item.product.adminListingPrice ?? null,
-  } as ProductItem;
+    price: item.product.price ?? adminPrice,
+    adminPrice,
+    salePrice: item.product.salePrice ?? adminPrice,
+    regularPrice: item.product.regularPrice ?? null,
+  };
 
   return (
     <MarketplaceCard
       product={product}
       onPress={onPress}
+      onQuickAdd={onQuickAdd}
+      onBuyNow={onBuyNow}
       onRemove={(id) => {
         impactLight();
         onRemove(id);
       }}
       removing={removing}
-      style={wishlistCardStyle}
-      imageWidth={wishlistCardWidth}
+      style={{ width }}
+      imageWidth={width}
     />
   );
 });
@@ -77,8 +89,16 @@ const WishlistSeparator = () => <View style={styles.separator} />;
 export default function WishlistScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { session } = useAuth();
+  const { width: viewportWidth } = useWindowDimensions();
+  const columnCount = viewportWidth >= 900 ? 4 : viewportWidth >= 600 ? 3 : 2;
+  const cardWidth = Math.max(
+    148,
+    (viewportWidth - spacing.lg * 2 - spacing.md * (columnCount - 1)) / columnCount
+  );
+  const { session, isLoading: authLoading } = useAuth();
   const token = session?.accessToken ?? null;
+  const [quickBuyId, setQuickBuyId] = React.useState<string | null>(null);
+  const [quickBuyIntent, setQuickBuyIntent] = React.useState<QuickBuyIntent>("cart");
   const {
     wishlistItems,
     isLoading,
@@ -103,6 +123,16 @@ export default function WishlistScreen() {
     [removeFromWishlist]
   );
 
+  const openQuickAdd = React.useCallback((productId: string) => {
+    setQuickBuyIntent("cart");
+    setQuickBuyId(productId);
+  }, []);
+
+  const openBuyNow = React.useCallback((productId: string) => {
+    setQuickBuyIntent("buy");
+    setQuickBuyId(productId);
+  }, []);
+
   // Fade, not slide: a slide leaves the card off-screen until the animation
   // completes, and a recycled cell never completes it.
   const renderItem = React.useCallback(
@@ -112,11 +142,14 @@ export default function WishlistScreen() {
           item={item}
           onRemove={handleRemove}
           onPress={handlePress}
+          onQuickAdd={openQuickAdd}
+          onBuyNow={openBuyNow}
           removing={mutatingIds.has(item.productId)}
+          width={cardWidth}
         />
       </MotionView>
     ),
-    [handleRemove, handlePress, mutatingIds]
+    [cardWidth, handleRemove, handlePress, mutatingIds, openBuyNow, openQuickAdd]
   );
 
   const keyExtractor = React.useCallback(
@@ -124,13 +157,21 @@ export default function WishlistScreen() {
     []
   );
 
+  if (authLoading) {
+    return (
+      <SafeAreaView style={styles.container} edges={["top"]}>
+        <AppHeader title="Wishlist" subtitle="Saved styles" showBack />
+        <View style={styles.emptyWrap}>
+          <TatvivahLoader label="Loading wishlist" color={colors.gold} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   if (!token) {
     return (
       <SafeAreaView style={styles.container} edges={["top"]}>
-        <AppHeader title="Wishlist" subtitle="Saved styles" showMenu showBack />
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Wishlist</Text>
-        </View>
+        <AppHeader title="Wishlist" subtitle="Saved styles" showBack />
         <View style={styles.emptyWrap}>
           <WishlistIcon size={48} color={colors.brownSoft} />
           <Text style={styles.emptyTitle}>Sign in to use wishlist</Text>
@@ -140,12 +181,16 @@ export default function WishlistScreen() {
           <AnimatedPressable
             onPress={() => router.push("/login?returnTo=%2Fwishlist")}
             style={styles.ctaButton}
+            accessibilityRole="button"
+            accessibilityLabel="Sign in to use wishlist"
           >
             <Text style={styles.ctaButtonText}>Sign in</Text>
           </AnimatedPressable>
           <AnimatedPressable
             onPress={() => router.push("/search")}
             style={styles.secondaryButton}
+            accessibilityRole="button"
+            accessibilityLabel="Continue browsing products"
           >
             <Text style={styles.secondaryButtonText}>Continue browsing</Text>
           </AnimatedPressable>
@@ -156,13 +201,11 @@ export default function WishlistScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      <AppHeader title="Wishlist" subtitle="Saved styles" showMenu showBack />
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Wishlist</Text>
-        <Text style={styles.headerSubtitle}>
-          {wishlistItems.length} {wishlistItems.length === 1 ? "item" : "items"} saved
-        </Text>
-      </View>
+      <AppHeader
+        title="Wishlist"
+        subtitle={`${wishlistItems.length} ${wishlistItems.length === 1 ? "item" : "items"} saved`}
+        showBack
+      />
 
       {isLoading ? (
         <View style={styles.emptyWrap}>
@@ -171,7 +214,12 @@ export default function WishlistScreen() {
       ) : fetchError ? (
         <View style={styles.emptyWrap}>
           <Text style={styles.emptyTitle}>Unable to load wishlist</Text>
-          <AnimatedPressable onPress={refreshWishlist} style={styles.ctaButton}>
+          <AnimatedPressable
+            onPress={refreshWishlist}
+            style={styles.ctaButton}
+            accessibilityRole="button"
+            accessibilityLabel="Retry loading wishlist"
+          >
             <Text style={styles.ctaButtonText}>Retry</Text>
           </AnimatedPressable>
         </View>
@@ -185,16 +233,19 @@ export default function WishlistScreen() {
           <AnimatedPressable
             onPress={() => router.push("/search")}
             style={styles.ctaButton}
+            accessibilityRole="button"
+            accessibilityLabel="Explore shop"
           >
             <Text style={styles.ctaButtonText}>Explore Shop</Text>
           </AnimatedPressable>
         </View>
       ) : (
         <FlatList
+          key={`wishlist-grid-${columnCount}`}
           data={wishlistItems}
           renderItem={renderItem}
           keyExtractor={keyExtractor}
-          numColumns={2}
+          numColumns={columnCount}
           columnWrapperStyle={styles.columnWrapper}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
@@ -207,6 +258,12 @@ export default function WishlistScreen() {
           ItemSeparatorComponent={WishlistSeparator}
         />
       )}
+      <QuickBuySheet
+        productId={quickBuyId}
+        intent={quickBuyIntent}
+        visible={Boolean(quickBuyId)}
+        onClose={() => setQuickBuyId(null)}
+      />
     </SafeAreaView>
   );
 }
@@ -219,26 +276,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-  },
-  header: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderSoft,
-  },
-  headerTitle: {
-    fontFamily: typography.serif,
-    fontSize: 28,
-    color: colors.charcoal,
-  },
-  headerSubtitle: {
-    fontFamily: typography.sans,
-    fontSize: 12,
-    letterSpacing: 1.5,
-    textTransform: "uppercase",
-    color: colors.brownSoft,
-    marginTop: 4,
   },
   listContent: {
     paddingHorizontal: spacing.lg,

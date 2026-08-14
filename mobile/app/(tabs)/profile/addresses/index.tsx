@@ -21,6 +21,8 @@ import { AnimatedPressable } from "../../../../src/components/AnimatedPressable"
 import { impactLight, notifySuccess, notifyError } from "../../../../src/utils/haptics";
 import type { Address } from "../../../../src/services/addresses";
 import { TatvivahLoader } from "../../../../src/components/TatvivahLoader";
+import { AppHeader } from "../../../../src/components/AppHeader";
+import { Icon } from "../../../../src/components/Icon";
 import { AppText as Text, ScreenContainer as SafeAreaView } from "../../../../src/components";
 
 // ---------------------------------------------------------------------------
@@ -67,6 +69,9 @@ const AddressRow = React.memo(function AddressRow({
             style={styles.actionButton}
             onPress={() => onSetDefault(item.id)}
             disabled={isMutating}
+            accessibilityRole="button"
+            accessibilityLabel={`Set ${item.label} address as default`}
+            accessibilityState={{ disabled: isMutating }}
           >
             <Text style={styles.actionButtonText}>Set default</Text>
           </AnimatedPressable>
@@ -75,6 +80,9 @@ const AddressRow = React.memo(function AddressRow({
           style={styles.actionButton}
           onPress={() => onEdit(item.id)}
           disabled={isMutating}
+          accessibilityRole="button"
+          accessibilityLabel={`Edit ${item.label} address`}
+          accessibilityState={{ disabled: isMutating }}
         >
           <Text style={styles.actionButtonText}>Edit</Text>
         </AnimatedPressable>
@@ -82,6 +90,9 @@ const AddressRow = React.memo(function AddressRow({
           style={[styles.actionButton, styles.dangerButton]}
           onPress={() => onDelete(item.id)}
           disabled={isMutating}
+          accessibilityRole="button"
+          accessibilityLabel={`Delete ${item.label} address`}
+          accessibilityState={{ disabled: isMutating }}
         >
           <Text style={[styles.actionButtonText, styles.dangerText]}>
             Delete
@@ -184,7 +195,7 @@ export default function AddressesScreen() {
     () =>
       !isLoading ? (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyIcon}>📍</Text>
+          <Icon name="location-outline" size={38} color={colors.brownSoft} />
           <Text style={styles.emptyTitle}>No saved addresses</Text>
           <Text style={styles.emptySubtitle}>
             Add a delivery address to speed up checkout.
@@ -197,19 +208,9 @@ export default function AddressesScreen() {
   if (showGuestState) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <View style={styles.header}>
-          <AnimatedPressable onPress={handleGoBack} style={styles.backButton}>
-            <Text style={styles.backArrow}>←</Text>
-          </AnimatedPressable>
-          <View>
-            <Text style={styles.headerTitle}>Manage Addresses</Text>
-            <Text style={styles.headerCopy}>
-              Add, edit, or remove delivery addresses.
-            </Text>
-          </View>
-        </View>
+        <AppHeader title="Addresses" subtitle="Delivery details" showBack />
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyIcon}>📍</Text>
+          <Icon name="location-outline" size={38} color={colors.brownSoft} />
           <Text style={styles.emptyTitle}>No saved addresses</Text>
           <Text style={styles.emptySubtitle}>
             Add a delivery address when you&apos;re ready to check out.
@@ -217,6 +218,8 @@ export default function AddressesScreen() {
           <AnimatedPressable
             onPress={handleGoBack}
             style={styles.primaryButton}
+            accessibilityRole="button"
+            accessibilityLabel="Back to profile"
           >
             <Text style={styles.primaryButtonText}>Back to profile</Text>
           </AnimatedPressable>
@@ -227,18 +230,7 @@ export default function AddressesScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      {/* Header */}
-      <View style={styles.header}>
-        <AnimatedPressable onPress={handleGoBack} style={styles.backButton}>
-          <Text style={styles.backArrow}>←</Text>
-        </AnimatedPressable>
-        <View>
-          <Text style={styles.headerTitle}>Manage Addresses</Text>
-          <Text style={styles.headerCopy}>
-            Add, edit, or remove delivery addresses.
-          </Text>
-        </View>
-      </View>
+      <AppHeader title="Addresses" subtitle="Delivery details" showBack />
 
       {isLoading ? (
         <View style={styles.loaderContainer}>
@@ -251,6 +243,8 @@ export default function AddressesScreen() {
           <AnimatedPressable
             style={styles.primaryButton}
             onPress={refreshAddresses}
+            accessibilityRole="button"
+            accessibilityLabel="Retry loading addresses"
           >
             <Text style={styles.primaryButtonText}>Retry</Text>
           </AnimatedPressable>
@@ -271,7 +265,12 @@ export default function AddressesScreen() {
 
       {/* Add button — always visible at bottom */}
       <View style={[styles.addButtonContainer, { bottom: tabBarHeight }]}> 
-        <AnimatedPressable style={styles.primaryButton} onPress={handleAdd}>
+        <AnimatedPressable
+          style={styles.primaryButton}
+          onPress={handleAdd}
+          accessibilityRole="button"
+          accessibilityLabel="Add new address"
+        >
           <Text style={styles.primaryButtonText}>+ Add new address</Text>
         </AnimatedPressable>
       </View>
@@ -283,7 +282,7 @@ export default function AddressesScreen() {
         animationType="fade"
         onRequestClose={cancelDelete}
       >
-        <View style={styles.modalOverlay}>
+        <View style={styles.modalOverlay} accessibilityViewIsModal>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Delete Address</Text>
             <Text style={styles.modalMessage}>
@@ -294,6 +293,8 @@ export default function AddressesScreen() {
                 style={styles.modalCancelButton}
                 onPress={cancelDelete}
                 disabled={isDeleting}
+                accessibilityRole="button"
+                accessibilityLabel="Cancel deleting address"
               >
                 <Text style={styles.modalCancelText}>Cancel</Text>
               </Pressable>
@@ -304,6 +305,9 @@ export default function AddressesScreen() {
                 ]}
                 onPress={confirmDelete}
                 disabled={isDeleting}
+                accessibilityRole="button"
+                accessibilityLabel="Confirm deleting address"
+                accessibilityState={{ disabled: isDeleting, busy: isDeleting }}
               >
                 {isDeleting ? (
                   <TatvivahLoader size="sm" color={colors.background} />
@@ -327,39 +331,6 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.background,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
-    gap: spacing.sm,
-  },
-  backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.pill,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  backArrow: {
-    fontSize: 18,
-    color: colors.charcoal,
-  },
-  headerTitle: {
-    fontFamily: typography.serif,
-    fontSize: 22,
-    color: colors.charcoal,
-  },
-  headerCopy: {
-    marginTop: 2,
-    fontFamily: typography.sans,
-    fontSize: 11,
-    color: colors.brownSoft,
   },
   listContent: {
     paddingHorizontal: spacing.lg,
@@ -429,12 +400,15 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
   },
   actionButton: {
+    minHeight: 44,
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.md,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
   },
   actionButtonText: {
     fontFamily: typography.sansMedium,
@@ -445,11 +419,11 @@ const styles = StyleSheet.create({
   },
   dangerButton: {
     borderRadius: radius.md,
-    borderColor: colors.gold,
-    backgroundColor: "rgba(184, 149, 108, 0.12)",
+    borderColor: colors.error,
+    backgroundColor: "#FBECEA",
   },
   dangerText: {
-    color: colors.gold,
+    color: colors.error,
   },
 
   // Empty / loading
@@ -470,10 +444,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: spacing.xl,
     gap: spacing.xs,
-  },
-  emptyIcon: {
-    fontSize: 40,
-    marginBottom: spacing.sm,
   },
   emptyTitle: {
     fontFamily: typography.serif,

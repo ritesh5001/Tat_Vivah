@@ -12,7 +12,6 @@ import {
 } from "react-native";
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from "react-native-svg";
 import { useRouter } from "expo-router";
-import { Icon } from "../../../src/components/Icon";
 import { SectionMark } from "../../../src/components/SectionMark";
 import { colors, spacing, textStyles, typography, radius } from "../../../src/theme";
 import { useProductsQuery } from "../../../src/hooks/useProductsQuery";
@@ -174,34 +173,6 @@ function chunkCards(cards: HomeGridCard[], size: number): HomeGridPage[] {
   return pages;
 }
 
-function repeatCards(cards: HomeGridCard[], times: number): HomeGridCard[] {
-  if (cards.length === 0) return [];
-  const repeated: HomeGridCard[] = [];
-  for (let i = 0; i < times; i += 1) {
-    cards.forEach((card) => {
-      repeated.push({
-        ...card,
-        id: `${card.id}-r${i + 1}`,
-      });
-    });
-  }
-  return repeated;
-}
-
-function repeatProductCards(cards: HomeProductCard[], times: number): HomeProductCard[] {
-  if (cards.length === 0) return [];
-  const repeated: HomeProductCard[] = [];
-  for (let i = 0; i < times; i += 1) {
-    cards.forEach((card) => {
-      repeated.push({
-        ...card,
-        id: `${card.id}-r${i + 1}`,
-      });
-    });
-  }
-  return repeated;
-}
-
 function mergeUniqueProducts(current: ProductItem[], incoming: ProductItem[]): ProductItem[] {
   if (incoming.length === 0) return current;
   const seen = new Set(current.map((product) => product.id));
@@ -219,6 +190,28 @@ function mergeUniqueProducts(current: ProductItem[], incoming: ProductItem[]): P
 
 /** Hoisted: a stable component type, so separators are not remounted each render. */
 const OccasionSeparator = () => <View style={{ width: spacing.md }} />;
+
+function SectionError({
+  message,
+  onRetry,
+}: {
+  message: string;
+  onRetry: () => void;
+}) {
+  return (
+    <View style={styles.gridEmptyState} accessibilityRole="alert">
+      <Text style={styles.gridErrorText}>{message}</Text>
+      <Pressable
+        style={styles.sectionRetryButton}
+        onPress={onRetry}
+        accessibilityRole="button"
+        accessibilityLabel={`Retry ${message.toLowerCase()}`}
+      >
+        <Text style={styles.sectionRetryText}>Try again</Text>
+      </Pressable>
+    </View>
+  );
+}
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -253,19 +246,16 @@ export default function HomeScreen() {
     sort: "popularity",
     audience: mostLovedAudience,
   });
+  const refetchCategories = categoriesQuery.refetch;
+  const refetchOccasions = occasionsQuery.refetch;
+  const refetchBestsellers = bestsellersQuery.refetch;
+  const refetchMostLoved = mostLovedQuery.refetch;
 
   const [showScrollTop, setShowScrollTop] = React.useState(false);
   const listRef = React.useRef<FlatList<{ key: string; node: React.ReactNode }> | null>(null);
-  const testimonialRef = React.useRef<FlatList<typeof testimonials[number]> | null>(null);
-  const [occasionRepeatCount, setOccasionRepeatCount] = React.useState(1);
-  const [categoryRepeatCount, setCategoryRepeatCount] = React.useState(1);
-  const [vibeRepeatCount, setVibeRepeatCount] = React.useState(1);
-  const [bestsellerRepeatCount, setBestsellerRepeatCount] = React.useState(1);
   const [occasionPageIndex, setOccasionPageIndex] = React.useState(0);
   const [categoryPageIndex, setCategoryPageIndex] = React.useState(0);
-  const [vibePageIndex, setVibePageIndex] = React.useState(0);
   const [bestsellerPageIndex, setBestsellerPageIndex] = React.useState(0);
-  const [testimonialPageIndex, setTestimonialPageIndex] = React.useState(0);
   const [mostLovedProducts, setMostLovedProducts] = React.useState<ProductItem[]>([]);
   const [mostLovedVisibleCount, setMostLovedVisibleCount] = React.useState(0);
   const [mostLovedNextPage, setMostLovedNextPage] = React.useState(2);
@@ -273,11 +263,6 @@ export default function HomeScreen() {
   const [hasMoreMostLoved, setHasMoreMostLoved] = React.useState(true);
   const [hasMostLovedError, setHasMostLovedError] = React.useState(false);
   const [pendingMostLovedReveal, setPendingMostLovedReveal] = React.useState(false);
-  const testimonialIndexRef = React.useRef(0);
-
-  React.useEffect(() => {
-    testimonialIndexRef.current = testimonialPageIndex;
-  }, [testimonialPageIndex]);
 
   const navigateTo = React.useCallback(
     (to: string) => {
@@ -311,8 +296,6 @@ export default function HomeScreen() {
   const gridPageGap = spacing.md;
   const gridCardWidth = (gridPageWidth - gridPageGap) / 2;
   const occasionCardHeight = Math.round(gridCardWidth / 0.76);
-  const vibeCardWidth = Math.min(Math.max((gridPageWidth - spacing.md) / 2, 140), 228);
-  const vibeCardHeight = Math.round(vibeCardWidth * 1.32);
   const topCategoryGap = 8;
   const topCategoryCardBorder = 1;
   const topCategoryCardWidth = Math.floor(
@@ -333,9 +316,6 @@ export default function HomeScreen() {
   const bestsellerCardWidth = isPhone
     ? (gridPageWidth - productCardGap) / 2
     : gridPageWidth;
-  const testimonialCardGap = spacing.md;
-  const testimonialCardWidth = Math.min(Math.max(gridPageWidth * 0.82, 260), 320);
-  const testimonialCardStep = testimonialCardWidth + testimonialCardGap;
 
   const fallbackGridImages = React.useMemo(
     () => [
@@ -392,26 +372,6 @@ export default function HomeScreen() {
     }));
   }, [fallbackGridImages, occasionsQuery.data]);
 
-  const vibeCards = React.useMemo(
-    () => categoryCards.slice(0, 6),
-    [categoryCards]
-  );
-
-  const repeatedOccasionCards = React.useMemo(
-    () => repeatCards(occasionCards, occasionRepeatCount),
-    [occasionCards, occasionRepeatCount]
-  );
-
-  const repeatedCategoryCards = React.useMemo(
-    () => repeatCards(categoryCards, categoryRepeatCount),
-    [categoryCards, categoryRepeatCount]
-  );
-
-  const repeatedVibeCards = React.useMemo(
-    () => repeatCards(vibeCards, vibeRepeatCount),
-    [vibeCards, vibeRepeatCount]
-  );
-
   const mostLovedCards = React.useMemo<HomeProductCard[]>(() => {
     const products = mostLovedProducts.slice(0, mostLovedVisibleCount);
     return products.map((item, index) => ({
@@ -448,45 +408,21 @@ export default function HomeScreen() {
         salePrice: item.salePrice ?? null,
         adminPrice: item.adminPrice ?? null,
         regularPrice: item.regularPrice ?? null,
+        compareAtPrice: item.compareAtPrice ?? null,
+        sellerPrice: item.sellerPrice ?? null,
         price: item.minPrice ?? undefined,
-      } as ProductItem,
+      },
     }));
   }, [bestsellersQuery.data, fallbackGridImages]);
 
-  const repeatedBestsellerCards = React.useMemo(
-    () => repeatProductCards(bestsellerCards, bestsellerRepeatCount),
-    [bestsellerCards, bestsellerRepeatCount]
-  );
-
   const visibleOccasionPages = React.useMemo(
-    () => chunkCards(repeatedOccasionCards, 4),
-    [repeatedOccasionCards]
+    () => chunkCards(occasionCards, 4),
+    [occasionCards]
   );
 
   const baseOccasionPagesCount = Math.max(1, Math.ceil(occasionCards.length / 4));
   const baseCategoryPagesCount = Math.max(1, categoryCards.length);
-  const baseVibePagesCount = Math.max(1, vibeCards.length);
   const baseBestsellerPagesCount = Math.max(1, bestsellerCards.length);
-
-  const loadMoreOccasions = React.useCallback(() => {
-    if (occasionCards.length === 0) return;
-    setOccasionRepeatCount((prev) => prev + 1);
-  }, [occasionCards.length]);
-
-  const loadMoreCategories = React.useCallback(() => {
-    if (categoryCards.length === 0) return;
-    setCategoryRepeatCount((prev) => prev + 1);
-  }, [categoryCards.length]);
-
-  const loadMoreVibe = React.useCallback(() => {
-    if (vibeCards.length === 0) return;
-    setVibeRepeatCount((prev) => prev + 1);
-  }, [vibeCards.length]);
-
-  const loadMoreBestsellers = React.useCallback(() => {
-    if (bestsellerCards.length === 0) return;
-    setBestsellerRepeatCount((prev) => prev + 1);
-  }, [bestsellerCards.length]);
 
   const prefetchNextMostLoved = React.useCallback(async () => {
     if (isMostLovedPrefetching || !hasMoreMostLoved) return;
@@ -539,22 +475,14 @@ export default function HomeScreen() {
   ]);
 
   React.useEffect(() => {
-    setOccasionRepeatCount(1);
     setOccasionPageIndex(0);
   }, [occasionCards.length]);
 
   React.useEffect(() => {
-    setCategoryRepeatCount(1);
     setCategoryPageIndex(0);
   }, [categoryCards.length]);
 
   React.useEffect(() => {
-    setVibeRepeatCount(1);
-    setVibePageIndex(0);
-  }, [vibeCards.length]);
-
-  React.useEffect(() => {
-    setBestsellerRepeatCount(1);
     setBestsellerPageIndex(0);
   }, [bestsellerCards.length]);
 
@@ -688,34 +616,6 @@ export default function HomeScreen() {
     ]
   );
 
-  const renderVibeCard = React.useCallback(
-    ({ item }: ListRenderItemInfo<HomeGridCard>) => (
-      <Pressable
-        style={[
-          styles.vibeCard,
-          { width: vibeCardWidth, height: vibeCardHeight },
-        ]}
-        onPress={() => navigateTo(`/search?q=${encodeURIComponent(item.query)}`)}
-      >
-        <CachedImage
-          source={item.image}
-          style={{ width: vibeCardWidth, height: vibeCardHeight }}
-          contentFit="cover"
-        />
-        <View pointerEvents="none" style={styles.vibeCardOverlay} />
-        <BottomWineFade />
-        <ArchGradientBorder
-          width={vibeCardWidth}
-          height={vibeCardHeight}
-          topRadius={110}
-          strokeWidth={3.1}
-        />
-        <Text style={styles.vibeCardTitle}>{item.title}</Text>
-      </Pressable>
-    ),
-    [navigateTo, vibeCardHeight, vibeCardWidth]
-  );
-
   const renderCategoryCard = React.useCallback(
     ({ item }: ListRenderItemInfo<HomeGridCard>) => (
       <Pressable
@@ -804,58 +704,6 @@ export default function HomeScreen() {
     [bestsellerCardStyle, bestsellerCardWidth, openProduct, handleTryAndBuy, openQuickAdd, openBuyNow]
   );
 
-  const testimonials = React.useMemo(
-    () => [
-      {
-        id: "t1",
-        name: "Rohit S.",
-        initials: "RS",
-        meta: "Mumbai | Reception Sherwani",
-        quote:
-          "Fabric quality and finishing were premium. My reception sherwani fit perfectly and looked exactly like the photos.",
-      },
-      {
-        id: "t2",
-        name: "Karan M.",
-        initials: "KM",
-        meta: "Delhi | Indo Western Set",
-        quote:
-          "The stylist suggestions were spot on. I ordered an Indo-Western set and got compliments through the entire sangeet night.",
-      },
-      {
-        id: "t3",
-        name: "Aman P.",
-        initials: "AP",
-        meta: "Bengaluru | Mehendi Kurta",
-        quote:
-          "Comfortable for long ceremonies and the embroidery details looked rich in person. Definitely ordering again.",
-      },
-      {
-        id: "t4",
-        name: "Nikhil R.",
-        initials: "NR",
-        meta: "Pune | Wedding Kurta Set",
-        quote:
-          "Delivery was quick and the kurta set was true to size. Packaging and quality both felt very premium.",
-      },
-    ],
-    []
-  );
-
-  React.useEffect(() => {
-    if (!testimonials.length) return;
-    const interval = setInterval(() => {
-      const next = (testimonialIndexRef.current + 1) % testimonials.length;
-      testimonialRef.current?.scrollToOffset({
-        offset: next * testimonialCardStep,
-        animated: next !== 0,
-      });
-      testimonialIndexRef.current = next;
-      setTestimonialPageIndex(next);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [testimonialCardStep, testimonials.length]);
-
   const handleScroll = React.useCallback((offsetY: number) => {
     const shouldShow = offsetY > 260;
     setShowScrollTop((prev) => (prev === shouldShow ? prev : shouldShow));
@@ -897,7 +745,7 @@ export default function HomeScreen() {
 
   // The home page was one ScrollView wrapping every section at once.
   // A ScrollView mounts and renders all of its children immediately, so the
-  // hero, five horizontal carousels, the testimonial rail and the footer were
+  // hero, product rails and the footer were
   // all live simultaneously — and stayed live for the whole session. Scrolling
   // then had to composite that entire tree every frame.
   //
@@ -942,6 +790,11 @@ export default function HomeScreen() {
                   <SkeletonBlock width="47%" height={170} />
                   <SkeletonBlock width="47%" height={170} />
                 </View>
+              ) : occasionsQuery.isError && visibleOccasionPages.length === 0 ? (
+                <SectionError
+                  message="We couldn't load occasions."
+                  onRetry={() => void refetchOccasions()}
+                />
               ) : visibleOccasionPages.length === 0 ? (
                 <View style={styles.gridEmptyState}>
                   <Text style={styles.gridEmptyText}>No occasions available right now.</Text>
@@ -962,8 +815,6 @@ export default function HomeScreen() {
                   style={styles.gridViewport}
                   contentContainerStyle={styles.occasionGrid}
                   ItemSeparatorComponent={OccasionSeparator}
-                  onEndReached={loadMoreOccasions}
-                  onEndReachedThreshold={0.4}
                   showsHorizontalScrollIndicator={false}
                   onScroll={(event) => {
                     const page = Math.round(
@@ -991,7 +842,7 @@ export default function HomeScreen() {
             </View>
     ) },
     { key: "categories", node: (
-            <View style={styles.collectionSection}>
+            <View style={[styles.collectionSection, styles.compactCarouselSection]}>
               <View style={styles.sectionHeadRow}>
                 <SectionMark color="#511d00" />
                 <Text style={styles.collectionHeading}>SHOP BY CATEGORY</Text>
@@ -1006,7 +857,12 @@ export default function HomeScreen() {
                   <SkeletonBlock width="47%" height={170} />
                   <SkeletonBlock width="47%" height={170} />
                 </View>
-              ) : repeatedCategoryCards.length === 0 ? (
+              ) : categoriesQuery.isError && categoryCards.length === 0 ? (
+                <SectionError
+                  message="We couldn't load categories."
+                  onRetry={() => void refetchCategories()}
+                />
+              ) : categoryCards.length === 0 ? (
                 <View style={styles.gridEmptyState}>
                   <Text style={styles.gridEmptyText}>No categories available right now.</Text>
                 </View>
@@ -1060,7 +916,7 @@ export default function HomeScreen() {
                   </View>
                 ) : (
                   <FlatList
-                    data={repeatedCategoryCards}
+                    data={categoryCards}
                     keyExtractor={(item) => item.id}
                     renderItem={renderCategoryCard}
                     horizontal
@@ -1072,10 +928,11 @@ export default function HomeScreen() {
                     disableIntervalMomentum
                     snapToAlignment="start"
                     snapToInterval={categoryCardWidth + categoryCardGap}
-                    style={styles.gridViewport}
+                    style={[
+                      styles.categoryCarouselViewport,
+                      { height: categoryCardHeight + spacing.sm },
+                    ]}
                     contentContainerStyle={styles.categoryCarouselContent}
-                    onEndReached={loadMoreCategories}
-                    onEndReachedThreshold={0.4}
                     showsHorizontalScrollIndicator={false}
                     onScroll={(event) => {
                       const page = Math.round(event.nativeEvent.contentOffset.x / (categoryCardWidth + categoryCardGap));
@@ -1089,8 +946,8 @@ export default function HomeScreen() {
                   />
                 )
               )}
-              {repeatedCategoryCards.length > 0 && categoryCards.length < 8 ? (
-                <View style={styles.paginationWrap}>
+              {categoryCards.length > 0 && categoryCards.length < 8 ? (
+                <View style={[styles.paginationWrap, styles.compactPaginationWrap]}>
                   {Array.from({ length: baseCategoryPagesCount }).map((_, idx) => {
                     const isActive = idx === (categoryPageIndex % baseCategoryPagesCount);
                     return <View key={`category-dot-${idx}`} style={[styles.paginationDot, isActive && styles.paginationDotActive]} />;
@@ -1100,7 +957,7 @@ export default function HomeScreen() {
             </View>
     ) },
     { key: "bestsellers", node: (
-            <View style={styles.mostLovedSection}>
+            <View style={[styles.mostLovedSection, styles.compactCarouselSection]}>
               <View style={styles.mostLovedHeaderRow}>
                 <SectionMark color="#511d00" />
                 <Text style={styles.mostLovedHeading}>BEST SELLERS</Text>
@@ -1114,7 +971,12 @@ export default function HomeScreen() {
                   <SkeletonBlock width="47%" height={220} />
                   <SkeletonBlock width="47%" height={220} />
                 </View>
-              ) : repeatedBestsellerCards.length === 0 ? (
+              ) : bestsellersQuery.isError && bestsellerCards.length === 0 ? (
+                <SectionError
+                  message="We couldn't load best sellers."
+                  onRetry={() => void refetchBestsellers()}
+                />
+              ) : bestsellerCards.length === 0 ? (
                 <View style={styles.gridEmptyState}>
                   <Text style={styles.gridEmptyText}>
                     No {bestsellersAudience === "MENS" ? "mens" : "kids"} bestsellers available right now.
@@ -1123,7 +985,7 @@ export default function HomeScreen() {
               ) : (
                 <FlatList
                   horizontal
-                  data={repeatedBestsellerCards}
+                  data={bestsellerCards}
                   keyExtractor={(item) => item.id}
                   renderItem={renderBestsellerCard}
                   initialNumToRender={2}
@@ -1131,8 +993,6 @@ export default function HomeScreen() {
                   windowSize={3}
                   contentContainerStyle={styles.largeProductList}
                   showsHorizontalScrollIndicator={false}
-                  onEndReached={loadMoreBestsellers}
-                  onEndReachedThreshold={0.4}
                   snapToInterval={bestsellerCardWidth + productCardGap}
                   decelerationRate="fast"
                   disableIntervalMomentum
@@ -1152,12 +1012,14 @@ export default function HomeScreen() {
                   }}
                 />
               )}
-              <View style={styles.paginationWrap}>
-                {Array.from({ length: baseBestsellerPagesCount }).map((_, idx) => {
-                  const isActive = idx === (bestsellerPageIndex % baseBestsellerPagesCount);
-                  return <View key={`bestseller-dot-${idx}`} style={[styles.paginationDot, isActive && styles.paginationDotActive]} />;
-                })}
-              </View>
+              {bestsellerCards.length > 0 ? (
+                <View style={[styles.paginationWrap, styles.compactPaginationWrap]}>
+                  {Array.from({ length: baseBestsellerPagesCount }).map((_, idx) => {
+                    const isActive = idx === (bestsellerPageIndex % baseBestsellerPagesCount);
+                    return <View key={`bestseller-dot-${idx}`} style={[styles.paginationDot, isActive && styles.paginationDotActive]} />;
+                  })}
+                </View>
+              ) : null}
             </View>
     ) },
     { key: "mostLoved", node: (
@@ -1174,6 +1036,11 @@ export default function HomeScreen() {
                   <SkeletonBlock width="47%" height={240} />
                   <SkeletonBlock width="47%" height={240} />
                 </View>
+              ) : mostLovedQuery.isError && mostLovedCards.length === 0 ? (
+                <SectionError
+                  message="We couldn't load popular products."
+                  onRetry={() => void refetchMostLoved()}
+                />
               ) : mostLovedCards.length === 0 ? (
                 <View style={styles.gridEmptyState}>
                   <Text style={styles.gridEmptyText}>
@@ -1205,69 +1072,6 @@ export default function HomeScreen() {
               ) : null}
             </View>
     ) },
-    { key: "testimonials", node: (
-            <View style={styles.testimonialSection}>
-              <View style={styles.testimonialHeadingBox}>
-                <Text style={styles.testimonialEyebrow}>Real Stories</Text>
-                <Text style={styles.testimonialHeading}>TESTIMONIALS</Text>
-              </View>
-              <FlatList
-                ref={testimonialRef}
-                horizontal
-                decelerationRate="fast"
-                data={testimonials}
-                keyExtractor={(item) => item.id}
-                initialNumToRender={2}
-                maxToRenderPerBatch={2}
-                windowSize={3}
-                updateCellsBatchingPeriod={24}
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.testimonialViewport}
-                renderItem={({ item }) => {
-                  const quoteText = item.quote?.trim() || "Tatvivah delivered premium quality, true-to-photo finish, and a smooth wedding-day experience.";
-                  const nameText = item.name?.trim() || "Tatvivah Customer";
-                  const initialsText = item.initials?.trim() || "TV";
-                  const metaText = item.meta?.trim() || "Verified Tatvivah Buyer";
-
-                  return (
-                    <View style={[styles.testimonialCardLarge, { width: testimonialCardWidth }]}>
-                      <Text style={styles.testimonialStars}>★★★★★</Text>
-                      <Text style={styles.testimonialQuoteLarge}>{`"${quoteText}"`}</Text>
-                      <View style={styles.testimonialAuthorRow}>
-                        <View style={styles.testimonialAvatar}>
-                          <Text style={styles.testimonialAvatarText}>{initialsText}</Text>
-                        </View>
-                        <View style={styles.testimonialMetaWrap}>
-                          <Text style={styles.testimonialName}>{nameText}</Text>
-                          <Text style={styles.testimonialMeta}>{metaText}</Text>
-                        </View>
-                      </View>
-                    </View>
-                  );
-                }}
-                snapToInterval={testimonialCardStep}
-                snapToAlignment="start"
-                disableIntervalMomentum
-                onScroll={(event) => {
-                  const page = Math.round(event.nativeEvent.contentOffset.x / testimonialCardStep);
-                  setTestimonialPageIndex((prev) => (prev === page ? prev : page));
-                }}
-                scrollEventThrottle={100}
-                onMomentumScrollEnd={(event) => {
-                  const page = Math.round(event.nativeEvent.contentOffset.x / testimonialCardStep);
-                  setTestimonialPageIndex((prev) => (prev === page ? prev : page));
-                }}
-              />
-              <View style={styles.paginationWrap}>
-                {testimonials.map((item, idx) => (
-                  <View
-                    key={item.id}
-                    style={[styles.paginationDot, idx === testimonialPageIndex && styles.paginationDotActive]}
-                  />
-                ))}
-              </View>
-            </View>
-    ) },
     { key: "footer", node: (
             <View style={styles.fullBleed}>
               <Footer />
@@ -1275,39 +1079,37 @@ export default function HomeScreen() {
     ) },
   ], [
     categoriesQuery.isLoading,
+    categoriesQuery.isError,
+    refetchCategories,
     navigateTo,
     baseCategoryPagesCount,
     baseOccasionPagesCount,
-    baseVibePagesCount,
     baseBestsellerPagesCount,
     bestsellersQuery.isLoading,
+    bestsellersQuery.isError,
+    refetchBestsellers,
     categoryCards,
     categoryPageIndex,
     gridPageGap,
     gridPageWidth,
-    loadMoreBestsellers,
-    loadMoreCategories,
-    loadMoreOccasions,
-    loadMoreVibe,
     mostLovedQuery.isLoading,
+    mostLovedQuery.isError,
+    refetchMostLoved,
     mostLovedCards,
     occasionPageIndex,
     occasionsQuery.isLoading,
+    occasionsQuery.isError,
+    refetchOccasions,
     renderLargeProductCard,
     renderBestsellerCard,
     renderGridPage,
     renderCategoryCard,
-    renderVibeCard,
     bestsellerCardWidth,
     categoryCardGap,
+    categoryCardHeight,
     categoryCardWidth,
     productCardGap,
-    repeatedCategoryCards,
-    repeatedBestsellerCards,
-    testimonials,
-    testimonialPageIndex,
-    testimonialCardStep,
-    testimonialCardWidth,
+    bestsellerCards,
     bestsellerPageIndex,
     visibleOccasionPages,
     topCategoryCards,
@@ -1316,6 +1118,8 @@ export default function HomeScreen() {
     hasMoreMostLoved,
     hasMostLovedError,
     isMostLovedPrefetching,
+    bestsellersAudience,
+    mostLovedAudience,
   ]);
 
   return (
@@ -1411,28 +1215,12 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     color: "#4f4741",
   },
-  vibeSection: {
-    marginTop: spacing.xs,
-    gap: spacing.md,
-  },
-  vibeHeadingWrap: {
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.xs,
-  },
-  vibeTitle: {
-    ...HOME_SECTION_TITLE,
-    color: colors.headerBrown,
-    textAlign: "center",
-  },
-  vibeCarouselContent: {
-    gap: spacing.md,
-    paddingLeft: 0,
-    paddingRight: 0,
-  },
   categoryCarouselContent: {
     gap: spacing.md,
-    paddingBottom: spacing.md,
+    paddingBottom: 0,
+  },
+  categoryCarouselViewport: {
+    flexGrow: 0,
   },
   archGradientBorderWrap: {
     ...StyleSheet.absoluteFillObject,
@@ -1446,7 +1234,6 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 0,
     borderBottomRightRadius: 0,
     overflow: "hidden",
-    borderWidth: 0,
     backgroundColor: "#E6DDD6",
     justifyContent: "flex-end",
     shadowColor: "#351A14",
@@ -1514,38 +1301,6 @@ const styles = StyleSheet.create({
     textShadowColor: "rgba(0, 0, 0, 0.55)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 4,
-  },
-  vibeCard: {
-    borderTopLeftRadius: 110,
-    borderTopRightRadius: 110,
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
-    overflow: "hidden",
-    borderWidth: 0,
-    backgroundColor: "#D9CEC2",
-    justifyContent: "flex-end",
-    shadowColor: "#2C1E15",
-    shadowOpacity: 0.12,
-    shadowOffset: { width: 0, height: 8 },
-    shadowRadius: 14,
-    elevation: 3,
-  },
-  vibeCardOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(32, 20, 12, 0.05)",
-  },
-  vibeCardTitle: {
-    ...textStyles.sectionTitle,
-    position: "absolute",
-    bottom: spacing.sm,
-    width: "100%",
-    textAlign: "center",
-    color: "#FFF8EE",
-    letterSpacing: 1,
-    fontSize: 26,
-    textShadowColor: "rgba(18, 11, 7, 0.85)",
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 8,
   },
   occasionSection: {
     backgroundColor: "transparent",
@@ -1617,6 +1372,31 @@ const styles = StyleSheet.create({
   gridEmptyText: {
     color: colors.textSecondary,
     fontSize: 13,
+    textAlign: "center",
+  },
+  gridErrorText: {
+    color: colors.textSecondary,
+    fontFamily: typography.sans,
+    fontSize: 13,
+    lineHeight: 20,
+    textAlign: "center",
+  },
+  sectionRetryButton: {
+    minHeight: 44,
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.interactive,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sectionRetryText: {
+    color: colors.interactive,
+    fontFamily: typography.sansMedium,
+    fontSize: 12,
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
   },
   occasionCard: {
     aspectRatio: 0.76,
@@ -1686,6 +1466,10 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
     gap: spacing.md,
   },
+  compactCarouselSection: {
+    marginTop: 0,
+    gap: spacing.sm,
+  },
   scrollDirectionText: {
     marginTop: spacing.xs,
     fontSize: 11,
@@ -1702,6 +1486,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
     marginTop: spacing.sm,
+  },
+  compactPaginationWrap: {
+    marginTop: 0,
   },
   paginationDot: {
     width: 7,
@@ -1759,168 +1546,5 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.textSecondary,
     letterSpacing: 0.4,
-  },
-  largeProductCard: {
-    borderRadius: radius.lg,
-    borderWidth: 1.5,
-    borderColor: "#7B4C2C",
-    backgroundColor: "#D7CCBC",
-    overflow: "hidden",
-    marginBottom: 0,
-  },
-  largeProductImage: {
-    width: "100%",
-    height: 360,
-  },
-  largeProductOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.10)",
-  },
-  largeProductMeta: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
-    alignItems: "flex-start",
-    backgroundColor: "#F8F6F3",
-    borderTopWidth: 1,
-    borderTopColor: "#D9D3CD",
-  },
-  largeProductTitle: {
-    ...textStyles.sectionTitle,
-    color: "#2F2924",
-    letterSpacing: 0.2,
-    fontSize: 16,
-  },
-  largeProductPrice: {
-    marginTop: spacing.xs,
-    color: "#2F2924",
-    fontSize: 14,
-    fontWeight: "700",
-    letterSpacing: 0.2,
-  },
-  bestSellerCard: {
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: "#D9D3CD",
-    backgroundColor: "#F8F6F3",
-    overflow: "hidden",
-  },
-  bestSellerImage: {
-    width: "100%",
-  },
-  bestSellerMeta: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.md,
-    gap: 4,
-  },
-  bestSellerTitle: {
-    ...textStyles.sectionTitle,
-    color: "#2F2924",
-    fontSize: 20,
-    letterSpacing: 0.2,
-  },
-  bestSellerCategory: {
-    fontSize: 11,
-    letterSpacing: 2.2,
-    color: "#5D5650",
-  },
-  bestSellerPrice: {
-    marginTop: spacing.xs,
-    fontSize: 18,
-    letterSpacing: 0.2,
-    color: "#2F2924",
-    fontFamily: "Inter_500Medium",
-  },
-  testimonialSection: {
-    marginTop: spacing.xs,
-    gap: spacing.md,
-  },
-  testimonialHeadingBox: {
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.xs,
-  },
-  testimonialEyebrow: {
-    fontSize: 12,
-    letterSpacing: 1.8,
-    textTransform: "uppercase",
-    color: "#7D6656",
-    fontFamily: "Inter_600SemiBold",
-  },
-  testimonialHeading: {
-    ...HOME_SECTION_TITLE,
-    color: colors.textPrimary,
-    textAlign: "center",
-  },
-  testimonialViewport: {
-    paddingHorizontal: 0,
-    paddingRight: spacing.md,
-    gap: spacing.md,
-  },
-  testimonialCardLarge: {
-    minHeight: 228,
-    borderWidth: 1,
-    borderColor: "#7B4C2C",
-    borderRadius: radius.lg,
-    backgroundColor: "#F6EFE7",
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
-    shadowColor: "#2C1E15",
-    shadowOpacity: 0.08,
-    shadowOffset: { width: 0, height: 6 },
-    shadowRadius: 12,
-    elevation: 1,
-  },
-  testimonialStars: {
-    color: "#B89078",
-    fontSize: 17,
-    marginBottom: spacing.xs,
-    letterSpacing: 0.5,
-  },
-  testimonialQuoteLarge: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: "#2B2119",
-    fontStyle: "italic",
-    flexGrow: 1,
-  },
-  testimonialAuthorRow: {
-    marginTop: spacing.md,
-    paddingTop: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: "#E8DDD1",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-  },
-  testimonialAvatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: "#4A2515",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  testimonialAvatarText: {
-    color: "#FFF8F1",
-    fontSize: 12,
-    fontFamily: "Inter_600SemiBold",
-    letterSpacing: 0.3,
-  },
-  testimonialMetaWrap: {
-    flex: 1,
-  },
-  testimonialName: {
-    marginTop: 0,
-    fontSize: 13,
-    letterSpacing: 0.4,
-    fontFamily: "Inter_600SemiBold",
-    color: "#3B271C",
-  },
-  testimonialMeta: {
-    marginTop: 2,
-    fontSize: 11,
-    letterSpacing: 0.4,
-    color: "#7B5C47",
   },
 });

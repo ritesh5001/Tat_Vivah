@@ -15,12 +15,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 
-const currency = new Intl.NumberFormat("en-IN", {
-  style: "currency",
-  currency: "INR",
-  maximumFractionDigits: 0,
-});
-
 export interface SellerOrdersInitialData {
   orderItems: Array<any>;
   shipmentsByOrder: Record<string, Array<any>>;
@@ -71,8 +65,11 @@ export default function SellerOrdersClient({
     },
   });
 
-  const items = ordersData?.orderItems ?? [];
-  const shipmentsByOrder = ordersData?.shipmentsByOrder ?? {};
+  const items = React.useMemo(() => ordersData?.orderItems ?? [], [ordersData?.orderItems]);
+  const shipmentsByOrder = React.useMemo(
+    () => ordersData?.shipmentsByOrder ?? {},
+    [ordersData?.shipmentsByOrder]
+  );
   const loading = isLoading && !ordersData;
 
   const liveRefreshBlockRef = React.useRef<number>(0);

@@ -9,7 +9,6 @@ import { jwtDecode } from "jwt-decode";
 import {
   API_BASE_URL,
   ApiError,
-  LOCAL_API_BASE_URL,
   PRODUCTION_API_BASE_URL,
   triggerSessionExpired,
 } from "./api";
