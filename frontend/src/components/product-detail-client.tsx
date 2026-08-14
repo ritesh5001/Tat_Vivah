@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { ArrowLeftRight, ChevronDown, CircleHelp, Eye, Share2, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { CommerceFlowButton } from "@/components/ui/commerce-flow-button";
 import { toast } from "sonner";
 import { addCartItem } from "@/services/cart";
 import { createAppointment } from "@/services/appointments";
@@ -692,28 +693,29 @@ export default function ProductDetailClient({
 
         {/* 6. Action Buttons */}
         <div className="flex flex-col sm:flex-row gap-4 pt-4">
-          <motion.div whileHover={{ y: -2 }} transition={{ duration: 0.4 }} className="flex-1">
-            <Button
-              size="lg"
-              variant="outline"
+          <div className="flex-1">
+            <CommerceFlowButton
+              action="cart"
+              variant="filled"
               onClick={handleAddToCart}
               disabled={buyNowLoading}
-              className="w-full h-14 border border-gold/40 bg-[#fefaf6] dark:bg-brown/20 text-[#d85025] hover:bg-cream dark:hover:bg-brown/40 hover:text-[#b03d19] font-medium tracking-widest uppercase text-[13px] transition-colors"
+              className="font-semibold uppercase tracking-[0.12em]"
             >
               Add to Cart
-            </Button>
-          </motion.div>
+            </CommerceFlowButton>
+          </div>
 
-          <motion.div whileHover={{ y: -2 }} transition={{ duration: 0.4 }} className="flex-1">
-            <Button
-              size="lg"
+          <div className="flex-1">
+            <CommerceFlowButton
+              action="buy"
+              variant="outline"
               onClick={handleBuyNow}
               disabled={buyNowLoading}
-              className="w-full h-14 bg-[#d85025] hover:bg-[#b03d19] text-white font-medium tracking-widest uppercase text-[13px] border-none transition-colors"
+              className="font-semibold uppercase tracking-[0.12em]"
             >
               {buyNowLoading ? "Processing..." : "Buy Now"}
-            </Button>
-          </motion.div>
+            </CommerceFlowButton>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-3 pt-3 sm:grid-cols-2">

@@ -12,6 +12,7 @@ import { PRODUCT_QUERY_STALE_TIME_MS } from "../lib/prefetch-product";
 import { buildSizeOptions } from "../lib/variantAttributes";
 import { Image } from "./CompatImage";
 import { TatvivahLoader } from "./TatvivahLoader";
+import { FlowActionButton } from "./FlowActionButton";
 import { AppText as Text } from "./index";
 
 const currency = new Intl.NumberFormat("en-IN", {
@@ -311,31 +312,31 @@ export function QuickBuySheet({
                 ) : null}
               </ScrollView>
 
-              <Pressable
-                style={[
-                  styles.cta,
-                  (!selectedVariant || submitting) && styles.ctaDisabled,
-                ]}
+              <FlowActionButton
+                filled
+                style={styles.quickBuyAction}
+                icon={intent === "buy" ? "card-outline" : "cart-outline"}
+                label={
+                  confirmed
+                    ? "ADDED TO BAG ✓"
+                    : submitting
+                      ? "ADDING…"
+                      : !selectedVariant
+                        ? "SELECT A SIZE"
+                        : intent === "buy"
+                          ? "BUY NOW"
+                          : "ADD TO BAG"
+                }
                 onPress={handleConfirm}
                 disabled={!selectedVariant || submitting}
-              >
-                {confirmed ? (
-                  <View style={styles.ctaConfirmRow}>
-                    <Icon name="checkmark-circle" size={18} color={colors.warmWhite} />
-                    <Text style={styles.ctaText}>Added to bag</Text>
-                  </View>
-                ) : (
-                  <Text style={styles.ctaText}>
-                    {submitting
-                      ? "Adding…"
-                      : !selectedVariant
-                        ? "Select a size"
-                        : intent === "buy"
-                          ? "Buy Now"
-                          : "Add to Bag"}
-                  </Text>
-                )}
-              </Pressable>
+                accessibilityLabel={
+                  !selectedVariant
+                    ? "Select a size before continuing"
+                    : intent === "buy"
+                      ? "Buy this product now"
+                      : "Add this product to bag"
+                }
+              />
             </>
           )}
         </Pressable>
@@ -441,18 +442,7 @@ const styles = StyleSheet.create({
   chipTextActive: { color: colors.charcoal },
   chipTextDisabled: { textDecorationLine: "line-through" },
   dot: { width: 12, height: 12, borderRadius: 6, borderWidth: 1, borderColor: colors.borderSoft },
-  cta: {
+  quickBuyAction: {
     marginTop: spacing.sm,
-    backgroundColor: colors.charcoal,
-    paddingVertical: spacing.md,
-    alignItems: "center",
-  },
-  ctaDisabled: { opacity: 0.45 },
-  ctaConfirmRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  ctaText: {
-    fontFamily: typography.sansMedium,
-    fontSize: 14,
-    letterSpacing: 1,
-    color: colors.warmWhite,
   },
 });

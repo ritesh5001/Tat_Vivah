@@ -9,14 +9,13 @@ import {
   type ViewStyle,
 } from "react-native";
 import Animated, {
-  interpolate,
   useAnimatedStyle,
   useSharedValue,
-  withDelay,
   withSpring,
   withTiming,
 } from "react-native-reanimated";
-import { Icon, type IconName } from "./Icon";
+import { Icon } from "./Icon";
+import { FlowActionButton } from "./FlowActionButton";
 import { Image } from "./CompatImage";
 import { colors, typography, spacing, radius } from "../theme/tokens";
 import { images } from "../data/images";
@@ -25,100 +24,6 @@ import { useWishlist } from "../providers/WishlistProvider";
 import { rememberProductSeed } from "../lib/product-seed";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-
-type FlowActionButtonProps = {
-  label: string;
-  accessibilityLabel: string;
-  icon: IconName;
-  filled?: boolean;
-  onPress: () => void;
-};
-
-/**
- * Native version of the supplied flow button. A press pulls the arrow through
- * the label while a circular colour wash expands behind it; the spring release
- * keeps the interaction tactile without delaying the actual cart action.
- */
-function FlowActionButton({
-  label,
-  accessibilityLabel,
-  icon,
-  filled = false,
-  onPress,
-}: FlowActionButtonProps) {
-  const progress = useSharedValue(0);
-
-  const buttonMotion = useAnimatedStyle(() => ({
-    borderRadius: interpolate(progress.value, [0, 1], [radius.pill, radius.sm]),
-    transform: [{ scale: interpolate(progress.value, [0, 1], [1, 0.965]) }],
-  }));
-  const fillMotion = useAnimatedStyle(() => ({
-    opacity: progress.value,
-    transform: [{ scale: interpolate(progress.value, [0, 1], [0.15, 15]) }],
-  }));
-  const idleMotion = useAnimatedStyle(() => ({
-    opacity: 1 - progress.value,
-    transform: [{ translateX: interpolate(progress.value, [0, 1], [0, 12]) }],
-  }));
-  const activeMotion = useAnimatedStyle(() => ({
-    opacity: progress.value,
-    transform: [{ translateX: interpolate(progress.value, [0, 1], [-10, 0]) }],
-  }));
-  const leadingArrowMotion = useAnimatedStyle(() => ({
-    opacity: progress.value,
-    transform: [{ translateX: interpolate(progress.value, [0, 1], [-40, 0]) }],
-  }));
-  const handlePressIn = React.useCallback(() => {
-    progress.value = withTiming(1, { duration: 300 });
-  }, [progress]);
-  const handlePressOut = React.useCallback(() => {
-    progress.value = withDelay(
-      140,
-      withSpring(0, { damping: 16, stiffness: 190, mass: 0.65 })
-    );
-  }, [progress]);
-
-  const idleColor = filled ? colors.warmWhite : colors.charcoal;
-  const activeColor = colors.warmWhite;
-
-  return (
-    <AnimatedPressable
-      style={[
-        styles.flowButton,
-        filled ? styles.flowButtonFilled : styles.flowButtonOutline,
-        buttonMotion,
-      ]}
-      onPress={onPress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel}
-    >
-      <Animated.View
-        pointerEvents="none"
-        style={[
-          styles.flowFill,
-          { backgroundColor: filled ? colors.gold : colors.charcoal },
-          fillMotion,
-        ]}
-      />
-      <Animated.View pointerEvents="none" style={[styles.flowLeadingArrow, leadingArrowMotion]}>
-        <Icon name={icon} size={13} color={activeColor} />
-      </Animated.View>
-      <Animated.View pointerEvents="none" style={[styles.flowIdleContent, idleMotion]}>
-        <Icon name={icon} size={12} color={idleColor} />
-        <Animated.Text style={[styles.flowLabel, { color: idleColor }]}>
-          {label}
-        </Animated.Text>
-      </Animated.View>
-      <Animated.View pointerEvents="none" style={[styles.flowActiveContent, activeMotion]}>
-        <Animated.Text style={[styles.flowLabel, { color: activeColor }]}>
-          {label}
-        </Animated.Text>
-      </Animated.View>
-    </AnimatedPressable>
-  );
-}
 
 interface MarketplaceCardProps {
   product: ProductItem;
@@ -642,50 +547,5 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.md,
-  },
-  flowButton: {
-    width: "100%",
-    height: 36,
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-  },
-  flowButtonFilled: {
-    backgroundColor: colors.charcoal,
-    borderWidth: 1,
-    borderColor: colors.charcoal,
-  },
-  flowButtonOutline: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.charcoal,
-  },
-  flowFill: {
-    position: "absolute",
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-  },
-  flowIdleContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 12,
-  },
-  flowActiveContent: {
-    position: "absolute",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  flowLabel: {
-    fontFamily: typography.sansMedium,
-    fontSize: 10,
-    letterSpacing: 1.2,
-    fontWeight: "700",
-  },
-  flowLeadingArrow: {
-    position: "absolute",
-    left: 14,
-    zIndex: 2,
   },
 });

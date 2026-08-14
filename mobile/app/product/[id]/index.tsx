@@ -59,7 +59,7 @@ import {
 import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
 import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
 import { MarketplaceCard } from "../../../src/components/MarketplaceCard";
-import { SwipeActionBar } from "../../../src/components/SwipeActionBar";
+import { FlowActionButton } from "../../../src/components/FlowActionButton";
 import { FlyToCart } from "../../../src/components/FlyToCart";
 import { QuickBuySheet, type QuickBuyIntent } from "../../../src/components/QuickBuySheet";
 import { WishlistIcon } from "../../../src/components/WishlistIcon";
@@ -514,7 +514,7 @@ export default function ProductDetailScreen() {
     : Math.max(insets.bottom, spacing.sm);
   const galleryWidth = Math.max(windowWidth - spacing.md * 2, 260);
   const galleryHeight = Math.round(galleryWidth * (4 / 3));
-  const stickyActionHeight = 96;
+  const stickyActionHeight = 76;
   /** Screen-space top edge of the sticky action bar. */
   const stickyBarTopY = windowHeight - stickyBottomOffset - stickyActionHeight;
   const stickyReserveSpace = stickyBottomOffset + stickyActionHeight + spacing.xl;
@@ -2294,23 +2294,31 @@ export default function ProductDetailScreen() {
         ]}
       >
         <View style={styles.actionRow}>
-          {/* One handle, flicked toward the action you want. Both ends stay
-              readable so the gesture is discoverable rather than hidden. */}
-          <SwipeActionBar
-            leftLabel={
-              justAdded ? "Added \u2713" : selectedVariant && outOfStock ? "Out of stock" : "Add to Bag"
+          <FlowActionButton
+            filled
+            style={styles.flowAction}
+            label={
+              justAdded
+                ? "ADDED ✓"
+                : selectedVariant && outOfStock
+                  ? "OUT OF STOCK"
+                  : "ADD TO BAG"
             }
-            rightLabel="Buy Now"
-            onSwipeLeft={(origin) => {
-              // The bar reports a position within itself; lift it into screen
-              // space so the flight starts exactly where the icon detached.
-              flightOriginRef.current = {
-                x: origin.x + spacing.md,
-                y: stickyBarTopY + origin.y,
-              };
-              handleAddToCart();
-            }}
-            onSwipeRight={() => handleBuyNow()}
+            icon="cart-outline"
+            accessibilityLabel={
+              selectedVariant && outOfStock
+                ? "Selected variant is out of stock"
+                : "Add selected product variant to bag"
+            }
+            onPress={() => handleAddToCart()}
+            disabled={Boolean(selectedVariant && outOfStock) || adding}
+          />
+          <FlowActionButton
+            style={styles.flowAction}
+            label="BUY NOW"
+            icon="card-outline"
+            accessibilityLabel="Buy selected product variant now"
+            onPress={() => handleBuyNow()}
             disabled={Boolean(selectedVariant && outOfStock) || adding}
           />
         </View>
@@ -3113,6 +3121,9 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     alignItems: "center",
     width: "100%",
+  },
+  flowAction: {
+    flex: 1,
   },
   primaryButtonText: {
     fontFamily: typography.sansMedium,

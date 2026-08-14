@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { QuickBuyDialog, type QuickBuyIntent } from "@/components/quick-buy-dialog";
+import { CommerceFlowButton } from "@/components/ui/commerce-flow-button";
 
 /**
  * Client island for the product card's Add to Cart.
@@ -26,8 +27,9 @@ export function QuickBuyButton({
 
     return (
         <>
-            <button
-                type="button"
+            <CommerceFlowButton
+                action={intent === "buy" ? "buy" : "cart"}
+                variant={intent === "cart" ? "filled" : "outline"}
                 className={className}
                 onClick={(event) => {
                     // The card is wrapped in a link to the product page; opening the
@@ -37,8 +39,8 @@ export function QuickBuyButton({
                     setOpen(true);
                 }}
             >
-                {children ?? <span className="relative z-10">{label}</span>}
-            </button>
+                {children ?? label}
+            </CommerceFlowButton>
 
             <QuickBuyDialog
                 productId={open ? productId : null}

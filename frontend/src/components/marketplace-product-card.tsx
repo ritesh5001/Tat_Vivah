@@ -304,18 +304,9 @@ export function MarketplaceProductCard({ product }: { product: MarketplaceCardPr
             page, so "Add to Cart" never actually added anything. */}
         <QuickBuyButton
           productId={product.id}
-          className="relative isolate mt-1.5 inline-flex h-10 w-full items-center justify-center overflow-hidden rounded-lg bg-black px-3 text-[0.86rem] font-semibold uppercase tracking-[0.14em] text-white transition-all duration-300 hover:bg-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/70 focus-visible:ring-offset-2 sm:mt-2 sm:h-11 sm:rounded-xl sm:px-4 sm:text-sm sm:tracking-widest"
-        >
-          <span
-            aria-hidden
-            className="pointer-events-none absolute inset-y-0 -left-1/3 w-1/4 skew-x-[-18deg] bg-white/20 blur-[2px] transition-transform duration-700 group-hover:translate-x-[520%] sm:w-1/3 sm:bg-white/30"
-          />
-          <span
-            aria-hidden
-            className="pointer-events-none absolute inset-0 bg-white/5"
-          />
-          <span className="relative z-10">Add to Cart</span>
-        </QuickBuyButton>
+          label="Add to Cart"
+          className="mt-1.5 text-[0.72rem] font-semibold uppercase tracking-[0.12em] sm:mt-2 sm:text-xs sm:tracking-[0.14em]"
+        />
       </div>
     </article>
   );

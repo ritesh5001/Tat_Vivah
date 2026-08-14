@@ -5,7 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { CommerceFlowButton } from "@/components/ui/commerce-flow-button";
 import { addCartItem } from "@/services/cart";
 import {
     getProductById,
@@ -327,8 +327,10 @@ export function QuickBuyDialog({
                             </div>
                         ) : null}
 
-                        <Button
-                            className="mt-6 w-full"
+                        <CommerceFlowButton
+                            action={intent === "buy" ? "buy" : "cart"}
+                            variant={intent === "cart" ? "filled" : "outline"}
+                            className="mt-6 font-semibold uppercase tracking-[0.12em]"
                             onClick={handleConfirm}
                             disabled={!selectedVariant || confirmed}
                         >
@@ -339,7 +341,7 @@ export function QuickBuyDialog({
                                   : intent === "buy"
                                     ? "Buy Now"
                                     : "Add to Cart"}
-                        </Button>
+                        </CommerceFlowButton>
                     </>
                 )}
             </div>
