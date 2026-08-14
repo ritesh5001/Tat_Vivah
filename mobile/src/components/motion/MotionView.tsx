@@ -19,6 +19,8 @@ type MotionViewProps = React.PropsWithChildren<{
   preset?: MotionPreset;
   delay?: number;
   duration?: number;
+  /** Opt in only for content revealed after the current screen has settled. */
+  animateEntrance?: boolean;
 }>;
 
 function getEntering(preset: MotionPreset, delay: number, duration: number) {
@@ -47,11 +49,12 @@ export const MotionView = React.memo(function MotionView({
   preset = "fade",
   delay = 0,
   duration = motionDuration.normal,
+  animateEntrance = false,
   ...rest
 }: MotionViewProps) {
   const entering = React.useMemo(
-    () => getEntering(preset, delay, duration),
-    [preset, delay, duration]
+    () => (animateEntrance ? getEntering(preset, delay, duration) : undefined),
+    [animateEntrance, preset, delay, duration]
   );
 
   return (

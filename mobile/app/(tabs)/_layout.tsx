@@ -13,9 +13,10 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: false,
         tabBarHideOnKeyboard: true,
-        // Peers, not a hierarchy: tabs cross-fade with a slight lateral shift
-        // rather than sliding as though one contained the other.
-        animation: "shift",
+        // A tab can mount a dense product grid or an active video surface.
+        // Moving that entire scene while it mounts causes dropped frames on
+        // mid-range devices, so tab content swaps immediately.
+        animation: "none",
         // Tabs stay mounted by design — that is what makes switching back
         // instant. But a mounted tab keeps re-rendering on every context change
         // unless it is frozen, so the home screen's carousels and the reels feed

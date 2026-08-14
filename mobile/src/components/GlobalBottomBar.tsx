@@ -1,21 +1,10 @@
 import * as React from "react";
-import { StyleSheet, View, useWindowDimensions } from "react-native";
+import { Pressable, StyleSheet, View, useWindowDimensions } from "react-native";
 import { usePathname, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Animated, {
-  interpolate,
-  ReduceMotion,
-  type SharedValue,
-  useAnimatedStyle,
-  useDerivedValue,
-  withSpring,
-  withTiming,
-} from "react-native-reanimated";
 import { AppText as Text } from "./AppText";
 import { Icon, type IconName } from "./Icon";
 import { colors, radius, typography } from "../theme/tokens";
-import { impactLight } from "../utils/haptics";
-import { MotionPressable } from "./motion/MotionPressable";
 
 type NavItem = {
   label: string;
@@ -80,130 +69,38 @@ export function shouldHideBottomBar(pathname: string): boolean {
   );
 }
 
-/** Weighted rather than snappy: the indicator should read as travelling, not cutting. */
-const INDICATOR_SPRING = {
-  damping: 18,
-  stiffness: 170,
-  mass: 0.85,
-  reduceMotion: ReduceMotion.System,
-} as const;
-
-/**
- * One tab. Everything it animates is derived on the UI thread from the shared
- * `activeIndex`, so switching tabs costs no JavaScript beyond the route push.
- */
+/** A static tab item keeps route changes free of competing animation work. */
 const BottomBarItem = React.memo(function BottomBarItem({
   item,
-  index,
-  activeIndex,
   isFocused,
   onPress,
 }: {
   item: NavItem;
-  index: number;
-  activeIndex: SharedValue<number>;
   isFocused: boolean;
   onPress: (path: string) => void;
 }) {
-  /** 1 when this tab owns the indicator, falling off as it travels away. */
-  const focus = useDerivedValue(() =>
-    interpolate(Math.abs(activeIndex.value - index), [0, 1], [1, 0], "clamp")
-  );
-
-  // The icon rises out of the row and swells as the indicator arrives under it.
-  const iconStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateY: -3 * focus.value },
-      { scale: 1 + 0.12 * focus.value },
-    ],
-  }));
-
-  // Keep the small navigation label fully opaque so its contrast remains AA;
-  // the one-point lift still gives it a restrained active transition.
-  const labelStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: 1 - focus.value }],
-  }));
-
   const handlePress = React.useCallback(() => {
-    impactLight();
     onPress(item.path);
   }, [item.path, onPress]);
 
   return (
-    <MotionPressable
+    <Pressable
       style={styles.item}
       onPress={handlePress}
-      pressScale={0.94}
-      haptic={false}
       accessibilityRole="tab"
       accessibilityLabel={item.label}
       accessibilityHint={`Switches to ${item.label}`}
       accessibilityState={{ selected: isFocused }}
     >
-      <Animated.View style={iconStyle}>
-        <TabIcon item={item} focus={focus} />
-      </Animated.View>
-      <Animated.View style={labelStyle}>
-        <TabLabel item={item} focus={focus} />
-      </Animated.View>
-    </MotionPressable>
+      <Icon
+        name={item.icon}
+        size={21}
+        color={isFocused ? colors.gold : colors.brownSoft}
+      />
+      <Text style={[styles.label, isFocused && styles.activeLabel]}>{item.label}</Text>
+    </Pressable>
   );
 });
-
-/**
- * Colour cannot be interpolated on the UI thread through the icon font, so the
- * tint crossfades two stacked copies instead — the gold one fades up as the
- * muted one fades out. Cheaper than it looks: both are already rasterised.
- */
-function TabIcon({
-  item,
-  focus,
-}: {
-  item: NavItem;
-  focus: SharedValue<number>;
-}) {
-  const mutedStyle = useAnimatedStyle(() => ({ opacity: 1 - focus.value }));
-  const activeStyle = useAnimatedStyle(() => ({
-    opacity: focus.value,
-    ...StyleSheet.absoluteFillObject,
-  }));
-
-  return (
-    <View>
-      <Animated.View style={mutedStyle}>
-        <Icon name={item.icon} size={21} color={colors.brownSoft} />
-      </Animated.View>
-      <Animated.View style={activeStyle}>
-        <Icon name={item.icon} size={21} color={colors.gold} />
-      </Animated.View>
-    </View>
-  );
-}
-
-function TabLabel({
-  item,
-  focus,
-}: {
-  item: NavItem;
-  focus: SharedValue<number>;
-}) {
-  const mutedStyle = useAnimatedStyle(() => ({ opacity: 1 - focus.value }));
-  const activeStyle = useAnimatedStyle(() => ({
-    opacity: focus.value,
-    ...StyleSheet.absoluteFillObject,
-  }));
-
-  return (
-    <View>
-      <Animated.View style={mutedStyle}>
-        <Text style={styles.label}>{item.label}</Text>
-      </Animated.View>
-      <Animated.View style={activeStyle} pointerEvents="none">
-        <Text style={[styles.label, styles.activeLabel]}>{item.label}</Text>
-      </Animated.View>
-    </View>
-  );
-}
 
 export function GlobalBottomBar() {
   const router = useRouter();
@@ -218,27 +115,10 @@ export function GlobalBottomBar() {
     return found;
   }, [pathname]);
 
-  // Held as a shared value so the indicator travels between tabs instead of
-  // teleporting. Hooks run unconditionally — the visibility check happens after.
-  const activeIndex = useDerivedValue(() =>
-    withSpring(currentIndex < 0 ? -1 : currentIndex, INDICATOR_SPRING)
-  );
-
   const itemWidth = windowWidth / NAV_ITEMS.length;
   const indicatorWidth = Math.min(itemWidth - 14, 84);
-
-  const indicatorStyle = useAnimatedStyle(() => ({
-    width: indicatorWidth,
-    transform: [
-      {
-        translateX:
-          activeIndex.value * itemWidth + (itemWidth - indicatorWidth) / 2,
-      },
-    ],
-    // Nothing is selected on a non-tab route; the pill retreats rather than
-    // parking under the wrong icon.
-    opacity: withTiming(activeIndex.value < -0.5 ? 0 : 1, { duration: 160 }),
-  }));
+  const indicatorLeft =
+    currentIndex * itemWidth + (itemWidth - indicatorWidth) / 2;
 
   const handlePress = React.useCallback(
     (path: string) => {
@@ -263,16 +143,18 @@ export function GlobalBottomBar() {
       accessibilityRole="tablist"
       accessibilityLabel="Primary navigation"
     >
-      {/* Travels between tabs on the UI thread. Behind the icons, so it reads as
-          a surface the tab sits on rather than a badge stuck to it. */}
-      <Animated.View style={[styles.indicator, indicatorStyle]} />
+      {/* Behind the icons, so it reads as a surface the tab sits on rather than
+          a badge stuck to it. */}
+      {currentIndex >= 0 ? (
+        <View
+          style={[styles.indicator, { left: indicatorLeft, width: indicatorWidth }]}
+        />
+      ) : null}
 
       {NAV_ITEMS.map((item, index) => (
         <BottomBarItem
           key={item.path}
           item={item}
-          index={index}
-          activeIndex={activeIndex}
           isFocused={index === currentIndex}
           onPress={handlePress}
         />

@@ -25,7 +25,7 @@ import { colors, radius } from "../theme/tokens";
 export function SectionMark({
   color = colors.gold,
   width = 26,
-  animate = true,
+  animate = false,
 }: {
   color?: string;
   /** Length of each rule either side of the diamond. */

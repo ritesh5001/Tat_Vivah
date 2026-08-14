@@ -44,26 +44,18 @@ function AppShell() {
   return (
     <>
       <OfflineBanner visible={!isConnected} />
-      {/*
-        One grammar for the whole app, so a transition tells the shopper where
-        they went without them having to think about it:
-
-          · Lateral slide  — going deeper into the catalogue. The new screen
-                             comes from the side it will return to.
-          · Rise from below — a task you can abandon: checkout, sign-in,
-                             tracking. Modal motion, modal meaning.
-          · Cross-fade      — peers. The tab navigator handles those itself.
-
-        The old default was a fade-up on everything, which spends its opening
-        frames showing mostly background and reads as slower than it is.
-      */}
       <Stack
         initialRouteName="(tabs)"
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: colors.background },
-          animation: "slide_from_right",
-          animationDuration: 260,
+          // Route changes must never compete with mounting a product grid,
+          // video feed, or checkout tree. Those screens can be expensive on
+          // mid-range Android devices, and animating their native containers at
+          // the same time made otherwise-correct navigation visibly skip
+          // frames. Interactive controls still animate; screen changes are
+          // deliberately immediate.
+          animation: "none",
           gestureEnabled: true,
           // The single most important line in this file for sustained
           // performance.
@@ -86,36 +78,13 @@ function AppShell() {
           freezeOnBlur: true,
         }}
       >
-        {/* The root. Returning to it should feel like arriving home, not like
-            another push, so it fades rather than sliding. */}
-        <Stack.Screen name="(tabs)" options={{ animation: "fade" }} />
-
-        {/* Sign-in and registration are tasks, not destinations. */}
-        <Stack.Screen
-          name="(auth)"
-          options={{ animation: "slide_from_bottom", animationDuration: 300 }}
-        />
-
-        {/* The most-tapped transition in the app, and slightly quicker than the
-            rest: the product page is already painted from the card's own data,
-            so a longer animation would just be holding finished content back. */}
-        <Stack.Screen
-          name="product/[id]/index"
-          options={{ animation: "slide_from_right", animationDuration: 220 }}
-        />
-
-        {/* Checkout is a committed flow — it rises, and dismissing it reads as
-            backing out rather than going back a level. */}
-        <Stack.Screen
-          name="checkout/index"
-          options={{ animation: "slide_from_bottom", animationDuration: 300 }}
-        />
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="(auth)" />
+        <Stack.Screen name="product/[id]/index" />
+        <Stack.Screen name="checkout/index" />
 
         <Stack.Screen name="orders/[id]/index" />
-        <Stack.Screen
-          name="orders/[id]/tracking"
-          options={{ animation: "slide_from_bottom" }}
-        />
+        <Stack.Screen name="orders/[id]/tracking" />
 
         <Stack.Screen name="support/index" />
         <Stack.Screen name="support/[id]" />
@@ -125,10 +94,25 @@ function AppShell() {
   );
 }
 
-export default function RootLayout() {
+/**
+ * Keep the route subscription isolated from the provider tree. When
+ * `usePathname` lived in RootLayout, every navigation re-rendered every global
+ * provider and the complete navigator while the transition was in progress.
+ */
+const AppStatusBar = React.memo(function AppStatusBar() {
   const pathname = usePathname();
-  const immersiveStatusBar =
-    pathname === "/reels" || pathname.startsWith("/reels/");
+  const immersive = pathname === "/reels" || pathname.startsWith("/reels/");
+
+  return (
+    <StatusBar
+      barStyle={immersive ? "light-content" : "dark-content"}
+      backgroundColor={immersive ? colors.media : colors.background}
+      translucent={false}
+    />
+  );
+});
+
+export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
     CormorantGaramond_300Light: require("../assets/fonts/CormorantGaramond_300Light.ttf"),
     CormorantGaramond_400Regular: require("../assets/fonts/CormorantGaramond_400Regular.ttf"),
@@ -148,13 +132,7 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider initialMetrics={initialWindowMetrics} style={{ flex: 1 }}>
-      <StatusBar
-        barStyle={immersiveStatusBar ? "light-content" : "dark-content"}
-        backgroundColor={
-          immersiveStatusBar ? colors.media : colors.background
-        }
-        translucent={false}
-      />
+      <AppStatusBar />
       <GestureHandlerRootView style={{ flex: 1 }}>
         <ErrorBoundary>
           <PersistQueryClientProvider

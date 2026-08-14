@@ -1,22 +1,18 @@
 import * as React from "react";
-import { StyleSheet, View, useWindowDimensions, type LayoutChangeEvent } from "react-native";
+import {
+  Pressable,
+  StyleSheet,
+  View,
+  useWindowDimensions,
+  type LayoutChangeEvent,
+} from "react-native";
 import {
   BottomTabBarHeightCallbackContext,
   type BottomTabBarProps,
 } from "@react-navigation/bottom-tabs";
-import Animated, {
-  interpolate,
-  type SharedValue,
-  ReduceMotion,
-  useAnimatedStyle,
-  useDerivedValue,
-  withSpring,
-} from "react-native-reanimated";
 import { AppText as Text } from "./AppText";
 import { Icon, type IconName } from "./Icon";
 import { colors, radius, typography } from "../theme/tokens";
-import { impactLight } from "../utils/haptics";
-import { MotionPressable } from "./motion/MotionPressable";
 
 /**
  * The bottom bar the shopper actually sees.
@@ -26,9 +22,9 @@ import { MotionPressable } from "./motion/MotionPressable";
  * treatment has to live here or it never shows up on Home, Shop, Reels or
  * Profile.
  *
- * The whole bar is driven by one shared value tracking `state.index`, so the
- * indicator travels between tabs on the UI thread and switching costs nothing in
- * JavaScript beyond the navigation itself.
+ * Selection changes are intentionally static. A moving indicator used to run
+ * alongside the tab scene transition and made dense screens look as if they
+ * were dropping frames.
  */
 
 /** Only these appear in the bar; every other registered screen is `href: null`. */
@@ -39,46 +35,9 @@ const VISIBLE_TABS: { name: string; label: string; icon: IconName }[] = [
   { name: "profile", label: "Profile", icon: "user" },
 ];
 
-/** Weighted rather than snappy: the pill should read as travelling, not cutting. */
-const INDICATOR_SPRING = {
-  damping: 18,
-  stiffness: 170,
-  mass: 0.85,
-  reduceMotion: ReduceMotion.System,
-} as const;
-
-function TabGlyph({
-  icon,
-  focus,
-}: {
-  icon: IconName;
-  focus: SharedValue<number>;
-}) {
-  // Colour cannot be interpolated through an icon font on the UI thread, so the
-  // gold copy fades up over the muted one instead of being re-tinted.
-  const mutedStyle = useAnimatedStyle(() => ({ opacity: 1 - focus.value }));
-  const activeStyle = useAnimatedStyle(() => ({
-    opacity: focus.value,
-    ...StyleSheet.absoluteFillObject,
-  }));
-
-  return (
-    <View>
-      <Animated.View style={mutedStyle}>
-        <Icon name={icon} size={21} color={colors.brownSoft} />
-      </Animated.View>
-      <Animated.View style={activeStyle} pointerEvents="none">
-        <Icon name={icon} size={21} color={colors.gold} />
-      </Animated.View>
-    </View>
-  );
-}
-
 function TabItem({
   label,
   icon,
-  index,
-  activeIndex,
   isFocused,
   onPress,
   onLongPress,
@@ -87,57 +46,30 @@ function TabItem({
 }: {
   label: string;
   icon: IconName;
-  index: number;
-  activeIndex: SharedValue<number>;
   isFocused: boolean;
   onPress: () => void;
   onLongPress: () => void;
   accessibilityLabel: string;
   testID?: string;
 }) {
-  /** 1 when this tab owns the indicator, falling away as it travels off. */
-  const focus = useDerivedValue(() =>
-    interpolate(Math.abs(activeIndex.value - index), [0, 1], [1, 0], "clamp")
-  );
-
-  // The icon rises out of the row and swells as the pill arrives beneath it.
-  const iconStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateY: -3 * focus.value },
-      { scale: 1 + 0.12 * focus.value },
-    ],
-  }));
-
-  const activeLabelStyle = useAnimatedStyle(() => ({
-    opacity: focus.value,
-    ...StyleSheet.absoluteFillObject,
-  }));
-
   return (
-    <MotionPressable
+    <Pressable
       style={styles.item}
       onPress={onPress}
       onLongPress={onLongPress}
-      pressScale={0.94}
-      haptic={false}
       accessibilityRole="tab"
       accessibilityLabel={accessibilityLabel}
       accessibilityHint={`Switches to ${label}`}
       accessibilityState={{ selected: isFocused }}
       testID={testID}
     >
-      <Animated.View style={iconStyle}>
-        <TabGlyph icon={icon} focus={focus} />
-      </Animated.View>
-      {/* Keep the base label opaque; the accent copy can still fade in without
-          sacrificing the inactive label's contrast. */}
-      <View>
-        <Text style={styles.label}>{label}</Text>
-        <Animated.View style={activeLabelStyle} pointerEvents="none">
-          <Text style={[styles.label, styles.activeLabel]}>{label}</Text>
-        </Animated.View>
-      </View>
-    </MotionPressable>
+      <Icon
+        name={icon}
+        size={21}
+        color={isFocused ? colors.gold : colors.brownSoft}
+      />
+      <Text style={[styles.label, isFocused && styles.activeLabel]}>{label}</Text>
+    </Pressable>
   );
 }
 
@@ -166,22 +98,10 @@ export function AnimatedTabBar({
     if (foundVisibleIndex >= 0) lastVisibleIndexRef.current = foundVisibleIndex;
   }, [foundVisibleIndex]);
 
-  const activeIndex = useDerivedValue(() =>
-    withSpring(visibleIndex, INDICATOR_SPRING)
-  );
-
   const itemWidth = windowWidth / VISIBLE_TABS.length;
   const indicatorWidth = Math.min(itemWidth - 14, 84);
-
-  const indicatorStyle = useAnimatedStyle(() => ({
-    width: indicatorWidth,
-    transform: [
-      {
-        translateX:
-          activeIndex.value * itemWidth + (itemWidth - indicatorWidth) / 2,
-      },
-    ],
-  }));
+  const indicatorLeft =
+    visibleIndex * itemWidth + (itemWidth - indicatorWidth) / 2;
 
   const bottomPadding = Math.max(insets.bottom, 6);
 
@@ -198,7 +118,6 @@ export function AnimatedTabBar({
 
   const handlePress = React.useCallback(
     (name: string, isFocused: boolean) => {
-      impactLight();
       const route = state.routes.find((r) => r.name === name);
       if (!route) return;
 
@@ -236,9 +155,11 @@ export function AnimatedTabBar({
     >
       {/* Behind the icons, so it reads as a surface the tab rests on rather
           than a badge stuck to it. */}
-      <Animated.View style={[styles.indicator, indicatorStyle]} />
+      <View
+        style={[styles.indicator, { left: indicatorLeft, width: indicatorWidth }]}
+      />
 
-      {VISIBLE_TABS.map((tab, index) => {
+      {VISIBLE_TABS.map((tab) => {
         const route = state.routes.find((item) => item.name === tab.name);
         const options = route ? descriptors[route.key]?.options : undefined;
         // A hidden route may retain this tab's indicator position, but it is not
@@ -250,8 +171,6 @@ export function AnimatedTabBar({
             key={tab.name}
             label={tab.label}
             icon={tab.icon}
-            index={index}
-            activeIndex={activeIndex}
             isFocused={isFocused}
             accessibilityLabel={options?.tabBarAccessibilityLabel ?? tab.label}
             testID={options?.tabBarButtonTestID}
