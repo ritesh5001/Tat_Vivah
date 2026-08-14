@@ -1,5 +1,5 @@
 import * as React from "react";
-import { StyleSheet, useWindowDimensions } from "react-native";
+import { StyleSheet, View, useWindowDimensions } from "react-native";
 import { Icon } from "./Icon";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
@@ -71,6 +71,7 @@ export function SwipeActionBar({
   );
 
   const layoutRef = React.useRef({ x: 0, y: 0 });
+  const trackRef = React.useRef<View | null>(null);
   const restoreTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   React.useEffect(
@@ -250,10 +251,14 @@ export function SwipeActionBar({
 
   return (
     <Animated.View
+      ref={trackRef}
       style={[styles.track, { width: trackWidth }, trackStyle]}
-      onLayout={(event) => {
-        const { x, y, width, height } = event.nativeEvent.layout;
-        layoutRef.current = { x: x + width / 2, y: y + height / 2 };
+      onLayout={() => {
+        // FlyToCart consumes screen coordinates. Layout-event x/y are relative
+        // to the sticky shell and made the confirmation launch near the top.
+        trackRef.current?.measureInWindow((x, y, width, height) => {
+          layoutRef.current = { x: x + width / 2, y: y + height / 2 };
+        });
       }}
     >
       <Animated.View style={[styles.labelWrap, leftLabelStyle]}>

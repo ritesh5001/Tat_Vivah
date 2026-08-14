@@ -59,7 +59,10 @@ import {
 import { TatvivahLoader } from "../../../src/components/TatvivahLoader";
 import { AnimatedPressable } from "../../../src/components/AnimatedPressable";
 import { MarketplaceCard } from "../../../src/components/MarketplaceCard";
-import { FlowActionButton } from "../../../src/components/FlowActionButton";
+import {
+  SwipeActionBar,
+  type SwipeOrigin,
+} from "../../../src/components/SwipeActionBar";
 import { FlyToCart } from "../../../src/components/FlyToCart";
 import { QuickBuySheet, type QuickBuyIntent } from "../../../src/components/QuickBuySheet";
 import { WishlistIcon } from "../../../src/components/WishlistIcon";
@@ -510,7 +513,7 @@ export default function ProductDetailScreen() {
     : Math.max(insets.bottom, spacing.sm);
   const galleryWidth = Math.max(windowWidth, 260);
   const galleryHeight = Math.round(galleryWidth * (4 / 3));
-  const stickyActionHeight = 76;
+  const stickyActionHeight = 88;
   /** Screen-space top edge of the sticky action bar. */
   const stickyBarTopY = windowHeight - stickyBottomOffset - stickyActionHeight;
   const stickyReserveSpace = stickyBottomOffset + stickyActionHeight + spacing.xl;
@@ -1121,6 +1124,23 @@ export default function ProductDetailScreen() {
     images,
     promptForSize,
   ]);
+
+  const handleSwipeAddToCart = React.useCallback(
+    (origin: SwipeOrigin) => {
+      // Preserve the swipe handle's centre so the add-to-bag thumbnail flight
+      // begins exactly where the shopper released it.
+      flightOriginRef.current = origin;
+      void handleAddToCart();
+    },
+    [handleAddToCart]
+  );
+
+  const handleSwipeBuyNow = React.useCallback(
+    (_origin: SwipeOrigin) => {
+      void handleBuyNow();
+    },
+    [handleBuyNow]
+  );
 
   const handleShareProduct = React.useCallback(async () => {
     try {
@@ -2249,35 +2269,19 @@ export default function ProductDetailScreen() {
           },
         ]}
       >
-        <View style={styles.actionRow}>
-          <FlowActionButton
-            filled
-            style={styles.flowAction}
-            label={
-              justAdded
-                ? "ADDED ✓"
-                : selectedVariant && outOfStock
-                  ? "OUT OF STOCK"
-                  : "ADD TO BAG"
-            }
-            icon="cart-outline"
-            accessibilityLabel={
-              selectedVariant && outOfStock
-                ? "Selected variant is out of stock"
-                : "Add selected product variant to bag"
-            }
-            onPress={() => handleAddToCart()}
-            disabled={Boolean(selectedVariant && outOfStock) || adding}
-          />
-          <FlowActionButton
-            style={styles.flowAction}
-            label="BUY NOW"
-            icon="card-outline"
-            accessibilityLabel="Buy selected product variant now"
-            onPress={() => handleBuyNow()}
-            disabled={Boolean(selectedVariant && outOfStock) || adding}
-          />
-        </View>
+        <SwipeActionBar
+          leftLabel={
+            justAdded
+              ? "Added ✓"
+              : selectedVariant && outOfStock
+                ? "Out of stock"
+                : "Add to Bag"
+          }
+          rightLabel="Buy Now"
+          onSwipeLeft={handleSwipeAddToCart}
+          onSwipeRight={handleSwipeBuyNow}
+          disabled={Boolean(selectedVariant && outOfStock) || adding}
+        />
       </View>
 
       <Modal
@@ -3071,15 +3075,6 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: "center",
   },
-  actionRow: {
-    flexDirection: "row",
-    gap: spacing.sm,
-    alignItems: "center",
-    width: "100%",
-  },
-  flowAction: {
-    flex: 1,
-  },
   primaryButtonText: {
     fontFamily: typography.sansMedium,
     fontSize: 12,
@@ -3112,7 +3107,7 @@ const styles = StyleSheet.create({
     zIndex: 12,
     elevation: 16,
     paddingTop: 12,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     borderTopWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: "#FFFFFF",

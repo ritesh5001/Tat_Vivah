@@ -14,7 +14,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { Icon, type IconName } from "./Icon";
-import { colors, typography } from "../theme/tokens";
+import { colors, radius, typography } from "../theme/tokens";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -119,6 +119,7 @@ const styles = StyleSheet.create({
   button: {
     width: "100%",
     height: 36,
+    borderRadius: radius.md,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
