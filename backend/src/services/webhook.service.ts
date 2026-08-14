@@ -6,15 +6,71 @@ import { phonepeService } from './phonepe.service.js';
 import { paymentRepository } from '../repositories/payment.repository.js';
 import { prisma } from '../config/db.js';
 import { paymentLogger } from '../config/logger.js';
+import { env } from '../config/env.js';
+import { fastrrOrderService } from './fastrr-order.service.js';
 
 export class WebhookService {
 
-    async processWebhook(provider: string, payload: any, signature: string) {
+    async processWebhook(provider: string, payload: any, signature: string, apiKey?: string) {
         const p = provider.toUpperCase();
-        if (p !== PaymentProvider.PHONEPE) {
-            throw new ApiError(400, 'Provider webhook not implemented');
+
+        if (p === PaymentProvider.PHONEPE) {
+            await this.handlePhonePeWebhook(payload, signature);
+            return;
         }
-        await this.handlePhonePeWebhook(payload, signature);
+
+        if (p === PaymentProvider.FASTRR) {
+            await this.handleFastrrWebhook(payload, apiKey);
+            return;
+        }
+
+        throw new ApiError(400, 'Provider webhook not implemented');
+    }
+
+    // ------------------------------------------------------------------
+    // Shiprocket Checkout (Fastrr) order webhook
+    //
+    // Shiprocket does not document signing this callback, so the body is treated
+    // as a bare notification and nothing in it is trusted: the only field read is
+    // `order_id`, and every fact about the order is then re-fetched from their
+    // Order/Details API. That makes a forged POST at worst a wasted lookup.
+    //
+    // Their docs also warn the same webhook may be delivered more than once, so
+    // the handler is idempotent by construction (see fastrr-order.service.ts).
+    // ------------------------------------------------------------------
+
+    private async handleFastrrWebhook(payload: any, apiKey?: string) {
+        // Optional second gate. Off unless FASTRR_WEBHOOK_API_KEY is configured,
+        // because requiring a header Shiprocket may not send would silently drop
+        // every real order.
+        const expectedKey = env.FASTRR_WEBHOOK_API_KEY?.trim();
+        if (expectedKey && apiKey?.trim() !== expectedKey) {
+            paymentLogger.error({ event: 'fastrr_webhook_invalid_key' }, 'Fastrr webhook: invalid API key');
+            throw new ApiError(401, 'Invalid webhook credentials');
+        }
+
+        const fastrrOrderId = payload?.order_id;
+        if (!fastrrOrderId || typeof fastrrOrderId !== 'string') {
+            paymentLogger.error({ event: 'fastrr_webhook_missing_order' }, 'Fastrr webhook: missing order_id');
+            return;
+        }
+
+        paymentLogger.info(
+            {
+                event: 'fastrr_webhook_received',
+                fastrrOrderId,
+                // Logged for support only — never used to decide anything.
+                reportedStatus: payload?.status,
+            },
+            `Fastrr webhook received for order ${fastrrOrderId}`,
+        );
+
+        const result = await fastrrOrderService.syncFromFastrr(fastrrOrderId, 'webhook');
+
+        paymentLogger.info(
+            { event: 'fastrr_webhook_processed', fastrrOrderId, status: result.status, orderId: result.orderId },
+            `Fastrr webhook for ${fastrrOrderId}: ${result.status}`,
+        );
     }
 
     // ------------------------------------------------------------------

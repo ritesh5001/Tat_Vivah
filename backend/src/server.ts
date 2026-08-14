@@ -9,9 +9,19 @@ import { hashPassword } from './utils/password.util.js';
 import { reelRepository } from './repositories/reel.repository.js';
 import { warmCatalogCaches } from './services/catalog-warmup.service.js';
 import { appointmentService } from './services/appointment.service.js';
+import { fastrrOrderService } from './services/fastrr-order.service.js';
 
 /** How often to run the stale-order cleanup (10 minutes). */
 const STALE_ORDER_INTERVAL_MS = 10 * 60 * 1000;
+
+/**
+ * How often to reconcile in-flight Fastrr checkouts (15 minutes).
+ *
+ * Shiprocket's own docs recommend this as a failsafe: a lost webhook, or a buyer
+ * who closes the tab before being redirected back, would otherwise leave a paid
+ * order that never exists in this database.
+ */
+const FASTRR_RECONCILE_INTERVAL_MS = 15 * 60 * 1000;
 
 /** How often to run the inventory integrity check (10 minutes). */
 const INTEGRITY_CHECK_INTERVAL_MS = 10 * 60 * 1000;
@@ -259,6 +269,7 @@ async function bootstrap(): Promise<void> {
         let warmupTimer: NodeJS.Timeout | null = null;
         let catalogWarmupTimer: NodeJS.Timeout | null = null;
         let appointmentSweepTimer: NodeJS.Timeout | null = null;
+        let fastrrReconcileTimer: NodeJS.Timeout | null = null;
 
         if (runBackgroundJobs) {
             // ---- Stale-order cleanup (runs every 10 min) ----
@@ -362,6 +373,14 @@ async function bootstrap(): Promise<void> {
                     logger.warn({ err }, 'Appointment completion sweep error');
                 });
             }, withIntervalJitter(APPOINTMENT_SWEEP_INTERVAL_MS));
+
+            // ---- Fastrr checkout reconciliation (every 15 min) ----
+            // A no-op unless Fastrr is configured.
+            fastrrReconcileTimer = setInterval(() => {
+                void fastrrOrderService.reconcilePendingSessions().catch((err) => {
+                    logger.warn({ err }, 'Fastrr reconciliation error');
+                });
+            }, withIntervalJitter(FASTRR_RECONCILE_INTERVAL_MS));
         } else {
             logger.info({ instance: process.env['NODE_APP_INSTANCE'] }, 'Background jobs disabled on this instance');
         }
@@ -382,6 +401,7 @@ async function bootstrap(): Promise<void> {
             if (warmupTimer) clearInterval(warmupTimer);
             if (catalogWarmupTimer) clearInterval(catalogWarmupTimer);
             if (appointmentSweepTimer) clearInterval(appointmentSweepTimer);
+            if (fastrrReconcileTimer) clearInterval(fastrrReconcileTimer);
 
             server.close(async () => {
                 logger.info('HTTP server closed');

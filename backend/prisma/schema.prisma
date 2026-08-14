@@ -56,6 +56,7 @@ model User {
   sellerSettlements            SellerSettlement[]
   sellerCoupons                Coupon[]                @relation("SellerCoupons")
   couponRedemptions            CouponRedemption[]
+  fastrrCheckoutSessions       FastrrCheckoutSession[] @relation("UserFastrrSessions")
   reels                        Reel[]                  @relation("SellerReels")
   reelLikes                    ReelLike[]
   reelViews                    ReelView[]
@@ -399,6 +400,7 @@ model Order {
   refunds              Refund[]
   sellerSettlements    SellerSettlement[]
   couponRedemptions    CouponRedemption[]
+  fastrrSession        FastrrCheckoutSession?
 
   @@index([userId])
   @@index([createdAt])
@@ -547,6 +549,71 @@ model Payment {
   @@index([providerOrderId])
   @@index([createdAt])
   @@map("payments")
+}
+
+/// One buyer's trip through the Shiprocket Checkout (Fastrr) overlay.
+///
+/// Fastrr owns the address + payment step, so between minting the access token
+/// and their webhook landing we hold no order at all — only this row. It is the
+/// bridge back: their webhook identifies the checkout solely by `order_id`, and
+/// this is what turns that into *our* user, *our* variants and *our* coupon.
+///
+/// `items` is a snapshot on purpose. A price edit or a variant deletion between
+/// token and webhook must not change what the buyer is billed for.
+model FastrrCheckoutSession {
+  id String @id @default(cuid())
+
+  /// The `result.data.order_id` Fastrr returns when the token is minted, and the
+  /// only key their webhook sends back.
+  fastrrOrderId String @unique @map("fastrr_order_id")
+
+  userId String @map("user_id")
+  /// Cart the selection came from. Null for a buy-now that never touched a cart.
+  cartId String? @map("cart_id")
+
+  /// [{ variantId, externalId, quantity, price }] as sent to Fastrr.
+  items Json
+
+  /// Coupon we resolved and passed to Fastrr as a fixed `cart_discount`.
+  couponCode     String? @map("coupon_code")
+  discountAmount Decimal @default(0) @map("discount_amount") @db.Decimal(10, 2)
+
+  /// Whether the overlay was opened from the Expo app rather than the web.
+  mobileApp Boolean @default(false) @map("mobile_app")
+
+  status FastrrSessionStatus @default(INITIATED)
+
+  /// Set once the Fastrr order has been materialised here. Unique, so a redelivered
+  /// webhook can never mint a second order for the same checkout.
+  orderId String? @unique @map("order_id")
+
+  /// Why a session ended up FAILED — kept for support, never shown to buyers.
+  failureReason String? @map("failure_reason")
+
+  /// Last time the reconciliation sweep asked Fastrr about this session.
+  lastPolledAt DateTime? @map("last_polled_at")
+  expiresAt    DateTime? @map("expires_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user  User   @relation("UserFastrrSessions", fields: [userId], references: [id], onDelete: Cascade)
+  order Order? @relation(fields: [orderId], references: [id])
+
+  @@index([userId])
+  @@index([status, createdAt])
+  @@map("fastrr_checkout_sessions")
+}
+
+enum FastrrSessionStatus {
+  /// Token minted; the buyer is in the overlay or has abandoned it.
+  INITIATED
+  /// Fastrr reported SUCCESS and the order exists here.
+  COMPLETED
+  /// Fastrr reported FAILED, or we could not materialise the order.
+  FAILED
+  /// Never completed and too old to still be in flight.
+  EXPIRED
 }
 
 /// Immutable refund ledger — tracks every refund attempt (audit trail)
@@ -888,6 +955,9 @@ enum PaymentProvider {
   PHONEPE
   COD
   GOKWIK
+  /// Shiprocket Checkout — Fastrr brokers the gateway, so the underlying
+  /// Razorpay/other txn id lands in providerPaymentId.
+  FASTRR
 }
 
 enum PaymentEventType {

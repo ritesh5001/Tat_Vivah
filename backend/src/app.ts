@@ -24,6 +24,7 @@ import {
     imagekitRouter,
     bestsellerRouter,
     shiprocketRouter,
+    fastrrRouter,
     tryOnRouter,
     cartRouter,
     checkoutRouter,
@@ -340,6 +341,10 @@ export function createApp(): Application {
     app.use('/v1/bestsellers', bestsellerRouter);
     // Read-only catalog feed polled by Shiprocket Checkout (Fastrr).
     app.use('/v1/shiprocket', shiprocketRouter);
+
+    // Shiprocket Checkout (Fastrr). The catalog feed above is Shiprocket reading
+    // from us; this is the buyer opening their hosted checkout.
+    app.use('/v1/fastrr', fastrrRouter);
     app.use('/v1/try-on', tryOnRouter);
 
     // Address management

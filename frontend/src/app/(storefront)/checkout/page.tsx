@@ -13,6 +13,10 @@ import { flushPendingCartWrite } from "@/lib/pending-cart";
 import { getAddresses, type Address } from "@/services/addresses";
 import { getShippingConfig } from "@/services/shipments";
 import CouponSection from "@/components/checkout/CouponSection";
+import FastrrCheckout, {
+  notifyFastrrFallback,
+} from "@/components/checkout/fastrr-checkout";
+import { getCheckoutConfig } from "@/services/fastrr";
 import { toast } from "sonner";
 import {
   CHECKOUT_ADDRESSES_CACHE_KEY,
@@ -28,7 +32,73 @@ const currency = new Intl.NumberFormat("en-IN", {
   maximumFractionDigits: 0,
 });
 
+/**
+ * Which checkout the buyer sees.
+ *
+ * Every path into checkout — cart, Buy Now, quick-buy — lands on this route, so
+ * it is the one place the express/native decision has to be made. The server
+ * owns the flag; this only reads it, which means turning Fastrr off takes effect
+ * for buyers already sitting on the page, without a deploy.
+ *
+ * `?express=off` forces the native flow. It is the fallbackUrl handed to Fastrr,
+ * and the escape hatch behind "Use Standard Checkout".
+ */
 export default function CheckoutPage() {
+  const [provider, setProvider] = React.useState<
+    "LOADING" | "FASTRR" | "NATIVE"
+  >("LOADING");
+
+  React.useEffect(() => {
+    // Read the flag from the URL directly rather than via useSearchParams: the
+    // decision is already client-only, and useSearchParams would opt this whole
+    // route out of prerendering unless wrapped in its own Suspense boundary.
+    const forceNative =
+      new URLSearchParams(window.location.search).get("express") === "off";
+
+    if (forceNative) {
+      setProvider("NATIVE");
+      return;
+    }
+
+    let active = true;
+    getCheckoutConfig()
+      .then((config) => {
+        if (active) setProvider(config.provider);
+      })
+      .catch(() => {
+        // The config call is not worth failing checkout over. The native flow is
+        // always safe to render, so an unreachable flag falls back to it.
+        if (active) setProvider("NATIVE");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleFallback = React.useCallback((reason: string) => {
+    notifyFastrrFallback(reason);
+    setProvider("NATIVE");
+  }, []);
+
+  if (provider === "LOADING") {
+    return (
+      <div className="min-h-[calc(100vh-160px)] bg-background" aria-busy="true" />
+    );
+  }
+
+  if (provider === "FASTRR") {
+    return <FastrrCheckout onFallback={handleFallback} />;
+  }
+
+  return <NativeCheckout />;
+}
+
+/**
+ * The original address-form + PhonePe checkout. Still the fallback whenever
+ * express checkout is off, unavailable, or declined by the buyer.
+ */
+function NativeCheckout() {
   const router = useRouter();
   const [loading, setLoading] = React.useState(false);
   const [isPaying, setIsPaying] = React.useState(false);

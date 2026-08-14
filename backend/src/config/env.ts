@@ -135,6 +135,42 @@ const envSchema = z.object({
     // documented requests send no auth header, so the endpoints launch open and
     // close the moment this is set on both sides.
     SHIPROCKET_API_KEY: z.string().optional(),
+    // -------------------------------------------------------------------
+    // Shiprocket Checkout (Fastrr)
+    //
+    // Fastrr hosts the entire address + payment step. We only mint an access
+    // token, then learn the outcome from their webhook. The key/secret pair is
+    // issued by Shiprocket per merchant account; without both, the integration
+    // stays dormant and the native PhonePe checkout continues to serve buyers.
+    // -------------------------------------------------------------------
+    FASTRR_API_KEY: z.string().optional(),
+    FASTRR_API_SECRET: z.string().optional(),
+    /**
+     * SANDBOX targets Shiprocket's dev stack, PRODUCTION the live one. This picks
+     * both the API host and the checkout UI bundle, so the two can never be
+     * mismatched — a prod token handed to the staging bundle simply fails.
+     */
+    FASTRR_ENV: z.enum(['SANDBOX', 'PRODUCTION']).default('SANDBOX'),
+    /** Escape hatch for a host Shiprocket moves without warning. */
+    FASTRR_BASE_URL: z.string().url('FASTRR_BASE_URL must be a valid URL').optional(),
+    /**
+     * Master switch for the buyer-facing flow. Off by default: the credentials
+     * alone should not silently reroute live checkout traffic. Turn this off to
+     * fall straight back to the native PhonePe checkout with no deploy.
+     */
+    FASTRR_CHECKOUT_ENABLED: z
+        .string()
+        .default('false')
+        .transform((v) => v.trim().toLowerCase() === 'true'),
+    FASTRR_TIMEOUT_MS: z.string().default('20000').transform(Number),
+    /**
+     * Optional shared secret for the inbound order webhook. Shiprocket does not
+     * document signing that callback, so we never trust its body regardless —
+     * every payload is re-verified against their Order/Details API. When set,
+     * this additionally gates the endpoint on a matching X-Api-Key.
+     */
+    FASTRR_WEBHOOK_API_KEY: z.string().optional(),
+
     // Optional deep link the mobile app is redirected to after payment.
     PHONEPE_MOBILE_REDIRECT_URL: z.string().optional(),
     // Optional override for the web redirect base (defaults to FRONTEND_BASE_URL).
