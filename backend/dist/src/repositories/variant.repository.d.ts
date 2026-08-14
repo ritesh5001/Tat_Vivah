@@ -45,6 +45,19 @@ export declare class VariantRepository {
             adminListingPrice: number | null;
         };
     } | null>;
+    private buildUpdateData;
+    /**
+     * Update several variants in one round trip. Callers pass the current prices
+     * they already hold so no per-variant read is needed to resolve `price`.
+     */
+    updateMany(updates: Array<{
+        id: string;
+        data: UpdateVariantRequest;
+        current: {
+            sellerPrice: number;
+            adminListingPrice: number | null;
+        };
+    }>): Promise<void>;
     /**
      * Update a variant
      */

@@ -46,7 +46,8 @@ export class CategoryService {
         const categories = await this.repository.findAllActive();
         const response = { categories };
         // Cache the result
-        await setCache(CACHE_KEYS.CATEGORIES_LIST, response, 120);
+        // Categories change rarely and are invalidated explicitly on mutation.
+        await setCache(CACHE_KEYS.CATEGORIES_LIST, response, 1800);
         return response;
     }
     /**

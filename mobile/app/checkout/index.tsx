@@ -39,6 +39,7 @@ import {
   getCachedShippingConfig,
   getCachedGstConfig,
 } from "../../src/services/shipping";
+import { getCheckoutConfig } from "../../src/services/fastrr";
 
 // ---------------------------------------------------------------------------
 // Address selector row — memoized for FlatList
@@ -153,7 +154,11 @@ async function waitForPhonePeResult(
 export default function CheckoutScreen() {
   const router = useRouter();
   const pathname = usePathname();
-  const routeParams = useLocalSearchParams<{ buyNowVariantId?: string }>();
+  const routeParams = useLocalSearchParams<{
+    buyNowVariantId?: string;
+    /** `off` pins this screen to the native flow — the express fallback. */
+    express?: string;
+  }>();
   const insets = useSafeAreaInsets();
   const { session, isLoading: authLoading } = useAuth();
   const token = session?.accessToken ?? null;
@@ -231,6 +236,37 @@ export default function CheckoutScreen() {
       });
     return () => controller.abort();
   }, []);
+
+  // ---------- Express checkout (Shiprocket / Fastrr) ----------
+  //
+  // Every route into checkout lands here, so this is the one place the
+  // express/native decision is made. The flag lives on the server, which means
+  // it reaches builds already installed on buyers' phones without a release —
+  // and an unreachable config simply keeps the native flow, which always works.
+  const forceNativeCheckout = routeParams.express === "off";
+
+  React.useEffect(() => {
+    if (forceNativeCheckout) return;
+
+    const controller = new AbortController();
+
+    getCheckoutConfig(token, controller.signal)
+      .then((config) => {
+        if (!mountedRef.current || config.provider !== "FASTRR") return;
+        // `replace`, not `push`: the buyer must not be able to swipe back into a
+        // half-started native checkout behind the express one.
+        router.replace(
+          buyNowVariantId
+            ? `/checkout/fastrr?buyNowVariantId=${encodeURIComponent(buyNowVariantId)}`
+            : "/checkout/fastrr"
+        );
+      })
+      .catch(() => {
+        // Non-fatal — stay on the native checkout.
+      });
+
+    return () => controller.abort();
+  }, [buyNowVariantId, forceNativeCheckout, router, token]);
 
   // ---------- Coupon state ----------
   const [couponCode, setCouponCode] = React.useState("");

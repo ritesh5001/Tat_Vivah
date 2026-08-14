@@ -8,9 +8,9 @@ import { prisma } from './config/db.js';
 import { checkRedisConnection } from './config/redis.js';
 import { logger } from './config/logger.js';
 import { isPhonePeConfigured } from './services/phonepe.client.js';
-import { authRouter, sellerRouter, categoryRouter, productRouter, sellerProductRouter, productMediaRouter, imagekitRouter, bestsellerRouter, tryOnRouter, cartRouter, checkoutRouter, couponRouter, orderRouter, sellerOrderRouter, appointmentRouter, cancellationRouter, returnRouter, paymentRouter, webhookRouter, sellerSettlementRouter, adminRouter, 
+import { authRouter, sellerRouter, categoryRouter, productRouter, sellerProductRouter, productMediaRouter, imagekitRouter, bestsellerRouter, shiprocketRouter, fastrrRouter, tryOnRouter, cartRouter, checkoutRouter, couponRouter, orderRouter, sellerOrderRouter, appointmentRouter, cancellationRouter, returnRouter, paymentRouter, webhookRouter, sellerSettlementRouter, adminRouter, 
 // Shipping imports
-shipmentRouter, sellerShipmentRouter, adminShipmentRouter, adminNotificationRouter, reviewRouter, addressRouter, notificationRouter, wishlistRouter, searchRouter, personalizationRouter, liveRouter, sellerAnalyticsRouter, reelRouter, sellerReelRouter, adminReelRouter, occasionRouter, configRouter, } from './routes/index.js';
+shipmentRouter, sellerShipmentRouter, adminShipmentRouter, adminNotificationRouter, reviewRouter, supportRouter, addressRouter, notificationRouter, wishlistRouter, searchRouter, personalizationRouter, profileRouter, liveRouter, sellerAnalyticsRouter, reelRouter, sellerReelRouter, adminReelRouter, occasionRouter, configRouter, } from './routes/index.js';
 import { searchController } from './controllers/search.controller.js';
 import { apiReference } from "@scalar/express-api-reference";
 import { openApiSpec } from "./docs/openapi.js";
@@ -245,7 +245,7 @@ export function createApp() {
     });
     app.get('/', (_req, res) => {
         res.json({
-            message: 'Welcome to TatVivah API',
+            message: 'Welcome to Tatvivah API',
             version: '1.0.0'
         });
     });
@@ -253,6 +253,7 @@ export function createApp() {
     // API ROUTES
     // =========================================================================
     app.use('/v1/auth', authRouter);
+    app.use('/v1/me', profileRouter);
     app.use('/v1/seller', sellerRouter);
     app.use('/v1/categories', categoryRouter);
     app.use('/v1/products', productRouter);
@@ -261,6 +262,11 @@ export function createApp() {
     app.use('/v1/seller/products', productMediaRouter);
     app.use('/v1/imagekit', imagekitRouter);
     app.use('/v1/bestsellers', bestsellerRouter);
+    // Read-only catalog feed polled by Shiprocket Checkout (Fastrr).
+    app.use('/v1/shiprocket', shiprocketRouter);
+    // Shiprocket Checkout (Fastrr). The catalog feed above is Shiprocket reading
+    // from us; this is the buyer opening their hosted checkout.
+    app.use('/v1/fastrr', fastrrRouter);
     app.use('/v1/try-on', tryOnRouter);
     // Address management
     app.use('/v1/addresses', addressRouter);
@@ -324,6 +330,7 @@ export function createApp() {
     app.use('/v1/search', searchRouter);
     app.use('/v1/personalization', personalizationRouter);
     app.use('/v1/live', liveRouter);
+    app.use('/v1/support', supportRouter);
     // Seller Analytics
     app.use('/v1/seller/analytics', sellerAnalyticsRouter);
     // Reels

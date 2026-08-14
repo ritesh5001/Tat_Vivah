@@ -5,7 +5,25 @@ type ActorContext = {
     role: Role;
 };
 export declare class AppointmentService {
-    private autoCompletePastAppointments;
+    /**
+     * Flip appointments whose slot has ended to COMPLETED.
+     *
+     * This is a maintenance sweep over the WHOLE table, so it must not run on read
+     * paths: it was previously awaited by every appointment list, meaning each seller
+     * opening their appointments page triggered a full scan plus writes. It stays on
+     * the write paths (create / status change / reschedule), where a stale BOOKED row
+     * would otherwise affect slot availability, and is also run periodically from the
+     * server scheduler.
+     */
+    autoCompletePastAppointments(): Promise<void>;
+    /**
+     * Existence/role check only.
+     *
+     * assertSeller() also pulls in seller_profiles, which Prisma resolves as a second
+     * statement — a wasted cross-region round-trip on the callers that discard the
+     * result and only need "is this a real seller?".
+     */
+    private assertSellerExists;
     private assertSeller;
     private assertBuyer;
     private ensureSlotAvailable;

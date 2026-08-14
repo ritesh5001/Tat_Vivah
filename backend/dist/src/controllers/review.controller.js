@@ -1,121 +1,75 @@
-import { prisma } from '../config/db.js';
+import { ApiError } from '../errors/ApiError.js';
+import { reviewService } from '../services/review.service.js';
+import { createReviewSchema, reviewQuerySchema, } from '../validators/review.validation.js';
+/**
+ * The product id arrives as `:id` on /v1/products/:id/reviews and as
+ * `:productId` on the legacy /v1/reviews/product/:productId routes that shipped
+ * mobile builds call.
+ */
+const firstParam = (value) => Array.isArray(value) ? value[0] : value;
+const resolveProductId = (req) => {
+    const productId = firstParam(req.params['productId']) ?? firstParam(req.params['id']);
+    if (!productId) {
+        throw ApiError.badRequest('Product ID is required');
+    }
+    return productId;
+};
+/**
+ * The web list is paginated; the legacy mobile route sends no query at all and
+ * renders whatever it gets, so it asks for a bigger first page.
+ */
+const defaultLimitFor = (req) => req.params['productId'] !== undefined ? 50 : 10;
 export const reviewController = {
-    createReview: async (req, res) => {
+    createReview: async (req, res, next) => {
         try {
-            const { productId } = req.params;
-            const { rating, text, images } = req.body;
+            const productId = resolveProductId(req);
             const user = req.user;
-            const userId = user?.id || user?.userId; // Handle both potential cases
-            const userRole = user?.role;
-            if (!userId || !userRole) {
-                res.status(401).json({ message: 'Unauthorized' });
-                return;
+            const userId = user?.userId;
+            if (!userId) {
+                throw ApiError.unauthorized('Unauthorized');
             }
-            if (userRole !== 'USER') {
-                res.status(403).json({ message: 'Only users can submit reviews' });
-                return;
+            if (user?.role !== 'USER') {
+                throw ApiError.forbidden('Only users can submit reviews');
             }
-            if (!productId || !rating || !text) {
-                res.status(400).json({ message: 'Missing required fields' });
-                return;
-            }
-            const ratingInt = parseInt(rating);
-            if (isNaN(ratingInt) || ratingInt < 1 || ratingInt > 5) {
-                res.status(400).json({ message: 'Rating must be between 1 and 5' });
-                return;
-            }
-            if (images && Array.isArray(images)) {
-                if (images.length > 3) {
-                    res.status(400).json({ message: 'Maximum 3 images allowed' });
-                    return;
-                }
-            }
-            // Check if product exists to avoid FK error
-            // (Optional safety, FK constraint handles it but explicit message is nicer)
-            const review = await prisma.review.create({
-                data: {
-                    productId: productId,
-                    userId: userId,
-                    rating: ratingInt,
-                    text,
-                    images: images || [],
-                },
-            });
+            const input = createReviewSchema.parse(req.body);
+            const review = await reviewService.createReview(productId, userId, input);
             res.status(201).json({ message: 'Review submitted successfully', review });
         }
         catch (error) {
-            console.error('Error creating review:', error);
-            res.status(500).json({ message: 'Internal server error' });
+            next(error);
         }
     },
-    getProductReviews: async (req, res) => {
+    getProductReviews: async (req, res, next) => {
         try {
-            const productId = req.params.productId ?? req.params.id;
-            if (!productId) {
-                res.status(400).json({ message: 'Product ID is required' });
-                return;
-            }
-            const reviews = await prisma.review.findMany({
-                where: { productId: productId },
-                orderBy: { createdAt: 'desc' },
-                include: {
-                    user: {
-                        select: {
-                            id: true,
-                            user_profiles: {
-                                select: { full_name: true, avatar: true }
-                            }
-                        }
-                    }
-                }
+            const productId = resolveProductId(req);
+            const query = reviewQuerySchema.parse(req.query);
+            const result = await reviewService.getProductReviews(productId, {
+                page: query.page ?? 1,
+                limit: query.limit ?? defaultLimitFor(req),
+                sort: query.sort ?? 'newest',
             });
-            // Transform data
-            const formattedReviews = reviews.map((r) => ({
-                id: r.id,
-                rating: r.rating,
-                text: r.text,
-                images: r.images,
-                createdAt: r.createdAt,
-                user: {
-                    id: r.userId,
-                    fullName: r.user.user_profiles?.full_name || 'Anonymous',
-                    avatar: r.user.user_profiles?.avatar
-                }
-            }));
-            res.status(200).json({ reviews: formattedReviews });
+            res.status(200).json(result);
         }
         catch (error) {
-            console.error('Error fetching reviews:', error);
-            res.status(500).json({ message: 'Internal server error' });
+            next(error);
         }
     },
-    markHelpful: async (req, res) => {
+    markHelpful: async (req, res, next) => {
         try {
-            const rawId = req.params.id;
-            const id = Array.isArray(rawId) ? rawId[0] : rawId;
+            const id = firstParam(req.params['id']);
             if (!id) {
-                res.status(400).json({ message: 'Review ID is required' });
-                return;
+                throw ApiError.badRequest('Review ID is required');
             }
-            const review = await prisma.review.findUnique({
-                where: { id },
-                select: { id: true },
+            const updated = await reviewService.markHelpful(id);
+            res.status(200).json({
+                message: 'Marked as helpful',
+                helpfulCount: updated.helpfulCount,
+                review: updated,
             });
-            if (!review) {
-                res.status(404).json({ message: 'Review not found' });
-                return;
-            }
-            const updated = await prisma.review.update({
-                where: { id },
-                data: { helpfulCount: { increment: 1 } },
-                select: { id: true, helpfulCount: true },
-            });
-            res.status(200).json({ message: 'Marked as helpful', review: updated });
         }
         catch (error) {
-            console.error('Error marking helpful review:', error);
-            res.status(500).json({ message: 'Internal server error' });
+            next(error);
         }
-    }
+    },
 };
 //# sourceMappingURL=review.controller.js.map

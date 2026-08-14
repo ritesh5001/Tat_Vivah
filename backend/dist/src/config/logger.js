@@ -32,6 +32,7 @@ export const paymentLogger = logger.child({ module: 'payment' });
 export const integrityLogger = logger.child({ module: 'integrity' });
 export const wishlistLogger = logger.child({ module: 'wishlist' });
 export const searchLogger = logger.child({ module: 'search' });
+export const adminLogger = logger.child({ module: 'admin' });
 export const personalizationLogger = logger.child({ module: 'personalization' });
 export const recommendationLogger = logger.child({ module: 'recommendation' });
 export const cancellationLogger = logger.child({ module: 'cancellation' });

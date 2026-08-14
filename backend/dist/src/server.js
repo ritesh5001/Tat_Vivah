@@ -7,8 +7,19 @@ import { logger } from './config/logger.js';
 import { runInventoryIntegrityCheck } from './jobs/inventoryIntegrity.js';
 import { hashPassword } from './utils/password.util.js';
 import { reelRepository } from './repositories/reel.repository.js';
+import { warmCatalogCaches } from './services/catalog-warmup.service.js';
+import { appointmentService } from './services/appointment.service.js';
+import { fastrrOrderService } from './services/fastrr-order.service.js';
 /** How often to run the stale-order cleanup (10 minutes). */
 const STALE_ORDER_INTERVAL_MS = 10 * 60 * 1000;
+/**
+ * How often to reconcile in-flight Fastrr checkouts (15 minutes).
+ *
+ * Shiprocket's own docs recommend this as a failsafe: a lost webhook, or a buyer
+ * who closes the tab before being redirected back, would otherwise leave a paid
+ * order that never exists in this database.
+ */
+const FASTRR_RECONCILE_INTERVAL_MS = 15 * 60 * 1000;
 /** How often to run the inventory integrity check (10 minutes). */
 const INTEGRITY_CHECK_INTERVAL_MS = 10 * 60 * 1000;
 /** How often to flush buffered reel views (1 minute). */
@@ -16,6 +27,17 @@ const REEL_VIEW_FLUSH_INTERVAL_MS = 60 * 1000;
 /** Max random jitter added to recurring job intervals (up to 1 minute). */
 const JOB_JITTER_MAX_MS = 60 * 1000;
 const WARMUP_REQUEST_TIMEOUT_MS = 8000;
+/**
+ * How often to refresh the storefront cache. Comfortably under the shortest
+ * catalog TTL so entries are replaced before they expire, and cheap enough that
+ * the extra queries are irrelevant next to the latency they save shoppers.
+ */
+const CATALOG_WARMUP_INTERVAL_MS = 4 * 60 * 1000;
+/**
+ * How often to sweep finished appointments to COMPLETED. This used to run inline
+ * on every appointment list request — a full-table scan plus writes on a read path.
+ */
+const APPOINTMENT_SWEEP_INTERVAL_MS = 5 * 60 * 1000;
 const DB_CONNECT_MAX_ATTEMPTS = 5;
 const DB_CONNECT_BACKOFF_MS = 2500;
 const STARTUP_DB_OPERATION_MAX_ATTEMPTS = 4;
@@ -199,6 +221,9 @@ async function bootstrap() {
         let integrityTimer = null;
         let reelViewFlushTimer = null;
         let warmupTimer = null;
+        let catalogWarmupTimer = null;
+        let appointmentSweepTimer = null;
+        let fastrrReconcileTimer = null;
         if (runBackgroundJobs) {
             // ---- Stale-order cleanup (runs every 10 min) ----
             staleOrderTimer = setInterval(async () => {
@@ -274,7 +299,35 @@ async function bootstrap() {
                 }
                 await flushReelViews('startup');
                 await pingWarmupEndpoint();
+                // Refill the storefront cache before real traffic arrives — a deploy
+                // empties Redis, and a cold read costs seconds against a remote DB.
+                try {
+                    await warmCatalogCaches('startup');
+                }
+                catch (err) {
+                    logger.warn({ err }, 'Initial catalog warmup error');
+                }
             }, 5000);
+            // Keep the storefront cache hot. Entries are also invalidated explicitly
+            // on every product mutation, so this only guards against expiry — a
+            // shopper should never be the request that refills the cache.
+            catalogWarmupTimer = setInterval(() => {
+                void warmCatalogCaches('interval').catch((err) => {
+                    logger.warn({ err }, 'Catalog warmup error');
+                });
+            }, withIntervalJitter(CATALOG_WARMUP_INTERVAL_MS));
+            appointmentSweepTimer = setInterval(() => {
+                void appointmentService.autoCompletePastAppointments().catch((err) => {
+                    logger.warn({ err }, 'Appointment completion sweep error');
+                });
+            }, withIntervalJitter(APPOINTMENT_SWEEP_INTERVAL_MS));
+            // ---- Fastrr checkout reconciliation (every 15 min) ----
+            // A no-op unless Fastrr is configured.
+            fastrrReconcileTimer = setInterval(() => {
+                void fastrrOrderService.reconcilePendingSessions().catch((err) => {
+                    logger.warn({ err }, 'Fastrr reconciliation error');
+                });
+            }, withIntervalJitter(FASTRR_RECONCILE_INTERVAL_MS));
         }
         else {
             logger.info({ instance: process.env['NODE_APP_INSTANCE'] }, 'Background jobs disabled on this instance');
@@ -295,6 +348,12 @@ async function bootstrap() {
                 clearInterval(reelViewFlushTimer);
             if (warmupTimer)
                 clearInterval(warmupTimer);
+            if (catalogWarmupTimer)
+                clearInterval(catalogWarmupTimer);
+            if (appointmentSweepTimer)
+                clearInterval(appointmentSweepTimer);
+            if (fastrrReconcileTimer)
+                clearInterval(fastrrReconcileTimer);
             server.close(async () => {
                 logger.info('HTTP server closed');
                 await flushReelViews('shutdown');

@@ -5,6 +5,11 @@ import { z } from 'zod';
  */
 export declare const checkoutSchema: z.ZodObject<{
     body: z.ZodObject<{
+        /**
+         * Buy-now: check out only these variants instead of the whole cart.
+         * Omitted means the entire cart, which is the existing behaviour.
+         */
+        variantIds: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
         couponCode: z.ZodOptional<z.ZodString>;
         shippingName: z.ZodOptional<z.ZodString>;
         shippingPhone: z.ZodOptional<z.ZodString>;
@@ -24,6 +29,7 @@ export declare const checkoutSchema: z.ZodObject<{
         shippingCity?: string | undefined;
         shippingPincode?: string | undefined;
         shippingNotes?: string | undefined;
+        variantIds?: string[] | undefined;
     }, {
         couponCode?: string | undefined;
         shippingName?: string | undefined;
@@ -34,6 +40,7 @@ export declare const checkoutSchema: z.ZodObject<{
         shippingCity?: string | undefined;
         shippingPincode?: string | undefined;
         shippingNotes?: string | undefined;
+        variantIds?: string[] | undefined;
     }>;
 }, "strip", z.ZodTypeAny, {
     body: {
@@ -46,6 +53,7 @@ export declare const checkoutSchema: z.ZodObject<{
         shippingCity?: string | undefined;
         shippingPincode?: string | undefined;
         shippingNotes?: string | undefined;
+        variantIds?: string[] | undefined;
     };
 }, {
     body: {
@@ -58,6 +66,7 @@ export declare const checkoutSchema: z.ZodObject<{
         shippingCity?: string | undefined;
         shippingPincode?: string | undefined;
         shippingNotes?: string | undefined;
+        variantIds?: string[] | undefined;
     };
 }>;
 export type CheckoutInput = z.infer<typeof checkoutSchema>;

@@ -24,6 +24,28 @@ services:
         sync: false
       - key: BACKEND_WARMUP_INTERVAL_MS
         value: "240000"
+      # Shiprocket Checkout (Fastrr). The key/secret are set in the Render
+      # dashboard, not here — they sign every request to Shiprocket.
+      - key: FASTRR_API_KEY
+        sync: false
+      - key: FASTRR_API_SECRET
+        sync: false
+      # A production key against Shiprocket's dev host 404s rather than failing
+      # clearly, so this must match whichever credentials are configured above.
+      - key: FASTRR_ENV
+        value: PRODUCTION
+      # The master switch for buyer traffic, kept separate from the credentials
+      # so express checkout can be turned off from the dashboard in seconds —
+      # buyers fall straight back to the native PhonePe checkout, no deploy.
+      - key: FASTRR_CHECKOUT_ENABLED
+        value: "false"
+      # Optional. Shiprocket does not document signing their order webhook, so
+      # its body is never trusted regardless (every payload is re-verified
+      # against their Order/Details API). Set this to additionally require a
+      # matching X-Api-Key on the webhook.
+      - key: FASTRR_WEBHOOK_API_KEY
+        sync: false
+
       # PhonePe PG (Standard Checkout v2). Secrets set in the Render dashboard.
       - key: PHONEPE_ENV
         value: PRODUCTION

@@ -6,7 +6,8 @@ import { prisma } from '../config/db.js';
 import { getFromCache, setCache, invalidateProductCaches, CACHE_KEYS, } from '../utils/cache.util.js';
 import { ApiError } from '../errors/ApiError.js';
 import { occasionService } from './occasion.service.js';
-import { normalizeVariantColorKey, resolveColorScopedGallery, sanitizeVariantImages, } from './color-variant-images.service.js';
+import { normalizeVariantColorKey, resolveColorScopedGallery, resolveColorScopedHex, sanitizeColorHex, sanitizeVariantImages, } from './color-variant-images.service.js';
+import { normalizeVariantAttributes } from './variant-attributes.service.js';
 import { dispatchFreshness } from '../live/freshness.service.js';
 import { CACHE_TAGS, productTag } from '../live/cache-tags.js';
 /**
@@ -190,6 +191,7 @@ export class ProductService {
                 id: variant.id,
                 size: variant.size ?? 'Default',
                 color: variant.color ?? null,
+                colorHex: variant.colorHex ?? null,
                 images: variant.images ?? [],
                 sku: variant.sku,
                 price: this.toNumber(variant.price),
@@ -224,6 +226,7 @@ export class ProductService {
                 id: variant.id,
                 size: variant.size ?? 'Default',
                 color: variant.color ?? null,
+                colorHex: variant.colorHex ?? null,
                 images: variant.images ?? [],
                 sku: variant.sku,
                 sellerPrice: this.toNumber(variant.sellerPrice),
@@ -245,10 +248,12 @@ export class ProductService {
         if (!Number.isFinite(data.sellerPrice) || data.sellerPrice <= 0) {
             throw ApiError.badRequest('Variant seller price must be positive');
         }
+        // Equal is allowed — it just means no discount, and both storefronts
+        // already hide the strikethrough unless compare-at is above the price.
         if (data.compareAtPrice !== undefined &&
             data.compareAtPrice !== null &&
-            data.compareAtPrice <= data.sellerPrice) {
-            throw ApiError.badRequest('Compare-at price must be greater than seller price');
+            data.compareAtPrice < data.sellerPrice) {
+            throw ApiError.badRequest('Compare-at price cannot be below the seller price');
         }
     }
     validateUpdateVariantPayload(data, current) {
@@ -260,8 +265,8 @@ export class ProductService {
         const effectivePrice = nextAdminListingPrice ?? nextSellerPrice;
         if (data.compareAtPrice !== undefined &&
             data.compareAtPrice !== null &&
-            data.compareAtPrice <= effectivePrice) {
-            throw ApiError.badRequest('Compare-at price must be greater than effective selling price');
+            data.compareAtPrice < effectivePrice) {
+            throw ApiError.badRequest('Compare-at price cannot be below the effective selling price');
         }
     }
     async ensureProductVariantUniqueness(productId, data, excludeId) {
@@ -339,7 +344,11 @@ export class ProductService {
                 totalPages: Math.ceil(total / limit),
             },
         };
-        await setCache(cacheKey, response, page === 1 ? 300 : 180);
+        // 30 min TTL. Freshness comes from invalidateProductCaches(), which every
+        // product mutation calls — expiry is only a backstop. A short TTL just
+        // guaranteed that a shopper would periodically pay the multi-second cold
+        // read against a remote database for no correctness benefit.
+        await setCache(cacheKey, response, page === 1 ? 1800 : 900);
         return response;
     }
     /**
@@ -360,7 +369,11 @@ export class ProductService {
         const coupons = await this.getActiveCouponsForSellers([product.sellerId]);
         const response = { product: this.toPublicProductDetail(product, coupons) };
         // Cache the result
-        await setCache(cacheKey, response, 300);
+        // 30 min TTL. Freshness comes from invalidateProductCaches(), which every
+        // product mutation calls — expiry is only a backstop. A short TTL just
+        // guaranteed that a shopper would periodically pay the multi-second cold
+        // read against a remote database for no correctness benefit.
+        await setCache(cacheKey, response, 1800);
         return response;
     }
     // =========================================================================
@@ -373,6 +386,7 @@ export class ProductService {
         const normalizedVariants = (data.variants ?? []).map((variant) => ({
             size: variant.size,
             color: variant.color ?? undefined,
+            colorHex: sanitizeColorHex(variant.colorHex),
             images: sanitizeVariantImages(variant.images),
             sku: variant.sku,
             sellerPrice: variant.sellerPrice,
@@ -431,8 +445,25 @@ export class ProductService {
     async listSellerProducts(sellerId, params) {
         const page = Math.max(1, Math.trunc(params?.page ?? 1));
         const limit = Math.min(20, Math.max(1, Math.trunc(params?.limit ?? 20)));
+        // The seller's own product list was the slowest screen in the vendor panel and
+        // had no cache at all — CACHE_KEYS.SELLER_PRODUCTS existed but was never used.
+        // Prisma expands the category / variants / inventory includes into four
+        // sequential statements, which against a cross-region database is ~1.2s every
+        // time the seller opens or returns to the page.
+        //
+        // Correctness comes from invalidation, not expiry: the key lives under
+        // `products:seller:*`, which BOTH invalidateProductCaches() and
+        // invalidateSellerPrivateCaches() wipe. Every product/variant/stock mutation
+        // calls one of them, so a seller always sees their own edit immediately.
+        const cacheKey = CACHE_KEYS.SELLER_PRODUCTS(sellerId, page, limit);
+        const cached = await getFromCache(cacheKey);
+        if (cached) {
+            return cached;
+        }
         const products = await this.productRepo.findBySellerId(sellerId, { page, limit });
-        return { products: products.map((product) => this.toSellerProduct(product)) };
+        const response = { products: products.map((product) => this.toSellerProduct(product)) };
+        await setCache(cacheKey, response, 300);
+        return response;
     }
     /**
      * Update a product (seller only, ownership enforced)
@@ -455,6 +486,34 @@ export class ProductService {
         if (data.occasionIds !== undefined) {
             await this.occasionSvc.syncProductOccasions(productId, data.occasionIds ?? []);
         }
+        // A seller editing what the customer sees on an already-approved listing
+        // has to go back through moderation. Without this, an approved product
+        // could have its title, images or category swapped for anything and stay
+        // live. Variant edits already reset themselves to PENDING; this closes the
+        // same hole on the product's own content.
+        const changedCustomerFacingContent = data.title !== undefined ||
+            data.description !== undefined ||
+            data.images !== undefined ||
+            data.categoryId !== undefined ||
+            data.audience !== undefined;
+        let sentBackForApproval = false;
+        if (changedCustomerFacingContent && existing.status === 'APPROVED') {
+            // Move the variants back to PENDING and let syncVariantSummary derive
+            // the product state from them. Setting product.status directly would
+            // not survive: syncVariantSummary recomputes status and isPublished
+            // purely from variant statuses, so the next stock or variant edit
+            // would silently republish unreviewed content.
+            //
+            // adminListingPrice is deliberately preserved on each variant, so the
+            // admin's pricing is still pre-filled when they re-approve — this is a
+            // content re-review, not a re-pricing.
+            await prisma.productVariant.updateMany({
+                where: { productId, status: 'APPROVED' },
+                data: { status: 'PENDING', approvedAt: null, approvedById: null },
+            });
+            await this.productRepo.syncVariantSummary(productId);
+            sentBackForApproval = true;
+        }
         // Invalidate caches
         await invalidateProductCaches(productId);
         await this.publishProductFreshness('product.updated', productId);
@@ -463,7 +522,9 @@ export class ProductService {
             throw ApiError.internal('Unable to reload product after update');
         }
         return {
-            message: 'Product updated successfully',
+            message: sentBackForApproval
+                ? 'Product updated and sent back to admin for approval. It stays off the storefront until approved.'
+                : 'Product updated successfully',
             product: this.toSellerProduct(productWithDetails),
         };
     }
@@ -497,6 +558,14 @@ export class ProductService {
             throw ApiError.badRequest('Variants cannot be added to a product removed by admin');
         }
         this.validateCreateVariantPayload(data);
+        // Sellers type "Green 38" into the size box; lift the colour out before
+        // anything downstream treats it as a size.
+        const normalized = normalizeVariantAttributes(data);
+        data = {
+            ...data,
+            size: normalized.size ?? data.size,
+            ...(normalized.color !== undefined ? { color: normalized.color ?? undefined } : {}),
+        };
         await this.ensureProductVariantUniqueness(productId, {
             size: data.size,
             color: data.color,
@@ -509,9 +578,16 @@ export class ProductService {
         const resolvedImages = data.images !== undefined
             ? sanitizeVariantImages(data.images)
             : resolveColorScopedGallery(productWithDetails.variants ?? [], data.color);
+        // A swatch belongs to the colour, so a new size of an existing colour
+        // inherits it rather than arriving blank; a recognised colour name
+        // supplies its own swatch when neither is available.
+        const resolvedHex = sanitizeColorHex(data.colorHex) ??
+            resolveColorScopedHex(productWithDetails.variants ?? [], data.color) ??
+            normalized.derivedColorHex;
         const variant = await this.variantRepo.create(productId, {
             ...data,
             images: resolvedImages,
+            colorHex: resolvedHex,
         });
         await this.productRepo.syncVariantSummary(productId);
         // Invalidate caches
@@ -541,6 +617,14 @@ export class ProductService {
             sellerPrice: variantWithProduct.sellerPrice,
             adminListingPrice: variantWithProduct.adminListingPrice,
         });
+        // Same clean-up as the create path, so an edit can't reintroduce a
+        // colour glued onto the size.
+        const normalized = normalizeVariantAttributes(data);
+        data = {
+            ...data,
+            ...(normalized.size !== undefined ? { size: normalized.size } : {}),
+            ...(normalized.color !== undefined ? { color: normalized.color } : {}),
+        };
         const nextSize = data.size ?? variantWithProduct.size;
         const nextColor = data.color !== undefined ? data.color : variantWithProduct.color;
         const nextSku = data.sku ?? variantWithProduct.sku;
@@ -564,15 +648,29 @@ export class ProductService {
                 }
                 return [];
             })();
+        // Same colour-scoped rule as the galleries: an explicit pick wins, else
+        // inherit whatever this colour already uses.
+        const inferredHex = data.colorHex !== undefined
+            ? sanitizeColorHex(data.colorHex)
+            : resolveColorScopedHex(siblingVariants, nextColor) ?? normalized.derivedColorHex;
         const variant = await this.variantRepo.update(variantId, {
             ...data,
             images: inferredImages,
+            colorHex: inferredHex,
             adminListingPrice: null,
             status: 'PENDING',
             rejectionReason: null,
             approvedAt: null,
             approvedById: null,
         });
+        // Picking a swatch sets it for every size of that colour.
+        if (inferredHex !== null) {
+            const sameColour = siblingVariants.filter((sibling) => normalizeVariantColorKey(sibling.color) === nextColorKey &&
+                sanitizeColorHex(sibling.colorHex) !== inferredHex);
+            if (sameColour.length > 0) {
+                await Promise.all(sameColour.map((sibling) => this.variantRepo.update(sibling.id, { colorHex: inferredHex })));
+            }
+        }
         await this.productRepo.syncVariantSummary(variantWithProduct.productId);
         // Invalidate caches
         await invalidateProductCaches(variantWithProduct.productId);

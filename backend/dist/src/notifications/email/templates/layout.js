@@ -58,7 +58,7 @@ export function renderBrandedEmail(options) {
                     <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                       <tr>
                         <td>
-                          <p style="margin:0;color:#a7865f;font-size:10px;letter-spacing:0.2em;text-transform:uppercase;">TatVivah</p>
+                          <p style="margin:0;color:#a7865f;font-size:10px;letter-spacing:0.2em;text-transform:uppercase;">Tatvivah</p>
                           <p style="margin:6px 0 0;color:#2f261d;font-size:22px;font-family:Georgia,'Times New Roman',serif;">Premium Wedding Marketplace</p>
                         </td>
                         <td align="right" style="vertical-align:top;">
@@ -89,7 +89,7 @@ export function renderBrandedEmail(options) {
                       Need assistance? Reply to this email and our support team will help you.
                     </p>
                     <p style="margin:8px 0 0;color:#9a8b79;font-size:11px;line-height:1.6;font-family:Arial,sans-serif;">
-                      You are receiving this because of activity on your TatVivah account.
+                      You are receiving this because of activity on your Tatvivah account.
                     </p>
                   </td>
                 </tr>

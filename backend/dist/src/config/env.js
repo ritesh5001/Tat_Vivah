@@ -59,11 +59,44 @@ const envSchema = z.object({
     // Resend
     RESEND_API_KEY: z.string().min(1, 'RESEND_API_KEY is required'),
     EMAIL_FROM: z.string().email('EMAIL_FROM must be a valid email'),
-    // Fast2SMS WhatsApp (OTP delivery)
-    FAST2SMS_API_KEY: z.string().min(1, 'FAST2SMS_API_KEY is required').optional(),
-    FAST2SMS_WHATSAPP_URL: z.string().url('FAST2SMS_WHATSAPP_URL must be a valid URL').default('https://www.fast2sms.com/dev/whatsapp'),
-    FAST2SMS_WHATSAPP_MESSAGE_ID: z.string().optional(),
-    FAST2SMS_WHATSAPP_PHONE_NUMBER_ID: z.string().optional(),
+    // AquaSMS (SMS OTP delivery)
+    AQUASMS_USERNAME: z.string().optional(),
+    AQUASMS_API_KEY: z.string().optional(),
+    /** DLT-registered sender id / header, e.g. TATVIV. Required to send. */
+    AQUASMS_SENDER_ID: z.string().optional(),
+    /**
+     * HTTPS by default. The provider documents http:// URLs, but an OTP, the
+     * recipient's number and the API key all travel in the query string — those
+     * must not cross the network in the clear.
+     */
+    AQUASMS_BASE_URL: z
+        .string()
+        .url('AQUASMS_BASE_URL must be a valid URL')
+        .default('https://login.aquasms.com')
+        .transform((url) => url.replace(/\/+$/, '')),
+    /** TRANS for transactional (OTP) traffic; PROMO is promotional and DND-filtered. */
+    AQUASMS_SMS_TYPE: z.string().default('TRANS'),
+    /** DLT principal entity id — required by Indian operators for transactional SMS. */
+    AQUASMS_DLT_PE_ID: z.string().optional(),
+    /** DLT-approved template id matching AQUASMS_OTP_TEMPLATE exactly. */
+    AQUASMS_DLT_TEMPLATE_ID: z.string().optional(),
+    /**
+     * OTP message body. {otp} is substituted; every other character must match the
+     * DLT-approved template exactly or operators reject the message.
+     */
+    AQUASMS_OTP_TEMPLATE: z
+        .string()
+        .default('{otp} is your OTP for TatVivah. Valid for 10 minutes. Do not share it with anyone.'),
+    AQUASMS_TIMEOUT_MS: z.string().default('20000').transform(Number),
+    /**
+     * Escape hatch: treat SMS as usable even without DLT ids. Off by default because
+     * Indian operators drop non-DLT commercial SMS while the provider still reports
+     * success and bills for it. Only enable once real delivery has been confirmed.
+     */
+    AQUASMS_ALLOW_NON_DLT: z
+        .string()
+        .default('false')
+        .transform((v) => v.toLowerCase() === 'true'),
     // ImageKit
     IMAGEKIT_PUBLIC_KEY: z.string().optional(),
     IMAGEKIT_PRIVATE_KEY: z.string().optional(),
@@ -76,6 +109,10 @@ const envSchema = z.object({
     // Public base URL of THIS backend (used for absolute links / webhooks).
     BACKEND_PUBLIC_URL: z.string().url('BACKEND_PUBLIC_URL must be a valid URL').optional(),
     // PhonePe PG (Standard Checkout v2)
+    // The SDK's init() needs the merchant id, which is distinct from the OAuth
+    // client id on some PhonePe accounts. Falls back to CLIENT_ID when unset,
+    // which is correct for accounts where they are the same value.
+    PHONEPE_MERCHANT_ID: z.string().optional(),
     PHONEPE_CLIENT_ID: z.string().optional(),
     PHONEPE_CLIENT_SECRET: z.string().optional(),
     PHONEPE_CLIENT_VERSION: z.string().default('1'),
@@ -83,6 +120,45 @@ const envSchema = z.object({
     // Basic-auth credentials mirrored on the PhonePe dashboard webhook config.
     PHONEPE_WEBHOOK_USERNAME: z.string().optional(),
     PHONEPE_WEBHOOK_PASSWORD: z.string().optional(),
+    // Shared secret for the Shiprocket catalog feed. Optional on purpose: their
+    // documented requests send no auth header, so the endpoints launch open and
+    // close the moment this is set on both sides.
+    SHIPROCKET_API_KEY: z.string().optional(),
+    // -------------------------------------------------------------------
+    // Shiprocket Checkout (Fastrr)
+    //
+    // Fastrr hosts the entire address + payment step. We only mint an access
+    // token, then learn the outcome from their webhook. The key/secret pair is
+    // issued by Shiprocket per merchant account; without both, the integration
+    // stays dormant and the native PhonePe checkout continues to serve buyers.
+    // -------------------------------------------------------------------
+    FASTRR_API_KEY: z.string().optional(),
+    FASTRR_API_SECRET: z.string().optional(),
+    /**
+     * SANDBOX targets Shiprocket's dev stack, PRODUCTION the live one. This picks
+     * both the API host and the checkout UI bundle, so the two can never be
+     * mismatched — a prod token handed to the staging bundle simply fails.
+     */
+    FASTRR_ENV: z.enum(['SANDBOX', 'PRODUCTION']).default('SANDBOX'),
+    /** Escape hatch for a host Shiprocket moves without warning. */
+    FASTRR_BASE_URL: z.string().url('FASTRR_BASE_URL must be a valid URL').optional(),
+    /**
+     * Master switch for the buyer-facing flow. Off by default: the credentials
+     * alone should not silently reroute live checkout traffic. Turn this off to
+     * fall straight back to the native PhonePe checkout with no deploy.
+     */
+    FASTRR_CHECKOUT_ENABLED: z
+        .string()
+        .default('false')
+        .transform((v) => v.trim().toLowerCase() === 'true'),
+    FASTRR_TIMEOUT_MS: z.string().default('20000').transform(Number),
+    /**
+     * Optional shared secret for the inbound order webhook. Shiprocket does not
+     * document signing that callback, so we never trust its body regardless —
+     * every payload is re-verified against their Order/Details API. When set,
+     * this additionally gates the endpoint on a matching X-Api-Key.
+     */
+    FASTRR_WEBHOOK_API_KEY: z.string().optional(),
     // Optional deep link the mobile app is redirected to after payment.
     PHONEPE_MOBILE_REDIRECT_URL: z.string().optional(),
     // Optional override for the web redirect base (defaults to FRONTEND_BASE_URL).

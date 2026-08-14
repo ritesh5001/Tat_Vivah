@@ -104,7 +104,7 @@ export declare class AuthService {
      */
     revokeSession(userId: string, sessionId: string): Promise<MessageResponse>;
     /**
-     * Forgot Password — request a password-reset OTP (via WhatsApp, email fallback)
+     * Forgot Password — request a password-reset OTP (via SMS, email fallback)
      * POST /v1/auth/forgot-password
      *
      * Security:

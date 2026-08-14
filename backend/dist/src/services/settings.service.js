@@ -21,8 +21,16 @@ export const SETTING_KEYS = {
     GST_CHARGE_ENABLED: 'gst_charge_enabled',
 };
 const settingsLogger = logger.child({ module: 'settings' });
-/** How long a resolved setting stays cached in-memory before re-reading. */
-const CACHE_TTL_MS = 30 * 1000;
+/**
+ * How long a resolved setting stays cached in-memory before re-reading.
+ *
+ * 5 minutes, not 30 seconds: every checkout reads the shipping and GST toggles, so a
+ * short TTL meant most buyers paid a cross-region round-trip mid-order for a value
+ * that changes maybe once a month. Staleness is bounded well below this in practice —
+ * writeRaw() refreshes the entry on save, and the catalog warmup re-reads these keys
+ * every 4 minutes, so the cache is normally refreshed before it can expire.
+ */
+const CACHE_TTL_MS = 5 * 60 * 1000;
 const cache = new Map();
 async function readRaw(key) {
     const cached = cache.get(key);

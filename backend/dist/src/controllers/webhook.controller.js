@@ -10,7 +10,9 @@ export class WebhookController {
         const signature = req.headers['authorization'] ||
             req.headers['x-verify'] ||
             '';
-        await webhookService.processWebhook(provider, req.body, signature);
+        // Fastrr identifies itself with X-Api-Key rather than a signed digest.
+        const apiKey = req.headers['x-api-key'] || '';
+        await webhookService.processWebhook(provider, req.body, signature, apiKey);
         res.status(200).json({ success: true, message: 'Webhook processed' });
     });
 }

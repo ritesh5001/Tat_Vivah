@@ -24,6 +24,7 @@ export class VariantRepository {
             productId,
             size: this.normalizeSize(data.size),
             color: this.normalizeColor(data.color),
+            colorHex: data.colorHex ?? null,
             images: data.images ?? [],
             sku: data.sku.trim(),
             sellerPrice: data.sellerPrice,
@@ -140,6 +141,39 @@ export class VariantRepository {
             },
         };
     }
+    buildUpdateData(data, current) {
+        return {
+            ...(data.size !== undefined && { size: this.normalizeSize(data.size) }),
+            ...(data.color !== undefined && { color: this.normalizeColor(data.color) }),
+            ...(data.colorHex !== undefined && { colorHex: data.colorHex }),
+            ...(data.sku !== undefined && { sku: data.sku.trim() }),
+            ...(data.images !== undefined && { images: data.images }),
+            ...(data.sellerPrice !== undefined && { sellerPrice: data.sellerPrice }),
+            ...(data.adminListingPrice !== undefined && { adminListingPrice: data.adminListingPrice }),
+            ...(data.compareAtPrice !== undefined && { compareAtPrice: data.compareAtPrice }),
+            ...(data.status !== undefined && { status: data.status }),
+            ...(data.rejectionReason !== undefined && { rejectionReason: data.rejectionReason }),
+            ...(data.approvedAt !== undefined && { approvedAt: data.approvedAt }),
+            ...(data.approvedById !== undefined && { approvedById: data.approvedById }),
+            price: this.resolveEffectivePrice({
+                sellerPrice: data.sellerPrice,
+                adminListingPrice: data.adminListingPrice,
+                current,
+            }),
+        };
+    }
+    /**
+     * Update several variants in one round trip. Callers pass the current prices
+     * they already hold so no per-variant read is needed to resolve `price`.
+     */
+    async updateMany(updates) {
+        if (updates.length === 0)
+            return;
+        await prisma.$transaction(updates.map(({ id, data, current }) => prisma.productVariant.update({
+            where: { id },
+            data: this.buildUpdateData(data, current),
+        })));
+    }
     /**
      * Update a variant
      */
@@ -154,30 +188,12 @@ export class VariantRepository {
         if (!current) {
             throw new Error(`Variant ${id} not found`);
         }
-        const nextPrice = this.resolveEffectivePrice({
-            sellerPrice: data.sellerPrice,
-            adminListingPrice: data.adminListingPrice,
-            current: {
-                sellerPrice: Number(current.sellerPrice),
-                adminListingPrice: current.adminListingPrice == null ? null : Number(current.adminListingPrice),
-            },
-        });
         const variant = await prisma.productVariant.update({
             where: { id },
-            data: {
-                ...(data.size !== undefined && { size: this.normalizeSize(data.size) }),
-                ...(data.color !== undefined && { color: this.normalizeColor(data.color) }),
-                ...(data.sku !== undefined && { sku: data.sku.trim() }),
-                ...(data.images !== undefined && { images: data.images }),
-                ...(data.sellerPrice !== undefined && { sellerPrice: data.sellerPrice }),
-                ...(data.adminListingPrice !== undefined && { adminListingPrice: data.adminListingPrice }),
-                ...(data.compareAtPrice !== undefined && { compareAtPrice: data.compareAtPrice }),
-                ...(data.status !== undefined && { status: data.status }),
-                ...(data.rejectionReason !== undefined && { rejectionReason: data.rejectionReason }),
-                ...(data.approvedAt !== undefined && { approvedAt: data.approvedAt }),
-                ...(data.approvedById !== undefined && { approvedById: data.approvedById }),
-                price: nextPrice,
-            },
+            data: this.buildUpdateData(data, {
+                sellerPrice: Number(current.sellerPrice),
+                adminListingPrice: current.adminListingPrice == null ? null : Number(current.adminListingPrice),
+            }),
         });
         return {
             ...variant,

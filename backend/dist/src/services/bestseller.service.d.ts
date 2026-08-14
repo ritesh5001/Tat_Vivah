@@ -12,7 +12,7 @@ export declare class BestsellerService {
             productId: string;
             position: number;
             title: string;
-            categoryName: string;
+            categoryName: string | null;
             sellerEmail: string | null;
             isPublished: boolean;
             deletedByAdmin: boolean;

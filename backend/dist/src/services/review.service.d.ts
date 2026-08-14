@@ -1,30 +1,34 @@
 interface CreateReviewInput {
     rating: number;
-    title?: string;
-    comment: string;
+    title?: string | null;
+    text: string;
+    images?: string[];
 }
 interface ReviewQuery {
     page: number;
     limit: number;
     sort: string;
 }
+interface ReviewAuthor {
+    id: string;
+    email: string;
+    fullName: string;
+    avatar: string | null;
+}
 export declare class ReviewService {
     /**
      * Create a review (one per user per product)
      */
-    createReview(productId: string, userId: string, input: CreateReviewInput): Promise<import("@prisma/client/runtime/index.js").GetResult<{
+    createReview(productId: string, userId: string, input: CreateReviewInput): Promise<{
         id: string;
-        productId: string;
-        userId: string;
         rating: number;
         title: string | null;
         text: string;
         images: string[];
         helpfulCount: number;
-        isHidden: boolean;
         createdAt: Date;
-        updatedAt: Date;
-    }, unknown> & {}>;
+        user: ReviewAuthor;
+    }>;
     /**
      * Get reviews for a product with pagination, sorting, and rating summary
      */

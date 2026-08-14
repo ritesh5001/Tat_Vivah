@@ -5,6 +5,11 @@ import { z } from 'zod';
  */
 export const checkoutSchema = z.object({
     body: z.object({
+        /**
+         * Buy-now: check out only these variants instead of the whole cart.
+         * Omitted means the entire cart, which is the existing behaviour.
+         */
+        variantIds: z.array(z.string().min(1)).min(1).max(50).optional(),
         couponCode: z.string().min(1).max(64).optional(),
         shippingName: z.string().min(1).optional(),
         shippingPhone: z.string().min(5).optional(),

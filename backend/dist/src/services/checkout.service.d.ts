@@ -34,7 +34,12 @@ export declare class CheckoutService {
         shippingCity?: string;
         shippingPincode?: string;
         shippingNotes?: string;
-    }, couponCode?: string): Promise<CheckoutResponse>;
+    }, couponCode?: string, 
+    /**
+     * Buy-now: restrict this checkout to these variants. Omitted means the
+     * whole cart. Anything not selected stays in the cart untouched.
+     */
+    variantIds?: string[]): Promise<CheckoutResponse>;
 }
 export declare const checkoutService: CheckoutService;
 //# sourceMappingURL=checkout.service.d.ts.map

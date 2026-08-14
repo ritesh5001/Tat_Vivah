@@ -1,5 +1,5 @@
 import type { Role } from '@prisma/client';
-export type DashboardEventType = 'product.updated' | 'inventory.updated' | 'order.updated' | 'shipment.updated' | 'payment.updated' | 'catalog.updated';
+export type DashboardEventType = 'product.updated' | 'inventory.updated' | 'order.updated' | 'shipment.updated' | 'payment.updated' | 'catalog.updated' | 'support.message' | 'support.ticket.updated';
 export interface LiveEventAudience {
     allAuthenticated?: boolean;
     roles?: Role[];

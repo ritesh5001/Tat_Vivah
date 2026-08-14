@@ -13,8 +13,9 @@ import { getFromCache, setCache, CACHE_KEYS, invalidateCache, invalidateCacheByP
 import { notificationService } from '../notifications/notification.service.js';
 import { bestsellerService } from './bestseller.service.js';
 import { occasionService } from './occasion.service.js';
-import { applyColorScopedImages, arraysEqual, normalizeVariantColorKey, resolveColorScopedGallery, sanitizeVariantImages, } from './color-variant-images.service.js';
+import { applyColorScopedHex, applyColorScopedImages, arraysEqual, normalizeVariantColorKey, resolveColorScopedGallery, sanitizeColorHex, sanitizeVariantImages, } from './color-variant-images.service.js';
 import { calculateMargin } from '../utils/pricing.util.js';
+import { adminLogger } from '../config/logger.js';
 import { dispatchFreshness } from '../live/freshness.service.js';
 import { CACHE_TAGS, orderTag, productTag } from '../live/cache-tags.js';
 /**
@@ -127,9 +128,31 @@ export class AdminService {
     /**
      * List all products (admin table view)
      */
+    /**
+     * Admin product list.
+     *
+     * Cached because this is the slowest screen in the dashboard: Prisma expands the
+     * seller / seller_profiles / category / occasions / variants / inventory includes
+     * into seven separate statements, and against a cross-region database that cost
+     * seconds on EVERY view — including simply navigating back to the list.
+     *
+     * The key deliberately sits under the `products:list:` prefix, which
+     * invalidateProductCaches() already wipes. Every admin mutation (approve, reject,
+     * delete, price update) calls it, so an admin still sees their own change
+     * immediately rather than a stale row.
+     */
     async listAllProducts(params) {
+        const page = params?.page ?? 1;
+        const limit = params?.limit ?? 20;
+        const cacheKey = `products:list:admin:${page}:${limit}:${params?.audience ?? '_'}`;
+        const cached = await getFromCache(cacheKey);
+        if (cached) {
+            return cached;
+        }
         const products = await this.adminRepo.findAllProducts(params);
-        return { products };
+        const response = { products };
+        await setCache(cacheKey, response, 300);
+        return response;
     }
     /**
      * Approve a product
@@ -170,7 +193,9 @@ export class AdminService {
                 productTitle: product.title,
             }),
         ]);
-        await dispatchFreshness({
+        // Fire-and-forget: cache-freshness fan-out is a background concern, and making
+        // the admin's save wait on it added round-trips to an already slow request.
+        void dispatchFreshness({
             type: 'product.updated',
             entityId: productId,
             tags: [
@@ -181,6 +206,8 @@ export class AdminService {
                 productTag(productId),
             ],
             audience: { allAuthenticated: true },
+        }).catch((error) => {
+            adminLogger.warn({ productId, error }, 'product_update_freshness_dispatch_failed');
         });
         return {
             message: 'Product approved',
@@ -343,18 +370,20 @@ export class AdminService {
         };
     }
     async updateProductDetails(productId, actorId, payload) {
-        const product = await this.adminRepo.findProductById(productId);
+        const [product, categoryExists] = await Promise.all([
+            this.adminRepo.findProductById(productId),
+            payload.categoryId
+                ? categoryRepository.existsAndActive(payload.categoryId)
+                : Promise.resolve(true),
+        ]);
         if (!product) {
             throw ApiError.notFound('Product not found');
         }
         if (product.deletedByAdmin) {
             throw ApiError.badRequest('Deleted products cannot be updated');
         }
-        if (payload.categoryId) {
-            const categoryExists = await categoryRepository.existsAndActive(payload.categoryId);
-            if (!categoryExists) {
-                throw ApiError.badRequest('Invalid category ID');
-            }
+        if (!categoryExists) {
+            throw ApiError.badRequest('Invalid category ID');
         }
         const updatePayload = {};
         const updatedFields = [];
@@ -379,16 +408,13 @@ export class AdminService {
             updatedFields.push('isPublished');
         }
         if (payload.occasionIds !== undefined) {
-            await occasionService.syncProductOccasions(productId, payload.occasionIds ?? []);
             updatedFields.push('occasionIds');
-        }
-        if (Object.keys(updatePayload).length > 0) {
-            await productRepository.update(productId, updatePayload);
         }
         const workingVariants = (product.variants ?? []).map((variant) => ({
             id: variant.id,
             size: variant.size ?? 'Default',
             color: variant.color ?? null,
+            colorHex: sanitizeColorHex(variant.colorHex),
             images: sanitizeVariantImages(variant.images ?? []),
             sku: variant.sku,
             sellerPrice: Number(variant.sellerPrice ?? 0),
@@ -397,14 +423,17 @@ export class AdminService {
             status: variant.status,
         }));
         const variantUpdates = [];
+        // Writes are collected here and flushed in one batch below. Issuing them
+        // inside the loop cost two sequential round trips per variant.
+        const variantWrites = [];
+        const stockWrites = [];
         if (payload.variants && payload.variants.length > 0) {
             for (const variantInput of payload.variants) {
-                const variant = await variantRepository.findById(variantInput.id);
-                if (!variant || variant.productId !== productId) {
+                const variant = workingVariants.find((entry) => entry.id === variantInput.id);
+                if (!variant) {
                     throw ApiError.badRequest('One or more variant updates are invalid');
                 }
-                const workingVariant = workingVariants.find((entry) => entry.id === variantInput.id);
-                const currentColor = workingVariant?.color ?? variant.color ?? null;
+                const currentColor = variant.color ?? null;
                 const nextColor = variantInput.color !== undefined ? variantInput.color : currentColor;
                 const siblingVariants = workingVariants.filter((entry) => entry.id !== variantInput.id);
                 const inferredImages = variantInput.images !== undefined
@@ -415,7 +444,7 @@ export class AdminService {
                             return inherited;
                         }
                         if (normalizeVariantColorKey(currentColor) === normalizeVariantColorKey(nextColor)) {
-                            return sanitizeVariantImages(workingVariant?.images ?? variant.images);
+                            return sanitizeVariantImages(variant.images);
                         }
                         return [];
                     })();
@@ -427,6 +456,9 @@ export class AdminService {
                 }
                 if (variantInput.color !== undefined) {
                     variantPayload.color = variantInput.color;
+                }
+                if (variantInput.colorHex !== undefined) {
+                    variantPayload.colorHex = sanitizeColorHex(variantInput.colorHex);
                 }
                 if (variantInput.sku !== undefined) {
                     variantPayload.sku = variantInput.sku;
@@ -449,7 +481,7 @@ export class AdminService {
                     variantPayload.approvedAt = variantInput.status === 'APPROVED' ? new Date() : null;
                     variantPayload.approvedById = actorId;
                 }
-                const nextSellerPrice = variantInput.sellerPrice ?? Number(variant.sellerPrice);
+                const nextSellerPrice = variantInput.sellerPrice ?? variant.sellerPrice;
                 const nextAdminListingPrice = variantInput.adminListingPrice !== undefined
                     ? variantInput.adminListingPrice
                     : variant.adminListingPrice;
@@ -459,17 +491,33 @@ export class AdminService {
                     throw ApiError.badRequest(`Admin listing price cannot be lower than seller price for variant ${variant.sku}`);
                 }
                 const effectivePrice = nextAdminListingPrice ?? nextSellerPrice;
+                const currentEffectivePrice = variant.adminListingPrice ?? variant.sellerPrice;
                 const nextCompareAt = variantInput.compareAtPrice !== undefined
                     ? variantInput.compareAtPrice
                     : variant.compareAtPrice;
-                if (nextCompareAt !== null &&
+                // Only enforced when this request actually moves one of the two
+                // numbers. Approving a variant sets the listing price without this
+                // check, so a stored compare-at can end up at or below it — and
+                // re-validating untouched values then locked the admin out of the
+                // listing entirely, including edits to stock or images.
+                const priceRelationChanged = nextCompareAt !== variant.compareAtPrice ||
+                    effectivePrice !== currentEffectivePrice;
+                if (priceRelationChanged &&
+                    nextCompareAt !== null &&
                     nextCompareAt !== undefined &&
-                    nextCompareAt <= effectivePrice) {
-                    throw ApiError.badRequest(`Compare-at price must be greater than effective selling price for variant ${variant.sku}`);
+                    nextCompareAt < effectivePrice) {
+                    throw ApiError.badRequest(`Compare-at price for ${variant.sku} cannot be below its selling price of ${effectivePrice}`);
                 }
-                await variantRepository.update(variantInput.id, variantPayload);
+                variantWrites.push({
+                    id: variantInput.id,
+                    data: variantPayload,
+                    current: {
+                        sellerPrice: variant.sellerPrice,
+                        adminListingPrice: variant.adminListingPrice,
+                    },
+                });
                 if (variantInput.stock !== undefined) {
-                    await inventoryRepository.updateStock(variantInput.id, variantInput.stock);
+                    stockWrites.push({ variantId: variantInput.id, stock: variantInput.stock });
                 }
                 const workingIndex = workingVariants.findIndex((entry) => entry.id === variantInput.id);
                 if (workingIndex >= 0) {
@@ -482,6 +530,9 @@ export class AdminService {
                         id: currentWorking.id,
                         size: variantInput.size ?? currentWorking.size,
                         color: nextColor ?? null,
+                        colorHex: variantInput.colorHex !== undefined
+                            ? sanitizeColorHex(variantInput.colorHex)
+                            : currentWorking.colorHex,
                         images: inferredImages,
                         sku: variantInput.sku ?? currentWorking.sku,
                         sellerPrice: variantInput.sellerPrice ?? currentWorking.sellerPrice,
@@ -502,38 +553,93 @@ export class AdminService {
                 if (!currentVariant || arraysEqual(currentVariant.images, normalizedVariant.images)) {
                     continue;
                 }
-                await variantRepository.update(normalizedVariant.id, {
-                    images: normalizedVariant.images,
-                });
+                const pendingWrite = variantWrites.find((entry) => entry.id === normalizedVariant.id);
+                if (pendingWrite) {
+                    pendingWrite.data.images = normalizedVariant.images;
+                }
+                else {
+                    variantWrites.push({
+                        id: normalizedVariant.id,
+                        data: { images: normalizedVariant.images },
+                        current: {
+                            sellerPrice: currentVariant.sellerPrice,
+                            adminListingPrice: currentVariant.adminListingPrice,
+                        },
+                    });
+                }
                 currentVariant.images = normalizedVariant.images;
             }
+            // A swatch belongs to the colour, so picking one on any size applies
+            // it to every size of that colour — same rule as the galleries above.
+            for (const normalizedVariant of applyColorScopedHex(workingVariants)) {
+                const currentVariant = workingVariants.find((entry) => entry.id === normalizedVariant.id);
+                if (!currentVariant || currentVariant.colorHex === normalizedVariant.colorHex) {
+                    continue;
+                }
+                const pendingWrite = variantWrites.find((entry) => entry.id === normalizedVariant.id);
+                if (pendingWrite) {
+                    pendingWrite.data.colorHex = normalizedVariant.colorHex;
+                }
+                else {
+                    variantWrites.push({
+                        id: normalizedVariant.id,
+                        data: { colorHex: normalizedVariant.colorHex },
+                        current: {
+                            sellerPrice: currentVariant.sellerPrice,
+                            adminListingPrice: currentVariant.adminListingPrice,
+                        },
+                    });
+                }
+                currentVariant.colorHex = normalizedVariant.colorHex;
+            }
         }
+        const writes = [
+            variantRepository.updateMany(variantWrites),
+            inventoryRepository.setStockMany(stockWrites),
+        ];
+        if (payload.occasionIds !== undefined) {
+            writes.push(occasionService.syncProductOccasions(productId, payload.occasionIds ?? []));
+        }
+        if (Object.keys(updatePayload).length > 0) {
+            writes.push(productRepository.update(productId, updatePayload));
+        }
+        await Promise.all(writes);
         await productRepository.syncVariantSummary(productId);
-        await Promise.allSettled([
+        // The admin list is served from cache, so its invalidation has to land
+        // before the client refetches. Everything else is broadcast/analytics work
+        // that no longer holds the response open.
+        const [refreshed] = await Promise.all([
+            this.adminRepo.findProductById(productId),
             invalidateProductCaches(productId),
-            invalidateCache(CACHE_KEYS.ADMIN_STATS),
-            invalidateCacheByPattern('admin:profit:*'),
         ]);
-        await dispatchFreshness({
-            type: 'product.updated',
-            entityId: productId,
-            tags: [
-                CACHE_TAGS.products,
-                CACHE_TAGS.search,
-                CACHE_TAGS.sellerProducts,
-                CACHE_TAGS.adminProducts,
-                productTag(productId),
-            ],
-            audience: { allAuthenticated: true },
-        });
-        const refreshed = await this.adminRepo.findProductById(productId);
         if (!refreshed) {
             throw ApiError.internal('Unable to reload product after updates');
         }
-        await this.auditSvc.logAction(actorId, 'PRODUCT_UPDATED', 'PRODUCT', productId, {
+        void Promise.allSettled([
+            invalidateCache(CACHE_KEYS.ADMIN_STATS),
+            invalidateCacheByPattern('admin:profit:*'),
+            dispatchFreshness({
+                type: 'product.updated',
+                entityId: productId,
+                tags: [
+                    CACHE_TAGS.products,
+                    CACHE_TAGS.search,
+                    CACHE_TAGS.sellerProducts,
+                    CACHE_TAGS.adminProducts,
+                    productTag(productId),
+                ],
+                audience: { allAuthenticated: true },
+            }),
+        ]);
+        // Audit trail — written asynchronously so it never sits on the save path.
+        void this.auditSvc
+            .logAction(actorId, 'PRODUCT_UPDATED', 'PRODUCT', productId, {
             productTitle: product.title,
             updatedFields,
             variantUpdates,
+        })
+            .catch((error) => {
+            adminLogger.warn({ productId, actorId, error }, 'product_update_audit_log_failed');
         });
         return {
             message: 'Product updated successfully',

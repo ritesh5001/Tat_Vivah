@@ -45,6 +45,12 @@ const adminVariantUpdateSchema = z.object({
         .min(1, 'SKU must be at least 1 character')
         .max(100, 'SKU must be at most 100 characters')
         .optional(),
+    colorHex: z
+        .string({ invalid_type_error: 'Colour code must be a string' })
+        .trim()
+        .regex(/^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/, 'Colour code must be a hex value like #B5651D')
+        .nullable()
+        .optional(),
     images: z
         .array(z.string().url('Variant image must be a valid URL'))
         .max(8, 'Maximum 8 variant images allowed')
@@ -53,9 +59,12 @@ const adminVariantUpdateSchema = z.object({
         .number({ invalid_type_error: 'Variant seller price must be a number' })
         .positive('Variant seller price must be positive')
         .optional(),
+    // Nullable: the admin edit form sends null to clear a variant's listing price,
+    // which is also the state every not-yet-priced variant is submitted in.
     adminListingPrice: z
         .number({ invalid_type_error: 'Variant admin listing price must be a number' })
         .positive('Variant admin listing price must be positive')
+        .nullable()
         .optional(),
     compareAtPrice: z
         .number({ invalid_type_error: 'Compare-at price must be a number' })
@@ -76,6 +85,7 @@ const adminVariantUpdateSchema = z.object({
 }).refine((value) => value.size !== undefined ||
     value.color !== undefined ||
     value.sku !== undefined ||
+    value.colorHex !== undefined ||
     value.images !== undefined ||
     value.sellerPrice !== undefined ||
     value.adminListingPrice !== undefined ||

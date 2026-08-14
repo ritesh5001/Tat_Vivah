@@ -7,7 +7,7 @@ import ms from 'ms';
 import { otpService } from './otp.service.js';
 import { hashOtp } from '../utils/otp.util.js';
 import { otpRepository } from '../repositories/otp.repository.js';
-import { normalizeIndianMobile } from './fast2sms.service.js';
+import { normalizeIndianMobile } from '../utils/phone.util.js';
 import { OtpPurpose } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { authLogger } from '../config/logger.js';
@@ -97,7 +97,7 @@ export class AuthService {
         this.logger.info({ email: data.email, phone: '[present]', role: 'USER' }, 'register_user_otp_sent');
         // 4. Return success message (no token, no auto-login)
         return {
-            message: 'OTP sent to your WhatsApp number',
+            message: 'OTP sent to your mobile number',
         };
     }
     /**
@@ -135,7 +135,7 @@ export class AuthService {
         this.logger.info({ email: data.email, phone: '[present]', whatsappNumber: '[present]', role: 'SELLER' }, 'register_seller_otp_sent');
         // 4. Return success message (no token, pending approval)
         return {
-            message: 'OTP sent to your WhatsApp number. Verify to complete seller registration.',
+            message: 'OTP sent to your mobile number. Verify to complete seller registration.',
         };
     }
     /**
@@ -244,8 +244,8 @@ export class AuthService {
         this.logger.info({ phone: '[present]', userId: user.id, channel }, 'request_otp_sent');
         return {
             message: channel === 'email'
-                ? 'WhatsApp delivery is unavailable — we emailed your OTP instead. Please check your email.'
-                : 'OTP sent to your WhatsApp number',
+                ? 'SMS delivery is unavailable — we emailed your OTP instead. Please check your email.'
+                : 'OTP sent to your mobile number',
         };
     }
     async verifyOtp(input, userAgent, ipAddress) {
@@ -460,7 +460,7 @@ export class AuthService {
     // PASSWORD RESET FLOW
     // ========================================================================
     /**
-     * Forgot Password — request a password-reset OTP (via WhatsApp, email fallback)
+     * Forgot Password — request a password-reset OTP (via SMS, email fallback)
      * POST /v1/auth/forgot-password
      *
      * Security:

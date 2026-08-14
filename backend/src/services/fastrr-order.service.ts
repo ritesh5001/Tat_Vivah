@@ -272,6 +272,28 @@ export class FastrrOrderService {
         const totalDiscount = round2(new Prisma.Decimal(details.total_discount ?? 0));
         const grandTotal = round2(new Prisma.Decimal(details.total_amount_payable ?? 0));
 
+        // Line splits use our prices; the total the buyer paid is Fastrr's. Those
+        // agree only while the catalog feed is in sync. If a price changed here
+        // after Fastrr last pulled it, the two drift apart and the invoice lines
+        // stop adding up to the amount charged — visible to the buyer and wrong on
+        // the seller's settlement. It is not worth refusing a paid order over, but
+        // it must never pass silently.
+        if (details.subtotal_price != null) {
+            const theirSubtotal = round2(new Prisma.Decimal(details.subtotal_price));
+            if (!theirSubtotal.equals(grossSubtotal)) {
+                checkoutLogger.error(
+                    {
+                        event: 'fastrr_price_drift',
+                        fastrrOrderId: details.order_id,
+                        ourSubtotal: grossSubtotal.toString(),
+                        theirSubtotal: theirSubtotal.toString(),
+                        difference: theirSubtotal.sub(grossSubtotal).toString(),
+                    },
+                    `Fastrr charged a subtotal we do not agree with for ${details.order_id} — catalog sync is stale`,
+                );
+            }
+        }
+
         // Discount is spread across lines in proportion to their value, with the
         // remainder landing on the last line so the parts always re-sum to the
         // whole — the same allocation the native checkout uses.

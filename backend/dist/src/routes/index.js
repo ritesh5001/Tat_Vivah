@@ -3,6 +3,7 @@
  * Central registry for all application routes
  */
 export { authRouter } from './auth.routes.js';
+export { profileRouter } from './profile.routes.js';
 export { sellerRouter } from './seller.routes.js';
 export { categoryRouter } from './category.routes.js';
 export { productRouter } from './product.routes.js';
@@ -11,6 +12,8 @@ export { productMediaRouter } from './product-media.routes.js';
 export { reviewRouter } from './review.routes.js';
 export { imagekitRouter } from './imagekit.routes.js';
 export { bestsellerRouter } from './bestseller.routes.js';
+export { shiprocketRouter } from './shiprocket.routes.js';
+export { fastrrRouter } from './fastrr.routes.js';
 export { tryOnRouter } from './try-on.routes.js';
 // Address management
 export { addressRouter } from './address.routes.js';
@@ -42,6 +45,8 @@ export { wishlistRouter } from './wishlist.routes.js';
 export { searchRouter } from './search.routes.js';
 export { personalizationRouter } from './personalization.routes.js';
 export { liveRouter } from './live.routes.js';
+// Support chat
+export { supportRouter } from './support.routes.js';
 // Seller Analytics
 export { sellerAnalyticsRouter } from './sellerAnalytics.routes.js';
 // Reels

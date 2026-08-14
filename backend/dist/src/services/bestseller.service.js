@@ -136,7 +136,8 @@ export class BestsellerService {
             };
         });
         const response = { products };
-        await setCache(cacheKey, response, 120);
+        // Bestsellers are curated by admins and invalidated on change.
+        await setCache(cacheKey, response, 1800);
         return response;
     }
     async listAdmin() {

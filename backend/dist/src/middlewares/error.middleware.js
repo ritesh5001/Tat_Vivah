@@ -1,3 +1,4 @@
+import { ZodError } from 'zod';
 import { ApiError } from '../errors/ApiError.js';
 /**
  * Global error handling middleware
@@ -34,6 +35,22 @@ export function errorMiddleware(err, _req, res, _next) {
             },
         };
         res.status(503).json(response);
+        return;
+    }
+    // Controllers that call `schema.parse()` inline hand the raw ZodError to
+    // next(). Without this it fell through to the 500 branch and every rejected
+    // field read as "Internal server error" to the client.
+    if (err instanceof ZodError) {
+        const response = {
+            success: false,
+            error: {
+                message: err.errors
+                    .map((issue) => `${issue.path.join('.') || 'body'}: ${issue.message}`)
+                    .join(', '),
+                statusCode: 400,
+            },
+        };
+        res.status(400).json(response);
         return;
     }
     // Handle ApiError (operational errors)

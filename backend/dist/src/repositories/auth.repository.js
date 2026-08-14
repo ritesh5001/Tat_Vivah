@@ -93,17 +93,53 @@ export class AuthRepository {
     /**
      * Create a new login session
      */
+    /**
+     * Persist a login session.
+     *
+     * Uses createMany rather than create even though it writes a single row.
+     * Prisma's `create` has to return the created record, so it wraps the INSERT in
+     * BEGIN/COMMIT and follows it with a SELECT to hydrate the result — four
+     * round-trips to write one row. On this deployment a round-trip to the database
+     * costs roughly 2.3s, so that alone made every login several seconds slower.
+     *
+     * Nothing needs the row back: the caller generates `sessionId` itself and
+     * discards the return value, so `createMany` (a plain INSERT, no transaction,
+     * no hydration) is exactly equivalent here at a quarter of the cost.
+     */
     async createSession(data) {
-        return prisma.loginSession.create({
-            data: {
-                ...(data.sessionId ? { id: data.sessionId } : {}),
-                userId: data.userId,
-                refreshToken: data.refreshToken,
-                userAgent: data.userAgent ?? null,
-                ipAddress: data.ipAddress ?? null,
-                expiresAt: data.expiresAt,
-            },
-            select: { id: true },
+        // Single raw INSERT when we already know the id (the normal login path).
+        // Prisma's create() would BEGIN, INSERT, SELECT to hydrate, then COMMIT, and
+        // createMany still wraps the INSERT in a transaction — four and two
+        // round-trips respectively to write one row nobody reads back.
+        if (data.sessionId) {
+            await prisma.$executeRaw `
+                INSERT INTO "login_sessions"
+                    ("id", "user_id", "refresh_token", "user_agent", "ip_address",
+                     "expires_at", "created_at", "updated_at")
+                VALUES (
+                    ${data.sessionId},
+                    ${data.userId},
+                    ${data.refreshToken},
+                    ${data.userAgent ?? null},
+                    ${data.ipAddress ?? null},
+                    ${data.expiresAt},
+                    NOW(),
+                    NOW()
+                )
+            `;
+            return;
+        }
+        // No id supplied — let Prisma generate the cuid.
+        await prisma.loginSession.createMany({
+            data: [
+                {
+                    userId: data.userId,
+                    refreshToken: data.refreshToken,
+                    userAgent: data.userAgent ?? null,
+                    ipAddress: data.ipAddress ?? null,
+                    expiresAt: data.expiresAt,
+                },
+            ],
         });
     }
     /**
@@ -132,13 +168,22 @@ export class AuthRepository {
         });
     }
     /**
-     * Update session with new refresh token
+     * Update session with new refresh token (token rotation).
+     *
+     * Raw UPDATE on purpose. `prisma.loginSession.update()` has to return the updated
+     * row, so it runs BEGIN, a SELECT to check the row exists, the UPDATE, a second
+     * SELECT to hydrate the result, then COMMIT — five round-trips to change one
+     * column, and the caller throws the result away. Token rotation runs on every
+     * refresh, so at ~2.3s per round-trip in production that was the single most
+     * expensive part of staying signed in.
      */
     async updateSessionRefreshToken(sessionId, refreshToken) {
-        await prisma.loginSession.update({
-            where: { id: sessionId },
-            data: { refreshToken },
-        });
+        await prisma.$executeRaw `
+            UPDATE "login_sessions"
+            SET "refresh_token" = ${refreshToken},
+                "updated_at" = NOW()
+            WHERE "id" = ${sessionId}
+        `;
     }
     /**
      * Get all sessions for a user (for token rotation verification)

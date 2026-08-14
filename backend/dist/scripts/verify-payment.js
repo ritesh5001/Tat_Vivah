@@ -1,6 +1,7 @@
 import { PrismaClient, PaymentStatus, OrderStatus } from '@prisma/client';
 import { generateAccessToken, Role, UserStatus } from '../src/utils/jwt.util.js';
 import { env } from '../src/config/env.js';
+import { paymentService } from '../src/services/payment.service.js';
 const prisma = new PrismaClient();
 const API_URL = `http://localhost:${env.PORT}/v1`;
 async function verifyPayment() {
@@ -108,7 +109,7 @@ async function verifyPayment() {
             },
             body: JSON.stringify({
                 orderId: order.id,
-                provider: 'MOCK'
+                platform: 'WEB'
             })
         });
         const initData = await initRes.json();
@@ -116,8 +117,8 @@ async function verifyPayment() {
         if (!initData.success) {
             throw new Error('Payment initiation failed');
         }
-        const { paymentId, checkoutUrl } = initData.data;
-        if (!paymentId || !checkoutUrl) {
+        const { paymentId, redirectUrl } = initData.data;
+        if (!paymentId || !redirectUrl) {
             throw new Error('Invalid payment initiation response');
         }
         // Verify DB
@@ -127,23 +128,12 @@ async function verifyPayment() {
         }
         console.log('✅ Payment initiated successfully');
         // 3. Test Webhook (Success)
-        console.log('\n🔔 testing POST /v1/payments/webhook/MOCK (Success)...');
-        const webhookRes = await fetch(`${API_URL}/payments/webhook/MOCK`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                paymentId: paymentId,
-                status: 'SUCCESS',
-                providerPaymentId: `prov_${Date.now()}`
-            })
-        });
-        const webhookData = await webhookRes.json();
-        console.log('Webhook Response:', webhookData);
-        if (webhookRes.status !== 200) {
-            throw new Error('Webhook failed');
-        }
+        console.log('\n🔔 testing payment success settlement path...');
+        // There is no MOCK webhook any more: PhonePe is the only provider and its
+        // webhook is signature-checked then re-confirmed against the live Order Status
+        // API. Invoke the same handler the verified webhook calls, so this still covers
+        // order confirmation + seller settlement creation without faking a real payment.
+        await paymentService.handlePaymentSuccess(paymentId, order.id, `verify_${Date.now()}`, { source: 'verify-payment-script' });
         // Verify DB Changes
         const updatedOrder = await prisma.order.findUnique({ where: { id: order.id } });
         const updatedPayment = await prisma.payment.findUnique({ where: { id: paymentId } });

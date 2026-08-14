@@ -1,29 +1,57 @@
 import { z } from 'zod';
-export declare const createReviewSchema: z.ZodObject<{
+export declare const createReviewSchema: z.ZodEffects<z.ZodEffects<z.ZodObject<{
     rating: z.ZodNumber;
-    title: z.ZodString;
-    comment: z.ZodString;
+    title: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    text: z.ZodOptional<z.ZodString>;
+    comment: z.ZodOptional<z.ZodString>;
+    images: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
 }, "strip", z.ZodTypeAny, {
-    title: string;
     rating: number;
-    comment: string;
+    title?: string | null | undefined;
+    images?: string[] | undefined;
+    text?: string | undefined;
+    comment?: string | undefined;
 }, {
-    title: string;
     rating: number;
-    comment: string;
+    title?: string | null | undefined;
+    images?: string[] | undefined;
+    text?: string | undefined;
+    comment?: string | undefined;
+}>, {
+    rating: number;
+    title: string | null;
+    text: string;
+    images: string[];
+}, {
+    rating: number;
+    title?: string | null | undefined;
+    images?: string[] | undefined;
+    text?: string | undefined;
+    comment?: string | undefined;
+}>, {
+    rating: number;
+    title: string | null;
+    text: string;
+    images: string[];
+}, {
+    rating: number;
+    title?: string | null | undefined;
+    images?: string[] | undefined;
+    text?: string | undefined;
+    comment?: string | undefined;
 }>;
 export declare const reviewQuerySchema: z.ZodObject<{
-    page: z.ZodDefault<z.ZodOptional<z.ZodPipeline<z.ZodEffects<z.ZodString, number, string>, z.ZodNumber>>>;
-    limit: z.ZodDefault<z.ZodOptional<z.ZodPipeline<z.ZodEffects<z.ZodString, number, string>, z.ZodNumber>>>;
-    sort: z.ZodDefault<z.ZodOptional<z.ZodEnum<["newest", "oldest", "highest", "lowest", "helpful"]>>>;
+    page: z.ZodOptional<z.ZodNumber>;
+    limit: z.ZodOptional<z.ZodNumber>;
+    sort: z.ZodOptional<z.ZodEnum<["newest", "oldest", "highest", "lowest", "helpful"]>>;
 }, "strip", z.ZodTypeAny, {
-    sort: "oldest" | "highest" | "lowest" | "helpful" | "newest";
-    limit: number;
-    page: number;
+    sort?: "oldest" | "highest" | "lowest" | "helpful" | "newest" | undefined;
+    limit?: number | undefined;
+    page?: number | undefined;
 }, {
     sort?: "oldest" | "highest" | "lowest" | "helpful" | "newest" | undefined;
-    limit?: string | undefined;
-    page?: string | undefined;
+    limit?: number | undefined;
+    page?: number | undefined;
 }>;
 export declare const hideReviewSchema: z.ZodObject<{
     isHidden: z.ZodBoolean;

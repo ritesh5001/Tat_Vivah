@@ -1,7 +1,7 @@
-import { type Request, type Response } from 'express';
+import { type NextFunction, type Request, type Response } from 'express';
 export declare const reviewController: {
-    createReview: (req: Request, res: Response) => Promise<void>;
-    getProductReviews: (req: Request, res: Response) => Promise<void>;
-    markHelpful: (req: Request, res: Response) => Promise<void>;
+    createReview: (req: Request, res: Response, next: NextFunction) => Promise<void>;
+    getProductReviews: (req: Request, res: Response, next: NextFunction) => Promise<void>;
+    markHelpful: (req: Request, res: Response, next: NextFunction) => Promise<void>;
 };
 //# sourceMappingURL=review.controller.d.ts.map

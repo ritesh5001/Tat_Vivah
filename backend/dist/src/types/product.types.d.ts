@@ -50,6 +50,7 @@ export interface ProductVariantEntity {
     productId: string;
     size: string;
     color: string | null;
+    colorHex: string | null;
     images: string[];
     sku: string;
     sellerPrice: number;
@@ -94,6 +95,7 @@ export interface PublicProductVariant {
     id: string;
     size: string;
     color: string | null;
+    colorHex: string | null;
     images: string[];
     sku: string;
     price: number;
@@ -150,6 +152,7 @@ export interface SellerProductVariant {
     id: string;
     size: string;
     color: string | null;
+    colorHex: string | null;
     images: string[];
     sku: string;
     sellerPrice: number;
@@ -195,6 +198,7 @@ export interface UpdateProductRequest {
 export interface CreateVariantRequest {
     size: string;
     color?: string | undefined;
+    colorHex?: string | null | undefined;
     images?: string[] | undefined;
     sku: string;
     sellerPrice: number;
@@ -207,6 +211,7 @@ export interface CreateVariantRequest {
 export interface UpdateVariantRequest {
     size?: string | undefined;
     color?: string | null | undefined;
+    colorHex?: string | null | undefined;
     sku?: string | undefined;
     images?: string[] | undefined;
     sellerPrice?: number | undefined;

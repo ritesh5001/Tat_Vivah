@@ -22,10 +22,10 @@ export declare const updateAppointmentStatusSchema: z.ZodObject<{
     appointmentId: z.ZodString;
     status: z.ZodEnum<["PENDING", "CONFIRMED", "COMPLETED", "CANCELLED"]>;
 }, "strip", z.ZodTypeAny, {
-    status: "PENDING" | "CANCELLED" | "CONFIRMED" | "COMPLETED";
+    status: "PENDING" | "CANCELLED" | "COMPLETED" | "CONFIRMED";
     appointmentId: string;
 }, {
-    status: "PENDING" | "CANCELLED" | "CONFIRMED" | "COMPLETED";
+    status: "PENDING" | "CANCELLED" | "COMPLETED" | "CONFIRMED";
     appointmentId: string;
 }>;
 export declare const rescheduleAppointmentSchema: z.ZodObject<{

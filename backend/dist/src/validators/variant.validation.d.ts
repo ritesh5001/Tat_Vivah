@@ -6,6 +6,7 @@ import { z } from 'zod';
 export declare const createVariantSchema: z.ZodObject<{
     size: z.ZodString;
     color: z.ZodOptional<z.ZodString>;
+    colorHex: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     images: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
     sku: z.ZodString;
     sellerPrice: z.ZodNumber;
@@ -18,6 +19,7 @@ export declare const createVariantSchema: z.ZodObject<{
     initialStock: number;
     images?: string[] | undefined;
     color?: string | undefined;
+    colorHex?: string | null | undefined;
     compareAtPrice?: number | undefined;
 }, {
     sellerPrice: number;
@@ -25,6 +27,7 @@ export declare const createVariantSchema: z.ZodObject<{
     sku: string;
     images?: string[] | undefined;
     color?: string | undefined;
+    colorHex?: string | null | undefined;
     compareAtPrice?: number | undefined;
     initialStock?: number | undefined;
 }>;
@@ -36,6 +39,7 @@ export type CreateVariantInput = z.infer<typeof createVariantSchema>;
 export declare const updateVariantSchema: z.ZodObject<{
     size: z.ZodOptional<z.ZodString>;
     color: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    colorHex: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     sku: z.ZodOptional<z.ZodString>;
     images: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
     sellerPrice: z.ZodOptional<z.ZodNumber>;
@@ -45,6 +49,7 @@ export declare const updateVariantSchema: z.ZodObject<{
     images?: string[] | undefined;
     size?: string | undefined;
     color?: string | null | undefined;
+    colorHex?: string | null | undefined;
     sku?: string | undefined;
     compareAtPrice?: number | null | undefined;
 }, {
@@ -52,6 +57,7 @@ export declare const updateVariantSchema: z.ZodObject<{
     images?: string[] | undefined;
     size?: string | undefined;
     color?: string | null | undefined;
+    colorHex?: string | null | undefined;
     sku?: string | undefined;
     compareAtPrice?: number | null | undefined;
 }>;

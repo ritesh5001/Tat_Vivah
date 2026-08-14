@@ -15,6 +15,12 @@ export const createVariantSchema = z.object({
         .min(1, 'Color must be at least 1 character')
         .max(50, 'Color must be at most 50 characters')
         .optional(),
+    colorHex: z
+        .string()
+        .trim()
+        .regex(/^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/, 'Colour code must be a hex value like #B5651D')
+        .nullable()
+        .optional(),
     images: z
         .array(z.string().url('Variant image must be a valid URL'))
         .max(8, 'Maximum 8 variant images allowed')
@@ -54,6 +60,12 @@ export const updateVariantSchema = z.object({
         .trim()
         .min(1, 'Color must be at least 1 character')
         .max(50, 'Color must be at most 50 characters')
+        .nullable()
+        .optional(),
+    colorHex: z
+        .string()
+        .trim()
+        .regex(/^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/, 'Colour code must be a hex value like #B5651D')
         .nullable()
         .optional(),
     sku: z

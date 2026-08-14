@@ -15,6 +15,7 @@ export declare const paymentLogger: pino.Logger<never, boolean>;
 export declare const integrityLogger: pino.Logger<never, boolean>;
 export declare const wishlistLogger: pino.Logger<never, boolean>;
 export declare const searchLogger: pino.Logger<never, boolean>;
+export declare const adminLogger: pino.Logger<never, boolean>;
 export declare const personalizationLogger: pino.Logger<never, boolean>;
 export declare const recommendationLogger: pino.Logger<never, boolean>;
 export declare const cancellationLogger: pino.Logger<never, boolean>;

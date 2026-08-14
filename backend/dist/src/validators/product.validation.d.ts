@@ -15,6 +15,7 @@ export declare const createProductSchema: z.ZodObject<{
     variants: z.ZodArray<z.ZodObject<{
         size: z.ZodString;
         color: z.ZodOptional<z.ZodString>;
+        colorHex: z.ZodOptional<z.ZodNullable<z.ZodString>>;
         images: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
         sku: z.ZodString;
         sellerPrice: z.ZodNumber;
@@ -27,6 +28,7 @@ export declare const createProductSchema: z.ZodObject<{
         initialStock: number;
         images?: string[] | undefined;
         color?: string | undefined;
+        colorHex?: string | null | undefined;
         compareAtPrice?: number | undefined;
     }, {
         sellerPrice: number;
@@ -34,6 +36,7 @@ export declare const createProductSchema: z.ZodObject<{
         sku: string;
         images?: string[] | undefined;
         color?: string | undefined;
+        colorHex?: string | null | undefined;
         compareAtPrice?: number | undefined;
         initialStock?: number | undefined;
     }>, "many">;
@@ -49,6 +52,7 @@ export declare const createProductSchema: z.ZodObject<{
         initialStock: number;
         images?: string[] | undefined;
         color?: string | undefined;
+        colorHex?: string | null | undefined;
         compareAtPrice?: number | undefined;
     }[];
     description?: string | undefined;
@@ -63,6 +67,7 @@ export declare const createProductSchema: z.ZodObject<{
         sku: string;
         images?: string[] | undefined;
         color?: string | undefined;
+        colorHex?: string | null | undefined;
         compareAtPrice?: number | undefined;
         initialStock?: number | undefined;
     }[];

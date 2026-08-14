@@ -67,6 +67,16 @@ function formatAppointment(row) {
     };
 }
 export class AppointmentService {
+    /**
+     * Flip appointments whose slot has ended to COMPLETED.
+     *
+     * This is a maintenance sweep over the WHOLE table, so it must not run on read
+     * paths: it was previously awaited by every appointment list, meaning each seller
+     * opening their appointments page triggered a full scan plus writes. It stays on
+     * the write paths (create / status change / reschedule), where a stale BOOKED row
+     * would otherwise affect slot availability, and is also run periodically from the
+     * server scheduler.
+     */
     async autoCompletePastAppointments() {
         const now = new Date();
         const candidates = await prisma.appointment.findMany({
@@ -85,6 +95,22 @@ export class AppointmentService {
             where: { id: { in: completedIds } },
             data: { status: 'COMPLETED' },
         });
+    }
+    /**
+     * Existence/role check only.
+     *
+     * assertSeller() also pulls in seller_profiles, which Prisma resolves as a second
+     * statement — a wasted cross-region round-trip on the callers that discard the
+     * result and only need "is this a real seller?".
+     */
+    async assertSellerExists(sellerId) {
+        const seller = await prisma.user.findFirst({
+            where: { id: sellerId, role: 'SELLER' },
+            select: { id: true },
+        });
+        if (!seller) {
+            throw ApiError.notFound('Seller not found');
+        }
     }
     async assertSeller(sellerId) {
         const seller = await prisma.user.findFirst({
@@ -229,7 +255,7 @@ export class AppointmentService {
         return { appointment: formatAppointment(created) };
     }
     async listUserAppointments(userId) {
-        await this.autoCompletePastAppointments();
+        // Completion sweep intentionally NOT run here — see autoCompletePastAppointments().
         await this.assertBuyer(userId);
         const appointments = await prisma.appointment.findMany({
             where: { userId },
@@ -242,20 +268,45 @@ export class AppointmentService {
         return { appointments: appointments.map(formatAppointment) };
     }
     async listSellerAppointments(sellerId) {
-        await this.autoCompletePastAppointments();
-        await this.assertSeller(sellerId);
-        const appointments = await prisma.appointment.findMany({
-            where: { sellerId },
-            orderBy: [{ date: 'desc' }, { time: 'desc' }],
-            include: {
-                user: { select: { id: true, email: true, phone: true } },
-                product: { select: { id: true, title: true } },
-            },
-        });
+        // Completion sweep intentionally NOT run here — see autoCompletePastAppointments().
+        await this.assertSellerExists(sellerId);
+        // One JOIN rather than nested includes. Prisma 4 resolves `user` and `product`
+        // as separate statements, so this list cost three round-trips for what is
+        // usually a handful of rows — and against a cross-region database each one is
+        // ~300ms. The shape below matches the include version exactly.
+        const rows = await prisma.$queryRaw `
+      SELECT
+        a."id", a."user_id" AS "userId", a."seller_id" AS "sellerId",
+        a."product_id" AS "productId", a."date", a."time",
+        a."status"::text AS "status",
+        a."whatsapp_number" AS "whatsappNumber",
+        a."notes",
+        a."created_at" AS "createdAt",
+        a."updated_at" AS "updatedAt",
+        u."id"     AS "userIdJoined",
+        u."email"  AS "userEmail",
+        u."phone"  AS "userPhone",
+        p."id"     AS "productIdJoined",
+        p."title"  AS "productTitle"
+      FROM "appointments" a
+      LEFT JOIN "users" u    ON u."id" = a."user_id"
+      LEFT JOIN "products" p ON p."id" = a."product_id"
+      WHERE a."seller_id" = ${sellerId}
+      ORDER BY a."date" DESC, a."time" DESC
+    `;
+        const appointments = rows.map((row) => ({
+            ...row,
+            user: row['userIdJoined'] == null
+                ? null
+                : { id: row['userIdJoined'], email: row['userEmail'], phone: row['userPhone'] },
+            product: row['productIdJoined'] == null
+                ? null
+                : { id: row['productIdJoined'], title: row['productTitle'] },
+        }));
         return { appointments: appointments.map(formatAppointment) };
     }
     async listAdminAppointments() {
-        await this.autoCompletePastAppointments();
+        // Completion sweep intentionally NOT run here — see autoCompletePastAppointments().
         const appointments = await prisma.appointment.findMany({
             orderBy: [{ date: 'desc' }, { time: 'desc' }],
             include: {
@@ -371,7 +422,7 @@ export class AppointmentService {
         };
     }
     async listSellerAvailability(sellerId) {
-        await this.assertSeller(sellerId);
+        await this.assertSellerExists(sellerId);
         const availability = await prisma.sellerAvailability.findMany({
             where: { sellerId },
             orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
@@ -379,7 +430,7 @@ export class AppointmentService {
         return { availability };
     }
     async upsertSellerAvailability(sellerId, input) {
-        await this.assertSeller(sellerId);
+        await this.assertSellerExists(sellerId);
         const start = timeToMinutes(input.startTime);
         const end = timeToMinutes(input.endTime);
         if (start >= end) {

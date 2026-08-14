@@ -1,6 +1,6 @@
 import { OtpPurpose } from '@prisma/client';
 /** Which channel an OTP was actually delivered through. */
-export type OtpChannel = 'whatsapp' | 'email';
+export type OtpChannel = 'sms' | 'email';
 export type SignupOtpPayload = {
     email: string;
     phone: string;
@@ -12,26 +12,27 @@ export type SignupOtpPayload = {
 export declare class OtpService {
     private readonly logger;
     /**
-     * Deliver an OTP code: WhatsApp (via Fast2SMS) primary, email fallback.
-     * Falls back to email only when WhatsApp delivery fails AND a fallback
-     * email address is available. Throws if neither channel succeeds.
+     * Deliver an OTP code: SMS (via AquaSMS) primary, email fallback.
+     * Falls back to email only when SMS delivery fails AND a fallback email
+     * address is available. Throws if neither channel succeeds — a caller must
+     * never be able to report "OTP sent" when nothing was sent.
      */
     private deliverOtp;
     private renderOtpEmail;
     /**
-     * Send an OTP to an existing user's WhatsApp number (login / re-verify).
-     * @param fallbackEmail address used only if WhatsApp delivery fails.
+     * Send an OTP to an existing user's mobile number (login / re-verify).
+     * @param fallbackEmail address used only if SMS delivery fails.
      */
     sendPhoneOtp(userId: string, phone: string, fallbackEmail?: string | null, mode?: 'login' | 'verify'): Promise<OtpChannel>;
     /**
      * Send a signup OTP. The OTP record is keyed by phone and carries the
      * pending account payload; the account is created on verification.
-     * Delivered to WhatsApp with email fallback.
+     * Delivered by SMS with email fallback.
      */
     sendSignupOtp(payload: SignupOtpPayload): Promise<void>;
     /**
      * Send a password-reset OTP keyed by phone (purpose PASSWORD_RESET).
-     * Delivered to WhatsApp with email fallback.
+     * Delivered by SMS with email fallback.
      */
     sendPasswordResetOtp(userId: string, phone: string, fallbackEmail?: string | null): Promise<void>;
     verifyPhoneOtp(phone: string, code: string): Promise<import("@prisma/client/runtime/index.js").GetResult<{

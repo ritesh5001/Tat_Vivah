@@ -13,6 +13,14 @@ import { ApiError } from '../errors/ApiError.js';
 import { paymentLogger } from '../config/logger.js';
 /** Checkout order expiry passed to PhonePe (seconds). Matches our 30-min TTL. */
 const ORDER_EXPIRE_AFTER_SECONDS = 30 * 60;
+/**
+ * Status checks currently open, keyed by merchant order id.
+ *
+ * Entries are removed as soon as the request settles, so this never holds a
+ * result — it only stops the same question being asked of PhonePe several times
+ * at once while a buyer's checkout screen is polling.
+ */
+const inflightStatusChecks = new Map();
 async function phonePeRequest(method, path, body, isRetry = false) {
     const token = await getPhonePeAccessToken();
     const response = await fetch(`${getPhonePeApiBaseUrl()}${path}`, {
@@ -47,6 +55,21 @@ export class PhonePeService {
         return `${sanitized}_${suffix}`.slice(0, 63);
     }
     /**
+     * Inverse of buildMerchantOrderId: recover our local order id from a PhonePe
+     * merchantOrderId (`<orderId>_<base36 timestamp>`). Order ids are cuids, so they
+     * contain no underscores — splitting at the LAST underscore is unambiguous.
+     *
+     * Needed because a retry mints a fresh merchantOrderId and overwrites
+     * Payment.providerOrderId, leaving webhooks for earlier attempts unmatchable.
+     */
+    parseOrderIdFromMerchantOrderId(merchantOrderId) {
+        const separator = merchantOrderId.lastIndexOf('_');
+        if (separator <= 0)
+            return null;
+        const candidate = merchantOrderId.slice(0, separator);
+        return candidate.length > 0 ? candidate : null;
+    }
+    /**
      * Create a PhonePe Standard Checkout order.
      * @param amount - rupees (converted to paise internally)
      */
@@ -55,6 +78,16 @@ export class PhonePeService {
             throw new ApiError(500, 'PhonePe is not configured');
         }
         const amountInPaise = Math.round(amount * 100);
+        // Logged before the call, because a rejection shows up on PhonePe's own
+        // domain as a generic "Something went wrong" with nothing in our logs to
+        // explain it. These three fields are what PhonePe validates, so having
+        // them recorded turns an opaque gateway error into a readable one.
+        paymentLogger.info({
+            event: 'phonepe_create_order',
+            merchantOrderId,
+            amountInPaise,
+            redirectUrl,
+        }, 'Creating PhonePe checkout order');
         try {
             const data = await phonePeRequest('POST', '/checkout/v2/pay', {
                 merchantOrderId,
@@ -66,7 +99,7 @@ export class PhonePeService {
                 },
                 paymentFlow: {
                     type: 'PG_CHECKOUT',
-                    message: 'TatVivah order payment',
+                    message: 'Tatvivah order payment',
                     merchantUrls: { redirectUrl },
                 },
             });
@@ -89,11 +122,68 @@ export class PhonePeService {
         }
     }
     /** Fetch the authoritative order state from PhonePe. */
+    /**
+     * Create an order for the mobile SDK.
+     *
+     * Distinct from `createOrder`, which produces a hosted-checkout redirectUrl
+     * for the website. PhonePe blocks that flow inside apps, so mobile uses
+     * /checkout/v2/sdk/order and receives a token the native SDK consumes.
+     * Verified against the live API: the response carries orderId, state,
+     * expireAt and token.
+     *
+     * No redirectUrl is involved. The SDK returns the outcome to the app
+     * directly, and the webhook remains the authoritative confirmation.
+     *
+     * @param amount - rupees (converted to paise internally)
+     */
+    async createSdkOrder(amount, merchantOrderId, meta) {
+        if (!isPhonePeConfigured()) {
+            throw new ApiError(500, 'PhonePe is not configured');
+        }
+        const amountInPaise = Math.round(amount * 100);
+        paymentLogger.info({ event: 'phonepe_create_sdk_order', merchantOrderId, amountInPaise }, 'Creating PhonePe SDK order');
+        const data = await phonePeRequest('POST', '/checkout/v2/sdk/order', {
+            merchantOrderId,
+            amount: amountInPaise,
+            expireAfter: ORDER_EXPIRE_AFTER_SECONDS,
+            metaInfo: {
+                udf1: meta?.orderId ?? '',
+                udf2: meta?.userId ?? '',
+            },
+            paymentFlow: { type: 'PG_CHECKOUT' },
+        });
+        if (!data.token) {
+            throw new ApiError(502, 'PhonePe did not return an SDK order token');
+        }
+        return {
+            phonepeOrderId: data.orderId,
+            token: data.token,
+            state: data.state,
+            merchantOrderId,
+            amount: amountInPaise,
+            expireAt: data.expireAt,
+        };
+    }
     async getOrderStatus(merchantOrderId) {
         if (!isPhonePeConfigured()) {
             throw new ApiError(500, 'PhonePe is not configured');
         }
-        return phonePeRequest('GET', `/checkout/v2/order/${encodeURIComponent(merchantOrderId)}/status?details=false`);
+        // The checkout screen polls every 700ms while the buyer is paying, and
+        // each poll used to open its own round trip to PhonePe. Several requests
+        // for the same order would then queue behind each other, so the answer
+        // arrived slower the harder we asked for it.
+        //
+        // Callers that arrive while a check is already in flight share its
+        // result. This is deduplication, not caching — nothing is held after the
+        // response lands, so a status can never be served stale.
+        const inflight = inflightStatusChecks.get(merchantOrderId);
+        if (inflight)
+            return inflight;
+        const request = phonePeRequest('GET', `/checkout/v2/order/${encodeURIComponent(merchantOrderId)}/status?details=false`).finally(() => {
+            inflightStatusChecks.delete(merchantOrderId);
+        });
+        inflightStatusChecks.set(merchantOrderId, request);
+        return request;
     }
     /**
      * Initiate a refund against a completed PhonePe order.

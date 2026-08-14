@@ -45,6 +45,7 @@ export interface AdminProduct {
         id: string;
         size: string;
         color: string | null;
+        colorHex: string | null;
         images: string[];
         sku: string;
         sellerPrice: number;
@@ -203,6 +204,16 @@ export declare class AdminRepository {
     /**
      * List all products for admin view
      */
+    /**
+     * Given raw product rows (already joined with seller + category), attach their
+     * variants/inventory and occasions with two further statements and reshape into
+     * the structure the old nested-include query produced.
+     *
+     * Shared by findAllProducts and findProductById so a single-product read costs
+     * three round-trips instead of seven. findProductById runs twice on every admin
+     * product save, so on its own it accounted for fourteen statements.
+     */
+    private hydrateAdminProductRows;
     findAllProducts(params?: PaginationParams & {
         audience?: 'MENS' | 'KIDS';
     }): Promise<AdminProduct[]>;

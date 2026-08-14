@@ -249,6 +249,7 @@ export class ProductRepository {
                         id: true,
                         size: true,
                         color: true,
+                        colorHex: true,
                         images: true,
                         sku: true,
                         sellerPrice: true,
@@ -348,6 +349,7 @@ export class ProductRepository {
                     create: data.variants.map((variant) => ({
                         size: variant.size,
                         color: variant.color?.trim() ? variant.color.trim() : null,
+                        colorHex: variant.colorHex ?? null,
                         images: variant.images ?? [],
                         sku: variant.sku,
                         sellerPrice: variant.sellerPrice,

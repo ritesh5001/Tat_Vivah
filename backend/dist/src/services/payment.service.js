@@ -28,13 +28,64 @@ import { env } from '../config/env.js';
 const STALE_ORDER_TTL_MS = 30 * 60 * 1000; // 30 minutes
 const TX_MAX_WAIT_MS = 20000;
 const TX_TIMEOUT_MS = 30000;
-const DEFAULT_SHIPPING_FEE_INR = 180;
 function roundMoney(value) {
     return Math.round(value * 100) / 100;
 }
 function toNumber(value) {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : 0;
+}
+/** A redirect target the buyer's own phone or browser could never reach. */
+function isUnreachablePublicUrl(url) {
+    try {
+        const host = new URL(url).hostname.toLowerCase();
+        return (host === 'localhost' ||
+            host === '127.0.0.1' ||
+            host === '0.0.0.0' ||
+            host === '::1' ||
+            host.endsWith('.local') ||
+            // Private ranges: fine on a dev LAN, dead for a real buyer.
+            /^10\./.test(host) ||
+            /^192\.168\./.test(host) ||
+            /^172\.(1[6-9]|2\d|3[01])\./.test(host));
+    }
+    catch {
+        return true;
+    }
+}
+/**
+ * Where PhonePe sends the buyer back to after the hosted checkout page.
+ *
+ * This is the single most damaging value to get wrong: PhonePe takes the money
+ * and then hands the buyer to whatever URL we supplied. If that is a developer's
+ * `localhost:3001`, the buyer lands on a dead page on their own phone with the
+ * payment already taken — which looks exactly like "payments are broken" even
+ * though the charge succeeded.
+ *
+ * `.env` in this repo carries `PHONEPE_WEB_REDIRECT_BASE_URL=http://localhost:3001`
+ * for local work, and that variable takes precedence over FRONTEND_BASE_URL. So
+ * the one thing that must not happen is that value reaching a real buyer. A
+ * private or loopback host is rejected outright rather than trusted.
+ */
+function resolvePublicRedirectBase() {
+    const candidates = [
+        env.PHONEPE_WEB_REDIRECT_BASE_URL,
+        env.FRONTEND_BASE_URL,
+        'https://www.tatvivahtrends.com',
+    ];
+    for (const candidate of candidates) {
+        if (!candidate)
+            continue;
+        const trimmed = candidate.trim().replace(/\/$/, '');
+        if (!trimmed)
+            continue;
+        if (isUnreachablePublicUrl(trimmed)) {
+            paymentLogger.warn({ event: 'phonepe_redirect_base_rejected', candidate: trimmed }, 'Ignoring a non-public PhonePe redirect base — a buyer could not reach it');
+            continue;
+        }
+        return trimmed;
+    }
+    return 'https://www.tatvivahtrends.com';
 }
 function isTransactionStartTimeout(error) {
     if (!(error instanceof Error))
@@ -60,29 +111,57 @@ export class PaymentService {
             },
         });
     }
+    /**
+     * The amount to charge for an order.
+     *
+     * This is `grandTotal` and nothing else. Checkout is the single place that prices an
+     * order: it applies the coupon, computes CGST/SGST/IGST, adds the flat GST fee and
+     * the shipping fee (when the admin has them enabled) and writes the result to
+     * `grandTotal` — so re-deriving anything here can only disagree with what the buyer
+     * was shown.
+     *
+     * A previous version tried to be defensive by taking
+     * `max(totalAmount, grandTotal, subTotal + tax + shipping)`, inferring the shipping
+     * fee as `grandTotal - subTotal - tax` and falling back to a hardcoded ₹180 when
+     * that came out as 0. But 0 is the correct, normal answer whenever the admin has the
+     * shipping charge switched off — so the fallback fired on ordinary orders and
+     * charged every buyer ₹180 more than their order total.
+     */
     resolvePayableAmount(order) {
-        const totalAmount = toNumber(order.totalAmount);
         const grandTotal = toNumber(order.grandTotal);
-        const subTotalAmount = toNumber(order.subTotalAmount);
-        const totalTaxAmount = toNumber(order.totalTaxAmount);
-        const inferredShipping = Math.max(0, grandTotal - subTotalAmount - totalTaxAmount);
-        const shippingFee = inferredShipping > 0 ? inferredShipping : DEFAULT_SHIPPING_FEE_INR;
-        const derivedAmount = subTotalAmount + totalTaxAmount + shippingFee;
-        return roundMoney(Math.max(totalAmount, grandTotal, derivedAmount));
+        if (grandTotal > 0) {
+            return roundMoney(grandTotal);
+        }
+        // Older orders written before grandTotal existed only carry totalAmount.
+        const totalAmount = toNumber(order.totalAmount);
+        if (totalAmount > 0) {
+            return roundMoney(totalAmount);
+        }
+        throw new ApiError(500, 'Order has no payable amount');
     }
     /**
      * Where PhonePe redirects the buyer after checkout.
      * WEB → frontend callback page; MOBILE → app deep link (if configured).
      */
     buildPhonePeRedirectUrl(orderId, platform) {
-        if (platform === 'MOBILE' && env.PHONEPE_MOBILE_REDIRECT_URL) {
-            const sep = env.PHONEPE_MOBILE_REDIRECT_URL.includes('?') ? '&' : '?';
-            return `${env.PHONEPE_MOBILE_REDIRECT_URL}${sep}orderId=${encodeURIComponent(orderId)}`;
+        const configured = platform === 'MOBILE' ? env.PHONEPE_MOBILE_REDIRECT_URL : undefined;
+        if (configured) {
+            // PhonePe Standard Checkout validates merchantUrls.redirectUrl and
+            // accepts https only. A custom app scheme — `mobile://checkout` — is
+            // rejected during checkout, which surfaces to the buyer as
+            // "Something went wrong" on PhonePe's own domain AFTER the page has
+            // loaded. It looks like a gateway outage; it is a malformed request.
+            //
+            // Returning the buyer to the app is still the goal, but it has to be
+            // done by having the https callback page deep-link onward, not by
+            // handing PhonePe a scheme it will not take.
+            if (/^https:\/\//i.test(configured) && !isUnreachablePublicUrl(configured)) {
+                const sep = configured.includes('?') ? '&' : '?';
+                return `${configured}${sep}orderId=${encodeURIComponent(orderId)}`;
+            }
+            paymentLogger.warn({ event: 'phonepe_mobile_redirect_rejected', configured }, 'PHONEPE_MOBILE_REDIRECT_URL is not a public https URL — PhonePe would reject it. Falling back to the web callback.');
         }
-        const rawBase = env.PHONEPE_WEB_REDIRECT_BASE_URL ||
-            env.FRONTEND_BASE_URL ||
-            'https://www.tatvivahtrends.com';
-        const base = rawBase.replace(/\/$/, '');
+        const base = resolvePublicRedirectBase();
         return `${base}/checkout/phonepe/callback?orderId=${encodeURIComponent(orderId)}`;
     }
     // ------------------------------------------------------------------
@@ -111,6 +190,13 @@ export class PaymentService {
             throw new ApiError(400, 'Order already paid');
         }
         const payableAmount = this.resolvePayableAmount(order);
+        // The merchant order id is generated locally, so it can be persisted in the
+        // same write that creates/resets the payment row. Writing it up front also
+        // closes a real gap: previously it was saved only AFTER PhonePe returned, so
+        // a crash in between left a live PhonePe order that no webhook could ever be
+        // matched to — a paid order that would never be confirmed.
+        const merchantOrderId = phonepeService.buildMerchantOrderId(orderId);
+        const redirectUrl = this.buildPhonePeRedirectUrl(orderId, platform);
         // Create/reset the payment row (reuse on retry).
         let payment;
         if (existingPayment) {
@@ -120,7 +206,7 @@ export class PaymentService {
                     status: PaymentStatus.INITIATED,
                     provider: PaymentProvider.PHONEPE,
                     amount: payableAmount,
-                    providerOrderId: null,
+                    providerOrderId: merchantOrderId,
                     providerPaymentId: null,
                     providerSignature: null,
                 },
@@ -134,17 +220,55 @@ export class PaymentService {
                 currency: 'INR',
                 provider: PaymentProvider.PHONEPE,
                 status: PaymentStatus.INITIATED,
+                providerOrderId: merchantOrderId,
             });
         }
-        await paymentRepository.createPaymentEvent({
+        // Audit trail only — nothing reads it on this path, and the payment row itself
+        // already records the status. Making the buyer wait several cross-region
+        // round-trips for it just delays the redirect to PhonePe.
+        void paymentRepository
+            .createPaymentEvent({
             paymentId: payment.id,
             type: PaymentEventType.INITIATED,
             payload: { provider: 'PHONEPE', amount: payableAmount },
+        })
+            .catch((error) => {
+            paymentLogger.warn({ event: 'payment_event_write_failed', paymentId: payment.id, error }, 'Failed to record INITIATED payment event');
         });
-        const merchantOrderId = phonepeService.buildMerchantOrderId(orderId);
-        const redirectUrl = this.buildPhonePeRedirectUrl(orderId, platform);
+        // MOBILE and WEB take different PhonePe endpoints.
+        //
+        // PhonePe stopped allowing a WebView or browser redirect inside a mobile
+        // app; the hosted checkout page refuses to render there, which is what
+        // showed the buyer "Something went wrong" on PhonePe's own domain after
+        // they had already committed to paying. Apps must open the native SDK,
+        // which needs an order token rather than a URL.
+        //
+        // The website is unaffected and still uses the redirect flow.
+        if (platform === 'MOBILE') {
+            const sdkOrder = await phonepeService.createSdkOrder(payableAmount, merchantOrderId, { orderId, userId });
+            if (sdkOrder.merchantOrderId && sdkOrder.merchantOrderId !== merchantOrderId) {
+                await paymentRepository.updateProviderOrderId(payment.id, sdkOrder.merchantOrderId);
+            }
+            return {
+                paymentId: payment.id,
+                orderId: sdkOrder.merchantOrderId,
+                phonepeOrderId: sdkOrder.phonepeOrderId,
+                // What the SDK needs. No redirectUrl: there is no browser hop.
+                sdkToken: sdkOrder.token,
+                sdkExpireAt: sdkOrder.expireAt,
+                merchantId: env.PHONEPE_MERCHANT_ID ?? env.PHONEPE_CLIENT_ID ?? '',
+                environment: env.PHONEPE_ENV,
+                amount: sdkOrder.amount,
+                currency: 'INR',
+                provider: 'PHONEPE',
+            };
+        }
         const phonepeOrder = await phonepeService.createOrder(payableAmount, merchantOrderId, redirectUrl, { orderId, userId });
-        await paymentRepository.updateProviderOrderId(payment.id, phonepeOrder.merchantOrderId);
+        // Normally PhonePe echoes back the id we sent, so this write is skipped
+        // entirely. Only reconcile if it ever differs.
+        if (phonepeOrder.merchantOrderId && phonepeOrder.merchantOrderId !== merchantOrderId) {
+            await paymentRepository.updateProviderOrderId(payment.id, phonepeOrder.merchantOrderId);
+        }
         return {
             paymentId: payment.id,
             orderId: phonepeOrder.merchantOrderId,
@@ -196,7 +320,22 @@ export class PaymentService {
                 message: 'No PhonePe payment attempt for this order',
             };
         }
-        const statusResponse = await phonepeService.getOrderStatus(payment.providerOrderId);
+        // A gateway hiccup here is not a failed payment. Cancelled and abandoned
+        // orders can make this call error or 502, and letting that propagate showed
+        // the buyer "Payment Not Completed — Internal server error" on what may be a
+        // perfectly good order. Report PENDING and let the webhook settle it.
+        let statusResponse;
+        try {
+            statusResponse = await phonepeService.getOrderStatus(payment.providerOrderId);
+        }
+        catch (error) {
+            paymentLogger.warn({ event: 'phonepe_status_check_failed', orderId, paymentId: payment.id, error }, 'PhonePe status check failed; reporting PENDING');
+            return {
+                status: 'PENDING',
+                paymentId: payment.id,
+                message: 'Could not reach PhonePe. We will confirm this shortly.',
+            };
+        }
         if (statusResponse.state === 'COMPLETED') {
             const transactionId = statusResponse.paymentDetails?.[0]?.transactionId ?? statusResponse.orderId;
             try {

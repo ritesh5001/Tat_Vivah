@@ -689,9 +689,32 @@ export class PaymentService {
                 status: OrderStatus.PLACED,
                 createdAt: { lt: cutoff },
                 OR: [
-                    { payment: { status: { not: PaymentStatus.SUCCESS } } },
+                    // The exclusion lives inside this branch, not alongside it: a
+                    // sibling `payment: {...}` filter would AND with the null branch
+                    // and stop sweeping orders that have no payment row at all —
+                    // exactly the PhonePe orders whose payment init failed.
+                    {
+                        payment: {
+                            is: {
+                                status: { not: PaymentStatus.SUCCESS },
+                                provider: { not: PaymentProvider.FASTRR },
+                            },
+                        },
+                    },
                     { payment: null },
                 ],
+                // Fastrr orders are exempt, and the exemption is load-bearing.
+                //
+                // This sweep exists for the PhonePe flow, where an order is created
+                // *before* payment and a PLACED order past its TTL genuinely means
+                // the buyer walked away. Fastrr inverts that: an order only exists
+                // here because Shiprocket already confirmed the checkout, so PLACED
+                // means "paid, mid-confirmation" — and a COD order legitimately
+                // carries an INITIATED payment until it is collected on delivery.
+                //
+                // Without this, any hiccup between creating the order and confirming
+                // it would leave a paid order to be auto-cancelled 30 minutes later,
+                // with its stock released and the buyer's money already taken.
             },
             include: { payment: true },
         });

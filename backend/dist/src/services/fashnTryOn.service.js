@@ -101,10 +101,33 @@ export class FashnTryOnService {
         }
         return body.id;
     }
+    /**
+     * How long to wait before the next status check.
+     *
+     * A flat interval meant the buyer could sit staring at the try-on spinner for a
+     * further full interval after the image was already rendered — pure dead time on
+     * a feature people judge by how quickly it responds. Checking sooner at first and
+     * then easing off keeps the fast cases fast without hammering FASHN for the slow
+     * ones, and never exceeds the configured interval as a ceiling.
+     */
+    pollDelayMs(attempt) {
+        const ceiling = env.FASHN_POLL_INTERVAL_MS;
+        if (attempt === 0)
+            return Math.min(800, ceiling);
+        if (attempt < 5)
+            return Math.min(900, ceiling);
+        if (attempt < 12)
+            return Math.min(1500, ceiling);
+        // Settles below the configured interval so it never detects completion
+        // later than the old flat schedule did.
+        return Math.min(2500, ceiling);
+    }
     async pollPrediction(predictionId) {
         const startedAt = Date.now();
+        let attempt = 0;
         while (Date.now() - startedAt < env.FASHN_POLL_TIMEOUT_MS) {
-            await wait(env.FASHN_POLL_INTERVAL_MS);
+            await wait(this.pollDelayMs(attempt));
+            attempt += 1;
             const response = await fetch(`${FASHN_BASE_URL}/status/${encodeURIComponent(predictionId)}`, {
                 headers: {
                     Authorization: `Bearer ${this.apiKey}`,
