@@ -80,6 +80,43 @@ export async function getFastrrSessionStatus(
 }
 
 /**
+ * The origin the checkout document is loaded under.
+ *
+ * This is not cosmetic. Fastrr's bundle identifies the merchant as
+ * `#sellerDomain`'s value *or* `window.location.host`, and it keys real
+ * behaviour off that — which storefront the session belongs to, and which
+ * per-seller feature flags apply. Loading the document under Fastrr's own CDN
+ * host told their bundle the seller was `checkout-ui.shiprocket.com`, which is
+ * nobody, so the overlay had no store to check out against. The web storefront
+ * never hit this because there `location.host` is genuinely the store.
+ *
+ * The store's own origin is taken from `fallbackUrl`, which the backend already
+ * builds from the storefront base URL, so there is nothing extra to configure.
+ *
+ * `isMobileApp=true` is the flag Fastrr's bundle reads from the page's query
+ * string to enable its in-app behaviour, alongside the `isInitiatedFromApp`
+ * option passed to `addToCart`.
+ */
+export function getFastrrBaseUrl(session: FastrrSession): string {
+  try {
+    return `${new URL(session.fallbackUrl).origin}/?isMobileApp=true`;
+  } catch {
+    // A malformed fallbackUrl must not take checkout down; the seller is also
+    // declared explicitly in the document below.
+    return "https://checkout-ui.shiprocket.com/?isMobileApp=true";
+  }
+}
+
+/** The merchant host Fastrr should attribute this checkout to. */
+function sellerDomain(session: FastrrSession): string {
+  try {
+    return new URL(session.fallbackUrl).host;
+  } catch {
+    return "";
+  }
+}
+
+/**
  * The page loaded into the WebView.
  *
  * Built here rather than pointed at our own website on purpose: the storefront
@@ -88,7 +125,8 @@ export async function getFastrrSessionStatus(
  * authentication at all — and contains nothing but Fastrr's own bundle.
  *
  * `baseUrl` matters: Fastrr's script is loaded over https, and Android WebViews
- * block mixed/opaque origins, so the document is given an https origin.
+ * block mixed/opaque origins, so the document is given an https origin — see
+ * `getFastrrBaseUrl` for why it must be the *store's* origin specifically.
  */
 export function buildFastrrCheckoutHtml(session: FastrrSession): string {
   // The token is injected as JSON so a stray quote can never break out of the
@@ -97,6 +135,11 @@ export function buildFastrrCheckoutHtml(session: FastrrSession): string {
     token: session.token,
     fallbackUrl: session.fallbackUrl,
   });
+
+  // Same reason as `getFastrrBaseUrl`, stated explicitly so the merchant is
+  // still correct even if the origin ever changes: the bundle prefers this
+  // element's value over `window.location.host`.
+  const seller = JSON.stringify(sellerDomain(session));
 
   return `<!DOCTYPE html>
 <html>
@@ -115,14 +158,35 @@ export function buildFastrrCheckoutHtml(session: FastrrSession): string {
   </style>
 </head>
 <body>
+  <input type="hidden" id="sellerDomain" value="" />
   <script>
     (function () {
       var config = ${payload};
+
+      // Set from script rather than inlined into the attribute so the value can
+      // never break out of the markup.
+      var sellerEl = document.getElementById("sellerDomain");
+      if (sellerEl) sellerEl.value = ${seller};
 
       function post(message) {
         if (window.ReactNativeWebView) {
           window.ReactNativeWebView.postMessage(JSON.stringify(message));
         }
+      }
+
+      // Fastrr reports its own failures by writing into this element rather than
+      // throwing, so without watching it the app saw a silent blank overlay and
+      // could only guess. Whatever it says is the real reason checkout stopped.
+      function watchFastrrError() {
+        var seen = "";
+        setInterval(function () {
+          var el = document.getElementById("sr-checkout-error-text");
+          var text = el && el.innerText ? el.innerText.trim() : "";
+          if (text && text !== seen) {
+            seen = text;
+            post({ type: "error", message: text });
+          }
+        }, 500);
       }
 
       function launch() {
@@ -137,10 +201,20 @@ export function buildFastrrCheckoutHtml(session: FastrrSession): string {
             { fallbackUrl: config.fallbackUrl, isInitiatedFromApp: true }
           );
           post({ type: "opened" });
+          watchFastrrError();
         } catch (err) {
           post({ type: "error", message: String((err && err.message) || err) });
         }
       }
+
+      // A script error inside Fastrr's bundle would otherwise surface as nothing
+      // at all — the overlay simply never appears.
+      window.addEventListener("error", function (event) {
+        post({
+          type: "script-error",
+          message: String((event && event.message) || "Unknown script error"),
+        });
+      });
 
       var script = document.createElement("script");
       script.src = "${session.scriptUrl}";

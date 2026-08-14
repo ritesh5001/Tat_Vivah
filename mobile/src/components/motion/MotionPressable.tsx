@@ -135,7 +135,32 @@ export const MotionPressable = React.memo(function MotionPressable({
   // Only stretch the inner layers when the caller actually asked to be sized by
   // its parent. Applying 100% inside a content-sized wrapper would collapse every
   // other MotionPressable in the app.
-  const isStretched = Object.keys(sizingStyle).length > 0;
+  //
+  // Each axis is stretched independently. Applying both whenever *either* was
+  // asked for is what made the express-checkout "Try Again" button a page-tall
+  // gold slab: `width: "100%"` alone also forced `height: "100%"`, which Yoga
+  // resolves against the available height of the auto-height wrapper — so the
+  // button claimed the whole screen and pushed the error message it was meant to
+  // sit under clean off the top of the view.
+  //
+  // A flex value still stretches both axes, because which one it sizes depends on
+  // the parent's direction and we cannot see that from here — that is the bottom
+  // nav case above, and it keeps working exactly as before.
+  const hasFlex =
+    sizingStyle.flex !== undefined ||
+    sizingStyle.flexGrow !== undefined ||
+    sizingStyle.flexShrink !== undefined ||
+    sizingStyle.flexBasis !== undefined;
+  const stretchWidth = hasFlex || sizingStyle.width !== undefined;
+  const stretchHeight = hasFlex || sizingStyle.height !== undefined;
+  const fillStyle = React.useMemo(
+    () => ({
+      ...(stretchWidth ? { width: "100%" as const } : {}),
+      ...(stretchHeight ? { height: "100%" as const } : {}),
+    }),
+    [stretchWidth, stretchHeight]
+  );
+  const hasFill = stretchWidth || stretchHeight;
   const outerStyle = React.useMemo(
     () => ({ ...sizingStyle, ...alignmentStyle }),
     [sizingStyle, alignmentStyle]
@@ -144,12 +169,12 @@ export const MotionPressable = React.memo(function MotionPressable({
 
   return (
     <Animated.View entering={entering} style={hasOuterStyle ? outerStyle : undefined}>
-      <Animated.View style={[animatedStyle, isStretched && styles.fill]}>
+      <Animated.View style={[animatedStyle, hasFill && fillStyle]}>
         <Pressable
           {...rest}
           onPressIn={handlePressIn}
           onPressOut={handlePressOut}
-          style={[style, isStretched && styles.fill]}
+          style={[style, hasFill && fillStyle]}
         >
           {children}
         </Pressable>
@@ -158,7 +183,3 @@ export const MotionPressable = React.memo(function MotionPressable({
   );
 });
 
-const styles = StyleSheet.create({
-  /** Let the inner layers fill whatever the outer wrapper was sized to. */
-  fill: { width: "100%", height: "100%" },
-});

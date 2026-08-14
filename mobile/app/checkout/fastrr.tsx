@@ -1,5 +1,12 @@
 import * as React from "react";
-import { View, StyleSheet, ActivityIndicator, BackHandler } from "react-native";
+import {
+  View,
+  StyleSheet,
+  ActivityIndicator,
+  BackHandler,
+  ScrollView,
+  Linking,
+} from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { WebView, type WebViewNavigation } from "react-native-webview";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -16,6 +23,7 @@ import { flushPendingCartWrite } from "../../src/lib/pending-cart";
 import {
   buildFastrrCheckoutHtml,
   createFastrrSession,
+  getFastrrBaseUrl,
   getFastrrSessionStatus,
   type FastrrSession,
 } from "../../src/services/fastrr";
@@ -72,6 +80,21 @@ export default function FastrrCheckoutScreen() {
     return () => {
       mountedRef.current = false;
     };
+  }, []);
+
+  /**
+   * Every route to the error screen, in one place.
+   *
+   * Nothing may overwrite the outcome once the payment is being confirmed: the
+   * backend owns that answer, and a late load error from a WebView that is
+   * already being torn down must never tell a buyer who has paid that their
+   * checkout failed.
+   */
+  const fail = React.useCallback((message: string) => {
+    if (!mountedRef.current) return;
+    if (confirmingRef.current) return;
+    setError(message);
+    setPhase("error");
   }, []);
 
   // ---------------------------------------------------------------------
@@ -170,6 +193,19 @@ export default function FastrrCheckoutScreen() {
   const handleNavigation = React.useCallback(
     (event: WebViewNavigation): boolean => {
       if (!checkout) return true;
+
+      // UPI apps are launched by navigating to their own scheme. A WebView
+      // cannot load `upi://` or `phonepe://` and reports it as a failed page,
+      // so these have to be handed to the OS instead of followed here.
+      if (!/^https?:\/\//i.test(event.url)) {
+        void Linking.openURL(event.url).catch(() => {
+          fail(
+            "No app is installed that can handle this payment method. Please choose another."
+          );
+        });
+        return false;
+      }
+
       if (!event.url.includes("/checkout/fastrr/callback")) return true;
 
       let sessionId = checkout.sessionId;
@@ -186,21 +222,18 @@ export default function FastrrCheckoutScreen() {
       // a login the WebView does not have.
       return false;
     },
-    [checkout, confirm]
+    [checkout, confirm, fail]
   );
 
   const handleMessage = React.useCallback((raw: string) => {
     try {
       const message = JSON.parse(raw) as { type?: string; message?: string };
-      if (message.type === "error") {
-        if (!mountedRef.current) return;
-        setError(message.message || "Checkout failed to load");
-        setPhase("error");
-      }
+      if (message.type !== "error" && message.type !== "script-error") return;
+      fail(message.message || "Checkout failed to load");
     } catch {
       // Fastrr's own bundle also posts messages; anything unparseable is theirs.
     }
-  }, []);
+  }, [fail]);
 
   // Back during confirmation would strand a paid order on a screen the buyer
   // can never return to, so it is blocked until the outcome is known.
@@ -220,7 +253,9 @@ export default function FastrrCheckoutScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <AppHeader title="Checkout" />
-        <View style={styles.centered}>
+        {/* Scrollable: a gateway error can be several lines long, and the whole
+            point of this screen is that the buyer can read it. */}
+        <ScrollView contentContainerStyle={styles.centered}>
           <Text style={styles.title}>We couldn&apos;t open checkout</Text>
           <Text style={styles.body}>
             {error ?? "Something went wrong. Please try again."}
@@ -244,7 +279,7 @@ export default function FastrrCheckoutScreen() {
           >
             <Text style={styles.secondaryButtonText}>Use Standard Checkout</Text>
           </AnimatedPressable>
-        </View>
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -257,9 +292,9 @@ export default function FastrrCheckoutScreen() {
         <WebView
           source={{
             html: buildFastrrCheckoutHtml(checkout),
-            // Fastrr's bundle is loaded over https and Android WebViews block
-            // it from an opaque origin, so the document is given a real one.
-            baseUrl: "https://checkout-ui.shiprocket.com",
+            // Must be the *store's* origin: Fastrr identifies the merchant from
+            // the hosting page's host. See getFastrrBaseUrl.
+            baseUrl: getFastrrBaseUrl(checkout),
           }}
           originWhitelist={["*"]}
           javaScriptEnabled
@@ -269,9 +304,25 @@ export default function FastrrCheckoutScreen() {
           setSupportMultipleWindows={false}
           onShouldStartLoadWithRequest={handleNavigation}
           onMessage={(event) => handleMessage(event.nativeEvent.data)}
-          onError={() => {
-            setError("Checkout failed to load");
-            setPhase("error");
+          // The reason is the whole point. Reporting a bare "Checkout failed to
+          // load" threw away the code, description and URL the WebView had
+          // already worked out, which left no way to tell a blocked payment host
+          // from a dead session from a network drop.
+          onError={(event) => {
+            const { code, description, url } = event.nativeEvent;
+            fail(
+              [
+                description || "The checkout page could not be loaded",
+                code !== undefined ? `(code ${code})` : null,
+                url ? `\n${url}` : null,
+              ]
+                .filter(Boolean)
+                .join(" ")
+            );
+          }}
+          onHttpError={(event) => {
+            const { statusCode, url } = event.nativeEvent;
+            fail(`Checkout returned HTTP ${statusCode}.\n${url ?? ""}`.trim());
           }}
           style={[styles.webview, { marginBottom: insets.bottom }]}
         />
@@ -295,7 +346,9 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   webview: { flex: 1, backgroundColor: colors.background },
   centered: {
-    flex: 1,
+    // flexGrow, not flex: this is a ScrollView content container, which must be
+    // free to exceed the viewport when the message is long.
+    flexGrow: 1,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: spacing.xl,
