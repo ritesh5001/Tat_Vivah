@@ -14,7 +14,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { Icon, type IconName } from "./Icon";
-import { colors, radius, typography } from "../theme/tokens";
+import { colors, typography } from "../theme/tokens";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -41,7 +41,6 @@ export function FlowActionButton({
   const progress = useSharedValue(0);
 
   const buttonMotion = useAnimatedStyle(() => ({
-    borderRadius: interpolate(progress.value, [0, 1], [radius.pill, radius.sm]),
     transform: [{ scale: interpolate(progress.value, [0, 1], [1, 0.965]) }],
   }));
   const fillMotion = useAnimatedStyle(() => ({

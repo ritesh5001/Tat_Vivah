@@ -91,7 +91,7 @@ export default function ProductImageCarousel({
                 alt={title ?? "Product image"}
                 fill
                 sizes="(max-width: 1024px) 100vw, 55vw"
-                className="object-cover"
+                className="object-cover object-top"
                 quality={85}
                 priority={activeIndex === 0}
               />

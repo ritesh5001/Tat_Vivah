@@ -133,7 +133,8 @@ const GalleryImage = React.memo(function GalleryImage({
     <Image
       source={{ uri }}
       style={[galleryStyles.image, { width, height }]}
-      contentFit="contain"
+      contentFit="cover"
+      contentPosition="top center"
       transition={200}
       cachePolicy="memory-disk"
       width={width}
@@ -144,7 +145,6 @@ const GalleryImage = React.memo(function GalleryImage({
 
 const galleryStyles = StyleSheet.create({
   image: {
-    borderRadius: radius.md,
     backgroundColor: colors.cream,
   },
 });
@@ -512,7 +512,7 @@ export default function ProductDetailScreen() {
   const stickyBottomOffset = Platform.OS === "web"
     ? WEB_BOTTOM_OFFSET
     : Math.max(insets.bottom, spacing.sm);
-  const galleryWidth = Math.max(windowWidth - spacing.md * 2, 260);
+  const galleryWidth = Math.max(windowWidth, 260);
   const galleryHeight = Math.round(galleryWidth * (4 / 3));
   const stickyActionHeight = 76;
   /** Screen-space top edge of the sticky action bar. */
@@ -2486,10 +2486,9 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderBottomWidth: 1,
     borderColor: colors.borderSoft,
-    paddingVertical: spacing.sm,
   },
   galleryContainer: {
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: 0,
   },
   galleryIndexBadge: {
     position: "absolute",

@@ -38,10 +38,10 @@ export const CommerceFlowButton = React.forwardRef<
       ref={ref}
       type={type}
       className={cn(
-        "group relative isolate inline-flex h-9 w-full cursor-pointer items-center justify-center overflow-hidden rounded-full border px-4",
-        "transition-[transform,border-radius,opacity] duration-300 ease-[cubic-bezier(0.23,1,0.32,1)]",
-        "hover:scale-[0.965] hover:rounded-[10px] active:scale-[0.95] active:rounded-[10px]",
-        "focus-visible:scale-[0.965] focus-visible:rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/70 focus-visible:ring-offset-2",
+        "group relative isolate inline-flex h-9 w-full cursor-pointer items-center justify-center overflow-hidden rounded-full! border px-4",
+        "transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.23,1,0.32,1)]",
+        "hover:scale-[0.965] active:scale-[0.95]",
+        "focus-visible:scale-[0.965] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/70 focus-visible:ring-offset-2",
         "disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
         filled
           ? "border-charcoal bg-charcoal text-white"
@@ -53,7 +53,7 @@ export const CommerceFlowButton = React.forwardRef<
       <span
         aria-hidden
         className={cn(
-          "pointer-events-none absolute left-1/2 top-1/2 -z-0 h-[18px] w-[18px] -translate-x-1/2 -translate-y-1/2 scale-[0.15] rounded-full opacity-0",
+          "pointer-events-none absolute left-1/2 top-1/2 -z-0 h-[18px] w-[18px] -translate-x-1/2 -translate-y-1/2 scale-[0.15] rounded-full! opacity-0",
           "transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.19,1,0.22,1)]",
           "group-hover:scale-[15] group-hover:opacity-100 group-active:scale-[15] group-active:opacity-100 group-focus-visible:scale-[15] group-focus-visible:opacity-100",
           filled ? "bg-gold" : "bg-charcoal"

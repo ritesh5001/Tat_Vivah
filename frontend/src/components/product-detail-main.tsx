@@ -50,7 +50,7 @@ export default function ProductDetailMain({ product }: ProductDetailMainProps) {
 
   return (
     <section className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:gap-12">
-      <div className="min-w-0 max-w-full">
+      <div className="-mx-4 min-w-0 max-w-none sm:mx-0 sm:max-w-full">
         <ProductImageCarousel images={carouselImages} title={product?.title} />
       </div>
       <div className="min-w-0 max-w-full">

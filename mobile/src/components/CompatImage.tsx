@@ -7,6 +7,7 @@ import {
 import {
   Image as ExpoImage,
   type ImageContentFit,
+  type ImageContentPosition,
   type ImageSource,
 } from "expo-image";
 import { imageUrl } from "../lib/image-url";
@@ -17,7 +18,7 @@ type CompatImageProps = {
   source: ImageSourcePropType | string | undefined | null;
   style?: StyleProp<ImageStyle>;
   contentFit?: ContentFit;
-  contentPosition?: string;
+  contentPosition?: ImageContentPosition;
   transition?: number;
   cachePolicy?: "none" | "disk" | "memory" | "memory-disk";
   /**
@@ -51,6 +52,7 @@ export function Image({
   source,
   style,
   contentFit,
+  contentPosition,
   transition = 180,
   cachePolicy = "memory-disk",
   width,
@@ -66,6 +68,7 @@ export function Image({
       source={resolved}
       style={style}
       contentFit={toContentFit(contentFit)}
+      contentPosition={contentPosition}
       transition={transition}
       cachePolicy={cachePolicy}
       priority={priority}
