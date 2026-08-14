@@ -426,10 +426,6 @@ export default function ProductDetailScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
   const productId = typeof params.id === "string" ? params.id : "";
-  // Seeded by the list that linked here so the related-products request can start
-  // immediately instead of waiting a full round trip for the product to arrive.
-  const seedCategoryId =
-    typeof params.categoryId === "string" && params.categoryId ? params.categoryId : undefined;
   const { session } = useAuth();
   const token = session?.accessToken ?? null;
   const userId = session?.user?.id ?? null;
@@ -674,28 +670,10 @@ export default function ProductDetailScreen() {
     };
   }, [isSettled, product?.id, token]);
 
-  // ---- Fetch related products ----
-  const relatedCategoryId =
-    product?.categoryId ?? product?.category?.id ?? seedCategoryId;
-
+  // ---- Fetch the all-products discovery feed ----
   React.useEffect(() => {
     if (!isSettled) return;
 
-    const categoryId = relatedCategoryId;
-
-    if (!categoryId) {
-      relatedLoadMoreAbortRef.current?.abort();
-      relatedLoadMoreAbortRef.current = null;
-      loadingMoreRelatedRef.current = false;
-      setRelatedProducts([]);
-      setRelatedPage(1);
-      setHasMoreRelated(false);
-      setLoadingRelated(false);
-      setLoadingMoreRelated(false);
-      return;
-    }
-
-    const controller = new AbortController();
     let active = true;
     relatedLoadMoreAbortRef.current?.abort();
     relatedLoadMoreAbortRef.current = null;
@@ -705,11 +683,26 @@ export default function ProductDetailScreen() {
       setLoadingRelated(true);
       setLoadingMoreRelated(false);
       try {
-        const response = await getProducts({
-          page: 1,
-          limit: RELATED_PRODUCTS_PAGE_SIZE,
-          categoryId,
-          signal: controller.signal,
+        const response = await queryClient.fetchQuery({
+          queryKey: [
+            "products",
+            {
+              page: 1,
+              limit: RELATED_PRODUCTS_PAGE_SIZE,
+              categoryId: undefined,
+              audience: undefined,
+              search: undefined,
+              sort: "popularity",
+            },
+          ],
+          queryFn: ({ signal }) =>
+            getProducts({
+              page: 1,
+              limit: RELATED_PRODUCTS_PAGE_SIZE,
+              sort: "popularity",
+              signal,
+            }),
+          staleTime: 5 * 60 * 1000,
         });
         if (!active) return;
         setRelatedProducts((response.data ?? []).filter((item) => item.id !== productId));
@@ -726,15 +719,11 @@ export default function ProductDetailScreen() {
 
     return () => {
       active = false;
-      controller.abort();
       relatedLoadMoreAbortRef.current?.abort();
       relatedLoadMoreAbortRef.current = null;
       loadingMoreRelatedRef.current = false;
     };
-    // Keyed on the category id rather than the product object: the object
-    // identity changes when the seed is replaced by the real response, which
-    // used to fire this same request a second time for no new data.
-  }, [isSettled, relatedCategoryId, productId]);
+  }, [isSettled, productId, queryClient]);
 
   // ---- Fetch reviews ----
   React.useEffect(() => {
@@ -1494,10 +1483,8 @@ export default function ProductDetailScreen() {
   );
 
   const handleLoadMoreRelated = React.useCallback(async () => {
-    const categoryId = product?.categoryId ?? product?.category?.id;
     if (
       !product?.id ||
-      !categoryId ||
       loadingRelated ||
       loadingMoreRelatedRef.current ||
       !hasMoreRelated
@@ -1513,7 +1500,7 @@ export default function ProductDetailScreen() {
       const response = await getProducts({
         page: relatedPage + 1,
         limit: RELATED_PRODUCTS_PAGE_SIZE,
-        categoryId,
+        sort: "popularity",
         signal: controller.signal,
       });
       if (controller.signal.aborted) return;
@@ -1541,8 +1528,6 @@ export default function ProductDetailScreen() {
   }, [
     hasMoreRelated,
     loadingRelated,
-    product?.category?.id,
-    product?.categoryId,
     product?.id,
     relatedPage,
   ]);
@@ -2223,7 +2208,7 @@ export default function ProductDetailScreen() {
             </View>
           ) : relatedProducts.length === 0 ? (
             <Text style={styles.mutedText}>
-              More {product.category?.name ?? "category"} products coming soon.
+              More products are coming soon.
             </Text>
           ) : (
             <>

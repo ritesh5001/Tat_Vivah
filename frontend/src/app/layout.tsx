@@ -1,20 +1,8 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
 import { Suspense } from "react";
 import "./globals.css";
 import { SITE_URL } from "@/lib/site-config";
 import { NavigationProgress } from "@/components/navigation/NavigationProgress";
-
-/**
- * Inter - Body text, UI elements
- * Clean, modern, highly legible
- */
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-  weight: ["400", "600"],
-  display: "swap",
-});
 
 const API_ORIGIN = (() => {
   const base = process.env.NEXT_PUBLIC_API_BASE_URL;
@@ -125,7 +113,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${inter.variable} min-h-screen bg-background text-foreground antialiased`}
+        className="min-h-screen bg-background text-foreground antialiased"
         suppressHydrationWarning
       >
         <script

@@ -32,7 +32,10 @@ export function useProductsQuery({
       }),
     staleTime: 5 * 60 * 1000,
     gcTime: 24 * 60 * 60 * 1000,
-    refetchOnMount: "always",
+    // Persisted showcase data should paint immediately. Forcing a request on
+    // every mount discarded that advantage and put the loader back whenever a
+    // shopper returned to Home.
+    refetchOnMount: false,
     refetchOnReconnect: true,
     networkMode: "offlineFirst",
   });

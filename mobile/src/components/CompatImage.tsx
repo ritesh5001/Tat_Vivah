@@ -72,6 +72,11 @@ export function Image({
       transition={transition}
       cachePolicy={cachePolicy}
       priority={priority}
+      recyclingKey={
+        typeof resolved === "object" && "uri" in resolved
+          ? resolved.uri
+          : undefined
+      }
     />
   );
 }

@@ -4,7 +4,6 @@ import {
   View,
   StyleSheet,
   Pressable,
-  ScrollView,
   useWindowDimensions,
   FlatList,
 } from "react-native";
@@ -85,9 +84,18 @@ export default function MarketplaceScreen() {
     isError: allProductsFailed,
     refetch: refetchAllProducts,
   } = useQuery({
+    // Match useProductsQuery's key so Home and Shop share the persisted first
+    // page instead of making the shopper wait for the same request twice.
     queryKey: [
-      "marketplace-all-products",
-      { limit: ALL_PRODUCTS_PAGE_SIZE, sort: "popularity", audience, categoryId: selectedCategoryId },
+      "products",
+      {
+        page: 1,
+        limit: ALL_PRODUCTS_PAGE_SIZE,
+        categoryId: selectedCategoryId,
+        audience,
+        search: undefined,
+        sort: "popularity",
+      },
     ],
     queryFn: ({ signal }) =>
       getProducts({
@@ -99,6 +107,9 @@ export default function MarketplaceScreen() {
         signal,
       }),
     staleTime: 1000 * 60 * 5,
+    gcTime: 30 * 60 * 1000,
+    refetchOnMount: false,
+    networkMode: "offlineFirst",
   });
 
   const sidebarWidth = Math.max(72, Math.round(windowWidth * 0.18));
@@ -257,24 +268,6 @@ export default function MarketplaceScreen() {
     setSelectedCategoryId(categoryId);
   }, []);
 
-  const handleContentScroll = React.useCallback(
-    (event: {
-      nativeEvent: {
-        contentOffset: { y: number };
-        contentSize: { height: number };
-        layoutMeasurement: { height: number };
-      };
-    }) => {
-      const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
-      const distanceFromBottom =
-        contentSize.height - (contentOffset.y + layoutMeasurement.height);
-      if (distanceFromBottom < 900) {
-        revealNextAllProducts();
-      }
-    },
-    [revealNextAllProducts]
-  );
-
   const renderCategoryItem = React.useCallback(
     ({ item }: { item: Category }) => {
       const isActive = selectedCategoryId === item.id;
@@ -356,6 +349,88 @@ export default function MarketplaceScreen() {
     [cardStyle, cardWidth, handleCardPress, handleTryAndBuy, openQuickAdd, openBuyNow]
   );
 
+  const productListHeader = React.useMemo(
+    () =>
+      selectedCategory ? (
+        <View style={styles.categoryHeader}>
+          <View style={styles.categoryHeaderRow}>
+            <View style={styles.categoryHeaderMark} />
+            <Text style={styles.categoryHeaderEyebrow}>Shopping</Text>
+          </View>
+          <Text style={styles.categoryHeaderTitle}>{selectedCategory.name}</Text>
+          <Text style={styles.categoryHeaderMeta}>
+            {allProductsLoading
+              ? "Loading…"
+              : `${allProducts.length}${hasMoreAllProducts ? "+" : ""} ${allProducts.length === 1 ? "piece" : "pieces"} curated for you`}
+          </Text>
+        </View>
+      ) : (
+        <Text style={styles.sectionTitle}>All Products</Text>
+      ),
+    [allProducts.length, allProductsLoading, hasMoreAllProducts, selectedCategory]
+  );
+
+  const productListEmpty = React.useMemo(() => {
+    if (allProductsLoading) {
+      return (
+        <View style={styles.loadingWrap}>
+          <TatvivahLoader size="sm" color={colors.gold} />
+        </View>
+      );
+    }
+    if (allProductsFailed) {
+      return (
+        <View style={styles.emptyState}>
+          <Icon name="alert-circle-outline" size={24} color={colors.brownSoft} />
+          <Text style={styles.emptyTitle}>We couldn&apos;t load the shop</Text>
+          <Text style={styles.emptyText}>Check your connection and try again.</Text>
+          <Pressable
+            style={styles.retryButton}
+            onPress={() => void refetchAllProducts()}
+            accessibilityRole="button"
+            accessibilityLabel="Retry loading products"
+          >
+            <Text style={styles.retryButtonText}>Try again</Text>
+          </Pressable>
+        </View>
+      );
+    }
+    return (
+      <Text style={styles.emptyText}>
+        {selectedCategoryId
+          ? "No products in this category"
+          : "No products available right now"}
+      </Text>
+    );
+  }, [
+    allProductsFailed,
+    allProductsLoading,
+    refetchAllProducts,
+    selectedCategoryId,
+  ]);
+
+  const productListFooter = React.useMemo(() => {
+    if (hasAllProductsError) {
+      return <Text style={styles.statusText}>Could not load more products right now.</Text>;
+    }
+    if (hasMoreAllProducts || allVisibleCount < allProducts.length) {
+      return (
+        <View style={styles.loadingWrap}>
+          <TatvivahLoader size="sm" color={colors.gold} />
+        </View>
+      );
+    }
+    return visibleAllProducts.length > 0 ? (
+      <Text style={styles.statusText}>You have reached the end.</Text>
+    ) : null;
+  }, [
+    allProducts.length,
+    allVisibleCount,
+    hasAllProductsError,
+    hasMoreAllProducts,
+    visibleAllProducts.length,
+  ]);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <AppHeader variant="main" />
@@ -410,81 +485,26 @@ export default function MarketplaceScreen() {
         </View>
 
         {/* Right Content Area */}
-        <ScrollView
+        <FlatList
           style={[styles.contentArea, { width: contentWidth }]}
+          data={visibleAllProducts}
+          keyExtractor={(item) => item.id}
+          renderItem={renderProductCard}
+          numColumns={COLS}
+          ListHeaderComponent={productListHeader}
+          ListEmptyComponent={productListEmpty}
+          ListFooterComponent={productListFooter}
+          columnWrapperStyle={styles.productRow}
+          contentContainerStyle={styles.productListContent}
           showsVerticalScrollIndicator={false}
-          onScroll={handleContentScroll}
-          // A proximity-to-bottom check; 200ms is well inside the window needed
-          // to fetch the next page before the shopper reaches it.
-          scrollEventThrottle={200}
-        >
-          {/* Product catalogue. The previous "Featured" block requested the
-              same unfiltered first page and displayed every item twice. */}
-          <View style={styles.section}>
-            {selectedCategory ? (
-              <View style={styles.categoryHeader}>
-                <View style={styles.categoryHeaderRow}>
-                  <View style={styles.categoryHeaderMark} />
-                  <Text style={styles.categoryHeaderEyebrow}>Shopping</Text>
-                </View>
-                <Text style={styles.categoryHeaderTitle}>{selectedCategory.name}</Text>
-                <Text style={styles.categoryHeaderMeta}>
-                  {allProductsLoading
-                    ? "Loading…"
-                    : `${allProducts.length}${hasMoreAllProducts ? "+" : ""} ${allProducts.length === 1 ? "piece" : "pieces"} curated for you`}
-                </Text>
-              </View>
-            ) : (
-              <Text style={styles.sectionTitle}>All Products</Text>
-            )}
-            {allProductsLoading ? (
-              <View style={styles.loadingWrap}>
-                <TatvivahLoader size="sm" color={colors.gold} />
-              </View>
-            ) : allProductsFailed && visibleAllProducts.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Icon name="alert-circle-outline" size={24} color={colors.brownSoft} />
-                <Text style={styles.emptyTitle}>We couldn&apos;t load the shop</Text>
-                <Text style={styles.emptyText}>Check your connection and try again.</Text>
-                <Pressable
-                  style={styles.retryButton}
-                  onPress={() => void refetchAllProducts()}
-                  accessibilityRole="button"
-                  accessibilityLabel="Retry loading products"
-                >
-                  <Text style={styles.retryButtonText}>Try again</Text>
-                </Pressable>
-              </View>
-            ) : visibleAllProducts.length === 0 ? (
-              <Text style={styles.emptyText}>
-                {selectedCategoryId
-                  ? "No products in this category"
-                  : "No products available right now"}
-              </Text>
-            ) : (
-              <View style={styles.grid}>
-                {visibleAllProducts.map((product, idx) => (
-                  <View key={`popular-${product.id}-${idx}`} style={{ width: cardWidth }}>
-                    {renderProductCard({ item: product })}
-                  </View>
-                ))}
-              </View>
-            )}
-            {hasAllProductsError ? (
-              <Text style={styles.statusText}>Could not load more products right now.</Text>
-            ) : hasMoreAllProducts || allVisibleCount < allProducts.length ? (
-              // A spinner rather than an instruction: the next batch is already
-              // being fetched, the user just has to keep scrolling.
-              <View style={styles.loadingWrap}>
-                <TatvivahLoader size="sm" color={colors.gold} />
-              </View>
-            ) : visibleAllProducts.length > 0 ? (
-              <Text style={styles.statusText}>You have reached the end.</Text>
-            ) : null}
-          </View>
-
-          <View style={{ height: spacing.xl }} />
-        </ScrollView>
+          initialNumToRender={6}
+          maxToRenderPerBatch={4}
+          updateCellsBatchingPeriod={40}
+          windowSize={5}
+          removeClippedSubviews
+          onEndReached={revealNextAllProducts}
+          onEndReachedThreshold={1.25}
+        />
       </View>
       <QuickBuySheet
         productId={quickBuyId}
@@ -577,8 +597,8 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 10,
   },
-  section: {
-    marginBottom: spacing.xl,
+  productListContent: {
+    paddingBottom: spacing.xl,
   },
   sectionTitle: {
     fontFamily: typography.sansMedium,
@@ -627,10 +647,9 @@ const styles = StyleSheet.create({
     color: colors.brownSoft,
     marginTop: 2,
   },
-  grid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
+  productRow: {
     gap: 10,
+    marginBottom: 10,
   },
   loadingWrap: {
     paddingVertical: spacing.lg,

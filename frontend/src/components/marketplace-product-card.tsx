@@ -207,7 +207,7 @@ export function MarketplaceProductCard({ product }: { product: MarketplaceCardPr
 
   return (
     <article
-      className="group block overflow-hidden rounded-xl border border-border-soft/80 bg-card/95 shadow-[0_6px_24px_rgba(17,12,8,0.08)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_38px_rgba(17,12,8,0.14)] sm:rounded-2xl"
+      className="block overflow-hidden rounded-xl border border-border-soft/80 bg-card/95 shadow-[0_6px_24px_rgba(17,12,8,0.08)] sm:rounded-2xl"
     >
       <Link href={`/product/${product.id}`} prefetch className="block">
         <div className="relative overflow-hidden bg-cream dark:bg-brown/20 aspect-3/4">
@@ -216,12 +216,12 @@ export function MarketplaceProductCard({ product }: { product: MarketplaceCardPr
             alt={product.title}
             fill
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
-            className="object-cover transition-transform duration-500 group-hover:scale-105"
+            className="object-cover"
             loading="lazy"
             quality={75}
           />
 
-          <div className="pointer-events-none absolute inset-0 bg-linear-to-t from-black/18 via-transparent to-transparent opacity-70 transition-opacity duration-300 group-hover:opacity-85" />
+          <div className="pointer-events-none absolute inset-0 bg-linear-to-t from-black/18 via-transparent to-transparent opacity-70" />
 
           <div className="absolute left-2 top-2 sm:left-3 sm:top-3">
             <span className="inline-flex items-center bg-white/95 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.14em] text-foreground/80 backdrop-blur-sm sm:px-2.5 sm:py-1 sm:text-[10px] sm:tracking-[0.18em]">
@@ -256,7 +256,7 @@ export function MarketplaceProductCard({ product }: { product: MarketplaceCardPr
         </p>
 
         <Link href={`/product/${product.id}`} prefetch className="block">
-          <h3 className="line-clamp-2 min-h-[2.35rem] text-[0.96rem] font-semibold leading-tight tracking-tight text-foreground transition-colors duration-300 group-hover:text-gold sm:min-h-[2.6rem] sm:text-[1.04rem]">
+          <h3 className="line-clamp-2 min-h-[2.35rem] text-[0.96rem] font-semibold leading-tight tracking-tight text-foreground sm:min-h-[2.6rem] sm:text-[1.04rem]">
             {product.title}
           </h3>
         </Link>

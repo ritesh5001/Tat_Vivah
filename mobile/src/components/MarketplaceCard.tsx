@@ -8,12 +8,6 @@ import {
   type StyleProp,
   type ViewStyle,
 } from "react-native";
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withTiming,
-} from "react-native-reanimated";
 import { Icon } from "./Icon";
 import { FlowActionButton } from "./FlowActionButton";
 import { Image } from "./CompatImage";
@@ -22,8 +16,6 @@ import { images } from "../data/images";
 import { type ProductItem } from "../services/products";
 import { useWishlist } from "../providers/WishlistProvider";
 import { rememberProductSeed } from "../lib/product-seed";
-
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 interface MarketplaceCardProps {
   product: ProductItem;
@@ -133,31 +125,6 @@ function MarketplaceCardComponent({
   const firstImage =
     Array.isArray(product.images) && product.images.length > 0 ? product.images[0] : null;
 
-  // Tactile response on the app's most-tapped element. Everything here runs on
-  // the UI thread via reanimated, so it costs no JavaScript and cannot be
-  // starved by a list that is mid-render — the card stays responsive even while
-  // the next page of products is being built.
-  const pressProgress = useSharedValue(0);
-
-  const cardPressStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: 1 - 0.028 * pressProgress.value }],
-  }));
-
-  // The photo counter-scales very slightly, so the image appears to stay put
-  // while its frame contracts around it. That parallax is what separates a
-  // considered press from a flat shrink.
-  const imagePressStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: 1 + 0.02 * pressProgress.value }],
-  }));
-
-  const handlePressIn = React.useCallback(() => {
-    pressProgress.value = withTiming(1, { duration: 110 });
-  }, [pressProgress]);
-
-  const handlePressOut = React.useCallback(() => {
-    pressProgress.value = withSpring(0, { damping: 16, stiffness: 220, mass: 0.7 });
-  }, [pressProgress]);
-
   const handlePress = () => {
     // The detail screen renders title, image, category and price from exactly
     // this record, so hand it over before navigating. Doing it here rather than
@@ -190,17 +157,13 @@ function MarketplaceCardComponent({
   }, [discountLabel, originalPrice, primaryPrice, product.title, rating, reviewCount]);
 
   return (
-    <Animated.View
-      style={[styles.card, style, cardPressStyle]}
-    >
-      <AnimatedPressable
+    <View style={[styles.card, style]}>
+      <Pressable
         onPress={handlePress}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
         accessibilityRole="button"
         accessibilityLabel={productAccessibilityLabel}
       >
-        <Animated.View style={[styles.imageWrap, imagePressStyle]}>
+        <View style={styles.imageWrap}>
           {/* `cover`, not `contain`. Catalogue photography arrives at whatever
               ratio the seller uploaded, and letterboxing it left pale bands down
               the sides of any shot that was not already 3:4 — a grid of
@@ -213,7 +176,7 @@ function MarketplaceCardComponent({
             style={styles.image}
             contentFit="cover"
             contentPosition="center"
-            transition={200}
+            transition={100}
             cachePolicy="memory-disk"
             width={imageWidth}
           />
@@ -232,7 +195,7 @@ function MarketplaceCardComponent({
               </View>
             ) : null}
           </View>
-        </Animated.View>
+        </View>
 
         <View style={styles.info}>
           <Text style={styles.brand} numberOfLines={1}>
@@ -271,7 +234,7 @@ function MarketplaceCardComponent({
             <Text style={styles.priceUnavailable}>Price on request</Text>
           )}
         </View>
-      </AnimatedPressable>
+      </Pressable>
 
       {onTryAndBuy ? (
         <Pressable
@@ -353,7 +316,7 @@ function MarketplaceCardComponent({
           accessibilityLabel={`Buy ${product.title} now`}
         />
       </View>
-    </Animated.View>
+    </View>
   );
 }
 
