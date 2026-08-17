@@ -44,18 +44,32 @@ function AppShell() {
   return (
     <>
       <OfflineBanner visible={!isConnected} />
+      {/*
+        One grammar for the whole app, so a transition tells the shopper where
+        they went without them having to think about it:
+
+          · Lateral slide  — going deeper into the catalogue. The new screen
+                             comes from the side it will return to.
+          · Rise from below — a task you can abandon: checkout, sign-in,
+                             tracking. Modal motion, modal meaning.
+          · Cross-fade      — peers. The tab navigator handles those itself.
+
+        Every value below is a `stackAnimation` from react-native-screens: a
+        native-stack transition that runs on the platform's own navigation
+        controller (UINavigationController / Fragment transitions on Fabric),
+        not a Reanimated value recalculated on the JS thread. It cannot
+        compete with a product grid, video feed, or checkout tree mounting
+        underneath it — the two run on different threads. That decoupling,
+        not the absence of motion, is what keeps this smooth on mid-range
+        Android; see freezeOnBlur below for the other half of that story.
+      */}
       <Stack
         initialRouteName="(tabs)"
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: colors.background },
-          // Route changes must never compete with mounting a product grid,
-          // video feed, or checkout tree. Those screens can be expensive on
-          // mid-range Android devices, and animating their native containers at
-          // the same time made otherwise-correct navigation visibly skip
-          // frames. Interactive controls still animate; screen changes are
-          // deliberately immediate.
-          animation: "none",
+          animation: "simple_push",
+          animationDuration: 240,
           gestureEnabled: true,
           // The single most important line in this file for sustained
           // performance.
@@ -78,13 +92,38 @@ function AppShell() {
           freezeOnBlur: true,
         }}
       >
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="(auth)" />
-        <Stack.Screen name="product/[id]/index" />
-        <Stack.Screen name="checkout/index" />
+        {/* The root. Returning to it should feel like arriving home, not like
+            another push, so it fades rather than sliding. */}
+        <Stack.Screen name="(tabs)" options={{ animation: "fade" }} />
+
+        {/* Sign-in and registration are tasks, not destinations. */}
+        <Stack.Screen
+          name="(auth)"
+          options={{ animation: "slide_from_bottom", animationDuration: 280 }}
+        />
+
+        {/* The most-tapped transition in the app. simple_push is the same
+            lateral slide as the default but skips the outgoing screen's
+            parallax/shadow interpolation — one less native layer animating
+            per frame on a screen that is already the heaviest mount in the
+            stack. */}
+        <Stack.Screen
+          name="product/[id]/index"
+          options={{ animation: "simple_push", animationDuration: 220 }}
+        />
+
+        {/* Checkout is a committed flow — it rises, and dismissing it reads as
+            backing out rather than going back a level. */}
+        <Stack.Screen
+          name="checkout/index"
+          options={{ animation: "slide_from_bottom", animationDuration: 280 }}
+        />
 
         <Stack.Screen name="orders/[id]/index" />
-        <Stack.Screen name="orders/[id]/tracking" />
+        <Stack.Screen
+          name="orders/[id]/tracking"
+          options={{ animation: "slide_from_bottom" }}
+        />
 
         <Stack.Screen name="support/index" />
         <Stack.Screen name="support/[id]" />

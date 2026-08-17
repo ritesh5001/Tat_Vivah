@@ -1,10 +1,10 @@
 import * as React from "react";
-import { Pressable, StyleSheet, View, useWindowDimensions } from "react-native";
+import { StyleSheet, View, useWindowDimensions } from "react-native";
 import { usePathname, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { AppText as Text } from "./AppText";
-import { Icon, type IconName } from "./Icon";
-import { colors, radius, typography } from "../theme/tokens";
+import { TabBarItem } from "./TabBarItem";
+import type { IconName } from "./Icon";
+import { colors, radius } from "../theme/tokens";
 
 type NavItem = {
   label: string;
@@ -69,7 +69,7 @@ export function shouldHideBottomBar(pathname: string): boolean {
   );
 }
 
-/** A static tab item keeps route changes free of competing animation work. */
+/** Thin adapter from this bar's `NavItem` shape onto the shared `TabBarItem`. */
 const BottomBarItem = React.memo(function BottomBarItem({
   item,
   isFocused,
@@ -84,21 +84,13 @@ const BottomBarItem = React.memo(function BottomBarItem({
   }, [item.path, onPress]);
 
   return (
-    <Pressable
-      style={styles.item}
+    <TabBarItem
+      label={item.label}
+      icon={item.icon}
+      isFocused={isFocused}
       onPress={handlePress}
-      accessibilityRole="tab"
       accessibilityLabel={item.label}
-      accessibilityHint={`Switches to ${item.label}`}
-      accessibilityState={{ selected: isFocused }}
-    >
-      <Icon
-        name={item.icon}
-        size={21}
-        color={isFocused ? colors.gold : colors.brownSoft}
-      />
-      <Text style={[styles.label, isFocused && styles.activeLabel]}>{item.label}</Text>
-    </Pressable>
+    />
   );
 });
 
@@ -189,22 +181,5 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(128, 96, 61, 0.22)",
     backgroundColor: "rgba(128, 96, 61, 0.09)",
-  },
-  item: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 3,
-  },
-  label: {
-    fontFamily: typography.sans,
-    fontSize: 11,
-    lineHeight: 14,
-    letterSpacing: 0.55,
-    textTransform: "uppercase",
-    color: colors.brownSoft,
-  },
-  activeLabel: {
-    color: colors.gold,
   },
 });

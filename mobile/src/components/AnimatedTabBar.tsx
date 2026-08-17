@@ -1,6 +1,5 @@
 import * as React from "react";
 import {
-  Pressable,
   StyleSheet,
   View,
   useWindowDimensions,
@@ -10,9 +9,9 @@ import {
   BottomTabBarHeightCallbackContext,
   type BottomTabBarProps,
 } from "@react-navigation/bottom-tabs";
-import { AppText as Text } from "./AppText";
-import { Icon, type IconName } from "./Icon";
-import { colors, radius, typography } from "../theme/tokens";
+import { TabBarItem } from "./TabBarItem";
+import type { IconName } from "./Icon";
+import { colors, radius } from "../theme/tokens";
 
 /**
  * The bottom bar the shopper actually sees.
@@ -22,9 +21,11 @@ import { colors, radius, typography } from "../theme/tokens";
  * treatment has to live here or it never shows up on Home, Shop, Reels or
  * Profile.
  *
- * Selection changes are intentionally static. A moving indicator used to run
- * alongside the tab scene transition and made dense screens look as if they
- * were dropping frames.
+ * The selection indicator's position is a plain style value recomputed on
+ * render, not an animated one — it never moves *across* the bar on its own,
+ * it simply appears in the right place, so there is nothing here competing
+ * with the destination tab mounting. The per-item settle animation lives in
+ * `TabBarItem` and is scoped to the one tab whose focus changed.
  */
 
 /** Only these appear in the bar; every other registered screen is `href: null`. */
@@ -34,44 +35,6 @@ const VISIBLE_TABS: { name: string; label: string; icon: IconName }[] = [
   { name: "reels/index", label: "Reels", icon: "play-circle-outline" },
   { name: "profile", label: "Profile", icon: "user" },
 ];
-
-function TabItem({
-  label,
-  icon,
-  isFocused,
-  onPress,
-  onLongPress,
-  accessibilityLabel,
-  testID,
-}: {
-  label: string;
-  icon: IconName;
-  isFocused: boolean;
-  onPress: () => void;
-  onLongPress: () => void;
-  accessibilityLabel: string;
-  testID?: string;
-}) {
-  return (
-    <Pressable
-      style={styles.item}
-      onPress={onPress}
-      onLongPress={onLongPress}
-      accessibilityRole="tab"
-      accessibilityLabel={accessibilityLabel}
-      accessibilityHint={`Switches to ${label}`}
-      accessibilityState={{ selected: isFocused }}
-      testID={testID}
-    >
-      <Icon
-        name={icon}
-        size={21}
-        color={isFocused ? colors.gold : colors.brownSoft}
-      />
-      <Text style={[styles.label, isFocused && styles.activeLabel]}>{label}</Text>
-    </Pressable>
-  );
-}
 
 export function AnimatedTabBar({
   state,
@@ -167,7 +130,7 @@ export function AnimatedTabBar({
         // retained tab remains a working way back to its screen.
         const isFocused = tab.name === activeName;
         return (
-          <TabItem
+          <TabBarItem
             key={tab.name}
             label={tab.label}
             icon={tab.icon}
@@ -204,22 +167,5 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(128, 96, 61, 0.22)",
     backgroundColor: "rgba(128, 96, 61, 0.09)",
-  },
-  item: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 3,
-  },
-  label: {
-    fontFamily: typography.sans,
-    fontSize: 11,
-    lineHeight: 14,
-    letterSpacing: 0.55,
-    textTransform: "uppercase",
-    color: colors.brownSoft,
-  },
-  activeLabel: {
-    color: colors.gold,
   },
 });

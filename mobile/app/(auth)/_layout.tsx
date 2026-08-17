@@ -5,7 +5,11 @@ export default function AuthLayout() {
     <Stack
       screenOptions={{
         headerShown: false,
-        animation: "none",
+        // Login → OTP → reset is one task told across several screens, so it
+        // slides laterally like a wizard rather than rising again — the rise
+        // already happened once, arriving into this stack.
+        animation: "simple_push",
+        animationDuration: 220,
       }}
     />
   );

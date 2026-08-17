@@ -1,65 +1,30 @@
 import * as React from "react";
-import type { StyleProp, ViewStyle } from "react-native";
-import Animated, {
-  Easing,
-  FadeIn,
-  SlideInDown,
-  SlideInLeft,
-  SlideInRight,
-  SlideInUp,
-  ZoomIn,
-} from "react-native-reanimated";
-import {
-  motionDuration,
-  type MotionPreset,
-} from "../../lib/motion.config";
+import { View, type StyleProp, type ViewStyle } from "react-native";
+import type { MotionPreset } from "../../lib/motion.config";
 
 type MotionViewProps = React.PropsWithChildren<{
   style?: StyleProp<ViewStyle>;
   preset?: MotionPreset;
   delay?: number;
   duration?: number;
-  /** Opt in only for content revealed after the current screen has settled. */
-  animateEntrance?: boolean;
 }>;
 
-function getEntering(preset: MotionPreset, delay: number, duration: number) {
-  const easing = Easing.bezier(0.2, 0.0, 0.0, 1);
-
-  switch (preset) {
-    case "scale":
-      return ZoomIn.duration(duration).delay(delay).easing(easing);
-    case "slideUp":
-      return SlideInUp.duration(duration).delay(delay).easing(easing);
-    case "slideDown":
-      return SlideInDown.duration(duration).delay(delay).easing(easing);
-    case "slideLeft":
-      return SlideInLeft.duration(duration).delay(delay).easing(easing);
-    case "slideRight":
-      return SlideInRight.duration(duration).delay(delay).easing(easing);
-    case "fade":
-    default:
-      return FadeIn.duration(duration).delay(delay).easing(easing);
-  }
-}
-
+/**
+ * A plain `View` with the same prop shape list rows have called it with —
+ * `preset`/`delay`/`duration` are accepted and ignored rather than removed
+ * from every call site.
+ *
+ * This used to run a Reanimated `entering` animation per row (fade, slide,
+ * zoom) gated behind an `animateEntrance` prop no caller ever set, so every
+ * cart and wishlist row was already paying for an extra `Animated.View`
+ * wrapper for a transition that never fired. A prior, disabled version of
+ * that entrance path is also the shape of thing that produced this app's
+ * documented frame drops: JS-thread animation work landing on the exact
+ * frames a list is mounting or recycling cells. Keep it a pass-through.
+ */
 export const MotionView = React.memo(function MotionView({
   children,
   style,
-  preset = "fade",
-  delay = 0,
-  duration = motionDuration.normal,
-  animateEntrance = false,
-  ...rest
 }: MotionViewProps) {
-  const entering = React.useMemo(
-    () => (animateEntrance ? getEntering(preset, delay, duration) : undefined),
-    [animateEntrance, preset, delay, duration]
-  );
-
-  return (
-    <Animated.View entering={entering} style={style} {...rest}>
-      {children}
-    </Animated.View>
-  );
+  return <View style={style}>{children}</View>;
 });
