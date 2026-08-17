@@ -60,7 +60,9 @@ export const CommerceFlowButton = React.forwardRef<
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/70 focus-visible:ring-offset-2",
         "disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
         filled
-          ? "border-charcoal bg-charcoal text-white hover:shadow-[0_6px_20px_rgba(183,149,108,0.30)]"
+          // Border tracks the fill on hover — the disc grows gold, so a fixed
+          // charcoal border would sit as a visible ring around it.
+          ? "border-charcoal bg-charcoal text-white hover:border-gold hover:shadow-[0_6px_20px_rgba(183,149,108,0.30)]"
           : "border-charcoal bg-background text-charcoal hover:text-white hover:shadow-[0_6px_20px_rgba(44,40,37,0.20)] focus-visible:text-white",
         className
       )}
