@@ -582,7 +582,16 @@ export default function CheckoutScreen() {
 
       if (outcome === "SUCCESS") {
         notifySuccess();
-        clearCart();
+        // Only a full-cart checkout empties the cart. The backend deletes just
+        // the purchased rows on a buy-now and deliberately leaves the rest, so
+        // clearing locally here would blank items the shopper still owns and
+        // rely on the refresh below to put them back — a visible flash at best,
+        // and a cart that looks wiped until the next refresh if that call
+        // fails. The refresh alone is correct for buy-now: it reads the cart
+        // the server actually kept.
+        if (!buyNowVariantId) {
+          clearCart();
+        }
         showToast("Payment successful. Order confirmed.", "success");
         router.replace(`/orders/${orderId}`);
         setTimeout(() => {

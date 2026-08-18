@@ -3,6 +3,9 @@
 # dependencies
 node_modules/
 
+.apk/
+.apkx/
+.apk
 # Expo
 .expo/
 dist/

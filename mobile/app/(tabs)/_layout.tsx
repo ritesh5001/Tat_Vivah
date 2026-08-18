@@ -13,12 +13,12 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: false,
         tabBarHideOnKeyboard: true,
-        // "shift" is the navigator's own built-in cross-fade + slight slide —
-        // driven by RN's Animated API on the native driver, not a custom
-        // Reanimated value recalculated on the JS thread. A tab can mount a
-        // dense product grid or an active video surface; this transition
-        // can't compete with that mount because it never touches JS.
-        animation: "shift",
+        // A tab can mount a dense product grid or an active video surface.
+        // Moving that entire scene while it mounts causes dropped frames on
+        // mid-range devices, so tab content swaps immediately. This holds even
+        // for the navigator's own "shift"/"fade" presets: they are cheap
+        // animations, but they still animate a scene that is busy mounting.
+        animation: "none",
         // Tabs stay mounted by design — that is what makes switching back
         // instant. But a mounted tab keeps re-rendering on every context change
         // unless it is frozen, so the home screen's carousels and the reels feed

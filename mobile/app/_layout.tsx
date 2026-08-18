@@ -44,32 +44,31 @@ function AppShell() {
   return (
     <>
       <OfflineBanner visible={!isConnected} />
-      {/*
-        One grammar for the whole app, so a transition tells the shopper where
-        they went without them having to think about it:
-
-          · Lateral slide  — going deeper into the catalogue. The new screen
-                             comes from the side it will return to.
-          · Rise from below — a task you can abandon: checkout, sign-in,
-                             tracking. Modal motion, modal meaning.
-          · Cross-fade      — peers. The tab navigator handles those itself.
-
-        Every value below is a `stackAnimation` from react-native-screens: a
-        native-stack transition that runs on the platform's own navigation
-        controller (UINavigationController / Fragment transitions on Fabric),
-        not a Reanimated value recalculated on the JS thread. It cannot
-        compete with a product grid, video feed, or checkout tree mounting
-        underneath it — the two run on different threads. That decoupling,
-        not the absence of motion, is what keeps this smooth on mid-range
-        Android; see freezeOnBlur below for the other half of that story.
-      */}
       <Stack
         initialRouteName="(tabs)"
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: colors.background },
-          animation: "simple_push",
-          animationDuration: 240,
+          // Route changes must never compete with mounting a product grid,
+          // video feed, or checkout tree.
+          //
+          // "Native transitions run on the UI thread, so they are free" is the
+          // trap here, and it is wrong in the way that matters. The slide
+          // itself does hit 60fps — but it has to composite a full-screen
+          // layer for the incoming screen while that screen's React tree is
+          // still mounting, laying out and rasterising on the other side. On
+          // the product page (five context subscriptions, a gallery FlatList)
+          // and Home (nested FlatLists) that is the heaviest work in the app,
+          // and the two contend for the same frames no matter which thread
+          // drives the animation. What the shopper sees is a screen sliding in
+          // half-painted and then popping into place, which reads as a slow,
+          // stuttering app.
+          //
+          // Interactive controls still animate, because a press-driven spring
+          // on one small view competes with nothing. Screen changes are
+          // deliberately immediate. Do not "restore" this without profiling on
+          // a mid-range Android device first; it has been tried twice.
+          animation: "none",
           gestureEnabled: true,
           // The single most important line in this file for sustained
           // performance.
@@ -92,38 +91,13 @@ function AppShell() {
           freezeOnBlur: true,
         }}
       >
-        {/* The root. Returning to it should feel like arriving home, not like
-            another push, so it fades rather than sliding. */}
-        <Stack.Screen name="(tabs)" options={{ animation: "fade" }} />
-
-        {/* Sign-in and registration are tasks, not destinations. */}
-        <Stack.Screen
-          name="(auth)"
-          options={{ animation: "slide_from_bottom", animationDuration: 280 }}
-        />
-
-        {/* The most-tapped transition in the app. simple_push is the same
-            lateral slide as the default but skips the outgoing screen's
-            parallax/shadow interpolation — one less native layer animating
-            per frame on a screen that is already the heaviest mount in the
-            stack. */}
-        <Stack.Screen
-          name="product/[id]/index"
-          options={{ animation: "simple_push", animationDuration: 220 }}
-        />
-
-        {/* Checkout is a committed flow — it rises, and dismissing it reads as
-            backing out rather than going back a level. */}
-        <Stack.Screen
-          name="checkout/index"
-          options={{ animation: "slide_from_bottom", animationDuration: 280 }}
-        />
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="(auth)" />
+        <Stack.Screen name="product/[id]/index" />
+        <Stack.Screen name="checkout/index" />
 
         <Stack.Screen name="orders/[id]/index" />
-        <Stack.Screen
-          name="orders/[id]/tracking"
-          options={{ animation: "slide_from_bottom" }}
-        />
+        <Stack.Screen name="orders/[id]/tracking" />
 
         <Stack.Screen name="support/index" />
         <Stack.Screen name="support/[id]" />

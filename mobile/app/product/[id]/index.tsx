@@ -114,9 +114,8 @@ const MAX_REVIEW_IMAGES = 3;
 const MAX_REVIEW_IMAGE_BYTES = 2 * 1024 * 1024;
 const MAX_TRY_ON_IMAGE_BYTES = 8 * 1024 * 1024;
 const RELATED_PRODUCTS_PAGE_SIZE = 8;
-const RELATED_PRODUCT_GAP = spacing.md;
-
-const RelatedProductSeparator = () => <View style={{ width: RELATED_PRODUCT_GAP }} />;
+/** How close to the bottom counts as "ready for the next page", in px. */
+const RELATED_LOAD_MORE_DISTANCE = 600;
 
 // ---------------------------------------------------------------------------
 // Memoised sub-components (extracted from render for FlatList perf)
@@ -1098,7 +1097,14 @@ export default function ProductDetailScreen() {
     trackPendingCartWrite(cartWrite);
 
     impactMedium();
-    router.push("/checkout");
+    // Scope the checkout to this variant. Buy Now means "buy this", so pinning
+    // it is what stops the buyer paying for whatever else was already in their
+    // bag; checkout also forwards the id to the backend as `variantIds`, so the
+    // order itself is scoped, not just the summary they read. Everything else
+    // in the cart is left untouched and is still waiting for them afterwards.
+    router.push(
+      `/checkout?buyNowVariantId=${encodeURIComponent(fallbackVariant.id)}`
+    );
 
     setAdding(true);
     try {
@@ -1488,6 +1494,14 @@ export default function ProductDetailScreen() {
     [queryClient, relatedById, router]
   );
 
+  // Hoisted out of the renderer: MarketplaceCard is memoised, and a fresh style
+  // object per item would defeat that on every grid re-render. Same reason the
+  // home screen keeps `mostLovedCardStyle` beside its grid.
+  const relatedCardStyle = React.useMemo(
+    () => ({ width: relatedCardWidth }),
+    [relatedCardWidth]
+  );
+
   const renderRelatedItem = React.useCallback(
     ({ item }: ListRenderItemInfo<ProductSummary>) => (
       <MarketplaceCard
@@ -1495,11 +1509,11 @@ export default function ProductDetailScreen() {
         onPress={handleRelatedPress}
         onQuickAdd={openQuickAdd}
         onBuyNow={openBuyNow}
-        style={{ width: relatedCardWidth }}
+        style={relatedCardStyle}
         imageWidth={relatedCardWidth}
       />
     ),
-    [handleRelatedPress, relatedCardWidth, openQuickAdd, openBuyNow]
+    [handleRelatedPress, relatedCardStyle, relatedCardWidth, openQuickAdd, openBuyNow]
   );
 
   const handleLoadMoreRelated = React.useCallback(async () => {
@@ -1560,6 +1574,30 @@ export default function ProductDetailScreen() {
       </View>
     );
   }, [loadingMoreRelated]);
+
+  /**
+   * Pages the related grid once the page scroll comes to rest near the bottom.
+   *
+   * Deliberately bound to the settle events rather than `onScroll`: this screen
+   * is the heaviest in the app, and a throttled scroll handler would run JS on
+   * the shopper's every scroll frame to answer a question that only matters
+   * once they stop. `onScrollEndDrag` covers a slow drag that never builds
+   * momentum, `onMomentumScrollEnd` the flick — between them there is no way to
+   * arrive at the bottom without one firing, and neither costs anything while
+   * the finger is moving. handleLoadMoreRelated already guards re-entry and the
+   * end of the catalogue, so calling it twice is harmless.
+   */
+  const handlePageScrollSettled = React.useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+      const distanceFromBottom =
+        contentSize.height - (contentOffset.y + layoutMeasurement.height);
+      if (distanceFromBottom <= RELATED_LOAD_MORE_DISTANCE) {
+        void handleLoadMoreRelated();
+      }
+    },
+    [handleLoadMoreRelated]
+  );
 
   // ---- Variant press handler (avoids inline closure per-item) ----
   const handleVariantPress = React.useCallback((id: string) => {
@@ -1646,6 +1684,8 @@ export default function ProductDetailScreen() {
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}
+        onScrollEndDrag={handlePageScrollSettled}
+        onMomentumScrollEnd={handlePageScrollSettled}
       >
         {/* ---- Image gallery with paging dots ---- */}
         <View style={styles.galleryFrame}>
@@ -2232,24 +2272,25 @@ export default function ProductDetailScreen() {
             </Text>
           ) : (
             <>
+              {/* Two-column grid, matching Most Loved on the home screen.
+                  `scrollEnabled={false}` is what makes it a grid rather than a
+                  nested scroller: the page's own ScrollView does the scrolling
+                  and this simply lays its rows out inline. That also means
+                  `onEndReached` can never fire — a list that does not scroll has
+                  no end to reach — so paging is driven by the page scroll
+                  instead; see handlePageScrollSettled. */}
               <FlatList
                 data={relatedProducts}
                 keyExtractor={relatedKeyExtractor}
                 renderItem={renderRelatedItem}
-                horizontal
-                nestedScrollEnabled
-                initialNumToRender={3}
+                numColumns={2}
+                scrollEnabled={false}
+                initialNumToRender={4}
                 maxToRenderPerBatch={4}
                 windowSize={5}
-                ItemSeparatorComponent={RelatedProductSeparator}
                 ListFooterComponent={renderRelatedFooter}
-                onEndReached={() => void handleLoadMoreRelated()}
-                onEndReachedThreshold={0.55}
-                contentContainerStyle={styles.relatedHorizontalList}
-                showsHorizontalScrollIndicator={false}
-                decelerationRate="fast"
-                snapToInterval={relatedCardWidth + RELATED_PRODUCT_GAP}
-                disableIntervalMomentum
+                contentContainerStyle={styles.relatedGridList}
+                columnWrapperStyle={styles.relatedGridRow}
               />
             </>
           )}
@@ -3333,10 +3374,15 @@ const styles = StyleSheet.create({
     borderColor: colors.borderSoft,
     ...shadow.card,
   },
-  relatedHorizontalList: {
+  // Mirrors mostLovedGridList / mostLovedGridRow on the home screen so the two
+  // grids read as the same component in two places.
+  relatedGridList: {
     paddingTop: spacing.sm,
-    paddingBottom: spacing.xs,
-    paddingRight: spacing.sm,
+    gap: spacing.md,
+  },
+  relatedGridRow: {
+    justifyContent: "space-between",
+    marginBottom: spacing.md,
   },
   relatedLoadingWrap: {
     marginTop: spacing.md,
