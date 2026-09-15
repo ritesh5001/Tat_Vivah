@@ -16,9 +16,8 @@
       },
       "bundleIdentifier": "com.tatvivahtrends.app"
     },
-    
     "android": {
-      "versionCode": 20,
+      "versionCode": 21,
       "adaptiveIcon": {
         "backgroundColor": "#FAF7F2",
         "foregroundImage": "./assets/adaptive-icon.png",
