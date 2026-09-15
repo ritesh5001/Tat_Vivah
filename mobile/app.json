@@ -16,6 +16,7 @@
       },
       "bundleIdentifier": "com.tatvivahtrends.app"
     },
+    
     "android": {
       "versionCode": 20,
       "adaptiveIcon": {
