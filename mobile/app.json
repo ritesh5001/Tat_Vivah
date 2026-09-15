@@ -14,7 +14,7 @@
         "NSSpeechRecognitionUsageDescription": "Allow Tatvivah to convert your speech into search text.",
         "NSMicrophoneUsageDescription": "Allow Tatvivah to use your microphone for voice search."
       },
-      "bundleIdentifier": "com.zaheen.iqbal.mobile"
+      "bundleIdentifier": "com.tatvivahtrends.app"
     },
     "android": {
       "versionCode": 19,
