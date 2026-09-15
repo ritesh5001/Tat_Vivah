@@ -9,6 +9,11 @@
         "buildType": "apk"
       }
     },
+    "ios-simulator": {
+      "ios": {
+        "simulator": true
+      }
+    },
     "preview": {
       "android": {
         "buildType": "apk"

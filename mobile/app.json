@@ -17,7 +17,7 @@
       "bundleIdentifier": "com.tatvivahtrends.app"
     },
     "android": {
-      "versionCode": 19,
+      "versionCode": 20,
       "adaptiveIcon": {
         "backgroundColor": "#FAF7F2",
         "foregroundImage": "./assets/adaptive-icon.png",
@@ -91,6 +91,6 @@
         "projectId": "13fff0d2-6600-4b3e-9817-6a17f872adc6"
       }
     },
-    "owner": "zaheen.iqbal"
+    "owner": "nextgen-fusion"
   }
 }
