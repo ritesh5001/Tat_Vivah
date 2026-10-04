@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-// TEMPORARY — remove this import together with the block at the top of proxy().
-import { maintenanceGate } from "./maintenance-gate";
 
 /* ──────────────────────────────────────────────────────────────────────────── */
 /*  SUBDOMAIN ROUTING                                                         */
@@ -203,11 +201,6 @@ const authPages = ["/login", "/register", "/(auth)", "/forgot-password", "/reset
 /* ──────────────────────────────────────────────────────────────────────────── */
 
 export function proxy(request: NextRequest) {
-  /* ── MAINTENANCE GATE (TEMPORARY) — delete these 4 lines to restore ────── */
-  const offline = maintenanceGate(request);
-  if (offline) return offline;
-  /* ──────────────────────────────────────────────────────────────────────── */
-
   const { pathname } = request.nextUrl;
   const host = request.headers.get("host");
 
